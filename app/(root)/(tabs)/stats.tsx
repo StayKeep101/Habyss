@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Dimensions } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LineChart, BarChart } from "react-native-chart-kit";
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -51,7 +52,23 @@ interface StatCardProps {
 
 const Stats = () => {
   const [timeframe, setTimeframe] = useState<"daily" | "weekly" | "monthly">("weekly");
-  
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Theme colors
+  const theme = {
+    background: isDark ? 'bg-slate-900' : 'bg-slate-50',
+    surface: isDark ? 'bg-slate-800' : 'bg-white',
+    surfaceSecondary: isDark ? 'bg-slate-700' : 'bg-slate-100',
+    textPrimary: isDark ? 'text-slate-50' : 'text-slate-900',
+    textSecondary: isDark ? 'text-slate-400' : 'text-slate-600',
+    accent: isDark ? 'bg-indigo-500' : 'bg-indigo-600',
+    accentLight: isDark ? 'bg-indigo-400' : 'bg-indigo-100',
+    success: isDark ? 'bg-emerald-500' : 'bg-emerald-400',
+    successLight: isDark ? 'bg-emerald-400' : 'bg-emerald-100',
+    border: isDark ? 'border-slate-700' : 'border-slate-200',
+  };
+
   const chartConfig = {
     backgroundColor: "#ffffff",
     backgroundGradientFrom: "#ffffff",
@@ -110,11 +127,26 @@ const Stats = () => {
     </View>
   );
 
+  // Mock data for stats
+  const stats = {
+    streak: 7,
+    completionRate: 85,
+    totalHabits: 12,
+    activeHabits: 8,
+    focusTime: 120,
+    waterIntake: 2.5,
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className={`flex-1 ${theme.background}`}>
       {/* Header */}
-      <View className="px-4 py-3 border-b border-gray-200">
-        <Text className="text-2xl font-bold text-gray-900">Statistics</Text>
+      <View className={`p-5 ${theme.surface} border-b ${theme.border}`}>
+        <Text className={`text-2xl font-bold ${theme.textPrimary}`}>
+          Statistics
+        </Text>
+        <Text className={`text-sm mt-1 ${theme.textSecondary}`}>
+          Your progress overview
+        </Text>
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -137,106 +169,130 @@ const Stats = () => {
           />
         </View>
 
-        {/* Quick Stats Grid */}
-        <View className="px-4 py-2">
-          <View className="flex-row space-x-4 mb-4">
-            <View className="flex-1">
-              <StatCard
-                title="Focus Time"
-                value="5.2h"
-                icon="timer-outline"
-                trend={12}
-              />
+        {/* Quick Stats */}
+        <View className="p-5">
+          <View className="flex-row flex-wrap justify-between">
+            <View className={`w-[48%] p-4 rounded-xl mb-4 ${theme.surface} border ${theme.border}`}>
+              <View className="flex-row items-center mb-2">
+                <View className={`w-8 h-8 rounded-full ${theme.accentLight} justify-center items-center`}>
+                  <Ionicons name="flame" size={16} color={isDark ? '#818cf8' : '#4f46e5'} />
+                </View>
+                <Text className={`ml-2 text-sm font-medium ${theme.textPrimary}`}>
+                  Current Streak
+                </Text>
+              </View>
+              <Text className={`text-2xl font-bold ${theme.textPrimary}`}>
+                {stats.streak} days
+              </Text>
             </View>
-            <View className="flex-1">
-              <StatCard
-                title="Productivity"
-                value="87%"
-                icon="trending-up"
-                trend={5}
-              />
+            <View className={`w-[48%] p-4 rounded-xl mb-4 ${theme.surface} border ${theme.border}`}>
+              <View className="flex-row items-center mb-2">
+                <View className={`w-8 h-8 rounded-full ${theme.successLight} justify-center items-center`}>
+                  <Ionicons name="checkmark-circle" size={16} color={isDark ? '#34d399' : '#059669'} />
+                </View>
+                <Text className={`ml-2 text-sm font-medium ${theme.textPrimary}`}>
+                  Completion Rate
+                </Text>
+              </View>
+              <Text className={`text-2xl font-bold ${theme.textPrimary}`}>
+                {stats.completionRate}%
+              </Text>
             </View>
           </View>
-          <View className="flex-row space-x-4">
-            <View className="flex-1">
-              <StatCard
-                title="Streak"
-                value="12 days"
-                icon="flame-outline"
-                trend={8}
-              />
-            </View>
-            <View className="flex-1">
-              <StatCard
-                title="Tasks Done"
-                value="24"
-                icon="checkmark-circle-outline"
-                trend={-3}
-              />
-            </View>
+        </View>
+
+        {/* Detailed Stats */}
+        <View className="p-5">
+          <Text className={`text-lg font-bold mb-4 ${theme.textPrimary}`}>
+            Detailed Stats
+          </Text>
+          <View className="gap-3">
+            <StatItem
+              icon="list"
+              title="Total Habits"
+              value={stats.totalHabits}
+              theme={theme}
+            />
+            <StatItem
+              icon="checkmark-circle"
+              title="Active Habits"
+              value={stats.activeHabits}
+              theme={theme}
+            />
+            <StatItem
+              icon="timer"
+              title="Focus Time"
+              value={`${stats.focusTime} min`}
+              theme={theme}
+            />
+            <StatItem
+              icon="water"
+              title="Water Intake"
+              value={`${stats.waterIntake}L`}
+              theme={theme}
+            />
           </View>
         </View>
 
         {/* Progress Chart */}
-        <View className="mt-4 bg-white p-4 rounded-t-xl">
-          <Text className="text-lg font-semibold text-gray-800 mb-4">Progress Overview</Text>
-          <LineChart
-            data={weeklyData}
-            width={screenWidth - 32}
-            height={220}
-            chartConfig={chartConfig}
-            bezier
-            style={{
-              marginVertical: 8,
-              borderRadius: 16,
-            }}
-          />
-        </View>
-
-        {/* Monthly Performance */}
-        <View className="mt-4 bg-white p-4">
-          <Text className="text-lg font-semibold text-gray-800 mb-4">Monthly Performance</Text>
-          <BarChart
-            data={monthlyData}
-            width={screenWidth - 32}
-            height={220}
-            yAxisLabel=""
-            yAxisSuffix=""
-            chartConfig={chartConfig}
-            style={{
-              marginVertical: 8,
-              borderRadius: 16,
-            }}
-          />
+        <View className="p-5">
+          <Text className={`text-lg font-bold mb-4 ${theme.textPrimary}`}>
+            Weekly Progress
+          </Text>
+          <View className={`p-4 rounded-xl ${theme.surface} border ${theme.border}`}>
+            <View className="h-40 justify-center items-center">
+              <Text className={`text-sm ${theme.textSecondary}`}>
+                Chart will be displayed here
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Achievements */}
-        <View className="mt-4 bg-white p-4 rounded-xl mx-4 mb-6">
-          <Text className="text-lg font-semibold text-gray-800 mb-3">Recent Achievements</Text>
-          <View className="flex-row items-center py-3 border-b border-gray-100">
-            <View className="w-12 h-12 bg-blue-100 rounded-full items-center justify-center mr-4">
-              <Ionicons name="trophy" size={24} color="#2563EB" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-gray-800 font-medium">7-Day Streak</Text>
-              <Text className="text-gray-500 text-sm">Completed all daily goals</Text>
-            </View>
-            <Text className="text-blue-500">+50 pts</Text>
-          </View>
-          <View className="flex-row items-center py-3">
-            <View className="w-12 h-12 bg-green-100 rounded-full items-center justify-center mr-4">
-              <Ionicons name="star" size={24} color="#10B981" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-gray-800 font-medium">Productivity Master</Text>
-              <Text className="text-gray-500 text-sm">85%+ productivity for 5 days</Text>
-            </View>
-            <Text className="text-blue-500">+100 pts</Text>
-          </View>
+        <View className="p-5">
+          <Text className={`text-lg font-bold mb-4 ${theme.textPrimary}`}>
+            Recent Achievements
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {[1, 2, 3].map((item) => (
+              <View
+                key={item}
+                className={`w-40 p-4 rounded-xl mr-4 ${theme.surface} border ${theme.border}`}
+              >
+                <View className={`w-12 h-12 rounded-full ${theme.accent} justify-center items-center mb-3`}>
+                  <Ionicons name="trophy" size={24} color="#fff" />
+                </View>
+                <Text className={`text-sm font-bold ${theme.textPrimary}`}>
+                  Achievement {item}
+                </Text>
+                <Text className={`text-xs mt-1 ${theme.textSecondary}`}>
+                  Earned 2 days ago
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
+
+function StatItem({ icon, title, value, theme }: { icon: keyof typeof Ionicons.glyphMap; title: string; value: string | number; theme: any }) {
+  return (
+    <View className={`flex-row items-center p-4 rounded-xl ${theme.surface} border ${theme.border}`}>
+      <View className={`w-10 h-10 rounded-full ${theme.surfaceSecondary} justify-center items-center`}>
+        <Ionicons
+          name={icon}
+          size={20}
+          color={theme.textSecondary.replace('text-', '')}
+        />
+      </View>
+      <View className="flex-1 ml-4">
+        <Text className={`text-sm font-medium ${theme.textPrimary}`}>{title}</Text>
+        <Text className={`text-base font-bold ${theme.textPrimary}`}>{value}</Text>
+      </View>
+    </View>
+  );
+}
 
 export default Stats;

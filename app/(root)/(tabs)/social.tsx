@@ -1,171 +1,210 @@
-import React, { useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, Image, ScrollView, TextInput } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { Ionicons } from '@expo/vector-icons';
 
-interface Story {
-  id: string;
-  type?: "add";
-  name?: string;
-  avatar?: string;
-  hasStory?: boolean;
-}
+export default function SocialScreen() {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
-interface User {
-  name: string;
-  avatar: string;
-}
+  // Theme colors
+  const theme = {
+    background: isDark ? 'bg-slate-900' : 'bg-slate-50',
+    surface: isDark ? 'bg-slate-800' : 'bg-white',
+    surfaceSecondary: isDark ? 'bg-slate-700' : 'bg-slate-100',
+    textPrimary: isDark ? 'text-slate-50' : 'text-slate-900',
+    textSecondary: isDark ? 'text-slate-400' : 'text-slate-600',
+    accent: isDark ? 'bg-indigo-500' : 'bg-indigo-600',
+    accentLight: isDark ? 'bg-indigo-400' : 'bg-indigo-100',
+    success: isDark ? 'bg-emerald-500' : 'bg-emerald-400',
+    successLight: isDark ? 'bg-emerald-400' : 'bg-emerald-100',
+    border: isDark ? 'border-slate-700' : 'border-slate-200',
+  };
 
-interface Post {
-  id: string;
-  user: User;
-  content: string;
-  image?: string;
-  likes: number;
-  comments: number;
-  timeAgo: string;
-}
+  // Mock data for challenges
+  const challenges = [
+    {
+      id: 1,
+      title: '30-Day Fitness Challenge',
+      participants: 125,
+      progress: 75,
+      color: theme.accent,
+    },
+    {
+      id: 2,
+      title: 'Meditation Streak',
+      participants: 89,
+      progress: 60,
+      color: theme.success,
+    },
+    {
+      id: 3,
+      title: 'No Sugar Challenge',
+      participants: 203,
+      progress: 45,
+      color: isDark ? 'bg-purple-500' : 'bg-purple-600',
+    },
+  ];
 
-const stories: Story[] = [
-  { id: "add", type: "add" },
-  { id: "1", name: "Alice J", avatar: "https://i.pravatar.cc/150?img=1", hasStory: true },
-  { id: "2", name: "Michael", avatar: "https://i.pravatar.cc/150?img=2", hasStory: true },
-  { id: "3", name: "Sophia", avatar: "https://i.pravatar.cc/150?img=3", hasStory: false },
-  { id: "4", name: "James", avatar: "https://i.pravatar.cc/150?img=4", hasStory: true },
-  { id: "5", name: "Emma", avatar: "https://i.pravatar.cc/150?img=5", hasStory: false },
-];
-
-const posts: Post[] = [
-  {
-    id: "1",
-    user: { name: "Alice Johnson", avatar: "https://i.pravatar.cc/150?img=1" },
-    content: "Just completed my morning meditation! 🧘‍♀️ Starting the day with positive energy.",
-    image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60",
-    likes: 24,
-    comments: 5,
-    timeAgo: "2h",
-  },
-  {
-    id: "2",
-    user: { name: "Michael Smith", avatar: "https://i.pravatar.cc/150?img=2" },
-    content: "Hit a new personal record at the gym today! 💪 Consistency is key.",
-    image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60",
-    likes: 42,
-    comments: 8,
-    timeAgo: "4h",
-  },
-];
-
-const Social = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const StoryCircle = ({ story }: { story: Story }) => (
-    <TouchableOpacity className="items-center mr-4">
-      {story.type === "add" ? (
-        <View className="w-16 h-16 rounded-full bg-gray-100 items-center justify-center border-2 border-gray-300">
-          <Ionicons name="add" size={24} color="#4B5563" />
-        </View>
-      ) : (
-        <View className={`${story.hasStory ? 'border-2 border-blue-500 p-[2px]' : ''} rounded-full`}>
-          <Image source={{ uri: story.avatar }} className="w-16 h-16 rounded-full" />
-        </View>
-      )}
-      <Text className="text-xs mt-1 text-gray-700" numberOfLines={1}>
-        {story.type === "add" ? "Your Story" : story.name}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const PostCard = ({ post }: { post: Post }) => (
-    <View className="bg-white mb-4">
-      {/* Post Header */}
-      <View className="flex-row items-center p-4">
-        <Image source={{ uri: post.user.avatar }} className="w-10 h-10 rounded-full" />
-        <View className="flex-1 ml-3">
-          <Text className="font-semibold text-gray-900">{post.user.name}</Text>
-          <Text className="text-xs text-gray-500">{post.timeAgo}</Text>
-        </View>
-        <TouchableOpacity>
-          <Ionicons name="ellipsis-horizontal" size={24} color="#6B7280" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Post Content */}
-      <Text className="px-4 mb-3 text-gray-800">{post.content}</Text>
-      {post.image && (
-        <Image 
-          source={{ uri: post.image }} 
-          className="w-full h-72"
-          resizeMode="cover"
-        />
-      )}
-
-      {/* Post Actions */}
-      <View className="flex-row items-center px-4 py-3">
-        <TouchableOpacity className="flex-row items-center mr-6">
-          <Ionicons name="heart-outline" size={24} color="#6B7280" />
-          <Text className="ml-2 text-gray-600">{post.likes}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity className="flex-row items-center">
-          <Ionicons name="chatbubble-outline" size={22} color="#6B7280" />
-          <Text className="ml-2 text-gray-600">{post.comments}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  // Mock data for friends
+  const friends = [
+    {
+      id: 1,
+      name: 'Sarah',
+      streak: 7,
+      avatar: '👩',
+      status: 'Active now',
+    },
+    {
+      id: 2,
+      name: 'Mike',
+      streak: 14,
+      avatar: '👨',
+      status: '2h ago',
+    },
+    {
+      id: 3,
+      name: 'Emma',
+      streak: 21,
+      avatar: '👧',
+      status: '1d ago',
+    },
+  ];
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="px-4 py-2 flex-row items-center justify-between border-b border-gray-200">
-        <Text className="text-2xl font-bold text-gray-900">Social</Text>
-        <View className="flex-row">
-          <TouchableOpacity className="mr-4">
-            <Ionicons name="heart-outline" size={24} color="#374151" />
-          </TouchableOpacity>
-          <TouchableOpacity>
-            <Ionicons name="paper-plane-outline" size={24} color="#374151" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Search Bar */}
-      <View className="px-4 py-2">
-        <View className="flex-row items-center bg-gray-200 rounded-full px-4 py-2">
-          <Ionicons name="search" size={20} color="#6B7280" />
-          <TextInput
-            className="flex-1 ml-2 text-gray-700"
-            placeholder="Search"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor="#9CA3AF"
-          />
-        </View>
-      </View>
-
+    <SafeAreaView className={`flex-1 ${theme.background}`}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Stories */}
-        <View className="py-4 border-b border-gray-200">
-          <FlatList
-            data={stories}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <StoryCircle story={item} />}
-            contentContainerStyle={{ paddingHorizontal: 16 }}
-          />
+        {/* Header */}
+        <View className={`p-5 ${theme.surface} border-b ${theme.border}`}>
+          <View className="flex-row justify-between items-center mb-6">
+            <Text className={`text-2xl font-bold ${theme.textPrimary}`}>
+              Community
+            </Text>
+            <TouchableOpacity
+              className={`w-10 h-10 rounded-full justify-center items-center ${theme.surfaceSecondary}`}
+            >
+              <Ionicons
+                name="search"
+                size={24}
+                color={isDark ? '#94a3b8' : '#475569'}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Posts Feed */}
-        <View className="pb-4">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
+        {/* Active Challenges */}
+        <View className="p-5">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className={`text-lg font-bold ${theme.textPrimary}`}>
+              Active Challenges
+            </Text>
+            <TouchableOpacity>
+              <Text className={`text-sm font-medium ${theme.accent.replace('bg-', 'text-')}`}>
+                See all
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {challenges.map((challenge) => (
+              <TouchableOpacity
+                key={challenge.id}
+                className={`w-64 p-4 rounded-xl mr-4 ${theme.surface} border ${theme.border}`}
+              >
+                <View className={`w-12 h-12 rounded-full ${challenge.color} justify-center items-center mb-3`}>
+                  <Ionicons name="trophy" size={24} color="#fff" />
+                </View>
+                <Text className={`text-base font-bold mb-1 ${theme.textPrimary}`}>
+                  {challenge.title}
+                </Text>
+                <Text className={`text-sm ${theme.textSecondary} mb-3`}>
+                  {challenge.participants} participants
+                </Text>
+                <View className={`h-1.5 rounded-full ${theme.surfaceSecondary}`}>
+                  <View
+                    className={`h-full rounded-full ${challenge.color}`}
+                    style={{ width: `${challenge.progress}%` }}
+                  />
+                </View>
+                <Text className={`text-xs mt-1 ${theme.textSecondary}`}>
+                  {challenge.progress}% complete
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Friends Section */}
+        <View className="p-5">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className={`text-lg font-bold ${theme.textPrimary}`}>
+              Friends
+            </Text>
+            <TouchableOpacity>
+              <Text className={`text-sm font-medium ${theme.accent.replace('bg-', 'text-')}`}>
+                Add Friends
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View className="gap-3">
+            {friends.map((friend) => (
+              <TouchableOpacity
+                key={friend.id}
+                className={`flex-row items-center p-4 rounded-xl ${theme.surface} border ${theme.border}`}
+              >
+                <View className={`w-12 h-12 rounded-full ${theme.surfaceSecondary} justify-center items-center`}>
+                  <Text className="text-2xl">{friend.avatar}</Text>
+                </View>
+                <View className="flex-1 ml-4">
+                  <Text className={`text-base font-bold ${theme.textPrimary}`}>
+                    {friend.name}
+                  </Text>
+                  <Text className={`text-sm ${theme.textSecondary}`}>
+                    {friend.streak} day streak
+                  </Text>
+                  <Text className={`text-xs ${theme.textSecondary}`}>
+                    {friend.status}
+                  </Text>
+                </View>
+                <TouchableOpacity className={`p-2 rounded-full ${theme.surfaceSecondary}`}>
+                  <Ionicons
+                    name="chatbubble-ellipses"
+                    size={20}
+                    color={isDark ? '#94a3b8' : '#475569'}
+                  />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Community Posts */}
+        <View className="p-5">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className={`text-lg font-bold ${theme.textPrimary}`}>
+              Community Posts
+            </Text>
+            <TouchableOpacity>
+              <Text className={`text-sm font-medium ${theme.accent.replace('bg-', 'text-')}`}>
+                See all
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            className={`flex-row items-center justify-center p-4 rounded-xl ${theme.surface} border ${theme.border}`}
+          >
+            <View className={`w-10 h-10 rounded-full ${theme.surfaceSecondary} justify-center items-center mr-3`}>
+              <Ionicons
+                name="create"
+                size={20}
+                color={isDark ? '#94a3b8' : '#475569'}
+              />
+            </View>
+            <Text className={`text-base font-medium ${theme.textPrimary}`}>
+              Create a Post
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
-};
-
-export default Social;
+}
