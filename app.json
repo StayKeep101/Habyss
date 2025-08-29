@@ -14,15 +14,15 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/Habyss Logo.png",
+        "backgroundColor": "#000000"
       },
       "package": "com.anonymous.Habyss"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/Habyss Logo.png"
     },
     "plugins": [
       "expo-router",
@@ -30,9 +30,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/Habyss Logo.png",
-          "imageWidth": 200,
+          "imageWidth": 100,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#000000"
         }
       ]
     ],
