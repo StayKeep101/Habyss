@@ -15,7 +15,7 @@ export default function FocusScreen() {
   const [isDistractionBlocked, setIsDistractionBlocked] = useState(false);
 
   useEffect(() => {
-    let timer;
+    let timer: number;
     if (isRunning && timeLeft > 0) {
       timer = setInterval(() => {
         setTimeLeft(prev => prev - 1);
@@ -30,7 +30,7 @@ export default function FocusScreen() {
   }, [isRunning, timeLeft, isBreak]);
 
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
