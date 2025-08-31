@@ -4,40 +4,45 @@
     "slug": "Habyss",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Habyss Logo.png",
-    "scheme": "myapp",
+    "icon": "./assets/images/Habyss Logo Black BG.png",
+    "scheme": "habyss",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Habyss"
+      "bundleIdentifier": "com.habyss.app",
+
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Habyss Logo.png",
+        "foregroundImage": "./assets/images/Habyss Logo Black BG.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.anonymous.Habyss"
+      "package": "com.habyss.app",
+
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/Habyss Logo.png"
+      "favicon": "./assets/images/Habyss Logo Black BG.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/Habyss Logo.png",
-          "imageWidth": 100,
+          "image": "./assets/images/Habyss Logo Black BG.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000000"
         }
-      ]
+      ],
+
+
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+
   }
 }
