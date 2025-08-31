@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
+import { router } from 'expo-router';
 
 interface Message {
   id: string;
@@ -22,7 +23,7 @@ interface Suggestion {
 const AIChat = () => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { lightFeedback } = useHaptics();
+  const { lightFeedback, mediumFeedback } = useHaptics();
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -90,30 +91,66 @@ const AIChat = () => {
     const input = userInput.toLowerCase();
     
     if (input.includes('habit') || input.includes('create')) {
-      return "Great! Let's create a new habit. What specific habit would you like to build? For example: 'I want to exercise daily' or 'I want to read 30 minutes before bed'.";
+      return "Great! Let's create a new habit. What specific habit would you like to build? For example: 'I want to exercise daily' or 'I want to read 30 minutes before bed'. I can help you set up reminders, track progress, and provide motivation along the way.";
     }
     
     if (input.includes('goal') || input.includes('set')) {
-      return "Perfect! Setting goals is crucial for success. What's your goal? Be specific and measurable. For example: 'I want to lose 10 pounds in 3 months' or 'I want to read 12 books this year'.";
+      return "Perfect! Setting goals is crucial for success. What's your goal? Be specific and measurable. For example: 'I want to lose 10 pounds in 3 months' or 'I want to read 12 books this year'. I'll help you break it down into actionable steps and track your progress.";
     }
     
     if (input.includes('progress') || input.includes('track')) {
-      return "I can help you track your progress! Based on your current habits, you're doing great. Your streak is 12 days and you've completed 87% of your daily goals. Would you like to see detailed analytics?";
+      return "I can help you track your progress! Based on your current habits, you're doing great. Your streak is 12 days and you've completed 87% of your daily goals. Would you like to see detailed analytics or get personalized insights to improve further?";
     }
     
     if (input.includes('motivation') || input.includes('inspire')) {
-      return "Remember: Every expert was once a beginner. Your consistency is building the foundation for lasting change. You've already shown incredible dedication - keep going! What's one small step you can take today?";
+      return "Remember: Every expert was once a beginner. Your consistency is building the foundation for lasting change. You've already shown incredible dedication - keep going! What's one small step you can take today? I'm here to cheer you on every step of the way.";
     }
     
     if (input.includes('plan') || input.includes('schedule')) {
-      return "Let's plan your day! Based on your habits, I suggest: 6:00 AM - Morning exercise, 8:00 AM - Focus work session, 12:00 PM - Healthy lunch, 3:00 PM - Reading break, 8:00 PM - Evening reflection. Would you like me to set reminders?";
+      return "Let's plan your day! Based on your habits, I suggest: 6:00 AM - Morning exercise, 8:00 AM - Focus work session, 12:00 PM - Healthy lunch, 3:00 PM - Reading break, 8:00 PM - Evening reflection. Would you like me to set reminders or help you adjust this schedule?";
     }
     
-    return "I understand you're asking about '" + userInput + "'. I'm here to help you build better habits and achieve your goals. Could you be more specific about what you'd like to work on?";
+    if (input.includes('help') || input.includes('support')) {
+      return "I'm here to help! I can assist with habit creation, goal setting, progress tracking, motivation, and daily planning. Just tell me what you'd like to work on, and I'll provide personalized guidance and support.";
+    }
+    
+    return "I understand you're asking about '" + userInput + "'. I'm here to help you build better habits and achieve your goals. Could you be more specific about what you'd like to work on? I can help with habit creation, goal setting, progress tracking, motivation, and much more!";
   };
 
   const handleSuggestionPress = (suggestion: Suggestion) => {
     sendMessage(suggestion.text);
+  };
+
+  const handleClearChat = () => {
+    mediumFeedback();
+    Alert.alert(
+      'Clear Chat',
+      'Are you sure you want to clear the chat history? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Clear', 
+          style: 'destructive',
+          onPress: () => {
+            setMessages([{
+              id: '1',
+              text: "Hello! I'm your Habyss AI assistant. I can help you create habits, set goals, track your progress, and provide motivation. What would you like to work on today?",
+              isUser: false,
+              timestamp: new Date()
+            }]);
+          }
+        }
+      ]
+    );
+  };
+
+  const handleAISettings = () => {
+    lightFeedback();
+    Alert.alert(
+      'AI Settings',
+      'AI assistant settings coming soon! You\'ll be able to customize the AI personality, response style, and notification preferences.',
+      [{ text: 'OK' }]
+    );
   };
 
   const formatTime = (date: Date) => {
@@ -127,27 +164,46 @@ const AIChat = () => {
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center">
             <View 
-              className="w-10 h-10 rounded-full items-center justify-center mr-3"
+              className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
               style={{ backgroundColor: colors.primary }}
             >
-              <Ionicons name="sparkles" size={20} color="white" />
+              <Ionicons name="sparkles" size={24} color="white" />
             </View>
             <View>
-              <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
+              <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
                 Habyss AI
               </Text>
-              <Text className="text-xs" style={{ color: colors.textSecondary }}>
+              <Text className="text-sm" style={{ color: colors.textSecondary }}>
                 Your personal improvement assistant
               </Text>
             </View>
           </View>
-          <TouchableOpacity 
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: colors.surfaceSecondary }}
-            onPress={() => lightFeedback()}
-          >
-            <Ionicons name="settings" size={20} color={colors.primary} />
-          </TouchableOpacity>
+          <View className="flex-row space-x-2">
+            <TouchableOpacity 
+              className="w-12 h-12 rounded-2xl items-center justify-center"
+              style={{ backgroundColor: colors.surfaceSecondary }}
+              onPress={handleAISettings}
+            >
+              <Ionicons name="settings" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="w-12 h-12 rounded-2xl items-center justify-center"
+              style={{ backgroundColor: colors.surfaceSecondary }}
+              onPress={handleClearChat}
+            >
+              <Ionicons name="trash" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="w-12 h-12 rounded-2xl items-center justify-center"
+              style={{ backgroundColor: colors.surfaceSecondary }}
+              onPress={() => {
+                lightFeedback();
+                router.back();
+              }}
+            >
+              <Ionicons name="close" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -242,18 +298,18 @@ const AIChat = () => {
               {suggestions.map((suggestion) => (
                 <TouchableOpacity
                   key={suggestion.id}
-                  className="mr-2 mb-2 px-3 py-2 rounded-full"
+                  className="mr-2 mb-2 px-4 py-3 rounded-2xl"
                   style={{ backgroundColor: colors.surfaceSecondary }}
                   onPress={() => handleSuggestionPress(suggestion)}
                 >
                   <View className="flex-row items-center">
                     <Ionicons 
                       name={suggestion.icon as any} 
-                      size={16} 
+                      size={18} 
                       color={colors.primary} 
-                      style={{ marginRight: 6 }}
+                      style={{ marginRight: 8 }}
                     />
-                    <Text className="text-sm" style={{ color: colors.textPrimary }}>
+                    <Text className="text-sm font-medium" style={{ color: colors.textPrimary }}>
                       {suggestion.text}
                     </Text>
                   </View>
@@ -286,7 +342,7 @@ const AIChat = () => {
               />
             </View>
             <TouchableOpacity
-              className="w-12 h-12 rounded-full items-center justify-center"
+              className="w-14 h-14 rounded-2xl items-center justify-center"
               style={{ 
                 backgroundColor: inputText.trim() ? colors.primary : colors.surfaceSecondary 
               }}
@@ -295,7 +351,7 @@ const AIChat = () => {
             >
               <Ionicons 
                 name="send" 
-                size={20} 
+                size={24} 
                 color={inputText.trim() ? 'white' : colors.textTertiary} 
               />
             </TouchableOpacity>

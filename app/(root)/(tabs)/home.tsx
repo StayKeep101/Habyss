@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Animated, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Animated, Dimensions, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
+import { router } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -88,6 +88,66 @@ const Home = () => {
         ? { ...habit, completed: !habit.completed, streak: !habit.completed ? habit.streak + 1 : habit.streak }
         : habit
     ));
+    
+    // Update completed habits count
+    setCompletedHabits(prev => {
+      const habit = habits.find(h => h.id === habitId);
+      return habit?.completed ? prev - 1 : prev + 1;
+    });
+  };
+
+  const handleNotifications = () => {
+    mediumFeedback();
+    router.push('/notifications');
+  };
+
+  const handleViewAllHabits = () => {
+    lightFeedback();
+    router.push('/stats');
+  };
+
+  const handleQuickAction = (action: any) => {
+    lightFeedback();
+    
+    if (action.route) {
+      router.push(action.route as any);
+    } else {
+      // Handle specific actions
+      switch (action.name) {
+        case 'Journal':
+          Alert.alert(
+            'Journal',
+            'Journal feature coming soon! You\'ll be able to write daily reflections and track your thoughts.',
+            [{ text: 'OK' }]
+          );
+          break;
+        case 'Workout':
+          Alert.alert(
+            'Workout Tracker',
+            'Workout tracking feature coming soon! You\'ll be able to log exercises, track reps, and monitor your fitness progress.',
+            [{ text: 'OK' }]
+          );
+          break;
+        case 'Meditate':
+          Alert.alert(
+            'Meditation Timer',
+            'Meditation timer feature coming soon! You\'ll have guided sessions, ambient sounds, and progress tracking.',
+            [{ text: 'OK' }]
+          );
+          break;
+        default:
+          Alert.alert(
+            action.name,
+            `${action.name} feature coming soon!`,
+            [{ text: 'OK' }]
+          );
+      }
+    }
+  };
+
+  const handleFocusSession = () => {
+    lightFeedback();
+    router.push('/focus');
   };
 
   const getCategoryColor = (category: string) => {
@@ -111,8 +171,8 @@ const Home = () => {
   };
 
   return (
-    <ScrollView className="flex-1" style={{ backgroundColor: colors.background }}>
-      <SafeAreaView className="flex-1">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Header with Logo */}
         <View className="px-6 pt-4 pb-6">
           <View className="flex-row items-center justify-between">
@@ -120,24 +180,24 @@ const Home = () => {
               <Animated.View 
                 style={{ 
                   transform: [{ scale: logoScale }, { rotate: spin }],
-                  width: 40,
-                  height: 40,
+                  width: 44,
+                  height: 44,
                 }}
               >
                 <View
                   style={{ 
-                    width: 40, 
-                    height: 40, 
-                    borderRadius: 8,
+                    width: 44, 
+                    height: 44, 
+                    borderRadius: 12,
                     backgroundColor: colors.primary
                   }}
                 >
                   <View className="flex-1 items-center justify-center">
-                    <Text className="text-white font-bold text-lg">H</Text>
+                    <Text className="text-white font-bold text-xl">H</Text>
                   </View>
                 </View>
               </Animated.View>
-              <View className="ml-3">
+              <View className="ml-4">
                 <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   Habyss
                 </Text>
@@ -147,11 +207,11 @@ const Home = () => {
               </View>
             </View>
             <TouchableOpacity 
-              className="w-10 h-10 rounded-full items-center justify-center"
+              className="w-12 h-12 rounded-2xl items-center justify-center"
               style={{ backgroundColor: colors.surfaceSecondary }}
-              onPress={() => mediumFeedback()}
+              onPress={handleNotifications}
             >
-              <Ionicons name="notifications" size={20} color={colors.primary} />
+              <Ionicons name="notifications" size={22} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -164,18 +224,18 @@ const Home = () => {
           >
             <View className="flex-row justify-between items-center">
               <View>
-                <Text className="text-white text-2xl font-bold">{currentStreak}</Text>
-                <Text className="text-blue-100 text-sm">Day Streak</Text>
+                <Text className="text-white text-3xl font-bold">{currentStreak}</Text>
+                <Text className="text-blue-100 text-sm font-medium">Day Streak</Text>
               </View>
               <View className="items-center">
-                <Text className="text-white text-2xl font-bold">
+                <Text className="text-white text-3xl font-bold">
                   {Math.round((completedHabits / totalHabits) * 100)}%
                 </Text>
-                <Text className="text-blue-100 text-sm">Today</Text>
+                <Text className="text-blue-100 text-sm font-medium">Today</Text>
               </View>
               <View className="items-end">
-                <Text className="text-white text-2xl font-bold">24</Text>
-                <Text className="text-blue-100 text-sm">Total Habits</Text>
+                <Text className="text-white text-3xl font-bold">24</Text>
+                <Text className="text-blue-100 text-sm font-medium">Total Habits</Text>
               </View>
             </View>
           </View>
@@ -183,30 +243,37 @@ const Home = () => {
 
         {/* Focus Timer Section */}
         <View className="px-6 mb-6">
-          <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
-            Focus Sessions
-          </Text>
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+              Focus Sessions
+            </Text>
+            <TouchableOpacity onPress={handleViewAllHabits}>
+              <Text className="text-sm font-medium" style={{ color: colors.primary }}>
+                View All
+              </Text>
+            </TouchableOpacity>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
             {focusSessions.map((session) => (
               <TouchableOpacity
                 key={session.id}
-                className="mr-4 p-4 rounded-2xl min-w-[120px]"
+                className="mr-4 p-5 rounded-2xl min-w-[140px]"
                 style={{ backgroundColor: colors.surfaceSecondary }}
-                onPress={() => lightFeedback()}
+                onPress={handleFocusSession}
               >
                 <View className="items-center">
-                  <View className="w-12 h-12 rounded-full items-center justify-center mb-2"
+                  <View className="w-14 h-14 rounded-2xl items-center justify-center mb-3"
                         style={{ backgroundColor: colors.primary + '20' }}>
                     <Ionicons 
                       name={session.type === 'pomodoro' ? 'timer' : session.type === 'focus' ? 'eye' : 'cafe'} 
-                      size={24} 
+                      size={28} 
                       color={colors.primary} 
                     />
                   </View>
-                  <Text className="font-semibold text-sm" style={{ color: colors.textPrimary }}>
+                  <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
                     {session.name}
                   </Text>
-                  <Text className="text-xs" style={{ color: colors.textSecondary }}>
+                  <Text className="text-sm" style={{ color: colors.textSecondary }}>
                     {session.duration} min
                   </Text>
                 </View>
@@ -217,81 +284,92 @@ const Home = () => {
 
         {/* Habits Section */}
         <View className="px-6 mb-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
               Today's Habits
             </Text>
-            <TouchableOpacity onPress={() => lightFeedback()}>
-              <Text className="text-sm" style={{ color: colors.primary }}>
+            <TouchableOpacity onPress={handleViewAllHabits}>
+              <Text className="text-sm font-medium" style={{ color: colors.primary }}>
                 View All
               </Text>
             </TouchableOpacity>
           </View>
           
-          {habits.map((habit) => (
-            <TouchableOpacity
-              key={habit.id}
-              className="flex-row items-center p-4 rounded-2xl mb-3"
-              style={{ backgroundColor: colors.surfaceSecondary }}
-              onPress={() => toggleHabit(habit.id)}
-            >
-              <View className="w-12 h-12 rounded-full items-center justify-center mr-4"
-                    style={{ backgroundColor: getCategoryColor(habit.category) + '20' }}>
-                <Ionicons 
-                  name={getCategoryIcon(habit.category) as any} 
-                  size={20} 
-                  color={getCategoryColor(habit.category)} 
-                />
-              </View>
-              <View className="flex-1">
-                <Text className="font-semibold" style={{ color: colors.textPrimary }}>
-                  {habit.name}
-                </Text>
-                <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                  {habit.streak} day streak
-                </Text>
-              </View>
-              <TouchableOpacity
-                className={`w-8 h-8 rounded-full items-center justify-center ${
-                  habit.completed ? 'bg-green-500' : 'border-2'
-                }`}
-                style={{ 
-                  borderColor: habit.completed ? 'transparent' : colors.border,
-                  backgroundColor: habit.completed ? colors.success : 'transparent'
-                }}
-                onPress={() => toggleHabit(habit.id)}
-              >
-                {habit.completed && (
-                  <Ionicons name="checkmark" size={16} color="white" />
+          <View 
+            className="rounded-2xl overflow-hidden"
+            style={{ backgroundColor: colors.surfaceSecondary }}
+          >
+            {habits.map((habit, index) => (
+              <View key={habit.id}>
+                <TouchableOpacity
+                  className="flex-row items-center p-4"
+                  onPress={() => toggleHabit(habit.id)}
+                >
+                  <View className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
+                        style={{ backgroundColor: getCategoryColor(habit.category) + '20' }}>
+                    <Ionicons 
+                      name={getCategoryIcon(habit.category) as any} 
+                      size={24} 
+                      color={getCategoryColor(habit.category)} 
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
+                      {habit.name}
+                    </Text>
+                    <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                      {habit.streak} day streak
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    className={`w-10 h-10 rounded-2xl items-center justify-center ${
+                      habit.completed ? 'bg-green-500' : 'border-2'
+                    }`}
+                    style={{ 
+                      borderColor: habit.completed ? 'transparent' : colors.border,
+                      backgroundColor: habit.completed ? colors.success : 'transparent'
+                    }}
+                    onPress={() => toggleHabit(habit.id)}
+                  >
+                    {habit.completed && (
+                      <Ionicons name="checkmark" size={20} color="white" />
+                    )}
+                  </TouchableOpacity>
+                </TouchableOpacity>
+                {index < habits.length - 1 && (
+                  <View 
+                    className="h-[0.5px] mx-4"
+                    style={{ backgroundColor: colors.border }}
+                  />
                 )}
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
+              </View>
+            ))}
+          </View>
         </View>
 
         {/* Quick Actions */}
         <View className="px-6 mb-6">
-          <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
+          <Text className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>
             Quick Actions
           </Text>
           <View className="flex-row flex-wrap justify-between">
             {[
+              { name: 'Focus Timer', icon: 'timer', color: colors.primary, route: '/focus' },
+              { name: 'AI Chat', icon: 'sparkles', color: colors.secondary, route: '/ai' },
               { name: 'Journal', icon: 'bookmark', color: colors.accent },
               { name: 'Workout', icon: 'fitness', color: colors.warning },
-              { name: 'Meditate', icon: 'leaf', color: colors.success },
-              { name: 'AI Chat', icon: 'chatbubble', color: colors.secondary },
             ].map((action, index) => (
               <TouchableOpacity
                 key={index}
-                className="w-[48%] p-4 rounded-2xl mb-3 items-center"
+                className="w-[48%] p-5 rounded-2xl mb-4 items-center"
                 style={{ backgroundColor: colors.surfaceSecondary }}
-                onPress={() => lightFeedback()}
+                onPress={() => handleQuickAction(action)}
               >
-                <View className="w-12 h-12 rounded-full items-center justify-center mb-2"
+                <View className="w-14 h-14 rounded-2xl items-center justify-center mb-3"
                       style={{ backgroundColor: action.color + '20' }}>
-                  <Ionicons name={action.icon as any} size={24} color={action.color} />
+                  <Ionicons name={action.icon as any} size={28} color={action.color} />
                 </View>
-                <Text className="font-semibold text-sm" style={{ color: colors.textPrimary }}>
+                <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
                   {action.name}
                 </Text>
               </TouchableOpacity>
@@ -301,8 +379,8 @@ const Home = () => {
 
         {/* Bottom Spacing */}
         <View className="h-20" />
-      </SafeAreaView>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

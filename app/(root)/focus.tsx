@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, Dimensions, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
+import { router } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,13 +22,14 @@ const FocusTimer = () => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { lightFeedback, mediumFeedback, heavyFeedback } = useHaptics();
-
+  
   const [currentSession, setCurrentSession] = useState<TimerSession | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0); // in seconds
   const [completedSessions, setCompletedSessions] = useState(0);
   const [currentRound, setCurrentRound] = useState(1);
   const [totalRounds, setTotalRounds] = useState(4);
+  const [totalFocusTime, setTotalFocusTime] = useState(0); // in minutes
 
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const scaleAnimation = useRef(new Animated.Value(1)).current;
@@ -87,6 +89,17 @@ const FocusTimer = () => {
             heavyFeedback();
             setIsRunning(false);
             setCompletedSessions(prev => prev + 1);
+            
+            // Add to total focus time if it's a focus session
+            if (currentSession?.type === 'pomodoro' || currentSession?.type === 'deep-focus') {
+              setTotalFocusTime(prev => prev + currentSession.duration);
+            }
+            
+            Alert.alert(
+              'Session Complete!',
+              `Great job! You've completed your ${currentSession?.name} session. Take a moment to celebrate your progress!`,
+              [{ text: 'OK' }]
+            );
             return 0;
           }
           
@@ -140,6 +153,31 @@ const FocusTimer = () => {
     }).start();
   };
 
+  const skipSession = () => {
+    lightFeedback();
+    Alert.alert(
+      'Skip Session',
+      'Are you sure you want to skip this session? Your progress will not be counted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Skip', 
+          style: 'destructive',
+          onPress: () => {
+            setIsRunning(false);
+            setTimeLeft(0);
+            Alert.alert('Session Skipped', 'Session has been skipped. Ready for the next one?');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleViewStats = () => {
+    lightFeedback();
+    router.push('/stats');
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -159,13 +197,25 @@ const FocusTimer = () => {
           <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
             Focus Timer
           </Text>
-          <TouchableOpacity 
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: colors.surfaceSecondary }}
-            onPress={() => lightFeedback()}
-          >
-            <Ionicons name="settings" size={20} color={colors.primary} />
-          </TouchableOpacity>
+          <View className="flex-row space-x-2">
+            <TouchableOpacity 
+              className="w-12 h-12 rounded-2xl items-center justify-center"
+              style={{ backgroundColor: colors.surfaceSecondary }}
+              onPress={handleViewStats}
+            >
+              <Ionicons name="stats-chart" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="w-12 h-12 rounded-2xl items-center justify-center"
+              style={{ backgroundColor: colors.surfaceSecondary }}
+              onPress={() => {
+                lightFeedback();
+                router.back();
+              }}
+            >
+              <Ionicons name="close" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -176,11 +226,11 @@ const FocusTimer = () => {
             {/* Progress Circle */}
             <View className="relative mb-8">
               <View 
-                className="w-64 h-64 rounded-full items-center justify-center"
+                className="w-72 h-72 rounded-full items-center justify-center"
                 style={{ backgroundColor: colors.surfaceSecondary }}
               >
                 <Animated.View
-                  className="absolute w-64 h-64 rounded-full"
+                  className="absolute w-72 h-72 rounded-full"
                   style={{
                     borderWidth: 8,
                     borderColor: getProgressColor(),
@@ -193,13 +243,13 @@ const FocusTimer = () => {
                   }}
                 />
                 <View className="items-center">
-                  <Text className="text-6xl font-bold mb-2" style={{ color: colors.textPrimary }}>
+                  <Text className="text-7xl font-bold mb-3" style={{ color: colors.textPrimary }}>
                     {formatTime(timeLeft)}
                   </Text>
-                  <Text className="text-lg" style={{ color: colors.textSecondary }}>
+                  <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
                     {currentSession.name}
                   </Text>
-                  <Text className="text-sm" style={{ color: colors.textTertiary }}>
+                  <Text className="text-base" style={{ color: colors.textSecondary }}>
                     Round {currentRound} of {totalRounds}
                   </Text>
                 </View>
@@ -209,66 +259,66 @@ const FocusTimer = () => {
             {/* Timer Controls */}
             <View className="flex-row items-center space-x-6">
               <TouchableOpacity
-                className="w-16 h-16 rounded-full items-center justify-center"
+                className="w-16 h-16 rounded-2xl items-center justify-center"
                 style={{ backgroundColor: colors.surfaceSecondary }}
                 onPress={resetTimer}
               >
-                <Ionicons name="refresh" size={24} color={colors.textSecondary} />
+                <Ionicons name="refresh" size={26} color={colors.textSecondary} />
               </TouchableOpacity>
               
               <Animated.View style={{ transform: [{ scale: scaleAnimation }] }}>
                 <TouchableOpacity
-                  className="w-20 h-20 rounded-full items-center justify-center"
+                  className="w-24 h-24 rounded-2xl items-center justify-center"
                   style={{ backgroundColor: getProgressColor() }}
                   onPress={toggleTimer}
                 >
                   <Ionicons 
                     name={isRunning ? 'pause' : 'play'} 
-                    size={32} 
+                    size={36} 
                     color="white" 
                   />
                 </TouchableOpacity>
               </Animated.View>
               
               <TouchableOpacity
-                className="w-16 h-16 rounded-full items-center justify-center"
+                className="w-16 h-16 rounded-2xl items-center justify-center"
                 style={{ backgroundColor: colors.surfaceSecondary }}
-                onPress={() => lightFeedback()}
+                onPress={skipSession}
               >
-                <Ionicons name="play-forward" size={24} color={colors.textSecondary} />
+                <Ionicons name="play-forward" size={26} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             {/* Stats */}
             <View className="mt-8 flex-row space-x-8">
               <View className="items-center">
-                <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+                <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
                   {completedSessions}
                 </Text>
-                <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                <Text className="text-sm font-medium" style={{ color: colors.textSecondary }}>
                   Completed
                 </Text>
               </View>
               <View className="items-center">
-                <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                  {Math.floor((completedSessions * 25) / 60)}
+                <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+                  {totalFocusTime}
                 </Text>
-                <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                  Hours
+                <Text className="text-sm font-medium" style={{ color: colors.textSecondary }}>
+                  Minutes
                 </Text>
               </View>
             </View>
           </View>
         ) : (
           <View className="items-center">
-            <View className="w-32 h-32 rounded-full items-center justify-center mb-8"
+            <View className="w-36 h-36 rounded-2xl items-center justify-center mb-8"
                   style={{ backgroundColor: colors.surfaceSecondary }}>
-              <Ionicons name="timer" size={48} color={colors.primary} />
+              <Ionicons name="timer" size={56} color={colors.primary} />
             </View>
-            <Text className="text-xl font-semibold mb-2" style={{ color: colors.textPrimary }}>
+            <Text className="text-2xl font-bold mb-3" style={{ color: colors.textPrimary }}>
               Choose a Session
             </Text>
-            <Text className="text-center" style={{ color: colors.textSecondary }}>
+            <Text className="text-center text-base" style={{ color: colors.textSecondary }}>
               Select a focus session to begin your productivity journey
             </Text>
           </View>
@@ -277,14 +327,14 @@ const FocusTimer = () => {
 
       {/* Session Types */}
       <View className="px-6 pb-8">
-        <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
+        <Text className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>
           Session Types
         </Text>
         <View className="flex-row flex-wrap justify-between">
           {sessions.map((session) => (
             <TouchableOpacity
               key={session.id}
-              className="w-[48%] p-4 rounded-2xl mb-3 items-center"
+              className="w-[48%] p-5 rounded-2xl mb-4 items-center"
               style={{ 
                 backgroundColor: currentSession?.id === session.id 
                   ? session.color + '20' 
@@ -293,15 +343,15 @@ const FocusTimer = () => {
               onPress={() => startSession(session)}
             >
               <View 
-                className="w-12 h-12 rounded-full items-center justify-center mb-2"
+                className="w-16 h-16 rounded-2xl items-center justify-center mb-3"
                 style={{ backgroundColor: session.color + '20' }}
               >
-                <Ionicons name={session.icon as any} size={24} color={session.color} />
+                <Ionicons name={session.icon as any} size={32} color={session.color} />
               </View>
-              <Text className="font-semibold text-sm" style={{ color: colors.textPrimary }}>
+              <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
                 {session.name}
               </Text>
-              <Text className="text-xs" style={{ color: colors.textSecondary }}>
+              <Text className="text-sm" style={{ color: colors.textSecondary }}>
                 {session.duration} min
               </Text>
             </TouchableOpacity>
