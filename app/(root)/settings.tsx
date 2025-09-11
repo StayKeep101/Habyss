@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
@@ -22,15 +23,16 @@ const Settings = () => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { lightFeedback, mediumFeedback } = useHaptics();
+  const { isDarkMode, toggleTheme } = useTheme();
 
   const [settings, setSettings] = useState<SettingItem[]>([
     {
       id: '1',
-      title: 'Dark Mode',
-      subtitle: 'Use dark theme throughout the app',
-      icon: 'moon',
+      title: isDarkMode ? 'Light Mode' : 'Dark Mode',
+      subtitle: isDarkMode ? 'Switch to light theme' : 'Use dark theme throughout the app',
+      icon: isDarkMode ? 'sunny' : 'moon',
       type: 'toggle',
-      value: colorScheme === 'dark'
+      value: isDarkMode
     },
     {
       id: '2',
@@ -150,15 +152,37 @@ const Settings = () => {
     }
   ]);
 
+  // Keep the Dark/Light row title and icon in sync with theme changes
+  useEffect(() => {
+    setSettings(prev => prev.map(s => s.id === '1' ? {
+      ...s,
+      title: isDarkMode ? 'Light Mode' : 'Dark Mode',
+      subtitle: isDarkMode ? 'Switch to light theme' : 'Use dark theme throughout the app',
+      icon: isDarkMode ? 'sunny' : 'moon',
+      value: isDarkMode,
+    } : s));
+  }, [isDarkMode]);
+
   const toggleSetting = (id: string) => {
     lightFeedback();
-    setSettings(prev => 
-      prev.map(setting => 
+    setSettings(prev => {
+      const updated = prev.map(setting => 
         setting.id === id 
           ? { ...setting, value: !setting.value }
           : setting
-      )
-    );
+      );
+      // If toggling dark mode, also flip theme and update title/icon
+      if (id === '1') {
+        toggleTheme();
+        return updated.map(s => s.id === '1' ? {
+          ...s,
+          title: !isDarkMode ? 'Light Mode' : 'Dark Mode',
+          subtitle: !isDarkMode ? 'Switch to light theme' : 'Use dark theme throughout the app',
+          icon: !isDarkMode ? 'sunny' : 'moon',
+        } : s);
+      }
+      return updated;
+    });
   };
 
   const handleSettingPress = (setting: SettingItem) => {

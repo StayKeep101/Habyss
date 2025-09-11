@@ -9,12 +9,12 @@ import '../global.css';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { DarkTheme, LightTheme } from "../constants/Themes";
 import React from "react";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function MobileLayout() {
-  const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -30,14 +30,25 @@ export default function MobileLayout() {
   }
 
   return (
-    
-      <>
-      <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="+not-found" />
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(root)" />
-      <Stack.Screen name="(tabs)" />
-    </Stack><StatusBar style={colorScheme === "dark" ? "light" : "dark"} /></>
+    <ThemeProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <InnerLayout />
+      </GestureHandlerRootView>
+    </ThemeProvider>
+  );
+}
 
+function InnerLayout() {
+  const colorScheme = useColorScheme();
+  return (
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="+not-found" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(root)" />
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+    </>
   );
 }

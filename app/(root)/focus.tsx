@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, Dimensions, Alert } from 'react-native';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -33,6 +34,17 @@ const FocusTimer = () => {
 
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const scaleAnimation = useRef(new Animated.Value(1)).current;
+  const breatheAnimation = useRef(new Animated.Value(0)).current;
+
+  // Circular progress sizing
+  const PADDING = 48; // horizontal padding around timer container
+  const MAX_SIZE = Math.min(width, height) - PADDING * 2;
+  // Keep the ring compact to avoid overlapping header/content on small screens
+  const SIZE = Math.max(200, Math.min(240, MAX_SIZE));
+  const STROKE_WIDTH = 12;
+  const RADIUS = (SIZE - STROKE_WIDTH) / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
   const sessions: TimerSession[] = [
     {
@@ -110,6 +122,21 @@ const FocusTimer = () => {
 
     return () => clearInterval(interval);
   }, [isRunning, timeLeft, currentSession, progressAnimation, heavyFeedback]);
+
+  // Subtle breathing animation while running
+  useEffect(() => {
+    if (isRunning) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(breatheAnimation, { toValue: 1, duration: 1400, useNativeDriver: true }),
+          Animated.timing(breatheAnimation, { toValue: 0, duration: 1400, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      breatheAnimation.stopAnimation();
+      breatheAnimation.setValue(0);
+    }
+  }, [isRunning, breatheAnimation]);
 
   const startSession = (session: TimerSession) => {
     lightFeedback();
@@ -224,37 +251,66 @@ const FocusTimer = () => {
         {currentSession ? (
           <View className="items-center">
             {/* Progress Circle */}
-            <View className="relative mb-8">
-              <View 
-                className="w-72 h-72 rounded-full items-center justify-center"
-                style={{ backgroundColor: colors.surfaceSecondary }}
-              >
-                <Animated.View
-                  className="absolute w-72 h-72 rounded-full"
-                  style={{
-                    borderWidth: 8,
-                    borderColor: getProgressColor(),
-                    borderTopColor: 'transparent',
-                    borderLeftColor: 'transparent',
-                    transform: [{ rotate: progressAnimation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0deg', '360deg']
-                    }) }],
-                  }}
+            <Animated.View
+              className="relative mb-6 rounded-full items-center justify-center"
+              style={{
+                width: SIZE,
+                height: SIZE,
+                transform: [
+                  { scale: Animated.add(1, Animated.multiply(breatheAnimation, 0.03)) },
+                ],
+              }}
+            >
+              {/* Static track */}
+              <Svg width={SIZE} height={SIZE}>
+                <Defs>
+                  <LinearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <Stop offset="0%" stopColor={colors.primary} />
+                    <Stop offset="100%" stopColor={getProgressColor()} />
+                  </LinearGradient>
+                </Defs>
+                {/* Track */}
+                <Circle
+                  cx={SIZE / 2}
+                  cy={SIZE / 2}
+                  r={RADIUS}
+                  stroke={colors.surfaceSecondary}
+                  strokeWidth={STROKE_WIDTH}
+                  strokeLinecap="round"
+                  fill="none"
                 />
-                <View className="items-center">
-                  <Text className="text-7xl font-bold mb-3" style={{ color: colors.textPrimary }}>
-                    {formatTime(timeLeft)}
-                  </Text>
-                  <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
-                    {currentSession.name}
-                  </Text>
-                  <Text className="text-base" style={{ color: colors.textSecondary }}>
-                    Round {currentRound} of {totalRounds}
-                  </Text>
-                </View>
+                {/* Progress arc that closes as time elapses */}
+                <AnimatedCircle
+                  cx={SIZE / 2}
+                  cy={SIZE / 2}
+                  r={RADIUS}
+                  stroke="url(#progressGradient)"
+                  strokeWidth={STROKE_WIDTH}
+                  strokeLinecap="round"
+                  fill="none"
+                  strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+                  strokeDashoffset={Animated.multiply(
+                    Animated.subtract(1, progressAnimation),
+                    CIRCUMFERENCE
+                  ) as unknown as number}
+                  rotation={-90}
+                  originX={SIZE / 2}
+                  originY={SIZE / 2}
+                />
+              </Svg>
+              {/* Inner content */}
+              <View className="absolute items-center justify-center" style={{ width: SIZE, height: SIZE }}>
+                <Text className="text-6xl font-bold mb-1" style={{ color: colors.textPrimary }}>
+                  {formatTime(timeLeft)}
+                </Text>
+                <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
+                  {currentSession.name}
+                </Text>
+                <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                  Round {currentRound} of {totalRounds}
+                </Text>
               </View>
-            </View>
+            </Animated.View>
 
             {/* Timer Controls */}
             <View className="flex-row items-center space-x-6">
@@ -268,13 +324,13 @@ const FocusTimer = () => {
               
               <Animated.View style={{ transform: [{ scale: scaleAnimation }] }}>
                 <TouchableOpacity
-                  className="w-24 h-24 rounded-2xl items-center justify-center"
+                  className="w-16 h-16 rounded-2xl items-center justify-center"
                   style={{ backgroundColor: getProgressColor() }}
                   onPress={toggleTimer}
                 >
                   <Ionicons 
                     name={isRunning ? 'pause' : 'play'} 
-                    size={36} 
+                    size={22} 
                     color="white" 
                   />
                 </TouchableOpacity>
@@ -290,7 +346,7 @@ const FocusTimer = () => {
             </View>
 
             {/* Stats */}
-            <View className="mt-8 flex-row space-x-8">
+            <View className="mt-6 mb-2 flex-row space-x-16">
               <View className="items-center">
                 <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
                   {completedSessions}
@@ -326,7 +382,7 @@ const FocusTimer = () => {
       </View>
 
       {/* Session Types */}
-      <View className="px-6 pb-8">
+      <View className="px-6 pb-8 pt-2">
         <Text className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>
           Session Types
         </Text>

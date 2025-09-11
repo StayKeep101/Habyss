@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
+import { getHabits, getLastNDaysCompletions } from '@/lib/habits';
 
 const Stats = () => {
   const colorScheme = useColorScheme();
@@ -76,6 +77,21 @@ const Stats = () => {
       [{ text: 'OK' }]
     );
   };
+
+  const [days, setDays] = useState<{ date: string; done: boolean }[]>([]);
+  const [habitCount, setHabitCount] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      const [hist, habits] = await Promise.all([
+        getLastNDaysCompletions(30),
+        getHabits(),
+      ]);
+      setHabitCount(habits.length);
+      const mapped = hist.map(h => ({ date: h.date, done: h.completedIds.length > 0 }));
+      setDays(mapped);
+    })();
+  }, []);
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
@@ -174,21 +190,40 @@ const Stats = () => {
           </View>
         </View>
 
-        {/* Progress Chart Placeholder */}
+        {/* Per-day Habit Completion Heatmap */}
         <View className="mb-6">
           <Text className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>
-            Progress Trend
+            Last 30 Days
           </Text>
-          <TouchableOpacity
-            className="h-48 rounded-2xl items-center justify-center"
+          <View
+            className="p-4 rounded-2xl"
             style={{ backgroundColor: colors.surfaceSecondary }}
-            onPress={handleViewProgressCharts}
           >
-            <Ionicons name="analytics" size={56} color={colors.textTertiary} />
-            <Text className="text-base mt-3" style={{ color: colors.textSecondary }}>
-              Tap to view detailed charts
-            </Text>
-          </TouchableOpacity>
+            <View className="flex-row flex-wrap" style={{ rowGap: 8 }}>
+              {days.map((d, idx) => (
+                <View key={d.date} className="items-center" style={{ width: `${100/7}%` }}>
+                  <View
+                    className="w-8 h-8 rounded-md"
+                    style={{ backgroundColor: d.done ? colors.success : colors.surfaceTertiary }}
+                  />
+                  {idx >= 23 && (
+                    <Text className="text-[10px] mt-1" style={{ color: colors.textTertiary }}>
+                      {new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+            <View className="flex-row justify-end mt-3 items-center">
+              <Text className="text-xs mr-2" style={{ color: colors.textSecondary }}>
+                Completion
+              </Text>
+              <View className="w-4 h-4 rounded-sm mr-1" style={{ backgroundColor: colors.surfaceTertiary }} />
+              <Text className="text-[10px] mr-2" style={{ color: colors.textTertiary }}>Missed</Text>
+              <View className="w-4 h-4 rounded-sm mr-1" style={{ backgroundColor: colors.success }} />
+              <Text className="text-[10px]" style={{ color: colors.textTertiary }}>Done</Text>
+            </View>
+          </View>
         </View>
 
         {/* Top Habits */}

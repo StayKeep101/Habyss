@@ -15,7 +15,7 @@ interface SettingsItemProps {
   onPress?: () => void;
   rightElement?: React.ReactNode;
   isLink?: boolean;
-  showBadge?: boolean;
+  showBadge?: boolean; 
 }
 
 const SettingsItem: React.FC<SettingsItemProps> = ({ 
@@ -248,21 +248,6 @@ const More = () => {
               color={colors.warning}
               showBadge={true}
               onPress={handleNotifications}
-            />
-            <View className="h-[0.5px] mx-4" style={{ backgroundColor: colors.border }} />
-            <SettingsItem
-              icon="moon-outline"
-              label="Dark Mode"
-              color={colors.secondary}
-              rightElement={
-                <Switch
-                  value={isDarkMode}
-                  onValueChange={handleDarkModeToggle}
-                  trackColor={{ false: '#e2e8f0', true: colors.primary }}
-                  thumbColor={isDarkMode ? 'white' : '#f1f5f9'}
-                />
-              }
-              isLink={false}
             />
             <View className="h-[0.5px] mx-4" style={{ backgroundColor: colors.border }} />
             <SettingsItem

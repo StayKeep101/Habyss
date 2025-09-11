@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import { View, TouchableOpacity } from 'react-native';
+import { useNavigationState } from '@react-navigation/native';
+import CreateModal from '@/components/CreateModal';
 
 import Home from './home';
-import Social from './social';
-import Create from './create';
 import Stats from './stats';
 import More from './more';
 
@@ -19,26 +20,36 @@ function TabBarIcon({ name, color }: { name: keyof typeof Ionicons.glyphMap; col
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [isCreateVisible, setIsCreateVisible] = useState(false);
+  const currentRouteName = useNavigationState((state) => state?.routes?.[state.index]?.name);
 
   return (
-    <Tab.Navigator
-      screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textTertiary,
-        tabBarStyle: {
-          backgroundColor: colors.surfaceSecondary,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 88,
-          paddingBottom: 20,
-          paddingTop: 12,
-        },
-        tabBarIconStyle: {
-          marginBottom: 4,
-        },
-        headerShown: false,
-      }}
-    >
+    <View style={{ flex: 1 }}>
+      <Tab.Navigator
+        screenOptions={{
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.textTertiary,
+          tabBarStyle: {
+            backgroundColor: colors.surfaceSecondary,
+            height: 64,
+            paddingBottom: 8,
+            paddingTop: 2,
+          },
+          tabBarItemStyle: {
+            paddingTop: 0,
+            paddingBottom: 0,
+          },
+          tabBarIconStyle: {
+            marginBottom: -4,
+          },
+          tabBarLabelStyle: {
+            marginTop: 2,
+            fontSize: 11,
+            paddingBottom: 0,
+          },
+          headerShown: false,
+        }}
+      >
       <Tab.Screen
         name="home"
         component={Home}
@@ -47,17 +58,17 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
         }}
       />
-      <Tab.Screen
-        name="social"
-        component={Social}
-        options={{
-          title: 'Social',
-          tabBarIcon: ({ color }) => <TabBarIcon name="people" color={color} />,
-        }}
-      />
+      {/* Create tab between Home and Stats */}
       <Tab.Screen
         name="create"
-        component={Create}
+        component={Home}
+        listeners={{
+          tabPress: (e) => {
+            // prevent navigation and open modal instead
+            e.preventDefault();
+            setIsCreateVisible(true);
+          },
+        }}
         options={{
           title: 'Create',
           tabBarIcon: ({ color }) => <TabBarIcon name="add-circle" color={color} />,
@@ -79,6 +90,16 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="ellipsis-horizontal" color={color} />,
         }}
       />
-    </Tab.Navigator>
+      </Tab.Navigator>
+
+      {/* Modal opened from Create tab */}
+
+      {/* Create Modal */}
+      <CreateModal
+        visible={isCreateVisible}
+        onClose={() => setIsCreateVisible(false)}
+        onSelectOption={() => setIsCreateVisible(false)}
+      />
+    </View>
   );
 }

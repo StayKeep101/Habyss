@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Animated, Dimensions, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Animated, Dimensions, Alert, DeviceEventEmitter } from 'react-native';
+import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
+import { getHabits as loadHabits, getCompletions, toggleCompletion, Habit as StoreHabit, removeHabitEverywhere } from '@/lib/habits';
 
 const { width } = Dimensions.get('window');
 
-interface Habit {
-  id: string;
-  name: string;
-  icon: string;
-  streak: number;
-  completed: boolean;
-  category: 'health' | 'productivity' | 'fitness' | 'mindfulness';
+interface Habit extends StoreHabit {
+  streak?: number;
+  completed?: boolean;
+  icon?: string;
 }
 
 interface FocusSession {
@@ -31,12 +30,7 @@ const Home = () => {
   const colors = Colors[colorScheme ?? 'light'];
   const { lightFeedback, mediumFeedback } = useHaptics();
   
-  const [habits, setHabits] = useState<Habit[]>([
-    { id: '1', name: 'Morning Exercise', icon: 'fitness', streak: 7, completed: false, category: 'fitness' },
-    { id: '2', name: 'Read 30 min', icon: 'book', streak: 12, completed: true, category: 'productivity' },
-    { id: '3', name: 'Drink Water', icon: 'water', streak: 5, completed: false, category: 'health' },
-    { id: '4', name: 'Meditate', icon: 'leaf', streak: 3, completed: false, category: 'mindfulness' },
-  ]);
+  const [habits, setHabits] = useState<Habit[]>([]);
 
   const [focusSessions] = useState<FocusSession[]>([
     { id: '1', name: 'Pomodoro', duration: 25, type: 'pomodoro', isActive: false },
@@ -44,9 +38,9 @@ const Home = () => {
     { id: '3', name: 'Quick Break', duration: 5, type: 'break', isActive: false },
   ]);
 
-  const [currentStreak, setCurrentStreak] = useState(12);
-  const [totalHabits, setTotalHabits] = useState(habits.length);
-  const [completedHabits, setCompletedHabits] = useState(habits.filter(h => h.completed).length);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [totalHabits, setTotalHabits] = useState(0);
+  const [completedHabits, setCompletedHabits] = useState(0);
 
   const logoScale = new Animated.Value(1);
   const logoRotation = new Animated.Value(0);
@@ -76,24 +70,32 @@ const Home = () => {
     ).start();
   }, []);
 
+  // Load habits and today's completions; refresh on new habit
+  useEffect(() => {
+    const load = async () => {
+      const h = await loadHabits();
+      const c = await getCompletions();
+      const mapped: Habit[] = h.map(item => ({ ...item, completed: !!c[item.id], streak: 0 }));
+      setHabits(mapped);
+      setTotalHabits(mapped.length);
+      setCompletedHabits(Object.values(c).filter(Boolean).length);
+      setCurrentStreak(0);
+    };
+    load();
+    const sub = DeviceEventEmitter.addListener('habit_created', load);
+    return () => sub.remove();
+  }, []);
+
   const spin = logoRotation.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
 
-  const toggleHabit = (habitId: string) => {
+  const toggleHabit = async (habitId: string) => {
     lightFeedback();
-    setHabits(prev => prev.map(habit => 
-      habit.id === habitId 
-        ? { ...habit, completed: !habit.completed, streak: !habit.completed ? habit.streak + 1 : habit.streak }
-        : habit
-    ));
-    
-    // Update completed habits count
-    setCompletedHabits(prev => {
-      const habit = habits.find(h => h.id === habitId);
-      return habit?.completed ? prev - 1 : prev + 1;
-    });
+    const next = await toggleCompletion(habitId);
+    setHabits(prev => prev.map(h => ({ ...h, completed: !!next[h.id] })));
+    setCompletedHabits(Object.values(next).filter(Boolean).length);
   };
 
   const handleNotifications = () => {
@@ -201,7 +203,7 @@ const Home = () => {
                 <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
                   Habyss
                 </Text>
-                <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                <Text className="text-sm mt-1" style={{ color: colors.textSecondary }}>
                   Day {currentStreak} • {completedHabits}/{totalHabits} completed
                 </Text>
               </View>
@@ -216,6 +218,8 @@ const Home = () => {
           </View>
         </View>
 
+        {/* Calendar removed per request */}
+
         {/* Quick Stats */}
         <View className="px-6 mb-6">
           <View
@@ -229,58 +233,19 @@ const Home = () => {
               </View>
               <View className="items-center">
                 <Text className="text-white text-3xl font-bold">
-                  {Math.round((completedHabits / totalHabits) * 100)}%
+                  {totalHabits ? Math.round((completedHabits / totalHabits) * 100) : 0}%
                 </Text>
                 <Text className="text-blue-100 text-sm font-medium">Today</Text>
               </View>
               <View className="items-end">
-                <Text className="text-white text-3xl font-bold">24</Text>
+                <Text className="text-white text-3xl font-bold">{totalHabits}</Text>
                 <Text className="text-blue-100 text-sm font-medium">Total Habits</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Focus Timer Section */}
-        <View className="px-6 mb-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
-              Focus Sessions
-            </Text>
-            <TouchableOpacity onPress={handleViewAllHabits}>
-              <Text className="text-sm font-medium" style={{ color: colors.primary }}>
-                View All
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-            {focusSessions.map((session) => (
-              <TouchableOpacity
-                key={session.id}
-                className="mr-4 p-5 rounded-2xl min-w-[140px]"
-                style={{ backgroundColor: colors.surfaceSecondary }}
-                onPress={handleFocusSession}
-              >
-                <View className="items-center">
-                  <View className="w-14 h-14 rounded-2xl items-center justify-center mb-3"
-                        style={{ backgroundColor: colors.primary + '20' }}>
-                    <Ionicons 
-                      name={session.type === 'pomodoro' ? 'timer' : session.type === 'focus' ? 'eye' : 'cafe'} 
-                      size={28} 
-                      color={colors.primary} 
-                    />
-                  </View>
-                  <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
-                    {session.name}
-                  </Text>
-                  <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                    {session.duration} min
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        {/* Focus Sessions removed per request */}
 
         {/* Habits Section */}
         <View className="px-6 mb-6">
@@ -301,6 +266,43 @@ const Home = () => {
           >
             {habits.map((habit, index) => (
               <View key={habit.id}>
+                <Swipeable
+                  leftThreshold={96}
+                  rightThreshold={96}
+                  friction={2}
+                  overshootFriction={8}
+                  overshootLeft={false}
+                  overshootRight={false}
+                  onSwipeableOpen={async (direction) => {
+                    if (direction === 'left') {
+                      // Swiped right → open left actions → delete
+                      await removeHabitEverywhere(habit.id);
+                      const h = await loadHabits();
+                      const c = await getCompletions();
+                      const mapped: Habit[] = h.map(item => ({ ...item, completed: !!c[item.id], streak: 0 }));
+                      setHabits(mapped);
+                      setTotalHabits(mapped.length);
+                      setCompletedHabits(Object.values(c).filter(Boolean).length);
+                    } else if (direction === 'right') {
+                      // Swiped left → open right actions → focus timer
+                      handleFocusSession();
+                    }
+                  }}
+                  renderLeftActions={() => (
+                    <RectButton
+                      style={{ backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center', width: 96, borderTopLeftRadius: 16, borderBottomLeftRadius: 16 }}
+                    >
+                      <Ionicons name="trash" size={22} color={'white'} />
+                    </RectButton>
+                  )}
+                  renderRightActions={() => (
+                    <RectButton
+                      style={{ backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', width: 96, borderTopRightRadius: 16, borderBottomRightRadius: 16 }}
+                    >
+                      <Ionicons name="timer" size={22} color={'white'} />
+                    </RectButton>
+                  )}
+                >
                 <TouchableOpacity
                   className="flex-row items-center p-4"
                   onPress={() => toggleHabit(habit.id)}
@@ -318,7 +320,7 @@ const Home = () => {
                       {habit.name}
                     </Text>
                     <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                      {habit.streak} day streak
+                      {(habit.durationMinutes ? `${habit.durationMinutes}m • ` : '')}{habit.streak ?? 0} day streak
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -336,6 +338,7 @@ const Home = () => {
                     )}
                   </TouchableOpacity>
                 </TouchableOpacity>
+                </Swipeable>
                 {index < habits.length - 1 && (
                   <View 
                     className="h-[0.5px] mx-4"
