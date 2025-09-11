@@ -7,6 +7,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
+import CreateModal from '@/components/CreateModal';
 import { getHabits as loadHabits, getCompletions, toggleCompletion, Habit as StoreHabit, removeHabitEverywhere } from '@/lib/habits';
 
 const { width } = Dimensions.get('window');
@@ -31,6 +32,7 @@ const Home = () => {
   const { lightFeedback, mediumFeedback } = useHaptics();
   
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [isCreateVisible, setIsCreateVisible] = useState(false);
 
   const [focusSessions] = useState<FocusSession[]>([
     { id: '1', name: 'Pomodoro', duration: 25, type: 'pomodoro', isActive: false },
@@ -381,8 +383,22 @@ const Home = () => {
         </View>
 
         {/* Bottom Spacing */}
-        <View className="h-20" />
+        <View className="h-24" />
       </ScrollView>
+      {/* Floating Create Button */}
+      <View style={{ position: 'absolute', right: 20, bottom: 28 }}>
+        <TouchableOpacity
+          className="w-16 h-16 rounded-full items-center justify-center"
+          style={{ backgroundColor: colors.primary, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}
+          onPress={() => setIsCreateVisible(true)}
+        >
+          <Ionicons name="add" size={24} color={'white'} />
+        </TouchableOpacity>
+      </View>
+      <CreateModal
+        visible={isCreateVisible}
+        onClose={() => setIsCreateVisible(false)}
+      />
     </SafeAreaView>
   );
 };

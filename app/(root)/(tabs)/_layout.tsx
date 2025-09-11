@@ -58,22 +58,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
         }}
       />
-      {/* Create tab between Home and Stats */}
-      <Tab.Screen
-        name="create"
-        component={Home}
-        listeners={{
-          tabPress: (e) => {
-            // prevent navigation and open modal instead
-            e.preventDefault();
-            setIsCreateVisible(true);
-          },
-        }}
-        options={{
-          title: 'Create',
-          tabBarIcon: ({ color }) => <TabBarIcon name="add-circle" color={color} />,
-        }}
-      />
+      {/* Create tab removed for MVP simplicity */}
       <Tab.Screen
         name="stats"
         component={Stats}
