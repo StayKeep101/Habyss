@@ -9,6 +9,8 @@ export interface Habit {
   category: HabitCategory;
   createdAt: string; // ISO date
   durationMinutes?: number; // optional time factor per session
+  startTime?: string; // 'HH:mm'
+  endTime?: string;   // 'HH:mm'
 }
 
 const HABITS_KEY = 'habyss_habits_v1';
@@ -33,7 +35,14 @@ export async function saveHabits(habits: Habit[]): Promise<void> {
   await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(habits));
 }
 
-export async function addHabit(name: string, category: HabitCategory = 'productivity', icon?: string, durationMinutes?: number): Promise<Habit> {
+export async function addHabit(
+  name: string,
+  category: HabitCategory = 'productivity',
+  icon?: string,
+  durationMinutes?: number,
+  startTime?: string,
+  endTime?: string,
+): Promise<Habit> {
   const habits = await getHabits();
   const newHabit: Habit = {
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -42,6 +51,8 @@ export async function addHabit(name: string, category: HabitCategory = 'producti
     icon,
     createdAt: new Date().toISOString(),
     durationMinutes,
+    startTime,
+    endTime,
   };
   const updated = [newHabit, ...habits];
   await saveHabits(updated);
