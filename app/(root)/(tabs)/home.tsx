@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Animated, Dimensions, Alert, DeviceEventEmitter } from 'react-native';
-import { Swipeable, RectButton } from 'react-native-gesture-handler';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Animated, Dimensions, Alert, DeviceEventEmitter, Modal } from 'react-native';
+import { Swipeable, RectButton, PanGestureHandler as RNGHPanGestureHandler, State } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -10,7 +10,7 @@ import { router } from 'expo-router';
 import CreateModal from '@/components/CreateModal';
 import { getHabits as loadHabits, getCompletions, toggleCompletion, Habit as StoreHabit, removeHabitEverywhere } from '@/lib/habits';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface Habit extends StoreHabit {
   streak?: number;
@@ -33,6 +33,30 @@ const Home = () => {
   
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isCreateVisible, setIsCreateVisible] = useState(false);
+  const [currentDay, setCurrentDay] = useState(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const panRef = useRef(null);
+  const [selectedDay, setSelectedDay] = useState<any>(null);
+  const [dayModalVisible, setDayModalVisible] = useState(false);
+  const [currentQuote, setCurrentQuote] = useState(0);
+
+  const motivationalQuotes = [
+    "The secret of getting ahead is getting started.",
+    "Success is the sum of small efforts repeated day in and day out.",
+    "The future belongs to those who believe in the beauty of their dreams.",
+    "Don't watch the clock; do what it does. Keep going.",
+    "The only way to do great work is to love what you do.",
+    "Your limitation—it's only your imagination.",
+    "Great things never come from comfort zones.",
+    "Dream it. Wish it. Do it.",
+    "Success doesn't just find you. You have to go out and get it.",
+    "The harder you work for something, the greater you'll feel when you achieve it.",
+    "Dream bigger. Do bigger.",
+    "Don't stop when you're tired. Stop when you're done.",
+    "Wake up with determination. Go to bed with satisfaction.",
+    "Do something today that your future self will thank you for.",
+    "Little things make big days.",
+  ];
 
   const [focusSessions] = useState<FocusSession[]>([
     { id: '1', name: 'Pomodoro', duration: 25, type: 'pomodoro', isActive: false },
@@ -88,10 +112,81 @@ const Home = () => {
     return () => sub.remove();
   }, []);
 
+  // Cycle through motivational quotes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentQuote(prev => (prev + 1) % motivationalQuotes.length);
+    }, 8000); // Change quote every 8 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
   const spin = logoRotation.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
+
+  // Generate days for the path (upcoming days above, today at bottom)
+  const generateDays = () => {
+    const days = [];
+    const today = new Date();
+    
+    // Future days (upcoming days above)
+    for (let i = 30; i >= 1; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      days.push({
+        day: -i,
+        date,
+        completed: false,
+        isToday: false,
+        isPast: false,
+      });
+    }
+    
+    // Today (at the bottom)
+    days.push({
+      day: 0,
+      date: today,
+      completed: completedHabits > 0,
+      isToday: true,
+      isPast: false,
+    });
+    
+    return days;
+  };
+
+  const days = generateDays();
+
+  const onPanGestureEvent = Animated.event(
+    [{ nativeEvent: { translationY: scrollY } }],
+    { useNativeDriver: false }
+  );
+
+  const onHandlerStateChange = (event: any) => {
+    if (event.nativeEvent.state === State.END) {
+      const { translationY } = event.nativeEvent;
+      setCurrentDay(prev => Math.max(0, prev + Math.round(translationY / 100)));
+      Animated.spring(scrollY, {
+        toValue: 0,
+        useNativeDriver: false,
+      }).start();
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
 
   const toggleHabit = async (habitId: string) => {
     lightFeedback();
@@ -100,83 +195,67 @@ const Home = () => {
     setCompletedHabits(Object.values(next).filter(Boolean).length);
   };
 
-  const handleNotifications = () => {
-    mediumFeedback();
-    router.push('/notifications');
+  const handleDayPress = async (day: any) => {
+    lightFeedback();
+    setSelectedDay(day);
+    setDayModalVisible(true);
   };
 
-  const handleViewAllHabits = () => {
-    lightFeedback();
-    router.push('/stats');
-  };
-
-  const handleQuickAction = (action: any) => {
-    lightFeedback();
+  const renderDayNode = (day: any, index: number) => {
+    const isCompleted = day.completed;
+    const isToday = day.isToday;
+    const isFuture = day.day < 0;
     
-    if (action.route) {
-      router.push(action.route as any);
-    } else {
-      // Handle specific actions
-      switch (action.name) {
-        case 'Journal':
-          Alert.alert(
-            'Journal',
-            'Journal feature coming soon! You\'ll be able to write daily reflections and track your thoughts.',
-            [{ text: 'OK' }]
-          );
-          break;
-        case 'Workout':
-          Alert.alert(
-            'Workout Tracker',
-            'Workout tracking feature coming soon! You\'ll be able to log exercises, track reps, and monitor your fitness progress.',
-            [{ text: 'OK' }]
-          );
-          break;
-        case 'Meditate':
-          Alert.alert(
-            'Meditation Timer',
-            'Meditation timer feature coming soon! You\'ll have guided sessions, ambient sounds, and progress tracking.',
-            [{ text: 'OK' }]
-          );
-          break;
-        default:
-          Alert.alert(
-            action.name,
-            `${action.name} feature coming soon!`,
-            [{ text: 'OK' }]
-          );
-      }
+    let nodeColor = colors.surfaceSecondary;
+    let iconName = 'ellipse-outline';
+    let iconColor = colors.textSecondary;
+    
+    if (isCompleted) {
+      nodeColor = colors.success;
+      iconName = 'checkmark-circle';
+      iconColor = 'white';
+    } else if (isToday) {
+      nodeColor = colors.primary;
+      iconName = 'today';
+      iconColor = 'white';
+    } else if (isFuture) {
+      // Future days
+      nodeColor = colors.surfaceSecondary;
+      iconName = 'ellipse-outline';
+      iconColor = colors.border;
     }
-  };
-
-  const handleFocusSession = () => {
-    lightFeedback();
-    router.push('/focus');
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'health': return colors.success;
-      case 'productivity': return colors.primary;
-      case 'fitness': return colors.warning;
-      case 'mindfulness': return colors.accent;
-      default: return colors.primary;
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'health': return 'medical';
-      case 'productivity': return 'briefcase';
-      case 'fitness': return 'fitness';
-      case 'mindfulness': return 'leaf';
-      default: return 'star';
-    }
+    
+    return (
+      <View key={index} className="items-center mb-8">
+        <TouchableOpacity
+          className="w-16 h-16 rounded-full items-center justify-center"
+          style={{ 
+            backgroundColor: nodeColor,
+            shadowColor: '#000',
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+          }}
+          onPress={() => handleDayPress(day)}
+        >
+          <Ionicons name={iconName as any} size={24} color={iconColor} />
+        </TouchableOpacity>
+        <Text className="text-xs mt-2 font-medium" style={{ color: colors.textSecondary }}>
+          {formatDate(day.date)}
+        </Text>
+        {isToday && (
+          <Text className="text-xs mt-1" style={{ color: colors.textTertiary }}>
+            {completedHabits}/{totalHabits}
+          </Text>
+        )}
+      </View>
+    );
   };
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <View className="flex-1">
         {/* Header with Logo */}
         <View className="px-6 pt-4 pb-6">
           <View className="flex-row items-center justify-between">
@@ -210,181 +289,76 @@ const Home = () => {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity 
-              className="w-12 h-12 rounded-2xl items-center justify-center"
-              style={{ backgroundColor: colors.surfaceSecondary }}
-              onPress={handleNotifications}
-            >
-              <Ionicons name="notifications" size={22} color={colors.primary} />
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Calendar removed per request */}
-
-        {/* Quick Stats */}
+        {/* Motivational Quotes Section */}
         <View className="px-6 mb-6">
-          <View
-            className="rounded-3xl p-6"
-            style={{ backgroundColor: colors.primary }}
+          <Animated.View 
+            className="rounded-2xl p-6"
+            style={{ backgroundColor: colors.primary + '10' }}
           >
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-white text-3xl font-bold">{currentStreak}</Text>
-                <Text className="text-blue-100 text-sm font-medium">Day Streak</Text>
-              </View>
-              <View className="items-center">
-                <Text className="text-white text-3xl font-bold">
-                  {totalHabits ? Math.round((completedHabits / totalHabits) * 100) : 0}%
-                </Text>
-                <Text className="text-blue-100 text-sm font-medium">Today</Text>
-              </View>
-              <View className="items-end">
-                <Text className="text-white text-3xl font-bold">{totalHabits}</Text>
-                <Text className="text-blue-100 text-sm font-medium">Total Habits</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Focus Sessions removed per request */}
-
-        {/* Habits Section */}
-        <View className="px-6 mb-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
-              Today's Habits
-            </Text>
-            <TouchableOpacity onPress={handleViewAllHabits}>
-              <Text className="text-sm font-medium" style={{ color: colors.primary }}>
-                View All
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View 
-            className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: colors.surfaceSecondary }}
-          >
-            {habits.map((habit, index) => (
-              <View key={habit.id}>
-                <Swipeable
-                  leftThreshold={96}
-                  rightThreshold={96}
-                  friction={2}
-                  overshootFriction={8}
-                  overshootLeft={false}
-                  overshootRight={false}
-                  onSwipeableOpen={async (direction) => {
-                    if (direction === 'left') {
-                      // Swiped right → open left actions → delete
-                      await removeHabitEverywhere(habit.id);
-                      const h = await loadHabits();
-                      const c = await getCompletions();
-                      const mapped: Habit[] = h.map(item => ({ ...item, completed: !!c[item.id], streak: 0 }));
-                      setHabits(mapped);
-                      setTotalHabits(mapped.length);
-                      setCompletedHabits(Object.values(c).filter(Boolean).length);
-                    } else if (direction === 'right') {
-                      // Swiped left → open right actions → focus timer
-                      handleFocusSession();
-                    }
-                  }}
-                  renderLeftActions={() => (
-                    <RectButton
-                      style={{ backgroundColor: colors.error, justifyContent: 'center', alignItems: 'center', width: 96, borderTopLeftRadius: 16, borderBottomLeftRadius: 16 }}
-                    >
-                      <Ionicons name="trash" size={22} color={'white'} />
-                    </RectButton>
-                  )}
-                  renderRightActions={() => (
-                    <RectButton
-                      style={{ backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center', width: 96, borderTopRightRadius: 16, borderBottomRightRadius: 16 }}
-                    >
-                      <Ionicons name="timer" size={22} color={'white'} />
-                    </RectButton>
-                  )}
-                >
-                <TouchableOpacity
-                  className="flex-row items-center p-4"
-                  onPress={() => toggleHabit(habit.id)}
-                >
-                  <View className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
-                        style={{ backgroundColor: getCategoryColor(habit.category) + '20' }}>
-                    <Ionicons 
-                      name={getCategoryIcon(habit.category) as any} 
-                      size={24} 
-                      color={getCategoryColor(habit.category)} 
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
-                      {habit.name}
-                    </Text>
-                    <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                      {(habit.durationMinutes ? `${habit.durationMinutes}m • ` : '')}{habit.streak ?? 0} day streak
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    className={`w-10 h-10 rounded-2xl items-center justify-center ${
-                      habit.completed ? 'bg-green-500' : 'border-2'
-                    }`}
-                    style={{ 
-                      borderColor: habit.completed ? 'transparent' : colors.border,
-                      backgroundColor: habit.completed ? colors.success : 'transparent'
-                    }}
-                    onPress={() => toggleHabit(habit.id)}
-                  >
-                    {habit.completed && (
-                      <Ionicons name="checkmark" size={20} color="white" />
-                    )}
-                  </TouchableOpacity>
-                </TouchableOpacity>
-                </Swipeable>
-                {index < habits.length - 1 && (
-                  <View 
-                    className="h-[0.5px] mx-4"
-                    style={{ backgroundColor: colors.border }}
-                  />
-                )}
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View className="px-6 mb-6">
-          <Text className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>
-            Quick Actions
-          </Text>
-          <View className="flex-row flex-wrap justify-between">
-            {[
-              { name: 'Focus Timer', icon: 'timer', color: colors.primary, route: '/focus' },
-              { name: 'AI Chat', icon: 'sparkles', color: colors.secondary, route: '/ai' },
-              { name: 'Journal', icon: 'bookmark', color: colors.accent },
-              { name: 'Workout', icon: 'fitness', color: colors.warning },
-            ].map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                className="w-[48%] p-5 rounded-2xl mb-4 items-center"
-                style={{ backgroundColor: colors.surfaceSecondary }}
-                onPress={() => handleQuickAction(action)}
+            <View className="flex-row items-center mb-3">
+              <View 
+                className="w-8 h-8 rounded-full items-center justify-center mr-3"
+                style={{ backgroundColor: colors.primary + '20' }}
               >
-                <View className="w-14 h-14 rounded-2xl items-center justify-center mb-3"
-                      style={{ backgroundColor: action.color + '20' }}>
-                  <Ionicons name={action.icon as any} size={28} color={action.color} />
-                </View>
-                <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
-                  {action.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                <Ionicons name="bulb" size={18} color={colors.primary} />
+              </View>
+              <Text className="text-sm font-semibold" style={{ color: colors.primary }}>
+                Daily Inspiration
+              </Text>
+            </View>
+            <Animated.Text 
+              className="text-base leading-6"
+              style={{ color: colors.textPrimary }}
+            >
+              "{motivationalQuotes[currentQuote]}"
+            </Animated.Text>
+            <View className="flex-row justify-center mt-4">
+              {motivationalQuotes.map((_, index) => (
+                <View
+                  key={index}
+                  className="w-2 h-2 rounded-full mx-1"
+                  style={{ 
+                    backgroundColor: index === currentQuote ? colors.primary : colors.border,
+                    opacity: index === currentQuote ? 1 : 0.3
+                  }}
+                />
+              ))}
+            </View>
+          </Animated.View>
         </View>
 
-        {/* Bottom Spacing */}
-        <View className="h-24" />
-      </ScrollView>
+        {/* Duolingo-style Day Path */}
+        <View className="flex-1 px-6">
+          <RNGHPanGestureHandler
+            ref={panRef}
+            onGestureEvent={onPanGestureEvent}
+            onHandlerStateChange={onHandlerStateChange}
+          >
+            <Animated.View style={{ flex: 1 }}>
+              <ScrollView
+                contentContainerStyle={{ paddingVertical: 20, flexGrow: 1, justifyContent: 'flex-end' }}
+                showsVerticalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onScroll={Animated.event(
+                  [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                  { useNativeDriver: false }
+                )}
+                onContentSizeChange={(contentWidth, contentHeight) => {
+                  // Auto-scroll to bottom (today) when content loads
+                  setTimeout(() => {
+                    // This will be handled by the ScrollView's contentContainerStyle
+                  }, 100);
+                }}
+              >
+                {days.map((day, index) => renderDayNode(day, index))}
+              </ScrollView>
+            </Animated.View>
+          </RNGHPanGestureHandler>
+        </View>
+      </View>
       {/* Floating Create Button */}
       <View style={{ position: 'absolute', right: 20, bottom: 28 }}>
         <TouchableOpacity
@@ -393,12 +367,148 @@ const Home = () => {
           onPress={() => setIsCreateVisible(true)}
         >
           <Ionicons name="add" size={24} color={'white'} />
-        </TouchableOpacity>
-      </View>
+            </TouchableOpacity>
+          </View>
       <CreateModal
         visible={isCreateVisible}
         onClose={() => setIsCreateVisible(false)}
       />
+
+      {/* Day Details Modal */}
+      <Modal
+        visible={dayModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDayModalVisible(false)}
+      >
+        <View className="flex-1 bg-black/60 justify-center items-center px-4">
+          <Animated.View 
+            className="w-full max-w-sm rounded-3xl overflow-hidden"
+            style={{ 
+              backgroundColor: colors.background,
+              shadowColor: '#000',
+              shadowOpacity: 0.25,
+              shadowRadius: 20,
+              shadowOffset: { width: 0, height: 10 },
+              elevation: 10,
+            }}
+          >
+            {/* Header */}
+            <View className="px-6 pt-6 pb-4">
+              <View className="flex-row justify-between items-center mb-4">
+                <View className="flex-1">
+                  <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+                    {selectedDay ? formatDate(selectedDay.date) : ''}
+                  </Text>
+                  <Text className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+                    {selectedDay?.date?.toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => setDayModalVisible(false)}
+                  className="w-8 h-8 rounded-full items-center justify-center"
+                  style={{ backgroundColor: colors.surfaceSecondary }}
+                >
+                  <Ionicons name="close" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Progress indicator */}
+              {selectedDay?.isToday && (
+                <View className="flex-row items-center justify-center py-3 px-4 rounded-2xl" style={{ backgroundColor: colors.primary + '10' }}>
+                  <View className="flex-row items-center">
+                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                    <Text className="ml-2 font-semibold" style={{ color: colors.primary }}>
+                      {completedHabits} of {totalHabits} completed
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Content */}
+            <ScrollView className="max-h-80" showsVerticalScrollIndicator={false}>
+              <View className="px-6 pb-6">
+                <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
+                  {selectedDay?.isToday ? "Today's Habits" : "Habits"}
+                </Text>
+                
+                {habits.length > 0 ? (
+                  <View className="space-y-3">
+                    {habits.map((habit, index) => (
+                      <TouchableOpacity
+                        key={habit.id}
+                        className="flex-row items-center p-4 rounded-2xl"
+                        style={{ backgroundColor: colors.surfaceSecondary }}
+                        onPress={() => {
+                          if (selectedDay?.isToday) {
+                            toggleHabit(habit.id);
+                          }
+                        }}
+                      >
+                        <View 
+                          className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
+                          style={{ backgroundColor: colors.primary + '20' }}
+                        >
+                          <Ionicons 
+                            name={(habit.icon as any) || 'star'} 
+                            size={24} 
+                            color={colors.primary} 
+                          />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
+                            {habit.name}
+                          </Text>
+                          <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                            {habit.durationMinutes ? `${habit.durationMinutes} minutes` : 'No duration set'}
+                          </Text>
+                        </View>
+                        <View
+                          className={`w-10 h-10 rounded-2xl items-center justify-center ${
+                            selectedDay?.isToday ? 'border-2' : ''
+                          }`}
+                          style={{ 
+                            borderColor: selectedDay?.isToday ? colors.border : 'transparent',
+                            backgroundColor: selectedDay?.isToday ? 'transparent' : colors.surfaceSecondary
+                          }}
+                        >
+                          {selectedDay?.isToday && habit.completed && (
+                            <Ionicons name="checkmark" size={20} color={colors.success} />
+                          )}
+                          {!selectedDay?.isToday && (
+                            <Ionicons name="time" size={20} color={colors.textTertiary} />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  <View className="items-center py-12">
+                    <View 
+                      className="w-20 h-20 rounded-full items-center justify-center mb-4"
+                      style={{ backgroundColor: colors.surfaceSecondary }}
+                    >
+                      <Ionicons name="calendar-outline" size={32} color={colors.textTertiary} />
+                    </View>
+                    <Text className="text-lg font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                      No habits yet
+                    </Text>
+                    <Text className="text-sm text-center" style={{ color: colors.textTertiary }}>
+                      Create your first habit to start tracking your progress
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
