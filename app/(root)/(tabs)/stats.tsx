@@ -1,323 +1,343 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Dimensions, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
-import { useHaptics } from '@/hooks/useHaptics';
-import { getHabits, getLastNDaysCompletions } from '@/lib/habits';
+import { 
+  getHabits as loadHabits, 
+  getCompletions, 
+  getWeeklyCompletionData,
+  getMonthlyCompletionData,
+  getYearlyCompletionData,
+  getHabitCompletionByCategory
+} from '@/lib/habits';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { LineChartComponent, BarChartComponent, PieChartComponent, ProgressRing } from '@/components/ui/chart';
+import { cn } from '@/lib/utils';
+
+const { width } = Dimensions.get('window');
+
+type TimePeriod = 'week' | 'month' | 'year';
 
 const Stats = () => {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const { lightFeedback, mediumFeedback } = useHaptics();
+  const colors = Colors[colorScheme ?? 'dark'];
+  
+  const [habits, setHabits] = useState<any[]>([]);
+  const [completions, setCompletions] = useState<Record<string, boolean>>({});
+  const [weeklyData, setWeeklyData] = useState<any[]>([]);
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const [yearlyData, setYearlyData] = useState<any[]>([]);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('week');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [selectedPeriod, setSelectedPeriod] = useState('week');
-
-  const periods = [
-    { id: 'week', label: 'Week', icon: 'calendar' },
-    { id: 'month', label: 'Month', icon: 'calendar-outline' },
-    { id: 'year', label: 'Year', icon: 'calendar-clear' },
-  ];
-
-  const stats = [
-    { title: 'Total Habits', value: '24', icon: 'list', color: colors.primary },
-    { title: 'Completed Today', value: '18', icon: 'checkmark-circle', color: colors.success },
-    { title: 'Current Streak', value: '12 days', icon: 'flame', color: colors.warning },
-    { title: 'Focus Time', value: '6.5h', icon: 'timer', color: colors.secondary },
-  ];
-
-  const handlePeriodChange = (period: string) => {
-    lightFeedback();
-    setSelectedPeriod(period);
+  const loadData = async () => {
+    try {
+      const [h, c, weekly, monthly, yearly, category] = await Promise.all([
+        loadHabits(),
+        getCompletions(),
+        getWeeklyCompletionData(),
+        getMonthlyCompletionData(),
+        getYearlyCompletionData(),
+        getHabitCompletionByCategory()
+      ]);
+      
+      setHabits(h);
+      setCompletions(c);
+      setWeeklyData(weekly);
+      setMonthlyData(monthly);
+      setYearlyData(yearly);
+      setCategoryData(category);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
-
-  const handleExportData = () => {
-    lightFeedback();
-    Alert.alert(
-      'Export Data',
-      'Your data will be exported and sent to your email address. This includes all your habits, progress, and statistics.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Export', onPress: () => {
-          Alert.alert('Export Started', 'Your data export has been initiated. You\'ll receive an email with your data within 24 hours.');
-        }}
-      ]
-    );
-  };
-
-  const handleShareStats = () => {
-    lightFeedback();
-    Alert.alert(
-      'Share Stats',
-      'Share your progress with friends and family! You can share your achievements, streaks, and overall progress.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Share', onPress: () => {
-          Alert.alert('Shared!', 'Your statistics have been shared successfully. Your friends can see your amazing progress!');
-        }}
-      ]
-    );
-  };
-
-  const handleViewDetailedStats = () => {
-    lightFeedback();
-    Alert.alert(
-      'Detailed Statistics',
-      'Detailed analytics and insights coming soon! You\'ll be able to see trends, patterns, and detailed breakdowns of your progress.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleViewProgressCharts = () => {
-    lightFeedback();
-    Alert.alert(
-      'Progress Charts',
-      'Interactive charts and graphs coming soon! Visualize your progress with beautiful charts and analytics.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const [days, setDays] = useState<{ date: string; done: boolean }[]>([]);
-  const [habitCount, setHabitCount] = useState(0);
 
   useEffect(() => {
-    (async () => {
-      const [hist, habits] = await Promise.all([
-        getLastNDaysCompletions(30),
-        getHabits(),
-      ]);
-      setHabitCount(habits.length);
-      const mapped = hist.map(h => ({ date: h.date, done: h.completedIds.length > 0 }));
-      setDays(mapped);
-    })();
+    loadData();
   }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  const totalHabits = habits.length;
+  const completedToday = Object.values(completions).filter(Boolean).length;
+  const completionRate = totalHabits > 0 ? (completedToday / totalHabits) * 100 : 0;
+
+  const getCurrentData = () => {
+    switch (selectedPeriod) {
+      case 'week':
+        return weeklyData;
+      case 'month':
+        return monthlyData;
+      case 'year':
+        return yearlyData;
+      default:
+        return weeklyData;
+    }
+  };
+
+  const formatChartData = () => {
+    const data = getCurrentData();
+    if (data.length === 0) return { labels: [], datasets: [{ data: [] }] };
+
+    const labels = data.map(item => {
+      if (selectedPeriod === 'year') {
+        return item.month;
+      } else {
+        const date = new Date(item.date);
+        return selectedPeriod === 'week' 
+          ? date.toLocaleDateString('en-US', { weekday: 'short' })
+          : date.getDate().toString();
+      }
+    });
+
+    const completionRates = data.map(item => Math.round(item.completionRate));
+
+    return {
+      labels,
+      datasets: [{
+        data: completionRates,
+        color: (opacity = 1) => `rgba(126, 160, 216, ${opacity})`,
+        strokeWidth: 3,
+      }]
+    };
+  };
+
+  const getAverageCompletionRate = () => {
+    const data = getCurrentData();
+    if (data.length === 0) return 0;
+    const total = data.reduce((sum, item) => sum + item.completionRate, 0);
+    return total / data.length;
+  };
+
+  const getTotalCompletions = () => {
+    const data = getCurrentData();
+    return data.reduce((sum, item) => sum + item.completedHabits, 0);
+  };
+
+  const formatPieData = () => {
+    return categoryData.map((item, index) => ({
+      name: item.category,
+      population: item.completionRate,
+      color: ['#7EA0D8', '#4A70B8', '#3B82F6', '#60A5FA'][index % 4],
+      legendFontColor: colors.textSecondary,
+      legendFontSize: 12,
+    }));
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
+        <View className="flex-1 justify-center items-center">
+          <View className="w-16 h-16 rounded-full items-center justify-center mb-4" style={{ backgroundColor: colors.primary }}>
+            <Ionicons name="stats-chart" size={32} color="white" />
+          </View>
+          <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>Loading stats...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
-      {/* Header */}
-      <View className="px-6 pt-4 pb-6">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-            Statistics
-          </Text>
-          <View className="flex-row space-x-2">
-            <TouchableOpacity 
-              className="w-12 h-12 rounded-2xl items-center justify-center"
-              style={{ backgroundColor: colors.surfaceSecondary }}
-              onPress={handleExportData}
-            >
-              <Ionicons name="download" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              className="w-12 h-12 rounded-2xl items-center justify-center"
-              style={{ backgroundColor: colors.surfaceSecondary }}
-              onPress={handleShareStats}
-            >
-              <Ionicons name="share" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-        {/* Period Selector */}
-        <View className="mb-6">
-          <Text className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>
-            Time Period
-          </Text>
-          <View className="flex-row space-x-3">
-            {periods.map((period) => (
-              <TouchableOpacity
-                key={period.id}
-                className={`flex-1 p-4 rounded-2xl items-center ${
-                  selectedPeriod === period.id ? 'border-2' : ''
-                }`}
-                style={{
-                  backgroundColor: selectedPeriod === period.id 
-                    ? colors.primary + '20' 
-                    : colors.surfaceSecondary,
-                  borderColor: selectedPeriod === period.id ? colors.primary : 'transparent'
-                }}
-                onPress={() => handlePeriodChange(period.id)}
-              >
-                <Ionicons 
-                  name={period.icon as any} 
-                  size={24} 
-                  color={selectedPeriod === period.id ? colors.primary : colors.textSecondary} 
-                />
-                <Text 
-                  className="text-sm font-bold mt-2"
-                  style={{ 
-                    color: selectedPeriod === period.id ? colors.primary : colors.textSecondary 
-                  }}
-                >
-                  {period.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Stats Grid */}
-        <View className="mb-6">
-          <Text className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>
-            Overview
-          </Text>
-          <View className="flex-row flex-wrap justify-between">
-            {stats.map((stat, index) => (
-              <View
-                key={index}
-                className="w-[48%] p-5 rounded-2xl mb-4"
-                style={{ backgroundColor: colors.surfaceSecondary }}
-              >
-                <View className="flex-row items-center mb-3">
-                  <View 
-                    className="w-12 h-12 rounded-2xl items-center justify-center mr-3"
-                    style={{ backgroundColor: stat.color + '20' }}
-                  >
-                    <Ionicons name={stat.icon as any} size={24} color={stat.color} />
-                  </View>
-                  <Text className="text-sm font-medium" style={{ color: colors.textSecondary }}>
-                    {stat.title}
-                  </Text>
-                </View>
-                <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
-                  {stat.value}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Per-day Habit Completion Heatmap */}
-        <View className="mb-6">
-          <Text className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>
-            Last 30 Days
-          </Text>
-          <View
-            className="p-4 rounded-2xl"
-            style={{ backgroundColor: colors.surfaceSecondary }}
-          >
-            <View className="flex-row flex-wrap" style={{ rowGap: 8 }}>
-              {days.map((d, idx) => (
-                <View key={d.date} className="items-center" style={{ width: `${100/7}%` }}>
-                  <View
-                    className="w-8 h-8 rounded-md"
-                    style={{ backgroundColor: d.done ? colors.success : colors.surfaceTertiary }}
-                  />
-                  {idx >= 23 && (
-                    <Text className="text-[10px] mt-1" style={{ color: colors.textTertiary }}>
-                      {new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </View>
-            <View className="flex-row justify-end mt-3 items-center">
-              <Text className="text-xs mr-2" style={{ color: colors.textSecondary }}>
-                Completion
-              </Text>
-              <View className="w-4 h-4 rounded-sm mr-1" style={{ backgroundColor: colors.surfaceTertiary }} />
-              <Text className="text-[10px] mr-2" style={{ color: colors.textTertiary }}>Missed</Text>
-              <View className="w-4 h-4 rounded-sm mr-1" style={{ backgroundColor: colors.success }} />
-              <Text className="text-[10px]" style={{ color: colors.textTertiary }}>Done</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Top Habits */}
-        <View className="mb-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
-              Top Performing Habits
+      <ScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View className="px-6 pt-6">
+          {/* Header */}
+          <View className="mb-6">
+            <Text className="text-3xl font-bold mb-2" style={{ color: colors.textPrimary }}>
+              Statistics
             </Text>
-            <TouchableOpacity onPress={handleViewDetailedStats}>
-              <Text className="text-sm font-medium" style={{ color: colors.primary }}>
-                View All
-              </Text>
-            </TouchableOpacity>
+            <Text className="text-base" style={{ color: colors.textSecondary }}>
+              Track your progress and achievements
+            </Text>
           </View>
-          <View 
-            className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: colors.surfaceSecondary }}
-          >
-            {[
-              { name: 'Morning Exercise', completion: 95, streak: 12 },
-              { name: 'Read 30 min', completion: 87, streak: 8 },
-              { name: 'Drink Water', completion: 92, streak: 15 },
-              { name: 'Meditate', completion: 78, streak: 6 },
-            ].map((habit, index) => (
-              <View key={index}>
-                <TouchableOpacity 
-                  className="flex-row items-center p-4"
-                  onPress={() => {
-                    lightFeedback();
-                    Alert.alert(
-                      `${habit.name} Details`,
-                      `Completion Rate: ${habit.completion}%\nCurrent Streak: ${habit.streak} days\n\nDetailed analytics coming soon!`,
-                      [{ text: 'OK' }]
-                    );
-                  }}
-                >
-                  <View className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
-                        style={{ backgroundColor: colors.primary + '20' }}>
-                    <Text className="text-base font-bold" style={{ color: colors.primary }}>
-                      {index + 1}
-                    </Text>
+
+          {/* Time Period Selector */}
+          <View className="mb-6">
+            <Card className="rounded-2xl">
+              <CardContent className="p-4">
+                <View className="flex-row space-x-2">
+                  {(['week', 'month', 'year'] as TimePeriod[]).map((period) => (
+                    <Button
+                      key={period}
+                      label={period.charAt(0).toUpperCase() + period.slice(1)}
+                      variant={selectedPeriod === period ? "default" : "outline"}
+                      size="sm"
+                      onPress={() => setSelectedPeriod(period)}
+                      className="flex-1"
+                    />
+                  ))}
+                </View>
+              </CardContent>
+            </Card>
+          </View>
+
+          {/* Today's Overview */}
+          <View className="mb-6">
+            <Card className="rounded-3xl">
+              <CardHeader>
+                <CardTitle className="flex-row items-center justify-between">
+                  <Text style={{ color: colors.textPrimary }}>Today's Progress</Text>
+                  <Badge variant="outline" className="rounded-full">
+                    <Ionicons name="today" size={16} color={colors.primary} />
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <View className="flex-row items-center justify-between">
+                  <ProgressRing
+                    progress={completionRate}
+                    size={100}
+                    strokeWidth={8}
+                    title={`${completedToday}/${totalHabits}`}
+                    subtitle="habits completed"
+                  />
+                  <View className="space-y-2">
+                    <View className="items-end">
+                      <Text className="text-2xl font-bold" style={{ color: colors.primary }}>
+                        {Math.round(completionRate)}%
+                      </Text>
+                      <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                        completion rate
+                      </Text>
+                    </View>
+                    <View className="items-end">
+                      <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+                        {getTotalCompletions()}
+                      </Text>
+                      <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                        total completions
+                      </Text>
+                    </View>
                   </View>
-                  <View className="flex-1">
-                    <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
-                      {habit.name}
+                </View>
+              </CardContent>
+            </Card>
+          </View>
+
+          {/* Completion Trend Chart */}
+          <View className="mb-6">
+            <LineChartComponent
+              data={formatChartData()}
+              title={`${selectedPeriod.charAt(0).toUpperCase() + selectedPeriod.slice(1)}ly Trend`}
+              subtitle={`Average: ${Math.round(getAverageCompletionRate())}% completion rate`}
+              height={250}
+            />
+          </View>
+
+          {/* Category Breakdown */}
+          {categoryData.length > 0 && (
+            <View className="mb-6">
+              <PieChartComponent
+                data={formatPieData()}
+                title="Completion by Category"
+                subtitle="Today's progress breakdown"
+              />
+            </View>
+          )}
+
+          {/* Habit Details */}
+          <View className="mb-6">
+            <Card className="rounded-3xl">
+              <CardHeader>
+                <CardTitle>Habit Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <View className="space-y-3">
+                  {habits.map((habit) => {
+                    const isCompleted = completions[habit.id];
+                    return (
+                      <View
+                        key={habit.id}
+                        className="flex-row items-center p-4 rounded-2xl"
+                        style={{ backgroundColor: colors.surfaceSecondary }}
+                      >
+                        <View 
+                          className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
+                          style={{ backgroundColor: colors.primary + '20' }}
+                        >
+                          <Ionicons name={habit.icon || 'star'} size={24} color={colors.primary} />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
+                            {habit.name}
+                          </Text>
+                          <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                            {habit.category.charAt(0).toUpperCase() + habit.category.slice(1)}
+                          </Text>
+                        </View>
+                        <View 
+                          className="w-10 h-10 rounded-2xl items-center justify-center"
+                          style={{ backgroundColor: isCompleted ? colors.success : colors.surfaceTertiary }}
+                        >
+                          <Ionicons 
+                            name={isCompleted ? "checkmark" : "time"} 
+                            size={20} 
+                            color={isCompleted ? "white" : colors.textTertiary} 
+                          />
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </CardContent>
+            </Card>
+          </View>
+
+          {/* Quick Stats */}
+          <View className="mb-6">
+            <Card className="rounded-3xl">
+              <CardHeader>
+                <CardTitle>Quick Stats</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <View className="flex-row justify-between">
+                  <View className="items-center">
+                    <Text className="text-2xl font-bold" style={{ color: colors.primary }}>
+                      {totalHabits}
                     </Text>
                     <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                      {habit.streak} day streak
+                      Total Habits
                     </Text>
                   </View>
-                  <View className="items-end">
-                    <Text className="text-2xl font-bold" style={{ color: colors.success }}>
-                      {habit.completion}%
+                  <View className="items-center">
+                    <Text className="text-2xl font-bold" style={{ color: colors.primary }}>
+                      {completedToday}
                     </Text>
-                    <Text className="text-xs" style={{ color: colors.textSecondary }}>
-                      Completion
+                    <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                      Completed Today
                     </Text>
                   </View>
-                </TouchableOpacity>
-                {index < 3 && (
-                  <View 
-                    className="h-[0.5px] mx-4"
-                    style={{ backgroundColor: colors.border }}
-                  />
-                )}
-              </View>
-            ))}
+                  <View className="items-center">
+                    <Text className="text-2xl font-bold" style={{ color: colors.primary }}>
+                      {Math.round(getAverageCompletionRate())}%
+                    </Text>
+                    <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                      Avg. Rate
+                    </Text>
+                  </View>
+                </View>
+              </CardContent>
+            </Card>
           </View>
         </View>
-
-        {/* Insights */}
-        <View className="mb-6">
-          <Text className="text-xl font-bold mb-4" style={{ color: colors.textPrimary }}>
-            Insights
-          </Text>
-          <View 
-            className="p-5 rounded-2xl"
-            style={{ backgroundColor: colors.success + '20' }}
-          >
-            <View className="flex-row items-center mb-3">
-              <Ionicons name="trending-up" size={24} color={colors.success} />
-              <Text className="ml-3 text-lg font-bold" style={{ color: colors.success }}>
-                Great Progress!
-              </Text>
-            </View>
-            <Text className="text-base" style={{ color: colors.textSecondary }}>
-              You've improved your productivity by 23% this week compared to last week. 
-              Keep up the excellent work!
-            </Text>
-          </View>
-        </View>
-
-        {/* Bottom Spacing */}
-        <View className="h-20" />
       </ScrollView>
     </SafeAreaView>
   );

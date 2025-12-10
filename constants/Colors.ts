@@ -13,12 +13,12 @@ export const Colors = {
     tint: tintColorLight,
     tabIconDefault: '#94A3B8',
     tabIconSelected: tintColorLight,
-    // Habyss Theme Colors
-    primary: '#3B82F6', // Blue 500
-    primaryLight: '#60A5FA', // Blue 400
-    primaryDark: '#1D4ED8', // Blue 700
-    secondary: '#6366F1', // Indigo 500
-    accent: '#8B5CF6', // Violet 500
+    // Habyss Theme Colors - Landing Page Inspired
+    primary: '#4A70B8', // Muted blue from landing page
+    primaryLight: '#7EA0D8', // Lighter blue gradient
+    primaryDark: '#3B82F6', // Vibrant blue for accents
+    secondary: '#5A7BB8', // Medium blue for text
+    accent: '#3B82F6', // Vibrant blue for buttons
     success: '#10B981', // Emerald 500
     warning: '#F59E0B', // Amber 500
     error: '#EF4444', // Red 500
@@ -30,51 +30,56 @@ export const Colors = {
     textPrimary: '#0F172A',
     textSecondary: '#475569',
     textTertiary: '#94A3B8',
-    // Gradient Colors
-    gradientStart: '#3B82F6',
-    gradientEnd: '#1D4ED8',
-    gradientLight: '#60A5FA',
-    gradientDark: '#1E40AF',
+    // Gradient Colors - Landing Page Inspired
+    gradientStart: '#4A70B8',
+    gradientEnd: '#7EA0D8',
+    gradientLight: '#7EA0D8',
+    gradientDark: '#3B82F6',
   },
   dark: {
     text: '#FFFFFF',
-    background: '#000000',
-    tint: tintColorDark,
-    tabIconDefault: '#64748B',
-    tabIconSelected: tintColorDark,
-    // Habyss Theme Colors
-    primary: '#60A5FA', // Blue 400
-    primaryLight: '#93C5FD', // Blue 300
-    primaryDark: '#3B82F6', // Blue 500
-    secondary: '#818CF8', // Indigo 400
-    accent: '#A78BFA', // Violet 400
+    background: '#000000', // Pure black background like logo
+    tint: '#7EA0D8', // Lighter blue from logo gradient
+    tabIconDefault: '#4A70B8', // Darker blue from logo
+    tabIconSelected: '#7EA0D8', // Lighter blue from logo
+    // Habyss Theme Colors - Logo Inspired
+    primary: '#7EA0D8', // Lighter blue from logo gradient
+    primaryLight: '#7EA0D8', // Same as primary for consistency
+    primaryDark: '#4A70B8', // Darker blue from logo
+    secondary: '#4A70B8', // Darker blue for secondary elements
+    accent: '#7EA0D8', // Lighter blue for accents
     success: '#34D399', // Emerald 400
     warning: '#FBBF24', // Amber 400
     error: '#F87171', // Red 400
-    surface: '#0F172A',
-    surfaceSecondary: '#1E293B',
-    surfaceTertiary: '#334155',
-    border: '#334155',
-    borderLight: '#475569',
-    textPrimary: '#F8FAFC',
-    textSecondary: '#CBD5E1',
-    textTertiary: '#94A3B8',
-    // Gradient Colors
-    gradientStart: '#60A5FA',
-    gradientEnd: '#3B82F6',
-    gradientLight: '#93C5FD',
-    gradientDark: '#1D4ED8',
+    surface: '#111111', // Very dark gray, slightly lighter than black
+    surfaceSecondary: '#1A1A1A', // Dark gray for cards/buttons
+    surfaceTertiary: '#222222', // Even lighter for subtle elements
+    border: '#333333', // Dark gray for borders
+    borderLight: '#444444', // Lighter border
+    textPrimary: '#FFFFFF', // White for primary text
+    textSecondary: '#7EA0D8', // Lighter blue for secondary text
+    textTertiary: '#4A70B8', // Darker blue for tertiary text
+    // Gradient Colors - Logo Inspired
+    gradientStart: '#4A70B8',
+    gradientEnd: '#7EA0D8',
+    gradientLight: '#7EA0D8',
+    gradientDark: '#4A70B8',
   },
-  // Common Colors
+  // Common Colors - Logo Inspired
   common: {
-    black: '#000000',
+    black: '#000000', // Pure black background like logo
     white: '#FFFFFF',
     transparent: 'transparent',
-    // Habyss Logo Colors
-    habyssBlue: '#3B82F6',
-    habyssBlueLight: '#60A5FA',
-    habyssBlueDark: '#1D4ED8',
-    habyssGradientStart: '#3B82F6',
-    habyssGradientEnd: '#1D4ED8',
+    // Habyss Logo Colors - Exact logo colors
+    habyssBlue: '#7EA0D8', // Lighter blue from logo
+    habyssBlueLight: '#7EA0D8', // Lighter blue from logo
+    habyssBlueDark: '#4A70B8', // Darker blue from logo
+    habyssGradientStart: '#4A70B8', // Darker blue from logo
+    habyssGradientEnd: '#7EA0D8', // Lighter blue from logo
+    // Logo Specific Colors
+    logoBackground: '#000000',
+    logoTextSecondary: '#7EA0D8',
+    logoTextMuted: '#4A70B8',
+    logoButtonBg: '#1A1A1A',
   }
 };

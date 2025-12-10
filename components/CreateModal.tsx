@@ -3,6 +3,13 @@ import { View, Text, TouchableOpacity, Modal, TextInput, DeviceEventEmitter, Pla
 import { Ionicons } from '@expo/vector-icons';
 import { addHabit, HabitCategory } from '@/lib/habits';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@/constants/Colors';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface CreateModalProps {
   visible: boolean;
@@ -18,6 +25,9 @@ const categories: { key: HabitCategory; label: string; color: string; icon: keyo
 ];
 
 const CreateModal: React.FC<CreateModalProps> = ({ visible, onClose }) => {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'dark'];
+  
   const [name, setName] = useState('');
   const [category, setCategory] = useState<HabitCategory>('productivity');
   const [duration, setDuration] = useState<string>('');
@@ -29,14 +39,21 @@ const CreateModal: React.FC<CreateModalProps> = ({ visible, onClose }) => {
   const [showEndPicker, setShowEndPicker] = useState(false);
   const wheelHeight = Math.min(140, Math.floor(Dimensions.get('window').height * 0.22));
   const [showIconPicker, setShowIconPicker] = useState(false);
+  
+  // Goal creation states
+  const [isGoal, setIsGoal] = useState(false);
+  const [targetDate, setTargetDate] = useState<Date | null>(null);
+  const [showTargetDatePicker, setShowTargetDatePicker] = useState(false);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
+    if (isGoal && !targetDate) return; // Goal requires target date
     try {
       setSaving(true);
       const parsed = duration.trim() ? Math.max(1, Math.min(1440, parseInt(duration.trim(), 10) || 0)) : undefined;
       const fmt = (d: Date | null) => (d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : undefined);
-      await addHabit(name.trim(), category, iconName, parsed, fmt(startAt), fmt(endAt));
+      const targetDateISO = targetDate ? targetDate.toISOString() : undefined;
+      await addHabit(name.trim(), category, iconName, parsed, fmt(startAt), fmt(endAt), isGoal, targetDateISO);
       DeviceEventEmitter.emit('habit_created');
       setName('');
       setCategory('productivity');
@@ -44,6 +61,8 @@ const CreateModal: React.FC<CreateModalProps> = ({ visible, onClose }) => {
       setIconName(undefined);
       setStartAt(null);
       setEndAt(null);
+      setIsGoal(false);
+      setTargetDate(null);
       onClose();
     } finally {
       setSaving(false);
@@ -62,81 +81,145 @@ const CreateModal: React.FC<CreateModalProps> = ({ visible, onClose }) => {
         activeOpacity={1}
         onPress={onClose}
       >
-        <View className="bg-white rounded-t-3xl p-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-2xl font-bold text-gray-900">New Habit</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
+        <Card className="rounded-t-3xl">
+          <CardHeader>
+            <View className="flex-row justify-between items-center">
+              <CardTitle>New Habit</CardTitle>
+              <TouchableOpacity onPress={onClose}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </CardHeader>
 
-          <ScrollView contentContainerStyle={{ paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
-          <View>
-            <Text className="text-sm mb-2 text-gray-600">Name</Text>
-            <View className="flex-row items-center">
+          <CardContent>
+            <ScrollView contentContainerStyle={{ paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
+          <View className="space-y-4">
+            <View className="flex-row items-center space-x-3">
               <TouchableOpacity
-                className="w-12 h-12 rounded-xl items-center justify-center mr-3"
-                style={{ backgroundColor: '#E5F0FF' }}
+                className="w-12 h-12 rounded-2xl items-center justify-center"
+                style={{ backgroundColor: colors.surfaceSecondary }}
                 onPress={() => setShowIconPicker(true)}
                 accessibilityLabel="Choose icon"
               >
-                <Ionicons name={(iconName ?? 'timer') as any} size={20} color="#3B82F6" />
+                <Ionicons name={(iconName ?? 'timer') as any} size={20} color={colors.primary} />
               </TouchableOpacity>
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g., Read 20 minutes"
-                className="flex-1 p-4 rounded-xl"
-                style={{ backgroundColor: '#F1F5F9' }}
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={handleCreate}
-              />
+              <View className="flex-1">
+                <Input
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g., Read 20 minutes"
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleCreate}
+                />
+              </View>
             </View>
           </View>
 
-          <View className="mt-4">
-            <Text className="text-sm mb-2 text-gray-600">Category</Text>
-            <View className="flex-row flex-wrap justify-between">
+          <View className="mt-6">
+            <Text className="text-sm mb-3 font-medium" style={{ color: colors.textSecondary }}>Category</Text>
+            <View className="flex-row flex-wrap gap-2">
               {categories.map(c => (
                 <TouchableOpacity
                   key={c.key}
-                  className="w-[48%] p-4 rounded-xl mb-3 flex-row items-center"
-                  style={{ backgroundColor: category === c.key ? c.color + '20' : '#F8FAFC', borderWidth: category === c.key ? 2 : 0, borderColor: c.color }}
                   onPress={() => setCategory(c.key)}
                 >
-                  <View className="w-8 h-8 rounded-lg items-center justify-center mr-3" style={{ backgroundColor: c.color + '20' }}>
-                    <Ionicons name={c.icon} size={18} color={c.color} />
-                  </View>
-                  <Text className="font-semibold" style={{ color: '#0F172A' }}>{c.label}</Text>
+                  <Badge
+                    variant={category === c.key ? "default" : "outline"}
+                    className={cn(
+                      "flex-row items-center px-4 py-2 rounded-2xl",
+                      category === c.key && "border-2"
+                    )}
+                    style={{
+                      backgroundColor: category === c.key ? c.color + '20' : colors.surfaceSecondary,
+                      borderColor: category === c.key ? c.color : colors.border,
+                    }}
+                  >
+                    <Ionicons name={c.icon} size={16} color={c.color} />
+                    <Text className="ml-2 font-medium" style={{ color: colors.textPrimary }}>{c.label}</Text>
+                  </Badge>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
-          <View className="mt-4">
-            <Text className="text-sm mb-2 text-gray-600">Estimated Duration (minutes)</Text>
-            <TextInput
+          <View className="mt-6">
+            <Input
+              label="Estimated Duration (minutes)"
               value={duration}
               onChangeText={setDuration}
               placeholder="e.g., 20"
               keyboardType="number-pad"
-              className="p-4 rounded-xl"
-              style={{ backgroundColor: '#F1F5F9' }}
               returnKeyType="done"
               onSubmitEditing={handleCreate}
             />
           </View>
 
-          <View className="mt-3 flex-row justify-between">
-            <View className="w-[48%]">
-              <Text className="text-sm mb-2 text-gray-600">Start Time</Text>
+          {/* Goal Toggle */}
+          <View className="mt-6">
+            <TouchableOpacity
+              className="flex-row items-center p-4 rounded-2xl"
+              style={{ backgroundColor: isGoal ? colors.primary + '20' : colors.surfaceSecondary, borderWidth: isGoal ? 2 : 1, borderColor: isGoal ? colors.primary : colors.border }}
+              onPress={() => setIsGoal(!isGoal)}
+            >
+              <View className="w-8 h-8 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: isGoal ? colors.primary + '40' : colors.border }}>
+                <Ionicons name="trophy" size={18} color={isGoal ? colors.primary : colors.textTertiary} />
+              </View>
+              <View className="flex-1">
+                <Text className="font-semibold" style={{ color: colors.textPrimary }}>This is a Goal</Text>
+                <Text className="text-xs" style={{ color: colors.textSecondary }}>Set a target date to achieve this goal</Text>
+              </View>
+              <View 
+                className="w-6 h-6 rounded-full items-center justify-center"
+                style={{ backgroundColor: isGoal ? colors.primary : colors.border }}
+              >
+                {isGoal && <Ionicons name="checkmark" size={16} color="white" />}
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Target Date Picker - only show if goal is selected */}
+          {isGoal && (
+            <View className="mt-6">
               <TouchableOpacity
-                className="p-4 rounded-xl"
-                style={{ backgroundColor: '#F1F5F9' }}
+                className="p-4 rounded-2xl"
+                style={{ backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }}
+                onPress={() => setShowTargetDatePicker(true)}
+              >
+                <Text className="font-semibold" style={{ color: colors.textPrimary }}>
+                  {targetDate ? targetDate.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  }) : 'Select target date'}
+                </Text>
+              </TouchableOpacity>
+              {showTargetDatePicker && (
+                <DateTimePicker
+                  value={targetDate ?? new Date()}
+                  mode="date"
+                  minimumDate={new Date()} // Can't set target date in the past
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(e, d) => {
+                    if (Platform.OS !== 'ios') setShowTargetDatePicker(false);
+                    if (d) setTargetDate(d);
+                  }}
+                  style={Platform.OS === 'ios' ? { height: wheelHeight } : undefined}
+                />
+              )}
+            </View>
+          )}
+
+          <View className="mt-6 flex-row justify-between space-x-3">
+            <View className="flex-1">
+              <TouchableOpacity
+                className="p-4 rounded-2xl"
+                style={{ backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }}
                 onPress={() => setShowStartPicker(true)}
               >
-                <Text className="font-semibold" style={{ color: '#0F172A' }}>
+                <Text className="text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>Start Time</Text>
+                <Text className="font-semibold" style={{ color: colors.textPrimary }}>
                   {startAt ? `${String(startAt.getHours()).padStart(2,'0')}:${String(startAt.getMinutes()).padStart(2,'0')}` : 'Select start'}
                 </Text>
               </TouchableOpacity>
@@ -155,14 +238,14 @@ const CreateModal: React.FC<CreateModalProps> = ({ visible, onClose }) => {
               )}
             </View>
 
-            <View className="w-[48%]">
-              <Text className="text-sm mb-2 text-gray-600">End Time</Text>
+            <View className="flex-1">
               <TouchableOpacity
-                className="p-4 rounded-xl"
-                style={{ backgroundColor: '#F1F5F9' }}
+                className="p-4 rounded-2xl"
+                style={{ backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }}
                 onPress={() => setShowEndPicker(true)}
               >
-                <Text className="font-semibold" style={{ color: '#0F172A' }}>
+                <Text className="text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>End Time</Text>
+                <Text className="font-semibold" style={{ color: colors.textPrimary }}>
                   {endAt ? `${String(endAt.getHours()).padStart(2,'0')}:${String(endAt.getMinutes()).padStart(2,'0')}` : 'Select end'}
                 </Text>
               </TouchableOpacity>
@@ -194,53 +277,58 @@ const CreateModal: React.FC<CreateModalProps> = ({ visible, onClose }) => {
               activeOpacity={1}
               onPress={() => setShowIconPicker(false)}
             >
-              <View className="bg-white rounded-2xl p-5 w-11/12">
-                <View className="flex-row justify-between items-center mb-3">
-                  <Text className="text-lg font-semibold" style={{ color: '#0F172A' }}>Choose an icon</Text>
-                  <TouchableOpacity onPress={() => setShowIconPicker(false)}>
-                    <Ionicons name="close" size={22} color="#6B7280" />
-                  </TouchableOpacity>
-                </View>
-                <View className="flex-row flex-wrap justify-between">
-                  {[
-                    { k: 'book' as const, label: 'Read' },
-                    { k: 'fitness' as const, label: 'Workout' },
-                    { k: 'leaf' as const, label: 'Meditate' },
-                    { k: 'water' as const, label: 'Water' },
-                    { k: 'timer' as const, label: 'Timer' },
-                    { k: 'create' as const, label: 'Write' },
-                    { k: 'briefcase' as const, label: 'Work' },
-                    { k: 'cafe' as const, label: 'Break' },
-                    { k: 'bed' as const, label: 'Sleep' },
-                    { k: 'school' as const, label: 'Study' },
-                    { k: 'walk' as const, label: 'Walk' },
-                    { k: 'bicycle' as const, label: 'Bike' },
-                  ].map(opt => (
-                    <TouchableOpacity
-                      key={opt.k}
-                      className="w-[48%] p-3 rounded-xl mb-3 flex-row items-center"
-                      style={{ backgroundColor: iconName === opt.k ? '#E5F0FF' : '#F8FAFC', borderWidth: iconName === opt.k ? 2 : 0, borderColor: '#3B82F6' }}
-                      onPress={() => { setIconName(opt.k); setShowIconPicker(false); }}
-                    >
-                      <Ionicons name={opt.k} size={18} color="#3B82F6" />
-                      <Text className="ml-2 font-semibold" style={{ color: '#0F172A' }}>{opt.label}</Text>
+              <Card className="w-11/12">
+                <CardHeader>
+                  <View className="flex-row justify-between items-center">
+                    <CardTitle>Choose an icon</CardTitle>
+                    <TouchableOpacity onPress={() => setShowIconPicker(false)}>
+                      <Ionicons name="close" size={22} color={colors.textSecondary} />
                     </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+                  </View>
+                </CardHeader>
+                <CardContent>
+                  <View className="flex-row flex-wrap gap-2">
+                    {[
+                      { k: 'book' as const, label: 'Read' },
+                      { k: 'fitness' as const, label: 'Workout' },
+                      { k: 'leaf' as const, label: 'Meditate' },
+                      { k: 'water' as const, label: 'Water' },
+                      { k: 'timer' as const, label: 'Timer' },
+                      { k: 'create' as const, label: 'Write' },
+                      { k: 'briefcase' as const, label: 'Work' },
+                      { k: 'cafe' as const, label: 'Break' },
+                      { k: 'bed' as const, label: 'Sleep' },
+                      { k: 'school' as const, label: 'Study' },
+                      { k: 'walk' as const, label: 'Walk' },
+                      { k: 'bicycle' as const, label: 'Bike' },
+                    ].map(opt => (
+                      <TouchableOpacity
+                        key={opt.k}
+                        className="w-[48%] p-3 rounded-2xl mb-3 flex-row items-center"
+                        style={{ backgroundColor: iconName === opt.k ? colors.primary + '20' : colors.surfaceSecondary, borderWidth: iconName === opt.k ? 2 : 1, borderColor: iconName === opt.k ? colors.primary : colors.border }}
+                        onPress={() => { setIconName(opt.k); setShowIconPicker(false); }}
+                      >
+                        <Ionicons name={opt.k} size={18} color={colors.primary} />
+                        <Text className="ml-2 font-semibold" style={{ color: colors.textPrimary }}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </CardContent>
+              </Card>
             </TouchableOpacity>
           </Modal>
 
-          <TouchableOpacity
-            className="mt-4 p-4 rounded-xl items-center"
-            style={{ backgroundColor: name.trim() && !saving ? '#3B82F6' : '#93C5FD' }}
-            disabled={!name.trim() || saving}
-            onPress={handleCreate}
-          >
-            <Text className="text-white font-semibold">Create Habit</Text>
-          </TouchableOpacity>
+          <View className="mt-8">
+            <Button
+              label={isGoal ? 'Create Goal' : 'Create Habit'}
+              disabled={!name.trim() || (isGoal && !targetDate) || saving}
+              onPress={handleCreate}
+              className="w-full"
+            />
+          </View>
           </ScrollView>
-        </View>
+          </CardContent>
+        </Card>
       </TouchableOpacity>
     </Modal>
   );

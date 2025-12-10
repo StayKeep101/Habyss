@@ -8,7 +8,9 @@ import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import CreateModal from '@/components/CreateModal';
-import { getHabits as loadHabits, getCompletions, toggleCompletion, Habit as StoreHabit, removeHabitEverywhere } from '@/lib/habits';
+import { getHabits as loadHabits, getCompletions, toggleCompletion, Habit as StoreHabit, removeHabitEverywhere, getGoalTargetDate } from '@/lib/habits';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,6 +41,7 @@ const Home = () => {
   const [selectedDay, setSelectedDay] = useState<any>(null);
   const [dayModalVisible, setDayModalVisible] = useState(false);
   const [currentQuote, setCurrentQuote] = useState(0);
+  const [goalTargetDate, setGoalTargetDate] = useState<string | null>(null);
 
   const motivationalQuotes = [
     "The secret of getting ahead is getting started.",
@@ -106,6 +109,10 @@ const Home = () => {
       setTotalHabits(mapped.length);
       setCompletedHabits(Object.values(c).filter(Boolean).length);
       setCurrentStreak(0);
+      
+      // Load goal target date
+      const targetDate = await getGoalTargetDate();
+      setGoalTargetDate(targetDate);
     };
     load();
     const sub = DeviceEventEmitter.addListener('habit_created', load);
@@ -131,16 +138,27 @@ const Home = () => {
     const days = [];
     const today = new Date();
     
+    // Calculate how many days to show based on goal target date
+    let maxDays = 30; // Default 30 days
+    if (goalTargetDate) {
+      const targetDate = new Date(goalTargetDate);
+      const diffTime = targetDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      maxDays = Math.max(30, diffDays + 5); // At least 30 days, or goal date + 5 days buffer
+    }
+    
     // Future days (upcoming days above)
-    for (let i = 30; i >= 1; i--) {
+    for (let i = maxDays; i >= 1; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() + i);
+      const isGoalDay = goalTargetDate && date.toDateString() === new Date(goalTargetDate).toDateString();
       days.push({
         day: -i,
         date,
         completed: false,
         isToday: false,
         isPast: false,
+        isGoalDay,
       });
     }
     
@@ -151,6 +169,7 @@ const Home = () => {
       completed: completedHabits > 0,
       isToday: true,
       isPast: false,
+      isGoalDay: goalTargetDate && today.toDateString() === new Date(goalTargetDate).toDateString(),
     });
     
     return days;
@@ -205,12 +224,25 @@ const Home = () => {
     const isCompleted = day.completed;
     const isToday = day.isToday;
     const isFuture = day.day < 0;
+    const isGoalDay = day.isGoalDay;
+    
+    // Calculate zigzag position - more pronounced wavy pattern
+    const isRightSide = index % 2 === 1;
+    const horizontalOffset = isRightSide ? width * 0.25 : width * 0.05;
     
     let nodeColor = colors.surfaceSecondary;
     let iconName = 'ellipse-outline';
     let iconColor = colors.textSecondary;
+    let nodeWidth = 60; // Default width for squares
+    let nodeHeight = 60; // Default height for squares
     
-    if (isCompleted) {
+    if (isGoalDay) {
+      nodeColor = colors.primary;
+      iconName = 'trophy';
+      iconColor = 'white';
+      nodeWidth = 120; // Much bigger for goal day
+      nodeHeight = 80;
+    } else if (isCompleted) {
       nodeColor = colors.success;
       iconName = 'checkmark-circle';
       iconColor = 'white';
@@ -226,29 +258,50 @@ const Home = () => {
     }
     
     return (
-      <View key={index} className="items-center mb-8">
-        <TouchableOpacity
-          className="w-16 h-16 rounded-full items-center justify-center"
-          style={{ 
-            backgroundColor: nodeColor,
-            shadowColor: '#000',
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            shadowOffset: { width: 0, height: 2 },
-            elevation: 2,
-          }}
-          onPress={() => handleDayPress(day)}
-        >
-          <Ionicons name={iconName as any} size={24} color={iconColor} />
-        </TouchableOpacity>
-        <Text className="text-xs mt-2 font-medium" style={{ color: colors.textSecondary }}>
-          {formatDate(day.date)}
-        </Text>
-        {isToday && (
-          <Text className="text-xs mt-1" style={{ color: colors.textTertiary }}>
-            {completedHabits}/{totalHabits}
+      <View key={index} className="mb-8" style={{ position: 'relative' }}>
+        <View style={{ 
+          alignItems: 'center',
+          marginLeft: isRightSide ? width * 0.4 : width * 0.1,
+          marginRight: isRightSide ? width * 0.1 : width * 0.4,
+        }}>
+          <TouchableOpacity
+            className="items-center justify-center"
+            style={{ 
+              width: nodeWidth,
+              height: nodeHeight,
+              backgroundColor: nodeColor,
+              borderRadius: isGoalDay ? 20 : 16, // More rounded edges like logo
+              shadowColor: colors.primaryDark, // Use logo dark blue for shadow
+              shadowOpacity: 0.2,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
+              // Add subtle border for 3D effect
+              borderWidth: 1,
+              borderColor: nodeColor === colors.primary ? colors.primaryDark + '30' : 'transparent',
+            }}
+            onPress={() => handleDayPress(day)}
+          >
+            {isGoalDay ? (
+              <View className="items-center">
+                <Ionicons name={iconName as any} size={28} color={iconColor} />
+                <Text className="text-xs font-bold mt-1" style={{ color: iconColor }}>
+                  GOAL ACHIEVED
+                </Text>
+              </View>
+            ) : (
+              <Ionicons name={iconName as any} size={24} color={iconColor} />
+            )}
+          </TouchableOpacity>
+          <Text className="text-xs mt-2 font-medium" style={{ color: colors.textSecondary }}>
+            {formatDate(day.date)}
           </Text>
-        )}
+          {isToday && (
+            <Text className="text-xs mt-1" style={{ color: colors.textTertiary }}>
+              {completedHabits}/{totalHabits}
+            </Text>
+          )}
+        </View>
       </View>
     );
   };
@@ -271,8 +324,17 @@ const Home = () => {
                   style={{ 
                     width: 44, 
                     height: 44, 
-                    borderRadius: 12,
-                    backgroundColor: colors.primary
+                    borderRadius: 16, // More rounded like logo
+                    backgroundColor: colors.primary, // #7EA0D8
+                    // Add gradient effect with shadow
+                    shadowColor: colors.primaryDark, // #4A70B8
+                    shadowOpacity: 0.4,
+                    shadowRadius: 12,
+                    shadowOffset: { width: 0, height: 6 },
+                    elevation: 10,
+                    // Add subtle border for 3D effect
+                    borderWidth: 1,
+                    borderColor: colors.primary + '40',
                   }}
                 >
                   <View className="flex-1 items-center justify-center">
@@ -294,76 +356,113 @@ const Home = () => {
 
         {/* Motivational Quotes Section */}
         <View className="px-6 mb-6">
-          <Animated.View 
-            className="rounded-2xl p-6"
-            style={{ backgroundColor: colors.primary + '10' }}
-          >
-            <View className="flex-row items-center mb-3">
-              <View 
-                className="w-8 h-8 rounded-full items-center justify-center mr-3"
-                style={{ backgroundColor: colors.primary + '20' }}
-              >
-                <Ionicons name="bulb" size={18} color={colors.primary} />
-              </View>
-              <Text className="text-sm font-semibold" style={{ color: colors.primary }}>
-                Daily Inspiration
-              </Text>
-            </View>
-            <Animated.Text 
-              className="text-base leading-6"
-              style={{ color: colors.textPrimary }}
-            >
-              "{motivationalQuotes[currentQuote]}"
-            </Animated.Text>
-            <View className="flex-row justify-center mt-4">
-              {motivationalQuotes.map((_, index) => (
-                <View
-                  key={index}
-                  className="w-2 h-2 rounded-full mx-1"
-                  style={{ 
-                    backgroundColor: index === currentQuote ? colors.primary : colors.border,
-                    opacity: index === currentQuote ? 1 : 0.3
-                  }}
-                />
-              ))}
-            </View>
+          <Animated.View>
+            <Card className="rounded-3xl">
+              <CardContent className="p-6">
+                <View className="flex-row items-center mb-3">
+                  <View 
+                    className="w-8 h-8 rounded-full items-center justify-center mr-3"
+                    style={{ backgroundColor: colors.primary + '20' }}
+                  >
+                    <Ionicons name="bulb" size={18} color={colors.primary} />
+                  </View>
+                  <Badge variant="outline" className="rounded-full px-3 py-1">
+                    <Text className="text-sm font-semibold" style={{ color: colors.primary }}>
+                      Daily Inspiration
+                    </Text>
+                  </Badge>
+                </View>
+                <Animated.Text 
+                  className="text-base leading-6 mb-4"
+                  style={{ color: colors.textPrimary }}
+                >
+                  "{motivationalQuotes[currentQuote]}"
+                </Animated.Text>
+                <View className="flex-row justify-center">
+                  {motivationalQuotes.map((_, index) => (
+                    <View
+                      key={index}
+                      className="w-2 h-2 rounded-full mx-1"
+                      style={{ 
+                        backgroundColor: index === currentQuote ? colors.primary : colors.border,
+                        opacity: index === currentQuote ? 1 : 0.3
+                      }}
+                    />
+                  ))}
+                </View>
+              </CardContent>
+            </Card>
           </Animated.View>
         </View>
 
-        {/* Duolingo-style Day Path */}
+        {/* Content Area */}
         <View className="flex-1 px-6">
-          <RNGHPanGestureHandler
-            ref={panRef}
-            onGestureEvent={onPanGestureEvent}
-            onHandlerStateChange={onHandlerStateChange}
-          >
-            <Animated.View style={{ flex: 1 }}>
-              <ScrollView
-                contentContainerStyle={{ paddingVertical: 20, flexGrow: 1, justifyContent: 'flex-end' }}
-                showsVerticalScrollIndicator={false}
-                scrollEventThrottle={16}
-                onScroll={Animated.event(
-                  [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                  { useNativeDriver: false }
-                )}
-                onContentSizeChange={(contentWidth, contentHeight) => {
-                  // Auto-scroll to bottom (today) when content loads
-                  setTimeout(() => {
-                    // This will be handled by the ScrollView's contentContainerStyle
-                  }, 100);
-                }}
-              >
-                {days.map((day, index) => renderDayNode(day, index))}
-              </ScrollView>
-            </Animated.View>
-          </RNGHPanGestureHandler>
+          {habits.length === 0 ? (
+            // Empty State
+            <View className="flex-1 justify-center items-center">
+              <View className="items-center">
+                <View 
+                  className="w-24 h-24 rounded-3xl items-center justify-center mb-6"
+                  style={{ 
+                    backgroundColor: colors.surfaceSecondary,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Ionicons name="flag" size={40} color={colors.textTertiary} />
+                </View>
+                <Text className="text-xl font-semibold mb-3 text-center" style={{ color: colors.textPrimary }}>
+                  A life with no goals is a life with no purpose
+                </Text>
+                <Text className="text-sm text-center mb-8" style={{ color: colors.textSecondary }}>
+                  Create your first goal to start your journey
+                </Text>
+              </View>
+            </View>
+          ) : (
+            // Duolingo-style Day Path
+            <RNGHPanGestureHandler
+              ref={panRef}
+              onGestureEvent={onPanGestureEvent}
+              onHandlerStateChange={onHandlerStateChange}
+            >
+              <Animated.View style={{ flex: 1 }}>
+                <ScrollView
+                  contentContainerStyle={{ paddingVertical: 20, flexGrow: 1, justifyContent: 'flex-end' }}
+                  showsVerticalScrollIndicator={false}
+                  scrollEventThrottle={16}
+                  onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                    { useNativeDriver: false }
+                  )}
+                  onContentSizeChange={(contentWidth, contentHeight) => {
+                    // Auto-scroll to bottom (today) when content loads
+                    setTimeout(() => {
+                      // This will be handled by the ScrollView's contentContainerStyle
+                    }, 100);
+                  }}
+                >
+                  {days.map((day, index) => renderDayNode(day, index))}
+                </ScrollView>
+              </Animated.View>
+            </RNGHPanGestureHandler>
+          )}
         </View>
       </View>
       {/* Floating Create Button */}
-      <View style={{ position: 'absolute', right: 20, bottom: 28 }}>
+      <View style={{ position: 'absolute', right: 20, bottom: 100 }}>
         <TouchableOpacity
-          className="w-16 h-16 rounded-full items-center justify-center"
-          style={{ backgroundColor: colors.primary, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}
+          className="w-16 h-16 rounded-2xl items-center justify-center"
+          style={{ 
+            backgroundColor: colors.primary, // #7EA0D8
+            shadowColor: colors.primaryDark, // #4A70B8
+            shadowOpacity: 0.5, 
+            shadowRadius: 16, 
+            shadowOffset: { width: 0, height: 8 }, 
+            elevation: 12,
+            borderWidth: 2,
+            borderColor: colors.primaryDark + '40', // Subtle 3D effect
+          }}
           onPress={() => setIsCreateVisible(true)}
         >
           <Ionicons name="add" size={24} color={'white'} />
@@ -389,7 +488,7 @@ const Home = () => {
               shadowColor: '#000',
               shadowOpacity: 0.25,
               shadowRadius: 20,
-              shadowOffset: { width: 0, height: 10 },
+              shadowOffset: { width: 0, height: 0 },
               elevation: 10,
             }}
           >

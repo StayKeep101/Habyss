@@ -11,7 +11,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemTheme = useColorScheme(); // Detects system dark/light mode
-  const [isDarkMode, setIsDarkMode] = useState(systemTheme === "dark");
+  const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark mode to match landing page
 
   useEffect(() => {
     const loadTheme = async () => {
@@ -19,6 +19,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (storedTheme !== null) {
         setIsDarkMode(storedTheme === "dark");
       }
+      // If no stored theme, default to dark mode
     };
     loadTheme();
   }, []);

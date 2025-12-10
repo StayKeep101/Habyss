@@ -6,6 +6,7 @@ import { Colors } from '@/constants/Colors';
 import { View, TouchableOpacity } from 'react-native';
 import { useNavigationState } from '@react-navigation/native';
 import CreateModal from '@/components/CreateModal';
+import { TabBar, TabBarItem } from '@/components/ui/tab-bar';
 
 import Home from './home';
 import Stats from './stats';
@@ -19,65 +20,51 @@ function TabBarIcon({ name, color }: { name: keyof typeof Ionicons.glyphMap; col
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? 'dark'];
   const [isCreateVisible, setIsCreateVisible] = useState(false);
-  const currentRouteName = useNavigationState((state) => state?.routes?.[state.index]?.name);
+  const [activeTab, setActiveTab] = useState('home');
+
+  const renderScreen = () => {
+    switch (activeTab) {
+      case 'home':
+        return <Home />;
+      case 'stats':
+        return <Stats />;
+      case 'more':
+        return <More />;
+      default:
+        return <Home />;
+    }
+  };
 
   return (
-    <View style={{ flex: 1 }}>
-      <Tab.Navigator
-        screenOptions={{
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.textTertiary,
-          tabBarStyle: {
-            backgroundColor: colors.surfaceSecondary,
-            height: 64,
-            paddingBottom: 8,
-            paddingTop: 2,
-          },
-          tabBarItemStyle: {
-            paddingTop: 0,
-            paddingBottom: 0,
-          },
-          tabBarIconStyle: {
-            marginBottom: -4,
-          },
-          tabBarLabelStyle: {
-            marginTop: 2,
-            fontSize: 11,
-            paddingBottom: 0,
-          },
-          headerShown: false,
-        }}
-      >
-      <Tab.Screen
-        name="home"
-        component={Home}
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
-        }}
-      />
-      {/* Create tab removed for MVP simplicity */}
-      <Tab.Screen
-        name="stats"
-        component={Stats}
-        options={{
-          title: 'Stats',
-          tabBarIcon: ({ color }) => <TabBarIcon name="stats-chart" color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="more"
-        component={More}
-        options={{
-          title: 'More',
-          tabBarIcon: ({ color }) => <TabBarIcon name="ellipsis-horizontal" color={color} />,
-        }}
-      />
-      </Tab.Navigator>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Main Content */}
+      <View style={{ flex: 1, paddingBottom: 100 }}>
+        {renderScreen()}
+      </View>
 
-      {/* Modal opened from Create tab */}
+      {/* Custom Tab Bar with Soft Rounded Edges */}
+      <TabBar>
+        <TabBarItem
+          icon="home"
+          label="Home"
+          isActive={activeTab === 'home'}
+          onPress={() => setActiveTab('home')}
+        />
+        <TabBarItem
+          icon="stats-chart"
+          label="Stats"
+          isActive={activeTab === 'stats'}
+          onPress={() => setActiveTab('stats')}
+        />
+        <TabBarItem
+          icon="ellipsis-horizontal"
+          label="More"
+          isActive={activeTab === 'more'}
+          onPress={() => setActiveTab('more')}
+        />
+      </TabBar>
 
       {/* Create Modal */}
       <CreateModal

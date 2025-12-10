@@ -11,6 +11,8 @@ export interface Habit {
   durationMinutes?: number; // optional time factor per session
   startTime?: string; // 'HH:mm'
   endTime?: string;   // 'HH:mm'
+  isGoal?: boolean; // true if this is a goal with target date
+  targetDate?: string; // ISO date for goal target
 }
 
 const HABITS_KEY = 'habyss_habits_v1';
@@ -42,6 +44,8 @@ export async function addHabit(
   durationMinutes?: number,
   startTime?: string,
   endTime?: string,
+  isGoal?: boolean,
+  targetDate?: string,
 ): Promise<Habit> {
   const habits = await getHabits();
   const newHabit: Habit = {
@@ -53,6 +57,8 @@ export async function addHabit(
     durationMinutes,
     startTime,
     endTime,
+    isGoal,
+    targetDate,
   };
   const updated = [newHabit, ...habits];
   await saveHabits(updated);
@@ -129,6 +135,157 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
     result.push({ date: dateStr, completedIds: Object.keys(c).filter(id => !!c[id]) });
   }
   return result;
+}
+
+export async function getGoalTargetDate(): Promise<string | null> {
+  const habits = await getHabits();
+  const goal = habits.find(h => h.isGoal && h.targetDate);
+  return goal?.targetDate || null;
+}
+
+// Get completion data for the last N days
+export async function getCompletionDataForDays(days: number): Promise<{
+  date: string;
+  totalHabits: number;
+  completedHabits: number;
+  completionRate: number;
+}[]> {
+  const habits = await getHabits();
+  const totalHabits = habits.length;
+  const result: {
+    date: string;
+    totalHabits: number;
+    completedHabits: number;
+    completionRate: number;
+  }[] = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = todayString(date);
+    const completions = await getCompletions(dateStr);
+    const completedCount = Object.values(completions).filter(Boolean).length;
+    const completionRate = totalHabits > 0 ? (completedCount / totalHabits) * 100 : 0;
+
+    result.push({
+      date: dateStr,
+      totalHabits,
+      completedHabits: completedCount,
+      completionRate,
+    });
+  }
+
+  return result;
+}
+
+// Get weekly completion data (last 7 days)
+export async function getWeeklyCompletionData(): Promise<{
+  date: string;
+  totalHabits: number;
+  completedHabits: number;
+  completionRate: number;
+}[]> {
+  return getCompletionDataForDays(7);
+}
+
+// Get monthly completion data (last 30 days)
+export async function getMonthlyCompletionData(): Promise<{
+  date: string;
+  totalHabits: number;
+  completedHabits: number;
+  completionRate: number;
+}[]> {
+  return getCompletionDataForDays(30);
+}
+
+// Get yearly completion data (last 12 months)
+export async function getYearlyCompletionData(): Promise<{
+  month: string;
+  year: number;
+  totalHabits: number;
+  completedHabits: number;
+  completionRate: number;
+}[]> {
+  const habits = await getHabits();
+  const totalHabits = habits.length;
+  const result: {
+    month: string;
+    year: number;
+    totalHabits: number;
+    completedHabits: number;
+    completionRate: number;
+  }[] = [];
+
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date();
+    date.setMonth(date.getMonth() - i);
+    const monthStr = date.toLocaleDateString('en-US', { month: 'short' });
+    const year = date.getFullYear();
+    
+    // Get all days in this month
+    const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    let totalCompleted = 0;
+    let totalDays = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const checkDate = new Date(date.getFullYear(), date.getMonth(), day);
+      if (checkDate <= new Date()) { // Only count days up to today
+        const dateStr = todayString(checkDate);
+        const completions = await getCompletions(dateStr);
+        const completedCount = Object.values(completions).filter(Boolean).length;
+        totalCompleted += completedCount;
+        totalDays++;
+      }
+    }
+
+    const completionRate = totalDays > 0 ? (totalCompleted / (totalDays * totalHabits)) * 100 : 0;
+
+    result.push({
+      month: monthStr,
+      year,
+      totalHabits,
+      completedHabits: Math.round(totalCompleted / totalDays) || 0,
+      completionRate,
+    });
+  }
+
+  return result;
+}
+
+// Get habit completion breakdown by category
+export async function getHabitCompletionByCategory(): Promise<{
+  category: string;
+  totalHabits: number;
+  completedHabits: number;
+  completionRate: number;
+}[]> {
+  const habits = await getHabits();
+  const categories: { [key: string]: { total: number; completed: number } } = {};
+  
+  // Initialize categories
+  habits.forEach(habit => {
+    if (!categories[habit.category]) {
+      categories[habit.category] = { total: 0, completed: 0 };
+    }
+    categories[habit.category].total++;
+  });
+
+  // Get today's completions
+  const completions = await getCompletions();
+  
+  // Count completions by category
+  habits.forEach(habit => {
+    if (completions[habit.id]) {
+      categories[habit.category].completed++;
+    }
+  });
+
+  return Object.entries(categories).map(([category, data]) => ({
+    category: category.charAt(0).toUpperCase() + category.slice(1),
+    totalHabits: data.total,
+    completedHabits: data.completed,
+    completionRate: data.total > 0 ? (data.completed / data.total) * 100 : 0,
+  }));
 }
 
 
