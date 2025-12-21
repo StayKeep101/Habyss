@@ -44,9 +44,7 @@ function InnerLayout() {
     <>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="+not-found" />
-        <Stack.Screen name="(auth)" />
         <Stack.Screen name="(root)" />
-        <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
     </>

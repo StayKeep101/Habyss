@@ -16,20 +16,6 @@ export default function RootLayout() {
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen 
-        name="focus" 
-        options={{ 
-          headerShown: false,
-          presentation: 'modal'
-        }} 
-      />
-      <Stack.Screen 
-        name="ai" 
-        options={{ 
-          headerShown: false,
-          presentation: 'modal'
-        }} 
-      />
-      <Stack.Screen 
         name="notifications" 
         options={{ 
           headerShown: false,
@@ -52,13 +38,6 @@ export default function RootLayout() {
       />
       <Stack.Screen 
         name="data-storage" 
-        options={{ 
-          headerShown: false,
-          presentation: 'modal'
-        }} 
-      />
-      <Stack.Screen 
-        name="help-support" 
         options={{ 
           headerShown: false,
           presentation: 'modal'
