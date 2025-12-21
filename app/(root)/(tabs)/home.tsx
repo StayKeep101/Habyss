@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Dimensions, Modal, ScrollView, TouchableOpacity, DeviceEventEmitter } from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
@@ -10,7 +10,6 @@ import { getHabits as loadHabits, getCompletions, toggleCompletion, Habit as Sto
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 
-import CreateModal from '@/components/CreateModal';
 import { HabitDetailModal } from '@/components/HabitDetailModal';
 
 interface Habit extends StoreHabit {
@@ -30,7 +29,6 @@ const Home = () => {
   // Modal State
   const [selectedDay, setSelectedDay] = useState<any>(null);
   const [dayModalVisible, setDayModalVisible] = useState(false);
-  const [isCreateVisible, setIsCreateVisible] = useState(false);
   
   // Detail Modal State
   const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
@@ -98,18 +96,11 @@ const Home = () => {
 
           {/* Layer 3 (Overlay): Analytics Modal */}
           <AnalyticsModal 
-             onCreatePress={() => setIsCreateVisible(true)}
              completedHabitsCount={completedHabits}
              totalHabitsCount={totalHabits}
           />
 
         </View>
-
-        {/* Create Habit Modal */}
-        <CreateModal
-            visible={isCreateVisible}
-            onClose={() => setIsCreateVisible(false)}
-        />
         
         {/* Habit Detail Modal */}
         <HabitDetailModal

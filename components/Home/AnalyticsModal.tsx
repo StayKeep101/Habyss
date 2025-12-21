@@ -10,13 +10,11 @@ import { router } from 'expo-router';
 import { HealthData, KcalChart, TimeChart, DistanceChart, WorkoutChart } from './Statistics';
 
 interface AnalyticsModalProps {
-  onCreatePress: () => void;
   completedHabitsCount: number;
   totalHabitsCount: number;
 }
 
 export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({ 
-  onCreatePress,
   completedHabitsCount,
   totalHabitsCount
 }) => {
@@ -53,7 +51,7 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({
             <TouchableOpacity 
                 className="w-12 h-12 rounded-full items-center justify-center mt-2 shadow-md"
                 style={{ backgroundColor: colors.primaryLight }}
-                onPress={onCreatePress}
+                onPress={() => router.push('/create')}
             >
                 <Ionicons name="add" size={28} color="white" />
             </TouchableOpacity>
