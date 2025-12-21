@@ -4,11 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { CalendarStrip } from '@/components/Home/CalendarStrip';
-import { RoadmapView } from '@/components/Home/RoadmapView';
 import { AnalyticsModal } from '@/components/Home/AnalyticsModal';
 import { getHabits as loadHabits, getCompletions, toggleCompletion, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useRouter } from 'expo-router';
 
 import { HabitDetailModal } from '@/components/HabitDetailModal';
 
@@ -18,6 +18,7 @@ interface Habit extends StoreHabit {
 }
 
 const Home = () => {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { lightFeedback } = useHaptics();
@@ -25,10 +26,6 @@ const Home = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completedHabits, setCompletedHabits] = useState(0);
   const [totalHabits, setTotalHabits] = useState(0);
-  
-  // Modal State
-  const [selectedDay, setSelectedDay] = useState<any>(null);
-  const [dayModalVisible, setDayModalVisible] = useState(false);
   
   // Detail Modal State
   const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
@@ -50,12 +47,6 @@ const Home = () => {
     return () => sub.remove();
   }, [loadData]);
 
-  const handleDayPress = (day: any) => {
-    lightFeedback();
-    setSelectedDay(day);
-    setDayModalVisible(true);
-  };
-
   const handleHabitPress = (habit: Habit) => {
     lightFeedback();
     setSelectedHabit(habit);
@@ -69,11 +60,6 @@ const Home = () => {
     setCompletedHabits(Object.values(next).filter(Boolean).length);
   };
 
-  const formatDate = (date: Date) => {
-    if (!date) return '';
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  };
-
   return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={{ flex: 1, position: 'relative' }}>
@@ -83,15 +69,46 @@ const Home = () => {
             <CalendarStrip />
           </View>
 
-          {/* Layer 2 (Background): Roadmap View */}
-          <View style={{ flex: 1, marginTop: -20 }}>
-             {/* Negative margin to pull it up slightly if needed, or just flex 1 */}
-             <RoadmapView 
-                onDayPress={handleDayPress} 
-                habits={habits}
-                completedHabitsCount={completedHabits}
-                totalHabitsCount={totalHabits}
-             />
+          {/* Layer 2 (Background): Habits List */}
+          <View style={{ flex: 1, marginTop: -20, paddingHorizontal: 20 }}>
+             <ScrollView contentContainerStyle={{ paddingBottom: 150 }} showsVerticalScrollIndicator={false}>
+                <View className="flex-row justify-between items-center mb-4 mt-2">
+                    <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Today's Tasks</Text>
+                    <TouchableOpacity onPress={() => router.push('/roadmap')}>
+                        <Text className="text-sm font-semibold" style={{ color: colors.primary }}>View Roadmap</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {habits.length > 0 ? (
+                    habits.map((habit) => (
+                        <TouchableOpacity 
+                            key={habit.id}
+                            onPress={() => handleHabitPress(habit)}
+                            className="flex-row items-center p-4 mb-3 rounded-2xl bg-white border border-gray-100 shadow-sm"
+                        >
+                            <View className={`w-12 h-12 rounded-full items-center justify-center mr-4 ${habit.completed ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                <Ionicons 
+                                    name={habit.completed ? "checkmark" : "ellipse-outline"} 
+                                    size={24} 
+                                    color={habit.completed ? colors.success : colors.textSecondary} 
+                                />
+                            </View>
+                            <View className="flex-1">
+                                <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+                                    {habit.name}
+                                </Text>
+                                <Text className="text-sm text-gray-500">
+                                    {habit.durationMinutes} mins • {habit.streak} day streak
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    ))
+                ) : (
+                    <View className="items-center justify-center py-10">
+                        <Text className="text-gray-400">No habits for today</Text>
+                    </View>
+                )}
+             </ScrollView>
           </View>
 
           {/* Layer 3 (Overlay): Analytics Modal */}
@@ -110,72 +127,6 @@ const Home = () => {
             onToggleCompletion={toggleHabit}
             isCompleted={selectedHabit?.completed}
         />
-
-        {/* Today's Habits Modal (Full Overlay) */}
-        <Modal
-            visible={dayModalVisible}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setDayModalVisible(false)}
-        >
-            <View className="flex-1 bg-black/60 justify-end">
-                <View 
-                    className="h-[90%] w-full rounded-t-3xl overflow-hidden"
-                    style={{ backgroundColor: colors.background }}
-                >
-                     {/* Modal Header */}
-                    <View className="px-6 pt-6 pb-4 border-b border-gray-100 flex-row justify-between items-center">
-                        <View>
-                            <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                                {selectedDay?.isToday ? "Today's Plan" : "History"}
-                            </Text>
-                            <Text className="text-sm text-gray-500">
-                                {formatDate(selectedDay?.date)}
-                            </Text>
-                        </View>
-                        <TouchableOpacity 
-                            onPress={() => setDayModalVisible(false)}
-                            className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
-                        >
-                            <Ionicons name="close" size={20} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Modal Content */}
-                    <ScrollView className="flex-1 px-6 pt-4">
-                        {habits.length > 0 ? (
-                            habits.map((habit) => (
-                                <TouchableOpacity 
-                                    key={habit.id}
-                                    onPress={() => handleHabitPress(habit)}
-                                    className="flex-row items-center p-4 mb-3 rounded-2xl bg-white border border-gray-100 shadow-sm"
-                                >
-                                    <View className={`w-12 h-12 rounded-full items-center justify-center mr-4 ${habit.completed ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                        <Ionicons 
-                                            name={habit.completed ? "checkmark" : "ellipse-outline"} 
-                                            size={24} 
-                                            color={habit.completed ? colors.success : colors.textSecondary} 
-                                        />
-                                    </View>
-                                    <View className="flex-1">
-                                        <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-                                            {habit.name}
-                                        </Text>
-                                        <Text className="text-sm text-gray-500">
-                                            {habit.durationMinutes} mins • {habit.streak} day streak
-                                        </Text>
-                                    </View>
-                                </TouchableOpacity>
-                            ))
-                        ) : (
-                            <View className="items-center justify-center py-10">
-                                <Text className="text-gray-400">No habits for this day</Text>
-                            </View>
-                        )}
-                    </ScrollView>
-                </View>
-            </View>
-        </Modal>
 
       </SafeAreaView>
   );
