@@ -56,6 +56,13 @@ export default function RootLayout() {
           headerShown: false,
         }} 
       />
+      <Stack.Screen 
+        name="habit-detail" 
+        options={{ 
+          headerShown: false,
+          presentation: 'modal'
+        }} 
+      />
     </Stack>
   );
 }

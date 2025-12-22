@@ -10,15 +10,15 @@ export const Colors = {
   light: {
     text: '#000000',
     background: '#FFFFFF',
-    tint: tintColorLight,
+    tint: '#4E5F87',
     tabIconDefault: '#94A3B8',
-    tabIconSelected: tintColorLight,
-    // Habyss Theme Colors - Landing Page Inspired
-    primary: '#4A70B8', // Muted blue from landing page
-    primaryLight: '#7EA0D8', // Lighter blue gradient
-    primaryDark: '#3B82F6', // Vibrant blue for accents
-    secondary: '#5A7BB8', // Medium blue for text
-    accent: '#3B82F6', // Vibrant blue for buttons
+    tabIconSelected: '#4E5F87',
+    // Habyss Theme Colors - Logo Inspired (Desaturated Slate Blue)
+    primary: '#4E5F87', // Darker slate-blue from logo
+    primaryLight: '#9CB1D6', // Lighter steel-blue from logo
+    primaryDark: '#3A4866', // Deep slate for contrast
+    secondary: '#7589B0', // Mid-tone blue-gray
+    accent: '#4E5F87', // Slate-blue for primary actions
     success: '#10B981', // Emerald 500
     warning: '#F59E0B', // Amber 500
     error: '#EF4444', // Red 500
@@ -30,56 +30,51 @@ export const Colors = {
     textPrimary: '#0F172A',
     textSecondary: '#475569',
     textTertiary: '#94A3B8',
-    // Gradient Colors - Landing Page Inspired
-    gradientStart: '#4A70B8',
-    gradientEnd: '#7EA0D8',
-    gradientLight: '#7EA0D8',
-    gradientDark: '#3B82F6',
+    // Gradient Colors - REMOVED/FLATTENED
+    gradientStart: '#4E5F87',
+    gradientEnd: '#4E5F87',
+    gradientLight: '#9CB1D6',
+    gradientDark: '#4E5F87',
   },
   dark: {
     text: '#FFFFFF',
-    background: '#000000', // Pure black background like logo
-    tint: '#7EA0D8', // Lighter blue from logo gradient
-    tabIconDefault: '#4A70B8', // Darker blue from logo
-    tabIconSelected: '#7EA0D8', // Lighter blue from logo
-    // Habyss Theme Colors - Logo Inspired
-    primary: '#7EA0D8', // Lighter blue from logo gradient
-    primaryLight: '#7EA0D8', // Same as primary for consistency
-    primaryDark: '#4A70B8', // Darker blue from logo
-    secondary: '#4A70B8', // Darker blue for secondary elements
-    accent: '#7EA0D8', // Lighter blue for accents
-    success: '#34D399', // Emerald 400
-    warning: '#FBBF24', // Amber 400
-    error: '#F87171', // Red 400
-    surface: '#111111', // Very dark gray, slightly lighter than black
-    surfaceSecondary: '#1A1A1A', // Dark gray for cards/buttons
-    surfaceTertiary: '#222222', // Even lighter for subtle elements
-    border: '#333333', // Dark gray for borders
-    borderLight: '#444444', // Lighter border
-    textPrimary: '#FFFFFF', // White for primary text
-    textSecondary: '#7EA0D8', // Lighter blue for secondary text
-    textTertiary: '#4A70B8', // Darker blue for tertiary text
-    // Gradient Colors - Logo Inspired
-    gradientStart: '#4A70B8',
-    gradientEnd: '#7EA0D8',
-    gradientLight: '#7EA0D8',
-    gradientDark: '#4A70B8',
+    background: '#000000', // Pure black
+    tint: '#9CB1D6', // Light steel-blue
+    tabIconDefault: '#4E5F87',
+    tabIconSelected: '#9CB1D6',
+    // Habyss Theme Colors - Logo Inspired (Desaturated Slate Blue)
+    primary: '#9CB1D6', // Light steel-blue for dark mode
+    primaryLight: '#B0C2E3', // Even lighter for hover/active
+    primaryDark: '#4E5F87', // Slate-blue for depth
+    secondary: '#7589B0', // Mid-tone
+    accent: '#9CB1D6', // Light steel-blue for accents
+    success: '#34D399',
+    warning: '#FBBF24',
+    error: '#F87171',
+    surface: '#111111', // Very dark gray, almost black
+    surfaceSecondary: '#1C1C1E', // Standard iOS dark gray
+    surfaceTertiary: '#2C2C2E',
+    border: '#333333',
+    borderLight: '#444444',
+    textPrimary: '#FFFFFF',
+    textSecondary: '#9CB1D6', // Light steel-blue
+    textTertiary: '#4E5F87', // Darker slate
+    // Gradient Colors - REMOVED/FLATTENED
+    gradientStart: '#9CB1D6',
+    gradientEnd: '#9CB1D6',
+    gradientLight: '#9CB1D6',
+    gradientDark: '#4E5F87',
   },
-  // Common Colors - Logo Inspired
+  // Common Colors
   common: {
-    black: '#000000', // Pure black background like logo
+    black: '#000000',
     white: '#FFFFFF',
     transparent: 'transparent',
-    // Habyss Logo Colors - Exact logo colors
-    habyssBlue: '#7EA0D8', // Lighter blue from logo
-    habyssBlueLight: '#7EA0D8', // Lighter blue from logo
-    habyssBlueDark: '#4A70B8', // Darker blue from logo
-    habyssGradientStart: '#4A70B8', // Darker blue from logo
-    habyssGradientEnd: '#7EA0D8', // Lighter blue from logo
+    // Habyss Logo Colors - Exact logo palette
+    habyssSlate: '#4E5F87',
+    habyssSteel: '#9CB1D6',
+    habyssDarkSlate: '#3A4866',
     // Logo Specific Colors
     logoBackground: '#000000',
-    logoTextSecondary: '#7EA0D8',
-    logoTextMuted: '#4A70B8',
-    logoButtonBg: '#1A1A1A',
   }
 };

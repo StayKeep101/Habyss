@@ -26,6 +26,7 @@ const Home = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completedHabits, setCompletedHabits] = useState(0);
   const [totalHabits, setTotalHabits] = useState(0);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   
   // Detail Modal State
   const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
@@ -34,12 +35,15 @@ const Home = () => {
   // Load Data
   const loadData = useCallback(async () => {
     const h = await loadHabits();
-    const c = await getCompletions();
+    // Use selectedDate for completions
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    const c = await getCompletions(dateStr);
+    
     const mapped: Habit[] = h.map(item => ({ ...item, completed: !!c[item.id], streak: 0 }));
     setHabits(mapped);
     setTotalHabits(mapped.length);
     setCompletedHabits(Object.values(c).filter(Boolean).length);
-  }, []);
+  }, [selectedDate]);
 
   useEffect(() => {
     loadData();
@@ -47,33 +51,44 @@ const Home = () => {
     return () => sub.remove();
   }, [loadData]);
 
+  const handleDateSelect = (date: Date) => {
+    lightFeedback();
+    setSelectedDate(date);
+  };
+
   const handleHabitPress = (habit: Habit) => {
     lightFeedback();
-    setSelectedHabit(habit);
-    setHabitDetailVisible(true);
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    router.push({
+        pathname: '/habit-detail',
+        params: { habitId: habit.id, date: dateStr }
+    });
   };
 
   const toggleHabit = async (habitId: string) => {
     lightFeedback();
-    const next = await toggleCompletion(habitId);
+    const dateStr = selectedDate.toISOString().split('T')[0];
+    const next = await toggleCompletion(habitId, dateStr);
     setHabits(prev => prev.map(h => ({ ...h, completed: !!next[h.id] })));
     setCompletedHabits(Object.values(next).filter(Boolean).length);
   };
 
   return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
         <View style={{ flex: 1, position: 'relative' }}>
           
           {/* Layer 1 (Top): Calendar Strip (Fixed) */}
           <View style={{ height: '25%', zIndex: 10 }}>
-            <CalendarStrip />
+            <CalendarStrip selectedDate={selectedDate} onSelectDate={handleDateSelect} />
           </View>
 
           {/* Layer 2 (Background): Habits List */}
           <View style={{ flex: 1, marginTop: -20, paddingHorizontal: 20 }}>
              <ScrollView contentContainerStyle={{ paddingBottom: 150 }} showsVerticalScrollIndicator={false}>
                 <View className="flex-row justify-between items-center mb-4 mt-2">
-                    <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Today's Tasks</Text>
+                    <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+                        {selectedDate.toDateString() === new Date().toDateString() ? "Today's Tasks" : `Tasks for ${selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`}
+                    </Text>
                     <TouchableOpacity onPress={() => router.push('/roadmap')}>
                         <Text className="text-sm font-semibold" style={{ color: colors.primary }}>View Roadmap</Text>
                     </TouchableOpacity>
@@ -84,20 +99,21 @@ const Home = () => {
                         <TouchableOpacity 
                             key={habit.id}
                             onPress={() => handleHabitPress(habit)}
-                            className="flex-row items-center p-4 mb-3 rounded-2xl bg-white border border-gray-100 shadow-sm"
+                            className="flex-row items-center p-4 mb-3 rounded-2xl bg-white shadow-sm"
+                            style={{ backgroundColor: colors.surfaceSecondary }}
                         >
-                            <View className={`w-12 h-12 rounded-full items-center justify-center mr-4 ${habit.completed ? 'bg-green-100' : 'bg-gray-100'}`}>
+                            <View className="w-12 h-12 rounded-full items-center justify-center mr-4" style={{ backgroundColor: habit.completed ? colors.success + '20' : colors.surfaceTertiary }}>
                                 <Ionicons 
                                     name={habit.completed ? "checkmark" : "ellipse-outline"} 
                                     size={24} 
-                                    color={habit.completed ? colors.success : colors.textSecondary} 
+                                    color={habit.completed ? colors.success : colors.textTertiary} 
                                 />
                             </View>
                             <View className="flex-1">
                                 <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
                                     {habit.name}
                                 </Text>
-                                <Text className="text-sm text-gray-500">
+                                <Text className="text-sm" style={{ color: colors.textSecondary }}>
                                     {habit.durationMinutes} mins • {habit.streak} day streak
                                 </Text>
                             </View>
@@ -105,7 +121,7 @@ const Home = () => {
                     ))
                 ) : (
                     <View className="items-center justify-center py-10">
-                        <Text className="text-gray-400">No habits for today</Text>
+                        <Text className="text-gray-400">No habits for this day</Text>
                     </View>
                 )}
              </ScrollView>
@@ -115,19 +131,10 @@ const Home = () => {
           <AnalyticsModal 
              completedHabitsCount={completedHabits}
              totalHabitsCount={totalHabits}
+             selectedDate={selectedDate}
           />
 
         </View>
-        
-        {/* Habit Detail Modal */}
-        <HabitDetailModal
-            visible={habitDetailVisible}
-            onClose={() => setHabitDetailVisible(false)}
-            habit={selectedHabit}
-            onToggleCompletion={toggleHabit}
-            isCompleted={selectedHabit?.completed}
-        />
-
       </SafeAreaView>
   );
 };

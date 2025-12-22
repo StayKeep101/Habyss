@@ -1,21 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, DeviceEventEmitter, Platform, Dimensions, ScrollView, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, DeviceEventEmitter, Platform, Dimensions, ScrollView, Modal, Switch, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { addHabit, HabitCategory } from '@/lib/habits';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'expo-router';
 
 const categories: { key: HabitCategory; label: string; color: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'productivity', label: 'Productivity', color: '#3B82F6', icon: 'briefcase' },
-  { key: 'health', label: 'Health', color: '#10B981', icon: 'medical' },
-  { key: 'fitness', label: 'Fitness', color: '#F59E0B', icon: 'fitness' },
-  { key: 'mindfulness', label: 'Mindfulness', color: '#8B5CF6', icon: 'leaf' },
+  { key: 'productivity', label: 'Productivity', color: '#60A5FA', icon: 'briefcase' },
+  { key: 'health', label: 'Health', color: '#34D399', icon: 'medical' },
+  { key: 'fitness', label: 'Fitness', color: '#FBBF24', icon: 'fitness' },
+  { key: 'mindfulness', label: 'Mindfulness', color: '#A78BFA', icon: 'leaf' },
 ];
 
 export default function CreateScreen() {
@@ -42,7 +39,7 @@ export default function CreateScreen() {
 
   const handleCreate = async () => {
     if (!name.trim()) return;
-    if (isGoal && !targetDate) return; // Goal requires target date
+    if (isGoal && !targetDate) return; 
     try {
       setSaving(true);
       const parsed = duration.trim() ? Math.max(1, Math.min(1440, parseInt(duration.trim(), 10) || 0)) : undefined;
@@ -57,123 +54,134 @@ export default function CreateScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1, backgroundColor: colors.background }}
+    >
       {/* Header */}
-      <View className="px-6 pt-4 pb-2 border-b border-gray-100 flex-row justify-between items-center bg-white">
-        <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>New Habit</Text>
-        <TouchableOpacity onPress={() => router.back()} className="p-2 rounded-full bg-gray-100">
-          <Ionicons name="close" size={24} color={colors.textSecondary} />
+      <View className="px-6 pt-6 pb-4 flex-row justify-between items-center" style={{ backgroundColor: colors.background }}>
+        <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>New Habit</Text>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          className="w-10 h-10 rounded-full items-center justify-center"
+          style={{ backgroundColor: colors.surfaceSecondary }}
+        >
+          <Ionicons name="close" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        <View className="space-y-4">
-          <View className="flex-row items-center space-x-3">
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        
+        {/* Name Input with Icon */}
+        <View className="mt-4 flex-row items-center rounded-2xl border px-4 py-3" 
+              style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}>
             <TouchableOpacity
-              className="w-12 h-12 rounded-2xl items-center justify-center"
-              style={{ backgroundColor: colors.surfaceSecondary }}
               onPress={() => setShowIconPicker(true)}
-              accessibilityLabel="Choose icon"
+              className="mr-3"
             >
-              <Ionicons name={(iconName ?? 'timer') as any} size={20} color={colors.primary} />
+               <Ionicons name={(iconName ?? 'time-outline') as any} size={24} color={colors.textSecondary} />
             </TouchableOpacity>
-            <View className="flex-1">
-              <Input
+            <TextInput
                 value={name}
                 onChangeText={setName}
                 placeholder="e.g., Read 20 minutes"
+                placeholderTextColor={colors.textTertiary}
+                style={{ color: colors.textPrimary, fontSize: 16, flex: 1, fontWeight: '500' }}
                 autoFocus
                 returnKeyType="done"
-                onSubmitEditing={handleCreate}
-              />
-            </View>
+            />
+        </View>
+
+        {/* Category Section */}
+        <View className="mt-8">
+          <Text className="text-base font-semibold mb-4" style={{ color: colors.textSecondary }}>Category</Text>
+          <View className="flex-row flex-wrap gap-3">
+            {categories.map(c => {
+                const isSelected = category === c.key;
+                return (
+                  <TouchableOpacity
+                    key={c.key}
+                    onPress={() => setCategory(c.key)}
+                    className={cn(
+                        "flex-row items-center px-4 py-2.5 rounded-full border",
+                        isSelected ? "border-transparent" : "border-transparent"
+                    )}
+                    style={{
+                        backgroundColor: isSelected ? colors.primary + '20' : colors.surfaceSecondary,
+                        borderWidth: 1,
+                        borderColor: isSelected ? colors.primary : colors.surfaceSecondary
+                    }}
+                  >
+                    <Ionicons name={c.icon} size={18} color={isSelected ? colors.primary : c.color} />
+                    <Text className="ml-2 font-semibold" style={{ color: isSelected ? colors.primary : colors.textPrimary }}>{c.label}</Text>
+                  </TouchableOpacity>
+                )
+            })}
           </View>
         </View>
 
-        <View className="mt-6">
-          <Text className="text-sm mb-3 font-medium" style={{ color: colors.textSecondary }}>Category</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {categories.map(c => (
-              <TouchableOpacity
-                key={c.key}
-                onPress={() => setCategory(c.key)}
-              >
-                <Badge
-                  variant={category === c.key ? "default" : "outline"}
-                  className={cn(
-                    "flex-row items-center px-4 py-2 rounded-2xl",
-                    category === c.key && "border-2"
-                  )}
-                  style={{
-                    backgroundColor: category === c.key ? c.color + '20' : colors.surfaceSecondary,
-                    borderColor: category === c.key ? c.color : colors.border,
-                  }}
-                >
-                  <Ionicons name={c.icon} size={16} color={c.color} />
-                  <Text className="ml-2 font-medium" style={{ color: colors.textPrimary }}>{c.label}</Text>
-                </Badge>
-              </TouchableOpacity>
-            ))}
+        {/* Duration Input */}
+        <View className="mt-8">
+          <Text className="text-base font-semibold mb-3" style={{ color: colors.textSecondary }}>Estimated Duration (minutes)</Text>
+          <View className="rounded-2xl border px-4 py-3" style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}>
+            <TextInput
+                value={duration}
+                onChangeText={setDuration}
+                placeholder="e.g., 20"
+                placeholderTextColor={colors.textTertiary}
+                style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '500' }}
+                keyboardType="number-pad"
+            />
           </View>
         </View>
 
-        <View className="mt-6">
-          <Input
-            label="Estimated Duration (minutes)"
-            value={duration}
-            onChangeText={setDuration}
-            placeholder="e.g., 20"
-            keyboardType="number-pad"
-            returnKeyType="done"
-            onSubmitEditing={handleCreate}
-          />
-        </View>
-
-        {/* Goal Toggle */}
-        <View className="mt-6">
-          <TouchableOpacity
-            className="flex-row items-center p-4 rounded-2xl"
-            style={{ backgroundColor: isGoal ? colors.primary + '20' : colors.surfaceSecondary, borderWidth: isGoal ? 2 : 1, borderColor: isGoal ? colors.primary : colors.border }}
-            onPress={() => setIsGoal(!isGoal)}
+        {/* Goal Toggle Card */}
+        <View className="mt-8">
+          <View 
+            className="flex-row items-center p-4 rounded-2xl border"
+            style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
           >
-            <View className="w-8 h-8 rounded-xl items-center justify-center mr-3" style={{ backgroundColor: isGoal ? colors.primary + '40' : colors.border }}>
-              <Ionicons name="trophy" size={18} color={isGoal ? colors.primary : colors.textTertiary} />
+            <View className="w-10 h-10 rounded-xl items-center justify-center mr-4" style={{ backgroundColor: colors.surfaceTertiary }}>
+              <Ionicons name="trophy-outline" size={20} color={colors.textSecondary} />
             </View>
             <View className="flex-1">
-              <Text className="font-semibold" style={{ color: colors.textPrimary }}>This is a Goal</Text>
-              <Text className="text-xs" style={{ color: colors.textSecondary }}>Set a target date to achieve this goal</Text>
+              <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>This is a Goal</Text>
+              <Text className="text-xs mt-0.5" style={{ color: colors.textSecondary }}>Set a target date to achieve this goal</Text>
             </View>
-            <View 
-              className="w-6 h-6 rounded-full items-center justify-center"
-              style={{ backgroundColor: isGoal ? colors.primary : colors.border }}
-            >
-              {isGoal && <Ionicons name="checkmark" size={16} color="white" />}
-            </View>
-          </TouchableOpacity>
+            <Switch
+                value={isGoal}
+                onValueChange={setIsGoal}
+                trackColor={{ false: colors.surfaceTertiary, true: colors.primary }}
+                thumbColor={Platform.OS === 'ios' ? '#FFFFFF' : colors.primary}
+            />
+          </View>
         </View>
 
-        {/* Target Date Picker - only show if goal is selected */}
+        {/* Target Date Picker - Animate or conditional render */}
         {isGoal && (
-          <View className="mt-6">
+          <View className="mt-4">
             <TouchableOpacity
-              className="p-4 rounded-2xl"
-              style={{ backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }}
+              className="p-4 rounded-2xl border flex-row items-center justify-between"
+              style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
               onPress={() => setShowTargetDatePicker(true)}
             >
-              <Text className="font-semibold" style={{ color: colors.textPrimary }}>
-                {targetDate ? targetDate.toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                }) : 'Select target date'}
-              </Text>
+               <View>
+                  <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>Target Date</Text>
+                  <Text className="text-base font-semibold" style={{ color: colors.textPrimary }}>
+                    {targetDate ? targetDate.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      year: 'numeric'
+                    }) : 'Select date'}
+                  </Text>
+               </View>
+               <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
             {showTargetDatePicker && (
               <DateTimePicker
                 value={targetDate ?? new Date()}
                 mode="date"
-                minimumDate={new Date()} // Can't set target date in the past
+                minimumDate={new Date()}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={(e, d) => {
                   if (Platform.OS !== 'ios') setShowTargetDatePicker(false);
@@ -185,56 +193,63 @@ export default function CreateScreen() {
           </View>
         )}
 
-        <View className="mt-6 flex-row justify-between space-x-3">
-          <View className="flex-1">
+        {/* Time Pickers */}
+        <View className="mt-6 flex-row justify-between gap-3">
+          <View className="flex-1 overflow-hidden">
             <TouchableOpacity
-              className="p-4 rounded-2xl"
-              style={{ backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }}
-              onPress={() => setShowStartPicker(true)}
+              className="p-4 rounded-2xl border mb-2"
+              style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
+              onPress={() => setShowStartPicker(!showStartPicker)}
             >
-              <Text className="text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>Start Time</Text>
-              <Text className="font-semibold" style={{ color: colors.textPrimary }}>
+              <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>Start Time</Text>
+              <Text className="text-base font-semibold" style={{ color: colors.textPrimary }}>
                 {startAt ? `${String(startAt.getHours()).padStart(2,'0')}:${String(startAt.getMinutes()).padStart(2,'0')}` : 'Select start'}
               </Text>
             </TouchableOpacity>
             {showStartPicker && (
-              <DateTimePicker
-                value={startAt ?? new Date()}
-                mode="time"
-                is24Hour
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(e, d) => {
-                  if (Platform.OS !== 'ios') setShowStartPicker(false);
-                  if (d) setStartAt(d);
-                }}
-                style={Platform.OS === 'ios' ? { height: wheelHeight } : undefined}
-              />
+                <View className="rounded-2xl overflow-hidden bg-white dark:bg-black border border-gray-100 dark:border-gray-800">
+                  <DateTimePicker
+                    value={startAt ?? new Date()}
+                    mode="time"
+                    is24Hour
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(e, d) => {
+                      if (Platform.OS !== 'ios') setShowStartPicker(false);
+                      if (d) setStartAt(d);
+                    }}
+                    style={Platform.OS === 'ios' ? { height: wheelHeight, width: '100%', backgroundColor: colors.surfaceSecondary } : undefined}
+                    textColor={colors.textPrimary}
+                  />
+                </View>
             )}
           </View>
 
-          <View className="flex-1">
+          <View className="flex-1 overflow-hidden">
             <TouchableOpacity
-              className="p-4 rounded-2xl"
-              style={{ backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }}
-              onPress={() => setShowEndPicker(true)}
+              className="p-4 rounded-2xl border mb-2"
+              style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
+              onPress={() => setShowEndPicker(!showEndPicker)}
             >
-              <Text className="text-sm font-medium mb-1" style={{ color: colors.textSecondary }}>End Time</Text>
-              <Text className="font-semibold" style={{ color: colors.textPrimary }}>
+              <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>End Time</Text>
+              <Text className="text-base font-semibold" style={{ color: colors.textPrimary }}>
                 {endAt ? `${String(endAt.getHours()).padStart(2,'0')}:${String(endAt.getMinutes()).padStart(2,'0')}` : 'Select end'}
               </Text>
             </TouchableOpacity>
             {showEndPicker && (
-              <DateTimePicker
-                value={endAt ?? new Date()}
-                mode="time"
-                is24Hour
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(e, d) => {
-                  if (Platform.OS !== 'ios') setShowEndPicker(false);
-                  if (d) setEndAt(d);
-                }}
-                style={Platform.OS === 'ios' ? { height: wheelHeight } : undefined}
-              />
+                <View className="rounded-2xl overflow-hidden bg-white dark:bg-black border border-gray-100 dark:border-gray-800">
+                  <DateTimePicker
+                    value={endAt ?? new Date()}
+                    mode="time"
+                    is24Hour
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(e, d) => {
+                      if (Platform.OS !== 'ios') setShowEndPicker(false);
+                      if (d) setEndAt(d);
+                    }}
+                    style={Platform.OS === 'ios' ? { height: wheelHeight, width: '100%', backgroundColor: colors.surfaceSecondary } : undefined}
+                    textColor={colors.textPrimary}
+                  />
+                </View>
             )}
           </View>
         </View>
@@ -247,18 +262,18 @@ export default function CreateScreen() {
           onRequestClose={() => setShowIconPicker(false)}
         >
           <TouchableOpacity
-            className="flex-1 bg-black/50 items-center justify-center"
+            className="flex-1 bg-black/60 items-center justify-center"
             activeOpacity={1}
             onPress={() => setShowIconPicker(false)}
           >
-            <View className="w-11/12 bg-white rounded-3xl p-4">
-                <View className="flex-row justify-between items-center mb-4">
-                  <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>Choose an icon</Text>
-                  <TouchableOpacity onPress={() => setShowIconPicker(false)}>
-                    <Ionicons name="close" size={22} color={colors.textSecondary} />
+            <View className="w-11/12 rounded-3xl p-5" style={{ backgroundColor: colors.surface }}>
+                <View className="flex-row justify-between items-center mb-5">
+                  <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Choose an icon</Text>
+                  <TouchableOpacity onPress={() => setShowIconPicker(false)} className="p-1 bg-gray-100 rounded-full" style={{ backgroundColor: colors.surfaceSecondary }}>
+                    <Ionicons name="close" size={20} color={colors.textPrimary} />
                   </TouchableOpacity>
                 </View>
-                <View className="flex-row flex-wrap gap-2">
+                <View className="flex-row flex-wrap gap-3">
                   {[
                     { k: 'book' as const, label: 'Read' },
                     { k: 'fitness' as const, label: 'Workout' },
@@ -275,12 +290,15 @@ export default function CreateScreen() {
                   ].map(opt => (
                     <TouchableOpacity
                       key={opt.k}
-                      className="w-[48%] p-3 rounded-2xl mb-3 flex-row items-center"
-                      style={{ backgroundColor: iconName === opt.k ? colors.primary + '20' : colors.surfaceSecondary, borderWidth: iconName === opt.k ? 2 : 1, borderColor: iconName === opt.k ? colors.primary : colors.border }}
+                      className="w-[47%] p-3 rounded-2xl flex-row items-center border"
+                      style={{ 
+                          backgroundColor: iconName === opt.k ? colors.primary + '15' : colors.surfaceSecondary, 
+                          borderColor: iconName === opt.k ? colors.primary : colors.surfaceSecondary
+                      }}
                       onPress={() => { setIconName(opt.k); setShowIconPicker(false); }}
                     >
-                      <Ionicons name={opt.k} size={18} color={colors.primary} />
-                      <Text className="ml-2 font-semibold" style={{ color: colors.textPrimary }}>{opt.label}</Text>
+                      <Ionicons name={opt.k} size={20} color={iconName === opt.k ? colors.primary : colors.textSecondary} />
+                      <Text className="ml-2 font-medium" style={{ color: iconName === opt.k ? colors.primary : colors.textPrimary }}>{opt.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -288,15 +306,25 @@ export default function CreateScreen() {
           </TouchableOpacity>
         </Modal>
 
-        <View className="mt-8">
-          <Button
-            label={isGoal ? 'Create Goal' : 'Create Habit'}
+      </ScrollView>
+
+      {/* Floating Bottom Button */}
+      <View className="absolute bottom-10 left-0 right-0 px-6">
+        <TouchableOpacity
             disabled={!name.trim() || (isGoal && !targetDate) || saving}
             onPress={handleCreate}
-            className="w-full"
-          />
-        </View>
-      </ScrollView>
-    </View>
+            className="w-full py-4 rounded-full items-center shadow-lg"
+            style={{ 
+                backgroundColor: (!name.trim() || (isGoal && !targetDate)) ? colors.surfaceSecondary : colors.primary,
+                opacity: saving ? 0.7 : 1
+            }}
+        >
+            <Text className="text-lg font-bold" style={{ color: (!name.trim() || (isGoal && !targetDate)) ? colors.textTertiary : 'white' }}>
+                Create Habit
+            </Text>
+        </TouchableOpacity>
+      </View>
+
+    </KeyboardAvoidingView>
   );
 }
