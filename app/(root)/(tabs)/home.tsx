@@ -127,12 +127,36 @@ const Home = () => {
              </ScrollView>
           </View>
 
-          {/* Layer 3 (Overlay): Analytics Modal */}
-          <AnalyticsModal 
-             completedHabitsCount={completedHabits}
-             totalHabitsCount={totalHabits}
-             selectedDate={selectedDate}
-          />
+          {/* Footer Navigation Bar */}
+          <View 
+            className="absolute bottom-0 left-0 right-0 px-6 py-4 flex-row justify-between items-center border-t"
+            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+          >
+             <TouchableOpacity 
+                className="w-12 h-12 rounded-full items-center justify-center"
+                style={{ backgroundColor: colors.surfaceSecondary }}
+                onPress={() => router.push('/settings')}
+             >
+                 <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
+             </TouchableOpacity>
+
+             <TouchableOpacity 
+                className="flex-1 mx-4 h-12 rounded-full flex-row items-center justify-center shadow-sm"
+                style={{ backgroundColor: colors.primary }}
+                onPress={() => router.push({ pathname: '/statistics', params: { date: selectedDate.toISOString().split('T')[0] } })}
+             >
+                 <Ionicons name="stats-chart" size={20} color="white" style={{ marginRight: 8 }} />
+                 <Text className="text-white font-bold text-lg">View Statistics</Text>
+             </TouchableOpacity>
+
+             <TouchableOpacity 
+                className="w-12 h-12 rounded-full items-center justify-center shadow-sm"
+                style={{ backgroundColor: colors.surfaceSecondary }}
+                onPress={() => router.push('/create')}
+             >
+                 <Ionicons name="add" size={28} color={colors.primary} />
+             </TouchableOpacity>
+          </View>
 
         </View>
       </SafeAreaView>

@@ -63,6 +63,13 @@ export default function RootLayout() {
           presentation: 'modal'
         }} 
       />
+      <Stack.Screen 
+        name="statistics" 
+        options={{ 
+          headerShown: false,
+          presentation: 'modal'
+        }} 
+      />
     </Stack>
   );
 }
