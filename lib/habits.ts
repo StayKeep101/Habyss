@@ -65,6 +65,15 @@ export async function addHabit(
   return newHabit;
 }
 
+export async function updateHabit(updatedHabit: Habit): Promise<void> {
+  const habits = await getHabits();
+  const index = habits.findIndex(h => h.id === updatedHabit.id);
+  if (index !== -1) {
+    habits[index] = updatedHabit;
+    await saveHabits(habits);
+  }
+}
+
 export async function removeHabit(habitId: string): Promise<void> {
   const habits = await getHabits();
   const updated = habits.filter(h => h.id !== habitId);
@@ -137,155 +146,84 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
   return result;
 }
 
-export async function getGoalTargetDate(): Promise<string | null> {
+export async function getStreakData(): Promise<{ currentStreak: number; bestStreak: number; perfectDays: number; totalCompleted: number }> {
+  // Retrieve last 365 days of data
+  const history = await getLastNDaysCompletions(365);
   const habits = await getHabits();
-  const goal = habits.find(h => h.isGoal && h.targetDate);
-  return goal?.targetDate || null;
-}
+  const totalHabitCount = habits.length;
 
-// Get completion data for the last N days
-export async function getCompletionDataForDays(days: number): Promise<{
-  date: string;
-  totalHabits: number;
-  completedHabits: number;
-  completionRate: number;
-}[]> {
-  const habits = await getHabits();
-  const totalHabits = habits.length;
-  const result: {
-    date: string;
-    totalHabits: number;
-    completedHabits: number;
-    completionRate: number;
-  }[] = [];
+  if (totalHabitCount === 0) return { currentStreak: 0, bestStreak: 0, perfectDays: 0, totalCompleted: 0 };
 
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dateStr = todayString(date);
-    const completions = await getCompletions(dateStr);
-    const completedCount = Object.values(completions).filter(Boolean).length;
-    const completionRate = totalHabits > 0 ? (completedCount / totalHabits) * 100 : 0;
+  let currentStreak = 0;
+  let bestStreak = 0;
+  let tempStreak = 0;
+  let perfectDays = 0;
+  let totalCompleted = 0;
 
-    result.push({
-      date: dateStr,
-      totalHabits,
-      completedHabits: completedCount,
-      completionRate,
-    });
-  }
+  // Process from oldest to newest for Best Streak and Perfect Days
+  history.forEach(day => {
+    const completedCount = day.completedIds.length;
+    totalCompleted += completedCount;
 
-  return result;
-}
+    // Check for "Perfect Day" (all habits completed)
+    // We assume totalHabitCount is constant for simplicity, though historically it might change.
+    // A more robust way would be to check historical habit counts if we tracked creation dates strictly.
+    // For now, if completedCount >= totalHabitCount (and > 0), it's perfect.
+    if (completedCount > 0 && completedCount >= totalHabitCount) {
+      perfectDays++;
+    }
 
-// Get weekly completion data (last 7 days)
-export async function getWeeklyCompletionData(): Promise<{
-  date: string;
-  totalHabits: number;
-  completedHabits: number;
-  completionRate: number;
-}[]> {
-  return getCompletionDataForDays(7);
-}
+    // Streak Logic: At least 1 habit completed counts as "active" for the day?
+    // OR: Streak usually implies hitting your goals. Let's say > 50% completion keeps streak alive?
+    // user likely wants "Did I do my habits?". Let's go with > 0 for now as a "Activity Streak".
+    // Or stricter: All habits? Let's stick to > 0 is "Active Day".
+    if (completedCount > 0) {
+      tempStreak++;
+    } else {
+      bestStreak = Math.max(bestStreak, tempStreak);
+      tempStreak = 0;
+    }
+  });
+  
+  // Final check for best streak
+  bestStreak = Math.max(bestStreak, tempStreak);
 
-// Get monthly completion data (last 30 days)
-export async function getMonthlyCompletionData(): Promise<{
-  date: string;
-  totalHabits: number;
-  completedHabits: number;
-  completionRate: number;
-}[]> {
-  return getCompletionDataForDays(30);
-}
-
-// Get yearly completion data (last 12 months)
-export async function getYearlyCompletionData(): Promise<{
-  month: string;
-  year: number;
-  totalHabits: number;
-  completedHabits: number;
-  completionRate: number;
-}[]> {
-  const habits = await getHabits();
-  const totalHabits = habits.length;
-  const result: {
-    month: string;
-    year: number;
-    totalHabits: number;
-    completedHabits: number;
-    completionRate: number;
-  }[] = [];
-
-  for (let i = 11; i >= 0; i--) {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    const monthStr = date.toLocaleDateString('en-US', { month: 'short' });
-    const year = date.getFullYear();
-    
-    // Get all days in this month
-    const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-    let totalCompleted = 0;
-    let totalDays = 0;
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const checkDate = new Date(date.getFullYear(), date.getMonth(), day);
-      if (checkDate <= new Date()) { // Only count days up to today
-        const dateStr = todayString(checkDate);
-        const completions = await getCompletions(dateStr);
-        const completedCount = Object.values(completions).filter(Boolean).length;
-        totalCompleted += completedCount;
-        totalDays++;
+  // Calculate Current Streak (working backwards from today)
+  // We need to check if today is completed (or in progress)
+  // If today has 0, but yesterday had >0, streak is still alive (just not incremented for today yet)
+  // Actually, usually streak includes today if done, or up to yesterday.
+  const today = history[history.length - 1];
+  const yesterday = history[history.length - 2];
+  
+  // Simple backward check
+  let streak = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].completedIds.length > 0) {
+          streak++;
+      } else {
+          // If it's today and 0, we don't break yet if we just want to see "yesterday's streak"
+          // But "Current Streak" usually implies unbroken chain.
+          // If I haven't done today's yet, my streak is technically what it was yesterday.
+          // However, if I missed yesterday, it's 0.
+          if (i === history.length - 1) continue; // Skip today if 0, effectively
+          break;
       }
-    }
-
-    const completionRate = totalDays > 0 ? (totalCompleted / (totalDays * totalHabits)) * 100 : 0;
-
-    result.push({
-      month: monthStr,
-      year,
-      totalHabits,
-      completedHabits: Math.round(totalCompleted / totalDays) || 0,
-      completionRate,
-    });
   }
+  currentStreak = streak;
 
-  return result;
+  return {
+    currentStreak,
+    bestStreak,
+    perfectDays,
+    totalCompleted
+  };
 }
 
-// Get habit completion breakdown by category
-export async function getHabitCompletionByCategory(): Promise<{
-  category: string;
-  totalHabits: number;
-  completedHabits: number;
-  completionRate: number;
-}[]> {
-  const habits = await getHabits();
-  const categories: { [key: string]: { total: number; completed: number } } = {};
-  
-  // Initialize categories
-  habits.forEach(habit => {
-    if (!categories[habit.category]) {
-      categories[habit.category] = { total: 0, completed: 0 };
-    }
-    categories[habit.category].total++;
-  });
-
-  // Get today's completions
-  const completions = await getCompletions();
-  
-  // Count completions by category
-  habits.forEach(habit => {
-    if (completions[habit.id]) {
-      categories[habit.category].completed++;
-    }
-  });
-
-  return Object.entries(categories).map(([category, data]) => ({
-    category: category.charAt(0).toUpperCase() + category.slice(1),
-    totalHabits: data.total,
-    completedHabits: data.completed,
-    completionRate: data.total > 0 ? (data.completed / data.total) * 100 : 0,
+export async function getHeatmapData(): Promise<{ date: string; count: number }[]> {
+  // Last 90 days
+  const history = await getLastNDaysCompletions(91); // 13 weeks x 7
+  return history.map(h => ({
+    date: h.date,
+    count: h.completedIds.length
   }));
 }
-
-

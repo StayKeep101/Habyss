@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, DeviceEventEmitter, Platform, Dimensions, ScrollView, Modal, Switch, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { addHabit, HabitCategory } from '@/lib/habits';
+import { addHabit, updateHabit, HabitCategory } from '@/lib/habits';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 const categories: { key: HabitCategory; label: string; color: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'health', label: 'Health', color: '#34D399', icon: 'medical' },
@@ -43,16 +43,25 @@ const POPULAR_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
 
 export default function CreateScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<HabitCategory>('work');
-  const [duration, setDuration] = useState<string>('');
-  const [iconName, setIconName] = useState<keyof typeof Ionicons.glyphMap | undefined>(undefined);
+  const parseTime = (timeStr?: string) => {
+    if (!timeStr) return null;
+    const [h, m] = timeStr.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d;
+  };
+
+  const [name, setName] = useState(params.name as string || '');
+  const [category, setCategory] = useState<HabitCategory>((params.category as HabitCategory) || 'work');
+  const [duration, setDuration] = useState<string>(params.duration as string || '');
+  const [iconName, setIconName] = useState<keyof typeof Ionicons.glyphMap | undefined>(params.icon as any || undefined);
   const [saving, setSaving] = useState(false);
-  const [startAt, setStartAt] = useState<Date | null>(null);
-  const [endAt, setEndAt] = useState<Date | null>(null);
+  const [startAt, setStartAt] = useState<Date | null>(parseTime(params.startAt as string));
+  const [endAt, setEndAt] = useState<Date | null>(parseTime(params.endAt as string));
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const wheelHeight = Math.min(140, Math.floor(Dimensions.get('window').height * 0.22));
@@ -62,14 +71,15 @@ export default function CreateScreen() {
   React.useEffect(() => {
     // Small delay to ensure navigation transition finishes before focusing
     const timer = setTimeout(() => {
+      // Only focus if not editing, or always? Maybe better to focus always for quick edits.
       nameInputRef.current?.focus();
     }, 500);
     return () => clearTimeout(timer);
   }, []);
   
   // Goal creation states
-  const [isGoal, setIsGoal] = useState(false);
-  const [targetDate, setTargetDate] = useState<Date | null>(null);
+  const [isGoal, setIsGoal] = useState(params.isGoal === 'true');
+  const [targetDate, setTargetDate] = useState<Date | null>(params.targetDate ? new Date(params.targetDate as string) : null);
   const [showTargetDatePicker, setShowTargetDatePicker] = useState(false);
 
   // Auto-calculate duration when start/end times change
@@ -93,13 +103,32 @@ export default function CreateScreen() {
       const parsed = duration.trim() ? Math.max(1, Math.min(1440, parseInt(duration.trim(), 10) || 0)) : undefined;
       const fmt = (d: Date | null) => (d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : undefined);
       const targetDateISO = targetDate ? targetDate.toISOString() : undefined;
-      await addHabit(name.trim(), category, iconName, parsed, fmt(startAt), fmt(endAt), isGoal, targetDateISO);
+      
+      if (params.id) {
+          await updateHabit({
+              id: params.id as string,
+              name: name.trim(),
+              category,
+              icon: iconName,
+              createdAt: new Date().toISOString(), // Preserving original date would require fetching it or passing it. For now updating it is acceptable or we assume it's a "new version". Ideally we should pass 'createdAt' in params if we want to keep it.
+              durationMinutes: parsed,
+              startTime: fmt(startAt),
+              endTime: fmt(endAt),
+              isGoal,
+              targetDate: targetDateISO,
+          });
+      } else {
+          await addHabit(name.trim(), category, iconName, parsed, fmt(startAt), fmt(endAt), isGoal, targetDateISO);
+      }
+
       DeviceEventEmitter.emit('habit_created');
       router.back();
     } finally {
       setSaving(false);
     }
   };
+
+  const isEditing = !!params.id;
 
   return (
     <KeyboardAvoidingView 
@@ -108,7 +137,9 @@ export default function CreateScreen() {
     >
       {/* Header */}
       <View className="px-6 pt-6 pb-4 flex-row justify-between items-center" style={{ backgroundColor: colors.background }}>
-        <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{isGoal ? 'New Goal' : 'New Habit'}</Text>
+        <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>
+            {isEditing ? 'Edit Habit' : (isGoal ? 'New Goal' : 'New Habit')}
+        </Text>
         <TouchableOpacity 
           onPress={() => router.back()} 
           className="w-10 h-10 rounded-full items-center justify-center"

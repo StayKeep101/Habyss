@@ -4,11 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { CalendarStrip } from '@/components/Home/CalendarStrip';
-import { AnalyticsModal } from '@/components/Home/AnalyticsModal';
-import { getHabits as loadHabits, getCompletions, toggleCompletion, Habit as StoreHabit } from '@/lib/habits';
+import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
+import { getHabits as loadHabits, getCompletions, toggleCompletion, removeHabitEverywhere, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useRouter } from 'expo-router';
+import { Alert } from 'react-native';
 
 interface Habit extends StoreHabit {
   streak?: number;
@@ -71,6 +72,46 @@ const Home = () => {
     setCompletedHabits(Object.values(next).filter(Boolean).length);
   };
 
+  const handleDelete = (habit: Habit) => {
+    Alert.alert(
+      "Delete Habit",
+      "Are you sure you want to delete this habit? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: async () => {
+            await removeHabitEverywhere(habit.id);
+            loadData();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEdit = (habit: Habit) => {
+    // Navigate to create screen with params to edit
+    router.push({
+        pathname: '/create',
+        params: { 
+            id: habit.id,
+            name: habit.name,
+            category: habit.category,
+            icon: habit.icon,
+            duration: habit.durationMinutes ? String(habit.durationMinutes) : '',
+            startAt: habit.startTime,
+            endAt: habit.endTime,
+            isGoal: habit.isGoal ? 'true' : 'false',
+            targetDate: habit.targetDate
+        }
+    });
+  };
+
+  const handleFocus = (habit: Habit) => {
+     handleHabitPress(habit);
+  };
+
   return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
         <View style={{ flex: 1, position: 'relative' }}>
@@ -91,28 +132,14 @@ const Home = () => {
 
                 {habits.length > 0 ? (
                     habits.map((habit) => (
-                        <TouchableOpacity 
+                        <SwipeableHabitItem 
                             key={habit.id}
+                            habit={habit}
                             onPress={() => handleHabitPress(habit)}
-                            className="flex-row items-center p-4 mb-3 rounded-2xl bg-white shadow-sm"
-                            style={{ backgroundColor: colors.surfaceSecondary }}
-                        >
-                            <View className="w-12 h-12 rounded-full items-center justify-center mr-4" style={{ backgroundColor: habit.completed ? colors.success + '20' : colors.surfaceTertiary }}>
-                                <Ionicons 
-                                    name={habit.completed ? "checkmark" : "ellipse-outline"} 
-                                    size={24} 
-                                    color={habit.completed ? colors.success : colors.textTertiary} 
-                                />
-                            </View>
-                            <View className="flex-1">
-                                <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-                                    {habit.name}
-                                </Text>
-                                <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                                    {habit.durationMinutes} mins • {habit.streak} day streak
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onFocus={handleFocus}
+                        />
                     ))
                 ) : (
                     <View className="items-center justify-center py-10">
