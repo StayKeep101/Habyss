@@ -8,7 +8,7 @@ import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { getHabits as loadHabits, getCompletions, toggleCompletion, removeHabitEverywhere, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Alert } from 'react-native';
 
 interface Habit extends StoreHabit {
@@ -44,11 +44,13 @@ const Home = () => {
     setCompletedHabits(Object.values(c).filter(Boolean).length);
   }, [selectedDate]);
 
-  useEffect(() => {
-    loadData();
-    const sub = DeviceEventEmitter.addListener('habit_created', loadData);
-    return () => sub.remove();
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+      const sub = DeviceEventEmitter.addListener('habit_created', loadData);
+      return () => sub.remove();
+    }, [loadData])
+  );
 
   const handleDateSelect = (date: Date) => {
     lightFeedback();

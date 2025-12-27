@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, DeviceEventEmitter, Platform, Dimensions, ScrollView, Modal, Switch, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, DeviceEventEmitter, Platform, Dimensions, ScrollView, Modal, Switch, KeyboardAvoidingView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { addHabit, updateHabit, HabitCategory } from '@/lib/habits';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -123,6 +123,9 @@ export default function CreateScreen() {
 
       DeviceEventEmitter.emit('habit_created');
       router.back();
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Failed to save habit. Please try again.");
     } finally {
       setSaving(false);
     }
