@@ -10,8 +10,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useRouter } from 'expo-router';
 
-import { HabitDetailModal } from '@/components/HabitDetailModal';
-
 interface Habit extends StoreHabit {
   streak?: number;
   completed?: boolean;
@@ -78,17 +76,14 @@ const Home = () => {
         <View style={{ flex: 1, position: 'relative' }}>
           
           {/* Layer 1 (Top): Calendar Strip (Fixed) */}
-          <View style={{ height: '25%', zIndex: 10 }}>
+          <View style={{zIndex: 10 }}>
             <CalendarStrip selectedDate={selectedDate} onSelectDate={handleDateSelect} />
           </View>
 
           {/* Layer 2 (Background): Habits List */}
-          <View style={{ flex: 1, marginTop: -20, paddingHorizontal: 20 }}>
+          <View style={{ flex: 1, paddingHorizontal: 20 }}>
              <ScrollView contentContainerStyle={{ paddingBottom: 150 }} showsVerticalScrollIndicator={false}>
-                <View className="flex-row justify-between items-center mb-4 mt-2">
-                    <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
-                        {selectedDate.toDateString() === new Date().toDateString() ? "Today's Tasks" : `Tasks for ${selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`}
-                    </Text>
+                <View className="flex-row justify-end items-center mb-4 mt-2">
                     <TouchableOpacity onPress={() => router.push('/roadmap')}>
                         <Text className="text-sm font-semibold" style={{ color: colors.primary }}>View Roadmap</Text>
                     </TouchableOpacity>
@@ -146,7 +141,7 @@ const Home = () => {
                 onPress={() => router.push({ pathname: '/statistics', params: { date: selectedDate.toISOString().split('T')[0] } })}
              >
                  <Ionicons name="stats-chart" size={20} color="white" style={{ marginRight: 8 }} />
-                 <Text className="text-white font-bold text-lg">View Statistics</Text>
+                 <Text className="text-white font-bold text-lg">Show Performance</Text>
              </TouchableOpacity>
 
              <TouchableOpacity 

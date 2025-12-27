@@ -45,8 +45,8 @@ export default function RoadmapScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View className="flex-row items-center px-6 py-4 border-b border-gray-100 bg-white">
-        <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 rounded-full bg-gray-100">
+      <View className="flex-row items-center px-6 py-4 border-b" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+        <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 rounded-full" style={{ backgroundColor: colors.surfaceSecondary }}>
              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>My Journey</Text>

@@ -86,8 +86,8 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
     
     // Styling
     const nodeSize = 70;
-    const buttonColor = '#D946EF'; // Pink-500 equivalent
-    const shadowColor = '#A21CAF'; // Pink-700 equivalent
+    const buttonColor = colors.primary; // Theme Primary (Slate Blue)
+    const shadowColor = colors.primaryDark; // Theme Dark (Deep Slate)
     const iconColor = 'white';
 
     // Character position (Next to today)
@@ -107,17 +107,17 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
                 <View className="absolute right-[-100] top-[-20]">
                      {/* Placeholder for Character - Using a large emoji or icon for now if image not available */}
                      <View className="items-center">
-                        <View className="bg-blue-400 p-2 rounded-full mb-1">
-                             <Text className="text-white font-bold text-xs">Let's go!</Text>
+                        <View className="p-2 rounded-full mb-1" style={{ backgroundColor: colors.primaryLight }}>
+                             <Text className="font-bold text-xs" style={{ color: colors.textPrimary }}>Let's go!</Text>
                         </View>
-                        <Ionicons name="person-circle" size={80} color="#60A5FA" />
+                        <Ionicons name="person-circle" size={80} color={colors.primary} />
                      </View>
                 </View>
             )}
 
             {/* Date Label */}
             <View className="items-center mb-1">
-                 <Text className="text-gray-400 font-bold text-xs uppercase tracking-wider">
+                 <Text className="font-bold text-xs uppercase tracking-wider" style={{ color: colors.textSecondary }}>
                      {formatDate(day.date)}
                  </Text>
             </View>
@@ -130,12 +130,12 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
                     width: nodeSize,
                     height: nodeSize,
                     borderRadius: nodeSize / 2,
-                    backgroundColor: day.isToday ? colors.success : buttonColor, // Green for today/completed, Pink for others
+                    backgroundColor: day.isToday ? colors.success : buttonColor, // Green for today/completed, Primary for others
                     alignItems: 'center',
                     justifyContent: 'center',
                     // 3D Shadow Effect
                     borderBottomWidth: 6,
-                    borderBottomColor: day.isToday ? '#15803d' : shadowColor, // Darker shade
+                    borderBottomColor: day.isToday ? '#059669' : shadowColor, // Darker shade (Emerald-600 for success)
                     marginBottom: 6, // Compensate for border
                 }}
             >
@@ -144,7 +144,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
                 {/* Stars below node (Decoration) */}
                 <View className="absolute -bottom-8 flex-row space-x-1">
                     {[1,2,3].map(s => (
-                        <Ionicons key={s} name="star" size={12} color={day.completed ? "#FACC15" : "#374151"} />
+                        <Ionicons key={s} name="star" size={12} color={day.completed ? "#FACC15" : colors.surfaceSecondary} />
                     ))}
                 </View>
             </TouchableOpacity>
@@ -154,24 +154,67 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
   };
 
   return (
-    <View className="flex-1 bg-[#111827]"> 
-      {/* Dark background like the reference image */}
+    <View className="flex-1" style={{ backgroundColor: colors.background }}> 
       
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={{ paddingVertical: 60, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        {days.map((day, index) => renderDayNode(day, index))}
+        {days.map((day, index) => {
+            // Check if there's a goal on this day
+            const goalForDay = habits.find(h => h.isGoal && h.targetDate && new Date(h.targetDate).toDateString() === day.date.toDateString());
+            
+            if (goalForDay) {
+                // Goal Node (Rectangular)
+                const xOffset = Math.sin(index * 0.8) * (width * 0.25);
+                return (
+                    <View key={index} className="mb-6 relative items-center justify-center w-full">
+                        <View style={{ transform: [{ translateX: xOffset }] }}>
+                             {/* Date Label */}
+                            <View className="items-center mb-1">
+                                <Text className="font-bold text-xs uppercase tracking-wider" style={{ color: colors.textSecondary }}>
+                                    {day.isToday ? 'Today' : day.date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}
+                                </Text>
+                            </View>
+
+                            <TouchableOpacity
+                                activeOpacity={0.7}
+                                onPress={() => onDayPress(day)}
+                                style={{
+                                    width: 160, // Wider for goal
+                                    height: 80,
+                                    borderRadius: 20,
+                                    backgroundColor: colors.primary,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderBottomWidth: 6,
+                                    borderBottomColor: colors.primaryDark,
+                                    marginBottom: 6,
+                                    paddingHorizontal: 10
+                                }}
+                            >
+                                <Ionicons name="trophy" size={24} color="white" style={{ marginBottom: 4 }} />
+                                <Text className="text-white font-bold text-center text-sm" numberOfLines={2}>
+                                    {goalForDay.name}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )
+            }
+            
+            return renderDayNode(day, index);
+        })}
       </ScrollView>
 
       {/* Floating 2025 Badge */}
       <View className="absolute bottom-8 left-6">
          <View className="items-center">
-            <View className="bg-green-500 rounded-full p-1 mb-[-10] z-10 border-2 border-[#111827]">
+            <View className="rounded-full p-1 mb-[-10] z-10 border-2" style={{ backgroundColor: colors.success, borderColor: colors.background }}>
                 <Ionicons name="logo-android" size={30} color="white" />
             </View>
-            <View className="bg-blue-400 px-4 py-1 rounded-xl border-2 border-[#111827]">
+            <View className="px-4 py-1 rounded-xl border-2" style={{ backgroundColor: colors.primary, borderColor: colors.background }}>
                 <Text className="text-white font-bold text-lg">2025</Text>
             </View>
          </View>
@@ -179,10 +222,11 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
 
       {/* Floating Arrow Button */}
       <TouchableOpacity 
-        className="absolute bottom-8 right-6 w-12 h-12 bg-[#1F2937] border-2 border-[#374151] rounded-xl items-center justify-center"
+        className="absolute bottom-8 right-6 w-12 h-12 border-2 rounded-xl items-center justify-center"
+        style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
         onPress={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
-        <Ionicons name="arrow-down" size={24} color="#60A5FA" />
+        <Ionicons name="arrow-down" size={24} color={colors.primary} />
       </TouchableOpacity>
     </View>
   );

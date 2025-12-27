@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type HabitCategory = 'health' | 'productivity' | 'fitness' | 'mindfulness';
+export type HabitCategory = 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc';
 
 export interface Habit {
   id: string;
@@ -39,7 +39,7 @@ export async function saveHabits(habits: Habit[]): Promise<void> {
 
 export async function addHabit(
   name: string,
-  category: HabitCategory = 'productivity',
+  category: HabitCategory = 'work',
   icon?: string,
   durationMinutes?: number,
   startTime?: string,
