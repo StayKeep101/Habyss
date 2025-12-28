@@ -1,10 +1,17 @@
 import { router } from 'expo-router';
-import { Text, TouchableOpacity, View, Dimensions, Animated, Image } from 'react-native';
+import { Text, TouchableOpacity, View, Dimensions, Animated, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { auth } from '@/Firebase.config';
+import { Ionicons } from '@expo/vector-icons';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get('window');
 
@@ -37,6 +44,32 @@ const Onboarding = () => {
   const colors = Colors[colorScheme ?? 'light'];
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
+  const [loading, setLoading] = useState(false);
+
+  // Google Auth Setup
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    // TODO: Replace with your actual client IDs from Google Cloud Console
+    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
+    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
+    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      setLoading(true);
+      signInWithCredential(auth, credential)
+        .then(() => {
+            router.replace("/(root)/(tabs)/home");
+        })
+        .catch((error) => {
+           console.error(error);
+           Alert.alert("Error", "Google Sign-In failed");
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [response]);
 
   const renderCard = (card: OnboardingCard, index: number) => {
     const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
@@ -111,12 +144,14 @@ const Onboarding = () => {
         <View className="absolute bottom-10 left-0 right-0 flex-row justify-center items-center">
           {onboardingCards.map((_, index) => {
             const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
-            const widthAnim = scrollX.interpolate({
+            
+            const scale = scrollX.interpolate({
               inputRange,
-              outputRange: [8, 24, 8],
+              outputRange: [0.8, 1.4, 0.8],
               extrapolate: 'clamp',
             });
-            const opacityAnim = scrollX.interpolate({
+            
+            const opacity = scrollX.interpolate({
               inputRange,
               outputRange: [0.4, 1, 0.4],
               extrapolate: 'clamp',
@@ -127,11 +162,12 @@ const Onboarding = () => {
                 key={index}
                 style={{
                   height: 8,
-                  width: widthAnim,
-                  opacity: opacityAnim,
-                  backgroundColor: 'white',
+                  width: 8,
                   borderRadius: 4,
-                  marginHorizontal: 4,
+                  marginHorizontal: 6,
+                  backgroundColor: 'white',
+                  opacity,
+                  transform: [{ scale }]
                 }}
               />
             );
@@ -150,6 +186,17 @@ const Onboarding = () => {
           style={{ backgroundColor: Colors.light.primary }}
         >
           <Text className="text-lg font-bold text-white tracking-wide">Get Started</Text>
+        </TouchableOpacity>
+
+        {/* Google Sign In - Prominent Alternative */}
+        <TouchableOpacity
+          onPress={() => promptAsync()}
+          disabled={loading || !request}
+          className="w-full py-4 rounded-2xl items-center justify-center border mb-4 flex-row"
+          style={{ borderColor: colors.border, backgroundColor: colors.surfaceSecondary }}
+        >
+           <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 10 }} />
+           <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>Continue with Google</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

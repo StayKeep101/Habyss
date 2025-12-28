@@ -15,10 +15,24 @@ export default function HabitDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   
-  const [habit, setHabit] = useState<Habit | null>(null);
-  const [completed, setCompleted] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [streak, setStreak] = useState(0); // Mock streak for now
+  // Initialize with passed params to avoid loading state
+  const [habit, setHabit] = useState<Habit | null>(() => {
+    if (params.initialName) {
+        return {
+            id: habitId,
+            name: params.initialName as string,
+            category: params.initialCategory as any,
+            icon: params.initialIcon as string,
+            durationMinutes: params.initialDuration ? Number(params.initialDuration) : undefined,
+            createdAt: '', // Not critical for display
+        };
+    }
+    return null;
+  });
+
+  const [completed, setCompleted] = useState(params.initialCompleted === 'true');
+  const [loading, setLoading] = useState(!habit); // Only load if we didn't get params
+  const [streak, setStreak] = useState(0); 
 
   useEffect(() => {
     loadHabitDetails();
@@ -26,16 +40,20 @@ export default function HabitDetailScreen() {
 
   const loadHabitDetails = async () => {
     try {
-      const habits = await getHabits();
-      const found = habits.find(h => h.id === habitId);
-      if (found) {
-        setHabit(found);
-        // Check completion status for the specific date
-        const completions = await getCompletions(dateStr);
-        setCompleted(!!completions[habitId]);
-        // Ideally calculate real streak here
-        setStreak(0); 
+      // If we don't have habit data yet (deep link case), fetch it
+      if (!habit) {
+          const habits = await getHabits();
+          const found = habits.find(h => h.id === habitId);
+          if (found) setHabit(found);
       }
+      
+      // Always fetch latest completion status to be sure
+      const completions = await getCompletions(dateStr);
+      setCompleted(!!completions[habitId]);
+      
+      // Calculate real streak (mock for now, but async)
+      // const s = await getStreak(habitId); 
+      setStreak(0); 
     } finally {
       setLoading(false);
     }
@@ -43,8 +61,9 @@ export default function HabitDetailScreen() {
 
   const handleToggle = async () => {
     if (!habit) return;
-    const next = await toggleCompletion(habit.id, dateStr);
-    setCompleted(!!next[habit.id]);
+    // Optimistic update
+    setCompleted(prev => !prev);
+    await toggleCompletion(habit.id, dateStr);
   };
 
   if (loading) {

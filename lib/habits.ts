@@ -8,10 +8,16 @@ import {
   getDoc,
   query,
   orderBy,
-  where,
-  writeBatch
+  writeBatch,
+  onSnapshot,
+  limit
 } from 'firebase/firestore';
-import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+
+// --- In-Memory Cache ---
+let cachedHabits: Habit[] | null = null;
+let habitsUnsubscribe: (() => void) | null = null;
+const habitsListeners: Set<(habits: Habit[]) => void> = new Set();
 
 // Helper to remove undefined fields which Firestore doesn't support
 const cleanData = (data: any) => {
@@ -52,18 +58,60 @@ export async function getUserId(): Promise<string> {
   });
 }
 
+// --- Habits Real-time Subscription ---
+
+function setupHabitsListener(uid: string) {
+  if (habitsUnsubscribe) return; // Already listening
+
+  const q = query(collection(db, 'users', uid, 'habits'), orderBy('createdAt', 'desc'));
+  
+  habitsUnsubscribe = onSnapshot(q, (snapshot) => {
+    const newHabits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
+    cachedHabits = newHabits;
+    habitsListeners.forEach(listener => listener(newHabits));
+  }, (error) => {
+    console.error("Habits listener error:", error);
+  });
+}
+
+export async function subscribeToHabits(callback: (habits: Habit[]) => void): Promise<() => void> {
+  const uid = await getUserId();
+  
+  // If we have cache, return it immediately
+  if (cachedHabits) {
+    callback(cachedHabits);
+  }
+  
+  // Start listener if not started
+  setupHabitsListener(uid);
+  
+  habitsListeners.add(callback);
+  
+  return () => {
+    habitsListeners.delete(callback);
+    // We don't unsubscribe from Firestore to keep the cache alive for the session
+  };
+}
+
 // --- Habits CRUD ---
 
 export async function getHabits(): Promise<Habit[]> {
+  // Return cache if available
+  if (cachedHabits) return cachedHabits;
+
   try {
     const uid = await getUserId();
+    // If not cached, fetch once (and setup listener for future)
+    setupHabitsListener(uid);
+    
+    // Wait a tick for listener to populate or just fetch manually
     const q = query(collection(db, 'users', uid, 'habits'), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
+    const habits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
+    cachedHabits = habits;
+    return habits;
   } catch (e) {
     console.error('Error fetching habits:', e);
-    // If permission denied, return empty but don't crash.
-    // This can happen if rules are too strict or auth is not ready.
     return [];
   }
 }
@@ -93,6 +141,7 @@ export async function addHabit(
     targetDate,
   };
   
+  // Optimistic update (optional, but listener handles it fast)
   await setDoc(doc(db, 'users', uid, 'habits', id), cleanData(newHabit));
   return newHabit;
 }

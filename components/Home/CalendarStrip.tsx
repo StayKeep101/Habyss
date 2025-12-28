@@ -18,6 +18,35 @@ interface DateItem {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_WIDTH / 7;
 
+const DateButton = React.memo(({ item, selected, isToday, onSelect, width, colors }: any) => (
+    <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
+        <TouchableOpacity
+            onPress={() => onSelect(item.fullDate)}
+            className="items-center justify-center rounded-2xl"
+            style={{ 
+              width: width - 6,
+              height: 85,
+              backgroundColor: selected ? '#9CB1D6' : colors.surfaceSecondary,
+              borderWidth: isToday ? 2 : 0,
+              borderColor: isToday ? (selected ? colors.primaryDark : colors.primary) : 'transparent'
+            }}
+        >
+            <Text 
+              className="text-[10px] mb-2 font-bold uppercase tracking-wider"
+              style={{ color: selected ? colors.textPrimary : colors.textTertiary }}
+            >
+              {item.dayName}
+            </Text>
+            <Text 
+              className="text-lg font-bold"
+              style={{ color: selected ? colors.textPrimary : colors.textPrimary }}
+            >
+              {item.dayNumber}
+            </Text>
+        </TouchableOpacity>
+    </View>
+));
+
 export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSelectDate }) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -53,10 +82,10 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
   }, []);
 
   // Find index of selected date
-  const getIndexForDate = (date: Date) => {
+  const getIndexForDate = useCallback((date: Date) => {
     const dateStr = date.toDateString();
     return dates.findIndex(d => d.fullDate.toDateString() === dateStr);
-  };
+  }, [dates]);
 
   const initialIndex = useMemo(() => {
      // Find today's index
@@ -82,51 +111,26 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
             animated: true
         });
     }
-  }, [selectedDate]);
-
-  const isSelected = (d1: Date, d2: Date) => {
-    return d1.getDate() === d2.getDate() && 
-           d1.getMonth() === d2.getMonth() && 
-           d1.getFullYear() === d2.getFullYear();
-  };
-
-  const isTodayCheck = (date: Date) => {
-    const today = new Date();
-    return date.getDate() === today.getDate() && 
-           date.getMonth() === today.getMonth() && 
-           date.getFullYear() === today.getFullYear();
-  };
+  }, [selectedDate, getIndexForDate]);
 
   const renderItem = useCallback(({ item }: { item: DateItem }) => {
-    const selected = isSelected(selectedDate, item.fullDate);
-    const isToday = isTodayCheck(item.fullDate);
+    const selected = item.fullDate.getDate() === selectedDate.getDate() && 
+                     item.fullDate.getMonth() === selectedDate.getMonth() && 
+                     item.fullDate.getFullYear() === selectedDate.getFullYear();
+                     
+    const isToday = item.fullDate.getDate() === new Date().getDate() && 
+                    item.fullDate.getMonth() === new Date().getMonth() && 
+                    item.fullDate.getFullYear() === new Date().getFullYear();
+
     return (
-        <View style={{ width: ITEM_WIDTH, alignItems: 'center', justifyContent: 'center' }}>
-            <TouchableOpacity
-                onPress={() => onSelectDate(item.fullDate)}
-                className="items-center justify-center rounded-2xl"
-                style={{ 
-                  width: ITEM_WIDTH - 6,
-                  height: 85,
-                  backgroundColor: selected ? '#9CB1D6' : colors.surfaceSecondary,
-                  borderWidth: isToday ? 2 : 0,
-                  borderColor: isToday ? (selected ? colors.primaryDark : colors.primary) : 'transparent'
-                }}
-            >
-                <Text 
-                  className="text-[10px] mb-2 font-bold uppercase tracking-wider"
-                  style={{ color: selected ? colors.textPrimary : colors.textTertiary }}
-                >
-                  {item.dayName}
-                </Text>
-                <Text 
-                  className="text-lg font-bold"
-                  style={{ color: selected ? colors.textPrimary : colors.textPrimary }}
-                >
-                  {item.dayNumber}
-                </Text>
-            </TouchableOpacity>
-        </View>
+        <DateButton 
+            item={item} 
+            selected={selected} 
+            isToday={isToday} 
+            onSelect={onSelectDate} 
+            width={ITEM_WIDTH} 
+            colors={colors} 
+        />
     );
   }, [selectedDate, colors, onSelectDate]);
 

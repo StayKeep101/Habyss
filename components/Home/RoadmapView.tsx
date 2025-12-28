@@ -25,15 +25,15 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Generate days (30 days future, today, 30 days past)
-  const generateDays = () => {
-    const days = [];
+  const days = React.useMemo(() => {
+    const d = [];
     const today = new Date();
     
     // Future days (upcoming days above) - Reversed order so today is at bottom
     for (let i = 10; i >= 1; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() + i);
-      days.push({
+      d.push({
         day: -i,
         date,
         completed: false,
@@ -44,7 +44,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
     }
     
     // Today
-    days.push({
+    d.push({
       day: 0,
       date: today,
       completed: completedHabitsCount > 0 && completedHabitsCount === totalHabitsCount,
@@ -57,7 +57,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
     for (let i = 1; i <= 10; i++) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
-        days.push({
+        d.push({
           day: i,
           date,
           completed: Math.random() > 0.3, // Mock data for now
@@ -67,10 +67,10 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
         });
     }
     
-    return days;
-  };
+    return d;
+  }, [completedHabitsCount, totalHabitsCount]);
 
-  const days = generateDays();
+  const currentYear = new Date().getFullYear();
 
   // Scroll to bottom initially to show today
   useEffect(() => {

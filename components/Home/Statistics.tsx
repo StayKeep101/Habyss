@@ -5,7 +5,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import Svg, { Path, Line, Circle } from 'react-native-svg';
 
-export const HealthData = () => {
+export const HealthData = React.memo(() => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -22,9 +22,9 @@ export const HealthData = () => {
       </Text>
     </View>
   );
-};
+});
 
-export const KcalChart = () => {
+export const KcalChart = React.memo(() => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   return (
@@ -58,9 +58,9 @@ export const KcalChart = () => {
       </View>
     </View>
   );
-};
+});
 
-export const TimeChart = () => {
+export const TimeChart = React.memo(() => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   return (
@@ -75,9 +75,9 @@ export const TimeChart = () => {
         </View>
     </View>
   );
-};
+});
 
-export const DistanceChart = () => {
+export const DistanceChart = React.memo(() => {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
     return (
@@ -92,9 +92,9 @@ export const DistanceChart = () => {
           </View>
       </View>
     );
-  };
+});
 
-export const WorkoutChart = () => {
+export const WorkoutChart = React.memo(() => {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'light'];
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -145,4 +145,4 @@ export const WorkoutChart = () => {
              </View>
         </View>
     );
-}
+});

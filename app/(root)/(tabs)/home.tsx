@@ -5,7 +5,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
-import { getHabits as loadHabits, getCompletions, toggleCompletion, removeHabitEverywhere, Habit as StoreHabit } from '@/lib/habits';
+import { getHabits as loadHabits, subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -22,39 +22,45 @@ const Home = () => {
   const colors = Colors[colorScheme ?? 'light'];
   const { lightFeedback } = useHaptics();
 
+  const [habitsStore, setHabitsStore] = useState<StoreHabit[]>([]);
   const [habits, setHabits] = useState<Habit[]>([]);
-  const [completedHabits, setCompletedHabits] = useState(0);
-  const [totalHabits, setTotalHabits] = useState(0);
+  const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Detail Modal State
-  const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
-  const [habitDetailVisible, setHabitDetailVisible] = useState(false);
+  // Subscribe to habits list (real-time & cached)
+  useEffect(() => {
+    const unsubPromise = subscribeToHabits((newHabits) => {
+      setHabitsStore(newHabits);
+    });
+    return () => { unsubPromise.then(unsub => unsub()); };
+  }, []);
 
-  // Load Data
-  const loadData = useCallback(async () => {
-    const h = await loadHabits();
-    // Use selectedDate for completions
-    const dateStr = selectedDate.toISOString().split('T')[0];
-    const c = await getCompletions(dateStr);
-    
-    const mapped: Habit[] = h.map(item => ({ ...item, completed: !!c[item.id], streak: 0 }));
-    setHabits(mapped);
-    setTotalHabits(mapped.length);
-    setCompletedHabits(Object.values(c).filter(Boolean).length);
+  // Load Completions when date changes
+  useEffect(() => {
+    const loadCompletions = async () => {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const c = await getCompletions(dateStr);
+      setCompletions(c);
+    };
+    loadCompletions();
   }, [selectedDate]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-      const sub = DeviceEventEmitter.addListener('habit_created', loadData);
-      return () => sub.remove();
-    }, [loadData])
-  );
+  // Merge Habits + Completions
+  useEffect(() => {
+    const mapped: Habit[] = habitsStore.map(item => ({ 
+      ...item, 
+      completed: !!completions[item.id], 
+      streak: 0 
+    }));
+    setHabits(mapped);
+  }, [habitsStore, completions]);
 
   const handleDateSelect = (date: Date) => {
     lightFeedback();
     setSelectedDate(date);
+    // Optimistically clear completions while loading new ones to avoid confusion
+    // Or keep them until new ones load? Keeping them is better for perceived speed if IDs match, 
+    // but clearing is safer for correctness. Let's keep for now as effect runs fast.
   };
 
   const handleHabitPress = (habit: Habit) => {
@@ -62,16 +68,31 @@ const Home = () => {
     const dateStr = selectedDate.toISOString().split('T')[0];
     router.push({
         pathname: '/habit-detail',
-        params: { habitId: habit.id, date: dateStr }
+        params: { 
+            habitId: habit.id, 
+            date: dateStr,
+            // Pass initial data to avoid "morphing" / loading on next screen
+            initialName: habit.name,
+            initialCategory: habit.category,
+            initialIcon: habit.icon,
+            initialDuration: habit.durationMinutes ? String(habit.durationMinutes) : '',
+            initialCompleted: habit.completed ? 'true' : 'false'
+        }
     });
   };
 
   const toggleHabit = async (habitId: string) => {
     lightFeedback();
+    // Optimistic Update
+    setCompletions(prev => ({ ...prev, [habitId]: !prev[habitId] }));
+    
     const dateStr = selectedDate.toISOString().split('T')[0];
-    const next = await toggleCompletion(habitId, dateStr);
-    setHabits(prev => prev.map(h => ({ ...h, completed: !!next[h.id] })));
-    setCompletedHabits(Object.values(next).filter(Boolean).length);
+    try {
+        await toggleCompletion(habitId, dateStr);
+    } catch (e) {
+        // Revert on error
+        setCompletions(prev => ({ ...prev, [habitId]: !prev[habitId] }));
+    }
   };
 
   const handleDelete = (habit: Habit) => {
@@ -85,7 +106,7 @@ const Home = () => {
           style: "destructive", 
           onPress: async () => {
             await removeHabitEverywhere(habit.id);
-            loadData();
+            // No need to reload, subscription handles it
           }
         }
       ]

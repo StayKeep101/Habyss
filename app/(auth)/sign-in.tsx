@@ -1,13 +1,17 @@
 import { router } from 'expo-router';
 import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { auth } from '@/Firebase.config';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { getUserId } from '@/lib/habits';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const SignIn = () => {
   const colorScheme = useColorScheme();
@@ -17,6 +21,31 @@ const SignIn = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Google Auth Setup
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    // TODO: Replace with your actual client IDs from Google Cloud Console
+    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
+    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
+    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      setLoading(true);
+      signInWithCredential(auth, credential)
+        .then(() => {
+            router.replace("/(root)/(tabs)/home");
+        })
+        .catch((error) => {
+           console.error(error);
+           Alert.alert("Error", "Google Sign-In failed");
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [response]);
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -139,6 +168,17 @@ const SignIn = () => {
               <Text className="mx-4 text-sm" style={{ color: colors.textTertiary }}>OR</Text>
               <View className="flex-1 h-[1px]" style={{ backgroundColor: colors.border }} />
             </View>
+
+            {/* Google Sign In */}
+            <TouchableOpacity
+              onPress={() => promptAsync()}
+              disabled={loading || !request}
+              className="w-full py-4 rounded-2xl items-center justify-center border mb-3 flex-row"
+              style={{ borderColor: colors.border, backgroundColor: colors.surfaceSecondary }}
+            >
+               <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 10 }} />
+               <Text className="text-base font-semibold" style={{ color: colors.textPrimary }}>Sign in with Google</Text>
+            </TouchableOpacity>
 
             {/* Skip / Guest */}
             <TouchableOpacity
