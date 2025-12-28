@@ -132,7 +132,7 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
             >
                 <Animated.View style={{ transform: [{ scale }] }}>
                     <Ionicons name="trash" size={24} color="white" />
-                    <Text className="text-white text-xs font-bold mt-1">Delete</Text>
+                    <Text className="text-white text-xs font-inter-bold mt-1">Delete</Text>
                 </Animated.View>
             </TouchableOpacity>
         </Animated.View>

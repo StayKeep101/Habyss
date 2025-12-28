@@ -19,7 +19,7 @@ const Input = React.forwardRef<React.ElementRef<typeof TextInput>, InputProps>(
         {label && (
           <View>
             <TextInput
-              className={cn("text-sm font-medium text-foreground")}
+              className={cn("text-sm font-inter-medium text-foreground")}
               style={{ color: colors.textSecondary }}
               editable={false}
               value={label}

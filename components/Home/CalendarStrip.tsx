@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Dimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
@@ -22,26 +23,41 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
     <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
         <TouchableOpacity
             onPress={() => onSelect(item.fullDate)}
-            className="items-center justify-center rounded-2xl"
-            style={{ 
-              width: width - 6,
-              height: 85,
-              backgroundColor: selected ? '#9CB1D6' : colors.surfaceSecondary,
-              borderWidth: isToday ? 2 : 0,
-              borderColor: isToday ? (selected ? colors.primaryDark : colors.primary) : 'transparent'
-            }}
+            className="items-center justify-center"
+            style={{ width: width, paddingVertical: 10 }}
         >
+            {/* Circle for Day Number */}
+            <View
+                style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: selected ? colors.primary : colors.surfaceSecondary,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 8,
+                    // Glow effect for selected
+                    shadowColor: selected ? colors.primary : 'transparent',
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: selected ? 0.4 : 0,
+                    shadowRadius: 8,
+                    elevation: selected ? 4 : 0,
+                }}
+            >
+                <Text 
+                  className="text-base font-bold"
+                  style={{ color: selected ? 'white' : colors.textSecondary }}
+                >
+                  {item.dayNumber}
+                </Text>
+            </View>
+
+            {/* Day Name */}
             <Text 
-              className="text-[10px] mb-2 font-bold uppercase tracking-wider"
-              style={{ color: selected ? colors.textPrimary : colors.textTertiary }}
+              className="text-xs font-medium"
+              style={{ color: selected ? 'white' : colors.textTertiary }}
             >
               {item.dayName}
-            </Text>
-            <Text 
-              className="text-lg font-bold"
-              style={{ color: selected ? colors.textPrimary : colors.textPrimary }}
-            >
-              {item.dayNumber}
             </Text>
         </TouchableOpacity>
     </View>
@@ -99,6 +115,8 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
      return 0;
   }, [dates]);
 
+  const isProgrammaticScroll = useRef(false);
+
   // Scroll to selected date's week when it changes
   useEffect(() => {
     const index = getIndexForDate(selectedDate);
@@ -106,6 +124,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
         // Scroll to the start of the week containing this date
         const weekStartIndex = index - (index % 7);
         
+        isProgrammaticScroll.current = true;
         flatListRef.current.scrollToIndex({
             index: weekStartIndex,
             animated: true
@@ -141,43 +160,75 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
   });
 
   const onMomentumScrollEnd = (event: any) => {
+    if (isProgrammaticScroll.current) {
+        isProgrammaticScroll.current = false;
+        return;
+    }
+
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / ITEM_WIDTH);
     
     // The item at 'index' is the first visible item of the new page (week)
     if (index >= 0 && index < dates.length) {
        const firstItem = dates[index];
-       const newWeekStart = firstItem.fullDate; // This should be a Sunday because of paging and data alignment
+       const newWeekStart = firstItem.fullDate; 
        
-       // Calculate current selected day of week
        const currentDayOfWeek = selectedDate.getDay();
-       
-       // Calculate target date in the new week
        const targetDate = new Date(newWeekStart);
        targetDate.setDate(newWeekStart.getDate() + currentDayOfWeek);
        
-       // Only trigger update if it's actually a different date
        if (targetDate.getTime() !== selectedDate.getTime()) {
-           // We call onSelectDate to update the app state
-           // We must ensure this doesn't cause a "double scroll" glitch
-           // Since we just finished scrolling to this week, the useEffect might try to scroll again 
-           // but it should calculate the same index (or close to it)
            onSelectDate(targetDate);
        }
     }
   };
 
-  const monthLabel = useMemo(() => {
-     return selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const isTodaySelected = useMemo(() => {
+      const today = new Date();
+      return selectedDate.getDate() === today.getDate() &&
+             selectedDate.getMonth() === today.getMonth() &&
+             selectedDate.getFullYear() === today.getFullYear();
   }, [selectedDate]);
 
+  const headerTitle = isTodaySelected ? "Today" : selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+  const headerDate = selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const handlePrevWeek = () => {
+      const newDate = new Date(selectedDate);
+      newDate.setDate(selectedDate.getDate() - 7);
+      onSelectDate(newDate);
+  };
+
+  const handleNextWeek = () => {
+      const newDate = new Date(selectedDate);
+      newDate.setDate(selectedDate.getDate() + 7);
+      onSelectDate(newDate);
+  };
+
   return (
-    <View className="pt-8 pb-4" style={{ backgroundColor: colors.background }}>
-      <View className="px-6 mb-2">
-         <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
-            {monthLabel}
-         </Text>
+    <View className="pt-6 pb-2" style={{ backgroundColor: colors.background }}>
+      {/* Header */}
+      <View className="px-6 mb-4 flex-row items-center justify-between">
+         <TouchableOpacity onPress={handlePrevWeek} className="p-2">
+            <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
+         </TouchableOpacity>
+         
+         <View className="items-center">
+             <TouchableOpacity onPress={() => onSelectDate(new Date())} className="items-center">
+                 <Text className="font-display mb-1 text-white" style={{ fontSize: 28 }}>
+                    {headerTitle}
+                 </Text>
+                 <Text className="text-lg font-inter-medium" style={{ color: '#AFC3E8' }}>
+                    {headerDate}
+                 </Text>
+             </TouchableOpacity>
+         </View>
+
+         <TouchableOpacity onPress={handleNextWeek} className="p-2">
+            <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+         </TouchableOpacity>
       </View>
+
       <FlatList
         ref={flatListRef}
         data={dates}

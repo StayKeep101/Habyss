@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useTheme } from '@/constants/themeContext';
+import { useTheme, ThemeMode } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
@@ -20,20 +20,12 @@ interface SettingItem {
 }
 
 const Settings = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { theme, setTheme } = useTheme();
+  // We can trust theme is 'light' | 'abyss' | 'trueDark'
+  const colors = Colors[theme];
   const { lightFeedback, mediumFeedback } = useHaptics();
-  const { isDarkMode, toggleTheme } = useTheme();
 
   const [settings, setSettings] = useState<SettingItem[]>([
-    {
-      id: '1',
-      title: isDarkMode ? 'Light Mode' : 'Dark Mode',
-      subtitle: isDarkMode ? 'Switch to light theme' : 'Use dark theme throughout the app',
-      icon: isDarkMode ? 'sunny' : 'moon',
-      type: 'toggle',
-      value: isDarkMode
-    },
     {
       id: '2',
       title: 'Haptic Feedback',
@@ -152,17 +144,6 @@ const Settings = () => {
     }
   ]);
 
-  // Keep the Dark/Light row title and icon in sync with theme changes
-  useEffect(() => {
-    setSettings(prev => prev.map(s => s.id === '1' ? {
-      ...s,
-      title: isDarkMode ? 'Light Mode' : 'Dark Mode',
-      subtitle: isDarkMode ? 'Switch to light theme' : 'Use dark theme throughout the app',
-      icon: isDarkMode ? 'sunny' : 'moon',
-      value: isDarkMode,
-    } : s));
-  }, [isDarkMode]);
-
   const toggleSetting = (id: string) => {
     lightFeedback();
     setSettings(prev => {
@@ -171,16 +152,6 @@ const Settings = () => {
           ? { ...setting, value: !setting.value }
           : setting
       );
-      // If toggling dark mode, also flip theme and update title/icon
-      if (id === '1') {
-        toggleTheme();
-        return updated.map(s => s.id === '1' ? {
-          ...s,
-          title: !isDarkMode ? 'Light Mode' : 'Dark Mode',
-          subtitle: !isDarkMode ? 'Switch to light theme' : 'Use dark theme throughout the app',
-          icon: !isDarkMode ? 'sunny' : 'moon',
-        } : s);
-      }
       return updated;
     });
   };
@@ -216,6 +187,29 @@ const Settings = () => {
     );
   };
 
+  const ThemeOption = ({ mode, label, icon }: { mode: ThemeMode, label: string, icon: string }) => {
+      const isSelected = theme === mode;
+      return (
+          <TouchableOpacity 
+              onPress={() => {
+                  lightFeedback();
+                  setTheme(mode);
+              }}
+              className="flex-1 items-center justify-center py-3 rounded-xl mx-1"
+              style={{ 
+                  backgroundColor: isSelected ? colors.primary : colors.surface,
+                  borderWidth: 1,
+                  borderColor: isSelected ? colors.primary : colors.border
+              }}
+          >
+              <Ionicons name={icon as any} size={24} color={isSelected ? 'white' : colors.textSecondary} />
+              <Text className="text-sm font-semibold mt-1" style={{ color: isSelected ? 'white' : colors.textSecondary }}>
+                  {label}
+              </Text>
+          </TouchableOpacity>
+      )
+  }
+
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       {/* Header */}
@@ -245,6 +239,21 @@ const Settings = () => {
       </View>
 
       <ScrollView className="flex-1 px-6">
+        {/* Appearance Section */}
+        <View className="mb-6">
+            <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
+                Appearance
+            </Text>
+            <View 
+                className="p-2 rounded-2xl flex-row"
+                style={{ backgroundColor: colors.surfaceSecondary }}
+            >
+                <ThemeOption mode="light" label="Light" icon="sunny" />
+                <ThemeOption mode="abyss" label="Abyss" icon="moon" />
+                <ThemeOption mode="trueDark" label="Pure Dark" icon="contrast" />
+            </View>
+        </View>
+
         {/* App Preferences */}
         <View className="mb-6">
           <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
@@ -254,7 +263,7 @@ const Settings = () => {
             className="rounded-2xl overflow-hidden"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
-            {settings.slice(0, 4).map((setting, index) => (
+            {settings.slice(0, 3).map((setting, index) => (
               <View key={setting.id}>
                 <TouchableOpacity
                   className="flex-row items-center p-4"
@@ -284,14 +293,8 @@ const Settings = () => {
                       thumbColor={setting.value ? 'white' : '#f1f5f9'}
                     />
                   )}
-                  {setting.type === 'navigation' && (
-                    <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-                  )}
-                  {setting.type === 'action' && (
-                    <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-                  )}
                 </TouchableOpacity>
-                {index < 3 && (
+                {index < 2 && (
                   <View 
                     className="h-[0.5px] mx-4"
                     style={{ backgroundColor: colors.border }}
@@ -311,7 +314,7 @@ const Settings = () => {
             className="rounded-2xl overflow-hidden"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
-            {settings.slice(4, 7).map((setting, index) => (
+            {settings.slice(3, 6).map((setting, index) => (
               <View key={setting.id}>
                 <TouchableOpacity
                   className="flex-row items-center p-4"
@@ -355,7 +358,7 @@ const Settings = () => {
             className="rounded-2xl overflow-hidden"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
-            {settings.slice(7).map((setting, index) => (
+            {settings.slice(6).map((setting, index) => (
               <View key={setting.id}>
                 <TouchableOpacity
                   className="flex-row items-center p-4"

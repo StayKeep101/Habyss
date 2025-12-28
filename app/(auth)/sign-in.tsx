@@ -1,17 +1,11 @@
 import { router } from 'expo-router';
 import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { auth } from '@/Firebase.config';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import { getUserId } from '@/lib/habits';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-
-WebBrowser.maybeCompleteAuthSession();
+import { supabase } from '@/lib/supabase';
 
 const SignIn = () => {
   const colorScheme = useColorScheme();
@@ -22,31 +16,6 @@ const SignIn = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Google Auth Setup
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    // TODO: Replace with your actual client IDs from Google Cloud Console
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      setLoading(true);
-      signInWithCredential(auth, credential)
-        .then(() => {
-            router.replace("/(root)/(tabs)/home");
-        })
-        .catch((error) => {
-           console.error(error);
-           Alert.alert("Error", "Google Sign-In failed");
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [response]);
-
   const handleSignIn = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter both email and password');
@@ -55,26 +24,38 @@ const SignIn = () => {
 
     try {
       setLoading(true);
-      await signInWithEmailAndPassword(auth, email, password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      
       router.replace("/(root)/(tabs)/home");
     } catch (e: any) {
       console.error(e);
-      let msg = 'Failed to sign in';
-      if (e.code === 'auth/invalid-credential') msg = 'Invalid email or password';
-      if (e.code === 'auth/invalid-email') msg = 'Invalid email address';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', e.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGoogleSignIn = async () => {
+     Alert.alert("Coming Soon", "Google Sign-In will be available soon!");
+     // await supabase.auth.signInWithOAuth({ provider: 'google' });
+  };
+
   const handleSkip = async () => {
     try {
       setLoading(true);
-      await getUserId(); // Anonymous auth
+      const { error } = await supabase.auth.signInAnonymously();
+      
+      if (error) throw error;
+
       router.replace("/(root)/(tabs)/home");
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      Alert.alert("Error", "Could not sign in anonymously");
     } finally {
       setLoading(false);
     }
@@ -171,8 +152,8 @@ const SignIn = () => {
 
             {/* Google Sign In */}
             <TouchableOpacity
-              onPress={() => promptAsync()}
-              disabled={loading || !request}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
               className="w-full py-4 rounded-2xl items-center justify-center border mb-3 flex-row"
               style={{ borderColor: colors.border, backgroundColor: colors.surfaceSecondary }}
             >

@@ -37,24 +37,27 @@ const styles = StyleSheet.create({
   default: {
     fontSize: 16,
     lineHeight: 24,
+    fontFamily: 'Lexend_400Regular',
   },
   defaultSemiBold: {
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '600',
+    fontFamily: 'Lexend_600SemiBold',
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 32,
+    lineHeight: 40,
+    fontFamily: 'Lexend_700Bold',
   },
   subtitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    lineHeight: 28,
+    fontFamily: 'Lexend_600SemiBold',
   },
   link: {
-    lineHeight: 30,
     fontSize: 16,
-    color: '#0a7ea4',
+    lineHeight: 24,
+    color: '#3A5A8C', // Brand Deep Blue
+    fontFamily: 'Lexend_600SemiBold',
   },
 });

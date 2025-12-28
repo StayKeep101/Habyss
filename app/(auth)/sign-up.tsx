@@ -1,16 +1,11 @@
 import { router } from 'expo-router';
 import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { auth } from '@/Firebase.config';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-
-WebBrowser.maybeCompleteAuthSession();
+import { supabase } from '@/lib/supabase';
 
 const SignUp = () => {
   const colorScheme = useColorScheme();
@@ -21,31 +16,6 @@ const SignUp = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  // Google Auth Setup
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    // TODO: Replace with your actual client IDs from Google Cloud Console
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      setLoading(true);
-      signInWithCredential(auth, credential)
-        .then(() => {
-            router.replace("/(root)/(tabs)/home");
-        })
-        .catch((error) => {
-           console.error(error);
-           Alert.alert("Error", "Google Sign-In failed");
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [response]);
 
   const handleSignUp = async () => {
     if (!email || !password || !confirmPassword) {
@@ -60,19 +30,26 @@ const SignUp = () => {
 
     try {
       setLoading(true);
-      await createUserWithEmailAndPassword(auth, email, password);
-      // Optional: Update profile with name here if we had a name field
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
       router.replace("/(root)/(tabs)/home");
     } catch (e: any) {
       console.error(e);
-      let msg = 'Failed to sign up';
-      if (e.code === 'auth/email-already-in-use') msg = 'Email is already in use';
-      if (e.code === 'auth/weak-password') msg = 'Password should be at least 6 characters';
-      if (e.code === 'auth/invalid-email') msg = 'Invalid email address';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', e.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSignUp = async () => {
+     Alert.alert("Coming Soon", "Google Sign-In will be available soon!");
+     // TODO: Implement Supabase Google Auth
+     // await supabase.auth.signInWithOAuth({ provider: 'google' });
   };
 
   return (
@@ -184,8 +161,8 @@ const SignUp = () => {
 
             {/* Google Sign Up */}
             <TouchableOpacity
-              onPress={() => promptAsync()}
-              disabled={loading || !request}
+              onPress={handleGoogleSignUp}
+              disabled={loading}
               className="w-full py-4 rounded-2xl items-center justify-center border flex-row"
               style={{ borderColor: colors.border, backgroundColor: colors.surfaceSecondary }}
             >

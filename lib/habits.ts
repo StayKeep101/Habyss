@@ -1,28 +1,9 @@
-import { db, auth } from '@/Firebase.config';
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  setDoc, 
-  deleteDoc, 
-  getDoc,
-  query,
-  orderBy,
-  writeBatch,
-  onSnapshot,
-  limit
-} from 'firebase/firestore';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { supabase } from '@/lib/supabase';
 
 // --- In-Memory Cache ---
 let cachedHabits: Habit[] | null = null;
-let habitsUnsubscribe: (() => void) | null = null;
+let habitsSubscription: any = null;
 const habitsListeners: Set<(habits: Habit[]) => void> = new Set();
-
-// Helper to remove undefined fields which Firestore doesn't support
-const cleanData = (data: any) => {
-  return JSON.parse(JSON.stringify(data));
-};
 
 export type HabitCategory = 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc';
 
@@ -43,76 +24,78 @@ const todayString = (d = new Date()) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export async function getUserId(): Promise<string> {
-  if (auth.currentUser) return auth.currentUser.uid;
-  
-  return new Promise((resolve, reject) => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      unsubscribe();
-      if (user) {
-        resolve(user.uid);
-      } else {
-        signInAnonymously(auth).then(({ user }) => resolve(user.uid)).catch(reject);
-      }
-    });
-  });
+export async function getUserId(): Promise<string | undefined> {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id;
 }
 
 // --- Habits Real-time Subscription ---
 
-function setupHabitsListener(uid: string) {
-  if (habitsUnsubscribe) return; // Already listening
+async function setupHabitsListener() {
+  if (habitsSubscription) return; // Already listening
 
-  const q = query(collection(db, 'users', uid, 'habits'), orderBy('createdAt', 'desc'));
-  
-  habitsUnsubscribe = onSnapshot(q, (snapshot) => {
-    const newHabits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
-    cachedHabits = newHabits;
-    habitsListeners.forEach(listener => listener(newHabits));
-  }, (error) => {
-    console.error("Habits listener error:", error);
-  });
+  const uid = await getUserId();
+  if (!uid) return;
+
+  habitsSubscription = supabase
+    .channel('public:habits')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'habits', filter: `user_id=eq.${uid}` }, () => {
+      // Reload habits when any change occurs
+      getHabits().then(habits => {
+        habitsListeners.forEach(listener => listener(habits));
+      });
+    })
+    .subscribe();
 }
 
 export async function subscribeToHabits(callback: (habits: Habit[]) => void): Promise<() => void> {
-  const uid = await getUserId();
-  
   // If we have cache, return it immediately
   if (cachedHabits) {
     callback(cachedHabits);
+  } else {
+     // Fetch initially
+     getHabits().then(callback);
   }
   
   // Start listener if not started
-  setupHabitsListener(uid);
+  setupHabitsListener();
   
   habitsListeners.add(callback);
   
   return () => {
     habitsListeners.delete(callback);
-    // We don't unsubscribe from Firestore to keep the cache alive for the session
   };
 }
 
 // --- Habits CRUD ---
 
 export async function getHabits(): Promise<Habit[]> {
-  // Return cache if available
-  if (cachedHabits) return cachedHabits;
-
   try {
-    const uid = await getUserId();
-    // If not cached, fetch once (and setup listener for future)
-    setupHabitsListener(uid);
-    
-    // Wait a tick for listener to populate or just fetch manually
-    const q = query(collection(db, 'users', uid, 'habits'), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    const habits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Habit));
+    const { data, error } = await supabase
+      .from('habits')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const habits: Habit[] = data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      category: row.category as HabitCategory,
+      icon: row.icon,
+      createdAt: row.created_at,
+      durationMinutes: row.duration_minutes,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      isGoal: row.is_goal,
+      targetDate: row.target_date
+    }));
+
     cachedHabits = habits;
     return habits;
   } catch (e) {
     console.error('Error fetching habits:', e);
-    return [];
+    return cachedHabits || [];
   }
 }
 
@@ -125,128 +108,191 @@ export async function addHabit(
   endTime?: string,
   isGoal?: boolean,
   targetDate?: string,
-): Promise<Habit> {
+): Promise<Habit | null> {
   const uid = await getUserId();
-  const id = doc(collection(db, 'users', uid, 'habits')).id; // Generate ID
-  const newHabit: Habit = {
-    id,
+  if (!uid) return null;
+
+  const newHabit = {
+    user_id: uid,
     name,
     category,
     icon,
-    createdAt: new Date().toISOString(),
-    durationMinutes,
-    startTime,
-    endTime,
-    isGoal,
-    targetDate,
+    created_at: new Date().toISOString(),
+    duration_minutes: durationMinutes,
+    start_time: startTime,
+    end_time: endTime,
+    is_goal: isGoal,
+    target_date: targetDate,
   };
   
-  // Optimistic update (optional, but listener handles it fast)
-  await setDoc(doc(db, 'users', uid, 'habits', id), cleanData(newHabit));
-  return newHabit;
+  const { data, error } = await supabase
+    .from('habits')
+    .insert([newHabit])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error adding habit:", error);
+    return null;
+  }
+
+  // Refresh cache
+  const created: Habit = {
+      id: data.id,
+      name: data.name,
+      category: data.category as HabitCategory,
+      icon: data.icon,
+      createdAt: data.created_at,
+      durationMinutes: data.duration_minutes,
+      startTime: data.start_time,
+      endTime: data.end_time,
+      isGoal: data.is_goal,
+      targetDate: data.target_date
+  };
+
+  if (cachedHabits) {
+      cachedHabits = [created, ...cachedHabits];
+      habitsListeners.forEach(l => l(cachedHabits!));
+  }
+
+  return created;
 }
 
 export async function updateHabit(updatedHabit: Habit): Promise<void> {
   const uid = await getUserId();
-  // Firestore requires excluding the ID from the data if we are just merging, 
-  // but setDoc with merge works fine even if ID is redundant.
-  await setDoc(doc(db, 'users', uid, 'habits', updatedHabit.id), cleanData(updatedHabit), { merge: true });
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from('habits')
+    .update({
+        name: updatedHabit.name,
+        category: updatedHabit.category,
+        icon: updatedHabit.icon,
+        duration_minutes: updatedHabit.durationMinutes,
+        start_time: updatedHabit.startTime,
+        end_time: updatedHabit.endTime,
+        is_goal: updatedHabit.isGoal,
+        target_date: updatedHabit.targetDate
+    })
+    .eq('id', updatedHabit.id);
+
+  if (error) {
+      console.error("Error updating habit:", error);
+  } else {
+      if (cachedHabits) {
+          cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? updatedHabit : h);
+          habitsListeners.forEach(l => l(cachedHabits!));
+      }
+  }
 }
 
-export async function removeHabit(habitId: string): Promise<void> {
-  const uid = await getUserId();
-  await deleteDoc(doc(db, 'users', uid, 'habits', habitId));
-}
-
-/** Remove a habit and cleanup completions */
 export async function removeHabitEverywhere(habitId: string): Promise<void> {
-  const uid = await getUserId();
-  const batch = writeBatch(db);
+  const { error } = await supabase.from('habits').delete().eq('id', habitId);
+  if (error) console.error("Error deleting habit:", error);
   
-  // 1. Delete the habit
-  batch.delete(doc(db, 'users', uid, 'habits', habitId));
-
-  // 2. Cleanup completions (expensive if many days, but necessary)
-  // Optimization: Only delete completion fields if we structure completions as { [habitId]: boolean }
-  // To do this strictly correctly in Firestore, we'd need to query all completion docs containing this field.
-  // This can be read-heavy. For now, we'll just delete the habit. 
-  // The 'getCompletions' will just return keys that might not exist in 'habits' list, which the UI filters out anyway.
-  // So we skip the expensive cleanup query for now.
-  
-  await batch.commit();
+  // Cache update handled by listener or manual refresh
+  if (cachedHabits) {
+      cachedHabits = cachedHabits.filter(h => h.id !== habitId);
+      habitsListeners.forEach(l => l(cachedHabits!));
+  }
 }
 
 // --- Completions ---
 
 export async function getCompletions(dateISO?: string): Promise<Record<string, boolean>> {
-  const uid = await getUserId();
   const dateStr = dateISO ?? todayString();
-  const docRef = doc(db, 'users', uid, 'completions', dateStr);
-  const snap = await getDoc(docRef);
   
-  if (snap.exists()) {
-    return snap.data() as Record<string, boolean>;
-  }
-  return {};
-}
+  const { data, error } = await supabase
+    .from('habit_completions')
+    .select('habit_id')
+    .eq('date', dateStr);
 
-export async function setCompletions(dateISO: string, data: Record<string, boolean>): Promise<void> {
-  const uid = await getUserId();
-  await setDoc(doc(db, 'users', uid, 'completions', dateISO), data, { merge: true });
+  if (error) {
+    console.error("Error getting completions:", error);
+    return {};
+  }
+
+  const result: Record<string, boolean> = {};
+  data.forEach((row: any) => {
+      result[row.habit_id] = true;
+  });
+  return result;
 }
 
 export async function toggleCompletion(habitId: string, dateISO?: string): Promise<Record<string, boolean>> {
   const uid = await getUserId();
+  if (!uid) return {};
+
   const dateStr = dateISO ?? todayString();
-  const docRef = doc(db, 'users', uid, 'completions', dateStr);
   
-  // We need to read first to toggle
-  // Transaction is safer but for a single user app, read-modify-write is okay-ish.
-  // Better: use getDoc then setDoc.
-  const snap = await getDoc(docRef);
-  const current = snap.exists() ? (snap.data() as Record<string, boolean>) : {};
-  
-  const newValue = !current[habitId];
-  const next = { ...current, [habitId]: newValue };
-  
-  await setDoc(docRef, { [habitId]: newValue }, { merge: true });
-  return next;
+  // Check if exists
+  const { data: existing } = await supabase
+    .from('habit_completions')
+    .select('id')
+    .eq('habit_id', habitId)
+    .eq('date', dateStr)
+    .single();
+
+  if (existing) {
+     await supabase.from('habit_completions').delete().eq('id', existing.id);
+  } else {
+     await supabase.from('habit_completions').insert({
+         user_id: uid,
+         habit_id: habitId,
+         date: dateStr,
+         completed: true
+     });
+  }
+
+  return getCompletions(dateStr);
 }
 
 // --- Statistics ---
 
 export async function getLastNDaysCompletions(days: number): Promise<{ date: string; completedIds: string[] }[]> {
-  const uid = await getUserId();
-  const result: { date: string; completedIds: string[] }[] = [];
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - (days - 1));
   
-  // Optimization: Fetch all needed docs in parallel
-  const promises = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dateStr = todayString(d);
-    promises.push(
-      getDoc(doc(db, 'users', uid, 'completions', dateStr)).then(snap => ({
-        date: dateStr,
-        data: snap.exists() ? snap.data() : {}
-      }))
-    );
+  const startStr = todayString(startDate);
+  const endStr = todayString(endDate);
+
+  const { data, error } = await supabase
+    .from('habit_completions')
+    .select('date, habit_id')
+    .gte('date', startStr)
+    .lte('date', endStr);
+
+  if (error) {
+      console.error(error);
+      return [];
   }
-  
-  const snaps = await Promise.all(promises);
-  
-  snaps.forEach(({ date, data }) => {
-    const completedIds = Object.keys(data).filter(id => !!data[id]);
-    result.push({ date, completedIds });
+
+  const map = new Map<string, string[]>();
+  data.forEach((row: any) => {
+      if (!map.has(row.date)) map.set(row.date, []);
+      map.get(row.date)!.push(row.habit_id);
   });
+
+  const result: { date: string; completedIds: string[] }[] = [];
+  for (let i = 0; i < days; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const dateStr = todayString(d);
+      result.push({
+          date: dateStr,
+          completedIds: map.get(dateStr) || []
+      });
+  }
   
   return result;
 }
 
 export async function getStreakData(): Promise<{ currentStreak: number; bestStreak: number; perfectDays: number; totalCompleted: number }> {
-  // Retrieve last 365 days of data
-  // Note: 365 reads is expensive. In a real app, maintain a 'stats' document that aggregates this.
-  // For this prototype, we'll limit to 90 days to save quota or just do it.
+  // For streak, we need efficient query.
+  // This is a heavy operation if we fetch everything.
+  // We'll use the same logic as before but with Supabase data.
+  
   const history = await getLastNDaysCompletions(90); 
   const habits = await getHabits();
   const totalHabitCount = habits.length;

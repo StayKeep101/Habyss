@@ -104,7 +104,7 @@ export default function HabitDetailScreen() {
                     color={completed ? colors.success : colors.textSecondary} 
                 />
             </View>
-            <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>
+            <Text className="text-xl font-display" style={{ color: colors.textPrimary }}>
             Habit Details
             </Text>
         </View>
@@ -127,7 +127,7 @@ export default function HabitDetailScreen() {
                     color={completed ? colors.success : colors.textSecondary} 
                 />
             </View>
-            <Text className="text-2xl font-bold mb-1 text-center" style={{ color: colors.textPrimary }}>
+            <Text className="text-2xl font-display mb-1 text-center" style={{ color: colors.textPrimary }}>
                 {habit.name}
             </Text>
             <Text className="mb-4 text-center" style={{ color: colors.textSecondary }}>
@@ -140,14 +140,14 @@ export default function HabitDetailScreen() {
                 style={{ backgroundColor: completed ? colors.success : colors.primaryDark }}
             >
                 <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={20} color="white" style={{ marginRight: 8 }} />
-                <Text className="text-white font-bold text-lg">
+                <Text className="text-white font-inter-bold text-lg">
                     {completed ? 'Completed' : 'Mark Complete'}
                 </Text>
             </TouchableOpacity>
          </View>
 
          {/* Stats Grid */}
-         <Text className="text-lg font-bold mb-4" style={{ color: colors.textPrimary }}>
+         <Text className="text-lg font-display mb-4" style={{ color: colors.textPrimary }}>
             Current Progress
          </Text>
          <View className="flex-row flex-wrap justify-between">
@@ -156,7 +156,7 @@ export default function HabitDetailScreen() {
                      <Ionicons name="flame" size={20} color="#F97316" />
                      <Text className="ml-2 font-medium" style={{ color: colors.textSecondary }}>Current Streak</Text>
                  </View>
-                 <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{streak} Days</Text>
+                 <Text className="text-2xl font-display" style={{ color: colors.textPrimary }}>{streak} Days</Text>
              </View>
 
              <View className="w-[48%] p-4 rounded-2xl shadow-sm mb-4" style={{ backgroundColor: colors.surfaceSecondary }}>
@@ -164,7 +164,7 @@ export default function HabitDetailScreen() {
                      <Ionicons name="trophy" size={20} color="#EAB308" />
                      <Text className="ml-2 font-medium" style={{ color: colors.textSecondary }}>Best Streak</Text>
                  </View>
-                 <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{streak} Days</Text>
+                 <Text className="text-2xl font-display" style={{ color: colors.textPrimary }}>{streak} Days</Text>
              </View>
 
              <View className="w-[48%] p-4 rounded-2xl shadow-sm mb-4" style={{ backgroundColor: colors.surfaceSecondary }}>
@@ -172,7 +172,7 @@ export default function HabitDetailScreen() {
                      <Ionicons name="time" size={20} color="#3B82F6" />
                      <Text className="ml-2 font-medium" style={{ color: colors.textSecondary }}>Total Time</Text>
                  </View>
-                 <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
+                 <Text className="text-2xl font-display" style={{ color: colors.textPrimary }}>
                     {habit.durationMinutes ? `${habit.durationMinutes * streak}` : '0'} mins
                  </Text>
              </View>
@@ -182,7 +182,7 @@ export default function HabitDetailScreen() {
                      <Ionicons name="calendar" size={20} color="#8B5CF6" />
                      <Text className="ml-2 font-medium" style={{ color: colors.textSecondary }}>Frequency</Text>
                  </View>
-                 <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Daily</Text>
+                 <Text className="text-xl font-display" style={{ color: colors.textPrimary }}>Daily</Text>
              </View>
          </View>
 

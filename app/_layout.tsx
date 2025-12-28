@@ -1,5 +1,5 @@
 import { ThemeProvider } from "../constants/themeContext";
-import { useFonts } from 'expo-font';
+import { useFonts, Lexend_400Regular, Lexend_500Medium, Lexend_600SemiBold, Lexend_700Bold } from '@expo-google-fonts/lexend';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -11,12 +11,18 @@ import { DarkTheme, LightTheme } from "../constants/Themes";
 import React from "react";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { View } from 'react-native';
+
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function MobileLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Lexend_400Regular,
+    Lexend_500Medium,
+    Lexend_600SemiBold,
+    Lexend_700Bold,
   });
 
   useEffect(() => {
@@ -39,14 +45,16 @@ export default function MobileLayout() {
 }
 
 function InnerLayout() {
-  const colorScheme = useColorScheme();
+  const theme = useColorScheme();
+  const isDark = theme !== 'light';
+
   return (
-    <>
+    <View style={{ flex: 1 }} className={theme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="+not-found" />
         <Stack.Screen name="(root)" />
       </Stack>
-      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-    </>
+      <StatusBar style={isDark ? "light" : "dark"} />
+    </View>
   );
 }

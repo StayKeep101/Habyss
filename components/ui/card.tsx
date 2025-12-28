@@ -42,7 +42,7 @@ const CardTitle = React.forwardRef<
   React.ElementRef<typeof View>,
   React.ComponentPropsWithoutRef<typeof View>
 >(({ className, ...props }, ref) => (
-  <View ref={ref} className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...props} />
+  <View ref={ref} className={cn("text-2xl font-display leading-none tracking-tight", className)} {...props} />
 ))
 CardTitle.displayName = "CardTitle"
 
@@ -50,7 +50,7 @@ const CardDescription = React.forwardRef<
   React.ElementRef<typeof View>,
   React.ComponentPropsWithoutRef<typeof View>
 >(({ className, ...props }, ref) => (
-  <View ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  <View ref={ref} className={cn("text-sm font-inter-regular text-muted-foreground", className)} {...props} />
 ))
 CardDescription.displayName = "CardDescription"
 

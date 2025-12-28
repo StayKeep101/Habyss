@@ -82,6 +82,16 @@ const Home = () => {
   };
 
   const toggleHabit = async (habitId: string) => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const selected = new Date(selectedDate);
+    selected.setHours(0,0,0,0);
+
+    if (selected > today) {
+        Alert.alert("Cannot complete habits in the future", "Please wait until the day arrives!");
+        return;
+    }
+
     lightFeedback();
     // Optimistic Update
     setCompletions(prev => ({ ...prev, [habitId]: !prev[habitId] }));
@@ -191,7 +201,7 @@ const Home = () => {
                 onPress={() => router.push({ pathname: '/statistics', params: { date: selectedDate.toISOString().split('T')[0] } })}
              >
                  <Ionicons name="stats-chart" size={20} color="white" style={{ marginRight: 8 }} />
-                 <Text className="text-white font-bold text-lg">Show Performance</Text>
+                 <Text className="text-white font-inter-bold text-lg">Show Performance</Text>
              </TouchableOpacity>
 
              <TouchableOpacity 

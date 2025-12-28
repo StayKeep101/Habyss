@@ -5,13 +5,8 @@ import { useRef, useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import { auth } from '@/Firebase.config';
 import { Ionicons } from '@expo/vector-icons';
-
-WebBrowser.maybeCompleteAuthSession();
+import { supabase } from '@/lib/supabase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -46,30 +41,10 @@ const Onboarding = () => {
   const scrollX = useRef(new Animated.Value(0)).current;
   const [loading, setLoading] = useState(false);
 
-  // Google Auth Setup
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    // TODO: Replace with your actual client IDs from Google Cloud Console
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      setLoading(true);
-      signInWithCredential(auth, credential)
-        .then(() => {
-            router.replace("/(root)/(tabs)/home");
-        })
-        .catch((error) => {
-           console.error(error);
-           Alert.alert("Error", "Google Sign-In failed");
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [response]);
+  const handleGoogleSignIn = async () => {
+     Alert.alert("Coming Soon", "Google Sign-In will be available soon!");
+     // await supabase.auth.signInWithOAuth({ provider: 'google' });
+  };
 
   const renderCard = (card: OnboardingCard, index: number) => {
     const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
@@ -190,8 +165,8 @@ const Onboarding = () => {
 
         {/* Google Sign In - Prominent Alternative */}
         <TouchableOpacity
-          onPress={() => promptAsync()}
-          disabled={loading || !request}
+          onPress={handleGoogleSignIn}
+          disabled={loading}
           className="w-full py-4 rounded-2xl items-center justify-center border mb-4 flex-row"
           style={{ borderColor: colors.border, backgroundColor: colors.surfaceSecondary }}
         >
@@ -212,4 +187,3 @@ const Onboarding = () => {
 };
 
 export default Onboarding;
-

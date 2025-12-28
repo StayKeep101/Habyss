@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "flex flex-row items-center justify-center rounded-2xl font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none",
+  "flex flex-row items-center justify-center rounded-2xl font-inter-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none",
   {
     variants: {
       variant: {
@@ -48,7 +48,10 @@ const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>
           <View className="flex-row items-center justify-center">
             <Text
               className={cn(
-                "font-semibold text-foreground",
+                "font-inter-semibold",
+                variant === "default" ? "text-primary-foreground" : "text-foreground",
+                variant === "destructive" && "text-destructive-foreground",
+                variant === "secondary" && "text-secondary-foreground",
                 pressed && "opacity-70",
                 size === "sm" && "text-sm",
                 size === "lg" && "text-lg",

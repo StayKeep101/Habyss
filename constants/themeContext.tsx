@@ -2,7 +2,11 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export type ThemeMode = 'light' | 'abyss' | 'trueDark';
+
 type ThemeContextType = {
+  theme: ThemeMode;
+  setTheme: (theme: ThemeMode) => void;
   isDarkMode: boolean;
   toggleTheme: () => void;
 };
@@ -11,27 +15,40 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemTheme = useColorScheme(); // Detects system dark/light mode
-  const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark mode to match landing page
+  const [theme, setThemeState] = useState<ThemeMode>('abyss'); // Default to Abyss (Dark)
 
   useEffect(() => {
     const loadTheme = async () => {
       const storedTheme = await AsyncStorage.getItem("theme");
-      if (storedTheme !== null) {
-        setIsDarkMode(storedTheme === "dark");
+      if (storedTheme) {
+        if (storedTheme === 'dark') {
+            setThemeState('abyss');
+        } else if (storedTheme === 'light') {
+            setThemeState('light');
+        } else {
+            setThemeState(storedTheme as ThemeMode);
+        }
       }
-      // If no stored theme, default to dark mode
     };
     loadTheme();
   }, []);
 
-  const toggleTheme = async () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-    await AsyncStorage.setItem("theme", newTheme ? "dark" : "light");
+  const setTheme = async (newTheme: ThemeMode) => {
+    setThemeState(newTheme);
+    await AsyncStorage.setItem("theme", newTheme);
   };
 
+  const toggleTheme = async () => {
+    // Legacy toggle behavior: cycles Light <-> Abyss
+    // (Settings screen will use setTheme for the 3-way switch)
+    const newTheme = theme === 'light' ? 'abyss' : 'light';
+    setTheme(newTheme);
+  };
+
+  const isDarkMode = theme === 'abyss' || theme === 'trueDark';
+
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, isDarkMode, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

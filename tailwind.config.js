@@ -40,6 +40,14 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      fontFamily: {
+        sans: ['Lexend_400Regular'],
+        'inter-regular': ['Lexend_400Regular'],
+        'inter-medium': ['Lexend_500Medium'],
+        'inter-semibold': ['Lexend_600SemiBold'],
+        'inter-bold': ['Lexend_700Bold'],
+        display: ['Lexend_700Bold'],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
