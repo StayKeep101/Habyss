@@ -107,7 +107,7 @@ export default function StatisticsScreen() {
 
   // Helper for Stat Card
   const StatCard = ({ title, value, icon, color, subtitle }: { title: string, value: string | number, icon: any, color: string, subtitle?: string }) => (
-    <View className="flex-1 p-4 rounded-2xl border min-w-[45%]" style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}>
+    <View className="p-4 rounded-2xl border mb-3" style={{ width: '48%', backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}>
         <View className="flex-row justify-between items-start mb-2">
             <View className="p-2 rounded-xl" style={{ backgroundColor: color + '20' }}>
                 <Ionicons name={icon} size={20} color={color} />
@@ -157,7 +157,7 @@ export default function StatisticsScreen() {
         </View>
 
         {/* Bento Grid Stats */}
-        <View className="px-6 flex-row flex-wrap gap-3 mb-8">
+        <View className="px-6 flex-row flex-wrap justify-between mb-8">
             <StatCard 
                 title="Current Streak" 
                 value={streakData.currentStreak} 

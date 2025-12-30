@@ -184,8 +184,8 @@ const Home = () => {
 
           {/* Footer Navigation Bar */}
           <View 
-            className="absolute bottom-0 left-0 right-0 px-6 py-4 flex-row justify-between items-center border-t"
-            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+            className="absolute bottom-0 left-0 right-0 px-6 py-4 flex-row justify-between items-center"
+            style={{ backgroundColor: 'transparent' }}
           >
              <TouchableOpacity 
                 className="w-12 h-12 rounded-full items-center justify-center"

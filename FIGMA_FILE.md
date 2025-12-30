@@ -576,3 +576,4 @@ Use variant properties for state changes (default, hover, pressed)
 Create component sets for related variants
 
 Add descriptions to each property for developer clarity
+
