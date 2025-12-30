@@ -4,11 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Habit, getHabits, toggleCompletion, getCompletions } from '@/lib/habits';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 
 export default function HabitDetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const params = useGlobalSearchParams();
   const habitId = params.habitId as string;
   const dateStr = params.date as string || new Date().toISOString().split('T')[0];
   
@@ -25,7 +25,7 @@ export default function HabitDetailScreen() {
             icon: params.initialIcon as string,
             durationMinutes: params.initialDuration ? Number(params.initialDuration) : undefined,
             createdAt: '', // Not critical for display
-        };
+        } as Habit;
     }
     return null;
   });

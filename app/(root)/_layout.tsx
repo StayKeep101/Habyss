@@ -70,6 +70,13 @@ export default function RootLayout() {
           presentation: 'modal'
         }} 
       />
+      <Stack.Screen 
+        name="goal-detail" 
+        options={{ 
+          headerShown: false,
+          presentation: 'modal'
+        }} 
+      />
     </Stack>
   );
 }

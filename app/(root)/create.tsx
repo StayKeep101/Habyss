@@ -5,8 +5,10 @@ import { addHabit, updateHabit, HabitCategory, HabitType, GoalPeriod, ChartType 
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
+import { UnifiedInputModal, InputMode } from '@/components/Common/UnifiedInputModal';
 import { cn } from '@/lib/utils';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useGlobalSearchParams } from 'expo-router';
+import { IconPicker } from '@/components/IconPicker';
 
 // --- Constants ---
 
@@ -31,33 +33,9 @@ const PRESET_COLORS = [
     '#374151', // Dark Gray
 ];
 
-const POPULAR_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
-  'alarm', 'american-football', 'analytics', 'aperture', 'apps', 'archive', 'barbell', 'basket', 'basketball', 'battery-charging',
-  'beer', 'bicycle', 'boat', 'book', 'bookmark', 'briefcase', 'brush', 'bug', 'build', 'bulb', 'bus', 'business', 'cafe',
-  'calculator', 'calendar', 'camera', 'car', 'card', 'cart', 'cash', 'chatbubble', 'checkbox', 'checkmark-circle', 'clipboard',
-  'close-circle', 'cloud', 'code', 'code-slash', 'cog', 'color-palette', 'compass', 'construct', 'contrast', 'copy', 'create',
-  'cut', 'desktop', 'disc', 'document', 'document-text', 'download', 'ear', 'earth', 'easel', 'egg', 'ellipse', 'enter',
-  'exit', 'eye', 'eyedrop', 'fast-food', 'female', 'file-tray', 'film', 'filter', 'finger-print', 'fish', 'fitness',
-  'flag', 'flame', 'flash', 'flask', 'flower', 'folder', 'football', 'footsteps', 'game-controller', 'gift', 'glasses', 'globe',
-  'golf', 'grid', 'hammer', 'hand-left', 'hand-right', 'happy', 'headset', 'heart', 'help-buoy', 'home', 'hourglass', 'ice-cream',
-  'image', 'images', 'infinite', 'information-circle', 'journal', 'key', 'keypad', 'laptop', 'layers', 'leaf', 'library', 'link',
-  'list', 'location', 'lock-closed', 'lock-open', 'log-in', 'log-out', 'magnet', 'mail', 'male', 'man', 'map', 'medal', 'medical',
-  'medkit', 'megaphone', 'menu', 'mic', 'moon', 'musical-note', 'musical-notes', 'navigate', 'newspaper', 'notifications', 'nutrition',
-  'options', 'paper-plane', 'partly-sunny', 'pause', 'paw', 'pencil', 'people', 'person', 'phone-portrait', 'pie-chart', 'pin',
-  'pint', 'pizza', 'planet', 'play', 'play-skip-back', 'play-skip-forward', 'podium', 'power', 'pricetag', 'print', 'prism',
-  'pulse', 'push', 'qr-code', 'radio', 'radio-button-on', 'rainy', 'reader', 'receipt', 'recording', 'refresh', 'reload',
-  'repeat', 'resize', 'restaurant', 'return-down-back', 'return-down-forward', 'return-up-back', 'return-up-forward', 'ribbon',
-  'rocket', 'rose', 'sad', 'save', 'scale', 'scan', 'school', 'search', 'send', 'server', 'settings', 'shapes', 'share',
-  'shield', 'shirt', 'shuffle', 'skull', 'snow', 'speedometer', 'square', 'star', 'stats-chart', 'stop', 'stopwatch', 'subway',
-  'sunny', 'swap-horizontal', 'swap-vertical', 'sync', 'tablet-landscape', 'tablet-portrait', 'telescope', 'tennisball', 'terminal',
-  'text', 'thermometer', 'thumbs-down', 'thumbs-up', 'thunderstorm', 'time', 'timer', 'today', 'toggle', 'trail-sign', 'train',
-  'transgender', 'trash', 'trending-down', 'trending-up', 'trophy', 'tv', 'umbrella', 'videocam', 'volume-high', 'volume-low',
-  'volume-medium', 'volume-mute', 'volume-off', 'walk', 'wallet', 'warning', 'watch', 'water', 'wifi', 'wine', 'woman'
-];
-
 export default function CreateScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const params = useGlobalSearchParams();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   
@@ -89,6 +67,10 @@ export default function CreateScreen() {
   const [taskDays, setTaskDays] = useState<string[]>(params.taskDays ? JSON.parse(params.taskDays as string) : ['mon','tue','wed','thu','fri','sat','sun']);
   const [chartType, setChartType] = useState<ChartType>((params.chartType as ChartType) || 'bar');
   
+  const [isGoal, setIsGoal] = useState(params.isGoal === 'true');
+  const [targetDate, setTargetDate] = useState<Date>(params.targetDate ? new Date(params.targetDate as string) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+  const [goalId, setGoalId] = useState<string | undefined>(params.goalId as string || undefined);
+
   const [isArchived, setIsArchived] = useState(params.isArchived === 'true');
   const [remindersEnabled, setRemindersEnabled] = useState(false); // Simplified for now
   
@@ -96,12 +78,18 @@ export default function CreateScreen() {
   
   // Pickers visibility
   const [showIconPicker, setShowIconPicker] = useState(false);
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   
-  const wheelHeight = Math.min(140, Math.floor(Dimensions.get('window').height * 0.22));
+  // Unified Input Modal State
+  const [inputModalVisible, setInputModalVisible] = useState(false);
+  const [inputModalMode, setInputModalMode] = useState<InputMode>('text');
+  const [inputModalTitle, setInputModalTitle] = useState('');
+  const [inputModalValue, setInputModalValue] = useState<any>(null);
+  const [inputModalOnConfirm, setInputModalOnConfirm] = useState<(val: any) => void>(() => {});
+  const [inputModalOptions, setInputModalOptions] = useState<{label: string, value: string}[]>([]);
+  const [inputModalUnit, setInputModalUnit] = useState<string | undefined>(undefined);
+  const [inputModalShowClear, setInputModalShowClear] = useState(false);
+  const [inputModalOnClear, setInputModalOnClear] = useState<(() => void) | undefined>(undefined);
+
   const nameInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -141,7 +129,10 @@ export default function CreateScreen() {
           taskDays,
           reminders: [],
           chartType,
-          showMemo: false
+          showMemo: false,
+          isGoal,
+          targetDate: isGoal ? targetDate.toISOString() : undefined,
+          goalId: goalId
       };
 
       if (params.id) {
@@ -282,48 +273,81 @@ export default function CreateScreen() {
             </ScrollView>
         </View>
 
+        {/* Section: Goal Info (only if isGoal is true) */}
+        {isGoal && (
+          <View className="mb-8">
+            <Text className="text-sm font-bold uppercase tracking-wider mb-3 opacity-70" style={{ color: colors.textSecondary }}>Goal Settings</Text>
+            <TouchableOpacity 
+              onPress={() => {
+                setInputModalMode('date');
+                setInputModalTitle('Target Date');
+                setInputModalValue(targetDate);
+                setInputModalOnConfirm(() => (date: Date) => setTargetDate(date));
+                setInputModalShowClear(false);
+                setInputModalVisible(true);
+              }}
+              className="rounded-2xl border px-4 py-4 flex-row justify-between items-center" 
+              style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
+            >
+              <View>
+                <Text className="text-xs" style={{ color: colors.textSecondary }}>Target Date</Text>
+                <Text className="text-base font-bold" style={{ color: colors.textPrimary }}>{targetDate.toLocaleDateString()}</Text>
+              </View>
+              <Ionicons name="calendar" size={20} color={color} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Section: Goal Setup */}
         <View className="mb-8">
             <Text className="text-sm font-bold uppercase tracking-wider mb-3 opacity-70" style={{ color: colors.textSecondary }}>Goal Setup</Text>
             
             <View className="flex-row gap-3">
                 {/* Value & Unit */}
-                <View className="flex-1 rounded-2xl border p-3" style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}>
+                <TouchableOpacity 
+                    onPress={() => {
+                        setInputModalMode('numeric');
+                        setInputModalTitle('Target Value');
+                        setInputModalValue(goalValue);
+                        setInputModalUnit(unit);
+                        setInputModalOnConfirm(() => (val: string) => setGoalValue(val));
+                        setInputModalShowClear(false);
+                        setInputModalVisible(true);
+                    }}
+                    className="flex-1 rounded-2xl border p-3" 
+                    style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
+                >
                     <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>Target</Text>
-                    <View className="flex-row items-center">
-                        <TextInput
-                            value={goalValue}
-                            onChangeText={setGoalValue}
-                            keyboardType="numeric"
-                            className="text-xl font-bold mr-2 flex-1"
-                            style={{ color: colors.textPrimary }}
-                        />
-                        <TextInput
-                             value={unit}
-                             onChangeText={setUnit}
-                             placeholder="unit"
-                             placeholderTextColor={colors.textTertiary}
-                             className="text-base font-medium text-right w-16"
-                             style={{ color: colors.textSecondary }}
-                        />
+                    <View className="flex-row items-center justify-between">
+                        <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>{goalValue}</Text>
+                        <Text className="text-sm font-medium opacity-60" style={{ color: colors.textSecondary }}>{unit || 'count'}</Text>
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* Period */}
-                <View className="flex-1 rounded-2xl border p-3" style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}>
+                <TouchableOpacity 
+                    onPress={() => {
+                        setInputModalMode('text');
+                        setInputModalTitle('Frequency');
+                        setInputModalValue(goalPeriod);
+                        setInputModalOptions([
+                            { label: 'Daily', value: 'daily' },
+                            { label: 'Weekly', value: 'weekly' },
+                            { label: 'Monthly', value: 'monthly' }
+                        ]);
+                        setInputModalOnConfirm(() => (val: string) => setGoalPeriod(val as GoalPeriod));
+                        setInputModalShowClear(false);
+                        setInputModalVisible(true);
+                    }}
+                    className="flex-1 rounded-2xl border p-3" 
+                    style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
+                >
                      <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>Frequency</Text>
-                     <View className="flex-row flex-wrap gap-1 mt-1">
-                        {['daily', 'weekly', 'monthly'].map((p) => (
-                             <TouchableOpacity 
-                                key={p} 
-                                onPress={() => setGoalPeriod(p as GoalPeriod)}
-                                className={cn("px-2 py-1 rounded-md", goalPeriod === p ? "bg-white/10" : "")}
-                            >
-                                <Text className={cn("text-xs capitalize", goalPeriod === p ? "font-bold" : "text-gray-500")} style={{ color: goalPeriod === p ? color : colors.textSecondary }}>{p}</Text>
-                             </TouchableOpacity>
-                        ))}
+                     <View className="flex-row items-center justify-between mt-1">
+                        <Text className="text-lg font-bold capitalize" style={{ color: color }}>{goalPeriod}</Text>
+                        <Ionicons name="chevron-down" size={16} color={colors.textTertiary} />
                      </View>
-                </View>
+                </TouchableOpacity>
             </View>
         </View>
 
@@ -363,7 +387,15 @@ export default function CreateScreen() {
                  <TouchableOpacity
                     className="flex-1 p-3 rounded-2xl border"
                     style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
-                    onPress={() => setShowStartPicker(true)}
+                    onPress={() => {
+                        setInputModalMode('time');
+                        setInputModalTitle('Start Time');
+                        setInputModalValue(startAt || new Date());
+                        setInputModalOnConfirm(() => (date: Date) => setStartAt(date));
+                        setInputModalShowClear(true);
+                        setInputModalOnClear(() => () => setStartAt(null));
+                        setInputModalVisible(true);
+                    }}
                 >
                     <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>Start Time</Text>
                     <Text className="text-base font-semibold" style={{ color: colors.textPrimary }}>
@@ -374,7 +406,15 @@ export default function CreateScreen() {
                  <TouchableOpacity
                     className="flex-1 p-3 rounded-2xl border"
                     style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
-                    onPress={() => setShowEndPicker(true)}
+                    onPress={() => {
+                        setInputModalMode('time');
+                        setInputModalTitle('End Time');
+                        setInputModalValue(endAt || new Date());
+                        setInputModalOnConfirm(() => (date: Date) => setEndAt(date));
+                        setInputModalShowClear(true);
+                        setInputModalOnClear(() => () => setEndAt(null));
+                        setInputModalVisible(true);
+                    }}
                 >
                     <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>End Time</Text>
                     <Text className="text-base font-semibold" style={{ color: colors.textPrimary }}>
@@ -382,39 +422,6 @@ export default function CreateScreen() {
                     </Text>
                 </TouchableOpacity>
             </View>
-            
-            {/* Date Pickers Modals */}
-            {(showStartPicker || showEndPicker) && (Platform.OS !== 'ios') && (
-                 // Android pickers would be triggered directly, but for now logic is simplified
-                 <View />
-            )}
-             {/* iOS Inline Pickers Logic */}
-            {showStartPicker && Platform.OS === 'ios' && (
-                <View className="mt-2 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-900">
-                     <DateTimePicker
-                        value={startAt ?? new Date()}
-                        mode="time"
-                        display="spinner"
-                        onChange={(e, d) => { if (d) setStartAt(d); }}
-                        style={{ height: wheelHeight }}
-                        textColor={colors.textPrimary}
-                    />
-                     <TouchableOpacity onPress={() => setShowStartPicker(false)} className="py-2 items-center border-t border-gray-200 dark:border-gray-800"><Text style={{color: color}}>Done</Text></TouchableOpacity>
-                </View>
-            )}
-            {showEndPicker && Platform.OS === 'ios' && (
-                 <View className="mt-2 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-900">
-                     <DateTimePicker
-                        value={endAt ?? new Date()}
-                        mode="time"
-                        display="spinner"
-                        onChange={(e, d) => { if (d) setEndAt(d); }}
-                        style={{ height: wheelHeight }}
-                        textColor={colors.textPrimary}
-                    />
-                     <TouchableOpacity onPress={() => setShowEndPicker(false)} className="py-2 items-center border-t border-gray-200 dark:border-gray-800"><Text style={{color: color}}>Done</Text></TouchableOpacity>
-                </View>
-            )}
         </View>
 
         {/* Section: Analytics */}
@@ -446,7 +453,14 @@ export default function CreateScreen() {
                 <TouchableOpacity 
                     className="flex-row justify-between items-center p-4 border-b"
                     style={{ borderColor: colors.border }}
-                    onPress={() => setShowStartDatePicker(true)}
+                    onPress={() => {
+                        setInputModalMode('date');
+                        setInputModalTitle('Start Date');
+                        setInputModalValue(startDate);
+                        setInputModalOnConfirm(() => (date: Date) => setStartDate(date));
+                        setInputModalShowClear(false);
+                        setInputModalVisible(true);
+                    }}
                 >
                     <Text style={{ color: colors.textPrimary }}>Start Date</Text>
                     <Text style={{ color: colors.textSecondary }}>{startDate.toLocaleDateString()}</Text>
@@ -454,89 +468,49 @@ export default function CreateScreen() {
                 
                  <TouchableOpacity 
                     className="flex-row justify-between items-center p-4"
-                    onPress={() => setShowEndDatePicker(true)}
+                    onPress={() => {
+                        setInputModalMode('date');
+                        setInputModalTitle('End Date');
+                        setInputModalValue(endDate || new Date());
+                        setInputModalOnConfirm(() => (date: Date) => setEndDate(date));
+                        setInputModalShowClear(true);
+                        setInputModalOnClear(() => () => setEndDate(null));
+                        setInputModalVisible(true);
+                    }}
                 >
                     <Text style={{ color: colors.textPrimary }}>End Date</Text>
                     <Text style={{ color: colors.textSecondary }}>{endDate ? endDate.toLocaleDateString() : 'Forever'}</Text>
                 </TouchableOpacity>
              </View>
-             
-             {/* Date Pickers */}
-             {showStartDatePicker && (
-                 <View className="mt-2 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-900">
-                    <DateTimePicker
-                        value={startDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(e, d) => {
-                             if (Platform.OS !== 'ios') setShowStartDatePicker(false);
-                             if (d) setStartDate(d);
-                        }}
-                        style={Platform.OS === 'ios' ? { height: wheelHeight } : undefined}
-                         textColor={colors.textPrimary}
-                    />
-                    {Platform.OS === 'ios' && <TouchableOpacity onPress={() => setShowStartDatePicker(false)} className="py-2 items-center border-t border-gray-200 dark:border-gray-800"><Text style={{color: color}}>Done</Text></TouchableOpacity>}
-                 </View>
-             )}
-             {showEndDatePicker && (
-                 <View className="mt-2 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-900">
-                    <View className="flex-row justify-between p-2 bg-gray-200 dark:bg-gray-800">
-                        <TouchableOpacity onPress={() => { setEndDate(null); setShowEndDatePicker(false); }}><Text style={{color: colors.textSecondary}}>Clear</Text></TouchableOpacity>
-                        <TouchableOpacity onPress={() => setShowEndDatePicker(false)}><Text style={{color: color}}>Done</Text></TouchableOpacity>
-                    </View>
-                    <DateTimePicker
-                        value={endDate ?? new Date()}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(e, d) => {
-                             if (Platform.OS !== 'ios') setShowEndDatePicker(false);
-                             if (d) setEndDate(d);
-                        }}
-                        style={Platform.OS === 'ios' ? { height: wheelHeight } : undefined}
-                         textColor={colors.textPrimary}
-                    />
-                 </View>
-             )}
         </View>
 
 
         {/* Icon Picker Modal */}
-        <Modal
-          visible={showIconPicker}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowIconPicker(false)}
-        >
-          <TouchableOpacity
-            className="flex-1 bg-black/60 justify-end"
-            activeOpacity={1}
-            onPress={() => setShowIconPicker(false)}
-          >
-            <View className="w-full h-[80%] rounded-t-3xl p-5" style={{ backgroundColor: colors.surface }}>
-                <View className="flex-row justify-between items-center mb-5">
-                  <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Choose an icon</Text>
-                  <TouchableOpacity onPress={() => setShowIconPicker(false)} className="p-1 bg-gray-100 rounded-full" style={{ backgroundColor: colors.surfaceSecondary }}>
-                    <Ionicons name="close" size={20} color={colors.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-                <ScrollView contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingBottom: 20 }}>
-                  {POPULAR_ICONS.map(icon => (
-                    <TouchableOpacity
-                      key={icon}
-                      className="w-[23%] aspect-square mb-3 rounded-2xl items-center justify-center border"
-                      style={{ 
-                          backgroundColor: iconName === icon ? color + '15' : colors.surfaceSecondary, 
-                          borderColor: iconName === icon ? color : colors.surfaceSecondary
-                      }}
-                      onPress={() => { setIconName(icon); setShowIconPicker(false); }}
-                    >
-                      <Ionicons name={icon} size={28} color={iconName === icon ? color : colors.textSecondary} />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
+      <IconPicker 
+        visible={showIconPicker}
+        onClose={() => setShowIconPicker(false)}
+        onSelect={(icon) => {
+            setIconName(icon);
+            setShowIconPicker(false);
+        }}
+        selectedIcon={iconName}
+        habitName={name}
+        color={color}
+      />
+
+      <UnifiedInputModal
+        visible={inputModalVisible}
+        onClose={() => setInputModalVisible(false)}
+        onConfirm={inputModalOnConfirm}
+        initialValue={inputModalValue}
+        mode={inputModalMode}
+        title={inputModalTitle}
+        options={inputModalOptions}
+        unit={inputModalUnit}
+        showClear={inputModalShowClear}
+        onClear={inputModalOnClear}
+        color={color}
+      />
 
       </ScrollView>
 

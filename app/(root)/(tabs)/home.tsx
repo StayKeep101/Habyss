@@ -5,6 +5,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
+import { GoalCard } from '@/components/Home/GoalCard';
 import { getHabits as loadHabits, subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -26,6 +27,7 @@ const Home = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isFabExpanded, setIsFabExpanded] = useState(false);
   
   // Subscribe to habits list (real-time & cached)
   useEffect(() => {
@@ -145,6 +147,8 @@ const Home = () => {
      handleHabitPress(habit);
   };
 
+  const goals = habitsStore.filter(h => h.isGoal);
+
   return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
         <View style={{ flex: 1, position: 'relative' }}>
@@ -154,17 +158,42 @@ const Home = () => {
             <CalendarStrip selectedDate={selectedDate} onSelectDate={handleDateSelect} />
           </View>
 
-          {/* Layer 2 (Background): Habits List */}
+          {/* Layer 2 (Background): Goals & Habits List */}
           <View style={{ flex: 1, paddingHorizontal: 20 }}>
              <ScrollView contentContainerStyle={{ paddingBottom: 150 }} showsVerticalScrollIndicator={false}>
-                <View className="flex-row justify-end items-center mb-4 mt-2">
+                <View className="flex-row justify-between items-center mb-4 mt-2">
+                    <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Active Goals</Text>
                     <TouchableOpacity onPress={() => router.push('/roadmap')}>
                         <Text className="text-sm font-semibold" style={{ color: colors.primary }}>View Roadmap</Text>
                     </TouchableOpacity>
                 </View>
 
-                {habits.length > 0 ? (
-                    habits.map((habit) => (
+                {/* Goals Section */}
+                <View className="mb-6">
+                    {goals.length > 0 ? (
+                        goals.map((goal) => {
+                            const associatedHabits = habitsStore.filter(h => h.goalId === goal.id);
+                            // Simple progress calculation: 65% for now if has habits, else 0
+                            const progress = associatedHabits.length > 0 ? 65 : 0; 
+                            return (
+                                <GoalCard 
+                                    key={goal.id} 
+                                    goal={goal} 
+                                    progress={progress}
+                                    onPress={() => router.push({ pathname: '/goal-detail', params: { goalId: goal.id } })}
+                                />
+                            );
+                        })
+                    ) : (
+                        <View className="items-center justify-center py-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
+                            <Text className="text-gray-400">No active goals</Text>
+                        </View>
+                    )}
+                </View>
+
+                <Text className="text-lg font-bold mb-3" style={{ color: colors.textPrimary }}>Today's Habits</Text>
+                {habits.filter(h => !h.isGoal).length > 0 ? (
+                    habits.filter(h => !h.isGoal).map((habit) => (
                         <SwipeableHabitItem 
                             key={habit.id}
                             habit={habit}
@@ -182,9 +211,66 @@ const Home = () => {
              </ScrollView>
           </View>
 
+          {/* Expanded FAB Overlay */}
+          {isFabExpanded && (
+            <TouchableOpacity 
+                activeOpacity={1}
+                onPress={() => setIsFabExpanded(false)}
+                className="absolute inset-0 z-20"
+                style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+            />
+          )}
+
+          {/* Expanded FAB Options */}
+          {isFabExpanded && (
+            <View className="absolute bottom-24 right-6 z-30 items-end gap-3">
+                <TouchableOpacity 
+                    className="flex-row items-center px-4 py-3 rounded-2xl shadow-lg"
+                    style={{ backgroundColor: colors.surface }}
+                    onPress={() => {
+                        setIsFabExpanded(false);
+                        router.push({ pathname: '/create', params: { isGoal: 'true' } });
+                    }}
+                >
+                    <Text className="font-bold mr-3" style={{ color: colors.textPrimary }}>Create a Goal</Text>
+                    <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
+                        <Ionicons name="trophy" size={20} color={colors.primary} />
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    className="flex-row items-center px-4 py-3 rounded-2xl shadow-lg"
+                    style={{ backgroundColor: colors.surface }}
+                    onPress={() => {
+                        setIsFabExpanded(false);
+                        router.push('/create');
+                    }}
+                >
+                    <Text className="font-bold mr-3" style={{ color: colors.textPrimary }}>Create Habit</Text>
+                    <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: '#10B98120' }}>
+                        <Ionicons name="repeat" size={20} color="#10B981" />
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    className="flex-row items-center px-4 py-3 rounded-2xl shadow-lg"
+                    style={{ backgroundColor: colors.surface }}
+                    onPress={() => {
+                        setIsFabExpanded(false);
+                        Alert.alert("AI Creation", "AI habit generation is coming soon!");
+                    }}
+                >
+                    <Text className="font-bold mr-3" style={{ color: colors.textPrimary }}>Create with AI</Text>
+                    <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: '#8B5CF620' }}>
+                        <Ionicons name="sparkles" size={20} color="#8B5CF6" />
+                    </View>
+                </TouchableOpacity>
+            </View>
+          )}
+
           {/* Footer Navigation Bar */}
           <View 
-            className="absolute bottom-0 left-0 right-0 px-6 py-4 flex-row justify-between items-center"
+            className="absolute bottom-0 left-0 right-0 px-6 py-4 flex-row justify-between items-center z-40"
             style={{ backgroundColor: 'transparent' }}
           >
              <TouchableOpacity 
@@ -206,10 +292,14 @@ const Home = () => {
 
              <TouchableOpacity 
                 className="w-12 h-12 rounded-full items-center justify-center shadow-sm"
-                style={{ backgroundColor: colors.surfaceSecondary }}
-                onPress={() => router.push('/create')}
+                style={{ backgroundColor: isFabExpanded ? colors.textPrimary : colors.surfaceSecondary }}
+                onPress={() => setIsFabExpanded(!isFabExpanded)}
              >
-                 <Ionicons name="add" size={28} color={colors.primary} />
+                 <Ionicons 
+                    name={isFabExpanded ? "close" : "add"} 
+                    size={28} 
+                    color={isFabExpanded ? colors.background : colors.primary} 
+                 />
              </TouchableOpacity>
           </View>
 

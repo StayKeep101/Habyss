@@ -34,6 +34,7 @@ export interface Habit {
   endDate?: string;
   isArchived: boolean;
   showMemo: boolean;
+  goalId?: string; // ID of the goal this habit belongs to
 }
 
 const todayString = (d = new Date()) => {
@@ -117,7 +118,8 @@ export async function getHabits(): Promise<Habit[]> {
       startDate: row.start_date || row.created_at,
       endDate: row.end_date,
       isArchived: row.is_archived || false,
-      showMemo: row.show_memo || false
+      showMemo: row.show_memo || false,
+      goalId: row.goal_id
     }));
 
     cachedHabits = habits;
@@ -132,10 +134,9 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
   const uid = await getUserId();
   if (!uid) return null;
 
-  const newHabit = {
+  const newHabit: any = {
     user_id: uid,
     name: habitData.name,
-    description: habitData.description,
     category: habitData.category,
     icon: habitData.icon,
     created_at: new Date().toISOString(),
@@ -144,18 +145,22 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
     end_time: habitData.endTime,
     is_goal: habitData.isGoal,
     target_date: habitData.targetDate,
-    type: habitData.type || 'build',
-    color: habitData.color || '#6B46C1',
-    goal_period: habitData.goalPeriod || 'daily',
-    goal_value: habitData.goalValue || 1,
-    unit: habitData.unit || 'count',
-    task_days: habitData.taskDays || ['mon','tue','wed','thu','fri','sat','sun'],
-    reminders: habitData.reminders || [],
-    chart_type: habitData.chartType || 'bar',
-    start_date: habitData.startDate || new Date().toISOString(),
-    end_date: habitData.endDate,
-    is_archived: false,
-    show_memo: habitData.showMemo || false
+    // Only include goal_id if it's explicitly provided
+    ...(habitData.goalId ? { goal_id: habitData.goalId } : {}),
+    // Add these fields back after running migration '20241229_add_habit_details.sql'
+    // description: habitData.description,
+    // type: habitData.type || 'build',
+    // color: habitData.color || '#6B46C1',
+    // goal_period: habitData.goalPeriod || 'daily',
+    // goal_value: habitData.goalValue || 1,
+    // unit: habitData.unit || 'count',
+    // task_days: habitData.taskDays || ['mon','tue','wed','thu','fri','sat','sun'],
+    // reminders: habitData.reminders || [],
+    // chart_type: habitData.chartType || 'bar',
+    // start_date: habitData.startDate || new Date().toISOString(),
+    // end_date: habitData.endDate,
+    // is_archived: false,
+    // show_memo: habitData.showMemo || false
   };
   
   const { data, error } = await supabase
@@ -192,8 +197,9 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
       chartType: data.chart_type,
       startDate: data.start_date,
       endDate: data.end_date,
-      isArchived: data.is_archived,
-      showMemo: data.show_memo
+      isArchived: data.is_archived || false,
+      showMemo: data.show_memo || false,
+      goalId: data.goal_id
   };
 
   if (cachedHabits) {
@@ -231,7 +237,8 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
         start_date: updatedHabit.startDate,
         end_date: updatedHabit.endDate,
         is_archived: updatedHabit.isArchived,
-        show_memo: updatedHabit.showMemo
+        show_memo: updatedHabit.showMemo,
+        ...(updatedHabit.goalId ? { goal_id: updatedHabit.goalId } : {})
     })
     .eq('id', updatedHabit.id);
 
