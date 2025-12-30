@@ -7,6 +7,7 @@ import { useTheme, ThemeMode } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 
 interface SettingItem {
   id: string;
@@ -183,6 +184,29 @@ const Settings = () => {
         { text: 'Reset', style: 'destructive', onPress: () => {
           Alert.alert('Success', 'Settings reset to default!');
         }}
+      ]
+    );
+  };
+
+  const handleLogout = () => {
+    mediumFeedback();
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Log Out', 
+          style: 'destructive', 
+          onPress: async () => {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                Alert.alert("Error", error.message);
+            } else {
+                router.replace('/(auth)/welcome');
+            }
+          } 
+        }
       ]
     );
   };
@@ -393,8 +417,8 @@ const Settings = () => {
           </View>
         </View>
 
-        {/* Reset Settings */}
-        <View className="mb-6">
+        {/* Reset Settings & Logout */}
+        <View className="mb-6 gap-4">
           <TouchableOpacity
             className="p-4 rounded-2xl items-center"
             style={{ backgroundColor: colors.error + '20' }}
@@ -406,6 +430,17 @@ const Settings = () => {
             </Text>
             <Text className="text-sm text-center mt-1" style={{ color: colors.textSecondary }}>
               Reset to default preferences
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="p-4 rounded-2xl items-center border"
+            style={{ backgroundColor: colors.surfaceSecondary, borderColor: colors.border }}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={24} color={colors.textPrimary} />
+            <Text className="font-semibold mt-2" style={{ color: colors.textPrimary }}>
+              Log Out
             </Text>
           </TouchableOpacity>
         </View>

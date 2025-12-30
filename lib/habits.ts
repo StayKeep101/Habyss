@@ -6,10 +6,14 @@ let habitsSubscription: any = null;
 const habitsListeners: Set<(habits: Habit[]) => void> = new Set();
 
 export type HabitCategory = 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc';
+export type HabitType = 'build' | 'quit';
+export type GoalPeriod = 'daily' | 'weekly' | 'monthly';
+export type ChartType = 'bar' | 'line';
 
 export interface Habit {
   id: string;
   name: string;
+  description?: string;
   icon?: string; // Ionicons name
   category: HabitCategory;
   createdAt: string; // ISO date
@@ -18,6 +22,18 @@ export interface Habit {
   endTime?: string;   // 'HH:mm'
   isGoal?: boolean; // true if this is a goal with target date
   targetDate?: string; // ISO date for goal target
+  type: HabitType;
+  color: string;
+  goalPeriod: GoalPeriod;
+  goalValue: number;
+  unit: string;
+  taskDays: string[]; // ['mon', 'tue', ...]
+  reminders: string[]; // ['09:00', ...]
+  chartType: ChartType;
+  startDate: string; // YYYY-MM-DD
+  endDate?: string;
+  isArchived: boolean;
+  showMemo: boolean;
 }
 
 const todayString = (d = new Date()) => {
@@ -81,6 +97,7 @@ export async function getHabits(): Promise<Habit[]> {
     const habits: Habit[] = data.map((row: any) => ({
       id: row.id,
       name: row.name,
+      description: row.description,
       category: row.category as HabitCategory,
       icon: row.icon,
       createdAt: row.created_at,
@@ -88,7 +105,19 @@ export async function getHabits(): Promise<Habit[]> {
       startTime: row.start_time,
       endTime: row.end_time,
       isGoal: row.is_goal,
-      targetDate: row.target_date
+      targetDate: row.target_date,
+      type: row.type || 'build',
+      color: row.color || '#6B46C1',
+      goalPeriod: row.goal_period || 'daily',
+      goalValue: row.goal_value || 1,
+      unit: row.unit || 'count',
+      taskDays: row.task_days || ['mon','tue','wed','thu','fri','sat','sun'],
+      reminders: row.reminders || [],
+      chartType: row.chart_type || 'bar',
+      startDate: row.start_date || row.created_at,
+      endDate: row.end_date,
+      isArchived: row.is_archived || false,
+      showMemo: row.show_memo || false
     }));
 
     cachedHabits = habits;
@@ -99,30 +128,34 @@ export async function getHabits(): Promise<Habit[]> {
   }
 }
 
-export async function addHabit(
-  name: string,
-  category: HabitCategory = 'work',
-  icon?: string,
-  durationMinutes?: number,
-  startTime?: string,
-  endTime?: string,
-  isGoal?: boolean,
-  targetDate?: string,
-): Promise<Habit | null> {
+export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null> {
   const uid = await getUserId();
   if (!uid) return null;
 
   const newHabit = {
     user_id: uid,
-    name,
-    category,
-    icon,
+    name: habitData.name,
+    description: habitData.description,
+    category: habitData.category,
+    icon: habitData.icon,
     created_at: new Date().toISOString(),
-    duration_minutes: durationMinutes,
-    start_time: startTime,
-    end_time: endTime,
-    is_goal: isGoal,
-    target_date: targetDate,
+    duration_minutes: habitData.durationMinutes,
+    start_time: habitData.startTime,
+    end_time: habitData.endTime,
+    is_goal: habitData.isGoal,
+    target_date: habitData.targetDate,
+    type: habitData.type || 'build',
+    color: habitData.color || '#6B46C1',
+    goal_period: habitData.goalPeriod || 'daily',
+    goal_value: habitData.goalValue || 1,
+    unit: habitData.unit || 'count',
+    task_days: habitData.taskDays || ['mon','tue','wed','thu','fri','sat','sun'],
+    reminders: habitData.reminders || [],
+    chart_type: habitData.chartType || 'bar',
+    start_date: habitData.startDate || new Date().toISOString(),
+    end_date: habitData.endDate,
+    is_archived: false,
+    show_memo: habitData.showMemo || false
   };
   
   const { data, error } = await supabase
@@ -140,6 +173,7 @@ export async function addHabit(
   const created: Habit = {
       id: data.id,
       name: data.name,
+      description: data.description,
       category: data.category as HabitCategory,
       icon: data.icon,
       createdAt: data.created_at,
@@ -147,7 +181,19 @@ export async function addHabit(
       startTime: data.start_time,
       endTime: data.end_time,
       isGoal: data.is_goal,
-      targetDate: data.target_date
+      targetDate: data.target_date,
+      type: data.type,
+      color: data.color,
+      goalPeriod: data.goal_period,
+      goalValue: data.goal_value,
+      unit: data.unit,
+      taskDays: data.task_days,
+      reminders: data.reminders,
+      chartType: data.chart_type,
+      startDate: data.start_date,
+      endDate: data.end_date,
+      isArchived: data.is_archived,
+      showMemo: data.show_memo
   };
 
   if (cachedHabits) {
@@ -158,7 +204,7 @@ export async function addHabit(
   return created;
 }
 
-export async function updateHabit(updatedHabit: Habit): Promise<void> {
+export async function updateHabit(updatedHabit: Partial<Habit> & { id: string }): Promise<void> {
   const uid = await getUserId();
   if (!uid) return;
 
@@ -166,13 +212,26 @@ export async function updateHabit(updatedHabit: Habit): Promise<void> {
     .from('habits')
     .update({
         name: updatedHabit.name,
+        description: updatedHabit.description,
         category: updatedHabit.category,
         icon: updatedHabit.icon,
         duration_minutes: updatedHabit.durationMinutes,
         start_time: updatedHabit.startTime,
         end_time: updatedHabit.endTime,
         is_goal: updatedHabit.isGoal,
-        target_date: updatedHabit.targetDate
+        target_date: updatedHabit.targetDate,
+        type: updatedHabit.type,
+        color: updatedHabit.color,
+        goal_period: updatedHabit.goalPeriod,
+        goal_value: updatedHabit.goalValue,
+        unit: updatedHabit.unit,
+        task_days: updatedHabit.taskDays,
+        reminders: updatedHabit.reminders,
+        chart_type: updatedHabit.chartType,
+        start_date: updatedHabit.startDate,
+        end_date: updatedHabit.endDate,
+        is_archived: updatedHabit.isArchived,
+        show_memo: updatedHabit.showMemo
     })
     .eq('id', updatedHabit.id);
 
@@ -180,7 +239,7 @@ export async function updateHabit(updatedHabit: Habit): Promise<void> {
       console.error("Error updating habit:", error);
   } else {
       if (cachedHabits) {
-          cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? updatedHabit : h);
+          cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? { ...h, ...updatedHabit } as Habit : h);
           habitsListeners.forEach(l => l(cachedHabits!));
       }
   }

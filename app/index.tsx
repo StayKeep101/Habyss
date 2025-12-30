@@ -1,34 +1,41 @@
 import { Redirect } from "expo-router";
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../utils/supabase';
+import { View, ActivityIndicator } from 'react-native';
+import { supabase } from '@/lib/supabase';
+import { Session } from '@supabase/supabase-js';
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function App() {
-  const [todos, setTodos] = useState([]);
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'dark'];
 
   useEffect(() => {
-    const getTodos = async () => {
-      try {
-        const { data: todos, error } = await supabase.from('todos').select();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
 
-        if (error) {
-          console.error('Error fetching todos:', error.message);
-          return;
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
-        if (todos && todos.length > 0) {
-          setTodos(todos);
-        }
-      } catch (error) {
-        console.error('Error fetching todos:', error.message);
-      }
-    };
-
-    getTodos();
+    return () => subscription.unsubscribe();
   }, []);
 
-  return (
-    <Redirect href="/(auth)/welcome" />
-  );
+  if (session === undefined) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (session) {
+    return <Redirect href="/(root)/(tabs)/home" />;
+  }
+
+  return <Redirect href="/(auth)/welcome" />;
 };
 
 
