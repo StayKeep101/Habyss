@@ -276,7 +276,7 @@ const Home = () => {
              <TouchableOpacity 
                 className="w-12 h-12 rounded-full items-center justify-center"
                 style={{ backgroundColor: colors.surfaceSecondary }}
-                onPress={() => router.push('/settings')}
+                onPress={() => router.push('/(root)/settings')}
              >
                  <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
              </TouchableOpacity>

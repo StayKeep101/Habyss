@@ -10,16 +10,14 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.habyss.app",
-
+      "bundleIdentifier": "com.habyss.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/Habyss Logo Black BG.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.habyss.app",
-
+      "package": "com.habyss.app"
     },
     "web": {
       "bundler": "metro",
@@ -37,12 +35,12 @@
           "backgroundColor": "#000000"
         }
       ],
-
-
+      "expo-secure-store",
+      "react-native-health-connect",
+      "react-native-health"
     ],
     "experiments": {
       "typedRoutes": true
-    },
-
+    }
   }
 }

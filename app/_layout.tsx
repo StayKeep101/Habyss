@@ -12,6 +12,7 @@ import React from "react";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { View } from 'react-native';
+import AIAgentWrapper from '@/components/AI/AIAgentWrapper';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -54,6 +55,7 @@ function InnerLayout() {
         <Stack.Screen name="+not-found" />
         <Stack.Screen name="(root)" />
       </Stack>
+      <AIAgentWrapper />
       <StatusBar style={isDark ? "light" : "dark"} />
     </View>
   );
