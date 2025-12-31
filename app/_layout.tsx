@@ -11,8 +11,10 @@ import { DarkTheme, LightTheme } from "../constants/Themes";
 import React from "react";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { View } from 'react-native';
+import { View, AppState } from 'react-native';
 import AIAgentWrapper from '@/components/AI/AIAgentWrapper';
+import { NotificationService } from '@/lib/notificationService';
+import { syncWidgets } from '@/lib/habits';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -29,8 +31,25 @@ export default function MobileLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      NotificationService.init();
+      NotificationService.requestNotificationPermission();
+      
+      // Initial widget sync
+      syncWidgets();
     }
   }, [loaded]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        syncWidgets();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   if (!loaded) {
     return null;

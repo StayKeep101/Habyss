@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, TextInput, Linking, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,11 @@ import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { IntegrationService } from '@/lib/integrationService';
+import { NotificationService } from '@/lib/notificationService';
+import { HealthService } from '@/lib/healthService';
+
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface SettingItem {
   id: string;
@@ -39,6 +44,30 @@ const Settings = () => {
   const { lightFeedback, mediumFeedback } = useHaptics();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [quietHoursEnabled, setQuietHoursEnabled] = useState(true);
+  const [quietHours, setQuietHours] = useState({ start: '22:00', end: '07:00' });
+  const [showPicker, setShowPicker] = useState<'start' | 'end' | null>(null);
+
+  useEffect(() => {
+    const loadNotificationSettings = async () => {
+      const enabled = await NotificationService.areNotificationsEnabled();
+      const qEnabled = await NotificationService.isQuietHoursEnabled();
+      const qHours = await NotificationService.getQuietHours();
+      setNotificationsEnabled(enabled);
+      setQuietHoursEnabled(qEnabled);
+      setQuietHours(qHours);
+
+      // Update the settings list values
+      setSettings(prev => prev.map(s => {
+        if (s.id === '1') return { ...s, value: enabled };
+        if (s.id === '11') return { ...s, value: qEnabled };
+        return s;
+      }));
+    };
+    loadNotificationSettings();
+  }, []);
+
   const [integrations, setIntegrations] = useState<Integration[]>([
     {
       id: 'apple-health',
@@ -174,6 +203,22 @@ const Settings = () => {
 
   const [settings, setSettings] = useState<SettingItem[]>([
     {
+      id: '1',
+      title: 'Notifications',
+      subtitle: 'Receive reminders for your habits',
+      icon: 'notifications',
+      type: 'toggle',
+      value: false
+    },
+    {
+      id: '11',
+      title: 'Quiet Hours',
+      subtitle: 'Mute reminders during specific hours',
+      icon: 'moon',
+      type: 'toggle',
+      value: true
+    },
+    {
       id: '2',
       title: 'Haptic Feedback',
       subtitle: 'Feel vibrations when interacting',
@@ -291,8 +336,23 @@ const Settings = () => {
     }
   ]);
 
-  const toggleSetting = (id: string) => {
+  const toggleSetting = async (id: string) => {
     lightFeedback();
+    
+    // Handle persistent storage for notifications
+    if (id === '1') {
+      const newValue = !notificationsEnabled;
+      setNotificationsEnabled(newValue);
+      await NotificationService.setNotificationsEnabled(newValue);
+      if (newValue) {
+        await NotificationService.requestNotificationPermission();
+      }
+    } else if (id === '11') {
+      const newValue = !quietHoursEnabled;
+      setQuietHoursEnabled(newValue);
+      await NotificationService.setQuietHoursEnabled(newValue);
+    }
+
     setSettings(prev => {
       const updated = prev.map(setting => 
         setting.id === id 
@@ -357,7 +417,25 @@ const Settings = () => {
     );
   };
 
-  const ThemeOption = ({ mode, label, icon }: { mode: ThemeMode, label: string, icon: string }) => {
+  const handleTimeChange = async (event: any, selectedDate?: Date) => {
+    if (event.type === 'set' && selectedDate && showPicker) {
+      const hours = selectedDate.getHours().toString().padStart(2, '0');
+      const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+      const timeStr = `${hours}:${minutes}`;
+      
+      const newQuietHours = {
+        ...quietHours,
+        [showPicker]: timeStr
+      };
+      
+      setQuietHours(newQuietHours);
+      await NotificationService.setQuietHours(newQuietHours.start, newQuietHours.end);
+      mediumFeedback();
+    }
+    setShowPicker(null);
+  };
+
+  const ThemeOption = ({ mode, label, icon }: { mode: ThemeMode; label: string; icon: any }) => {
       const isSelected = theme === mode;
       return (
           <TouchableOpacity 
@@ -491,6 +569,66 @@ const Settings = () => {
             </View>
         </View>
 
+        {/* Quiet Hours Picker (Visible if notifications & quiet hours enabled) */}
+        {notificationsEnabled && quietHoursEnabled && (
+          <View className="mb-6">
+            <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
+              Quiet Hours Schedule
+            </Text>
+            <View 
+              className="p-4 rounded-2xl flex-row justify-between items-center"
+              style={{ backgroundColor: colors.surfaceSecondary }}
+            >
+              <TouchableOpacity 
+                onPress={() => {
+                  lightFeedback();
+                  setShowPicker('start');
+                }}
+                className="flex-1 items-center p-2 rounded-xl"
+                style={{ backgroundColor: colors.surface }}
+              >
+                <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>Starts at</Text>
+                <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>{quietHours.start}</Text>
+              </TouchableOpacity>
+              
+              <View className="px-4">
+                <Ionicons name="arrow-forward" size={20} color={colors.textTertiary} />
+              </View>
+
+              <TouchableOpacity 
+                onPress={() => {
+                  lightFeedback();
+                  setShowPicker('end');
+                }}
+                className="flex-1 items-center p-2 rounded-xl"
+                style={{ backgroundColor: colors.surface }}
+              >
+                <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>Ends at</Text>
+                <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>{quietHours.end}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {showPicker && (
+              <DateTimePicker
+                value={(() => {
+                  const [h, m] = quietHours[showPicker].split(':').map(Number);
+                  const d = new Date();
+                  d.setHours(h, m, 0, 0);
+                  return d;
+                })()}
+                mode="time"
+                is24Hour={true}
+                display="default"
+                onChange={handleTimeChange}
+              />
+            )}
+
+            <Text className="text-xs mt-2 px-2" style={{ color: colors.textSecondary }}>
+              Notifications scheduled during these hours will be delayed until quiet hours end.
+            </Text>
+          </View>
+        )}
+
         {/* App Preferences */}
         <View className="mb-6">
           <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
@@ -500,7 +638,7 @@ const Settings = () => {
             className="rounded-2xl overflow-hidden"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
-            {settings.slice(0, 3).map((setting, index) => (
+            {settings.slice(0, 5).map((setting, index) => (
               <View key={setting.id}>
                 <TouchableOpacity
                   className="flex-row items-center p-4"
@@ -531,7 +669,7 @@ const Settings = () => {
                     />
                   )}
                 </TouchableOpacity>
-                {index < 2 && (
+                {index < 4 && (
                   <View 
                     className="h-[0.5px] mx-4"
                     style={{ backgroundColor: colors.border }}
@@ -551,7 +689,7 @@ const Settings = () => {
             className="rounded-2xl overflow-hidden"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
-            {settings.slice(3, 6).map((setting, index) => (
+            {settings.slice(5, 8).map((setting, index) => (
               <View key={setting.id}>
                 <TouchableOpacity
                   className="flex-row items-center p-4"
@@ -595,7 +733,7 @@ const Settings = () => {
             className="rounded-2xl overflow-hidden"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
-            {settings.slice(6).map((setting, index) => (
+            {settings.slice(8).map((setting, index) => (
               <View key={setting.id}>
                 <TouchableOpacity
                   className="flex-row items-center p-4"

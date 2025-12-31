@@ -1,15 +1,14 @@
 import { Redirect } from "expo-router";
 import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, useColorScheme } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const colors = Colors[colorScheme === 'light' ? 'light' : 'abyss'];
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

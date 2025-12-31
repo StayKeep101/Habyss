@@ -8,14 +8,21 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 export function useThemeColor(
   props: { light?: string; dark?: string },
-  colorName: keyof typeof Colors.light & keyof typeof Colors.dark
+  colorName: keyof typeof Colors.light & keyof typeof Colors.abyss
 ) {
   const theme = useColorScheme() ?? 'light';
-  const colorFromProps = props[theme];
+  
+  // Map 'dark' to 'abyss' if needed, or handle props mapping
+  const activeTheme = (theme === 'light' || theme === 'abyss' || theme === 'trueDark') 
+    ? theme 
+    : 'abyss';
+
+  const propsKey = (activeTheme === 'light') ? 'light' : 'dark';
+  const colorFromProps = props[propsKey];
 
   if (colorFromProps) {
     return colorFromProps;
   } else {
-    return Colors[theme][colorName];
+    return Colors[activeTheme][colorName];
   }
 }

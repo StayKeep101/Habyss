@@ -10,7 +10,16 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.habyss.app"
+      "bundleIdentifier": "com.habyss.app",
+      "infoPlist": {
+        "NSUserNotificationUsageDescription": "Habyss uses notifications to remind you about your habits and help you stay consistent."
+      },
+      "widgets": [
+        {
+          "name": "HabyssTodayWidget",
+          "family": "systemMedium"
+        }
+      ]
     },
     "android": {
       "adaptiveIcon": {
