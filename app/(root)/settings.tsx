@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Switch, Alert, TextInput, Linking, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { useTheme, ThemeMode } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -20,11 +19,158 @@ interface SettingItem {
   action?: () => void;
 }
 
+interface Integration {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  iconType: 'ionicons' | 'custom';
+  color: string;
+  connected: boolean;
+  lastSync?: string;
+  loading?: boolean;
+  docUrl: string;
+}
+
 const Settings = () => {
   const { theme, setTheme } = useTheme();
   // We can trust theme is 'light' | 'abyss' | 'trueDark'
   const colors = Colors[theme];
   const { lightFeedback, mediumFeedback } = useHaptics();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [integrations, setIntegrations] = useState<Integration[]>([
+    {
+      id: 'apple-health',
+      name: 'Apple Health',
+      description: 'Sync steps, sleep, and heart rate data.',
+      icon: 'heart',
+      iconType: 'ionicons',
+      color: '#FF2D55',
+      connected: false,
+      docUrl: 'https://www.apple.com/ios/health/'
+    },
+    {
+      id: 'strava',
+      name: 'Strava',
+      description: 'Import your runs, rides, and swims.',
+      icon: 'bicycle',
+      iconType: 'ionicons',
+      color: '#FC6100',
+      connected: false,
+      docUrl: 'https://www.strava.com/'
+    },
+    {
+      id: 'spotify',
+      name: 'Spotify',
+      description: 'Track your focus music and podcasts.',
+      icon: 'musical-notes',
+      iconType: 'ionicons',
+      color: '#1DB954',
+      connected: false,
+      docUrl: 'https://www.spotify.com/'
+    },
+    {
+      id: 'duolingo',
+      name: 'Duolingo',
+      description: 'Monitor your language learning progress.',
+      icon: 'language',
+      iconType: 'ionicons',
+      color: '#58CC02',
+      connected: false,
+      docUrl: 'https://www.duolingo.com/'
+    },
+    {
+      id: 'plaid',
+      name: 'Plaid',
+      description: 'Sync financial habits and spending.',
+      icon: 'wallet',
+      iconType: 'ionicons',
+      color: '#000000',
+      connected: false,
+      docUrl: 'https://plaid.com/'
+    },
+    {
+      id: 'kindle',
+      name: 'Kindle',
+      description: 'Track your daily reading progress.',
+      icon: 'book',
+      iconType: 'ionicons',
+      color: '#00A8E1',
+      connected: false,
+      docUrl: 'https://www.amazon.com/kindle-dbs/fd/kcp'
+    },
+    {
+      id: 'garmin',
+      name: 'Garmin Connect',
+      description: 'Sync advanced fitness and health metrics.',
+      icon: 'watch',
+      iconType: 'ionicons',
+      color: '#000000',
+      connected: false,
+      docUrl: 'https://connect.garmin.com/'
+    }
+  ]);
+
+  const filteredIntegrations = useMemo(() => {
+    if (!searchQuery) return integrations;
+    const query = searchQuery.toLowerCase();
+    return integrations.filter(i => 
+      i.name.toLowerCase().includes(query) || 
+      i.description.toLowerCase().includes(query)
+    );
+  }, [integrations, searchQuery]);
+
+  const handleToggleIntegration = async (id: string) => {
+    lightFeedback();
+    
+    // Find the integration
+    const integration = integrations.find(i => i.id === id);
+    if (!integration) return;
+
+    if (integration.connected) {
+      // Disconnect
+      Alert.alert(
+        'Disconnect Service',
+        `Are you sure you want to disconnect ${integration.name}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Disconnect', 
+            style: 'destructive', 
+            onPress: () => {
+              setIntegrations(prev => prev.map(i => 
+                i.id === id ? { ...i, connected: false, lastSync: undefined } : i
+              ));
+            } 
+          }
+        ]
+      );
+    } else {
+      // Mock OAuth Flow
+      setIntegrations(prev => prev.map(i => i.id === id ? { ...i, loading: true } : i));
+      
+      try {
+        // Simulate network delay for OAuth
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Randomly succeed or fail for demo purposes
+        const success = Math.random() > 0.1;
+        
+        if (success) {
+          setIntegrations(prev => prev.map(i => 
+            i.id === id ? { ...i, connected: true, loading: false, lastSync: 'Just now' } : i
+          ));
+          Alert.alert('Success', `Successfully connected to ${integration.name}!`);
+        } else {
+          throw new Error('OAuth process cancelled or failed.');
+        }
+      } catch (error) {
+        setIntegrations(prev => prev.map(i => i.id === id ? { ...i, loading: false } : i));
+        Alert.alert('Connection Failed', `Could not connect to ${integration.name}. Please try again.`);
+      }
+    }
+  };
 
   const [settings, setSettings] = useState<SettingItem[]>([
     {
@@ -234,6 +380,73 @@ const Settings = () => {
       )
   }
 
+  const IntegrationRow = ({ integration }: { integration: Integration }) => (
+    <View 
+      key={integration.id}
+      className="p-4 rounded-2xl mb-4"
+      style={{ backgroundColor: colors.surfaceSecondary }}
+    >
+      <View className="flex-row items-center mb-3">
+        <View 
+          className="w-12 h-12 rounded-full items-center justify-center mr-4"
+          style={{ backgroundColor: integration.color + '20' }}
+        >
+          <Ionicons name={integration.icon as any} size={24} color={integration.color} />
+        </View>
+        <View className="flex-1">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>
+              {integration.name}
+            </Text>
+            {integration.loading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Switch
+                value={integration.connected}
+                onValueChange={() => handleToggleIntegration(integration.id)}
+                trackColor={{ false: '#e2e8f0', true: colors.primary }}
+                thumbColor={integration.connected ? 'white' : '#f1f5f9'}
+              />
+            )}
+          </View>
+          <Text className="text-sm" style={{ color: colors.textSecondary }}>
+            {integration.description}
+          </Text>
+        </View>
+      </View>
+
+      {integration.connected && (
+        <TouchableOpacity 
+          className="mb-3 py-2 px-4 rounded-xl flex-row items-center justify-center border"
+          style={{ borderColor: colors.border, backgroundColor: colors.surface }}
+          onPress={() => Alert.alert('Configuration', `Manage settings for ${integration.name}`)}
+        >
+          <Ionicons name="settings-outline" size={16} color={colors.textPrimary} className="mr-2" />
+          <Text className="font-semibold text-sm" style={{ color: colors.textPrimary }}>Configure {integration.name}</Text>
+        </TouchableOpacity>
+      )}
+
+      <View className="flex-row items-center justify-between pt-3 border-t" style={{ borderColor: colors.border }}>
+        <View className="flex-row items-center">
+          <View 
+            className="w-2 h-2 rounded-full mr-2"
+            style={{ backgroundColor: integration.connected ? colors.success : colors.textTertiary }}
+          />
+          <Text className="text-xs" style={{ color: colors.textSecondary }}>
+            {integration.connected ? `Connected • Last sync: ${integration.lastSync}` : 'Disconnected'}
+          </Text>
+        </View>
+        <TouchableOpacity 
+          onPress={() => Linking.openURL(integration.docUrl)}
+          className="flex-row items-center"
+        >
+          <Text className="text-xs mr-1" style={{ color: colors.primary }}>Learn more</Text>
+          <Ionicons name="open-outline" size={12} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       {/* Header */}
@@ -415,6 +628,65 @@ const Settings = () => {
               </View>
             ))}
           </View>
+        </View>
+
+        {/* Integrations Section */}
+        <View className="mb-8">
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+              Integrations
+            </Text>
+            {integrations.some(i => i.connected) && (
+              <View 
+                className="px-3 py-1 rounded-full"
+                style={{ backgroundColor: colors.success + '20' }}
+              >
+                <Text className="text-xs font-bold" style={{ color: colors.success }}>
+                  {integrations.filter(i => i.connected).length} Connected
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Search Bar */}
+          <View 
+            className="flex-row items-center px-4 py-3 rounded-2xl mb-6 border"
+            style={{ 
+              backgroundColor: colors.surface,
+              borderColor: colors.border
+            }}
+          >
+            <Ionicons name="search" size={20} color={colors.textTertiary} />
+            <TextInput
+              className="flex-1 ml-3 text-base"
+              placeholder="Search services..."
+              placeholderTextColor={colors.textTertiary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={{ color: colors.textPrimary }}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {filteredIntegrations.length > 0 ? (
+            filteredIntegrations.map((integration) => (
+              <IntegrationRow key={integration.id} integration={integration} />
+            ))
+          ) : (
+            <View className="py-10 items-center justify-center">
+              <Ionicons name="search-outline" size={48} color={colors.textTertiary} />
+              <Text className="text-lg font-semibold mt-4" style={{ color: colors.textPrimary }}>
+                No services found
+              </Text>
+              <Text className="text-sm text-center mt-2 px-10" style={{ color: colors.textSecondary }}>
+                Try searching for a different service name or description.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Reset Settings & Logout */}
