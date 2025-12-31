@@ -483,10 +483,22 @@ export async function syncWidgets() {
     const totalHabitsToday = todayHabits.length;
     const completedHabitsToday = todayHabits.filter(h => completions[h.id]).length;
 
+    const widgetHabits = todayHabits.map(h => ({
+      id: h.id,
+      name: h.name,
+      completed: !!completions[h.id],
+      category: h.category,
+      icon: h.icon || 'ellipse-outline'
+    }));
+
+    const nextHabit = widgetHabits.find(h => !h.completed);
+
     await WidgetSync.updateWidgetData({
       completedHabitsToday,
       totalHabitsToday,
-      streakDays: streakData.currentStreak
+      streakDays: streakData.currentStreak,
+      todayHabits: widgetHabits,
+      nextHabit: nextHabit
     });
   } catch (error) {
     console.error('Error syncing widgets from habits.ts:', error);
