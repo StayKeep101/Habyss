@@ -6,6 +6,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
+import { NotificationService } from '@/lib/notificationService';
 
 interface NotificationSetting {
   id: string;
@@ -94,9 +95,9 @@ const Notifications = () => {
 
   const toggleNotification = (id: string) => {
     lightFeedback();
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.id === id
           ? { ...notification, enabled: !notification.enabled }
           : notification
       )
@@ -150,7 +151,7 @@ const Notifications = () => {
       <View className="px-6 pt-4 pb-6">
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center">
-            <TouchableOpacity 
+            <TouchableOpacity
               className="w-10 h-10 rounded-full items-center justify-center mr-3"
               style={{ backgroundColor: colors.surfaceSecondary }}
               onPress={() => {
@@ -169,7 +170,7 @@ const Notifications = () => {
               </Text>
             </View>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             className="w-10 h-10 rounded-full items-center justify-center"
             style={{ backgroundColor: colors.primary }}
             onPress={handleSaveSettings}
@@ -182,7 +183,7 @@ const Notifications = () => {
       <ScrollView className="flex-1 px-6">
         {/* Quick Actions */}
         <View className="mb-6">
-          <View 
+          <View
             className="p-4 rounded-2xl"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
@@ -237,7 +238,7 @@ const Notifications = () => {
           <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
             Quiet Hours
           </Text>
-          <View 
+          <View
             className="p-4 rounded-2xl"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
@@ -284,7 +285,7 @@ const Notifications = () => {
             <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
               {category.charAt(0).toUpperCase() + category.slice(1)} Notifications
             </Text>
-            <View 
+            <View
               className="rounded-2xl overflow-hidden"
               style={{ backgroundColor: colors.surfaceSecondary }}
             >
@@ -294,14 +295,14 @@ const Notifications = () => {
                     className="flex-row items-center p-4"
                     onPress={() => toggleNotification(notification.id)}
                   >
-                    <View 
+                    <View
                       className="w-10 h-10 rounded-full items-center justify-center mr-3"
                       style={{ backgroundColor: getCategoryColor(notification.category) + '20' }}
                     >
-                      <Ionicons 
-                        name={notification.icon as any} 
-                        size={20} 
-                        color={getCategoryColor(notification.category)} 
+                      <Ionicons
+                        name={notification.icon as any}
+                        size={20}
+                        color={getCategoryColor(notification.category)}
                       />
                     </View>
                     <View className="flex-1">
@@ -320,7 +321,7 @@ const Notifications = () => {
                     />
                   </TouchableOpacity>
                   {index < categoryNotifications.length - 1 && (
-                    <View 
+                    <View
                       className="h-[0.5px] mx-4"
                       style={{ backgroundColor: colors.border }}
                     />
@@ -330,6 +331,41 @@ const Notifications = () => {
             </View>
           </View>
         ))}
+
+        {/* Debug Section */}
+        <View className="mb-6">
+          <Text className="text-lg font-bold mb-4" style={{ color: colors.textPrimary }}>
+            Debug Information
+          </Text>
+          <View
+            className="p-4 rounded-2xl"
+            style={{ backgroundColor: colors.surfaceSecondary }}
+          >
+            <TouchableOpacity
+              className="flex-row items-center justify-between"
+              onPress={async () => {
+                const token = await NotificationService.registerForPushNotificationsAsync();
+                if (token) {
+                  console.log('Push Token:', token);
+                  Alert.alert('Push Token', token, [
+                    { text: 'Copy', onPress: () => console.log('Copy not implemented yet, check logs') },
+                    { text: 'OK' }
+                  ]);
+                } else {
+                  Alert.alert('Error', 'Could not retrieve push token');
+                }
+              }}
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="bug" size={20} color={colors.textSecondary} />
+                <Text className="ml-2 font-medium" style={{ color: colors.textPrimary }}>
+                  Get Push Token
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Bottom Spacing */}
         <View className="h-20" />

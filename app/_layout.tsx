@@ -31,9 +31,14 @@ export default function MobileLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
-      NotificationService.init();
-      NotificationService.requestNotificationPermission();
-      
+
+      // Initialize notifications sequence
+      const setupNotifications = async () => {
+        await NotificationService.init();
+        await NotificationService.registerForPushNotificationsAsync();
+      };
+      setupNotifications();
+
       // Initial widget sync
       syncWidgets();
     }

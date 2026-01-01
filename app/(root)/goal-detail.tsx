@@ -10,7 +10,7 @@ import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { subscribeToHabits, Habit, removeHabitEverywhere } from '@/lib/habits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Import ImagePicker conditionally to avoid errors if not available
+// Import ImagePicker conditionally to avoid errors if not available (requires native rebuild)
 let ImagePicker: any = null;
 try {
   ImagePicker = require('expo-image-picker');
@@ -22,7 +22,7 @@ const GoalDetail = () => {
   const router = useRouter();
   const { goalId } = useGlobalSearchParams();
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'abyss'];
+  const colors = Colors[colorScheme === 'dark' ? 'abyss' : 'light'];
 
   const [habits, setHabits] = useState<Habit[]>([]);
   const [goal, setGoal] = useState<Habit | null>(null);
@@ -89,14 +89,21 @@ const GoalDetail = () => {
   const handleChangeBackground = async () => {
     if (!ImagePicker) {
       Alert.alert(
-        "Photo Library",
-        "To use custom backgrounds, please restart the app after installing. You can also use the default background for now.",
+        "Feature Unavailable",
+        "To use custom backgrounds, you must rebuild the app. Please run 'npx expo run:ios' again.",
         [{ text: "OK" }]
       );
       return;
     }
 
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to make this work!');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -137,7 +144,7 @@ const GoalDetail = () => {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleChangeBackground}
-              className="w-10 h-10 rounded-full items-center justify-center bg-black/20"
+              className="w-10 h-10 rounded-full items-center justify-center bg-black/40 border border-white/20"
             >
               <Ionicons name="camera" size={20} color="white" />
             </TouchableOpacity>

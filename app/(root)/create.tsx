@@ -41,7 +41,7 @@ export default function CreateScreen() {
     const router = useRouter();
     const params = useGlobalSearchParams();
     const colorScheme = useColorScheme();
-    const colors = Colors[colorScheme ?? 'dark'];
+    const colors = Colors[colorScheme ?? 'abyss'];
 
     const parseTime = (timeStr?: string) => {
         if (!timeStr) return null;

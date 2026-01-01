@@ -334,15 +334,11 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
       completed: true
     });
 
-    // Trigger smart motivation if it's evening
-    const hour = new Date().getHours();
-    if (hour >= 18) { // 6PM or later
-      const habits = await getHabits();
-      const habit = habits.find(h => h.id === habitId);
-      if (habit) {
-        // Pass false because the habit was JUST completed
-        await NotificationService.sendMotivationIfNeeded(false, habit.name);
-      }
+    // Trigger completion notification
+    const habits = await getHabits();
+    const habit = habits.find(h => h.id === habitId);
+    if (habit) {
+      await NotificationService.sendCompletionNotification(habit.name);
     }
   }
 

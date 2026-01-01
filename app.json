@@ -12,7 +12,14 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.habyss.app",
       "infoPlist": {
-        "NSUserNotificationUsageDescription": "Habyss uses notifications to remind you about your habits and help you stay consistent."
+        "NSUserNotificationUsageDescription": "Habyss uses notifications to remind you about your habits and help you stay consistent.",
+        "NSPhotoLibraryUsageDescription": "Habyss needs access to your photos to let you set custom backgrounds for your goals.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      },
+      "entitlements": {
+        "aps-environment": "development"
       },
       "widgets": [
         {
@@ -34,6 +41,7 @@
       "favicon": "./assets/images/Habyss Logo Black BG.png"
     },
     "plugins": [
+      "expo-notifications",
       "expo-router",
       [
         "expo-splash-screen",

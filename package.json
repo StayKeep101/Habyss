@@ -27,7 +27,7 @@
     "clsx": "^2.1.1",
     "expo": "^53.0.20",
     "expo-blur": "~14.1.5",
-    "expo-constants": "~17.1.6",
+    "expo-constants": "~17.1.8",
     "expo-device": "~7.1.4",
     "expo-font": "~13.3.1",
     "expo-haptics": "~14.1.4",

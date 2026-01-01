@@ -7,6 +7,8 @@ export const useColorScheme = () => {
     return theme;
   } catch (e) {
     // Fallback to native color scheme if ThemeProvider is not available
-    return useNativeColorScheme() ?? 'light';
+    // Fallback to native color scheme if ThemeProvider is not available
+    const native = useNativeColorScheme();
+    return native === 'dark' ? 'abyss' : 'light';
   }
 };

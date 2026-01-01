@@ -94,37 +94,82 @@ export class NotificationService {
   /**
    * Request permissions for notifications
    */
-  static async requestNotificationPermission(): Promise<boolean> {
+  /**
+   * Register for push notifications and get the token
+   */
+  static async registerForPushNotificationsAsync(): Promise<string | null> {
+    if (Platform.OS === 'web') return null;
+
     const Device = getDevice();
     const Notifications = getNotifications();
 
-    if (!Device || !Notifications) return false;
-
+    // Lazy load Constants to avoid web issues if handled conditionally
+    let Constants: any;
     try {
-      if (!Device.isDevice) {
-        console.log('Must use physical device for push notifications');
-        return false;
-      }
+      Constants = require('expo-constants').default;
+    } catch (e) {
+      console.log('Constants not available');
+      return null;
+    }
 
+    if (!Device || !Notifications) return null;
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('habit-reminders', {
+        name: 'Habit Reminders',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+
+      // Also set a default channel as per guide
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    if (Device.isDevice) {
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
-
       if (existingStatus !== 'granted') {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
-
-      const granted = finalStatus === 'granted';
-      await AsyncStorage.setItem(NOTIFICATION_ENABLED_KEY, JSON.stringify(granted));
-
-      if (!granted) {
-        console.log('Notifications permission not granted');
+      if (finalStatus !== 'granted') {
+        console.log('Permission not granted to get push token for push notification!');
+        await AsyncStorage.setItem(NOTIFICATION_ENABLED_KEY, 'false');
+        return null;
       }
 
-      return granted;
-    } catch (error) {
-      console.warn('NotificationService: Failed to request permission.', error);
-      return false;
+      await AsyncStorage.setItem(NOTIFICATION_ENABLED_KEY, 'true');
+
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+
+      if (!projectId) {
+        console.log('Project ID not found');
+        // We can still try without project ID, but it's recommended
+      }
+
+      try {
+        const pushTokenString = (
+          await Notifications.getExpoPushTokenAsync({
+            projectId,
+          })
+        ).data;
+        console.log('Expo Push Token:', pushTokenString);
+        return pushTokenString;
+      } catch (e) {
+        console.error(`${e}`);
+        return null;
+      }
+    } else {
+      console.log('Must use physical device for push notifications');
+      return null;
     }
   }
 
@@ -314,19 +359,21 @@ export class NotificationService {
   }
 
   /**
-   * Send Motivation if needed (triggered on habit completion)
+   * Send notification when a habit is completed
    */
-  static async sendMotivationIfNeeded(completed: boolean, habitName: string) {
+  static async sendCompletionNotification(habitName: string) {
     const Notifications = getNotifications();
     if (!Notifications) return;
 
-    if (!completed) return; // Only send when completed
+    if (!(await this.areNotificationsEnabled())) return;
 
     const messages = [
       `Great job completing ${habitName}!`,
       `Keep it up! ${habitName} done.`,
       `You're on fire! ${habitName} completed.`,
       `Habyss streak growing! ${habitName} finished.`,
+      `One step closer to your goals!`,
+      `Victory! ${habitName} crushed.`,
     ];
 
     const randomMessage = messages[Math.floor(Math.random() * messages.length)];
@@ -334,8 +381,9 @@ export class NotificationService {
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Awesome!',
+          title: 'Habit Completed! 🎉',
           body: randomMessage,
+          sound: true,
         },
         trigger: null, // Send immediately
       });
