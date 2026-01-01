@@ -18,17 +18,33 @@ serve(async (req) => {
   try {
     const { userId, email } = await req.json()
 
+    if (!userId) {
+      throw new Error('User ID is required')
+    }
+
+    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')
+    const priceId = Deno.env.get('STRIPE_PREMIUM_PRICE_ID')
+    const appUrl = Deno.env.get('APP_URL') || 'https://habyss.app' // Fallback to a default if not set
+
+    if (!stripeSecretKey) {
+      throw new Error('STRIPE_SECRET_KEY is not set')
+    }
+
+    if (!priceId) {
+      throw new Error('STRIPE_PREMIUM_PRICE_ID is not set')
+    }
+
     const session = await stripe.checkout.sessions.create({
-      customer_email: email,
+      customer_email: email || undefined,
       line_items: [
         {
-          price: Deno.env.get('STRIPE_PREMIUM_PRICE_ID'),
+          price: priceId,
           quantity: 1,
         },
       ],
       mode: 'subscription',
-      success_url: `${Deno.env.get('APP_URL')}/(root)/settings?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${Deno.env.get('APP_URL')}/(root)/settings`,
+      success_url: `${appUrl}/(root)/settings?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/(root)/settings`,
       metadata: {
         userId,
       },
@@ -39,6 +55,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
     )
   } catch (error) {
+    console.error('Checkout error:', error.message)
     return new Response(
       JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 },

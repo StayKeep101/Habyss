@@ -74,9 +74,9 @@ const AIAgentWrapper: React.FC = () => {
       if (checkoutUrl) {
         await Linking.openURL(checkoutUrl);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting checkout:', error);
-      Alert.alert('Error', 'Failed to start checkout. Please try again later.');
+      Alert.alert('Error', error.message || 'Failed to start checkout. Please try again later.');
     } finally {
       setIsRedirecting(false);
       setIsPaywallVisible(false);

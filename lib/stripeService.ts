@@ -47,10 +47,20 @@ export const StripeService = {
     });
 
     if (error) {
-      console.error('Error creating checkout session:', error);
-      throw error;
+      // Try to extract error message from the response
+      let message = error.message;
+      try {
+        if (error.context?.error) {
+          message = error.context.error;
+        }
+      } catch (e) {
+        // Fallback to original error message
+      }
+      
+      console.error('Error creating checkout session:', message, error);
+      throw new Error(message);
     }
 
-    return data.url;
+    return data?.url || null;
   }
 };
