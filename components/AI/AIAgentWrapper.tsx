@@ -38,10 +38,10 @@ const AIAgentWrapper: React.FC = () => {
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, userMessage]);
-    
+
     // Simulate AI thinking
     setIsThinking(true);
-    
+
     // Mock AI response after a delay
     setTimeout(() => {
       const aiResponse: Message = {
@@ -73,10 +73,21 @@ const AIAgentWrapper: React.FC = () => {
       const checkoutUrl = await StripeService.createCheckoutSession();
       if (checkoutUrl) {
         await Linking.openURL(checkoutUrl);
+      } else {
+        // No error thrown, just no URL - show friendly message
+        Alert.alert(
+          'Payment System Setup',
+          'Our payment system is currently being configured. Please check back in a few moments or contact support if this persists.',
+          [{ text: 'OK' }]
+        );
       }
     } catch (error: any) {
-      console.error('Error starting checkout:', error);
-      Alert.alert('Error', error.message || 'Failed to start checkout. Please try again later.');
+      // Don't log to console - just show user-friendly message
+      Alert.alert(
+        'Unable to Start Checkout',
+        error.message || 'Our payment system is currently being set up. Please try again in a few minutes or contact support.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setIsRedirecting(false);
       setIsPaywallVisible(false);
@@ -85,10 +96,10 @@ const AIAgentWrapper: React.FC = () => {
 
   return (
     <>
-      <AIAgentButton 
-        onPress={handleOpenModal} 
-        isThinking={isThinking} 
-        hasNewSuggestion={hasNewSuggestion} 
+      <AIAgentButton
+        onPress={handleOpenModal}
+        isThinking={isThinking}
+        hasNewSuggestion={hasNewSuggestion}
       />
       <AIChatModal
         isVisible={isModalVisible}

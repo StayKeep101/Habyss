@@ -72,15 +72,15 @@ export async function subscribeToHabits(callback: (habits: Habit[]) => void): Pr
   if (cachedHabits) {
     callback(cachedHabits);
   } else {
-     // Fetch initially
-     getHabits().then(callback);
+    // Fetch initially
+    getHabits().then(callback);
   }
-  
+
   // Start listener if not started
   setupHabitsListener();
-  
+
   habitsListeners.add(callback);
-  
+
   return () => {
     habitsListeners.delete(callback);
   };
@@ -114,7 +114,7 @@ export async function getHabits(): Promise<Habit[]> {
       goalPeriod: row.goal_period || 'daily',
       goalValue: row.goal_value || 1,
       unit: row.unit || 'count',
-      taskDays: row.task_days || ['mon','tue','wed','thu','fri','sat','sun'],
+      taskDays: row.task_days || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
       reminders: row.reminders || [],
       chartType: row.chart_type || 'bar',
       startDate: row.start_date || row.created_at,
@@ -153,7 +153,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
     goal_period: habitData.goalPeriod || 'daily',
     goal_value: habitData.goalValue || 1,
     unit: habitData.unit || 'count',
-    task_days: habitData.taskDays || ['mon','tue','wed','thu','fri','sat','sun'],
+    task_days: habitData.taskDays || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
     reminders: habitData.reminders || [],
     chart_type: habitData.chartType || 'bar',
     start_date: habitData.startDate || new Date().toISOString(),
@@ -162,7 +162,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
     show_memo: habitData.showMemo || false,
     ...(habitData.goalId ? { goal_id: habitData.goalId } : {}),
   };
-  
+
   const { data, error } = await supabase
     .from('habits')
     .insert([newHabit])
@@ -176,30 +176,30 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
 
   // Refresh cache
   const created: Habit = {
-      id: data.id,
-      name: data.name,
-      description: data.description,
-      category: data.category as HabitCategory,
-      icon: data.icon,
-      createdAt: data.created_at,
-      durationMinutes: data.duration_minutes,
-      startTime: data.start_time,
-      endTime: data.end_time,
-      isGoal: data.is_goal,
-      targetDate: data.target_date,
-      type: data.type,
-      color: data.color,
-      goalPeriod: data.goal_period,
-      goalValue: data.goal_value,
-      unit: data.unit,
-      taskDays: data.task_days,
-      reminders: data.reminders,
-      chartType: data.chart_type,
-      startDate: data.start_date,
-      endDate: data.end_date,
-      isArchived: data.is_archived || false,
-      showMemo: data.show_memo || false,
-      goalId: data.goal_id
+    id: data.id,
+    name: data.name,
+    description: data.description,
+    category: data.category as HabitCategory,
+    icon: data.icon,
+    createdAt: data.created_at,
+    durationMinutes: data.duration_minutes,
+    startTime: data.start_time,
+    endTime: data.end_time,
+    isGoal: data.is_goal,
+    targetDate: data.target_date,
+    type: data.type,
+    color: data.color,
+    goalPeriod: data.goal_period,
+    goalValue: data.goal_value,
+    unit: data.unit,
+    taskDays: data.task_days,
+    reminders: data.reminders,
+    chartType: data.chart_type,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    isArchived: data.is_archived || false,
+    showMemo: data.show_memo || false,
+    goalId: data.goal_id
   };
 
   // Schedule notifications
@@ -208,8 +208,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
   }
 
   if (cachedHabits) {
-      cachedHabits = [created, ...cachedHabits];
-      habitsListeners.forEach(l => l(cachedHabits!));
+    cachedHabits = [created, ...cachedHabits];
+    habitsListeners.forEach(l => l(cachedHabits!));
   }
 
   // Sync Widgets
@@ -225,63 +225,63 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
   const { error } = await supabase
     .from('habits')
     .update({
-        name: updatedHabit.name,
-        description: updatedHabit.description,
-        category: updatedHabit.category,
-        icon: updatedHabit.icon,
-        duration_minutes: updatedHabit.durationMinutes,
-        start_time: updatedHabit.startTime,
-        end_time: updatedHabit.endTime,
-        is_goal: updatedHabit.isGoal,
-        target_date: updatedHabit.targetDate,
-        type: updatedHabit.type,
-        color: updatedHabit.color,
-        goal_period: updatedHabit.goalPeriod,
-        goal_value: updatedHabit.goalValue,
-        unit: updatedHabit.unit,
-        task_days: updatedHabit.taskDays,
-        reminders: updatedHabit.reminders,
-        chart_type: updatedHabit.chartType,
-        start_date: updatedHabit.startDate,
-        end_date: updatedHabit.endDate,
-        is_archived: updatedHabit.isArchived,
-        show_memo: updatedHabit.showMemo,
-        ...(updatedHabit.goalId ? { goal_id: updatedHabit.goalId } : {})
+      name: updatedHabit.name,
+      description: updatedHabit.description,
+      category: updatedHabit.category,
+      icon: updatedHabit.icon,
+      duration_minutes: updatedHabit.durationMinutes,
+      start_time: updatedHabit.startTime,
+      end_time: updatedHabit.endTime,
+      is_goal: updatedHabit.isGoal,
+      target_date: updatedHabit.targetDate,
+      type: updatedHabit.type,
+      color: updatedHabit.color,
+      goal_period: updatedHabit.goalPeriod,
+      goal_value: updatedHabit.goalValue,
+      unit: updatedHabit.unit,
+      task_days: updatedHabit.taskDays,
+      reminders: updatedHabit.reminders,
+      chart_type: updatedHabit.chartType,
+      start_date: updatedHabit.startDate,
+      end_date: updatedHabit.endDate,
+      is_archived: updatedHabit.isArchived,
+      show_memo: updatedHabit.showMemo,
+      ...(updatedHabit.goalId ? { goal_id: updatedHabit.goalId } : {})
     })
     .eq('id', updatedHabit.id);
 
   if (error) {
-      console.error("Error updating habit:", error);
+    console.error("Error updating habit:", error);
   } else {
-      // Update notifications
-      if (updatedHabit.reminders) {
-          const fullHabit = cachedHabits?.find(h => h.id === updatedHabit.id);
-          if (fullHabit) {
-              await NotificationService.scheduleHabitReminder({ ...fullHabit, ...updatedHabit } as Habit);
-          }
+    // Update notifications
+    if (updatedHabit.reminders) {
+      const fullHabit = cachedHabits?.find(h => h.id === updatedHabit.id);
+      if (fullHabit) {
+        await NotificationService.scheduleHabitReminder({ ...fullHabit, ...updatedHabit } as Habit);
       }
+    }
 
-      if (cachedHabits) {
-          cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? { ...h, ...updatedHabit } as Habit : h);
-          habitsListeners.forEach(l => l(cachedHabits!));
-      }
+    if (cachedHabits) {
+      cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? { ...h, ...updatedHabit } as Habit : h);
+      habitsListeners.forEach(l => l(cachedHabits!));
+    }
 
-      // Sync Widgets
-      syncWidgets();
+    // Sync Widgets
+    syncWidgets();
   }
 }
 
 export async function removeHabitEverywhere(habitId: string): Promise<void> {
   const { error } = await supabase.from('habits').delete().eq('id', habitId);
   if (error) console.error("Error deleting habit:", error);
-  
+
   // Cancel notifications
   await NotificationService.cancelHabitReminder(habitId);
 
   // Cache update handled by listener or manual refresh
   if (cachedHabits) {
-      cachedHabits = cachedHabits.filter(h => h.id !== habitId);
-      habitsListeners.forEach(l => l(cachedHabits!));
+    cachedHabits = cachedHabits.filter(h => h.id !== habitId);
+    habitsListeners.forEach(l => l(cachedHabits!));
   }
 
   // Sync Widgets
@@ -292,7 +292,7 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
 
 export async function getCompletions(dateISO?: string): Promise<Record<string, boolean>> {
   const dateStr = dateISO ?? todayString();
-  
+
   const { data, error } = await supabase
     .from('habit_completions')
     .select('habit_id')
@@ -305,7 +305,7 @@ export async function getCompletions(dateISO?: string): Promise<Record<string, b
 
   const result: Record<string, boolean> = {};
   data.forEach((row: any) => {
-      result[row.habit_id] = true;
+    result[row.habit_id] = true;
   });
   return result;
 }
@@ -315,7 +315,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
   if (!uid) return {};
 
   const dateStr = dateISO ?? todayString();
-  
+
   // Check if exists
   const { data: existing } = await supabase
     .from('habit_completions')
@@ -325,25 +325,25 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
     .single();
 
   if (existing) {
-     await supabase.from('habit_completions').delete().eq('id', existing.id);
+    await supabase.from('habit_completions').delete().eq('id', existing.id);
   } else {
-     await supabase.from('habit_completions').insert({
-         user_id: uid,
-         habit_id: habitId,
-         date: dateStr,
-         completed: true
-     });
-     
-     // Trigger smart motivation if it's evening
-     const hour = new Date().getHours();
-     if (hour >= 18) { // 6PM or later
-       const habits = await getHabits();
-       const habit = habits.find(h => h.id === habitId);
-       if (habit) {
-         // Pass false because the habit was JUST completed
-         await NotificationService.sendMotivationIfNeeded(false, habit.name);
-       }
-     }
+    await supabase.from('habit_completions').insert({
+      user_id: uid,
+      habit_id: habitId,
+      date: dateStr,
+      completed: true
+    });
+
+    // Trigger smart motivation if it's evening
+    const hour = new Date().getHours();
+    if (hour >= 18) { // 6PM or later
+      const habits = await getHabits();
+      const habit = habits.find(h => h.id === habitId);
+      if (habit) {
+        // Pass false because the habit was JUST completed
+        await NotificationService.sendMotivationIfNeeded(false, habit.name);
+      }
+    }
   }
 
   // Sync Widgets
@@ -358,7 +358,7 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(endDate.getDate() - (days - 1));
-  
+
   const startStr = todayString(startDate);
   const endStr = todayString(endDate);
 
@@ -369,27 +369,27 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
     .lte('date', endStr);
 
   if (error) {
-      console.error(error);
-      return [];
+    console.error(error);
+    return [];
   }
 
   const map = new Map<string, string[]>();
   data.forEach((row: any) => {
-      if (!map.has(row.date)) map.set(row.date, []);
-      map.get(row.date)!.push(row.habit_id);
+    if (!map.has(row.date)) map.set(row.date, []);
+    map.get(row.date)!.push(row.habit_id);
   });
 
   const result: { date: string; completedIds: string[] }[] = [];
   for (let i = 0; i < days; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-      const dateStr = todayString(d);
-      result.push({
-          date: dateStr,
-          completedIds: map.get(dateStr) || []
-      });
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    const dateStr = todayString(d);
+    result.push({
+      date: dateStr,
+      completedIds: map.get(dateStr) || []
+    });
   }
-  
+
   return result;
 }
 
@@ -397,8 +397,8 @@ export async function getStreakData(): Promise<{ currentStreak: number; bestStre
   // For streak, we need efficient query.
   // This is a heavy operation if we fetch everything.
   // We'll use the same logic as before but with Supabase data.
-  
-  const history = await getLastNDaysCompletions(90); 
+
+  const history = await getLastNDaysCompletions(90);
   const habits = await getHabits();
   const totalHabitCount = habits.length;
 
@@ -425,18 +425,18 @@ export async function getStreakData(): Promise<{ currentStreak: number; bestStre
       tempStreak = 0;
     }
   });
-  
+
   bestStreak = Math.max(bestStreak, tempStreak);
 
   // Calculate Current Streak
   let streak = 0;
   for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].completedIds.length > 0) {
-          streak++;
-      } else {
-          if (i === history.length - 1) continue; 
-          break;
-      }
+    if (history[i].completedIds.length > 0) {
+      streak++;
+    } else {
+      if (i === history.length - 1) continue;
+      break;
+    }
   }
   currentStreak = streak;
 
@@ -449,7 +449,7 @@ export async function getStreakData(): Promise<{ currentStreak: number; bestStre
 }
 
 export async function getHeatmapData(): Promise<{ date: string; count: number }[]> {
-  const history = await getLastNDaysCompletions(91); 
+  const history = await getLastNDaysCompletions(91);
   return history.map(h => ({
     date: h.date,
     count: h.completedIds.length
@@ -469,7 +469,7 @@ export async function syncWidgets() {
     const todayHabits = habits.filter(h => {
       // Very basic filter: if it's not archived
       if (h.isArchived) return false;
-      
+
       // Filter by taskDays if available
       if (h.taskDays && h.taskDays.length > 0) {
         const dayMap: Record<string, number> = { 'sun': 0, 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6 };
@@ -503,4 +503,48 @@ export async function syncWidgets() {
   } catch (error) {
     console.error('Error syncing widgets from habits.ts:', error);
   }
+}
+
+// --- Integration Management ---
+
+/**
+ * Links a habit to an integration data source
+ */
+export async function linkHabitToIntegration(
+  habitId: string,
+  serviceName: string,
+  dataType: string,
+  config: any = {},
+  autoComplete: boolean = true
+): Promise<void> {
+  const { SyncCoordinator } = await import('./syncCoordinator');
+  await SyncCoordinator.linkHabitToIntegration(habitId, serviceName, dataType, config, autoComplete);
+}
+
+/**
+ * Unlinks a habit from an integration
+ */
+export async function unlinkHabitFromIntegration(
+  habitId: string,
+  serviceName: string,
+  dataType: string
+): Promise<void> {
+  const { SyncCoordinator } = await import('./syncCoordinator');
+  await SyncCoordinator.unlinkHabitFromIntegration(habitId, serviceName, dataType);
+}
+
+/**
+ * Gets all integration mappings for a habit
+ */
+export async function getHabitIntegrations(habitId: string): Promise<any[]> {
+  const { SyncCoordinator } = await import('./syncCoordinator');
+  return await SyncCoordinator.getHabitIntegrations(habitId);
+}
+
+/**
+ * Syncs habit from integrations and auto-completes if needed
+ */
+export async function syncHabitFromIntegrations(habitId: string): Promise<void> {
+  const { SyncCoordinator } = await import('./syncCoordinator');
+  await SyncCoordinator.syncAllIntegrations();
 }

@@ -27,7 +27,7 @@ export const StripeService = {
     }
 
     const isPremium = data.plan_type === 'premium' && data.status === 'active';
-    
+
     return {
       premium: isPremium,
       status: data.status,
@@ -39,28 +39,39 @@ export const StripeService = {
    * Creates a checkout session by calling the backend function.
    */
   async createCheckoutSession(): Promise<string | null> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Please log in to upgrade your account');
 
-    const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-      body: { userId: user.id, email: user.email }
-    });
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { userId: user.id, email: user.email }
+      });
 
-    if (error) {
-      // Try to extract error message from the response
-      let message = error.message;
-      try {
+      if (error) {
+        console.error('Stripe checkout error:', error);
+
+        // Check if it's a deployment issue
+        if (error.message?.includes('FunctionsHttpError') || error.message?.includes('Edge Function')) {
+          throw new Error('Payment system is being configured. Please try again in a few minutes or contact support.');
+        }
+
+        // Try to extract a meaningful error message
+        let message = error.message;
         if (error.context?.error) {
           message = error.context.error;
         }
-      } catch (e) {
-        // Fallback to original error message
-      }
-      
-      console.error('Error creating checkout session:', message, error);
-      throw new Error(message);
-    }
 
-    return data?.url || null;
+        throw new Error(message || 'Failed to start checkout. Please try again.');
+      }
+
+      if (!data?.url) {
+        throw new Error('No checkout URL received. Please try again or contact support.');
+      }
+
+      return data.url;
+    } catch (error: any) {
+      console.error('Error in createCheckoutSession:', error);
+      throw error;
+    }
   }
 };

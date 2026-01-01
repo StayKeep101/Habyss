@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Alert, Dimensions } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withTiming, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
   withSequence,
   interpolate,
   Extrapolate,
@@ -28,16 +28,16 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BUTTON_SIZE = 56;
 const MARGIN = 24;
 
-const AIAgentButton: React.FC<AIAgentButtonProps> = ({ 
-  onPress, 
-  isThinking = false, 
+const AIAgentButton: React.FC<AIAgentButtonProps> = ({
+  onPress,
+  isThinking = false,
   hasNewSuggestion = false,
   isProcessing = false
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
   const { lightFeedback, heavyFeedback } = useHaptics();
-  
+
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0.3);
   const translateX = useSharedValue(0);
@@ -126,7 +126,7 @@ const AIAgentButton: React.FC<AIAgentButtonProps> = ({
           minDurationMs={600}
         >
           <Animated.View>
-            <TapGestureHandler 
+            <TapGestureHandler
               onActivated={() => {
                 lightFeedback();
                 onPress();
@@ -134,17 +134,17 @@ const AIAgentButton: React.FC<AIAgentButtonProps> = ({
             >
               <Animated.View style={styles.touchableArea}>
                 <View style={[styles.button, { backgroundColor: colors.primary }]}>
-                  <Animated.View 
+                  <Animated.View
                     style={[
-                      styles.glow, 
-                      { backgroundColor: colors.primary }, 
+                      styles.glow,
+                      { backgroundColor: colors.primary },
                       glowStyle
-                    ]} 
+                    ]}
                   />
                   <View style={styles.iconContainer}>
                     <Ionicons name="sparkles" size={28} color="white" />
                   </View>
-                  
+
                   {hasNewSuggestion && (
                     <View style={[styles.badge, { backgroundColor: '#FF3B30' }]} />
                   )}
@@ -165,7 +165,7 @@ const AIAgentButton: React.FC<AIAgentButtonProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: MARGIN,
+    bottom: MARGIN + 96, // Moved higher to avoid overlapping with other buttons
     right: MARGIN,
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,

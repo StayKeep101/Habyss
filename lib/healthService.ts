@@ -45,7 +45,7 @@ export const HealthService = {
     try {
       await IntegrationService.withRetry(async () => {
         await this.authorize();
-        
+
         const now = new Date();
         const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
@@ -61,6 +61,26 @@ export const HealthService = {
           await IntegrationService.recordActivity('apple-health', 'active_energy', { value: energy, unit: 'kcal' });
         }
 
+        // Get Sleep Data
+        try {
+          const sleep = await this.getSleepHours(yesterday, now);
+          if (sleep > 0) {
+            await IntegrationService.recordActivity('apple-health', 'sleep', { value: sleep, unit: 'hours' });
+          }
+        } catch (e) {
+          console.log('Sleep data not available:', e);
+        }
+
+        // Get Distance
+        try {
+          const distance = await this.getWalkingRunningDistance(yesterday, now);
+          if (distance > 0) {
+            await IntegrationService.recordActivity('apple-health', 'distance', { value: distance, unit: 'meters' });
+          }
+        } catch (e) {
+          console.log('Distance data not available:', e);
+        }
+
         // Update last sync
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -70,7 +90,7 @@ export const HealthService = {
             .eq('user_id', user.id)
             .eq('service_name', 'apple-health')
             .single();
-          
+
           if (integration) {
             await IntegrationService.updateIntegration(integration.id, {
               last_sync: new Date().toISOString(),
@@ -93,6 +113,7 @@ export const HealthService = {
       throw error;
     }
   },
+
 
   getSteps(startDate: Date, endDate: Date): Promise<number> {
     return new Promise((resolve, reject) => {
@@ -119,6 +140,40 @@ export const HealthService = {
           const total = results.reduce((sum, item) => sum + item.value, 0);
           resolve(total);
         }
+      });
+    });
+  },
+
+  getSleepHours(startDate: Date, endDate: Date): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const options = {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      };
+      AppleHealthKit.getSleepSamples(options, (err: Object, results: any[]) => {
+        if (err) reject(err);
+        else {
+          // Calculate total sleep time in hours
+          const totalMinutes = results.reduce((sum, sample) => {
+            const start = new Date(sample.startDate).getTime();
+            const end = new Date(sample.endDate).getTime();
+            return sum + (end - start) / (1000 * 60);
+          }, 0);
+          resolve(totalMinutes / 60);
+        }
+      });
+    });
+  },
+
+  getWalkingRunningDistance(startDate: Date, endDate: Date): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const options = {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      };
+      AppleHealthKit.getDistanceWalkingRunning(options, (err: Object, results: HealthValue) => {
+        if (err) reject(err);
+        else resolve(results.value);
       });
     });
   }

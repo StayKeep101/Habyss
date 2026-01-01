@@ -6,21 +6,35 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
-import { RoadmapView } from '@/components/Home/RoadmapView';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { subscribeToHabits, Habit, removeHabitEverywhere } from '@/lib/habits';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Import ImagePicker conditionally to avoid errors if not available
+let ImagePicker: any = null;
+try {
+  ImagePicker = require('expo-image-picker');
+} catch (e) {
+  console.log('ImagePicker not available');
+}
 
 const GoalDetail = () => {
   const router = useRouter();
   const { goalId } = useGlobalSearchParams();
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? 'abyss'];
 
   const [habits, setHabits] = useState<Habit[]>([]);
   const [goal, setGoal] = useState<Habit | null>(null);
-  const [bgImage] = useState<string | null>(null);
+  const [bgImage, setBgImage] = useState<string | null>(null);
 
   useEffect(() => {
+    const loadBackground = async () => {
+      const stored = await AsyncStorage.getItem(`goal_bg_${goalId}`);
+      if (stored) setBgImage(stored);
+    };
+    loadBackground();
+
     const unsubPromise = subscribeToHabits((allHabits) => {
       setHabits(allHabits);
       const foundGoal = allHabits.find(h => h.id === goalId);
@@ -40,14 +54,14 @@ const GoalDetail = () => {
     if (associatedHabits.length === 0) return 0;
     // In a real app, we'd fetch completions for these habits.
     // For now, let's return a stable mock value or random for variety
-    return 65; 
+    return 65;
   }, [associatedHabits]);
 
   const handleEditGoal = () => {
     if (!goal) return;
     router.push({
       pathname: '/create',
-      params: { 
+      params: {
         id: goal.id,
         name: goal.name,
         category: goal.category,
@@ -72,28 +86,57 @@ const GoalDetail = () => {
     ]);
   };
 
+  const handleChangeBackground = async () => {
+    if (!ImagePicker) {
+      Alert.alert(
+        "Photo Library",
+        "To use custom backgrounds, please restart the app after installing. You can also use the default background for now.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        setBgImage(uri);
+        await AsyncStorage.setItem(`goal_bg_${goalId}`, uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert("Error", "Failed to select image. Please try again.");
+    }
+  };
+
   if (!goal) return null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        
+
         {/* Header with Customizable Background */}
-        <ImageBackground 
+        <ImageBackground
           source={bgImage ? { uri: bgImage } : require('@/assets/images/adaptive-icon.png')} // Default placeholder
           className="h-80 w-full justify-end pb-6"
           imageStyle={{ opacity: 0.6 }}
           style={{ backgroundColor: colors.primary + '20' }}
         >
           <SafeAreaView edges={['top']} className="absolute top-0 left-0 right-0 flex-row justify-between px-6 pt-4">
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => router.back()}
               className="w-10 h-10 rounded-full items-center justify-center bg-black/20"
             >
               <Ionicons name="chevron-back" size={24} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={() => Alert.alert("Background", "Change background feature coming soon!")}
+            <TouchableOpacity
+              onPress={handleChangeBackground}
               className="w-10 h-10 rounded-full items-center justify-center bg-black/20"
             >
               <Ionicons name="camera" size={20} color="white" />
@@ -101,7 +144,7 @@ const GoalDetail = () => {
           </SafeAreaView>
 
           <View className="items-center">
-            <HalfCircleProgress 
+            <HalfCircleProgress
               progress={progress}
               size={180}
               strokeWidth={15}
@@ -122,7 +165,7 @@ const GoalDetail = () => {
                 Target: {new Date(goal.targetDate || '').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={handleEditGoal}
               className="p-2 rounded-full"
               style={{ backgroundColor: colors.surfaceSecondary }}
@@ -130,7 +173,7 @@ const GoalDetail = () => {
               <Ionicons name="pencil" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
-          
+
           {goal.description && (
             <Text className="text-base mt-4 leading-6" style={{ color: colors.textSecondary }}>
               {goal.description}
@@ -141,7 +184,7 @@ const GoalDetail = () => {
           <View className="mt-10">
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Associated Habits</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleAddHabit}
                 className="flex-row items-center px-3 py-1.5 rounded-full"
                 style={{ backgroundColor: colors.primary + '15' }}
@@ -150,26 +193,26 @@ const GoalDetail = () => {
                 <Text className="ml-1 font-bold text-xs" style={{ color: colors.primary }}>Add Habit</Text>
               </TouchableOpacity>
             </View>
-            
+
             {associatedHabits.length > 0 ? (
               associatedHabits.map(habit => (
-                <SwipeableHabitItem 
+                <SwipeableHabitItem
                   key={habit.id}
                   habit={habit}
                   onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
-                  onEdit={(h) => router.push({ 
-                    pathname: '/create', 
-                    params: { 
-                        id: h.id, 
-                        name: h.name,
-                        category: h.category,
-                        icon: h.icon || '',
-                        duration: h.durationMinutes ? String(h.durationMinutes) : '',
-                        goalId: goalId as string
-                    } 
+                  onEdit={(h) => router.push({
+                    pathname: '/create',
+                    params: {
+                      id: h.id,
+                      name: h.name,
+                      category: h.category,
+                      icon: h.icon || '',
+                      duration: h.durationMinutes ? String(h.durationMinutes) : '',
+                      goalId: goalId as string
+                    }
                   })}
                   onDelete={handleDeleteHabit}
-                  onFocus={() => {}}
+                  onFocus={() => { }}
                 />
               ))
             ) : (
@@ -177,17 +220,6 @@ const GoalDetail = () => {
                 <Text className="text-gray-400">No habits linked to this goal yet</Text>
               </View>
             )}
-          </View>
-
-          {/* Individual Roadmap */}
-          <View className="mt-10 h-[500px]">
-            <Text className="text-xl font-bold mb-6" style={{ color: colors.textPrimary }}>Goal Journey</Text>
-            <RoadmapView 
-              habits={associatedHabits}
-              completedHabitsCount={0} // This would be dynamic
-              totalHabitsCount={associatedHabits.length}
-              onDayPress={(day) => console.log('Day pressed:', day)}
-            />
           </View>
         </View>
       </ScrollView>

@@ -20,12 +20,12 @@ let isInitialized = false;
  */
 function getNotifications() {
   if (Platform.OS === 'web') return null;
-  
+
   // Check if the native module is actually registered to avoid hard crashes
-  const hasNativeModule = NativeModules.ExpoPushTokenManager || 
-                         NativeModules.ExponentNotifications || 
-                         NativeModules.Notifications;
-                         
+  const hasNativeModule = NativeModules.ExpoPushTokenManager ||
+    NativeModules.ExponentNotifications ||
+    NativeModules.Notifications;
+
   if (!hasNativeModule) {
     return null;
   }
@@ -42,7 +42,7 @@ function getNotifications() {
  */
 function getDevice() {
   if (Platform.OS === 'web') return null;
-  
+
   // Check for ExpoDevice native module
   if (!NativeModules.ExpoDevice && !NativeModules.ExponentDevice) {
     return null;
@@ -61,7 +61,7 @@ export class NotificationService {
    */
   static async init() {
     if (isInitialized) return;
-    
+
     const Notifications = getNotifications();
     if (!Notifications) return;
 
@@ -97,7 +97,7 @@ export class NotificationService {
   static async requestNotificationPermission(): Promise<boolean> {
     const Device = getDevice();
     const Notifications = getNotifications();
-    
+
     if (!Device || !Notifications) return false;
 
     try {
@@ -116,7 +116,7 @@ export class NotificationService {
 
       const granted = finalStatus === 'granted';
       await AsyncStorage.setItem(NOTIFICATION_ENABLED_KEY, JSON.stringify(granted));
-      
+
       if (!granted) {
         console.log('Notifications permission not granted');
       }
@@ -341,6 +341,73 @@ export class NotificationService {
       });
     } catch (e) {
       console.warn('Failed to send immediate motivation', e);
+    }
+  }
+
+  /**
+   * Send notification when integration syncs successfully
+   */
+  static async sendIntegrationSyncNotification(serviceName: string, habitName?: string) {
+    const Notifications = getNotifications();
+    if (!Notifications) return;
+
+    const serviceDisplayNames: Record<string, string> = {
+      'apple-health': 'Apple Health',
+      'strava': 'Strava',
+      'spotify': 'Spotify',
+      'duolingo': 'Duolingo',
+      'plaid': 'Plaid',
+      'garmin': 'Garmin',
+      'kindle': 'Kindle'
+    };
+
+    const displayName = serviceDisplayNames[serviceName] || serviceName;
+    const body = habitName
+      ? `${displayName} synced and completed "${habitName}"!`
+      : `${displayName} data synced successfully`;
+
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Integration Synced',
+          body,
+        },
+        trigger: null,
+      });
+    } catch (e) {
+      console.warn('Failed to send integration sync notification', e);
+    }
+  }
+
+  /**
+   * Send notification when integration sync fails
+   */
+  static async sendIntegrationErrorNotification(serviceName: string, error: string) {
+    const Notifications = getNotifications();
+    if (!Notifications) return;
+
+    const serviceDisplayNames: Record<string, string> = {
+      'apple-health': 'Apple Health',
+      'strava': 'Strava',
+      'spotify': 'Spotify',
+      'duolingo': 'Duolingo',
+      'plaid': 'Plaid',
+      'garmin': 'Garmin',
+      'kindle': 'Kindle'
+    };
+
+    const displayName = serviceDisplayNames[serviceName] || serviceName;
+
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Sync Error',
+          body: `Failed to sync ${displayName}: ${error}`,
+        },
+        trigger: null,
+      });
+    } catch (e) {
+      console.warn('Failed to send error notification', e);
     }
   }
 }
