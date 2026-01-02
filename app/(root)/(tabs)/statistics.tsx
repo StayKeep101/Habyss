@@ -12,7 +12,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { BlurView } from 'expo-blur';
 
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { ScreenHeader } from '@/components/Layout/ScreenHeader';
+
 
 export default function StatisticsScreen() {
     const { theme } = useTheme();
@@ -46,7 +46,11 @@ export default function StatisticsScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
                 }
             >
-                <ScreenHeader title="COCKPIT" subtitle="SYSTEM STATUS :: ONLINE" />
+                <View style={{ marginBottom: 32 }}>
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COCKPIT</Text>
+                    <Text style={[styles.headerSubtitle, { color: colors.primary }]}>SYSTEM STATUS :: ONLINE</Text>
+                </View>
+
 
                 {/* Key Metrics Grid */}
                 <View style={{ flexDirection: 'row', gap: 12, marginBottom: 32 }}>

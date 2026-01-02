@@ -14,7 +14,7 @@ import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
-import { ScreenHeader } from '@/components/Layout/ScreenHeader';
+
 import { VoidCard } from '@/components/Layout/VoidCard';
 
 interface Habit extends StoreHabit {
@@ -180,10 +180,10 @@ const CalendarScreen = () => {
                     <View style={{ flex: 1, paddingHorizontal: 20 }}>
                         <ScrollView contentContainerStyle={{ paddingBottom: 150, paddingTop: 10 }} showsVerticalScrollIndicator={false}>
 
-                            <ScreenHeader title="CALENDAR" subtitle="ACTIVE PROTOCOLS" />
+
 
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
-                                <Text style={{ fontSize: 18, color: colors.textPrimary, fontFamily: 'SpaceMono-Regular', letterSpacing: -0.5 }}>TARGETS</Text>
+                                <Text style={{ fontSize: 20, color: colors.textPrimary, fontFamily: 'SpaceGrotesk-Bold', letterSpacing: 1 }}>TARGETS</Text>
                             </View>
 
                             {/* Goals Section */}
@@ -209,7 +209,7 @@ const CalendarScreen = () => {
                                 )}
                             </View>
 
-                            <Text style={{ fontSize: 18, color: colors.textPrimary, fontFamily: 'SpaceMono-Regular', letterSpacing: -0.5, marginBottom: 12 }}>TODAY'S OPERATIONS</Text>
+                            <Text style={{ fontSize: 20, color: colors.textPrimary, fontFamily: 'SpaceGrotesk-Bold', letterSpacing: 1, marginBottom: 12 }}>TODAY'S OPERATIONS</Text>
                             {habits.filter(h => !h.isGoal).length > 0 ? (
                                 habits.filter(h => !h.isGoal).map((habit) => (
                                     <SwipeableHabitItem

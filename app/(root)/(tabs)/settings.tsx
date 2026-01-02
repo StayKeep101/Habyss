@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
-import { ScreenHeader } from '@/components/Layout/ScreenHeader';
+
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,7 +57,7 @@ export default function SettingsScreen() {
         <VoidShell>
             <ScrollView contentContainerStyle={styles.scrollContent}>
 
-                <ScreenHeader title="CONTROL" subtitle="SYSTEM CONFIGURATION" />
+
 
                 {/* Profile Section */}
                 <View style={styles.profileSection}>
@@ -143,6 +143,7 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 4,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     email: {
         fontSize: 14,
@@ -165,10 +166,11 @@ const styles = StyleSheet.create({
     groupTitle: {
         fontSize: 12,
         fontWeight: '600',
-        letterSpacing: 1,
+        letterSpacing: 2,
         marginTop: 20,
         marginLeft: 20,
         marginBottom: 8,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     settingItem: {
         flexDirection: 'row',

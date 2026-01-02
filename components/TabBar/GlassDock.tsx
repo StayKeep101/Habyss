@@ -33,18 +33,10 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
 
-    // Separate routes into navigatable tabs vs actions
-    // We assume the standard order: Home, Roadmap, Statistics, Settings
-    // And we want to pull out the middle "action" we artificially injected before, 
-    // or just render the tabs in the pill and the CREATE action in the orb.
-
-    // Actually, the route config has 4 tabs. 
-    // We will render all 4 routes in the Pill, and the Create button in the separate Orb.
-
     return (
         <View style={styles.container}>
 
-            {/* 1. Navigation Pill (Left) */}
+            {/* 1. Navigation Pill */}
             <BlurView intensity={Platform.OS === 'ios' ? 80 : 40} tint="dark" style={styles.navPill}>
                 <View style={styles.glassBorder} />
 
@@ -88,7 +80,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 </View>
             </BlurView>
 
-            {/* 2. Creation Orb (Right) */}
+            {/* 2. Creation Orb (Plus Button) */}
             <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => {
@@ -97,9 +89,8 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 }}
                 style={styles.orbContainer}
             >
-                {/* Gradient Background for Orb */}
                 <LinearGradient
-                    colors={['#8B5CF6', '#2DD4BF']} // Violet to Teal/Cyan (Premium)
+                    colors={['#8B5CF6', '#2DD4BF']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.orbGradient}
@@ -121,19 +112,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 16,
-        gap: 16, // Space between Pill and Orb
+        paddingHorizontal: 20,
+        gap: 12,
     },
     navPill: {
         flex: 1,
-        height: 72,
-        borderRadius: 40,
+        maxWidth: 260,
+        height: 64,
+        borderRadius: 32,
         overflow: 'hidden',
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 8,
+        justifyContent: 'center',
+        paddingHorizontal: 16,
         backgroundColor: Platform.OS === 'android' ? 'rgba(10, 15, 20, 0.95)' : 'rgba(10, 15, 20, 0.75)',
-        // Subtle shadow
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -142,23 +134,22 @@ const styles = StyleSheet.create({
     },
     glassBorder: {
         ...StyleSheet.absoluteFillObject,
-        borderRadius: 40,
+        borderRadius: 32,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.08)',
         pointerEvents: 'none',
     },
     tabsRow: {
-        flex: 1,
         flexDirection: 'row',
-        justifyContent: 'center',
+        justifyContent: 'space-evenly',
         alignItems: 'center',
-        gap: 24, // Consistent spacing between icons
+        flex: 1,
     },
     tabButton: {
-        width: 44, // Fixed width touch target
+        width: 48,
+        height: 48,
         alignItems: 'center',
         justifyContent: 'center',
-        height: '100%',
     },
     iconContainer: {
         alignItems: 'center',
@@ -177,9 +168,9 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
     },
     orbContainer: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
         shadowColor: "#2DD4BF",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
@@ -188,7 +179,7 @@ const styles = StyleSheet.create({
     },
     orbGradient: {
         flex: 1,
-        borderRadius: 36,
+        borderRadius: 32,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
