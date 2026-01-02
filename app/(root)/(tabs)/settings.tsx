@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, Image, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { VoidCard } from '@/components/Layout/VoidCard';
 
 export default function SettingsScreen() {
     const { theme } = useTheme();
@@ -78,23 +78,23 @@ export default function SettingsScreen() {
                 </View>
 
                 {/* Settings Groups */}
-                <BlurView intensity={20} tint="dark" style={[styles.group, { borderColor: colors.border }]}>
+                <VoidCard glass style={styles.groupCard}>
                     <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>PREFERENCES</Text>
                     <SettingItem icon="notifications-outline" label="Notifications" value={notifications} onToggle={setNotifications} />
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <SettingItem icon="volume-high-outline" label="Sound Effects" value={sound} onToggle={setSound} />
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <SettingItem icon="phone-portrait-outline" label="Haptics" value={haptics} onToggle={setHaptics} />
-                </BlurView>
+                </VoidCard>
 
-                <BlurView intensity={20} tint="dark" style={[styles.group, { borderColor: colors.border }]}>
+                <VoidCard glass style={styles.groupCard}>
                     <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
                     <MenuLink icon="star-outline" label="Manage Subscription" onPress={() => router.push('/paywall')} />
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <MenuLink icon="help-buoy-outline" label="Support" onPress={() => { }} />
                     <View style={[styles.divider, { backgroundColor: colors.border }]} />
                     <MenuLink icon="log-out-outline" label="Log Out" onPress={() => router.replace('/(auth)/welcome')} destructive />
-                </BlurView>
+                </VoidCard>
 
                 <View style={styles.footer}>
                     <Text style={[styles.quote, { color: colors.textSecondary }]}>"Descend into discipline"</Text>
@@ -159,11 +159,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         letterSpacing: 1,
     },
-    group: {
-        borderRadius: 24,
-        borderWidth: 1,
+    groupCard: {
         marginBottom: 24,
-        overflow: 'hidden',
     },
     groupTitle: {
         fontSize: 12,

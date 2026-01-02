@@ -11,6 +11,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { BlurView } from 'expo-blur';
 
+import { VoidCard } from '@/components/Layout/VoidCard';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 
 export default function StatisticsScreen() {
@@ -26,14 +27,14 @@ export default function StatisticsScreen() {
     };
 
     const DataPoint = ({ label, value, icon, color }: any) => (
-        <View style={[styles.dataCard, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }]}>
+        <VoidCard style={{ padding: 20 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <Ionicons name={icon} size={20} color={color} style={{ opacity: 0.8 }} />
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color, shadowColor: color, shadowOpacity: 0.8, shadowRadius: 4, elevation: 4 }} />
             </View>
             <Text style={[styles.dataValue, { color: colors.textPrimary }]}>{value}</Text>
             <Text style={[styles.dataLabel, { color: colors.textSecondary }]}>{label}</Text>
-        </View>
+        </VoidCard>
     );
 
     return (
@@ -59,21 +60,21 @@ export default function StatisticsScreen() {
 
                 {/* Main Visuals Section */}
                 <View style={{ gap: 24 }}>
-                    <BlurView intensity={10} tint="dark" style={[styles.glassSection, { borderColor: 'rgba(255,255,255,0.08)' }]}>
+                    <VoidCard glass style={{ padding: 4 }}>
                         <View style={styles.sectionHeader}>
                             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>TEMPORAL DENSITY</Text>
                             <Ionicons name="apps" size={16} color={colors.textTertiary} />
                         </View>
                         <ActivityHeatmap />
-                    </BlurView>
+                    </VoidCard>
 
-                    <BlurView intensity={10} tint="dark" style={[styles.glassSection, { borderColor: 'rgba(255,255,255,0.08)' }]}>
+                    <VoidCard glass style={{ padding: 4 }}>
                         <View style={styles.sectionHeader}>
                             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ORBITAL ANALYSIS</Text>
                             <Ionicons name="planet" size={16} color={colors.textTertiary} />
                         </View>
                         <CategoryOrbit />
-                    </BlurView>
+                    </VoidCard>
                 </View>
 
                 {/* Insight Card */}
@@ -123,12 +124,6 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '600',
         letterSpacing: 1,
-    },
-    glassSection: {
-        borderRadius: 24,
-        borderWidth: 1,
-        overflow: 'hidden',
-        padding: 4, // Inner padding for chart containers
     },
     sectionHeader: {
         flexDirection: 'row',

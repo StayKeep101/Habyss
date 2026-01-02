@@ -17,6 +17,7 @@ import { Alert } from 'react-native';
 import { ProfileHeader } from '@/components/ProfileHeader';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
+import { VoidCard } from '@/components/Layout/VoidCard';
 
 interface Habit extends StoreHabit {
   streak?: number;
@@ -207,9 +208,9 @@ const Home = () => {
                     );
                   })
                 ) : (
-                  <View className="items-center justify-center py-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
+                  <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
                     <Text className="text-gray-400 font-space-mono">NO ACTIVE TARGETS</Text>
-                  </View>
+                  </VoidCard>
                 )}
               </View>
 
@@ -226,9 +227,9 @@ const Home = () => {
                   />
                 ))
               ) : (
-                <View className="items-center justify-center py-10">
+                <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
                   <Text className="text-gray-400 font-space-mono">NO OPERATIONS SCHEDULED</Text>
-                </View>
+                </VoidCard>
               )}
             </ScrollView>
           </View>
