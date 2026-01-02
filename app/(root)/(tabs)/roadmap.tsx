@@ -6,6 +6,7 @@ import { useTheme } from '@/constants/themeContext';
 import { BlurView } from 'expo-blur';
 
 import { VoidShell } from '@/components/Layout/VoidShell';
+import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 
 export default function RoadmapScreen() {
     const { theme } = useTheme();
@@ -17,12 +18,7 @@ export default function RoadmapScreen() {
 
 
             <ScrollView contentContainerStyle={{ paddingTop: 80, paddingHorizontal: 20 }}>
-                <Text style={{ fontSize: 32, fontWeight: '800', color: colors.textPrimary, marginBottom: 8 }}>
-                    Vision Board
-                </Text>
-                <Text style={{ fontSize: 16, color: colors.textSecondary, marginBottom: 40 }}>
-                    Your long-term trajectory.
-                </Text>
+                <ScreenHeader title="TRAJECTORY" subtitle="LONG RANGE SENSORS" />
 
                 {[1, 2, 3].map((i) => (
                     <View key={i} style={{ marginBottom: 20, borderRadius: 24, overflow: 'hidden' }}>

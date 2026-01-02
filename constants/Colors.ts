@@ -44,40 +44,40 @@ export const Colors = {
     gradientEnd: '#5B7FB8',
   },
   abyss: {
-    text: '#E2E8F0', // Slate-200
-    background: '#000000', // Pure Black for depth
-    tint: '#8B5CF6', // Violet-500 (Cosmic)
-    tabIconDefault: '#475569', // Slate-600
-    tabIconSelected: '#8B5CF6',
+    text: '#E0E6ED', // High Emphasis (Cloud White)
+    background: '#050505', // Void Black (Not pure black)
+    tint: '#00F0FF', // Electric Cyan (Focus)
+    tabIconDefault: '#94A3B8', // Low Emphasis (Blue-Grey)
+    tabIconSelected: '#00F0FF', // Electric Cyan
 
-    // Brand Colors
-    primary: '#8B5CF6', // Violet-500
-    primaryLight: '#A78BFA', // Violet-400
-    primaryDark: '#7C3AED', // Violet-600
-    secondary: '#1E293B', // Slate-800
-    accent: '#06B6D4', // Cyan-500 (Energy)
+    // Brand Colors (Bioluminescence)
+    primary: '#00F0FF', // Electric Cyan (Focus)
+    primaryLight: '#7B2CBF', // Phantom Purple (Wisdom) - used for secondary brand elements
+    primaryDark: '#0A0F14', // Trench Blue (Secondary Background)
+    secondary: '#121826', // Abyssal Navy (Surfaces)
+    accent: '#FF4757', // Alert Coral
 
     // Status
-    success: '#10B981', // Emerald-500
-    brandSuccess: '#059669',
+    success: '#00FF94', // Algae Green
+    brandSuccess: '#00FF94',
     warning: '#F59E0B',
-    error: '#EF4444',
+    error: '#FF4757', // Alert Coral
 
     // Surfaces
-    surface: '#0A0A0A', // Almost black
-    surfaceSecondary: '#111111', // Very dark gray
-    surfaceTertiary: 'rgba(255, 255, 255, 0.05)', // Glassy
+    surface: '#121826', // Abyssal Navy
+    surfaceSecondary: '#0A0F14', // Trench Blue
+    surfaceTertiary: 'rgba(255, 255, 255, 0.08)', // Glass White
 
-    border: '#27272a', // Zinc-800
-    borderLight: '#3f3f46', // Zinc-700
+    border: 'rgba(255, 255, 255, 0.08)', // Glass White
+    borderLight: 'rgba(255, 255, 255, 0.15)',
 
-    textPrimary: '#F8FAFC',
-    textSecondary: '#94A3B8',
-    textTertiary: '#64748B',
+    textPrimary: '#E0E6ED', // High Emphasis
+    textSecondary: '#94A3B8', // Low Emphasis
+    textTertiary: '#64748B', // Muted
 
     // Gradients
-    gradientStart: '#000000',
-    gradientEnd: '#1E1B4B', // Midnight
+    gradientStart: '#0A0F14', // Trench Blue
+    gradientEnd: '#050505', // Void Black
   },
   trueDark: {
     text: '#FFFFFF',

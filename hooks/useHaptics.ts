@@ -9,8 +9,16 @@ export const useHaptics = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  const heavyFeedback = () => {
+  // The "Thud" - heavy, deliberate styling for the Void
+  const thud = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  };
+
+  // "Resonance" - A ripple effect for major achievements
+  const resonance = async () => {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 100);
+    setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 250);
   };
 
   const successFeedback = () => {
@@ -24,7 +32,9 @@ export const useHaptics = () => {
   return {
     lightFeedback,
     mediumFeedback,
-    heavyFeedback,
+    heavyFeedback: thud, // Alias for backward compatibility if needed, or replace usages
+    thud,
+    resonance,
     successFeedback,
     errorFeedback,
   };

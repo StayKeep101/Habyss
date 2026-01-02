@@ -42,21 +42,21 @@ export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
             <StatusBar barStyle="light-content" />
 
             {/* Deep Void Base */}
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000' }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#050505' }]} />
 
-            {/* Top Light */}
+            {/* Top Light (Trench Blue leaking down) */}
             <LinearGradient
-                colors={[colors.primary + '10', 'transparent']} // Very subtle top glow
-                style={[StyleSheet.absoluteFill, { height: '40%' }]}
+                colors={['#0A0F14', 'transparent']}
+                style={[StyleSheet.absoluteFill, { height: '60%' }]}
                 start={{ x: 0.5, y: 0 }}
                 end={{ x: 0.5, y: 1 }}
             />
 
-            {/* Bottom Mist */}
+            {/* Bottom Mist (Subtle Bioluminescence) */}
             <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
                 <LinearGradient
-                    colors={['transparent', colors.primary + '20']}
-                    style={[StyleSheet.absoluteFill, { top: '60%' }]}
+                    colors={['transparent', colors.primary + '15']} // Very subtle electric cyan glow
+                    style={[StyleSheet.absoluteFill, { top: '50%' }]}
                     start={{ x: 0.5, y: 0 }}
                     end={{ x: 0.5, y: 1 }}
                 />

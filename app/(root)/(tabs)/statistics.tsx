@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, RefreshControl } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -9,28 +9,35 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 
 import { VoidShell } from '@/components/Layout/VoidShell';
+import { BlurView } from 'expo-blur';
+
+import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 
 export default function StatisticsScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { lightFeedback } = useHaptics();
+    const { thud } = useHaptics();
     const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = () => {
-        lightFeedback();
+        thud();
         setRefreshing(true);
         setTimeout(() => setRefreshing(false), 2000);
     };
 
+    const DataPoint = ({ label, value, icon, color }: any) => (
+        <View style={[styles.dataCard, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <Ionicons name={icon} size={20} color={color} style={{ opacity: 0.8 }} />
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color, shadowColor: color, shadowOpacity: 0.8, shadowRadius: 4, elevation: 4 }} />
+            </View>
+            <Text style={[styles.dataValue, { color: colors.textPrimary }]}>{value}</Text>
+            <Text style={[styles.dataLabel, { color: colors.textSecondary }]}>{label}</Text>
+        </View>
+    );
+
     return (
         <VoidShell>
-            <LinearGradient
-                colors={[colors.primary, 'transparent']}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 1, y: 0.6 }}
-                style={{ position: 'absolute', top: 0, right: 0, width: 300, height: 300, opacity: 0.15, borderRadius: 150, transform: [{ scaleX: 1.5 }] }}
-            />
-
             <ScrollView
                 contentContainerStyle={{ paddingTop: 80, paddingHorizontal: 20, paddingBottom: 120 }}
                 showsVerticalScrollIndicator={false}
@@ -38,44 +45,46 @@ export default function StatisticsScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
                 }
             >
-                <View style={{ marginBottom: 32 }}>
-                    <Text style={{ fontSize: 32, fontWeight: '800', color: colors.textPrimary, letterSpacing: -1 }}>
-                        Quantified Self
-                    </Text>
-                    <Text style={{ fontSize: 16, color: colors.textSecondary, marginTop: 4 }}>
-                        Your progress, visualized.
-                    </Text>
-                </View>
+                <ScreenHeader title="COCKPIT" subtitle="SYSTEM STATUS :: ONLINE" />
 
-                {/* Key Metrics Row */}
-                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-                    <View style={{ flex: 1, padding: 20, borderRadius: 24, backgroundColor: colors.surfaceSecondary, alignItems: 'center' }}>
-                        <Ionicons name="flame" size={24} color="#F59E0B" style={{ marginBottom: 8 }} />
-                        <Text style={{ fontSize: 32, fontWeight: 'bold', color: colors.textPrimary }}>12</Text>
-                        <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>DAY STREAK</Text>
+                {/* Key Metrics Grid */}
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 32 }}>
+                    <View style={{ flex: 1 }}>
+                        <DataPoint label="CURRENT STREAK" value="12" icon="flame" color="#FFD93D" />
                     </View>
-                    <View style={{ flex: 1, padding: 20, borderRadius: 24, backgroundColor: colors.surfaceSecondary, alignItems: 'center' }}>
-                        <Ionicons name="checkmark-circle" size={24} color="#10B981" style={{ marginBottom: 8 }} />
-                        <Text style={{ fontSize: 32, fontWeight: 'bold', color: colors.textPrimary }}>85%</Text>
-                        <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>COMPLETION</Text>
+                    <View style={{ flex: 1 }}>
+                        <DataPoint label="COMPLETION RATE" value="85%" icon="disc" color="#00FF94" />
                     </View>
                 </View>
 
-                {/* Main Visuals */}
-                <ActivityHeatmap />
+                {/* Main Visuals Section */}
+                <View style={{ gap: 24 }}>
+                    <BlurView intensity={10} tint="dark" style={[styles.glassSection, { borderColor: 'rgba(255,255,255,0.08)' }]}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>TEMPORAL DENSITY</Text>
+                            <Ionicons name="apps" size={16} color={colors.textTertiary} />
+                        </View>
+                        <ActivityHeatmap />
+                    </BlurView>
 
-                <View style={{ height: 24 }} />
-
-                <CategoryOrbit />
+                    <BlurView intensity={10} tint="dark" style={[styles.glassSection, { borderColor: 'rgba(255,255,255,0.08)' }]}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ORBITAL ANALYSIS</Text>
+                            <Ionicons name="planet" size={16} color={colors.textTertiary} />
+                        </View>
+                        <CategoryOrbit />
+                    </BlurView>
+                </View>
 
                 {/* Insight Card */}
-                <View style={{ marginTop: 24, padding: 24, borderRadius: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}>
+                <View style={[styles.insightCard, { borderColor: colors.primary + '40', backgroundColor: colors.primary + '05' }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                        <Ionicons name="bulb" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                        <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 14 }}>AI INSIGHT</Text>
+                        <Ionicons name="terminal" size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                        <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 12, letterSpacing: 1 }}>ANALYSIS</Text>
                     </View>
-                    <Text style={{ color: colors.textPrimary, fontSize: 16, lineHeight: 24 }}>
-                        You are most productive on Tuesdays. Consider moving your hardest "Deep Work" sessions to Tuesday mornings to maximize output.
+                    <Text style={{ color: colors.textPrimary, fontSize: 14, lineHeight: 22, fontFamily: 'SpaceMono-Regular' }}>
+                        &gt; Efficiency peak detected on <Text style={{ color: colors.primary }}>Tuesdays</Text>.
+                        {'\n'}&gt; Recommend shifting high-viscosity tasks to TUE/AM sector.
                     </Text>
                 </View>
 
@@ -83,3 +92,62 @@ export default function StatisticsScreen() {
         </VoidShell>
     );
 }
+
+const styles = StyleSheet.create({
+    headerTitle: {
+        fontSize: 32,
+        fontWeight: '900',
+        letterSpacing: -1,
+        fontFamily: 'SpaceGrotesk-Bold', // Assuming you have this or similar setup, otherwise system font bold
+    },
+    headerSubtitle: {
+        marginTop: 4,
+        fontSize: 12,
+        fontWeight: '600',
+        letterSpacing: 2,
+        opacity: 0.8,
+        fontFamily: 'SpaceMono-Regular',
+    },
+    dataCard: {
+        padding: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    dataValue: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        marginBottom: 4,
+        fontFamily: 'SpaceMono-Regular', // Monospace for data
+    },
+    dataLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+        letterSpacing: 1,
+    },
+    glassSection: {
+        borderRadius: 24,
+        borderWidth: 1,
+        overflow: 'hidden',
+        padding: 4, // Inner padding for chart containers
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 10,
+    },
+    sectionTitle: {
+        fontSize: 12,
+        fontWeight: '600',
+        letterSpacing: 1,
+    },
+    insightCard: {
+        marginTop: 32,
+        padding: 24,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderLeftWidth: 4, // Tech styling
+    },
+});

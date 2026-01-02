@@ -66,6 +66,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         if (route.name === 'home') iconName = isFocused ? 'home' : 'home-outline';
                         if (route.name === 'roadmap') iconName = isFocused ? 'map' : 'map-outline';
                         if (route.name === 'statistics') iconName = isFocused ? 'stats-chart' : 'stats-chart-outline';
+                        if (route.name === 'settings') iconName = isFocused ? 'settings' : 'settings-outline';
                         // settings is handled in home footer usually, but if it was a tab...
                         // Let's assume standard tabs for now based on current _layout
 
@@ -104,18 +105,18 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         height: 80,
         justifyContent: 'center',
-        // Deep shadow for floating effect
-        shadowColor: "#000",
+        // Deep shadow with bioluminescent hint
+        shadowColor: "#00F0FF", // Electric Cyan Shadow
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
+        shadowOpacity: 0.15, // Subtle glow
         shadowRadius: 24,
         elevation: 12,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(10, 10, 10, 0.9)' : 'transparent',
+        backgroundColor: Platform.OS === 'android' ? 'rgba(18, 24, 38, 0.9)' : 'rgba(18, 24, 38, 0.4)', // Abyssal Navy
     },
     gradientBorder: {
         ...StyleSheet.absoluteFillObject,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        borderColor: 'rgba(255,255,255,0.08)', // Glass White
         borderRadius: 40,
     },
     tabsRow: {

@@ -16,6 +16,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Alert } from 'react-native';
 import { ProfileHeader } from '@/components/ProfileHeader';
 import { VoidShell } from '@/components/Layout/VoidShell';
+import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 
 interface Habit extends StoreHabit {
   streak?: number;
@@ -180,17 +181,17 @@ const Home = () => {
           <View style={{ flex: 1, paddingHorizontal: 20 }}>
             <ScrollView contentContainerStyle={{ paddingBottom: 150, paddingTop: 10 }} showsVerticalScrollIndicator={false}>
 
-              <ProfileHeader />
+              <ScreenHeader title="DASHBOARD" subtitle="ACTIVE PROTOCOLS" />
 
               <View className="flex-row justify-between items-center mb-4 mt-2">
-                <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Active Goals</Text>
+                <Text style={{ fontSize: 18, color: colors.textPrimary, fontFamily: 'SpaceMono-Regular', letterSpacing: -0.5 }}>TARGETS</Text>
                 <TouchableOpacity onPress={() => router.push('/roadmap')}>
                   <Text className="text-sm font-semibold" style={{ color: colors.primary }}>View Roadmap</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Goals Section */}
-              <View className="mb-6">
+              <View className="mb-8">
                 {goals.length > 0 ? (
                   goals.map((goal) => {
                     const associatedHabits = habitsStore.filter(h => h.goalId === goal.id);
@@ -207,12 +208,12 @@ const Home = () => {
                   })
                 ) : (
                   <View className="items-center justify-center py-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
-                    <Text className="text-gray-400">No active goals</Text>
+                    <Text className="text-gray-400 font-space-mono">NO ACTIVE TARGETS</Text>
                   </View>
                 )}
               </View>
 
-              <Text className="text-lg font-bold mb-3" style={{ color: colors.textPrimary }}>Today's Habits</Text>
+              <Text style={{ fontSize: 18, color: colors.textPrimary, fontFamily: 'SpaceMono-Regular', letterSpacing: -0.5, marginBottom: 12 }}>TODAY'S OPERATIONS</Text>
               {habits.filter(h => !h.isGoal).length > 0 ? (
                 habits.filter(h => !h.isGoal).map((habit) => (
                   <SwipeableHabitItem
@@ -226,7 +227,7 @@ const Home = () => {
                 ))
               ) : (
                 <View className="items-center justify-center py-10">
-                  <Text className="text-gray-400">No habits for this day</Text>
+                  <Text className="text-gray-400 font-space-mono">NO OPERATIONS SCHEDULED</Text>
                 </View>
               )}
             </ScrollView>
