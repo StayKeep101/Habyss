@@ -28,19 +28,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="roadmap"
         options={{
-          title: "Roadmap"
+          title: "Calendar"
         }}
       />
       <Tabs.Screen
         name="statistics"
         options={{
-          title: "Stats"
+          title: "Community"
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Settings"
+          title: "Profile"
         }}
       />
     </Tabs>

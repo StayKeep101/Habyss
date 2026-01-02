@@ -67,10 +67,10 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         };
 
                         let iconName: any = 'square';
-                        if (route.name === 'home') iconName = isFocused ? 'grid' : 'grid-outline';
-                        if (route.name === 'roadmap') iconName = isFocused ? 'map' : 'map-outline';
-                        if (route.name === 'statistics') iconName = isFocused ? 'bar-chart' : 'bar-chart-outline';
-                        if (route.name === 'settings') iconName = isFocused ? 'cog' : 'cog-outline';
+                        if (route.name === 'home') iconName = isFocused ? 'home' : 'home-outline';
+                        if (route.name === 'roadmap') iconName = isFocused ? 'calendar' : 'calendar-outline';
+                        if (route.name === 'statistics') iconName = isFocused ? 'people' : 'people-outline';
+                        if (route.name === 'settings') iconName = isFocused ? 'person' : 'person-outline';
 
                         const iconColor = isFocused ? '#fff' : 'rgba(255,255,255,0.4)';
 
