@@ -74,16 +74,16 @@ const SignIn = () => {
 
             {/* Header */}
             <View style={{ marginBottom: 40 }}>
-              <Text style={[styles.title, { color: colors.textPrimary }]}>Welcome Back</Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enter the void.</Text>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>WELCOME BACK</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>ENTER THE VOID</Text>
             </View>
 
             {/* Form Container */}
-            <BlurView intensity={20} tint="dark" style={styles.glassCard}>
+            <VoidCard glass style={{ padding: 24 }}>
 
               {/* Email */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Email</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>EMAIL</Text>
                 <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
                   <Ionicons name="mail-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
                   <TextInput
@@ -94,14 +94,13 @@ const SignIn = () => {
                     onChangeText={setEmail}
                     autoCapitalize="none"
                     keyboardType="email-address"
-                    placeHolderClassName="font-space-mono"
                   />
                 </View>
               </View>
 
               {/* Password */}
               <View style={[styles.inputGroup, { marginTop: 20 }]}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Password</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>PASSWORD</Text>
                 <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
                   <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
                   <TextInput
@@ -119,7 +118,7 @@ const SignIn = () => {
               </View>
 
               <TouchableOpacity style={{ alignItems: 'flex-end', marginTop: 12 }}>
-                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600', letterSpacing: 0.5 }}>Forgot Password?</Text>
+                <Text style={{ color: colors.primary, fontSize: 13, fontFamily: 'SpaceMono-Regular', letterSpacing: 0.5 }}>FORGOT PASSWORD?</Text>
               </TouchableOpacity>
 
               {/* Sign In Button */}
@@ -131,23 +130,23 @@ const SignIn = () => {
                 {loading ? (
                   <ActivityIndicator color="black" />
                 ) : (
-                  <Text style={styles.buttonText}>SIGN IN</Text>
+                  <Text style={styles.buttonText}>AUTHENTICATE</Text>
                 )}
               </TouchableOpacity>
 
-            </BlurView>
+            </VoidCard>
 
             {/* Footer Actions */}
             <View style={{ marginTop: 30, gap: 16 }}>
               {/* Google / Guest could go here or be hidden for cleaner void look */}
               <TouchableOpacity onPress={handleSkip} style={{ alignItems: 'center' }}>
-                <Text style={{ color: colors.textTertiary, fontSize: 14 }}>Continue as Guest</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12, fontFamily: 'SpaceMono-Regular' }}>CONTINUE AS GUEST</Text>
               </TouchableOpacity>
 
               <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}>
-                <Text style={{ color: colors.textSecondary }}>Don't have an account? </Text>
+                <Text style={{ color: colors.textSecondary, fontFamily: 'SpaceMono-Regular', fontSize: 12 }}>NO ID? </Text>
                 <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')}>
-                  <Text style={{ color: colors.primary, fontWeight: 'bold' }}>Sign Up</Text>
+                  <Text style={{ color: colors.primary, fontFamily: 'SpaceMono-Regular', fontWeight: 'bold', fontSize: 12 }}>INITIALIZE</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -161,28 +160,24 @@ const SignIn = () => {
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: 36,
-    fontWeight: '800',
-    marginBottom: 8,
-    letterSpacing: -1,
+    fontSize: 32,
+    fontFamily: 'SpaceGrotesk-Bold',
+    marginBottom: 4,
+    textTransform: 'uppercase',
   },
   subtitle: {
-    fontSize: 18,
-    letterSpacing: 0.5,
+    fontSize: 14,
+    fontFamily: 'SpaceMono-Regular',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
-  glassCard: {
-    borderRadius: 24,
-    padding: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
+  // glassCard removed
   inputGroup: {
     gap: 8,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 10,
+    fontFamily: 'SpaceMono-Regular',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
@@ -191,13 +186,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     height: 56,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
   },
   input: {
     flex: 1,
     fontSize: 16,
     height: '100%',
+    fontFamily: 'SpaceMono-Regular',
   },
   button: {
     height: 56,
@@ -212,7 +208,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'black', // High contrast on cyan/primary
-    fontSize: 16,
+    fontSize: 14,
+    fontFamily: 'SpaceMono-Regular',
     fontWeight: 'bold',
     letterSpacing: 1,
   },

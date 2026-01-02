@@ -1,38 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/constants/themeContext';
 import { Habit, getHabits, toggleCompletion, getCompletions } from '@/lib/habits';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 
 export default function HabitDetailScreen() {
   const router = useRouter();
   const params = useGlobalSearchParams();
   const habitId = params.habitId as string;
   const dateStr = params.date as string || new Date().toISOString().split('T')[0];
-  
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  
+
+  const { theme } = useTheme();
+  const colors = Colors[theme];
+
   // Initialize with passed params to avoid loading state
   const [habit, setHabit] = useState<Habit | null>(() => {
     if (params.initialName) {
-        return {
-            id: habitId,
-            name: params.initialName as string,
-            category: params.initialCategory as any,
-            icon: params.initialIcon as string,
-            durationMinutes: params.initialDuration ? Number(params.initialDuration) : undefined,
-            createdAt: '', // Not critical for display
-        } as Habit;
+      return {
+        id: habitId,
+        name: params.initialName as string,
+        category: params.initialCategory as any,
+        icon: params.initialIcon as string,
+        durationMinutes: params.initialDuration ? Number(params.initialDuration) : undefined,
+        createdAt: '', // Not critical for display
+      } as Habit;
     }
     return null;
   });
 
   const [completed, setCompleted] = useState(params.initialCompleted === 'true');
   const [loading, setLoading] = useState(!habit); // Only load if we didn't get params
-  const [streak, setStreak] = useState(0); 
+  const [streak, setStreak] = useState(0);
 
   useEffect(() => {
     loadHabitDetails();
@@ -40,20 +43,16 @@ export default function HabitDetailScreen() {
 
   const loadHabitDetails = async () => {
     try {
-      // If we don't have habit data yet (deep link case), fetch it
       if (!habit) {
-          const habits = await getHabits();
-          const found = habits.find(h => h.id === habitId);
-          if (found) setHabit(found);
+        const habits = await getHabits();
+        const found = habits.find(h => h.id === habitId);
+        if (found) setHabit(found);
       }
-      
-      // Always fetch latest completion status to be sure
+
       const completions = await getCompletions(dateStr);
       setCompleted(!!completions[habitId]);
-      
-      // Calculate real streak (mock for now, but async)
-      // const s = await getStreak(habitId); 
-      setStreak(0); 
+
+      setStreak(0);
     } finally {
       setLoading(false);
     }
@@ -61,14 +60,13 @@ export default function HabitDetailScreen() {
 
   const handleToggle = async () => {
     if (!habit) return;
-    // Optimistic update
     setCompleted(prev => !prev);
     await toggleCompletion(habit.id, dateStr);
   };
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -76,125 +74,199 @@ export default function HabitDetailScreen() {
 
   if (!habit) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <Text>Habit not found</Text>
-        <TouchableOpacity onPress={() => router.back()} className="mt-4">
-            <Text style={{ color: colors.primary }}>Go Back</Text>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <Text style={{ color: colors.textSecondary }}>Habit not found</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <Text style={{ color: colors.primary }}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header */}
-      <View className="px-6 pt-4 pb-2 border-b flex-row justify-between items-center" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
-         <TouchableOpacity 
-          onPress={() => router.back()}
-          className="w-10 h-10 rounded-full items-center justify-center"
-          style={{ backgroundColor: colors.surfaceSecondary }}
-        >
-          <Ionicons name="arrow-down" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View className="flex-row items-center">
-             <View className="w-8 h-8 rounded-full items-center justify-center mr-2" style={{ backgroundColor: completed ? colors.success + '20' : colors.surfaceSecondary }}>
-                <Ionicons 
-                    name={(habit.icon as any) || 'star'} 
-                    size={16} 
-                    color={completed ? colors.success : colors.textSecondary} 
-                />
-            </View>
-            <Text className="text-xl font-display" style={{ color: colors.textPrimary }}>
-            Habit Details
-            </Text>
+    <VoidShell>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => Alert.alert('Options', 'Edit or Delete functionality to be implemented')}
+            style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
+          >
+            <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity 
-          onPress={() => Alert.alert('Options', 'Edit or Delete functionality to be implemented')}
-          className="w-10 h-10 rounded-full items-center justify-center"
-          style={{ backgroundColor: colors.surfaceSecondary }}
-        >
-          <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
 
-      <ScrollView className="flex-1 px-6 pt-6" contentContainerStyle={{ paddingBottom: 100 }}>
-         {/* Main Info Card */}
-         <View className="p-6 rounded-3xl shadow-sm mb-6 items-center" style={{ backgroundColor: colors.surfaceSecondary }}>
-            <View className="w-20 h-20 rounded-full items-center justify-center mb-4" style={{ backgroundColor: completed ? colors.success + '20' : colors.surfaceTertiary }}>
-                <Ionicons 
-                    name={(habit.icon as any) || 'star'} 
-                    size={40} 
-                    color={completed ? colors.success : colors.textSecondary} 
-                />
-            </View>
-            <Text className="text-2xl font-display mb-1 text-center" style={{ color: colors.textPrimary }}>
-                {habit.name}
+        <ScreenHeader title="PROTOCOL" subtitle="DETAILS & METRICS" />
+
+        {/* Main Info Card */}
+        <VoidCard glass style={styles.mainCard}>
+          <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : colors.surfaceTertiary }]}>
+            <Ionicons
+              name={(habit.icon as any) || 'star'}
+              size={40}
+              color={completed ? colors.success : colors.textSecondary}
+            />
+          </View>
+          <Text style={[styles.habitName, { color: colors.textPrimary }]}>
+            {habit.name}
+          </Text>
+          <Text style={[styles.habitMeta, { color: colors.textSecondary }]}>
+            {habit.category.toUpperCase()} • {habit.durationMinutes ? `${habit.durationMinutes} MIN` : 'NO DURATION'}
+          </Text>
+
+          <TouchableOpacity
+            onPress={handleToggle}
+            style={[styles.actionButton, { backgroundColor: completed ? colors.success : colors.primaryDark }]}
+            activeOpacity={0.8}
+          >
+            <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={20} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.actionButtonText}>
+              {completed ? 'PROTOCOL COMPLETE' : 'EXECUTE PROTOCOL'}
             </Text>
-            <Text className="mb-4 text-center" style={{ color: colors.textSecondary }}>
-                {habit.category.charAt(0).toUpperCase() + habit.category.slice(1)} • {habit.durationMinutes ? `${habit.durationMinutes} mins` : 'No duration'}
-            </Text>
+          </TouchableOpacity>
+        </VoidCard>
 
-            <TouchableOpacity 
-                onPress={handleToggle}
-                className="px-8 py-3 rounded-full flex-row items-center"
-                style={{ backgroundColor: completed ? colors.success : colors.primaryDark }}
-            >
-                <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={20} color="white" style={{ marginRight: 8 }} />
-                <Text className="text-white font-inter-bold text-lg">
-                    {completed ? 'Completed' : 'Mark Complete'}
-                </Text>
-            </TouchableOpacity>
-         </View>
+        {/* Stats Grid */}
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>PERFORMANCE</Text>
 
-         {/* Stats Grid */}
-         <Text className="text-lg font-display mb-4" style={{ color: colors.textPrimary }}>
-            Current Progress
-         </Text>
-         <View className="flex-row flex-wrap justify-between">
-             <View className="w-[48%] p-4 rounded-2xl shadow-sm mb-4" style={{ backgroundColor: colors.surfaceSecondary }}>
-                 <View className="flex-row items-center mb-2">
-                     <Ionicons name="flame" size={20} color="#F97316" />
-                     <Text className="ml-2 font-medium" style={{ color: colors.textSecondary }}>Current Streak</Text>
-                 </View>
-                 <Text className="text-2xl font-display" style={{ color: colors.textPrimary }}>{streak} Days</Text>
-             </View>
+        <View style={styles.statsGrid}>
+          {[
+            { label: 'STREAK', value: `${streak} DAYS`, icon: 'flame', color: '#FFD93D' },
+            { label: 'BEST', value: `${streak} DAYS`, icon: 'trophy', color: '#00FF94' },
+            { label: 'VOLUME', value: habit.durationMinutes ? `${habit.durationMinutes * streak} MIN` : '0 MIN', icon: 'time', color: '#00F0FF' },
+            { label: 'CYCLE', value: 'DAILY', icon: 'repeat', color: '#8B5CF6' }
+          ].map((stat, i) => (
+            <VoidCard key={i} style={styles.statCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name={stat.icon as any} size={16} color={stat.color} />
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+              </View>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
+            </VoidCard>
+          ))}
+        </View>
 
-             <View className="w-[48%] p-4 rounded-2xl shadow-sm mb-4" style={{ backgroundColor: colors.surfaceSecondary }}>
-                 <View className="flex-row items-center mb-2">
-                     <Ionicons name="trophy" size={20} color="#EAB308" />
-                     <Text className="ml-2 font-medium" style={{ color: colors.textSecondary }}>Best Streak</Text>
-                 </View>
-                 <Text className="text-2xl font-display" style={{ color: colors.textPrimary }}>{streak} Days</Text>
-             </View>
+        {/* Description */}
+        <VoidCard style={styles.descCard}>
+          <Text style={[styles.descTitle, { color: colors.textPrimary }]}>DIRECTIVE</Text>
+          <Text style={[styles.descText, { color: colors.textSecondary }]}>
+            Consistency is key. You've set this protocol to improve your {habit.category}.
+            Maintain your streak to achieve optimal results.
+          </Text>
+        </VoidCard>
 
-             <View className="w-[48%] p-4 rounded-2xl shadow-sm mb-4" style={{ backgroundColor: colors.surfaceSecondary }}>
-                 <View className="flex-row items-center mb-2">
-                     <Ionicons name="time" size={20} color="#3B82F6" />
-                     <Text className="ml-2 font-medium" style={{ color: colors.textSecondary }}>Total Time</Text>
-                 </View>
-                 <Text className="text-2xl font-display" style={{ color: colors.textPrimary }}>
-                    {habit.durationMinutes ? `${habit.durationMinutes * streak}` : '0'} mins
-                 </Text>
-             </View>
-
-             <View className="w-[48%] p-4 rounded-2xl shadow-sm mb-4" style={{ backgroundColor: colors.surfaceSecondary }}>
-                 <View className="flex-row items-center mb-2">
-                     <Ionicons name="calendar" size={20} color="#8B5CF6" />
-                     <Text className="ml-2 font-medium" style={{ color: colors.textSecondary }}>Frequency</Text>
-                 </View>
-                 <Text className="text-xl font-display" style={{ color: colors.textPrimary }}>Daily</Text>
-             </View>
-         </View>
-
-         {/* Description / Notes */}
-         <View className="p-5 rounded-2xl shadow-sm mb-6" style={{ backgroundColor: colors.surfaceSecondary }}>
-            <Text className="font-bold mb-2" style={{ color: colors.textPrimary }}>About this habit</Text>
-            <Text className="leading-5" style={{ color: colors.textSecondary }}>
-                Consistency is key! You've set this habit to improve your {habit.category}. 
-                Keep up the good work and try to maintain your streak.
-            </Text>
-         </View>
       </ScrollView>
-    </View>
+    </VoidShell>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    paddingTop: 60,
+    paddingBottom: 100,
+    paddingHorizontal: 20,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mainCard: {
+    alignItems: 'center',
+    padding: 32,
+    marginBottom: 32,
+  },
+  iconLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  habitName: {
+    fontSize: 24,
+    fontWeight: '900',
+    marginBottom: 4,
+    textAlign: 'center',
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  habitMeta: {
+    fontSize: 12,
+    marginBottom: 24,
+    textAlign: 'center',
+    fontFamily: 'SpaceMono-Regular',
+    letterSpacing: 1,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  actionButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+    fontFamily: 'SpaceMono-Regular',
+    letterSpacing: 0.5,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 16,
+    letterSpacing: 1,
+    fontFamily: 'SpaceMono-Regular',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  statCard: {
+    width: '48%',
+    padding: 16,
+    marginBottom: 16,
+  },
+  statLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    letterSpacing: 1,
+    fontFamily: 'SpaceMono-Regular',
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  descCard: {
+    padding: 20,
+  },
+  descTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    fontFamily: 'SpaceMono-Regular',
+    letterSpacing: 1,
+  },
+  descText: {
+    fontSize: 14,
+    lineHeight: 22,
+  }
+});

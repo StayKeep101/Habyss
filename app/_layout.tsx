@@ -13,6 +13,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { View, AppState } from 'react-native';
 import AIAgentWrapper from '@/components/AI/AIAgentWrapper';
+import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import { syncWidgets } from '@/lib/habits';
 import StripeAppProvider from '@/components/StripeAppProvider';
@@ -64,13 +65,13 @@ export default function MobileLayout() {
 
   return (
     <ThemeProvider>
-      <StripeAppProvider>
-        <AIPersonalityProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <InnerLayout />
-          </GestureHandlerRootView>
-        </AIPersonalityProvider>
-      </StripeAppProvider>
+      {/* <StripeAppProvider> */}
+      <AIPersonalityProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <InnerLayout />
+        </GestureHandlerRootView>
+      </AIPersonalityProvider>
+      {/* </StripeAppProvider> */}
     </ThemeProvider>
   );
 }
@@ -81,12 +82,15 @@ function InnerLayout() {
 
   return (
     <View style={{ flex: 1 }} className={theme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="+not-found" />
-        <Stack.Screen name="(root)" />
-      </Stack>
-      <AIAgentWrapper />
-      <StatusBar style={isDark ? "light" : "dark"} />
+      <VoidShell>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(root)" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <AIAgentWrapper />
+        <StatusBar style={isDark ? "light" : "dark"} />
+      </VoidShell>
     </View>
   );
 }

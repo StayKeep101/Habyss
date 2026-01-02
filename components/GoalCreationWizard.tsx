@@ -372,9 +372,10 @@ const styles = StyleSheet.create({
         textShadowColor: 'rgba(0,0,0,0.3)',
         textShadowOffset: { width: 0, height: 2 },
         textShadowRadius: 4,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     mainInput: {
-        fontSize: 36,
+        fontSize: 32,
         color: 'white',
         textAlign: 'center',
         width: '100%',
@@ -382,16 +383,20 @@ const styles = StyleSheet.create({
         borderBottomColor: 'rgba(255,255,255,0.2)',
         paddingBottom: 10,
         fontWeight: '600',
+        fontFamily: 'SpaceMono-Regular',
     },
     helper: {
         marginTop: 20,
         color: 'rgba(255,255,255,0.5)',
         fontSize: 14,
+        fontFamily: 'SpaceMono-Regular',
     },
     datePickerContainer: {
         backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 20,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
     footer: {
         padding: 40,
@@ -413,6 +418,8 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 18,
         fontWeight: '600',
+        fontFamily: 'SpaceMono-Regular',
+        letterSpacing: 1,
     },
 
     // Category Styles
@@ -440,6 +447,7 @@ const styles = StyleSheet.create({
     catText: {
         color: 'rgba(255,255,255,0.6)',
         fontWeight: '600',
+        fontFamily: 'SpaceMono-Regular',
     },
     catTextActive: {
         color: '#0f172a',
@@ -451,6 +459,8 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         alignSelf: 'flex-start',
         marginLeft: 4,
+        fontFamily: 'SpaceMono-Regular',
+        letterSpacing: 1,
     },
     themeGrid: {
         flexDirection: 'row',
@@ -476,6 +486,8 @@ const styles = StyleSheet.create({
         color: 'white',
         textAlign: 'center',
         marginBottom: 8,
+        fontFamily: 'SpaceGrotesk-Bold',
+        letterSpacing: -1,
     },
     summaryWhy: {
         fontSize: 18,
@@ -484,11 +496,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 24,
         paddingHorizontal: 20,
+        fontFamily: 'SpaceMono-Regular',
     },
     summaryDate: {
         fontSize: 18,
         color: 'rgba(255,255,255,0.7)',
         marginBottom: 60,
+        fontFamily: 'SpaceMono-Regular',
     },
     commitArea: {
         alignItems: 'center',
@@ -500,6 +514,7 @@ const styles = StyleSheet.create({
         letterSpacing: 2,
         fontSize: 12,
         fontWeight: '700',
+        fontFamily: 'SpaceMono-Regular',
     },
     holdButton: {
         width: 100,

@@ -6,7 +6,6 @@ import { Colors } from '@/constants/Colors';
 import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
-import { CreationModal } from '@/components/Home/CreationModal';
 import { GoalCreationWizard } from '@/components/GoalCreationWizard';
 import { getHabits as loadHabits, subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,7 +33,7 @@ const Home = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [isFabExpanded, setIsFabExpanded] = useState(false);
+
   const [isWizardVisible, setIsWizardVisible] = useState(false);
 
   // Subscribe to habits list (real-time & cached)
@@ -236,24 +235,7 @@ const Home = () => {
 
 
 
-          {/* Creation Modal */}
-          <CreationModal
-            visible={isFabExpanded}
-            onClose={() => setIsFabExpanded(false)}
-            goals={goals.filter(g => g.isGoal)}
-            onCreateGoal={() => {
-              setIsFabExpanded(false);
-              setTimeout(() => setIsWizardVisible(true), 300);
-            }}
-            onCreateHabit={() => {
-              setIsFabExpanded(false);
-              router.push('/create');
-            }}
-            onAddHabitToGoal={(goalId) => {
-              setIsFabExpanded(false);
-              router.push({ pathname: '/create', params: { goalId } });
-            }}
-          />
+
 
           <GoalCreationWizard
             visible={isWizardVisible}
@@ -263,26 +245,7 @@ const Home = () => {
             }}
           />
 
-          {/* Floating FAB for Quick Add above the Dock */}
-          <View style={{ position: 'absolute', bottom: 110, right: 20, zIndex: 50 }}>
-            <TouchableOpacity
-              className="w-14 h-14 rounded-full items-center justify-center shadow-lg"
-              style={{
-                backgroundColor: colors.primary,
-                shadowColor: colors.primary,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.5,
-                shadowRadius: 8,
-                elevation: 10
-              }}
-              onPress={() => {
-                lightFeedback();
-                setIsFabExpanded(true);
-              }}
-            >
-              <Ionicons name="add" size={32} color="white" />
-            </TouchableOpacity>
-          </View>
+
 
         </View>
       </SafeAreaView>
