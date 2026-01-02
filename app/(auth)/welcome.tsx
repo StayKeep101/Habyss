@@ -1,189 +1,174 @@
 import { router } from 'expo-router';
-import { Text, TouchableOpacity, View, Dimensions, Animated, Image, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRef, useState, useEffect } from 'react';
+import { Text, TouchableOpacity, View, Dimensions, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+  withRepeat,
+  withSequence,
+  Easing
+} from 'react-native-reanimated';
+import { useEffect } from 'react';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
 
 const { width, height } = Dimensions.get('window');
 
-interface OnboardingCard {
-  title: string;
-  description: string;
-  icon: string;
-}
+export default function WelcomeScreen() {
+  // Animation Values
+  const logoScale = useSharedValue(0.8);
+  const logoOpacity = useSharedValue(0);
+  const titleOpacity = useSharedValue(0);
+  const titleTracking = useSharedValue(10); // Spacing starts wide
+  const buttonOpacity = useSharedValue(0);
+  const buttonY = useSharedValue(50);
 
-const onboardingCards: OnboardingCard[] = [
-  {
-    title: "Welcome to Habyss",
-    description: "Your personal productivity companion that helps you achieve more with less effort.",
-    icon: "🚀"
-  },
-  {
-    title: "Smart Task Management",
-    description: "Organize your tasks intelligently and let AI help you prioritize what matters most.",
-    icon: "✨"
-  },
-  {
-    title: "Track Your Progress",
-    description: "Monitor your productivity with beautiful insights and detailed analytics.",
-    icon: "📊"
-  }
-];
+  // Breathing Animation for background
+  const bgRotate = useSharedValue(0);
 
-const Onboarding = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    // 1. Logo Entrance
+    logoOpacity.value = withTiming(1, { duration: 1000 });
+    logoScale.value = withSpring(1, { damping: 12 });
 
-  const handleGoogleSignIn = async () => {
-     Alert.alert("Coming Soon", "Google Sign-In will be available soon!");
-     // await supabase.auth.signInWithOAuth({ provider: 'google' });
+    // 2. Title Entrance (Delayed)
+    titleOpacity.value = withDelay(500, withTiming(1, { duration: 1000 }));
+    titleTracking.value = withDelay(500, withSpring(2, { damping: 15 })); // Closes in
+
+    // 3. Button Entrance (Delayed more)
+    buttonOpacity.value = withDelay(1200, withTiming(1, { duration: 800 }));
+    buttonY.value = withDelay(1200, withSpring(0, { damping: 12 }));
+
+    // Background slow rotation
+    bgRotate.value = withRepeat(
+      withTiming(360, { duration: 20000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const animatedLogoStyle = useAnimatedStyle(() => ({
+    opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }]
+  }));
+
+  const animatedTitleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    letterSpacing: titleTracking.value
+  }));
+
+  const animatedButtonStyle = useAnimatedStyle(() => ({
+    opacity: buttonOpacity.value,
+    transform: [{ translateY: buttonY.value }]
+  }));
+
+  const animatedBgStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${bgRotate.value}deg` }, { scale: 1.5 }]
+  }));
+
+  const handleEnter = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/(auth)/sign-up');
   };
 
-  const renderCard = (card: OnboardingCard, index: number) => {
-    const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
-    
-    const scale = scrollX.interpolate({
-      inputRange,
-      outputRange: [0.8, 1, 0.8],
-    });
-
-    const opacity = scrollX.interpolate({
-      inputRange,
-      outputRange: [0.3, 1, 0.3],
-    });
-
-    const translateY = scrollX.interpolate({
-      inputRange,
-      outputRange: [20, 0, 20],
-    });
-
-    return (
-      <View key={index} style={{ width, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
-        <Animated.View
-          style={{
-            transform: [{ scale }, { translateY }],
-            opacity,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {/* Big Iconic Centerpiece */}
-          <View className="w-40 h-40 rounded-full items-center justify-center mb-10 shadow-lg" 
-                style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
-              <Text className="text-8xl">{card.icon}</Text>
-          </View>
-          
-          <Text className="text-4xl font-extrabold text-white text-center mb-4 tracking-tight leading-tight">
-            {card.title}
-          </Text>
-          <Text className="text-lg text-blue-100 text-center font-medium leading-6 px-4">
-            {card.description}
-          </Text>
-        </Animated.View>
-      </View>
-    );
+  const handleLogin = () => {
+    Haptics.selectionAsync();
+    router.push('/(auth)/sign-in');
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: Colors.light.primary }}>
+    <View style={{ flex: 1, backgroundColor: '#020617', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
       <StatusBar style="light" />
-      
-      {/* Top Section - Brand Area */}
-      <View className="flex-1 justify-center pb-20">
-        <Animated.ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          bounces={false}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            { useNativeDriver: true }
-          )}
-          scrollEventThrottle={16}
-          onMomentumScrollEnd={(event) => {
-            const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
-            setCurrentIndex(newIndex);
-          }}
-        >
-          {onboardingCards.map((card, index) => renderCard(card, index))}
-        </Animated.ScrollView>
 
-        {/* Indicators */}
-        <View className="absolute bottom-10 left-0 right-0 flex-row justify-center items-center">
-          {onboardingCards.map((_, index) => {
-            const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
-            
-            const scale = scrollX.interpolate({
-              inputRange,
-              outputRange: [0.8, 1.4, 0.8],
-              extrapolate: 'clamp',
-            });
-            
-            const opacity = scrollX.interpolate({
-              inputRange,
-              outputRange: [0.4, 1, 0.4],
-              extrapolate: 'clamp',
-            });
+      {/* Dynamic Background Mesh */}
+      <Animated.View style={[{ position: 'absolute', width: width * 2, height: width * 2, top: -width * 0.5 }, animatedBgStyle]}>
+        <LinearGradient
+          colors={['#1e1b4b', '#020617', '#312e81']} // Indigo-950 to Slate-950
+          style={{ flex: 1, opacity: 0.6 }}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+      </Animated.View>
 
-            return (
-              <Animated.View
-                key={index}
-                style={{
-                  height: 8,
-                  width: 8,
-                  borderRadius: 4,
-                  marginHorizontal: 6,
-                  backgroundColor: 'white',
-                  opacity,
-                  transform: [{ scale }]
-                }}
-              />
-            );
-          })}
-        </View>
+      {/* Center Content */}
+      <View style={{ alignItems: 'center', zIndex: 10 }}>
+        {/* Logo Placeholder (Geometric H) */}
+        <Animated.View style={[
+          {
+            width: 120,
+            height: 120,
+            borderRadius: 30,
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 40,
+            shadowColor: "#60A5FA",
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.4,
+            shadowRadius: 20
+          },
+          animatedLogoStyle
+        ]}>
+          <Ionicons name="cube-outline" size={64} color="#60A5FA" />
+        </Animated.View>
+
+        {/* Title */}
+        <Animated.Text style={[
+          {
+            color: 'white',
+            fontSize: 42,
+            fontWeight: '200',
+            textTransform: 'uppercase',
+            marginBottom: 10
+          },
+          animatedTitleStyle
+        ]}>
+          Habyss
+        </Animated.Text>
+
+        <Animated.Text style={[{ color: '#94A3B8', fontSize: 14, letterSpacing: 1, opacity: 0.8 }, animatedButtonStyle]}>
+          ARCHITECT YOUR LIFE
+        </Animated.Text>
       </View>
 
-      {/* Bottom Sheet - Action Area */}
-      <View 
-        className="absolute bottom-0 left-0 right-0 pt-8 pb-12 px-6 rounded-t-[32px] shadow-2xl"
-        style={{ backgroundColor: colors.background }}
-      >
+      {/* Bottom Actions */}
+      <Animated.View style={[{ position: 'absolute', bottom: 60, width: '100%', paddingHorizontal: 30 }, animatedButtonStyle]}>
         <TouchableOpacity
-          onPress={() => router.push('/(auth)/sign-up')}
-          className="w-full py-4 rounded-2xl items-center justify-center mb-4 shadow-md transform active:scale-95 transition-transform"
-          style={{ backgroundColor: Colors.light.primary }}
+          onPress={handleEnter}
+          activeOpacity={0.8}
         >
-          <Text className="text-lg font-bold text-white tracking-wide">Get Started</Text>
+          <BlurView intensity={30} tint="light" style={{
+            overflow: 'hidden',
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.2)'
+          }}>
+            <LinearGradient
+              colors={['rgba(96, 165, 250, 0.2)', 'rgba(96, 165, 250, 0.05)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ paddingVertical: 18, alignItems: 'center' }}
+            >
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 }}>GET STARTED</Text>
+            </LinearGradient>
+          </BlurView>
         </TouchableOpacity>
 
-        {/* Google Sign In - Prominent Alternative */}
         <TouchableOpacity
-          onPress={handleGoogleSignIn}
-          disabled={loading}
-          className="w-full py-4 rounded-2xl items-center justify-center border mb-4 flex-row"
-          style={{ borderColor: colors.border, backgroundColor: colors.surfaceSecondary }}
+          onPress={handleLogin}
+          style={{ marginTop: 20, alignItems: 'center', padding: 10 }}
         >
-           <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 10 }} />
-           <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>Continue with Google</Text>
+          <Text style={{ color: '#64748B', fontSize: 14 }}>I have an account</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => router.push('/(auth)/sign-in')}
-          className="w-full py-4 rounded-2xl items-center justify-center border-2"
-          style={{ borderColor: colors.border }}
-        >
-          <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>I have an account</Text>
-        </TouchableOpacity>
-      </View>
+      </Animated.View>
     </View>
   );
-};
-
-export default Onboarding;
+}

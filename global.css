@@ -27,25 +27,25 @@
   }
 
   .abyss {
-    --background: 231 28% 14%; /* #1A1D2E */
-    --foreground: 0 0% 100%; /* #FFFFFF */
-    --card: 228 24% 19%; /* #252A3D */
-    --card-foreground: 0 0% 100%;
-    --popover: 228 24% 19%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 213 49% 69%; /* #8BADD6 */
-    --primary-foreground: 231 28% 14%;
-    --secondary: 217 41% 54%; /* #5B7FB8 */
-    --secondary-foreground: 0 0% 100%;
-    --muted: 225 15% 25%; /* #3A4460 (approx) */
-    --muted-foreground: 215 20% 65%; /* #9CA3AF */
-    --accent: 0 100% 71%; /* #FF6B6B */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 94% 82%; /* #F87171 */
-    --destructive-foreground: 0 0% 100%;
-    --border: 225 27% 25%; /* #2E364F */
-    --input: 225 27% 25%;
-    --ring: 213 49% 69%;
+    --background: 222 47% 5%; /* #020617 (Slate-950) */
+    --foreground: 210 40% 98%; /* #F8FAFC (Slate-50) */
+    --card: 222 47% 11%; /* #0F172A (Slate-900) */
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%; /* #3B82F6 (Blue-500) */
+    --primary-foreground: 222 47% 5%;
+    --secondary: 215 25% 27%; /* #1E293B (Slate-800) */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 215 25% 27%;
+    --muted-foreground: 215 20% 65%; /* #94A3B8 (Slate-400) */
+    --accent: 343 87% 60%; /* #F43F5E (Rose-500) */
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 215 25% 27%; /* #1E293B (Slate-800) */
+    --input: 215 25% 27%;
+    --ring: 217 91% 60%;
   }
 
   .trueDark {

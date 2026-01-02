@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useSoundEffects } from '@/hooks/useSoundEffects';
 
 interface AIAgentButtonProps {
   onPress: () => void;
@@ -37,6 +38,7 @@ const AIAgentButton: React.FC<AIAgentButtonProps> = ({
   const { theme } = useTheme();
   const colors = Colors[theme];
   const { lightFeedback, heavyFeedback } = useHaptics();
+  const { playPop } = useSoundEffects();
 
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0.3);
@@ -128,6 +130,7 @@ const AIAgentButton: React.FC<AIAgentButtonProps> = ({
           <Animated.View>
             <TapGestureHandler
               onActivated={() => {
+                playPop();
                 lightFeedback();
                 onPress();
               }}

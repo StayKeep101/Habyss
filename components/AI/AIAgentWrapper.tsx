@@ -1,10 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, Alert, Linking } from 'react-native';
+import { router } from 'expo-router';
 import AIAgentButton from './AIAgentButton';
 import AIChatModal from './AIChatModal';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { PaywallModal } from '../Stripe/PaywallModal';
 import { StripeService } from '@/lib/stripeService';
+import { useAIPersonality } from '@/constants/AIPersonalityContext';
+import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 
 interface Message {
   id: string;
@@ -29,6 +32,23 @@ const AIAgentWrapper: React.FC = () => {
     }
   ]);
 
+  const { personalityId } = useAIPersonality();
+
+  // Reset conversation when personality changes
+  React.useEffect(() => {
+    const mode = PERSONALITY_MODES.find(m => m.id === personalityId);
+    if (mode) {
+      setMessages([
+        {
+          id: 'init',
+          text: mode.systemPrompt.split('.')[0] + ". How can I help?", // Simple greeting
+          sender: 'ai',
+          timestamp: new Date(),
+        }
+      ]);
+    }
+  }, [personalityId]);
+
   const handleSendMessage = useCallback(async (text: string) => {
     // Add user message
     const userMessage: Message = {
@@ -44,17 +64,41 @@ const AIAgentWrapper: React.FC = () => {
 
     // Mock AI response after a delay
     setTimeout(() => {
+      const mode = PERSONALITY_MODES.find(m => m.id === personalityId) || PERSONALITY_MODES[1]; // Default to normal
+
+      let responseText = "";
+      const lowerText = text.toLowerCase();
+
+      if (lowerText.includes('complete') || lowerText.includes('done') || lowerText.includes('finished')) {
+        responseText = mode.examples.success;
+      } else if (lowerText.includes('missed') || lowerText.includes('fail') || lowerText.includes('forgot')) {
+        responseText = mode.examples.failure;
+      } else if (lowerText.includes('progress') || lowerText.includes('check') || lowerText.includes('how am i doing')) {
+        responseText = mode.examples.checkin;
+      } else {
+        // Default / Fallback
+        if (mode.id === 'friendly') {
+          responseText = "That sounds interesting! Tell me more! 😊 I'm here to listen and support you!";
+        } else if (mode.id === 'bully_mode') {
+          responseText = "Is that all you have to say? Stop wasting my time and go do some work. Weak.";
+        } else if (mode.id === 'dad_mode') {
+          responseText = "I hear you. But actions speak louder than words. What's the plan?";
+        } else {
+          responseText = "I understand. Let's focus on your goals. What specific habit are you working on?";
+        }
+      }
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: `I've received your message: "${text}". I'm analyzing your goals and progress to provide the best advice. (This is a mock response)`,
+        text: responseText,
         sender: 'ai',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiResponse]);
       setIsThinking(false);
       setHasNewSuggestion(true);
-    }, 2000);
-  }, []);
+    }, 1500);
+  }, [personalityId]);
 
   const handleOpenModal = () => {
     paywallGuard(
@@ -63,7 +107,7 @@ const AIAgentWrapper: React.FC = () => {
         setIsModalVisible(true);
         setHasNewSuggestion(false);
       },
-      () => setIsPaywallVisible(true)
+      () => router.push('/paywall')
     );
   };
 

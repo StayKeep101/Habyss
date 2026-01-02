@@ -147,19 +147,19 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
     end_time: habitData.endTime,
     is_goal: habitData.isGoal,
     target_date: habitData.targetDate,
-    description: habitData.description,
-    type: habitData.type || 'build',
-    color: habitData.color || '#6B46C1',
-    goal_period: habitData.goalPeriod || 'daily',
-    goal_value: habitData.goalValue || 1,
-    unit: habitData.unit || 'count',
-    task_days: habitData.taskDays || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
-    reminders: habitData.reminders || [],
-    chart_type: habitData.chartType || 'bar',
-    start_date: habitData.startDate || new Date().toISOString(),
-    end_date: habitData.endDate,
-    is_archived: false,
-    show_memo: habitData.showMemo || false,
+    // description: habitData.description, // Missing in DB
+    // type: habitData.type || 'build', // Missing in DB
+    // color: habitData.color || '#6B46C1', // Missing in DB
+    // goal_period: habitData.goalPeriod || 'daily', // Missing in DB
+    // goal_value: habitData.goalValue || 1, // Missing in DB
+    // unit: habitData.unit || 'count', // Missing in DB
+    // task_days: habitData.taskDays || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], // Missing in DB
+    // reminders: habitData.reminders || [], // Missing in DB
+    // chart_type: habitData.chartType || 'bar', // Missing in DB
+    // start_date: habitData.startDate || new Date().toISOString(), // Missing in DB
+    // end_date: habitData.endDate, // Missing in DB
+    // is_archived: false, // Missing in DB
+    // show_memo: habitData.showMemo || false, // Missing in DB
     ...(habitData.goalId ? { goal_id: habitData.goalId } : {}),
   };
 
@@ -234,18 +234,19 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
       end_time: updatedHabit.endTime,
       is_goal: updatedHabit.isGoal,
       target_date: updatedHabit.targetDate,
-      type: updatedHabit.type,
-      color: updatedHabit.color,
-      goal_period: updatedHabit.goalPeriod,
-      goal_value: updatedHabit.goalValue,
-      unit: updatedHabit.unit,
-      task_days: updatedHabit.taskDays,
-      reminders: updatedHabit.reminders,
-      chart_type: updatedHabit.chartType,
-      start_date: updatedHabit.startDate,
-      end_date: updatedHabit.endDate,
-      is_archived: updatedHabit.isArchived,
-      show_memo: updatedHabit.showMemo,
+      // description: updatedHabit.description,
+      // type: updatedHabit.type,
+      // color: updatedHabit.color, // DB schema missing
+      // goal_period: updatedHabit.goalPeriod,
+      // goal_value: updatedHabit.goalValue,
+      // unit: updatedHabit.unit,
+      // task_days: updatedHabit.taskDays,
+      // reminders: updatedHabit.reminders,
+      // chart_type: updatedHabit.chartType, // Not in DB yet
+      // start_date: updatedHabit.startDate,
+      // end_date: updatedHabit.endDate,
+      // is_archived: updatedHabit.isArchived,
+      // show_memo: updatedHabit.showMemo,
       ...(updatedHabit.goalId ? { goal_id: updatedHabit.goalId } : {})
     })
     .eq('id', updatedHabit.id);

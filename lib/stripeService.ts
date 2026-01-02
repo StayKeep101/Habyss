@@ -73,5 +73,22 @@ export const StripeService = {
       console.error('Error in createCheckoutSession:', error);
       throw error;
     }
+  },
+
+  /**
+   * Manually syncs the subscription status from Stripe to Supabase.
+   * Useful if the webhook failed or for "Restore Purchase" functionality.
+   */
+  async restorePurchases(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-subscription');
+
+      if (error) throw error;
+
+      return data?.restored || false;
+    } catch (error) {
+      console.error('Error restoring purchases:', error);
+      return false;
+    }
   }
 };

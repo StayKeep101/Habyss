@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { IntegrationService } from '@/lib/integrationService';
 import { NotificationService } from '@/lib/notificationService';
 import { HealthService } from '@/lib/healthService';
+import { ProfileHeader } from '@/components/ProfileHeader';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -144,15 +145,15 @@ const Settings = () => {
   const filteredIntegrations = useMemo(() => {
     if (!searchQuery) return integrations;
     const query = searchQuery.toLowerCase();
-    return integrations.filter(i => 
-      i.name.toLowerCase().includes(query) || 
+    return integrations.filter(i =>
+      i.name.toLowerCase().includes(query) ||
       i.description.toLowerCase().includes(query)
     );
   }, [integrations, searchQuery]);
 
   const handleToggleIntegration = async (id: string) => {
     lightFeedback();
-    
+
     // Find the integration
     const integration = integrations.find(i => i.id === id);
     if (!integration) return;
@@ -164,30 +165,30 @@ const Settings = () => {
         `Are you sure you want to disconnect ${integration.name}?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Disconnect', 
-            style: 'destructive', 
+          {
+            text: 'Disconnect',
+            style: 'destructive',
             onPress: () => {
-              setIntegrations(prev => prev.map(i => 
+              setIntegrations(prev => prev.map(i =>
                 i.id === id ? { ...i, connected: false, lastSync: undefined } : i
               ));
-            } 
+            }
           }
         ]
       );
     } else {
       // Mock OAuth Flow
       setIntegrations(prev => prev.map(i => i.id === id ? { ...i, loading: true } : i));
-      
+
       try {
         // Simulate network delay for OAuth
         await new Promise(resolve => setTimeout(resolve, 1500));
-        
+
         // Randomly succeed or fail for demo purposes
         const success = Math.random() > 0.1;
-        
+
         if (success) {
-          setIntegrations(prev => prev.map(i => 
+          setIntegrations(prev => prev.map(i =>
             i.id === id ? { ...i, connected: true, loading: false, lastSync: 'Just now' } : i
           ));
           Alert.alert('Success', `Successfully connected to ${integration.name}!`);
@@ -235,6 +236,14 @@ const Settings = () => {
       value: true
     },
     {
+      id: 'ai_settings',
+      title: 'AI Assistant',
+      subtitle: 'Personality & Behavior',
+      icon: 'sparkles',
+      type: 'navigation',
+      route: '/ai-settings'
+    },
+    {
       id: '4',
       title: 'Auto-sync',
       subtitle: 'Sync data across devices',
@@ -279,9 +288,11 @@ const Settings = () => {
           'Your data will be exported and sent to your email.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Export', onPress: () => {
-              Alert.alert('Success', 'Data export started! You\'ll receive an email shortly.');
-            }}
+            {
+              text: 'Export', onPress: () => {
+                Alert.alert('Success', 'Data export started! You\'ll receive an email shortly.');
+              }
+            }
           ]
         );
       }
@@ -299,17 +310,23 @@ const Settings = () => {
           'Choose an option:',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Backup Now', onPress: () => {
-              Alert.alert('Success', 'Backup completed successfully!');
-            }},
-            { text: 'Restore', onPress: () => {
-              Alert.alert('Restore', 'Restore from previous backup?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Restore', style: 'destructive', onPress: () => {
-                  Alert.alert('Success', 'Data restored successfully!');
-                }}
-              ]);
-            }}
+            {
+              text: 'Backup Now', onPress: () => {
+                Alert.alert('Success', 'Backup completed successfully!');
+              }
+            },
+            {
+              text: 'Restore', onPress: () => {
+                Alert.alert('Restore', 'Restore from previous backup?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Restore', style: 'destructive', onPress: () => {
+                      Alert.alert('Success', 'Data restored successfully!');
+                    }
+                  }
+                ]);
+              }
+            }
           ]
         );
       }
@@ -327,9 +344,11 @@ const Settings = () => {
           'This will clear all cached data. Continue?',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Clear', style: 'destructive', onPress: () => {
-              Alert.alert('Success', 'Cache cleared successfully!');
-            }}
+            {
+              text: 'Clear', style: 'destructive', onPress: () => {
+                Alert.alert('Success', 'Cache cleared successfully!');
+              }
+            }
           ]
         );
       }
@@ -338,7 +357,7 @@ const Settings = () => {
 
   const toggleSetting = async (id: string) => {
     lightFeedback();
-    
+
     // Handle persistent storage for notifications
     if (id === '1') {
       const newValue = !notificationsEnabled;
@@ -354,8 +373,8 @@ const Settings = () => {
     }
 
     setSettings(prev => {
-      const updated = prev.map(setting => 
-        setting.id === id 
+      const updated = prev.map(setting =>
+        setting.id === id
           ? { ...setting, value: !setting.value }
           : setting
       );
@@ -374,6 +393,8 @@ const Settings = () => {
         router.push('/privacy');
       } else if (setting.route === '/data-storage') {
         router.push('/data-storage');
+      } else if (setting.route === '/ai-settings') {
+        router.push('/ai-settings');
       }
     } else if (setting.type === 'action' && setting.action) {
       setting.action();
@@ -387,9 +408,11 @@ const Settings = () => {
       'This will reset all settings to default. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Reset', style: 'destructive', onPress: () => {
-          Alert.alert('Success', 'Settings reset to default!');
-        }}
+        {
+          text: 'Reset', style: 'destructive', onPress: () => {
+            Alert.alert('Success', 'Settings reset to default!');
+          }
+        }
       ]
     );
   };
@@ -401,17 +424,17 @@ const Settings = () => {
       'Are you sure you want to log out?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Log Out', 
-          style: 'destructive', 
+        {
+          text: 'Log Out',
+          style: 'destructive',
           onPress: async () => {
             const { error } = await supabase.auth.signOut();
             if (error) {
-                Alert.alert("Error", error.message);
+              Alert.alert("Error", error.message);
             } else {
-                router.replace('/(auth)/welcome');
+              router.replace('/(auth)/welcome');
             }
-          } 
+          }
         }
       ]
     );
@@ -422,12 +445,12 @@ const Settings = () => {
       const hours = selectedDate.getHours().toString().padStart(2, '0');
       const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
       const timeStr = `${hours}:${minutes}`;
-      
+
       const newQuietHours = {
         ...quietHours,
         [showPicker]: timeStr
       };
-      
+
       setQuietHours(newQuietHours);
       await NotificationService.setQuietHours(newQuietHours.start, newQuietHours.end);
       mediumFeedback();
@@ -436,36 +459,36 @@ const Settings = () => {
   };
 
   const ThemeOption = ({ mode, label, icon }: { mode: ThemeMode; label: string; icon: any }) => {
-      const isSelected = theme === mode;
-      return (
-          <TouchableOpacity 
-              onPress={() => {
-                  lightFeedback();
-                  setTheme(mode);
-              }}
-              className="flex-1 items-center justify-center py-3 rounded-xl mx-1"
-              style={{ 
-                  backgroundColor: isSelected ? colors.primary : colors.surface,
-                  borderWidth: 1,
-                  borderColor: isSelected ? colors.primary : colors.border
-              }}
-          >
-              <Ionicons name={icon as any} size={24} color={isSelected ? 'white' : colors.textSecondary} />
-              <Text className="text-sm font-semibold mt-1" style={{ color: isSelected ? 'white' : colors.textSecondary }}>
-                  {label}
-              </Text>
-          </TouchableOpacity>
-      )
+    const isSelected = theme === mode;
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          lightFeedback();
+          setTheme(mode);
+        }}
+        className="flex-1 items-center justify-center py-3 rounded-xl mx-1"
+        style={{
+          backgroundColor: isSelected ? colors.primary : colors.surface,
+          borderWidth: 1,
+          borderColor: isSelected ? colors.primary : colors.border
+        }}
+      >
+        <Ionicons name={icon as any} size={24} color={isSelected ? 'white' : colors.textSecondary} />
+        <Text className="text-sm font-semibold mt-1" style={{ color: isSelected ? 'white' : colors.textSecondary }}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    )
   }
 
   const IntegrationRow = ({ integration }: { integration: Integration }) => (
-    <View 
+    <View
       key={integration.id}
       className="p-4 rounded-2xl mb-4"
       style={{ backgroundColor: colors.surfaceSecondary }}
     >
       <View className="flex-row items-center mb-3">
-        <View 
+        <View
           className="w-12 h-12 rounded-full items-center justify-center mr-4"
           style={{ backgroundColor: integration.color + '20' }}
         >
@@ -494,7 +517,7 @@ const Settings = () => {
       </View>
 
       {integration.connected && (
-        <TouchableOpacity 
+        <TouchableOpacity
           className="mb-3 py-2 px-4 rounded-xl flex-row items-center justify-center border"
           style={{ borderColor: colors.border, backgroundColor: colors.surface }}
           onPress={() => Alert.alert('Configuration', `Manage settings for ${integration.name}`)}
@@ -506,7 +529,7 @@ const Settings = () => {
 
       <View className="flex-row items-center justify-between pt-3 border-t" style={{ borderColor: colors.border }}>
         <View className="flex-row items-center">
-          <View 
+          <View
             className="w-2 h-2 rounded-full mr-2"
             style={{ backgroundColor: integration.connected ? colors.success : colors.textTertiary }}
           />
@@ -514,7 +537,7 @@ const Settings = () => {
             {integration.connected ? `Connected • Last sync: ${integration.lastSync}` : 'Disconnected'}
           </Text>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => Linking.openURL(integration.docUrl)}
           className="flex-row items-center"
         >
@@ -527,86 +550,80 @@ const Settings = () => {
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
-      {/* Header */}
-      <View className="px-6 pt-4 pb-6">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <TouchableOpacity 
-              className="w-10 h-10 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: colors.surfaceSecondary }}
-              onPress={() => {
-                lightFeedback();
-                router.back();
-              }}
-            >
-              <Ionicons name="arrow-back" size={20} color={colors.primary} />
-            </TouchableOpacity>
-            <View>
-              <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                Settings
-              </Text>
-              <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                Customize your app experience
-              </Text>
-            </View>
-          </View>
-        </View>
+      {/* Custom Minimal Header */}
+      <View className="px-6 py-4 flex-row items-center">
+        <TouchableOpacity
+          className="w-10 h-10 rounded-full items-center justify-center mr-3"
+          style={{ backgroundColor: colors.surfaceSecondary }}
+          onPress={() => {
+            lightFeedback();
+            router.back();
+          }}
+        >
+          <Ionicons name="arrow-back" size={20} color={colors.primary} />
+        </TouchableOpacity>
+        <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Settings</Text>
       </View>
 
-      <ScrollView className="flex-1 px-6">
+      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+
+        {/* New Profile Section */}
+        <ProfileHeader />
+
         {/* Appearance Section */}
         <View className="mb-6">
-            <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
-                Appearance
-            </Text>
-            <View 
-                className="p-2 rounded-2xl flex-row"
-                style={{ backgroundColor: colors.surfaceSecondary }}
-            >
-                <ThemeOption mode="light" label="Light" icon="sunny" />
-                <ThemeOption mode="abyss" label="Abyss" icon="moon" />
-                <ThemeOption mode="trueDark" label="Pure Dark" icon="contrast" />
-            </View>
+          <Text className="text-sm font-bold mb-3 uppercase tracking-wider opacity-60 ml-1" style={{ color: colors.textSecondary }}>
+            Visuals
+          </Text>
+          <View
+            className="p-2 rounded-3xl flex-row shadow-sm"
+            style={{ backgroundColor: colors.surfaceSecondary }}
+          >
+            <ThemeOption mode="light" label="Light" icon="sunny" />
+            <ThemeOption mode="abyss" label="Abyss" icon="moon" />
+            <ThemeOption mode="trueDark" label="Pure Dark" icon="contrast" />
+          </View>
         </View>
 
         {/* Quiet Hours Picker (Visible if notifications & quiet hours enabled) */}
         {notificationsEnabled && quietHoursEnabled && (
           <View className="mb-6">
-            <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
-              Quiet Hours Schedule
+            <Text className="text-sm font-bold mb-3 uppercase tracking-wider opacity-60 ml-1" style={{ color: colors.textSecondary }}>
+              Quiet Hours
             </Text>
-            <View 
-              className="p-4 rounded-2xl flex-row justify-between items-center"
+            <View
+              className="p-4 rounded-3xl flex-row justify-between items-center shadow-sm"
               style={{ backgroundColor: colors.surfaceSecondary }}
             >
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => {
                   lightFeedback();
                   setShowPicker('start');
                 }}
-                className="flex-1 items-center p-2 rounded-xl"
+                className="flex-1 items-center p-3 rounded-2xl"
                 style={{ backgroundColor: colors.surface }}
               >
-                <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>Starts at</Text>
-                <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>{quietHours.start}</Text>
+                <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>STARTS</Text>
+                <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>{quietHours.start}</Text>
               </TouchableOpacity>
-              
+
               <View className="px-4">
                 <Ionicons name="arrow-forward" size={20} color={colors.textTertiary} />
               </View>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => {
                   lightFeedback();
                   setShowPicker('end');
                 }}
-                className="flex-1 items-center p-2 rounded-xl"
+                className="flex-1 items-center p-3 rounded-2xl"
                 style={{ backgroundColor: colors.surface }}
               >
-                <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>Ends at</Text>
-                <Text className="text-lg font-bold" style={{ color: colors.textPrimary }}>{quietHours.end}</Text>
+                <Text className="text-xs mb-1" style={{ color: colors.textSecondary }}>ENDS</Text>
+                <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>{quietHours.end}</Text>
               </TouchableOpacity>
             </View>
+
 
             {showPicker && (
               <DateTimePicker
@@ -631,31 +648,32 @@ const Settings = () => {
 
         {/* App Preferences */}
         <View className="mb-6">
-          <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
-            App Preferences
+          <Text className="text-sm font-bold mb-3 uppercase tracking-wider opacity-60 ml-1" style={{ color: colors.textSecondary }}>
+            General
           </Text>
-          <View 
-            className="rounded-2xl overflow-hidden"
+          <View
+            className="rounded-3xl overflow-hidden shadow-sm"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
             {settings.slice(0, 5).map((setting, index) => (
               <View key={setting.id}>
+                {/* ... existing item render ... */}
                 <TouchableOpacity
                   className="flex-row items-center p-4"
                   onPress={() => handleSettingPress(setting)}
                 >
-                  <View 
+                  <View
                     className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                    style={{ backgroundColor: colors.primary + '20' }}
+                    style={{ backgroundColor: colors.primary + '15' }}
                   >
                     <Ionicons name={setting.icon as any} size={20} color={colors.primary} />
                   </View>
                   <View className="flex-1">
-                    <Text className="font-semibold" style={{ color: colors.textPrimary }}>
+                    <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
                       {setting.title}
                     </Text>
                     {setting.subtitle && (
-                      <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                      <Text className="text-xs" style={{ color: colors.textSecondary, marginTop: 2 }}>
                         {setting.subtitle}
                       </Text>
                     )}
@@ -668,9 +686,12 @@ const Settings = () => {
                       thumbColor={setting.value ? 'white' : '#f1f5f9'}
                     />
                   )}
+                  {setting.type === 'navigation' && (
+                    <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                  )}
                 </TouchableOpacity>
                 {index < 4 && (
-                  <View 
+                  <View
                     className="h-[0.5px] mx-4"
                     style={{ backgroundColor: colors.border }}
                   />
@@ -682,11 +703,11 @@ const Settings = () => {
 
         {/* Account & Privacy */}
         <View className="mb-6">
-          <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
-            Account & Privacy
+          <Text className="text-sm font-bold mb-3 uppercase tracking-wider opacity-60 ml-1" style={{ color: colors.textSecondary }}>
+            Account
           </Text>
-          <View 
-            className="rounded-2xl overflow-hidden"
+          <View
+            className="rounded-3xl overflow-hidden shadow-sm"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
             {settings.slice(5, 8).map((setting, index) => (
@@ -695,18 +716,18 @@ const Settings = () => {
                   className="flex-row items-center p-4"
                   onPress={() => handleSettingPress(setting)}
                 >
-                  <View 
+                  <View
                     className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                    style={{ backgroundColor: colors.success + '20' }}
+                    style={{ backgroundColor: colors.success + '15' }}
                   >
                     <Ionicons name={setting.icon as any} size={20} color={colors.success} />
                   </View>
                   <View className="flex-1">
-                    <Text className="font-semibold" style={{ color: colors.textPrimary }}>
+                    <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
                       {setting.title}
                     </Text>
                     {setting.subtitle && (
-                      <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                      <Text className="text-xs" style={{ color: colors.textSecondary, marginTop: 2 }}>
                         {setting.subtitle}
                       </Text>
                     )}
@@ -714,7 +735,7 @@ const Settings = () => {
                   <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
                 </TouchableOpacity>
                 {index < 2 && (
-                  <View 
+                  <View
                     className="h-[0.5px] mx-4"
                     style={{ backgroundColor: colors.border }}
                   />
@@ -726,11 +747,11 @@ const Settings = () => {
 
         {/* Data Management */}
         <View className="mb-6">
-          <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
-            Data Management
+          <Text className="text-sm font-bold mb-3 uppercase tracking-wider opacity-60 ml-1" style={{ color: colors.textSecondary }}>
+            Data
           </Text>
-          <View 
-            className="rounded-2xl overflow-hidden"
+          <View
+            className="rounded-3xl overflow-hidden shadow-sm"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >
             {settings.slice(8).map((setting, index) => (
@@ -739,18 +760,18 @@ const Settings = () => {
                   className="flex-row items-center p-4"
                   onPress={() => handleSettingPress(setting)}
                 >
-                  <View 
+                  <View
                     className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                    style={{ backgroundColor: colors.warning + '20' }}
+                    style={{ backgroundColor: colors.warning + '15' }}
                   >
                     <Ionicons name={setting.icon as any} size={20} color={colors.warning} />
                   </View>
                   <View className="flex-1">
-                    <Text className="font-semibold" style={{ color: colors.textPrimary }}>
+                    <Text className="font-bold text-base" style={{ color: colors.textPrimary }}>
                       {setting.title}
                     </Text>
                     {setting.subtitle && (
-                      <Text className="text-sm" style={{ color: colors.textSecondary }}>
+                      <Text className="text-xs" style={{ color: colors.textSecondary, marginTop: 2 }}>
                         {setting.subtitle}
                       </Text>
                     )}
@@ -758,7 +779,7 @@ const Settings = () => {
                   <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
                 </TouchableOpacity>
                 {index < 2 && (
-                  <View 
+                  <View
                     className="h-[0.5px] mx-4"
                     style={{ backgroundColor: colors.border }}
                   />
@@ -771,11 +792,11 @@ const Settings = () => {
         {/* Integrations Section */}
         <View className="mb-8">
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+            <Text className="text-sm font-bold uppercase tracking-wider opacity-60 ml-1" style={{ color: colors.textSecondary }}>
               Integrations
             </Text>
             {integrations.some(i => i.connected) && (
-              <View 
+              <View
                 className="px-3 py-1 rounded-full"
                 style={{ backgroundColor: colors.success + '20' }}
               >
@@ -787,9 +808,9 @@ const Settings = () => {
           </View>
 
           {/* Search Bar */}
-          <View 
+          <View
             className="flex-row items-center px-4 py-3 rounded-2xl mb-6 border"
-            style={{ 
+            style={{
               backgroundColor: colors.surface,
               borderColor: colors.border
             }}
@@ -857,7 +878,7 @@ const Settings = () => {
 
         {/* App Info */}
         <View className="mb-6">
-          <View 
+          <View
             className="p-4 rounded-2xl"
             style={{ backgroundColor: colors.surfaceSecondary }}
           >

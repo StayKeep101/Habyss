@@ -1,32 +1,42 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ImageBackground, Dimensions, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Dimensions, ImageBackground } from 'react-native';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/constants/themeContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { subscribeToHabits, Habit, removeHabitEverywhere } from '@/lib/habits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, {
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  interpolate,
+  Extrapolate
+} from 'react-native-reanimated';
 
-// Import ImagePicker conditionally to avoid errors if not available (requires native rebuild)
+// Optional: Conditionally require ImagePicker if needed, same logic as before
 let ImagePicker: any = null;
-try {
-  ImagePicker = require('expo-image-picker');
-} catch (e) {
-  console.log('ImagePicker not available');
-}
+try { ImagePicker = require('expo-image-picker'); } catch (e) { }
+
+const { width } = Dimensions.get('window');
+const HEADER_HEIGHT = 350;
 
 const GoalDetail = () => {
   const router = useRouter();
   const { goalId } = useGlobalSearchParams();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === 'dark' ? 'abyss' : 'light'];
+  const { theme } = useTheme();
+  const colors = Colors[theme];
 
   const [habits, setHabits] = useState<Habit[]>([]);
   const [goal, setGoal] = useState<Habit | null>(null);
   const [bgImage, setBgImage] = useState<string | null>(null);
+
+  // Animation Shared Values
+  const scrollY = useSharedValue(0);
 
   useEffect(() => {
     const loadBackground = async () => {
@@ -49,13 +59,28 @@ const GoalDetail = () => {
     return habits.filter(h => h.goalId === goalId);
   }, [habits, goalId]);
 
-  // Calculate overall progress (mock logic for now: average completion rate)
   const progress = useMemo(() => {
     if (associatedHabits.length === 0) return 0;
-    // In a real app, we'd fetch completions for these habits.
-    // For now, let's return a stable mock value or random for variety
-    return 65;
+    return 65; // Mock progress
   }, [associatedHabits]);
+
+  const scrollHandler = useAnimatedScrollHandler(event => {
+    scrollY.value = event.contentOffset.y;
+  });
+
+  const headerStyle = useAnimatedStyle(() => {
+    return {
+      height: HEADER_HEIGHT,
+      transform: [
+        {
+          translateY: interpolate(scrollY.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75])
+        },
+        {
+          scale: interpolate(scrollY.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [2, 1, 1])
+        }
+      ]
+    };
+  });
 
   const handleEditGoal = () => {
     if (!goal) return;
@@ -72,12 +97,7 @@ const GoalDetail = () => {
     });
   };
 
-  const handleAddHabit = () => {
-    router.push({
-      pathname: '/create',
-      params: { goalId: goalId as string }
-    });
-  };
+  const handleAddHabit = () => router.push({ pathname: '/create', params: { goalId: goalId as string } });
 
   const handleDeleteHabit = (habit: Habit) => {
     Alert.alert("Delete Habit", "Are you sure?", [
@@ -87,38 +107,19 @@ const GoalDetail = () => {
   };
 
   const handleChangeBackground = async () => {
-    if (!ImagePicker) {
-      Alert.alert(
-        "Feature Unavailable",
-        "To use custom backgrounds, you must rebuild the app. Please run 'npx expo run:ios' again.",
-        [{ text: "OK" }]
-      );
-      return;
-    }
+    // Keep existing logic for image picker...
+    if (!ImagePicker) return Alert.alert("Feature Unavailable", "Rebuild required.");
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return Alert.alert('Permission needed');
 
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, aspect: [16, 9], quality: 0.8,
+    });
 
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to make this work!');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const uri = result.assets[0].uri;
-        setBgImage(uri);
-        await AsyncStorage.setItem(`goal_bg_${goalId}`, uri);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert("Error", "Failed to select image. Please try again.");
+    if (!result.canceled && result.assets[0]) {
+      setBgImage(result.assets[0].uri);
+      await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
     }
   };
 
@@ -126,110 +127,114 @@ const GoalDetail = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-
-        {/* Header with Customizable Background */}
+      {/* Animated Header Background */}
+      <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden', zIndex: 0 }, headerStyle]}>
         <ImageBackground
-          source={bgImage ? { uri: bgImage } : require('@/assets/images/adaptive-icon.png')} // Default placeholder
-          className="h-80 w-full justify-end pb-6"
-          imageStyle={{ opacity: 0.6 }}
-          style={{ backgroundColor: colors.primary + '20' }}
+          source={bgImage ? { uri: bgImage } : require('@/assets/images/adaptive-icon.png')}
+          style={{ flex: 1, backgroundColor: colors.primary }}
+          imageStyle={{ opacity: 0.7 }}
         >
-          <SafeAreaView edges={['top']} className="absolute top-0 left-0 right-0 flex-row justify-between px-6 pt-4">
-            <TouchableOpacity
-              onPress={() => router.back()}
-              className="w-10 h-10 rounded-full items-center justify-center bg-black/20"
-            >
-              <Ionicons name="chevron-back" size={24} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleChangeBackground}
-              className="w-10 h-10 rounded-full items-center justify-center bg-black/40 border border-white/20"
-            >
-              <Ionicons name="camera" size={20} color="white" />
-            </TouchableOpacity>
-          </SafeAreaView>
-
-          <View className="items-center">
-            <HalfCircleProgress
-              progress={progress}
-              size={180}
-              strokeWidth={15}
-              color={goal.color || colors.primary}
-              backgroundColor="rgba(255,255,255,0.3)"
-              textColor="white"
-              fontSize={24}
-            />
-          </View>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} />
         </ImageBackground>
+      </Animated.View>
 
-        {/* Goal Info */}
-        <View className="px-6 -mt-6 bg-white dark:bg-gray-900 rounded-t-[40px] pt-8">
-          <View className="flex-row justify-between items-start mb-2">
-            <View className="flex-1">
-              <Text className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{goal.name}</Text>
-              <Text className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                Target: {new Date(goal.targetDate || '').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={handleEditGoal}
-              className="p-2 rounded-full"
-              style={{ backgroundColor: colors.surfaceSecondary }}
-            >
-              <Ionicons name="pencil" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
+      {/* Fixed Sticky Header Area (Back button) */}
+      <SafeAreaView style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="chevron-back" size={24} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleChangeBackground} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="camera" size={20} color="white" />
+        </TouchableOpacity>
+      </SafeAreaView>
 
-          {goal.description && (
-            <Text className="text-base mt-4 leading-6" style={{ color: colors.textSecondary }}>
-              {goal.description}
-            </Text>
-          )}
-
-          {/* Associated Habits */}
-          <View className="mt-10">
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Associated Habits</Text>
-              <TouchableOpacity
-                onPress={handleAddHabit}
-                className="flex-row items-center px-3 py-1.5 rounded-full"
-                style={{ backgroundColor: colors.primary + '15' }}
-              >
-                <Ionicons name="add" size={18} color={colors.primary} />
-                <Text className="ml-1 font-bold text-xs" style={{ color: colors.primary }}>Add Habit</Text>
-              </TouchableOpacity>
-            </View>
-
-            {associatedHabits.length > 0 ? (
-              associatedHabits.map(habit => (
-                <SwipeableHabitItem
-                  key={habit.id}
-                  habit={habit}
-                  onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
-                  onEdit={(h) => router.push({
-                    pathname: '/create',
-                    params: {
-                      id: h.id,
-                      name: h.name,
-                      category: h.category,
-                      icon: h.icon || '',
-                      duration: h.durationMinutes ? String(h.durationMinutes) : '',
-                      goalId: goalId as string
-                    }
-                  })}
-                  onDelete={handleDeleteHabit}
-                  onFocus={() => { }}
+      <Animated.ScrollView
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ paddingTop: HEADER_HEIGHT - 40, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <BlurView
+          intensity={90}
+          tint="dark"
+          style={{
+            borderTopLeftRadius: 32,
+            borderTopRightRadius: 32,
+            overflow: 'hidden',
+            minHeight: 500,
+            backgroundColor: colors.surface
+          }}
+        >
+          <View style={{ padding: 24 }}>
+            {/* Floating Progress Icon Overlap */}
+            <View style={{ position: 'absolute', top: -60, left: 0, right: 0, alignItems: 'center' }}>
+              <View style={{
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.3,
+                shadowRadius: 20
+              }}>
+                <HalfCircleProgress
+                  progress={progress}
+                  size={120}
+                  strokeWidth={12}
+                  color={goal.color || colors.primary}
+                  backgroundColor="rgba(255,255,255,0.1)"
+                  textColor="white"
+                  fontSize={20}
                 />
-              ))
-            ) : (
-              <View className="items-center justify-center py-8 rounded-3xl border border-dashed border-gray-200 dark:border-gray-800">
-                <Text className="text-gray-400">No habits linked to this goal yet</Text>
               </View>
-            )}
+            </View>
+
+            <View style={{ marginTop: 50 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 32, fontWeight: '800', color: 'white', marginBottom: 4, letterSpacing: 0.5 }}>{goal.name}</Text>
+                  <Text style={{ fontSize: 14, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    Target: {new Date(goal.targetDate || '').toLocaleDateString()}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={handleEditGoal} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12 }}>
+                  <Ionicons name="pencil" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+
+              {goal.description && (
+                <Text style={{ color: colors.textSecondary, fontSize: 16, marginTop: 16, lineHeight: 24 }}>
+                  {goal.description}
+                </Text>
+              )}
+
+              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 30 }} />
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: 'white' }}>Mission Habits</Text>
+                <TouchableOpacity onPress={handleAddHabit}>
+                  <Text style={{ color: colors.primary, fontWeight: '600' }}>+ Add New</Text>
+                </TouchableOpacity>
+              </View>
+
+              {associatedHabits.length > 0 ? (
+                associatedHabits.map(habit => (
+                  <SwipeableHabitItem
+                    key={habit.id}
+                    habit={habit}
+                    onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
+                    onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id, goalId: goalId as string } })}
+                    onDelete={handleDeleteHabit}
+                    onFocus={() => { }}
+                  />
+                ))
+              ) : (
+                <View style={{ padding: 40, alignItems: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 20 }}>
+                  <Text style={{ color: colors.textSecondary }}>No habits linked yet.</Text>
+                </View>
+              )}
+            </View>
+
           </View>
-        </View>
-      </ScrollView>
+        </BlurView>
+      </Animated.ScrollView>
     </View>
   );
 };

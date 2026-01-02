@@ -15,6 +15,8 @@ import { View, AppState } from 'react-native';
 import AIAgentWrapper from '@/components/AI/AIAgentWrapper';
 import { NotificationService } from '@/lib/notificationService';
 import { syncWidgets } from '@/lib/habits';
+import StripeAppProvider from '@/components/StripeAppProvider';
+import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -62,9 +64,13 @@ export default function MobileLayout() {
 
   return (
     <ThemeProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <InnerLayout />
-      </GestureHandlerRootView>
+      <StripeAppProvider>
+        <AIPersonalityProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <InnerLayout />
+          </GestureHandlerRootView>
+        </AIPersonalityProvider>
+      </StripeAppProvider>
     </ThemeProvider>
   );
 }

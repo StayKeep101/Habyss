@@ -1,16 +1,42 @@
 import React from 'react';
-import { Slot } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
-import { View } from 'react-native';
+import { GlassDock } from '@/components/TabBar/GlassDock';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <Slot />
-    </View>
+    <Tabs
+      tabBar={(props) => <GlassDock {...props} />}
+      screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          position: 'absolute',
+        }
+      }}
+    >
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: "Home"
+        }}
+      />
+      <Tabs.Screen
+        name="roadmap"
+        options={{
+          title: "Roadmap"
+        }}
+      />
+      <Tabs.Screen
+        name="statistics"
+        options={{
+          title: "Stats"
+        }}
+      />
+    </Tabs>
   );
 }

@@ -42,11 +42,24 @@ export const usePremiumStatus = () => {
     }
   };
 
+  const restorePurchases = useCallback(async () => {
+    setLoading(true);
+    const success = await StripeService.restorePurchases();
+    if (success) {
+      await refreshStatus();
+    }
+    setLoading(false);
+    return success;
+  }, [refreshStatus]);
+
+
   return {
     isPremium,
     status,
     loading,
     refreshStatus,
-    paywallGuard
+    refreshStatus,
+    paywallGuard,
+    restorePurchases
   };
 };

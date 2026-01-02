@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import Stripe from 'https://esm.sh/stripe@12.0.0?target=deno'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -40,7 +41,7 @@ serve(async (req) => {
               status: 'active',
               current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // Mock for now
             })
-          
+
           if (error) throw error
         }
         break
@@ -49,7 +50,7 @@ serve(async (req) => {
       case 'customer.subscription.updated':
         const subscription = event.data.object as Stripe.Subscription
         const status = subscription.status === 'active' ? 'active' : 'inactive'
-        
+
         await supabaseClient
           .from('subscriptions')
           .update({
