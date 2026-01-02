@@ -15,6 +15,7 @@ import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Alert } from 'react-native';
 import { ProfileHeader } from '@/components/ProfileHeader';
+import { VoidShell } from '@/components/Layout/VoidShell';
 
 interface Habit extends StoreHabit {
   streak?: number;
@@ -163,124 +164,127 @@ const Home = () => {
 
   const goals = habitsStore.filter(h => h.isGoal);
 
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-      <View style={{ flex: 1, position: 'relative' }}>
+    <VoidShell>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <View style={{ flex: 1, position: 'relative' }}>
 
-        {/* Layer 1 (Top): Calendar Strip (Fixed) */}
-        <View style={{ zIndex: 10 }}>
-          <CalendarStrip selectedDate={selectedDate} onSelectDate={handleDateSelect} />
-        </View>
+          {/* Layer 1 (Top): Calendar Strip (Fixed) */}
+          <View style={{ zIndex: 10 }}>
+            <CalendarStrip selectedDate={selectedDate} onSelectDate={handleDateSelect} />
+          </View>
 
-        import {ProfileHeader} from '@/components/ProfileHeader';
-        {/* Layer 2 (Background): Goals & Habits List */}
-        <View style={{ flex: 1, paddingHorizontal: 20 }}>
-          <ScrollView contentContainerStyle={{ paddingBottom: 150, paddingTop: 10 }} showsVerticalScrollIndicator={false}>
 
-            <ProfileHeader />
+          {/* Layer 2 (Background): Goals & Habits List */}
+          <View style={{ flex: 1, paddingHorizontal: 20 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 150, paddingTop: 10 }} showsVerticalScrollIndicator={false}>
 
-            <View className="flex-row justify-between items-center mb-4 mt-2">
-              <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Active Goals</Text>
-              <TouchableOpacity onPress={() => router.push('/roadmap')}>
-                <Text className="text-sm font-semibold" style={{ color: colors.primary }}>View Roadmap</Text>
-              </TouchableOpacity>
-            </View>
+              <ProfileHeader />
 
-            {/* Goals Section */}
-            <View className="mb-6">
-              {goals.length > 0 ? (
-                goals.map((goal) => {
-                  const associatedHabits = habitsStore.filter(h => h.goalId === goal.id);
-                  // Simple progress calculation: 65% for now if has habits, else 0
-                  const progress = associatedHabits.length > 0 ? 65 : 0;
-                  return (
-                    <GoalCard
-                      key={goal.id}
-                      goal={goal}
-                      progress={progress}
-                      onPress={() => router.push({ pathname: '/goal-detail', params: { goalId: goal.id } })}
-                    />
-                  );
-                })
+              <View className="flex-row justify-between items-center mb-4 mt-2">
+                <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>Active Goals</Text>
+                <TouchableOpacity onPress={() => router.push('/roadmap')}>
+                  <Text className="text-sm font-semibold" style={{ color: colors.primary }}>View Roadmap</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Goals Section */}
+              <View className="mb-6">
+                {goals.length > 0 ? (
+                  goals.map((goal) => {
+                    const associatedHabits = habitsStore.filter(h => h.goalId === goal.id);
+                    // Simple progress calculation: 65% for now if has habits, else 0
+                    const progress = associatedHabits.length > 0 ? 65 : 0;
+                    return (
+                      <GoalCard
+                        key={goal.id}
+                        goal={goal}
+                        progress={progress}
+                        onPress={() => router.push({ pathname: '/goal-detail', params: { goalId: goal.id } })}
+                      />
+                    );
+                  })
+                ) : (
+                  <View className="items-center justify-center py-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
+                    <Text className="text-gray-400">No active goals</Text>
+                  </View>
+                )}
+              </View>
+
+              <Text className="text-lg font-bold mb-3" style={{ color: colors.textPrimary }}>Today's Habits</Text>
+              {habits.filter(h => !h.isGoal).length > 0 ? (
+                habits.filter(h => !h.isGoal).map((habit) => (
+                  <SwipeableHabitItem
+                    key={habit.id}
+                    habit={habit}
+                    onPress={() => handleHabitPress(habit)}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onFocus={handleFocus}
+                  />
+                ))
               ) : (
-                <View className="items-center justify-center py-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-dashed border-gray-300 dark:border-gray-700">
-                  <Text className="text-gray-400">No active goals</Text>
+                <View className="items-center justify-center py-10">
+                  <Text className="text-gray-400">No habits for this day</Text>
                 </View>
               )}
-            </View>
-
-            <Text className="text-lg font-bold mb-3" style={{ color: colors.textPrimary }}>Today's Habits</Text>
-            {habits.filter(h => !h.isGoal).length > 0 ? (
-              habits.filter(h => !h.isGoal).map((habit) => (
-                <SwipeableHabitItem
-                  key={habit.id}
-                  habit={habit}
-                  onPress={() => handleHabitPress(habit)}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onFocus={handleFocus}
-                />
-              ))
-            ) : (
-              <View className="items-center justify-center py-10">
-                <Text className="text-gray-400">No habits for this day</Text>
-              </View>
-            )}
-          </ScrollView>
-        </View>
+            </ScrollView>
+          </View>
 
 
 
-        {/* Creation Modal */}
-        <CreationModal
-          visible={isFabExpanded}
-          onClose={() => setIsFabExpanded(false)}
-          goals={goals.filter(g => g.isGoal)}
-          onCreateGoal={() => {
-            setIsFabExpanded(false);
-            setTimeout(() => setIsWizardVisible(true), 300);
-          }}
-          onCreateHabit={() => {
-            setIsFabExpanded(false);
-            router.push('/create');
-          }}
-          onAddHabitToGoal={(goalId) => {
-            setIsFabExpanded(false);
-            router.push({ pathname: '/create', params: { goalId } });
-          }}
-        />
-
-        <GoalCreationWizard
-          visible={isWizardVisible}
-          onClose={() => setIsWizardVisible(false)}
-          onSuccess={() => {
-            // Refresh logic if needed
-          }}
-        />
-
-        {/* Floating FAB for Quick Add above the Dock */}
-        <View style={{ position: 'absolute', bottom: 110, right: 20, zIndex: 50 }}>
-          <TouchableOpacity
-            className="w-14 h-14 rounded-full items-center justify-center shadow-lg"
-            style={{
-              backgroundColor: colors.primary,
-              shadowColor: colors.primary,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.5,
-              shadowRadius: 8,
-              elevation: 10
+          {/* Creation Modal */}
+          <CreationModal
+            visible={isFabExpanded}
+            onClose={() => setIsFabExpanded(false)}
+            goals={goals.filter(g => g.isGoal)}
+            onCreateGoal={() => {
+              setIsFabExpanded(false);
+              setTimeout(() => setIsWizardVisible(true), 300);
             }}
-            onPress={() => {
-              lightFeedback();
-              setIsFabExpanded(true);
+            onCreateHabit={() => {
+              setIsFabExpanded(false);
+              router.push('/create');
             }}
-          >
-            <Ionicons name="add" size={32} color="white" />
-          </TouchableOpacity>
-        </View>
+            onAddHabitToGoal={(goalId) => {
+              setIsFabExpanded(false);
+              router.push({ pathname: '/create', params: { goalId } });
+            }}
+          />
 
-      </View>
-    </SafeAreaView>
+          <GoalCreationWizard
+            visible={isWizardVisible}
+            onClose={() => setIsWizardVisible(false)}
+            onSuccess={() => {
+              // Refresh logic if needed
+            }}
+          />
+
+          {/* Floating FAB for Quick Add above the Dock */}
+          <View style={{ position: 'absolute', bottom: 110, right: 20, zIndex: 50 }}>
+            <TouchableOpacity
+              className="w-14 h-14 rounded-full items-center justify-center shadow-lg"
+              style={{
+                backgroundColor: colors.primary,
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.5,
+                shadowRadius: 8,
+                elevation: 10
+              }}
+              onPress={() => {
+                lightFeedback();
+                setIsFabExpanded(true);
+              }}
+            >
+              <Ionicons name="add" size={32} color="white" />
+            </TouchableOpacity>
+          </View>
+
+        </View>
+      </SafeAreaView>
+    </VoidShell>
   );
 };
 

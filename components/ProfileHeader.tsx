@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { getHabits, getCompletions, Habit, getUserId } from '@/lib/habits';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { useHaptics } from '@/hooks/useHaptics';
+
+import { CommandCenter } from '@/components/CommandCenter';
 
 export const ProfileHeader = () => {
     const { theme } = useTheme();
@@ -18,6 +21,8 @@ export const ProfileHeader = () => {
         level: 'Novice'
     });
     const [loading, setLoading] = useState(true);
+    const [showCommandCenter, setShowCommandCenter] = useState(false);
+    const { lightFeedback } = useHaptics();
 
     useEffect(() => {
         loadProfileData();
@@ -67,44 +72,59 @@ export const ProfileHeader = () => {
     }
 
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={[colors.primary, '#4c1d95']} // Dynamic purple gradient
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.card}
+        <>
+            <TouchableOpacity
+                style={styles.container}
+                onPress={() => {
+                    lightFeedback();
+                    setShowCommandCenter(true);
+                }}
+                activeOpacity={0.9}
             >
-                <View style={styles.content}>
-                    <View style={styles.row}>
-                        {/* Avatar / Placeholder */}
-                        <View style={styles.avatarContainer}>
-                            <Text style={styles.avatarText}>
-                                {user?.email?.charAt(0).toUpperCase() || 'U'}
-                            </Text>
+                <LinearGradient
+                    colors={[colors.primary, '#4c1d95']} // Dynamic purple gradient
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.card}
+                >
+                    <View style={styles.content}>
+                        <View style={styles.row}>
+                            {/* Avatar / Placeholder */}
+                            <View style={styles.avatarContainer}>
+                                <Text style={styles.avatarText}>
+                                    {user?.email?.charAt(0).toUpperCase() || 'U'}
+                                </Text>
+                            </View>
+
+                            <View style={styles.userInfo}>
+                                <Text style={styles.levelLabel}>{stats.level}</Text>
+                                <Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
+                            </View>
+
+                            <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.6)" />
                         </View>
 
-                        <View style={styles.userInfo}>
-                            <Text style={styles.levelLabel}>{stats.level}</Text>
-                            <Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
+                        <View style={styles.statsRow}>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{stats.activeHabits}</Text>
+                                <Text style={styles.statLabel}>Active Habits</Text>
+                            </View>
+                            <View style={styles.divider} />
+                            <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{stats.completionRate}%</Text>
+                                <Text style={styles.statLabel}>Today's Focus</Text>
+                            </View>
                         </View>
-
-                        <Ionicons name="trophy" size={24} color="rgba(255,255,255,0.8)" />
                     </View>
+                </LinearGradient>
+            </TouchableOpacity>
 
-                    <View style={styles.statsRow}>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{stats.activeHabits}</Text>
-                            <Text style={styles.statLabel}>Active Habits</Text>
-                        </View>
-                        <View style={styles.divider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>{stats.completionRate}%</Text>
-                            <Text style={styles.statLabel}>Today's Focus</Text>
-                        </View>
-                    </View>
-                </View>
-            </LinearGradient>
-        </View>
+            <CommandCenter
+                visible={showCommandCenter}
+                onClose={() => setShowCommandCenter(false)}
+                user={user}
+            />
+        </>
     );
 };
 

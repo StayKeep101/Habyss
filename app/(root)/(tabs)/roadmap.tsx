@@ -5,16 +5,16 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { BlurView } from 'expo-blur';
 
+import { VoidShell } from '@/components/Layout/VoidShell';
+
 export default function RoadmapScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
 
     return (
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <LinearGradient
-                colors={[colors.primaryDark, colors.background]}
-                style={{ position: 'absolute', width: '100%', height: 400 }}
-            />
+        <VoidShell>
+            {/* Ambient gradients handled by VoidShell, or add specific ones here if needed */}
+
 
             <ScrollView contentContainerStyle={{ paddingTop: 80, paddingHorizontal: 20 }}>
                 <Text style={{ fontSize: 32, fontWeight: '800', color: colors.textPrimary, marginBottom: 8 }}>
@@ -38,6 +38,6 @@ export default function RoadmapScreen() {
                     </View>
                 ))}
             </ScrollView>
-        </View>
+        </VoidShell>
     );
 }

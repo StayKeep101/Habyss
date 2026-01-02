@@ -41,7 +41,7 @@ interface GoalCreationWizardProps {
     onSuccess: () => void;
 }
 
-const STEPS = ['VISION', 'DEADLINE', 'SYMBOL', 'COMMIT'];
+const STEPS = ['VISION', 'PURPOSE', 'DEADLINE', 'SYMBOL', 'COMMIT'];
 
 const PRESET_GRADIENTS = {
     purple: ['#2e1065', '#4c1d95', '#0f172a'],
@@ -67,6 +67,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
     // State
     const [step, setStep] = useState(0);
     const [name, setName] = useState('');
+    const [why, setWhy] = useState('');
     const [targetDate, setTargetDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // +30 days
     const [category, setCategory] = useState<HabitCategory>('personal');
     const [selectedIcon, setSelectedIcon] = useState<string>('trophy');
@@ -81,6 +82,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
         if (visible) {
             setStep(0);
             setName('');
+            setWhy('');
             setTargetDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
             setCategory('personal');
             setSelectedIcon('trophy');
@@ -132,12 +134,11 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
         try {
             await addHabit({
                 name: name.trim(),
+                description: why.trim(), // Storing "Why" in description
                 isGoal: true,
                 targetDate: targetDate.toISOString(),
                 category: category,
                 icon: selectedIcon,
-                // These are safe fields that we know persist in init_schema.sql
-                // We are omitting color, description, etc. as per previous fix
                 type: 'build',
             });
 
@@ -178,7 +179,25 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                         <Text style={styles.helper}>Dream big. You can break it down later.</Text>
                     </Animated.View>
                 );
-            case 1: // DEADLINE
+            case 1: // PURPOSE
+                return (
+                    <Animated.View entering={FadeIn.duration(400)} exiting={FadeOut.duration(200)} style={styles.stepContainer}>
+                        <Text style={styles.question}>Why does this matter?</Text>
+                        <TextInput
+                            style={[styles.mainInput, { fontSize: 24 }]}
+                            placeholder="e.g. To prove to myself I can..."
+                            placeholderTextColor="rgba(255,255,255,0.4)"
+                            value={why}
+                            onChangeText={setWhy}
+                            autoFocus
+                            multiline
+                            numberOfLines={3}
+                            returnKeyType="next"
+                        />
+                        <Text style={styles.helper}>Your "Why" will keep you going when it gets hard.</Text>
+                    </Animated.View>
+                );
+            case 2: // DEADLINE
                 return (
                     <Animated.View entering={FadeIn.duration(400)} exiting={FadeOut.duration(200)} style={styles.stepContainer}>
                         <Text style={styles.question}>When will you achieve this?</Text>
@@ -196,7 +215,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                         <Text style={styles.helper}>A goal without a deadline is just a dream.</Text>
                     </Animated.View>
                 );
-            case 2: // SYMBOL
+            case 3: // SYMBOL
                 return (
                     <Animated.View entering={FadeIn.duration(400)} exiting={FadeOut.duration(200)} style={styles.stepContainer}>
                         <Text style={styles.question}>Define the vibe.</Text>
@@ -240,11 +259,12 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                         </View>
                     </Animated.View>
                 );
-            case 3: // COMMIT
+            case 4: // COMMIT
                 return (
                     <Animated.View entering={FadeIn.duration(400)} exiting={FadeOut.duration(200)} style={styles.stepContainer}>
                         <Ionicons name="trophy" size={64} color="white" style={{ marginBottom: 24 }} />
                         <Text style={styles.summaryTitle}>{name}</Text>
+                        {why ? <Text style={styles.summaryWhy}>"{why}"</Text> : null}
                         <Text style={styles.summaryDate}>by {targetDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
 
                         <View style={styles.commitArea}>
@@ -268,7 +288,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
         <Modal visible={visible} animationType="slide" transparent={false}>
             <View style={{ flex: 1 }}>
                 <LinearGradient
-                    colors={PRESET_GRADIENTS[selectedTheme] as readonly [string, string, ...string[]]}
+                    colors={PRESET_GRADIENTS[selectedTheme] as any}
                     style={StyleSheet.absoluteFill}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -280,7 +300,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                         <Ionicons name="arrow-back" size={24} color="white" />
                     </TouchableOpacity>
                     <View style={styles.progressBar}>
-                        <Animated.View style={[styles.progressFill, { width: `${(step + 1) / 4 * 100}%` }]} />
+                        <Animated.View style={[styles.progressFill, { width: `${(step + 1) / STEPS.length * 100}%` }]} />
                     </View>
                     <View style={{ width: 40 }} />
                 </View>
@@ -293,7 +313,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                 </TouchableWithoutFeedback>
 
                 {/* Footer Navigation (Except last step) */}
-                {step < 3 && (
+                {step < STEPS.length - 1 && (
                     <View style={styles.footer}>
                         <TouchableOpacity
                             onPress={handleNext}
@@ -456,6 +476,14 @@ const styles = StyleSheet.create({
         color: 'white',
         textAlign: 'center',
         marginBottom: 8,
+    },
+    summaryWhy: {
+        fontSize: 18,
+        fontStyle: 'italic',
+        color: 'rgba(255,255,255,0.9)',
+        textAlign: 'center',
+        marginBottom: 24,
+        paddingHorizontal: 20,
     },
     summaryDate: {
         fontSize: 18,

@@ -8,6 +8,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
+import { CosmicView } from '@/components/Goal/CosmicView';
 import { subscribeToHabits, Habit, removeHabitEverywhere } from '@/lib/habits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {
@@ -165,31 +166,16 @@ const GoalDetail = () => {
             backgroundColor: colors.surface
           }}
         >
-          <View style={{ padding: 24 }}>
-            {/* Floating Progress Icon Overlap */}
-            <View style={{ position: 'absolute', top: -60, left: 0, right: 0, alignItems: 'center' }}>
-              <View style={{
-                shadowColor: colors.primary,
-                shadowOffset: { width: 0, height: 10 },
-                shadowOpacity: 0.3,
-                shadowRadius: 20
-              }}>
-                <HalfCircleProgress
-                  progress={progress}
-                  size={120}
-                  strokeWidth={12}
-                  color={goal.color || colors.primary}
-                  backgroundColor="rgba(255,255,255,0.1)"
-                  textColor="white"
-                  fontSize={20}
-                />
-              </View>
+          <View style={{ paddingTop: 40, paddingHorizontal: 24, paddingBottom: 24 }}>
+
+            {/* The Observatory (Cosmic View) */}
+            <View style={{ marginBottom: 20 }}>
+              <CosmicView goalName={goal.name} habits={associatedHabits} />
             </View>
 
-            <View style={{ marginTop: 50 }}>
+            <View style={{ marginTop: 10 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 32, fontWeight: '800', color: 'white', marginBottom: 4, letterSpacing: 0.5 }}>{goal.name}</Text>
                   <Text style={{ fontSize: 14, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 }}>
                     Target: {new Date(goal.targetDate || '').toLocaleDateString()}
                   </Text>

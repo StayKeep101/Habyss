@@ -44,18 +44,18 @@ export const Colors = {
     gradientEnd: '#5B7FB8',
   },
   abyss: {
-    text: '#F8FAFC', // Slate-50
-    background: '#020617', // Slate-950 (Deepest Void)
-    tint: '#60A5FA', // Blue-400 (Electric Blue)
+    text: '#E2E8F0', // Slate-200
+    background: '#000000', // Pure Black for depth
+    tint: '#8B5CF6', // Violet-500 (Cosmic)
     tabIconDefault: '#475569', // Slate-600
-    tabIconSelected: '#60A5FA',
+    tabIconSelected: '#8B5CF6',
 
     // Brand Colors
-    primary: '#3B82F6', // Blue-500
-    primaryLight: '#60A5FA', // Blue-400
-    primaryDark: '#1D4ED8', // Blue-700
-    secondary: '#475569', // Slate-600
-    accent: '#F43F5E', // Rose-500 (Sharper than Coral)
+    primary: '#8B5CF6', // Violet-500
+    primaryLight: '#A78BFA', // Violet-400
+    primaryDark: '#7C3AED', // Violet-600
+    secondary: '#1E293B', // Slate-800
+    accent: '#06B6D4', // Cyan-500 (Energy)
 
     // Status
     success: '#10B981', // Emerald-500
@@ -64,20 +64,20 @@ export const Colors = {
     error: '#EF4444',
 
     // Surfaces
-    surface: '#0F172A', // Slate-900 (Card Background)
-    surfaceSecondary: '#1E293B', // Slate-800
-    surfaceTertiary: 'rgba(30, 41, 59, 0.5)', // Glassy Slate
+    surface: '#0A0A0A', // Almost black
+    surfaceSecondary: '#111111', // Very dark gray
+    surfaceTertiary: 'rgba(255, 255, 255, 0.05)', // Glassy
 
-    border: '#1E293B', // Slate-800
-    borderLight: '#334155', // Slate-700
+    border: '#27272a', // Zinc-800
+    borderLight: '#3f3f46', // Zinc-700
 
-    textPrimary: '#F8FAFC', // Slate-50
-    textSecondary: '#94A3B8', // Slate-400
-    textTertiary: '#64748B', // Slate-500
+    textPrimary: '#F8FAFC',
+    textSecondary: '#94A3B8',
+    textTertiary: '#64748B',
 
     // Gradients
-    gradientStart: '#1E40AF', // Blue-800
-    gradientEnd: '#3B82F6', // Blue-500
+    gradientStart: '#000000',
+    gradientEnd: '#1E1B4B', // Midnight
   },
   trueDark: {
     text: '#FFFFFF',
