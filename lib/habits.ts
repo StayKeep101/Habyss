@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase';
 import { NotificationService } from './notificationService';
-import { WidgetSync } from './widgetSync';
 
 // --- In-Memory Cache ---
 let cachedHabits: Habit[] | null = null;
@@ -212,9 +211,6 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
     habitsListeners.forEach(l => l(cachedHabits!));
   }
 
-  // Sync Widgets
-  syncWidgets();
-
   return created;
 }
 
@@ -266,9 +262,6 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
       cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? { ...h, ...updatedHabit } as Habit : h);
       habitsListeners.forEach(l => l(cachedHabits!));
     }
-
-    // Sync Widgets
-    syncWidgets();
   }
 }
 
@@ -284,9 +277,6 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
     cachedHabits = cachedHabits.filter(h => h.id !== habitId);
     habitsListeners.forEach(l => l(cachedHabits!));
   }
-
-  // Sync Widgets
-  syncWidgets();
 }
 
 // --- Completions ---
@@ -342,9 +332,6 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
       await NotificationService.sendCompletionNotification(habit.name);
     }
   }
-
-  // Sync Widgets
-  syncWidgets();
 
   return getCompletions(dateStr);
 }
@@ -453,95 +440,3 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
   }));
 }
 
-/**
- * Syncs the latest habit data to the home screen widgets.
- */
-export async function syncWidgets() {
-  try {
-    const habits = await getHabits();
-    const completions = await getCompletions();
-    const streakData = await getStreakData();
-
-    const today = todayString();
-    const todayHabits = habits.filter(h => {
-      // Very basic filter: if it's not archived
-      if (h.isArchived) return false;
-
-      // Filter by taskDays if available
-      if (h.taskDays && h.taskDays.length > 0) {
-        const dayMap: Record<string, number> = { 'sun': 0, 'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6 };
-        const todayDay = new Date().getDay();
-        const activeDays = h.taskDays.map(d => dayMap[d.toLowerCase()]);
-        return activeDays.includes(todayDay);
-      }
-      return true;
-    });
-
-    const totalHabitsToday = todayHabits.length;
-    const completedHabitsToday = todayHabits.filter(h => completions[h.id]).length;
-
-    const widgetHabits = todayHabits.map(h => ({
-      id: h.id,
-      name: h.name,
-      completed: !!completions[h.id],
-      category: h.category,
-      icon: h.icon || 'ellipse-outline'
-    }));
-
-    const nextHabit = widgetHabits.find(h => !h.completed);
-
-    await WidgetSync.updateWidgetData({
-      completedHabitsToday,
-      totalHabitsToday,
-      streakDays: streakData.currentStreak,
-      todayHabits: widgetHabits,
-      nextHabit: nextHabit
-    });
-  } catch (error) {
-    console.error('Error syncing widgets from habits.ts:', error);
-  }
-}
-
-// --- Integration Management ---
-
-/**
- * Links a habit to an integration data source
- */
-export async function linkHabitToIntegration(
-  habitId: string,
-  serviceName: string,
-  dataType: string,
-  config: any = {},
-  autoComplete: boolean = true
-): Promise<void> {
-  const { SyncCoordinator } = await import('./syncCoordinator');
-  await SyncCoordinator.linkHabitToIntegration(habitId, serviceName, dataType, config, autoComplete);
-}
-
-/**
- * Unlinks a habit from an integration
- */
-export async function unlinkHabitFromIntegration(
-  habitId: string,
-  serviceName: string,
-  dataType: string
-): Promise<void> {
-  const { SyncCoordinator } = await import('./syncCoordinator');
-  await SyncCoordinator.unlinkHabitFromIntegration(habitId, serviceName, dataType);
-}
-
-/**
- * Gets all integration mappings for a habit
- */
-export async function getHabitIntegrations(habitId: string): Promise<any[]> {
-  const { SyncCoordinator } = await import('./syncCoordinator');
-  return await SyncCoordinator.getHabitIntegrations(habitId);
-}
-
-/**
- * Syncs habit from integrations and auto-completes if needed
- */
-export async function syncHabitFromIntegrations(habitId: string): Promise<void> {
-  const { SyncCoordinator } = await import('./syncCoordinator');
-  await SyncCoordinator.syncAllIntegrations();
-}
