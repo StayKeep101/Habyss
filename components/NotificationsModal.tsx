@@ -1,10 +1,11 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, Dimensions, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import * as Haptics from 'expo-haptics';
 
 interface Notification {
     id: string;
@@ -21,7 +22,7 @@ interface NotificationsModalProps {
     onClose: () => void;
 }
 
-const MOCK_NOTIFICATIONS: Notification[] = [
+const INITIAL_NOTIFICATIONS: Notification[] = [
     {
         id: '1',
         title: 'Streak Achievement!',
@@ -51,7 +52,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     },
     {
         id: '4',
-        title: 'Don\'t break your streak!',
+        title: "Don't break your streak!",
         message: 'You haven\'t completed "Read 30 mins" today',
         time: '3 hours ago',
         icon: 'alert-circle',
@@ -73,6 +74,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     const { theme } = useTheme();
     const colors = Colors[theme];
 
+    const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+
+    const unreadCount = notifications.filter(n => !n.read).length;
+
     const getTypeColor = (type: string) => {
         switch (type) {
             case 'success': return '#A3E635';
@@ -81,6 +86,37 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
             case 'info':
             default: return colors.primary;
         }
+    };
+
+    const handleMarkAllRead = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    };
+
+    const handleClearAll = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Alert.alert(
+            'Clear All Notifications',
+            'Are you sure you want to remove all notifications?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Clear All',
+                    style: 'destructive',
+                    onPress: () => {
+                        setNotifications([]);
+                        onClose();
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleNotificationPress = (id: string) => {
+        Haptics.selectionAsync();
+        setNotifications(prev =>
+            prev.map(n => n.id === id ? { ...n, read: true } : n)
+        );
     };
 
     return (
@@ -104,54 +140,81 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                         <BlurView intensity={80} tint="dark" style={styles.modalContent}>
                             {/* Header */}
                             <View style={styles.header}>
-                                <Text style={styles.headerTitle}>NOTIFICATIONS</Text>
+                                <View>
+                                    <Text style={styles.headerTitle}>NOTIFICATIONS</Text>
+                                    {unreadCount > 0 && (
+                                        <Text style={styles.headerSubtitle}>{unreadCount} unread</Text>
+                                    )}
+                                </View>
                                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                                     <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
                                 </TouchableOpacity>
                             </View>
 
-                            {/* Notifications List */}
+                            {/* Notifications List - Scrollable */}
                             <ScrollView
                                 style={styles.listContainer}
-                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={styles.listContent}
+                                showsVerticalScrollIndicator={true}
+                                bounces={true}
                             >
-                                {MOCK_NOTIFICATIONS.map((notification, index) => (
-                                    <Animated.View
-                                        key={notification.id}
-                                        entering={FadeInDown.delay(index * 50).duration(300)}
-                                        style={[
-                                            styles.notificationItem,
-                                            !notification.read && styles.unreadItem
-                                        ]}
-                                    >
-                                        <View style={[styles.iconContainer, { backgroundColor: getTypeColor(notification.type) + '20' }]}>
-                                            <Ionicons
-                                                name={notification.icon as any}
-                                                size={20}
-                                                color={getTypeColor(notification.type)}
-                                            />
-                                        </View>
-                                        <View style={styles.contentContainer}>
-                                            <View style={styles.titleRow}>
-                                                <Text style={styles.notificationTitle}>{notification.title}</Text>
-                                                {!notification.read && <View style={styles.unreadDot} />}
-                                            </View>
-                                            <Text style={styles.notificationMessage}>{notification.message}</Text>
-                                            <Text style={styles.notificationTime}>{notification.time}</Text>
-                                        </View>
-                                    </Animated.View>
-                                ))}
+                                {notifications.length === 0 ? (
+                                    <View style={styles.emptyState}>
+                                        <Ionicons name="notifications-off-outline" size={48} color="rgba(255,255,255,0.2)" />
+                                        <Text style={styles.emptyText}>No notifications</Text>
+                                        <Text style={styles.emptySubtext}>You're all caught up!</Text>
+                                    </View>
+                                ) : (
+                                    notifications.map((notification, index) => (
+                                        <Animated.View
+                                            key={notification.id}
+                                            entering={FadeInDown.delay(index * 50).duration(300)}
+                                        >
+                                            <TouchableOpacity
+                                                onPress={() => handleNotificationPress(notification.id)}
+                                                style={[
+                                                    styles.notificationItem,
+                                                    !notification.read && styles.unreadItem
+                                                ]}
+                                            >
+                                                <View style={[styles.iconContainer, { backgroundColor: getTypeColor(notification.type) + '20' }]}>
+                                                    <Ionicons
+                                                        name={notification.icon as any}
+                                                        size={20}
+                                                        color={getTypeColor(notification.type)}
+                                                    />
+                                                </View>
+                                                <View style={styles.contentContainer}>
+                                                    <View style={styles.titleRow}>
+                                                        <Text style={styles.notificationTitle}>{notification.title}</Text>
+                                                        {!notification.read && <View style={styles.unreadDot} />}
+                                                    </View>
+                                                    <Text style={styles.notificationMessage}>{notification.message}</Text>
+                                                    <Text style={styles.notificationTime}>{notification.time}</Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                        </Animated.View>
+                                    ))
+                                )}
                             </ScrollView>
 
                             {/* Actions */}
-                            <View style={styles.actionsRow}>
-                                <TouchableOpacity style={styles.actionButton}>
-                                    <Text style={styles.actionText}>Mark all read</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.actionButton, styles.actionButtonPrimary]}>
-                                    <Text style={styles.actionTextPrimary}>View All</Text>
-                                </TouchableOpacity>
-                            </View>
+                            {notifications.length > 0 && (
+                                <View style={styles.actionsRow}>
+                                    <TouchableOpacity
+                                        style={[styles.actionButton, unreadCount === 0 && styles.actionDisabled]}
+                                        onPress={handleMarkAllRead}
+                                        disabled={unreadCount === 0}
+                                    >
+                                        <Ionicons name="checkmark-done" size={16} color={unreadCount > 0 ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.2)'} style={{ marginRight: 6 }} />
+                                        <Text style={[styles.actionText, unreadCount === 0 && { color: 'rgba(255,255,255,0.2)' }]}>Mark all read</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.actionButton, styles.actionButtonDanger]} onPress={handleClearAll}>
+                                        <Ionicons name="trash-outline" size={16} color="#EF4444" style={{ marginRight: 6 }} />
+                                        <Text style={styles.actionTextDanger}>Clear All</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
                         </BlurView>
                     </TouchableOpacity>
                 </Animated.View>
@@ -171,11 +234,11 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         marginHorizontal: 16,
+        maxHeight: height * 0.7,
     },
     modalContent: {
         borderRadius: 24,
         overflow: 'hidden',
-        maxHeight: height * 0.6,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
     },
@@ -194,6 +257,12 @@ const styles = StyleSheet.create({
         letterSpacing: 2,
         fontFamily: 'SpaceGrotesk-Bold',
     },
+    headerSubtitle: {
+        fontSize: 12,
+        color: '#2DD4BF',
+        fontFamily: 'SpaceMono-Regular',
+        marginTop: 2,
+    },
     closeButton: {
         width: 36,
         height: 36,
@@ -203,7 +272,26 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     listContainer: {
-        maxHeight: height * 0.4,
+        maxHeight: height * 0.45,
+    },
+    listContent: {
+        paddingVertical: 8,
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: 'rgba(255,255,255,0.4)',
+        marginTop: 12,
+    },
+    emptySubtext: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.2)',
+        marginTop: 4,
+        fontFamily: 'SpaceMono-Regular',
     },
     notificationItem: {
         flexDirection: 'row',
@@ -263,23 +351,28 @@ const styles = StyleSheet.create({
     },
     actionButton: {
         flex: 1,
+        flexDirection: 'row',
         paddingVertical: 12,
         borderRadius: 12,
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: 'rgba(255,255,255,0.05)',
     },
-    actionButtonPrimary: {
-        backgroundColor: '#2DD4BF',
+    actionDisabled: {
+        opacity: 0.5,
+    },
+    actionButtonDanger: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
     },
     actionText: {
         color: 'rgba(255,255,255,0.6)',
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '600',
         fontFamily: 'SpaceGrotesk-Bold',
     },
-    actionTextPrimary: {
-        color: '#000',
-        fontSize: 14,
+    actionTextDanger: {
+        color: '#EF4444',
+        fontSize: 13,
         fontWeight: '600',
         fontFamily: 'SpaceGrotesk-Bold',
     },

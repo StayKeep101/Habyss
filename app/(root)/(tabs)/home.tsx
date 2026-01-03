@@ -12,10 +12,9 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
 import { subscribeToHabits, getCompletions, Habit } from '@/lib/habits';
 import { NotificationsModal } from '@/components/NotificationsModal';
+import { AIAgentModal } from '@/components/AIAgentModal';
 import * as Haptics from 'expo-haptics';
-
-// Mock Profile Image
-const PROFILE_IMAGE = 'https://i.pravatar.cc/150?img=11';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Home = () => {
   const router = useRouter();
@@ -31,6 +30,18 @@ const Home = () => {
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [weeklyCompletions, setWeeklyCompletions] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAIAgent, setShowAIAgent] = useState(false);
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(2); // Mock for now
+
+  // Load profile avatar
+  useEffect(() => {
+    const loadAvatar = async () => {
+      const savedAvatar = await AsyncStorage.getItem('profile_avatar');
+      if (savedAvatar) setProfileAvatar(savedAvatar);
+    };
+    loadAvatar();
+  }, []);
 
   // Subscribe to habits
   useEffect(() => {
@@ -125,15 +136,21 @@ const Home = () => {
               onPress={handleProfilePress}
               style={{ padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 24 }}
             >
-              <Image
-                source={{ uri: PROFILE_IMAGE }}
-                style={{ width: 40, height: 40, borderRadius: 20 }}
-              />
+              {profileAvatar ? (
+                <Image
+                  source={{ uri: profileAvatar }}
+                  style={{ width: 40, height: 40, borderRadius: 20 }}
+                />
+              ) : (
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="person" size={20} color="rgba(255,255,255,0.6)" />
+                </View>
+              )}
             </TouchableOpacity>
 
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
-                onPress={() => router.push('/create')}
+                onPress={() => setShowAIAgent(true)}
                 style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16, 185, 129, 0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
                 <Ionicons name="sparkles" size={20} color="#10B981" />
               </TouchableOpacity>
@@ -142,7 +159,9 @@ const Home = () => {
                 style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}
               >
                 <Ionicons name="notifications" size={20} color="#fff" />
-                <View style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 1, borderColor: '#000' }} />
+                {unreadCount > 0 && (
+                  <View style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 1, borderColor: '#000' }} />
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -320,6 +339,12 @@ const Home = () => {
         <NotificationsModal
           visible={showNotifications}
           onClose={() => setShowNotifications(false)}
+        />
+
+        {/* AI Agent Modal */}
+        <AIAgentModal
+          visible={showAIAgent}
+          onClose={() => setShowAIAgent(false)}
         />
       </SafeAreaView>
     </VoidShell>

@@ -22,8 +22,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_WIDTH / 7;
 
 const DateButton = React.memo(({ item, selected, isToday, onSelect, width, colors }: any) => {
-  const size = 40;
-  const strokeWidth = 3;
+  const size = 34;
+  const strokeWidth = 2.5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const progressOffset = circumference - (item.progress * circumference);
@@ -33,10 +33,10 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
       <TouchableOpacity
         onPress={() => onSelect(item.fullDate)}
         className="items-center justify-center"
-        style={{ width: width, paddingVertical: 10 }}
+        style={{ width: width, paddingVertical: 6 }}
       >
         {/* Circle Container */}
-        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
 
           {/* Progress Ring */}
           <View style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
@@ -247,19 +247,19 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
   };
 
   return (
-    <View className="pt-6 pb-2" style={{ backgroundColor: 'transparent' }}>
+    <View className="pt-2 pb-1" style={{ backgroundColor: 'transparent' }}>
       {/* Header */}
-      <View className="px-6 mb-4 flex-row items-center justify-between">
+      <View className="px-6 mb-2 flex-row items-center justify-between">
         <TouchableOpacity onPress={handlePrevWeek} className="p-2">
           <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
 
         <View className="items-center">
           <TouchableOpacity onPress={() => onSelectDate(new Date())} className="items-center">
-            <Text className="font-display mb-1 text-white" style={{ fontSize: 28 }}>
+            <Text className="font-display mb-0" style={{ fontSize: 24, color: 'white' }}>
               {headerTitle}
             </Text>
-            <Text className="text-lg font-inter-medium" style={{ color: '#AFC3E8' }}>
+            <Text className="text-sm font-inter-medium" style={{ color: '#AFC3E8' }}>
               {headerDate}
             </Text>
           </TouchableOpacity>

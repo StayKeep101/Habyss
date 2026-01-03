@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions, Platform, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,7 +84,21 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 activeOpacity={0.8}
                 onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    navigation.navigate('create');
+                    Alert.alert(
+                        'Create New',
+                        'What would you like to create?',
+                        [
+                            {
+                                text: '🎯 Goal',
+                                onPress: () => navigation.navigate('create', { isGoal: 'true' })
+                            },
+                            {
+                                text: '✓ Habit',
+                                onPress: () => navigation.navigate('create', { isGoal: 'false' })
+                            },
+                            { text: 'Cancel', style: 'cancel' }
+                        ]
+                    );
                 }}
                 style={styles.orbContainer}
             >

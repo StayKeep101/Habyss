@@ -108,20 +108,52 @@ const GoalDetail = () => {
   };
 
   const handleChangeBackground = async () => {
-    // Keep existing logic for image picker...
     if (!ImagePicker) return Alert.alert("Feature Unavailable", "Rebuild required.");
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') return Alert.alert('Permission needed');
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, aspect: [16, 9], quality: 0.8,
-    });
+    Alert.alert(
+      "Change Background",
+      "Choose an option",
+      [
+        {
+          text: "Take Photo",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') return Alert.alert('Camera permission needed');
 
-    if (!result.canceled && result.assets[0]) {
-      setBgImage(result.assets[0].uri);
-      await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
-    }
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [16, 9],
+              quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+              setBgImage(result.assets[0].uri);
+              await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+            }
+          }
+        },
+        {
+          text: "Choose from Library",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') return Alert.alert('Library permission needed');
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [16, 9],
+              quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+              setBgImage(result.assets[0].uri);
+              await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+            }
+          }
+        },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
   };
 
   if (!goal) return null;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet, Modal, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -8,6 +8,8 @@ import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
+import { FriendsService, Friend } from '@/lib/friendsService';
+import * as Haptics from 'expo-haptics';
 
 export default function HabitDetailScreen() {
   const router = useRouter();
@@ -37,6 +39,12 @@ export default function HabitDetailScreen() {
   const [loading, setLoading] = useState(!habit); // Only load if we didn't get params
   const [streak, setStreak] = useState(0);
 
+  // Sharing state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [sharedWith, setSharedWith] = useState<string[]>([]);
+  const [loadingShare, setLoadingShare] = useState(false);
+
   useEffect(() => {
     loadHabitDetails();
   }, [habitId, dateStr]);
@@ -55,6 +63,36 @@ export default function HabitDetailScreen() {
       setStreak(0);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openShareModal = async () => {
+    setShowShareModal(true);
+    setLoadingShare(true);
+    try {
+      const [friendsList, sharedWithList] = await Promise.all([
+        FriendsService.getFriends(),
+        FriendsService.getHabitSharedWith(habitId)
+      ]);
+      setFriends(friendsList);
+      setSharedWith(sharedWithList.map(f => f.id));
+    } catch (error) {
+      console.error('Error loading share data:', error);
+    } finally {
+      setLoadingShare(false);
+    }
+  };
+
+  const toggleShare = async (friendId: string) => {
+    Haptics.selectionAsync();
+    const isCurrentlyShared = sharedWith.includes(friendId);
+
+    if (isCurrentlyShared) {
+      await FriendsService.unshareHabit(habitId, friendId);
+      setSharedWith(prev => prev.filter(id => id !== friendId));
+    } else {
+      await FriendsService.shareHabitWithFriend(habitId, friendId);
+      setSharedWith(prev => [...prev, friendId]);
     }
   };
 
@@ -94,12 +132,20 @@ export default function HabitDetailScreen() {
           >
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => Alert.alert('Options', 'Edit or Delete functionality to be implemented')}
-            style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
-          >
-            <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              onPress={openShareModal}
+              style={[styles.iconButton, { backgroundColor: colors.primary + '20' }]}
+            >
+              <Ionicons name="share-social" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => Alert.alert('Options', 'Edit or Delete functionality to be implemented')}
+              style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
+            >
+              <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScreenHeader title="PROTOCOL" subtitle="DETAILS & METRICS" />
@@ -162,6 +208,82 @@ export default function HabitDetailScreen() {
         </VoidCard>
 
       </ScrollView>
+
+      {/* Share Modal */}
+      <Modal
+        visible={showShareModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowShareModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                SHARE WITH CREW
+              </Text>
+              <TouchableOpacity onPress={() => setShowShareModal(false)}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingShare ? (
+              <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 40 }} />
+            ) : friends.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="people-outline" size={48} color={colors.textTertiary} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  No friends yet
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                  Add friends in the Community tab to share habits
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={friends}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: 400 }}
+                renderItem={({ item }) => {
+                  const isShared = sharedWith.includes(item.id);
+                  return (
+                    <TouchableOpacity
+                      onPress={() => toggleShare(item.id)}
+                      style={[
+                        styles.friendItem,
+                        { borderColor: isShared ? colors.primary : colors.border }
+                      ]}
+                    >
+                      <View style={[styles.friendAvatar, { backgroundColor: colors.surfaceTertiary }]}>
+                        <Text style={{ fontSize: 16, color: colors.textSecondary }}>
+                          {item.username[0]?.toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={[styles.friendName, { color: colors.textPrimary }]}>
+                          {item.username}
+                        </Text>
+                        {isShared && (
+                          <Text style={{ color: colors.primary, fontSize: 10, fontFamily: 'SpaceMono-Regular' }}>
+                            SHARING
+                          </Text>
+                        )}
+                      </View>
+                      <View style={[
+                        styles.shareToggle,
+                        { backgroundColor: isShared ? colors.primary : 'transparent', borderColor: colors.primary }
+                      ]}>
+                        {isShared && <Ionicons name="checkmark" size={16} color="#000" />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </VoidShell>
   );
 }
@@ -268,5 +390,72 @@ const styles = StyleSheet.create({
   descText: {
     fontSize: 14,
     lineHeight: 22,
-  }
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 1,
+    fontFamily: 'SpaceMono-Regular',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  emptySubtext: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+    fontFamily: 'SpaceMono-Regular',
+  },
+  friendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  friendAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendName: {
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'SpaceGrotesk-Bold',
+  },
+  shareToggle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

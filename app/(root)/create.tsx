@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Keyboard, DeviceEventEmitter, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Keyboard, DeviceEventEmitter, Alert, ScrollView, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useGlobalSearchParams } from 'expo-router';
 import { useTheme } from '@/constants/themeContext';
@@ -7,7 +7,7 @@ import { Colors } from '@/constants/Colors';
 import Animated, { FadeIn, SlideInRight, SlideOutLeft, Layout } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-import { addHabit, updateHabit, HabitCategory, HabitType } from '@/lib/habits';
+import { addHabit, updateHabit, HabitCategory, HabitType, subscribeToHabits, Habit } from '@/lib/habits';
 
 // Step Components
 import { StepEssence } from '@/components/RitualForge/StepEssence';
@@ -36,7 +36,21 @@ export default function RitualForgeScreen() {
     const [category, setCategory] = useState<HabitCategory>((params.category as HabitCategory) || 'personal');
     const [type, setType] = useState<HabitType>((params.type as HabitType) || 'build');
 
+    // Goal-related state
+    const [isGoal, setIsGoal] = useState(params.isGoal === 'true');
+    const [selectedGoalId, setSelectedGoalId] = useState<string | null>(params.goalId as string || null);
+    const [goals, setGoals] = useState<Habit[]>([]);
+    const [showGoalPicker, setShowGoalPicker] = useState(false);
+
     const isEditing = !!params.id;
+
+    // Load available goals for linking habits
+    useEffect(() => {
+        const unsubPromise = subscribeToHabits((allHabits) => {
+            setGoals(allHabits.filter(h => h.isGoal));
+        });
+        return () => { unsubPromise.then(unsub => unsub()); };
+    }, []);
 
     // --- Actions ---
 
@@ -86,7 +100,8 @@ export default function RitualForgeScreen() {
                 reminders: [],
                 chartType: 'bar',
                 showMemo: false,
-                isGoal: false,
+                isGoal: isGoal,
+                goalId: selectedGoalId || undefined,
             };
 
             if (isEditing) {
@@ -185,6 +200,52 @@ export default function RitualForgeScreen() {
                 {renderStep()}
             </View>
 
+            {/* Goal Link Section - Only show when creating a habit (not a goal) */}
+            {!isGoal && step === 2 && (
+                <View style={{ paddingHorizontal: 24, marginBottom: 16 }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceMono-Regular', letterSpacing: 1, marginBottom: 8 }}>
+                        LINK TO GOAL (OPTIONAL)
+                    </Text>
+                    <TouchableOpacity
+                        onPress={() => setShowGoalPicker(true)}
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: colors.surfaceSecondary,
+                            borderRadius: 16,
+                            padding: 16,
+                            borderWidth: 1,
+                            borderColor: selectedGoalId ? color : colors.border,
+                        }}
+                    >
+                        <Ionicons
+                            name={selectedGoalId ? "flag" : "flag-outline"}
+                            size={20}
+                            color={selectedGoalId ? color : colors.textSecondary}
+                        />
+                        <Text style={{
+                            flex: 1,
+                            marginLeft: 12,
+                            color: selectedGoalId ? colors.textPrimary : colors.textTertiary,
+                            fontSize: 16,
+                        }}>
+                            {selectedGoalId
+                                ? goals.find(g => g.id === selectedGoalId)?.name || 'Selected Goal'
+                                : 'Select a goal to link this habit to'}
+                        </Text>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                    {selectedGoalId && (
+                        <TouchableOpacity
+                            onPress={() => setSelectedGoalId(null)}
+                            style={{ marginTop: 8, alignSelf: 'flex-end' }}
+                        >
+                            <Text style={{ color: colors.error, fontSize: 12 }}>Remove link</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            )}
+
             {/* Footer */}
             <View style={styles.footer}>
                 <TouchableOpacity
@@ -199,11 +260,73 @@ export default function RitualForgeScreen() {
                         styles.nextBtnText,
                         { color: step === 0 && !name.trim() ? colors.textTertiary : 'white' }
                     ]}>
-                        {step === TOTAL_STEPS - 1 ? (isEditing ? 'Save Ritual' : 'Forge Ritual') : 'Continue'}
+                        {step === TOTAL_STEPS - 1 ? (isEditing ? 'Save' : isGoal ? 'Create Goal' : 'Create Habit') : 'Continue'}
                     </Text>
                     {step < TOTAL_STEPS - 1 && <Ionicons name="arrow-forward" size={20} color="white" />}
                 </TouchableOpacity>
             </View>
+
+            {/* Goal Picker Modal */}
+            <Modal
+                visible={showGoalPicker}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowGoalPicker(false)}
+            >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+                    <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '60%' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                            <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700', fontFamily: 'SpaceGrotesk-Bold' }}>Link to Goal</Text>
+                            <TouchableOpacity onPress={() => setShowGoalPicker(false)}>
+                                <Ionicons name="close" size={24} color={colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={{ padding: 20 }}>
+                            {goals.length === 0 ? (
+                                <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                                    <Ionicons name="flag-outline" size={48} color={colors.textTertiary} />
+                                    <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 16 }}>No goals yet</Text>
+                                    <Text style={{ color: colors.textTertiary, marginTop: 4, fontSize: 12, textAlign: 'center' }}>Create a goal first to link habits to it</Text>
+                                </View>
+                            ) : (
+                                goals.map(goal => (
+                                    <TouchableOpacity
+                                        key={goal.id}
+                                        onPress={() => {
+                                            setSelectedGoalId(goal.id);
+                                            setShowGoalPicker(false);
+                                            Haptics.selectionAsync();
+                                        }}
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            padding: 16,
+                                            borderRadius: 12,
+                                            marginBottom: 12,
+                                            backgroundColor: selectedGoalId === goal.id ? color + '20' : colors.surfaceSecondary,
+                                            borderWidth: 1,
+                                            borderColor: selectedGoalId === goal.id ? color : 'transparent',
+                                        }}
+                                    >
+                                        <Ionicons name={(goal.icon as any) || 'flag'} size={24} color={goal.color || color} />
+                                        <View style={{ flex: 1, marginLeft: 12 }}>
+                                            <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600' }}>{goal.name}</Text>
+                                            {goal.targetDate && (
+                                                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
+                                                    Target: {new Date(goal.targetDate).toLocaleDateString()}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        {selectedGoalId === goal.id && (
+                                            <Ionicons name="checkmark-circle" size={24} color={color} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }

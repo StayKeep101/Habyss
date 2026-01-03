@@ -29,6 +29,7 @@ export const FriendsService = {
 
     /**
      * Search users by email or username
+     * Falls back gracefully if profiles table doesn't exist
      */
     async searchUsers(query: string): Promise<Friend[]> {
         if (!query || query.length < 3) return [];
@@ -36,26 +37,36 @@ export const FriendsService = {
         const currentUser = await this.getCurrentUser();
         if (!currentUser) return [];
 
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('id, username, email, avatar_url')
-            .or(`email.ilike.%${query}%,username.ilike.%${query}%`)
-            .neq('id', currentUser.id)
-            .limit(10);
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, username, email, avatar_url')
+                .or(`email.ilike.%${query}%,username.ilike.%${query}%`)
+                .neq('id', currentUser.id)
+                .limit(10);
 
-        if (error) {
-            console.error('Error searching users:', error);
+            if (error) {
+                // If profiles table doesn't exist, return empty gracefully
+                if (error.code === 'PGRST205' || error.message?.includes('profiles')) {
+                    console.log('Profiles table not configured yet - friend search unavailable');
+                    return [];
+                }
+                console.error('Error searching users:', error);
+                return [];
+            }
+
+            return (data || []).map(u => ({
+                id: u.id,
+                username: u.username || u.email?.split('@')[0] || 'User',
+                email: u.email || '',
+                avatarUrl: u.avatar_url,
+                currentStreak: 0,
+                todayCompletion: 0,
+            }));
+        } catch (e) {
+            console.log('Friend search not available');
             return [];
         }
-
-        return (data || []).map(u => ({
-            id: u.id,
-            username: u.username || u.email?.split('@')[0] || 'User',
-            email: u.email || '',
-            avatarUrl: u.avatar_url,
-            currentStreak: 0,
-            todayCompletion: 0,
-        }));
     },
 
     /**
@@ -313,6 +324,130 @@ export const FriendsService = {
             rank: index + 1,
             friend,
         }));
+    },
+
+    /**
+     * Share a habit with a friend
+     */
+    async shareHabitWithFriend(habitId: string, friendId: string): Promise<boolean> {
+        const currentUser = await this.getCurrentUser();
+        if (!currentUser) return false;
+
+        const { error } = await supabase
+            .from('shared_habits')
+            .upsert({
+                habit_id: habitId,
+                owner_id: currentUser.id,
+                shared_with_id: friendId,
+                created_at: new Date().toISOString()
+            });
+
+        if (error) {
+            console.error('Error sharing habit:', error);
+            return false;
+        }
+        return true;
+    },
+
+    /**
+     * Stop sharing a habit with a friend
+     */
+    async unshareHabit(habitId: string, friendId: string): Promise<boolean> {
+        const { error } = await supabase
+            .from('shared_habits')
+            .delete()
+            .eq('habit_id', habitId)
+            .eq('shared_with_id', friendId);
+
+        return !error;
+    },
+
+    /**
+     * Get habits shared with you by friends
+     */
+    async getHabitsSharedWithMe(): Promise<{
+        habit: { id: string; name: string; icon: string; category: string };
+        owner: { id: string; username: string };
+        todayCompleted: boolean;
+    }[]> {
+        const currentUser = await this.getCurrentUser();
+        if (!currentUser) return [];
+
+        const { data, error } = await supabase
+            .from('shared_habits')
+            .select(`
+                habit_id,
+                habits:habit_id (id, name, icon, category),
+                profiles:owner_id (id, username)
+            `)
+            .eq('shared_with_id', currentUser.id);
+
+        if (error) {
+            console.error('Error fetching shared habits:', error);
+            return [];
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        const results = [];
+
+        for (const row of data || []) {
+            const habit = row.habits as any;
+            const owner = row.profiles as any;
+            if (!habit || !owner) continue;
+
+            // Check if completed today
+            const { count } = await supabase
+                .from('habit_completions')
+                .select('*', { count: 'exact', head: true })
+                .eq('habit_id', habit.id)
+                .eq('date', today);
+
+            results.push({
+                habit: {
+                    id: habit.id,
+                    name: habit.name,
+                    icon: habit.icon || 'star',
+                    category: habit.category,
+                },
+                owner: {
+                    id: owner.id,
+                    username: owner.username || 'User',
+                },
+                todayCompleted: (count || 0) > 0,
+            });
+        }
+
+        return results;
+    },
+
+    /**
+     * Get friends I've shared a specific habit with
+     */
+    async getHabitSharedWith(habitId: string): Promise<Friend[]> {
+        const { data, error } = await supabase
+            .from('shared_habits')
+            .select(`
+                shared_with_id,
+                profiles:shared_with_id (id, username, email, avatar_url)
+            `)
+            .eq('habit_id', habitId);
+
+        if (error) {
+            console.error('Error fetching habit shares:', error);
+            return [];
+        }
+
+        return (data || []).map(row => {
+            const profile = row.profiles as any;
+            return {
+                id: profile?.id || '',
+                username: profile?.username || 'User',
+                email: profile?.email || '',
+                avatarUrl: profile?.avatar_url,
+                currentStreak: 0,
+                todayCompletion: 0,
+            };
+        }).filter(f => f.id);
     },
 };
 
