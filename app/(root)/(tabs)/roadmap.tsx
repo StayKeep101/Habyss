@@ -16,6 +16,7 @@ import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { GoalCreationWizard } from '@/components/GoalCreationWizard';
+import { ShareHabitModal } from '@/components/ShareHabitModal';
 import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -56,6 +57,8 @@ const CalendarScreen = () => {
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
+    const [shareModalVisible, setShareModalVisible] = useState(false);
+    const [habitToShare, setHabitToShare] = useState<Habit | null>(null);
 
     // Pull-to-Filter Logic
     const scrollY = useSharedValue(0);
@@ -330,6 +333,7 @@ const CalendarScreen = () => {
                                                                         onEdit={handleEdit}
                                                                         onDelete={handleDelete}
                                                                         onFocus={handleHabitPress}
+                                                                        onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
                                                                     />
                                                                 ))
                                                             ) : (
@@ -365,6 +369,7 @@ const CalendarScreen = () => {
                                                 onEdit={handleEdit}
                                                 onDelete={handleDelete}
                                                 onFocus={handleHabitPress}
+                                                onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
                                             />
                                         ))
                                     ) : (
@@ -472,6 +477,16 @@ const CalendarScreen = () => {
                     )}
                 </View>
             </SafeAreaView>
+
+            {/* Share Habit Modal */}
+            {habitToShare && (
+                <ShareHabitModal
+                    visible={shareModalVisible}
+                    habitId={habitToShare.id}
+                    habitName={habitToShare.name}
+                    onClose={() => { setShareModalVisible(false); setHabitToShare(null); }}
+                />
+            )}
         </VoidShell>
     );
 };

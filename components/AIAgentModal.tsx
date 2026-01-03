@@ -30,6 +30,8 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useHaptics } from '@/hooks/useHaptics';
+import { StripeService } from '@/lib/stripeService';
+import { useRouter } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
@@ -60,7 +62,6 @@ const AI_RESPONSES: Record<string, string> = {
     'habit': "Great! To create a habit, just tell me:\n\n• The name (e.g., 'Morning Meditation')\n• The category (health, productivity, mindfulness, etc.)\n• How long it takes (optional)\n\nFor example: 'Create a 10-minute morning meditation habit for health'",
     'goal': "Awesome! For a goal, I'll need:\n\n• The goal name\n• A target date\n• What habits you want to link to it\n\nFor example: 'I want to lose 10 pounds by March'",
     'help': "Here's what I can do for you:\n\n🎯 **Create habits or goals** - Just describe what you want\n📊 **Check your progress** - Ask 'How am I doing?'\n✅ **Mark habits complete** - Say 'I finished my workout'\n🔗 **Link habits to goals** - Connect related activities\n\nWhat would you like to do?",
-    'help': "Here's what I can do for you:\n\n🎯 **Create habits or goals** - Just describe what you want\n📊 **Check your progress** - Ask 'How am I doing?'\n✅ **Mark habits complete** - Say 'I finished my workout'\n🔗 **Link habits to goals** - Connect related activities\n\nWhat would you like to do?",
     'default': "I understand! Let me help you with that. Could you tell me more about what you'd like to accomplish?",
 };
 
@@ -75,12 +76,26 @@ const SUGGESTIONS = [
 export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { lightFeedback, successFeedback } = useHaptics();
+    const { lightFeedback, successFeedback, mediumFeedback } = useHaptics();
+    const router = useRouter();
 
     const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const [isPremium, setIsPremium] = useState<boolean | null>(null);
+    const [checkingPremium, setCheckingPremium] = useState(true);
     const flatListRef = useRef<FlatList>(null);
+
+    // Check premium status
+    useEffect(() => {
+        if (visible) {
+            setCheckingPremium(true);
+            StripeService.getSubscriptionStatus().then(status => {
+                setIsPremium(status.premium);
+                setCheckingPremium(false);
+            });
+        }
+    }, [visible]);
 
     // Animated glow effect
     const glowOpacity = useSharedValue(0.5);
@@ -218,101 +233,157 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                         </TouchableOpacity>
                     </View>
 
-                    {/* Messages */}
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        style={styles.chatContainer}
-                        keyboardVerticalOffset={0}
-                    >
-                        <FlatList
-                            ref={flatListRef}
-                            data={messages}
-                            renderItem={renderMessage}
-                            keyExtractor={item => item.id}
-                            contentContainerStyle={styles.messagesList}
-                            showsVerticalScrollIndicator={false}
-                            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                            keyboardShouldPersistTaps="handled"
-                        />
-
-                        {/* Typing indicator */}
-                        {isTyping && (
-                            <Animated.View
-                                entering={FadeIn}
-                                exiting={FadeOut}
-                                style={styles.typingIndicator}
-                            >
-                                <View style={styles.typingDots}>
-                                    <View style={[styles.dot, { animationDelay: '0s' }]} />
-                                    <View style={[styles.dot, { animationDelay: '0.2s' }]} />
-                                    <View style={[styles.dot, { animationDelay: '0.4s' }]} />
-                                </View>
-                                <Text style={styles.typingText}>AI is thinking...</Text>
-                            </Animated.View>
-                        )}
-
-                        {/* Suggestions */}
-                        <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-                            <FlatList
-                                data={SUGGESTIONS}
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={{ gap: 8 }}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            setInputText(item);
-                                            lightFeedback();
-                                        }}
-                                        style={styles.suggestionChip}
-                                    >
-                                        <Text style={styles.suggestionText}>{item}</Text>
-                                    </TouchableOpacity>
-                                )}
-                                keyExtractor={item => item}
-                            />
+                    {/* Premium Check Loading */}
+                    {checkingPremium ? (
+                        <View style={styles.paywallContainer}>
+                            <ActivityIndicator size="large" color={colors.primary} />
                         </View>
+                    ) : !isPremium ? (
+                        /* Paywall for non-premium users */
+                        <View style={styles.paywallContainer}>
+                            <LinearGradient
+                                colors={['rgba(16, 185, 129, 0.2)', 'rgba(59, 130, 246, 0.2)']}
+                                style={styles.paywallIcon}
+                            >
+                                <Ionicons name="lock-closed" size={48} color="#fff" />
+                            </LinearGradient>
 
-                        {/* Input - positioned above keyboard */}
-                        <View style={styles.inputContainer}>
-                            <View style={styles.inputWrapper}>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Ask me anything..."
-                                    placeholderTextColor="rgba(255,255,255,0.4)"
-                                    value={inputText}
-                                    onChangeText={setInputText}
-                                    onSubmitEditing={handleSend}
-                                    returnKeyType="send"
-                                    multiline
-                                />
-                                <View style={styles.inputIcons}>
-                                    <TouchableOpacity style={styles.iconBtnSmall}>
-                                        <Ionicons name="image-outline" size={20} color="rgba(255,255,255,0.6)" />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.iconBtnSmall}>
-                                        <Ionicons name="mic-outline" size={20} color="rgba(255,255,255,0.6)" />
-                                    </TouchableOpacity>
+                            <Text style={styles.paywallTitle}>Unlock AI Assistant</Text>
+                            <Text style={styles.paywallSubtitle}>
+                                Get unlimited access to your personal Habyss AI to help you build habits faster
+                            </Text>
+
+                            <View style={styles.paywallFeatures}>
+                                <View style={styles.paywallFeature}>
+                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                    <Text style={styles.paywallFeatureText}>Create habits with natural language</Text>
+                                </View>
+                                <View style={styles.paywallFeature}>
+                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                    <Text style={styles.paywallFeatureText}>Smart progress tracking & insights</Text>
+                                </View>
+                                <View style={styles.paywallFeature}>
+                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                    <Text style={styles.paywallFeatureText}>Personalized recommendations</Text>
                                 </View>
                             </View>
 
                             <TouchableOpacity
-                                onPress={handleSend}
-                                disabled={!inputText.trim()}
-                                style={[
-                                    styles.sendButton,
-                                    { opacity: inputText.trim() ? 1 : 0.5 }
-                                ]}
+                                style={styles.upgradeButton}
+                                onPress={() => {
+                                    mediumFeedback();
+                                    onClose();
+                                    router.push('/(root)/settings');
+                                }}
                             >
                                 <LinearGradient
                                     colors={['#10B981', '#3B82F6']}
-                                    style={styles.sendGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.upgradeButtonGradient}
                                 >
-                                    <Ionicons name="arrow-up" size={20} color="#fff" />
+                                    <Ionicons name="diamond" size={18} color="#fff" />
+                                    <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>
-                    </KeyboardAvoidingView>
+                    ) : (
+                        /* Messages - Only for premium users */
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                            style={styles.chatContainer}
+                            keyboardVerticalOffset={0}
+                        >
+                            <FlatList
+                                ref={flatListRef}
+                                data={messages}
+                                renderItem={renderMessage}
+                                keyExtractor={item => item.id}
+                                contentContainerStyle={styles.messagesList}
+                                showsVerticalScrollIndicator={false}
+                                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                                keyboardShouldPersistTaps="handled"
+                            />
+
+                            {/* Typing indicator */}
+                            {isTyping && (
+                                <Animated.View
+                                    entering={FadeIn}
+                                    exiting={FadeOut}
+                                    style={styles.typingIndicator}
+                                >
+                                    <View style={styles.typingDots}>
+                                        <View style={[styles.dot, { animationDelay: '0s' }]} />
+                                        <View style={[styles.dot, { animationDelay: '0.2s' }]} />
+                                        <View style={[styles.dot, { animationDelay: '0.4s' }]} />
+                                    </View>
+                                    <Text style={styles.typingText}>AI is thinking...</Text>
+                                </Animated.View>
+                            )}
+
+                            {/* Suggestions */}
+                            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+                                <FlatList
+                                    data={SUGGESTIONS}
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={{ gap: 8 }}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setInputText(item);
+                                                lightFeedback();
+                                            }}
+                                            style={styles.suggestionChip}
+                                        >
+                                            <Text style={styles.suggestionText}>{item}</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    keyExtractor={item => item}
+                                />
+                            </View>
+
+                            {/* Input - positioned above keyboard */}
+                            <View style={styles.inputContainer}>
+                                <View style={styles.inputWrapper}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Ask me anything..."
+                                        placeholderTextColor="rgba(255,255,255,0.4)"
+                                        value={inputText}
+                                        onChangeText={setInputText}
+                                        onSubmitEditing={handleSend}
+                                        returnKeyType="send"
+                                        multiline
+                                    />
+                                    <View style={styles.inputIcons}>
+                                        <TouchableOpacity style={styles.iconBtnSmall}>
+                                            <Ionicons name="image-outline" size={20} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.iconBtnSmall}>
+                                            <Ionicons name="mic-outline" size={20} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity
+                                    onPress={handleSend}
+                                    disabled={!inputText.trim()}
+                                    style={[
+                                        styles.sendButton,
+                                        { opacity: inputText.trim() ? 1 : 0.5 }
+                                    ]}
+                                >
+                                    <LinearGradient
+                                        colors={['#10B981', '#3B82F6']}
+                                        style={styles.sendGradient}
+                                    >
+                                        <Ionicons name="arrow-up" size={20} color="#fff" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </KeyboardAvoidingView>
+                    )}
                 </BlurView>
             </Animated.View>
         </Modal>
@@ -500,5 +571,69 @@ const styles = StyleSheet.create({
         borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    // Paywall styles
+    paywallContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 32,
+    },
+    paywallIcon: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 24,
+    },
+    paywallTitle: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#fff',
+        fontFamily: 'SpaceGrotesk-Bold',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    paywallSubtitle: {
+        fontSize: 15,
+        color: 'rgba(255,255,255,0.6)',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 32,
+        paddingHorizontal: 16,
+        fontFamily: 'SpaceMono-Regular',
+    },
+    paywallFeatures: {
+        width: '100%',
+        gap: 16,
+        marginBottom: 32,
+    },
+    paywallFeature: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    paywallFeatureText: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
+        fontFamily: 'SpaceMono-Regular',
+    },
+    upgradeButton: {
+        width: '100%',
+    },
+    upgradeButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 16,
+        borderRadius: 16,
+    },
+    upgradeButtonText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#fff',
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 });

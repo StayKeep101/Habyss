@@ -17,6 +17,19 @@ export interface FriendRequest {
     createdAt: string;
 }
 
+export interface FriendActivity {
+    id: string;
+    friendId: string;
+    friendUsername: string;
+    friendAvatarUrl?: string;
+    habitName: string;
+    habitIcon: string;
+    completedAt: string;
+    reactions: { type: string; count: number }[];
+}
+
+export type ReactionType = '🔥' | '👏' | '💪';
+
 // Helper to check if table doesn't exist
 const isTableMissing = (error: any): boolean => {
     return error?.code === 'PGRST205' ||
@@ -38,7 +51,7 @@ export const FriendsService = {
      * Search users by email or username
      */
     async searchUsers(query: string): Promise<Friend[]> {
-        if (!query || query.length < 3) return [];
+        if (!query || query.length < 1) return []; // Changed from 3 to 1 char minimum
 
         try {
             const currentUser = await this.getCurrentUser();
@@ -49,7 +62,7 @@ export const FriendsService = {
                 .select('id, username, email, avatar_url')
                 .or(`email.ilike.%${query}%,username.ilike.%${query}%`)
                 .neq('id', currentUser.id)
-                .limit(10);
+                .limit(20); // Increased from 10 to 20
 
             if (error) {
                 if (isTableMissing(error)) {
@@ -112,25 +125,39 @@ export const FriendsService = {
                 .eq('id', requestId)
                 .single();
 
-            if (fetchError || !request) return false;
+            if (fetchError || !request) {
+                console.error('Error fetching friend request:', fetchError);
+                return false;
+            }
 
             // Update request status
-            await supabase
+            const { error: updateError } = await supabase
                 .from('friend_requests')
                 .update({ status: 'accepted' })
                 .eq('id', requestId);
+
+            if (updateError) {
+                console.error('Error updating friend request status:', updateError);
+            }
 
             // Create both friendship directions
             const currentUser = await this.getCurrentUser();
             if (!currentUser) return false;
 
-            await supabase.from('friendships').insert([
+            const { error: insertError } = await supabase.from('friendships').insert([
                 { user_id: currentUser.id, friend_id: request.from_user_id },
                 { user_id: request.from_user_id, friend_id: currentUser.id }
             ]);
 
+            if (insertError) {
+                console.error('Error creating friendships:', insertError);
+                return false;
+            }
+
+            console.log('Friend request accepted successfully!');
             return true;
         } catch (e) {
+            console.error('Exception in acceptFriendRequest:', e);
             return false;
         }
     },
@@ -428,5 +455,60 @@ export const FriendsService = {
         } catch (e) {
             return [];
         }
+    },
+
+    /**
+     * Get friends' recent activity (mock for now - returns sample data)
+     */
+    async getFriendsFeed(): Promise<FriendActivity[]> {
+        try {
+            const friends = await this.getFriends();
+            if (friends.length === 0) return [];
+
+            // Mock activity data based on friends
+            // In production, this would query completions table joined with friends
+            const mockActivities: FriendActivity[] = friends.slice(0, 5).map((friend, i) => ({
+                id: `activity-${friend.id}-${i}`,
+                friendId: friend.id,
+                friendUsername: friend.username,
+                friendAvatarUrl: friend.avatarUrl,
+                habitName: ['Morning Run', 'Meditation', 'Read 30min', 'Drink Water', 'Workout'][i % 5],
+                habitIcon: ['fitness', 'leaf', 'book', 'water', 'barbell'][i % 5],
+                completedAt: new Date(Date.now() - i * 3600000).toISOString(), // Staggered times
+                reactions: i % 2 === 0 ? [{ type: '🔥', count: 2 }] : [],
+            }));
+
+            return mockActivities;
+        } catch (e) {
+            return [];
+        }
+    },
+
+    /**
+     * Send a reaction to a friend's activity
+     */
+    async sendReaction(activityId: string, reaction: ReactionType): Promise<boolean> {
+        try {
+            // Mock implementation - just log and return success
+            // In production, this would insert into a reactions table
+            console.log(`Sending reaction ${reaction} to activity ${activityId}`);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+     * Get friends with their real-time progress
+     */
+    async getFriendsWithProgress(): Promise<Friend[]> {
+        const friends = await this.getFriends();
+
+        // Mock progress data - in production, query completions for each friend
+        return friends.map((friend, i) => ({
+            ...friend,
+            todayCompletion: Math.floor(Math.random() * 100), // Random for demo
+            currentStreak: Math.floor(Math.random() * 30),
+        }));
     },
 };

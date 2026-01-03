@@ -4,8 +4,14 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Habit } from '@/lib/habits';
+import { Habit as BaseHabit } from '@/lib/habits';
 import { VoidCard } from '@/components/Layout/VoidCard';
+
+// Extended Habit type with optional UI state
+interface Habit extends BaseHabit {
+  completed?: boolean;
+  streak?: number;
+}
 
 interface SwipeableHabitItemProps {
   habit: Habit;
@@ -13,14 +19,17 @@ interface SwipeableHabitItemProps {
   onEdit: (habit: Habit) => void;
   onDelete: (habit: Habit) => void;
   onFocus: (habit: Habit) => void;
+  onShare?: (habit: Habit) => void;
 }
+
 
 export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
   habit,
   onPress,
   onEdit,
   onDelete,
-  onFocus
+  onFocus,
+  onShare
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -53,13 +62,24 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
 
   const renderRightActions = (progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
     const scale = dragX.interpolate({
-      inputRange: [-160, 0],
+      inputRange: [-200, 0],
       outputRange: [1, 0],
       extrapolate: 'clamp',
     });
 
     return (
       <View style={{ flexDirection: 'row', marginBottom: 12, marginRight: 20, alignItems: 'center' }}>
+        {onShare && (
+          <TouchableOpacity
+            onPress={() => { close(); onShare(habit); }}
+            style={[styles.actionButton, { backgroundColor: 'transparent' }]}
+          >
+            <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
+              <Ionicons name="share-social" size={24} color="#3B82F6" />
+            </Animated.View>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           onPress={() => { close(); onEdit(habit); }}
           style={[styles.actionButton, { backgroundColor: 'transparent' }]}

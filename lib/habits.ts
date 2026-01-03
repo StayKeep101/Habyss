@@ -86,13 +86,29 @@ export async function subscribeToHabits(callback: (habits: Habit[]) => void): Pr
   };
 }
 
+/**
+ * Clear all cached data - call when user logs out or switches accounts
+ */
+export function clearHabitsCache() {
+  cachedHabits = null;
+  habitsListeners.clear();
+  if (habitsSubscription) {
+    supabase.removeChannel(habitsSubscription);
+    habitsSubscription = null;
+  }
+}
+
 // --- Habits CRUD ---
 
 export async function getHabits(): Promise<Habit[]> {
+  const uid = await getUserId();
+  if (!uid) return []; // No user = no habits
+
   try {
     const { data, error } = await supabase
       .from('habits')
       .select('*')
+      .eq('user_id', uid) // CRITICAL: Filter by user_id
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -283,11 +299,15 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
 // --- Completions ---
 
 export async function getCompletions(dateISO?: string): Promise<Record<string, boolean>> {
+  const uid = await getUserId();
+  if (!uid) return {}; // No user = no completions
+
   const dateStr = dateISO ?? todayString();
 
   const { data, error } = await supabase
     .from('habit_completions')
     .select('habit_id')
+    .eq('user_id', uid) // CRITICAL: Filter by user_id
     .eq('date', dateStr);
 
   if (error) {

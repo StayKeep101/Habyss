@@ -12,6 +12,8 @@ import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
+import { StripeService } from '@/lib/stripeService';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
@@ -40,6 +42,7 @@ export default function ProfileScreen() {
 
     // Profile picture state
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
+    const [isPremium, setIsPremium] = useState(false);
 
     // Load user profile
     useEffect(() => {
@@ -64,6 +67,10 @@ export default function ProfileScreen() {
                 // Load saved avatar
                 const savedAvatar = await AsyncStorage.getItem('profile_avatar');
                 if (savedAvatar) setAvatarUri(savedAvatar);
+
+                // Check premium status
+                const status = await StripeService.getSubscriptionStatus();
+                setIsPremium(status.premium);
             }
         };
         loadProfile();
@@ -222,6 +229,10 @@ export default function ProfileScreen() {
     );
 
     const handleLogout = async () => {
+        // Clear all cached user data before logging out
+        const { clearHabitsCache } = await import('@/lib/habits');
+        clearHabitsCache();
+
         await supabase.auth.signOut();
         router.replace('/(auth)/welcome');
     };

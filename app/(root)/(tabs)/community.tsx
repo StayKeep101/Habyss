@@ -6,8 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { FriendsService, Friend, FriendRequest } from '@/lib/friendsService';
-
+import { FriendsService, Friend, FriendRequest, FriendActivity, ReactionType } from '@/lib/friendsService';
+import { FriendStatsModal } from '@/components/FriendStatsModal';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence } from 'react-native-reanimated';
 
 export default function CommunityScreen() {
     const { theme } = useTheme();
@@ -23,18 +24,24 @@ export default function CommunityScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<Friend[]>([]);
     const [searching, setSearching] = useState(false);
+    const [friendsFeed, setFriendsFeed] = useState<FriendActivity[]>([]);
+    const [sentReactions, setSentReactions] = useState<Record<string, ReactionType>>({});
+    const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
+    const [showFriendStats, setShowFriendStats] = useState(false);
 
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [friendsList, requests, rankings] = await Promise.all([
-                FriendsService.getFriends(),
+            const [friendsList, requests, rankings, feed] = await Promise.all([
+                FriendsService.getFriendsWithProgress(),
                 FriendsService.getFriendRequests(),
                 FriendsService.getLeaderboard(),
+                FriendsService.getFriendsFeed(),
             ]);
             setFriends(friendsList);
             setFriendRequests(requests);
             setLeaderboard(rankings);
+            setFriendsFeed(feed);
         } catch (error) {
             console.error('Error loading community data:', error);
         } finally {
@@ -55,7 +62,7 @@ export default function CommunityScreen() {
 
     const handleSearch = async (query: string) => {
         setSearchQuery(query);
-        if (query.length >= 3) {
+        if (query.length >= 1) { // Changed from 3 to 1 - search immediately
             setSearching(true);
             const results = await FriendsService.searchUsers(query);
             setSearchResults(results);
@@ -106,6 +113,29 @@ export default function CommunityScreen() {
         return `#${rank}`;
     };
 
+    const handleReaction = async (activityId: string, reaction: ReactionType) => {
+        mediumFeedback();
+        setSentReactions(prev => ({ ...prev, [activityId]: reaction }));
+        await FriendsService.sendReaction(activityId, reaction);
+    };
+
+    const getTimeAgo = (dateStr: string) => {
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return `${mins}m ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours}h ago`;
+        return 'Today';
+    };
+
+    const handleFriendPress = (friend: Friend) => {
+        // Don't show modal for "You" (current user)
+        if (friend.username === 'You') return;
+        lightFeedback();
+        setSelectedFriend(friend);
+        setShowFriendStats(true);
+    };
+
     return (
         <VoidShell>
             <ScrollView
@@ -116,10 +146,83 @@ export default function CommunityScreen() {
                 }
             >
                 {/* Header */}
-                <View style={{ marginBottom: 32 }}>
+                <View style={{ marginBottom: 24 }}>
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COMMUNITY</Text>
                     <Text style={[styles.headerSubtitle, { color: colors.primary }]}>CREW STATUS</Text>
                 </View>
+
+                {/* Friends Feed */}
+                {friendsFeed.length > 0 && (
+                    <View style={{ marginBottom: 24 }}>
+                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>RECENT ACTIVITY</Text>
+                        {friendsFeed.map(activity => (
+                            <VoidCard key={activity.id} style={{ padding: 16, marginBottom: 12 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    {/* Avatar */}
+                                    <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
+                                        {activity.friendAvatarUrl ? (
+                                            <Image source={{ uri: activity.friendAvatarUrl }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                                        ) : (
+                                            <Text style={{ fontSize: 14, color: colors.textSecondary }}>
+                                                {activity.friendUsername[0]?.toUpperCase()}
+                                            </Text>
+                                        )}
+                                    </View>
+
+                                    {/* Info */}
+                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                        <Text style={[styles.username, { color: colors.textPrimary }]}>
+                                            {activity.friendUsername}
+                                        </Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                            <Ionicons name={activity.habitIcon as any} size={12} color={colors.success} />
+                                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginLeft: 4 }}>
+                                                Completed {activity.habitName}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Time */}
+                                    <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
+                                        {getTimeAgo(activity.completedAt)}
+                                    </Text>
+                                </View>
+
+                                {/* Reaction Bar */}
+                                <View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
+                                    {(['🔥', '👏', '💪'] as ReactionType[]).map(reaction => {
+                                        const isSelected = sentReactions[activity.id] === reaction;
+                                        const existingCount = activity.reactions.find(r => r.type === reaction)?.count || 0;
+                                        return (
+                                            <TouchableOpacity
+                                                key={reaction}
+                                                onPress={() => handleReaction(activity.id, reaction)}
+                                                style={{
+                                                    paddingHorizontal: 12,
+                                                    paddingVertical: 6,
+                                                    borderRadius: 16,
+                                                    backgroundColor: isSelected ? colors.primary + '30' : 'rgba(255,255,255,0.05)',
+                                                    borderWidth: 1,
+                                                    borderColor: isSelected ? colors.primary : 'transparent',
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    gap: 4,
+                                                }}
+                                            >
+                                                <Text style={{ fontSize: 16 }}>{reaction}</Text>
+                                                {(existingCount > 0 || isSelected) && (
+                                                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                                                        {isSelected ? existingCount + 1 : existingCount}
+                                                    </Text>
+                                                )}
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            </VoidCard>
+                        ))}
+                    </View>
+                )}
 
                 {/* Search Friends */}
                 <View style={{ marginBottom: 24 }}>
@@ -207,47 +310,59 @@ export default function CommunityScreen() {
                         </VoidCard>
                     ) : (
                         friends.map(friend => (
-                            <VoidCard key={friend.id} style={{ padding: 16, marginBottom: 12 }}>
-                                <View style={styles.friendRow}>
-                                    {/* Avatar */}
-                                    <View style={[styles.avatarLarge, { backgroundColor: colors.surfaceTertiary }]}>
-                                        {friend.avatarUrl ? (
-                                            <Image source={{ uri: friend.avatarUrl }} style={styles.avatarImage} />
-                                        ) : (
-                                            <Text style={{ fontSize: 20, color: colors.textSecondary }}>
-                                                {friend.username[0]?.toUpperCase()}
-                                            </Text>
-                                        )}
-                                    </View>
+                            <TouchableOpacity key={friend.id} onPress={() => handleFriendPress(friend)} activeOpacity={0.7}>
+                                <VoidCard style={{ padding: 16, marginBottom: 12 }}>
+                                    <View style={styles.friendRow}>
+                                        {/* Avatar */}
+                                        <View style={[styles.avatarLarge, { backgroundColor: colors.surfaceTertiary }]}>
+                                            {friend.avatarUrl ? (
+                                                <Image source={{ uri: friend.avatarUrl }} style={styles.avatarImage} />
+                                            ) : (
+                                                <Text style={{ fontSize: 20, color: colors.textSecondary }}>
+                                                    {friend.username[0]?.toUpperCase()}
+                                                </Text>
+                                            )}
+                                        </View>
 
-                                    {/* Info */}
-                                    <View style={{ flex: 1, marginLeft: 16 }}>
-                                        <Text style={[styles.friendName, { color: colors.textPrimary }]}>{friend.username}</Text>
-                                        <View style={styles.statsRow}>
-                                            <View style={styles.statBadge}>
-                                                <Ionicons name="flame" size={12} color="#FFD93D" />
-                                                <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                                                    {friend.currentStreak} days
-                                                </Text>
+                                        {/* Info */}
+                                        <View style={{ flex: 1, marginLeft: 16 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <Text style={[styles.friendName, { color: colors.textPrimary }]}>{friend.username}</Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                    <Ionicons name="flame" size={14} color="#FFD93D" />
+                                                    <Text style={{ color: '#FFD93D', fontSize: 12, fontWeight: '700', marginLeft: 2 }}>
+                                                        {friend.currentStreak}
+                                                    </Text>
+                                                </View>
                                             </View>
-                                            <View style={[styles.statBadge, { marginLeft: 12 }]}>
-                                                <View style={[styles.progressDot, { backgroundColor: colors.success }]} />
-                                                <Text style={[styles.statText, { color: colors.textSecondary }]}>
-                                                    {friend.todayCompletion}% today
-                                                </Text>
+
+                                            {/* Progress Bar */}
+                                            <View style={{ marginTop: 8 }}>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                    <Text style={{ color: colors.textTertiary, fontSize: 10 }}>Today's Progress</Text>
+                                                    <Text style={{ color: colors.success, fontSize: 10, fontWeight: '600' }}>{friend.todayCompletion}%</Text>
+                                                </View>
+                                                <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+                                                    <View style={{
+                                                        height: '100%',
+                                                        width: `${Math.min(friend.todayCompletion, 100)}%`,
+                                                        backgroundColor: friend.todayCompletion >= 100 ? colors.success : colors.primary,
+                                                        borderRadius: 3,
+                                                    }} />
+                                                </View>
                                             </View>
                                         </View>
-                                    </View>
 
-                                    {/* Nudge Button */}
-                                    <TouchableOpacity
-                                        onPress={() => handleNudge(friend)}
-                                        style={[styles.nudgeButton, { borderColor: colors.primary }]}
-                                    >
-                                        <Text style={[styles.nudgeText, { color: colors.primary }]}>NUDGE</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </VoidCard>
+                                        {/* Nudge Button */}
+                                        <TouchableOpacity
+                                            onPress={(e) => { e.stopPropagation(); handleNudge(friend); }}
+                                            style={[styles.nudgeButton, { borderColor: colors.primary, marginLeft: 12 }]}
+                                        >
+                                            <Text style={[styles.nudgeText, { color: colors.primary }]}>👋</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </VoidCard>
+                            </TouchableOpacity>
                         ))
                     )}
                 </View>
@@ -262,29 +377,43 @@ export default function CommunityScreen() {
                             </Text>
                         ) : (
                             leaderboard.slice(0, 5).map(({ rank, friend }) => (
-                                <View key={friend.id} style={[styles.leaderboardRow, rank <= 3 && { opacity: 1 }]}>
-                                    <Text style={[styles.rankText, { color: rank <= 3 ? '#FFD93D' : colors.textTertiary }]}>
-                                        {getRankIcon(rank)}
-                                    </Text>
-                                    <View style={[styles.avatarSmall, { backgroundColor: colors.surfaceTertiary, marginLeft: 12 }]}>
-                                        <Text style={{ fontSize: 12 }}>{friend.username[0]?.toUpperCase()}</Text>
-                                    </View>
-                                    <Text style={[styles.leaderName, { color: friend.username === 'You' ? colors.primary : colors.textPrimary }]}>
-                                        {friend.username}
-                                    </Text>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                        <Ionicons name="flame" size={14} color="#FFD93D" />
-                                        <Text style={[styles.leaderStreak, { color: colors.textSecondary }]}>
-                                            {friend.currentStreak}
+                                <TouchableOpacity
+                                    key={friend.id}
+                                    onPress={() => handleFriendPress(friend)}
+                                    activeOpacity={friend.username === 'You' ? 1 : 0.7}
+                                >
+                                    <View style={[styles.leaderboardRow, rank <= 3 && { opacity: 1 }]}>
+                                        <Text style={[styles.rankText, { color: rank <= 3 ? '#FFD93D' : colors.textTertiary }]}>
+                                            {getRankIcon(rank)}
                                         </Text>
+                                        <View style={[styles.avatarSmall, { backgroundColor: colors.surfaceTertiary, marginLeft: 12 }]}>
+                                            <Text style={{ fontSize: 12 }}>{friend.username[0]?.toUpperCase()}</Text>
+                                        </View>
+                                        <Text style={[styles.leaderName, { color: friend.username === 'You' ? colors.primary : colors.textPrimary }]}>
+                                            {friend.username}
+                                        </Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons name="flame" size={14} color="#FFD93D" />
+                                            <Text style={[styles.leaderStreak, { color: colors.textSecondary }]}>
+                                                {friend.currentStreak}
+                                            </Text>
+                                        </View>
                                     </View>
-                                </View>
+                                </TouchableOpacity>
                             ))
                         )}
                     </VoidCard>
                 </View>
 
             </ScrollView>
+
+            {/* Friend Stats Modal */}
+            <FriendStatsModal
+                visible={showFriendStats}
+                friend={selectedFriend}
+                onClose={() => setShowFriendStats(false)}
+                onNudge={handleNudge}
+            />
         </VoidShell>
     );
 }
