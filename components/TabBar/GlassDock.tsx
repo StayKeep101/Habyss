@@ -84,21 +84,8 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 activeOpacity={0.8}
                 onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    Alert.alert(
-                        'Create New',
-                        'What would you like to create?',
-                        [
-                            {
-                                text: '🎯 Goal',
-                                onPress: () => navigation.navigate('create', { isGoal: 'true' })
-                            },
-                            {
-                                text: '✓ Habit',
-                                onPress: () => navigation.navigate('create', { isGoal: 'false' })
-                            },
-                            { text: 'Cancel', style: 'cancel' }
-                        ]
-                    );
+                    // Navigate to create screen with a selection parameter
+                    navigation.navigate('create', { showSelection: 'true' });
                 }}
                 style={styles.orbContainer}
             >

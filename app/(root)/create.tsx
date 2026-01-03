@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Keyboard, DeviceEventEmitter, Alert, ScrollView, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Keyboard, DeviceEventEmitter, Alert, ScrollView, Modal, Dimensions } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useGlobalSearchParams } from 'expo-router';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
-import Animated, { FadeIn, SlideInRight, SlideOutLeft, Layout } from 'react-native-reanimated';
+import Animated, { FadeIn, SlideInRight, SlideOutLeft, Layout, SlideInUp, SlideOutDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { addHabit, updateHabit, HabitCategory, HabitType, subscribeToHabits, Habit } from '@/lib/habits';
 
@@ -41,6 +43,7 @@ export default function RitualForgeScreen() {
     const [selectedGoalId, setSelectedGoalId] = useState<string | null>(params.goalId as string || null);
     const [goals, setGoals] = useState<Habit[]>([]);
     const [showGoalPicker, setShowGoalPicker] = useState(false);
+    const [showSelection, setShowSelection] = useState(params.showSelection === 'true');
 
     const isEditing = !!params.id;
 
@@ -98,7 +101,7 @@ export default function RitualForgeScreen() {
                 startDate: new Date().toISOString(),
                 isArchived: false,
                 reminders: [],
-                chartType: 'bar',
+                chartType: 'bar' as const,
                 showMemo: false,
                 isGoal: isGoal,
                 goalId: selectedGoalId || undefined,
@@ -326,6 +329,105 @@ export default function RitualForgeScreen() {
                         </ScrollView>
                     </View>
                 </View>
+            </Modal>
+
+            {/* Selection Modal - Choose Goal or Habit */}
+            <Modal
+                visible={showSelection}
+                transparent
+                animationType="none"
+                onRequestClose={() => { setShowSelection(false); router.back(); }}
+            >
+                <TouchableOpacity
+                    style={{ flex: 1, justifyContent: 'flex-end' }}
+                    activeOpacity={1}
+                    onPress={() => { setShowSelection(false); router.back(); }}
+                >
+                    <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+
+                    <Animated.View
+                        entering={SlideInUp.springify().damping(20)}
+                        exiting={SlideOutDown.duration(200)}
+                        style={{
+                            backgroundColor: colors.surface,
+                            borderTopLeftRadius: 32,
+                            borderTopRightRadius: 32,
+                            paddingBottom: 40,
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.1)',
+                        }}
+                    >
+                        <TouchableOpacity activeOpacity={1}>
+                            <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 20 }}>
+                                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: 16 }} />
+                                <Text style={{ fontSize: 20, fontWeight: '700', color: colors.textPrimary, fontFamily: 'SpaceGrotesk-Bold' }}>
+                                    What would you like to create?
+                                </Text>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 12, marginBottom: 20 }}>
+                                {/* Goal Option */}
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        setShowSelection(false);
+                                        setIsGoal(true);
+                                    }}
+                                    style={{ flex: 1 }}
+                                >
+                                    <LinearGradient
+                                        colors={['#8B5CF6', '#7C3AED']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={{ borderRadius: 20, padding: 20, alignItems: 'center', minHeight: 160 }}
+                                    >
+                                        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                                            <Ionicons name="flag" size={32} color="#fff" />
+                                        </View>
+                                        <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', fontFamily: 'SpaceGrotesk-Bold', marginBottom: 4 }}>Goal</Text>
+                                        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', textAlign: 'center', fontFamily: 'SpaceMono-Regular' }}>
+                                            Long-term objectives
+                                        </Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+
+                                {/* Habit Option */}
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        setShowSelection(false);
+                                        setIsGoal(false);
+                                    }}
+                                    style={{ flex: 1 }}
+                                >
+                                    <LinearGradient
+                                        colors={['#10B981', '#059669']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={{ borderRadius: 20, padding: 20, alignItems: 'center', minHeight: 160 }}
+                                    >
+                                        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                                            <Ionicons name="checkmark-done" size={32} color="#fff" />
+                                        </View>
+                                        <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', fontFamily: 'SpaceGrotesk-Bold', marginBottom: 4 }}>Habit</Text>
+                                        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', textAlign: 'center', fontFamily: 'SpaceMono-Regular' }}>
+                                            Daily rituals & tasks
+                                        </Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity
+                                onPress={() => { setShowSelection(false); router.back(); }}
+                                style={{ marginHorizontal: 20, paddingVertical: 16, borderRadius: 16, alignItems: 'center', backgroundColor: colors.surfaceSecondary }}
+                            >
+                                <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textSecondary, fontFamily: 'SpaceGrotesk-Bold' }}>
+                                    Cancel
+                                </Text>
+                            </TouchableOpacity>
+                        </TouchableOpacity>
+                    </Animated.View>
+                </TouchableOpacity>
             </Modal>
         </SafeAreaView>
     );

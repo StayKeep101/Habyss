@@ -210,9 +210,9 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
 
                     {/* Messages */}
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={styles.chatContainer}
-                        keyboardVerticalOffset={100}
+                        keyboardVerticalOffset={0}
                     >
                         <FlatList
                             ref={flatListRef}
@@ -222,6 +222,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                             contentContainerStyle={styles.messagesList}
                             showsVerticalScrollIndicator={false}
                             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                            keyboardShouldPersistTaps="handled"
                         />
 
                         {/* Typing indicator */}
@@ -240,7 +241,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                             </Animated.View>
                         )}
 
-                        {/* Input */}
+                        {/* Input - positioned above keyboard */}
                         <View style={styles.inputContainer}>
                             <TextInput
                                 style={styles.input}
@@ -396,10 +397,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-end',
         padding: 16,
-        paddingBottom: 40,
+        paddingBottom: 16,
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.05)',
         gap: 12,
+        backgroundColor: 'rgba(0,0,0,0.3)',
     },
     input: {
         flex: 1,

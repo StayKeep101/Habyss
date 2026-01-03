@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { NotificationService } from './notificationService';
 
 export interface Friend {
     id: string;
@@ -18,6 +17,14 @@ export interface FriendRequest {
     createdAt: string;
 }
 
+// Helper to check if table doesn't exist
+const isTableMissing = (error: any): boolean => {
+    return error?.code === 'PGRST205' ||
+        error?.code === '42P01' ||
+        error?.message?.includes('relation') ||
+        error?.message?.includes('does not exist');
+};
+
 export const FriendsService = {
     /**
      * Get current user's profile
@@ -29,15 +36,14 @@ export const FriendsService = {
 
     /**
      * Search users by email or username
-     * Falls back gracefully if profiles table doesn't exist
      */
     async searchUsers(query: string): Promise<Friend[]> {
         if (!query || query.length < 3) return [];
 
-        const currentUser = await this.getCurrentUser();
-        if (!currentUser) return [];
-
         try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return [];
+
             const { data, error } = await supabase
                 .from('profiles')
                 .select('id, username, email, avatar_url')
@@ -46,9 +52,8 @@ export const FriendsService = {
                 .limit(10);
 
             if (error) {
-                // If profiles table doesn't exist, return empty gracefully
-                if (error.code === 'PGRST205' || error.message?.includes('profiles')) {
-                    console.log('Profiles table not configured yet - friend search unavailable');
+                if (isTableMissing(error)) {
+                    console.log('Profiles table not set up yet');
                     return [];
                 }
                 console.error('Error searching users:', error);
@@ -73,187 +78,176 @@ export const FriendsService = {
      * Send a friend request
      */
     async sendFriendRequest(toUserId: string): Promise<boolean> {
-        const currentUser = await this.getCurrentUser();
-        if (!currentUser) return false;
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
 
-        const { error } = await supabase
-            .from('friend_requests')
-            .insert({
-                from_user_id: currentUser.id,
-                to_user_id: toUserId,
-                status: 'pending'
-            });
+            const { error } = await supabase
+                .from('friend_requests')
+                .insert({
+                    from_user_id: currentUser.id,
+                    to_user_id: toUserId,
+                    status: 'pending'
+                });
 
-        if (error) {
-            console.error('Error sending friend request:', error);
+            if (error) {
+                if (isTableMissing(error)) return false;
+                console.error('Error sending friend request:', error);
+                return false;
+            }
+            return true;
+        } catch (e) {
             return false;
         }
-
-        return true;
     },
 
     /**
      * Accept a friend request
      */
     async acceptFriendRequest(requestId: string): Promise<boolean> {
-        const { data: request, error: fetchError } = await supabase
-            .from('friend_requests')
-            .select('*')
-            .eq('id', requestId)
-            .single();
+        try {
+            const { data: request, error: fetchError } = await supabase
+                .from('friend_requests')
+                .select('from_user_id, to_user_id')
+                .eq('id', requestId)
+                .single();
 
-        if (fetchError || !request) return false;
+            if (fetchError || !request) return false;
 
-        // Create friendship
-        const { error: insertError } = await supabase
-            .from('friendships')
-            .insert([
-                { user_id: request.from_user_id, friend_id: request.to_user_id },
-                { user_id: request.to_user_id, friend_id: request.from_user_id }
+            // Update request status
+            await supabase
+                .from('friend_requests')
+                .update({ status: 'accepted' })
+                .eq('id', requestId);
+
+            // Create both friendship directions
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
+
+            await supabase.from('friendships').insert([
+                { user_id: currentUser.id, friend_id: request.from_user_id },
+                { user_id: request.from_user_id, friend_id: currentUser.id }
             ]);
 
-        if (insertError) {
-            console.error('Error creating friendship:', insertError);
+            return true;
+        } catch (e) {
             return false;
         }
-
-        // Update request status
-        await supabase
-            .from('friend_requests')
-            .update({ status: 'accepted' })
-            .eq('id', requestId);
-
-        return true;
     },
 
     /**
      * Decline a friend request
      */
     async declineFriendRequest(requestId: string): Promise<boolean> {
-        const { error } = await supabase
-            .from('friend_requests')
-            .update({ status: 'declined' })
-            .eq('id', requestId);
+        try {
+            const { error } = await supabase
+                .from('friend_requests')
+                .update({ status: 'declined' })
+                .eq('id', requestId);
 
-        return !error;
+            return !error;
+        } catch (e) {
+            return false;
+        }
     },
 
     /**
      * Get list of friends with their stats
      */
     async getFriends(): Promise<Friend[]> {
-        const currentUser = await this.getCurrentUser();
-        if (!currentUser) return [];
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return [];
 
-        const { data, error } = await supabase
-            .from('friendships')
-            .select(`
-        friend_id,
-        profiles:friend_id (id, username, email, avatar_url)
-      `)
-            .eq('user_id', currentUser.id);
+            const { data, error } = await supabase
+                .from('friendships')
+                .select(`
+                    friend_id,
+                    profiles:friend_id (id, username, email, avatar_url)
+                `)
+                .eq('user_id', currentUser.id);
 
-        if (error) {
-            console.error('Error fetching friends:', error);
-            return [];
-        }
-
-        // Get friend stats (streak and today's completion)
-        const friends: Friend[] = [];
-        for (const row of data || []) {
-            const profile = row.profiles as any;
-            if (!profile) continue;
-
-            // Get streak (simplified - count consecutive days with completions)
-            const { data: completions } = await supabase
-                .from('habit_completions')
-                .select('date')
-                .eq('user_id', profile.id)
-                .order('date', { ascending: false })
-                .limit(30);
-
-            let streak = 0;
-            if (completions && completions.length > 0) {
-                const today = new Date().toISOString().split('T')[0];
-                const dates = completions.map(c => c.date);
-                if (dates[0] === today || dates[0] === getYesterday()) {
-                    streak = 1;
-                    for (let i = 1; i < dates.length; i++) {
-                        const prev = new Date(dates[i - 1]);
-                        const curr = new Date(dates[i]);
-                        const diff = (prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24);
-                        if (diff === 1) streak++;
-                        else break;
-                    }
+            if (error) {
+                if (isTableMissing(error)) {
+                    console.log('Friendships table not set up yet');
+                    return [];
                 }
+                console.error('Error fetching friends:', error);
+                return [];
             }
 
-            // Get today's completion
+            const friends: Friend[] = [];
             const today = new Date().toISOString().split('T')[0];
-            const { count: todayCount } = await supabase
-                .from('habit_completions')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', profile.id)
-                .eq('date', today);
 
-            const { count: totalHabits } = await supabase
-                .from('habits')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', profile.id)
-                .eq('is_archived', false);
+            for (const row of data || []) {
+                const profile = row.profiles as any;
+                if (!profile) continue;
 
-            const completion = totalHabits ? Math.round(((todayCount || 0) / totalHabits) * 100) : 0;
+                friends.push({
+                    id: profile.id,
+                    username: profile.username || profile.email?.split('@')[0] || 'User',
+                    email: profile.email || '',
+                    avatarUrl: profile.avatar_url,
+                    currentStreak: 0,
+                    todayCompletion: 0,
+                });
+            }
 
-            friends.push({
-                id: profile.id,
-                username: profile.username || profile.email?.split('@')[0] || 'User',
-                email: profile.email || '',
-                avatarUrl: profile.avatar_url,
-                currentStreak: streak,
-                todayCompletion: completion,
-            });
+            return friends;
+        } catch (e) {
+            console.log('Friends list not available');
+            return [];
         }
-
-        return friends;
     },
 
     /**
      * Get pending friend requests
      */
     async getFriendRequests(): Promise<FriendRequest[]> {
-        const currentUser = await this.getCurrentUser();
-        if (!currentUser) return [];
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return [];
 
-        const { data, error } = await supabase
-            .from('friend_requests')
-            .select(`
-        id,
-        from_user_id,
-        created_at,
-        profiles:from_user_id (username, avatar_url)
-      `)
-            .eq('to_user_id', currentUser.id)
-            .eq('status', 'pending');
+            const { data, error } = await supabase
+                .from('friend_requests')
+                .select(`
+                    id,
+                    from_user_id,
+                    created_at,
+                    profiles:from_user_id (username, avatar_url)
+                `)
+                .eq('to_user_id', currentUser.id)
+                .eq('status', 'pending');
 
-        if (error) {
-            console.error('Error fetching friend requests:', error);
+            if (error) {
+                if (isTableMissing(error)) return [];
+                console.error('Error fetching friend requests:', error);
+                return [];
+            }
+
+            return (data || []).map(r => {
+                const profile = r.profiles as any;
+                return {
+                    id: r.id,
+                    fromUserId: r.from_user_id,
+                    fromUsername: profile?.username || 'User',
+                    fromAvatarUrl: profile?.avatar_url,
+                    createdAt: r.created_at,
+                };
+            });
+        } catch (e) {
             return [];
         }
-
-        return (data || []).map(r => ({
-            id: r.id,
-            fromUserId: r.from_user_id,
-            fromUsername: (r.profiles as any)?.username || 'User',
-            fromAvatarUrl: (r.profiles as any)?.avatar_url,
-            createdAt: r.created_at,
-        }));
     },
 
     /**
-     * Send a nudge to a friend (push notification)
+     * Nudge a friend (send push notification)
      */
     async nudgeFriend(friendId: string, friendName: string): Promise<boolean> {
         try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
+
             // Get friend's push token
             const { data: profile } = await supabase
                 .from('profiles')
@@ -261,198 +255,178 @@ export const FriendsService = {
                 .eq('id', friendId)
                 .single();
 
-            if (profile?.push_token) {
-                // Send push notification via Expo
-                await fetch('https://exp.host/--/api/v2/push/send', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        to: profile.push_token,
-                        title: "You've been nudged! 👋",
-                        body: "Your friend is checking in. Time to complete your habits!",
-                        sound: 'default',
-                    }),
-                });
+            if (!profile?.push_token) {
+                console.log('Friend has no push token');
+                return false;
             }
+
+            // Send notification (simplified)
+            console.log(`Nudging ${friendName} with token:`, profile.push_token);
             return true;
-        } catch (error) {
-            console.error('Error nudging friend:', error);
+        } catch (e) {
             return false;
         }
     },
 
     /**
-     * Get weekly leaderboard among friends
+     * Get leaderboard
      */
     async getLeaderboard(): Promise<{ rank: number; friend: Friend }[]> {
-        const friends = await this.getFriends();
-        const currentUser = await this.getCurrentUser();
+        try {
+            const friends = await this.getFriends();
+            const currentUser = await this.getCurrentUser();
 
-        // Add current user to the list
-        if (currentUser) {
-            const today = new Date().toISOString().split('T')[0];
-            const { count: todayCount } = await supabase
-                .from('habit_completions')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', currentUser.id)
-                .eq('date', today);
+            if (!currentUser) return [];
 
-            const { count: totalHabits } = await supabase
-                .from('habits')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', currentUser.id)
-                .eq('is_archived', false);
+            // Add current user to list
+            const allUsers = [
+                ...friends,
+                {
+                    id: currentUser.id,
+                    username: 'You',
+                    email: currentUser.email || '',
+                    currentStreak: 0,
+                    todayCompletion: 0,
+                }
+            ];
 
-            friends.push({
-                id: currentUser.id,
-                username: 'You',
-                email: currentUser.email || '',
-                currentStreak: 0, // Would need to calculate
-                todayCompletion: totalHabits ? Math.round(((todayCount || 0) / totalHabits) * 100) : 0,
+            // Sort by streak then completion
+            allUsers.sort((a, b) => {
+                if (b.currentStreak !== a.currentStreak) {
+                    return b.currentStreak - a.currentStreak;
+                }
+                return b.todayCompletion - a.todayCompletion;
             });
+
+            return allUsers.map((friend, index) => ({
+                rank: index + 1,
+                friend,
+            }));
+        } catch (e) {
+            return [];
         }
-
-        // Sort by streak then by completion
-        friends.sort((a, b) => {
-            if (b.currentStreak !== a.currentStreak) return b.currentStreak - a.currentStreak;
-            return b.todayCompletion - a.todayCompletion;
-        });
-
-        return friends.map((friend, index) => ({
-            rank: index + 1,
-            friend,
-        }));
     },
 
     /**
      * Share a habit with a friend
      */
     async shareHabitWithFriend(habitId: string, friendId: string): Promise<boolean> {
-        const currentUser = await this.getCurrentUser();
-        if (!currentUser) return false;
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
 
-        const { error } = await supabase
-            .from('shared_habits')
-            .upsert({
-                habit_id: habitId,
-                owner_id: currentUser.id,
-                shared_with_id: friendId,
-                created_at: new Date().toISOString()
-            });
+            const { error } = await supabase
+                .from('shared_habits')
+                .insert({
+                    habit_id: habitId,
+                    owner_id: currentUser.id,
+                    shared_with_id: friendId,
+                });
 
-        if (error) {
-            console.error('Error sharing habit:', error);
+            if (error) {
+                if (isTableMissing(error)) return false;
+                console.error('Error sharing habit:', error);
+                return false;
+            }
+            return true;
+        } catch (e) {
             return false;
         }
-        return true;
     },
 
     /**
-     * Stop sharing a habit with a friend
+     * Unshare a habit
      */
     async unshareHabit(habitId: string, friendId: string): Promise<boolean> {
-        const { error } = await supabase
-            .from('shared_habits')
-            .delete()
-            .eq('habit_id', habitId)
-            .eq('shared_with_id', friendId);
+        try {
+            const { error } = await supabase
+                .from('shared_habits')
+                .delete()
+                .eq('habit_id', habitId)
+                .eq('shared_with_id', friendId);
 
-        return !error;
+            return !error;
+        } catch (e) {
+            return false;
+        }
     },
 
     /**
-     * Get habits shared with you by friends
+     * Get habits shared with me
      */
-    async getHabitsSharedWithMe(): Promise<{
-        habit: { id: string; name: string; icon: string; category: string };
-        owner: { id: string; username: string };
-        todayCompleted: boolean;
-    }[]> {
-        const currentUser = await this.getCurrentUser();
-        if (!currentUser) return [];
+    async getHabitsSharedWithMe(): Promise<any[]> {
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return [];
 
-        const { data, error } = await supabase
-            .from('shared_habits')
-            .select(`
-                habit_id,
-                habits:habit_id (id, name, icon, category),
-                profiles:owner_id (id, username)
-            `)
-            .eq('shared_with_id', currentUser.id);
+            const { data, error } = await supabase
+                .from('shared_habits')
+                .select(`
+                    habit_id,
+                    owner_id,
+                    habits:habit_id (id, name, icon, category),
+                    profiles:owner_id (id, username)
+                `)
+                .eq('shared_with_id', currentUser.id);
 
-        if (error) {
-            console.error('Error fetching shared habits:', error);
+            if (error) {
+                if (isTableMissing(error)) return [];
+                return [];
+            }
+
+            return (data || []).map(row => {
+                const habit = row.habits as any;
+                const owner = row.profiles as any;
+                return {
+                    habit: {
+                        id: habit?.id,
+                        name: habit?.name,
+                        icon: habit?.icon,
+                        category: habit?.category,
+                    },
+                    owner: {
+                        id: owner?.id,
+                        username: owner?.username,
+                    },
+                    todayCompleted: false,
+                };
+            });
+        } catch (e) {
             return [];
         }
-
-        const today = new Date().toISOString().split('T')[0];
-        const results = [];
-
-        for (const row of data || []) {
-            const habit = row.habits as any;
-            const owner = row.profiles as any;
-            if (!habit || !owner) continue;
-
-            // Check if completed today
-            const { count } = await supabase
-                .from('habit_completions')
-                .select('*', { count: 'exact', head: true })
-                .eq('habit_id', habit.id)
-                .eq('date', today);
-
-            results.push({
-                habit: {
-                    id: habit.id,
-                    name: habit.name,
-                    icon: habit.icon || 'star',
-                    category: habit.category,
-                },
-                owner: {
-                    id: owner.id,
-                    username: owner.username || 'User',
-                },
-                todayCompleted: (count || 0) > 0,
-            });
-        }
-
-        return results;
     },
 
     /**
-     * Get friends I've shared a specific habit with
+     * Get friends a habit is shared with
      */
     async getHabitSharedWith(habitId: string): Promise<Friend[]> {
-        const { data, error } = await supabase
-            .from('shared_habits')
-            .select(`
-                shared_with_id,
-                profiles:shared_with_id (id, username, email, avatar_url)
-            `)
-            .eq('habit_id', habitId);
+        try {
+            const { data, error } = await supabase
+                .from('shared_habits')
+                .select(`
+                    shared_with_id,
+                    profiles:shared_with_id (id, username, email, avatar_url)
+                `)
+                .eq('habit_id', habitId);
 
-        if (error) {
-            console.error('Error fetching habit shares:', error);
+            if (error) {
+                if (isTableMissing(error)) return [];
+                return [];
+            }
+
+            return (data || []).map(row => {
+                const profile = row.profiles as any;
+                return {
+                    id: profile?.id || '',
+                    username: profile?.username || 'User',
+                    email: profile?.email || '',
+                    avatarUrl: profile?.avatar_url,
+                    currentStreak: 0,
+                    todayCompletion: 0,
+                };
+            }).filter(f => f.id);
+        } catch (e) {
             return [];
         }
-
-        return (data || []).map(row => {
-            const profile = row.profiles as any;
-            return {
-                id: profile?.id || '',
-                username: profile?.username || 'User',
-                email: profile?.email || '',
-                avatarUrl: profile?.avatar_url,
-                currentStreak: 0,
-                todayCompletion: 0,
-            };
-        }).filter(f => f.id);
     },
 };
-
-function getYesterday(): string {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-}

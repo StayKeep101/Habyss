@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, TextInput, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, TextInput, Alert, ActivityIndicator, Image, Linking, Platform } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
@@ -10,6 +10,8 @@ import * as Haptics from 'expo-haptics';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppSettings } from '@/constants/AppSettingsContext';
+import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
@@ -28,10 +30,13 @@ export default function ProfileScreen() {
     const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
     const [saving, setSaving] = useState(false);
 
-    // Settings state
-    const [notifications, setNotifications] = useState(true);
-    const [sound, setSound] = useState(true);
-    const [haptics, setHaptics] = useState(true);
+    // Settings state - use global context
+    const {
+        hapticsEnabled, setHapticsEnabled,
+        soundsEnabled, setSoundsEnabled,
+        notificationsEnabled, setNotificationsEnabled,
+        aiPersonality
+    } = useAppSettings();
 
     // Profile picture state
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -122,39 +127,57 @@ export default function ProfileScreen() {
                 {
                     text: "Take Photo",
                     onPress: async () => {
-                        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-                        if (status !== 'granted') return Alert.alert('Camera permission needed');
+                        try {
+                            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                            if (status !== 'granted') {
+                                Alert.alert('Permission Required', 'Camera permission is needed to take photos.');
+                                return;
+                            }
 
-                        const result = await ImagePicker.launchCameraAsync({
-                            allowsEditing: true,
-                            aspect: [1, 1],
-                            quality: 0.8,
-                        });
+                            const result = await ImagePicker.launchCameraAsync({
+                                allowsEditing: true,
+                                aspect: [1, 1],
+                                quality: 0.7,
+                            });
 
-                        if (!result.canceled && result.assets[0]) {
-                            setAvatarUri(result.assets[0].uri);
-                            await AsyncStorage.setItem('profile_avatar', result.assets[0].uri);
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            if (!result.canceled && result.assets && result.assets[0]) {
+                                const uri = result.assets[0].uri;
+                                setAvatarUri(uri);
+                                await AsyncStorage.setItem('profile_avatar', uri);
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            }
+                        } catch (error) {
+                            console.error('Camera error:', error);
+                            Alert.alert('Error', 'Could not access camera. Please try again.');
                         }
                     }
                 },
                 {
                     text: "Choose from Library",
                     onPress: async () => {
-                        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                        if (status !== 'granted') return Alert.alert('Library permission needed');
+                        try {
+                            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                            if (status !== 'granted') {
+                                Alert.alert('Permission Required', 'Photo library access is needed to select photos.');
+                                return;
+                            }
 
-                        const result = await ImagePicker.launchImageLibraryAsync({
-                            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                            allowsEditing: true,
-                            aspect: [1, 1],
-                            quality: 0.8,
-                        });
+                            const result = await ImagePicker.launchImageLibraryAsync({
+                                mediaTypes: ['images'],
+                                allowsEditing: true,
+                                aspect: [1, 1],
+                                quality: 0.7,
+                            });
 
-                        if (!result.canceled && result.assets[0]) {
-                            setAvatarUri(result.assets[0].uri);
-                            await AsyncStorage.setItem('profile_avatar', result.assets[0].uri);
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            if (!result.canceled && result.assets && result.assets[0]) {
+                                const uri = result.assets[0].uri;
+                                setAvatarUri(uri);
+                                await AsyncStorage.setItem('profile_avatar', uri);
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            }
+                        } catch (error) {
+                            console.error('Library error:', error);
+                            Alert.alert('Error', 'Could not access photo library. Please try again.');
                         }
                     }
                 },
@@ -163,9 +186,9 @@ export default function ProfileScreen() {
         );
     };
 
-    const toggleSwitch = (setter: React.Dispatch<React.SetStateAction<boolean>>, value: boolean) => {
-        Haptics.selectionAsync();
-        setter(!value);
+    const toggleGlobalSetting = (setter: (val: boolean) => void, currentValue: boolean) => {
+        if (hapticsEnabled) Haptics.selectionAsync();
+        setter(!currentValue);
     };
 
     const SettingItem = ({ icon, label, value, onToggle }: any) => (
@@ -180,7 +203,7 @@ export default function ProfileScreen() {
                 trackColor={{ false: '#3e3e3e', true: colors.primary }}
                 thumbColor={colors.textPrimary}
                 ios_backgroundColor="#3e3e3e"
-                onValueChange={() => toggleSwitch(onToggle, value)}
+                onValueChange={() => onToggle(!value)}
                 value={value}
             />
         </View>
@@ -305,11 +328,37 @@ export default function ProfileScreen() {
                     {/* Settings Groups */}
                     <VoidCard glass style={styles.groupCard}>
                         <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>PREFERENCES</Text>
-                        <SettingItem icon="notifications-outline" label="Notifications" value={notifications} onToggle={setNotifications} />
+                        <SettingItem icon="notifications-outline" label="Notifications" value={notificationsEnabled} onToggle={() => toggleGlobalSetting(setNotificationsEnabled, notificationsEnabled)} />
                         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <SettingItem icon="volume-high-outline" label="Sound Effects" value={sound} onToggle={setSound} />
+                        <SettingItem icon="volume-high-outline" label="Sound Effects" value={soundsEnabled} onToggle={() => toggleGlobalSetting(setSoundsEnabled, soundsEnabled)} />
                         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <SettingItem icon="phone-portrait-outline" label="Haptics" value={haptics} onToggle={setHaptics} />
+                        <SettingItem icon="phone-portrait-outline" label="Haptics" value={hapticsEnabled} onToggle={() => toggleGlobalSetting(setHapticsEnabled, hapticsEnabled)} />
+                    </VoidCard>
+
+                    {/* AI Section */}
+                    <VoidCard glass style={styles.groupCard}>
+                        <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>AI ASSISTANT</Text>
+                        <TouchableOpacity
+                            onPress={() => {
+                                if (hapticsEnabled) Haptics.selectionAsync();
+                                router.push('/(root)/ai-settings');
+                            }}
+                            activeOpacity={0.7}
+                            style={styles.settingItem}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                                <View style={[styles.iconBox, { borderColor: colors.border }]}>
+                                    <Text style={{ fontSize: 18 }}>{PERSONALITY_MODES.find(m => m.id === aiPersonality)?.icon || '🙂'}</Text>
+                                </View>
+                                <View>
+                                    <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>AI Personality</Text>
+                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceMono-Regular' }}>
+                                        {PERSONALITY_MODES.find(m => m.id === aiPersonality)?.name || 'Normal'}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} style={{ opacity: 0.5 }} />
+                        </TouchableOpacity>
                     </VoidCard>
 
                     <VoidCard glass style={styles.groupCard}>
@@ -319,6 +368,94 @@ export default function ProfileScreen() {
                         <MenuLink icon="help-buoy-outline" label="Support" onPress={() => { }} />
                         <View style={[styles.divider, { backgroundColor: colors.border }]} />
                         <MenuLink icon="log-out-outline" label="Log Out" onPress={handleLogout} destructive />
+                    </VoidCard>
+
+                    {/* Feedback Section */}
+                    <VoidCard style={styles.groupCard}>
+                        <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>FEEDBACK</Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16, fontFamily: 'SpaceMono-Regular' }}>
+                            We'd love to hear from you! Help us make Habyss even better.
+                        </Text>
+                        <TouchableOpacity
+                            onPress={() => Linking.openURL('mailto:feedback@habyss.app?subject=Habyss Feedback')}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: colors.primary + '20',
+                                padding: 16,
+                                borderRadius: 12,
+                                gap: 12,
+                            }}
+                        >
+                            <Ionicons name="mail-outline" size={20} color={colors.primary} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '600' }}>Send Feedback</Text>
+                                <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceMono-Regular' }}>feedback@habyss.app</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => Linking.openURL('https://habyss.app/feature-request')}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: colors.surfaceSecondary,
+                                padding: 16,
+                                borderRadius: 12,
+                                gap: 12,
+                                marginTop: 12,
+                            }}
+                        >
+                            <Ionicons name="bulb-outline" size={20} color="#F59E0B" />
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '600' }}>Request a Feature</Text>
+                                <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceMono-Regular' }}>Tell us what you want</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    </VoidCard>
+
+                    {/* Rating Section */}
+                    <VoidCard style={styles.groupCard}>
+                        <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>RATE US</Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16, fontFamily: 'SpaceMono-Regular' }}>
+                            Enjoying Habyss? Leave a review!
+                        </Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <TouchableOpacity
+                                    key={star}
+                                    onPress={() => {
+                                        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        // Open App Store
+                                        const storeUrl = Platform.OS === 'ios'
+                                            ? 'https://apps.apple.com/app/habyss/id123456789'
+                                            : 'https://play.google.com/store/apps/details?id=com.habyss.app';
+                                        Linking.openURL(storeUrl);
+                                    }}
+                                >
+                                    <Ionicons name="star" size={32} color="#F59E0B" />
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        <TouchableOpacity
+                            onPress={() => {
+                                const storeUrl = Platform.OS === 'ios'
+                                    ? 'https://apps.apple.com/app/habyss/id123456789'
+                                    : 'https://play.google.com/store/apps/details?id=com.habyss.app';
+                                Linking.openURL(storeUrl);
+                            }}
+                            style={{
+                                backgroundColor: '#F59E0B',
+                                paddingVertical: 14,
+                                borderRadius: 12,
+                                alignItems: 'center',
+                            }}
+                        >
+                            <Text style={{ color: '#000', fontWeight: '700', fontSize: 15, fontFamily: 'SpaceGrotesk-Bold' }}>
+                                Rate on {Platform.OS === 'ios' ? 'App Store' : 'Play Store'}
+                            </Text>
+                        </TouchableOpacity>
                     </VoidCard>
 
                     <View style={styles.footer}>

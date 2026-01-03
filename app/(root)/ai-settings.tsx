@@ -1,175 +1,184 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import React from 'react';
+import {
+    View,
+    Text,
+    ScrollView,
+    TouchableOpacity,
+    StyleSheet,
+    Dimensions,
+    Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/constants/themeContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { router } from 'expo-router';
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
-import { useHaptics } from '@/hooks/useHaptics';
-import { useAIPersonality } from '@/constants/AIPersonalityContext';
-import { PERSONALITY_MODES, PersonalityMode, PersonalityModeId } from '@/constants/AIPersonalities';
-import { useSoundEffects } from '@/hooks/useSoundEffects';
+import { useTheme } from '@/constants/themeContext';
+import { useAppSettings } from '@/constants/AppSettingsContext';
+import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
+import * as Haptics from 'expo-haptics';
+
+const { width } = Dimensions.get('window');
 
 const AISettings = () => {
-    const router = useRouter();
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { lightFeedback, mediumFeedback, heavyFeedback } = useHaptics();
-    const { personalityId, setPersonalityId } = useAIPersonality();
-    const { playClick } = useSoundEffects();
+    const { aiPersonality, setAIPersonality, hapticsEnabled } = useAppSettings();
 
-    const [expandedMode, setExpandedMode] = useState<string | null>(null);
+    const handleSelectPersonality = (id: PersonalityModeId) => {
+        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const handleSelectMode = async (mode: PersonalityMode) => {
-        playClick();
-
-        if (mode.id === personalityId) return;
-
-        if (mode.id === 'bully_mode') {
-            heavyFeedback();
+        const mode = PERSONALITY_MODES.find(m => m.id === id);
+        if (mode?.warning) {
             Alert.alert(
-                "⚠️ Warning: Bully Mode",
-                mode.warning || "This mode uses harsh language.",
+                '⚠️ Warning',
+                mode.warning,
                 [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                        text: "Enable Bully Mode",
-                        style: "destructive",
-                        onPress: () => {
-                            setPersonalityId(mode.id);
-                            mediumFeedback();
-                        }
-                    }
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'I understand', onPress: () => setAIPersonality(id) }
                 ]
             );
         } else {
-            lightFeedback();
-            setPersonalityId(mode.id);
+            setAIPersonality(id);
         }
     };
 
-    const toggleExpand = (id: string) => {
-        lightFeedback();
-        setExpandedMode(expandedMode === id ? null : id);
-    };
-
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>AI Personality</Text>
-                <TouchableOpacity style={styles.infoButton}>
-                    <Ionicons name="information-circle-outline" size={24} color={colors.textSecondary} />
-                </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                <View style={styles.introContainer}>
-                    <Text style={[styles.introText, { color: colors.textSecondary }]}>
-                        Choose how your AI assistant communicates with you. From supportive best friend to tough drill sergeant.
-                    </Text>
+        <VoidShell>
+            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (hapticsEnabled) Haptics.selectionAsync();
+                            router.back();
+                        }}
+                        style={styles.backButton}
+                    >
+                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>AI Personality</Text>
+                    <View style={{ width: 40 }} />
                 </View>
 
-                <View style={styles.cardsContainer}>
+                {/* Glow */}
+                <LinearGradient
+                    colors={['rgba(16, 185, 129, 0.1)', 'transparent']}
+                    style={styles.headerGlow}
+                />
+
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Introduction */}
+                    <BlurView intensity={40} tint="dark" style={styles.introCard}>
+                        <LinearGradient
+                            colors={['rgba(16, 185, 129, 0.15)', 'rgba(59, 130, 246, 0.15)']}
+                            style={styles.introGradient}
+                        >
+                            <View style={styles.introIcon}>
+                                <Ionicons name="sparkles" size={24} color="#10B981" />
+                            </View>
+                            <Text style={styles.introTitle}>Choose Your AI Companion</Text>
+                            <Text style={styles.introText}>
+                                Select how you want your AI assistant to interact with you. Each personality offers a unique approach to motivation.
+                            </Text>
+                        </LinearGradient>
+                    </BlurView>
+
+                    {/* Personality Cards */}
                     {PERSONALITY_MODES.map((mode) => {
-                        const isSelected = personalityId === mode.id;
-                        const isExpanded = expandedMode === mode.id;
+                        const isSelected = aiPersonality === mode.id;
 
                         return (
                             <TouchableOpacity
                                 key={mode.id}
-                                style={[
-                                    styles.card,
-                                    {
-                                        backgroundColor: colors.surface,
-                                        borderColor: isSelected ? colors.primary : 'transparent',
-                                        borderWidth: 2
-                                    }
-                                ]}
-                                activeOpacity={0.9}
-                                onPress={() => toggleExpand(mode.id)}
+                                onPress={() => handleSelectPersonality(mode.id)}
+                                activeOpacity={0.8}
                             >
-                                <View style={styles.cardHeader}>
-                                    <View style={styles.cardHeaderLeft}>
-                                        <Text style={styles.modeIcon}>{mode.icon}</Text>
-                                        <View>
-                                            <Text style={[styles.modeName, { color: colors.textPrimary }]}>{mode.name}</Text>
-                                            <Text style={[styles.modeDescShort, { color: colors.textSecondary }]}>
-                                                {mode.description}
+                                <VoidCard
+                                    style={[
+                                        styles.personalityCard,
+                                        isSelected && { borderColor: '#10B981', borderWidth: 2 }
+                                    ]}
+                                >
+                                    <View style={styles.cardHeader}>
+                                        <View style={styles.cardTitleRow}>
+                                            <Text style={styles.emoji}>{mode.icon}</Text>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+                                                    {mode.name}
+                                                </Text>
+                                                <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+                                                    {mode.description}
+                                                </Text>
+                                            </View>
+                                            {isSelected && (
+                                                <View style={styles.selectedBadge}>
+                                                    <Ionicons name="checkmark" size={16} color="#fff" />
+                                                </View>
+                                            )}
+                                        </View>
+                                    </View>
+
+                                    {/* Attribute Bars */}
+                                    <View style={styles.attributes}>
+                                        {Object.entries(mode.attributes).map(([key, value]) => (
+                                            <View key={key} style={styles.attributeRow}>
+                                                <Text style={[styles.attributeLabel, { color: colors.textTertiary }]}>
+                                                    {key.charAt(0).toUpperCase() + key.slice(1)}
+                                                </Text>
+                                                <View style={[styles.attributeBar, { backgroundColor: colors.surfaceSecondary }]}>
+                                                    <View
+                                                        style={[
+                                                            styles.attributeFill,
+                                                            {
+                                                                width: `${value}%`,
+                                                                backgroundColor: isSelected ? '#10B981' : colors.textTertiary
+                                                            }
+                                                        ]}
+                                                    />
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </View>
+
+                                    {/* Example Messages */}
+                                    <View style={styles.examples}>
+                                        <Text style={[styles.exampleLabel, { color: colors.textTertiary }]}>EXAMPLES</Text>
+                                        <View style={[styles.exampleBubble, { backgroundColor: colors.surfaceSecondary }]}>
+                                            <Text style={{ color: '#10B981', fontSize: 10, marginBottom: 4 }}>✓ Success</Text>
+                                            <Text style={{ color: colors.textSecondary, fontSize: 12, fontStyle: 'italic' }}>
+                                                "{mode.examples.success}"
+                                            </Text>
+                                        </View>
+                                        <View style={[styles.exampleBubble, { backgroundColor: colors.surfaceSecondary }]}>
+                                            <Text style={{ color: '#EF4444', fontSize: 10, marginBottom: 4 }}>✗ Missed</Text>
+                                            <Text style={{ color: colors.textSecondary, fontSize: 12, fontStyle: 'italic' }}>
+                                                "{mode.examples.failure}"
                                             </Text>
                                         </View>
                                     </View>
 
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.radioButton,
-                                            { borderColor: isSelected ? colors.primary : colors.textTertiary }
-                                        ]}
-                                        onPress={(e) => {
-                                            e.stopPropagation();
-                                            handleSelectMode(mode);
-                                        }}
-                                    >
-                                        {isSelected && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
-                                    </TouchableOpacity>
-                                </View>
-
-                                {isExpanded && (
-                                    <View style={[styles.expandedContent, { borderTopColor: colors.border }]}>
-
-                                        {/* Examples */}
-                                        <View style={styles.exampleSection}>
-                                            <Text style={[styles.exampleLabel, { color: colors.textTertiary }]}>Success:</Text>
-                                            <Text style={[styles.exampleText, { color: colors.textSecondary }]}>"{mode.examples.success}"</Text>
+                                    {mode.warning && (
+                                        <View style={styles.warningBox}>
+                                            <Ionicons name="warning" size={14} color="#F59E0B" />
+                                            <Text style={{ color: '#F59E0B', fontSize: 10, flex: 1, marginLeft: 6 }}>
+                                                Contains harsh language
+                                            </Text>
                                         </View>
-
-                                        <View style={styles.exampleSection}>
-                                            <Text style={[styles.exampleLabel, { color: colors.textTertiary }]}>Setback:</Text>
-                                            <Text style={[styles.exampleText, { color: colors.textSecondary }]}>"{mode.examples.failure}"</Text>
-                                        </View>
-
-                                        {/* Attributes Graph (Simple Bars) */}
-                                        <View style={styles.attributesContainer}>
-                                            <View style={styles.attributeRow}>
-                                                <Text style={[styles.attrLabel, { color: colors.textTertiary }]}>Warmth</Text>
-                                                <View style={styles.attrBarBg}>
-                                                    <View style={[styles.attrBarFill, { width: `${mode.attributes.warmth}%`, backgroundColor: colors.primary }]} />
-                                                </View>
-                                            </View>
-                                            <View style={styles.attributeRow}>
-                                                <Text style={[styles.attrLabel, { color: colors.textTertiary }]}>Toughness</Text>
-                                                <View style={styles.attrBarBg}>
-                                                    <View style={[styles.attrBarFill, { width: `${mode.attributes.toughness}%`, backgroundColor: '#FF3B30' }]} />
-                                                </View>
-                                            </View>
-                                        </View>
-
-                                        {/* Activate Button */}
-                                        {!isSelected && (
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.activateButton,
-                                                    { backgroundColor: mode.id === 'bully_mode' ? '#FF3B30' : colors.primary }
-                                                ]}
-                                                onPress={() => handleSelectMode(mode)}
-                                            >
-                                                <Text style={styles.activateButtonText}>
-                                                    {mode.id === 'bully_mode' ? 'Enable (If You Dare)' : 'Select Mode'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                )}
+                                    )}
+                                </VoidCard>
                             </TouchableOpacity>
                         );
                     })}
-                </View>
-
-            </ScrollView>
-        </SafeAreaView>
+                </ScrollView>
+            </SafeAreaView>
+        </VoidShell>
     );
 };
 
@@ -182,128 +191,145 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
     },
     backButton: {
-        padding: 8,
-        marginLeft: -8,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    infoButton: {
-        padding: 8,
-        marginRight: -8,
-    },
-    scrollContent: {
-        paddingBottom: 40,
-    },
-    introContainer: {
-        paddingHorizontal: 20,
-        marginBottom: 20,
-    },
-    introText: {
-        fontSize: 16,
-        lineHeight: 24,
-    },
-    cardsContainer: {
-        paddingHorizontal: 20,
-        gap: 16,
-    },
-    card: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginBottom: 8,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
-    },
-    cardHeaderLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-        paddingRight: 16,
-    },
-    modeIcon: {
-        fontSize: 32,
-        marginRight: 16,
-    },
-    modeName: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    modeDescShort: {
-        fontSize: 13,
-        lineHeight: 18,
-    },
-    radioButton: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        borderWidth: 2,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    radioInner: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk-Bold',
+        letterSpacing: 1,
     },
-    expandedContent: {
-        borderTopWidth: 1,
-        padding: 16,
-        backgroundColor: 'rgba(0,0,0,0.02)',
+    headerGlow: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 150,
+        zIndex: -1,
     },
-    exampleSection: {
+    scrollContent: {
+        paddingHorizontal: 20,
+        paddingBottom: 100,
+    },
+    introCard: {
+        borderRadius: 20,
+        overflow: 'hidden',
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    introGradient: {
+        padding: 24,
+        alignItems: 'center',
+    },
+    introIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginBottom: 12,
     },
-    exampleLabel: {
-        fontSize: 12,
-        fontWeight: '600',
-        marginBottom: 4,
+    introTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#fff',
+        fontFamily: 'SpaceGrotesk-Bold',
+        marginBottom: 8,
+        textAlign: 'center',
     },
-    exampleText: {
-        fontSize: 14,
-        fontStyle: 'italic',
+    introText: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.7)',
+        textAlign: 'center',
+        fontFamily: 'SpaceMono-Regular',
         lineHeight: 20,
     },
-    attributesContainer: {
-        marginTop: 16,
-        marginBottom: 20,
-        gap: 8,
+    personalityCard: {
+        marginBottom: 16,
+        padding: 16,
+    },
+    cardHeader: {
+        marginBottom: 16,
+    },
+    cardTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 12,
+    },
+    emoji: {
+        fontSize: 32,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        fontFamily: 'SpaceGrotesk-Bold',
+        marginBottom: 4,
+    },
+    cardDescription: {
+        fontSize: 13,
+        fontFamily: 'SpaceMono-Regular',
+        lineHeight: 18,
+    },
+    selectedBadge: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#10B981',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    attributes: {
+        marginBottom: 16,
     },
     attributeRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginBottom: 8,
     },
-    attrLabel: {
+    attributeLabel: {
         width: 80,
-        fontSize: 12,
-        fontWeight: '500',
+        fontSize: 10,
+        fontFamily: 'SpaceMono-Regular',
+        textTransform: 'capitalize',
     },
-    attrBarBg: {
+    attributeBar: {
         flex: 1,
-        height: 6,
-        backgroundColor: 'rgba(0,0,0,0.1)',
-        borderRadius: 3,
+        height: 4,
+        borderRadius: 2,
         overflow: 'hidden',
     },
-    attrBarFill: {
+    attributeFill: {
         height: '100%',
-        borderRadius: 3,
+        borderRadius: 2,
     },
-    activateButton: {
-        paddingVertical: 12,
+    examples: {
+        marginBottom: 12,
+    },
+    exampleLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+        letterSpacing: 1,
+        marginBottom: 8,
+        fontFamily: 'SpaceMono-Regular',
+    },
+    exampleBubble: {
+        padding: 12,
         borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 8,
+        marginBottom: 8,
     },
-    activateButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
+    warningBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+        padding: 10,
+        borderRadius: 8,
     },
 });
 

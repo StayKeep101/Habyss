@@ -15,6 +15,7 @@ import { View, AppState } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
+import { AppSettingsProvider } from '@/constants/AppSettingsContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -60,11 +61,13 @@ export default function MobileLayout() {
   return (
     <ThemeProvider>
       {/* <StripeAppProvider> */}
-      <AIPersonalityProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <InnerLayout />
-        </GestureHandlerRootView>
-      </AIPersonalityProvider>
+      <AppSettingsProvider>
+        <AIPersonalityProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <InnerLayout />
+          </GestureHandlerRootView>
+        </AIPersonalityProvider>
+      </AppSettingsProvider>
       {/* </StripeAppProvider> */}
     </ThemeProvider>
   );

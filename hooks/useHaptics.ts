@@ -1,41 +1,56 @@
 import * as Haptics from 'expo-haptics';
+import { useAppSettings } from '@/constants/AppSettingsContext';
 
 export const useHaptics = () => {
+  // Try to get global settings, fallback to always enabled if context not available
+  let hapticsEnabled = true;
+  try {
+    const settings = useAppSettings();
+    hapticsEnabled = settings.hapticsEnabled;
+  } catch (e) {
+    // Context not available, default to enabled
+  }
+
   const lightFeedback = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const mediumFeedback = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  // The "Thud" - heavy, deliberate styling for the Void
   const thud = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
   };
 
-  // "Resonance" - A ripple effect for major achievements
   const resonance = async () => {
+    if (!hapticsEnabled) return;
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 100);
     setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 250);
   };
 
   const successFeedback = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const errorFeedback = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    if (hapticsEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  };
+
+  const selectionFeedback = () => {
+    if (hapticsEnabled) Haptics.selectionAsync();
   };
 
   return {
+    enabled: hapticsEnabled,
     lightFeedback,
     mediumFeedback,
-    heavyFeedback: thud, // Alias for backward compatibility if needed, or replace usages
+    heavyFeedback: thud,
     thud,
     resonance,
     successFeedback,
     errorFeedback,
+    selectionFeedback,
   };
-}; 
+};

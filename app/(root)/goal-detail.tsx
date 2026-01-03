@@ -117,37 +117,53 @@ const GoalDetail = () => {
         {
           text: "Take Photo",
           onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') return Alert.alert('Camera permission needed');
+            try {
+              const { status } = await ImagePicker.requestCameraPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert('Permission Required', 'Camera permission is needed.');
+                return;
+              }
 
-            const result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              aspect: [16, 9],
-              quality: 0.8,
-            });
+              const result = await ImagePicker.launchCameraAsync({
+                allowsEditing: true,
+                aspect: [16, 9],
+                quality: 0.7,
+              });
 
-            if (!result.canceled && result.assets[0]) {
-              setBgImage(result.assets[0].uri);
-              await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+              if (!result.canceled && result.assets && result.assets[0]) {
+                setBgImage(result.assets[0].uri);
+                await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+              }
+            } catch (error) {
+              console.error('Camera error:', error);
+              Alert.alert('Error', 'Could not access camera.');
             }
           }
         },
         {
           text: "Choose from Library",
           onPress: async () => {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') return Alert.alert('Library permission needed');
+            try {
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert('Permission Required', 'Photo library access is needed.');
+                return;
+              }
 
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [16, 9],
-              quality: 0.8,
-            });
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [16, 9],
+                quality: 0.7,
+              });
 
-            if (!result.canceled && result.assets[0]) {
-              setBgImage(result.assets[0].uri);
-              await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+              if (!result.canceled && result.assets && result.assets[0]) {
+                setBgImage(result.assets[0].uri);
+                await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+              }
+            } catch (error) {
+              console.error('Library error:', error);
+              Alert.alert('Error', 'Could not access photo library.');
             }
           }
         },

@@ -13,12 +13,17 @@ import { BarChart, LineChart } from 'react-native-gifted-charts';
 import { subscribeToHabits, getCompletions, Habit } from '@/lib/habits';
 import { NotificationsModal } from '@/components/NotificationsModal';
 import { AIAgentModal } from '@/components/AIAgentModal';
+import { CreationModal } from '@/components/CreationModal';
+import { HabitCreationModal } from '@/components/HabitCreationModal';
+import { CelebrationAnimation } from '@/components/CelebrationAnimation';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppSettings } from '@/constants/AppSettingsContext';
 
 const Home = () => {
   const router = useRouter();
   const colorScheme = useColorScheme();
+  const { hapticsEnabled } = useAppSettings();
   const { width } = Dimensions.get('window');
   const GAP = 12;
   const PADDING = 20;
@@ -31,6 +36,9 @@ const Home = () => {
   const [weeklyCompletions, setWeeklyCompletions] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAIAgent, setShowAIAgent] = useState(false);
+  const [showCreationModal, setShowCreationModal] = useState(false);
+  const [showHabitModal, setShowHabitModal] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(2); // Mock for now
 
@@ -115,6 +123,17 @@ const Home = () => {
   // Top 3 habits for display
   const topHabits = habits.slice(0, 3);
 
+  // Dynamic motivational text based on progress
+  const getMotivationalText = (percent: number, completed: number, total: number): string => {
+    if (total === 0) return "Ready to start your journey?";
+    if (percent >= 100) return "🎉 You crushed it today!";
+    if (percent >= 75) return `Almost there! Just ${total - completed} more to go!`;
+    if (percent >= 50) return `You're halfway there! Keep the momentum!`;
+    if (percent >= 25) return `Great start! ${completed} down, ${total - completed} to go!`;
+    if (completed > 0) return `Good progress! ${completed} habit${completed > 1 ? 's' : ''} done!`;
+    return "Let's build some habits today!";
+  };
+
   const handleProfilePress = () => {
     Haptics.selectionAsync();
     router.push('/(root)/(tabs)/settings');
@@ -150,7 +169,10 @@ const Home = () => {
 
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
-                onPress={() => setShowAIAgent(true)}
+                onPress={() => {
+                  if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowAIAgent(true);
+                }}
                 style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16, 185, 129, 0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
                 <Ionicons name="sparkles" size={20} color="#10B981" />
               </TouchableOpacity>
@@ -170,7 +192,7 @@ const Home = () => {
           <Animated.View entering={FadeInDown.delay(100).duration(600)}>
             <View style={{ marginBottom: 4 }}>
               <Text style={{ fontSize: 16, color: '#fff', fontFamily: 'SpaceGrotesk-Bold' }}>
-                {progressPercent >= 100 ? "You're all done!" : progressPercent >= 75 ? "Almost there!" : "Keep pushing!"}
+                {getMotivationalText(progressPercent, completedToday, todaysHabits)}
               </Text>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <Text style={{ fontSize: 16, color: 'rgba(255,255,255,0.6)', fontFamily: 'SpaceGrotesk-Bold' }}>
@@ -345,6 +367,31 @@ const Home = () => {
         <AIAgentModal
           visible={showAIAgent}
           onClose={() => setShowAIAgent(false)}
+        />
+
+        {/* Creation Modal */}
+        <CreationModal
+          visible={showCreationModal}
+          onClose={() => setShowCreationModal(false)}
+          onSelectGoal={() => router.push({ pathname: '/create', params: { isGoal: 'true' } })}
+          onSelectHabit={() => setShowHabitModal(true)}
+        />
+
+        {/* Habit Creation Modal */}
+        <HabitCreationModal
+          visible={showHabitModal}
+          onClose={() => setShowHabitModal(false)}
+          onSuccess={() => {
+            // Refresh completions
+            const today = new Date().toISOString().split('T')[0];
+            getCompletions(today).then(c => setCompletions(c));
+          }}
+        />
+
+        {/* Celebration Animation */}
+        <CelebrationAnimation
+          visible={showCelebration}
+          onComplete={() => setShowCelebration(false)}
         />
       </SafeAreaView>
     </VoidShell>

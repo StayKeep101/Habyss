@@ -6,7 +6,7 @@ let cachedHabits: Habit[] | null = null;
 let habitsSubscription: any = null;
 const habitsListeners: Set<(habits: Habit[]) => void> = new Set();
 
-export type HabitCategory = 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc';
+export type HabitCategory = 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc' | 'productivity' | 'learning' | 'creativity' | 'social';
 export type HabitType = 'build' | 'quit';
 export type GoalPeriod = 'daily' | 'weekly' | 'monthly';
 export type ChartType = 'bar' | 'line';
