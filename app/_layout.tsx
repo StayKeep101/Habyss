@@ -12,11 +12,8 @@ import React from "react";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { View, AppState } from 'react-native';
-import AIAgentWrapper from '@/components/AI/AIAgentWrapper';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
-import { syncWidgets } from '@/lib/habits';
-import StripeAppProvider from '@/components/StripeAppProvider';
 import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -41,16 +38,13 @@ export default function MobileLayout() {
         await NotificationService.registerForPushNotificationsAsync();
       };
       setupNotifications();
-
-      // Initial widget sync
-      syncWidgets();
     }
   }, [loaded]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (nextAppState === 'active') {
-        syncWidgets();
+        // App became active
       }
     });
 
@@ -88,7 +82,6 @@ function InnerLayout() {
           <Stack.Screen name="(root)" />
           <Stack.Screen name="+not-found" />
         </Stack>
-        <AIAgentWrapper />
         <StatusBar style={isDark ? "light" : "dark"} />
       </VoidShell>
     </View>

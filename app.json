@@ -4,7 +4,7 @@
     "slug": "Habyss",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Habyss Logo Black BG.png",
+    "icon": "./assets/images/Habyss Logo.png",
     "scheme": "habyss",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -30,7 +30,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Habyss Logo Black BG.png",
+        "foregroundImage": "./assets/images/Habyss Logo.png",
         "backgroundColor": "#000000"
       },
       "package": "com.habyss.app"
@@ -38,7 +38,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/Habyss Logo Black BG.png"
+      "favicon": "./assets/images/Habyss Logo.png"
     },
     "plugins": [
       "expo-notifications",
@@ -53,7 +53,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/Habyss Logo Black BG.png",
+          "image": "./assets/images/Habyss Logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000000"

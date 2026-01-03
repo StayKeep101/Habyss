@@ -138,8 +138,8 @@ export default function HabitDetailScreen() {
         <View style={styles.statsGrid}>
           {[
             { label: 'STREAK', value: `${streak} DAYS`, icon: 'flame', color: '#FFD93D' },
-            { label: 'BEST', value: `${streak} DAYS`, icon: 'trophy', color: '#00FF94' },
-            { label: 'VOLUME', value: habit.durationMinutes ? `${habit.durationMinutes * streak} MIN` : '0 MIN', icon: 'time', color: '#00F0FF' },
+            { label: 'BEST', value: `${streak} DAYS`, icon: 'trophy', color: '#4ECDC4' },
+            { label: 'VOLUME', value: habit.durationMinutes ? `${habit.durationMinutes * streak} MIN` : '0 MIN', icon: 'time', color: '#8BADD6' },
             { label: 'CYCLE', value: 'DAILY', icon: 'repeat', color: '#8B5CF6' }
           ].map((stat, i) => (
             <VoidCard key={i} style={styles.statCard}>

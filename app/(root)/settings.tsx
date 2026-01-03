@@ -364,7 +364,7 @@ const Settings = () => {
       setNotificationsEnabled(newValue);
       await NotificationService.setNotificationsEnabled(newValue);
       if (newValue) {
-        await NotificationService.requestNotificationPermission();
+        await NotificationService.registerForPushNotificationsAsync();
       }
     } else if (id === '11') {
       const newValue = !quietHoursEnabled;

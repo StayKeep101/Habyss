@@ -24,7 +24,6 @@ const TabIcon = ({ name, focused, color }: { name: any, focused: boolean, color:
     return (
         <Animated.View style={[animatedStyle, styles.iconContainer]}>
             <Ionicons name={name} size={24} color={color} />
-            {focused && <View style={[styles.glowDot, { backgroundColor: color }]} />}
         </Animated.View>
     );
 };
@@ -61,10 +60,10 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         let iconName: any = 'square';
                         if (route.name === 'home') iconName = isFocused ? 'home' : 'home-outline';
                         if (route.name === 'roadmap') iconName = isFocused ? 'calendar' : 'calendar-outline';
-                        if (route.name === 'statistics') iconName = isFocused ? 'people' : 'people-outline';
+                        if (route.name === 'community') iconName = isFocused ? 'people' : 'people-outline';
                         if (route.name === 'settings') iconName = isFocused ? 'person' : 'person-outline';
 
-                        const iconColor = isFocused ? '#fff' : 'rgba(255,255,255,0.4)';
+                        const iconColor = isFocused ? '#8BADD6' : 'rgba(255,255,255,0.4)';
 
                         return (
                             <TouchableOpacity
@@ -90,7 +89,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 style={styles.orbContainer}
             >
                 <LinearGradient
-                    colors={['#8B5CF6', '#2DD4BF']}
+                    colors={['#3A5A8C', '#8BADD6']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.orbGradient}
@@ -171,7 +170,7 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        shadowColor: "#2DD4BF",
+        shadowColor: "#8BADD6",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
         shadowRadius: 12,

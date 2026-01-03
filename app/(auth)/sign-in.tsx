@@ -7,6 +7,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { supabase } from '@/lib/supabase';
 import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 

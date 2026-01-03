@@ -46,20 +46,20 @@ export const Colors = {
   abyss: {
     text: '#E0E6ED', // High Emphasis (Cloud White)
     background: '#050505', // Void Black (Not pure black)
-    tint: '#00F0FF', // Electric Cyan (Focus)
+    tint: '#8BADD6', // Muted Light Blue (softer look)
     tabIconDefault: '#94A3B8', // Low Emphasis (Blue-Grey)
-    tabIconSelected: '#00F0FF', // Electric Cyan
+    tabIconSelected: '#8BADD6', // Muted Light Blue
 
-    // Brand Colors (Bioluminescence)
-    primary: '#00F0FF', // Electric Cyan (Focus)
+    // Brand Colors (Muted Blue Palette)
+    primary: '#8BADD6', // Muted Light Blue
     primaryLight: '#7B2CBF', // Phantom Purple (Wisdom) - used for secondary brand elements
     primaryDark: '#0A0F14', // Trench Blue (Secondary Background)
     secondary: '#121826', // Abyssal Navy (Surfaces)
     accent: '#FF4757', // Alert Coral
 
     // Status
-    success: '#00FF94', // Algae Green
-    brandSuccess: '#00FF94',
+    success: '#4ECDC4', // Softer teal green
+    brandSuccess: '#4ECDC4',
     warning: '#F59E0B',
     error: '#FF4757', // Alert Coral
 

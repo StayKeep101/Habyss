@@ -58,7 +58,6 @@ export const usePremiumStatus = () => {
     status,
     loading,
     refreshStatus,
-    refreshStatus,
     paywallGuard,
     restorePurchases
   };

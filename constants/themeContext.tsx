@@ -19,15 +19,24 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     const loadTheme = async () => {
-      const storedTheme = await AsyncStorage.getItem("theme");
-      if (storedTheme) {
-        if (storedTheme === 'dark') {
+      try {
+        const storedTheme = await AsyncStorage.getItem("theme");
+        if (storedTheme) {
+          if (storedTheme === 'dark') {
             setThemeState('abyss');
-        } else if (storedTheme === 'light') {
-            setThemeState('light');
-        } else {
+          } else if (storedTheme === 'light' || storedTheme === 'abyss' || storedTheme === 'trueDark') {
             setThemeState(storedTheme as ThemeMode);
+          } else {
+            // Unknown theme, default to abyss
+            setThemeState('abyss');
+          }
+        } else {
+          // No stored theme, ensure we save the default
+          await AsyncStorage.setItem("theme", "abyss");
         }
+      } catch (error) {
+        console.error('Error loading theme:', error);
+        setThemeState('abyss');
       }
     };
     loadTheme();

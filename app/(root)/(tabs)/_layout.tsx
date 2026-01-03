@@ -32,7 +32,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="statistics"
+        name="community"
         options={{
           title: "Community"
         }}

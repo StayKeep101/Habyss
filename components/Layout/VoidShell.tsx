@@ -44,19 +44,27 @@ export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
             {/* Deep Void Base */}
             <View style={[StyleSheet.absoluteFill, { backgroundColor: '#050505' }]} />
 
-            {/* Top Light (Trench Blue leaking down) */}
+            {/* Top Gradient (More visible blue mist from top) */}
             <LinearGradient
-                colors={['#0A0F14', 'transparent']}
-                style={[StyleSheet.absoluteFill, { height: '60%' }]}
+                colors={['#0F1A24', '#0A1219', '#050505']}
+                style={[StyleSheet.absoluteFill]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 0.5 }}
+            />
+
+            {/* Subtle radial glow at top */}
+            <LinearGradient
+                colors={['rgba(58, 90, 140, 0.15)', 'transparent']}
+                style={[StyleSheet.absoluteFill, { height: '40%' }]}
                 start={{ x: 0.5, y: 0 }}
                 end={{ x: 0.5, y: 1 }}
             />
 
-            {/* Bottom Mist (Subtle Bioluminescence) */}
+            {/* Bottom Mist (Subtle glow) */}
             <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
                 <LinearGradient
-                    colors={['transparent', colors.primary + '15']} // Very subtle electric cyan glow
-                    style={[StyleSheet.absoluteFill, { top: '50%' }]}
+                    colors={['transparent', 'rgba(139, 173, 214, 0.08)']}
+                    style={[StyleSheet.absoluteFill, { top: '60%' }]}
                     start={{ x: 0.5, y: 0 }}
                     end={{ x: 0.5, y: 1 }}
                 />
