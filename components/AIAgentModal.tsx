@@ -29,7 +29,7 @@ import Animated, {
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -66,6 +66,7 @@ const AI_RESPONSES: Record<string, string> = {
 export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { lightFeedback, successFeedback } = useHaptics();
 
     const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
     const [inputText, setInputText] = useState('');
@@ -93,7 +94,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
     const handleSend = async () => {
         if (!inputText.trim()) return;
 
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        lightFeedback();
 
         const userMessage: Message = {
             id: Date.now().toString(),
@@ -130,7 +131,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
 
             setMessages(prev => [...prev, aiMessage]);
             setIsTyping(false);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            successFeedback();
         }, 1000 + Math.random() * 1000);
     };
 

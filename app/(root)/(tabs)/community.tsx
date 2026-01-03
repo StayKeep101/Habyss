@@ -7,12 +7,12 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { FriendsService, Friend, FriendRequest } from '@/lib/friendsService';
-import * as Haptics from 'expo-haptics';
+
 
 export default function CommunityScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { thud, lightFeedback } = useHaptics();
+    const { thud, lightFeedback, mediumFeedback } = useHaptics();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -92,7 +92,7 @@ export default function CommunityScreen() {
     };
 
     const handleNudge = async (friend: Friend) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        mediumFeedback();
         const success = await FriendsService.nudgeFriend(friend.id, friend.username);
         if (success) {
             Alert.alert('Nudged! 👋', `${friend.username} has been notified.`);
@@ -109,7 +109,7 @@ export default function CommunityScreen() {
     return (
         <VoidShell>
             <ScrollView
-                contentContainerStyle={{ paddingTop: 80, paddingHorizontal: 20, paddingBottom: 140 }}
+                contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 20, paddingBottom: 140 }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />

@@ -4,8 +4,9 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
+
 import { useTheme } from '@/constants/themeContext';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface Notification {
     id: string;
@@ -73,6 +74,7 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
 
     const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
 
@@ -89,12 +91,12 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     };
 
     const handleMarkAllRead = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        lightFeedback();
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     };
 
     const handleClearAll = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        mediumFeedback();
         Alert.alert(
             'Clear All Notifications',
             'Are you sure you want to remove all notifications?',
@@ -113,7 +115,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     };
 
     const handleNotificationPress = (id: string) => {
-        Haptics.selectionAsync();
+        selectionFeedback();
         setNotifications(prev =>
             prev.map(n => n.id === id ? { ...n, read: true } : n)
         );

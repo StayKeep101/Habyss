@@ -8,6 +8,7 @@ import Svg, { Circle } from 'react-native-svg';
 interface CalendarStripProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
+  completionData?: Record<string, { completed: number; total: number }>; // dateStr -> completion info
 }
 
 interface DateItem {
@@ -98,7 +99,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
   );
 });
 
-export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSelectDate }) => {
+export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSelectDate, completionData = {} }) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const flatListRef = useRef<FlatList>(null);
@@ -123,16 +124,17 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
 
-      // Mock random progress for "go crazy" effect
-      // In a real app, you'd map this to actual completion data
-      const randomProgress = Math.random() > 0.3 ? Math.random() : 0;
+      // Get actual completion progress from props
+      const dateStr = date.toISOString().split('T')[0];
+      const dayData = completionData[dateStr];
+      const progress = dayData && dayData.total > 0 ? dayData.completed / dayData.total : 0;
 
       d.push({
         dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
         dayNumber: date.getDate(),
         fullDate: date,
         id: date.toISOString(),
-        progress: randomProgress,
+        progress,
       });
     }
     return d;

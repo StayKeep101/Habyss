@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Keyboard, DeviceEventEmitter, Alert, ScrollView, Modal, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Keyboard, DeviceEventEmitter, Alert, ScrollView, Modal, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useGlobalSearchParams } from 'expo-router';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import Animated, { FadeIn, SlideInRight, SlideOutLeft, Layout, SlideInUp, SlideOutDown } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { addHabit, updateHabit, HabitCategory, HabitType, subscribeToHabits, Habit } from '@/lib/habits';
@@ -23,6 +23,7 @@ export default function RitualForgeScreen() {
     const params = useGlobalSearchParams();
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { lightFeedback, mediumFeedback, selectionFeedback, successFeedback } = useHaptics();
 
     // --- State ---
     const [step, setStep] = useState(0);
@@ -58,7 +59,7 @@ export default function RitualForgeScreen() {
     // --- Actions ---
 
     const handleNext = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        lightFeedback();
         Keyboard.dismiss();
         if (step < TOTAL_STEPS - 1) {
             setStep(step + 1);
@@ -68,7 +69,7 @@ export default function RitualForgeScreen() {
     };
 
     const handleBack = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        lightFeedback();
         Keyboard.dismiss();
         if (step > 0) {
             setStep(step - 1);
@@ -80,7 +81,7 @@ export default function RitualForgeScreen() {
     const handleSubmit = async () => {
         if (!name.trim()) return;
         setSaving(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        successFeedback();
 
         try {
             // Format Data
@@ -199,9 +200,12 @@ export default function RitualForgeScreen() {
             </View>
 
             {/* Content */}
-            <View style={styles.content}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={styles.content}
+            >
                 {renderStep()}
-            </View>
+            </KeyboardAvoidingView>
 
             {/* Goal Link Section - Only show when creating a habit (not a goal) */}
             {!isGoal && step === 2 && (
@@ -298,7 +302,7 @@ export default function RitualForgeScreen() {
                                         onPress={() => {
                                             setSelectedGoalId(goal.id);
                                             setShowGoalPicker(false);
-                                            Haptics.selectionAsync();
+                                            selectionFeedback();
                                         }}
                                         style={{
                                             flexDirection: 'row',
@@ -369,7 +373,7 @@ export default function RitualForgeScreen() {
                                 {/* Goal Option */}
                                 <TouchableOpacity
                                     onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        mediumFeedback();
                                         setShowSelection(false);
                                         setIsGoal(true);
                                     }}
@@ -394,7 +398,7 @@ export default function RitualForgeScreen() {
                                 {/* Habit Option */}
                                 <TouchableOpacity
                                     onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        mediumFeedback();
                                         setShowSelection(false);
                                         setIsGoal(false);
                                     }}

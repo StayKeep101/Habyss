@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
@@ -13,17 +13,17 @@ import { BarChart, LineChart } from 'react-native-gifted-charts';
 import { subscribeToHabits, getCompletions, Habit } from '@/lib/habits';
 import { NotificationsModal } from '@/components/NotificationsModal';
 import { AIAgentModal } from '@/components/AIAgentModal';
-import { CreationModal } from '@/components/CreationModal';
-import { HabitCreationModal } from '@/components/HabitCreationModal';
 import { CelebrationAnimation } from '@/components/CelebrationAnimation';
-import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useHaptics } from '@/hooks/useHaptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Home = () => {
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const { hapticsEnabled } = useAppSettings();
+
+  const { hapticsEnabled } = useAppSettings(); // Keep internal state sync? Or remove if unused.
+  const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
   const { width } = Dimensions.get('window');
   const GAP = 12;
   const PADDING = 20;
@@ -36,8 +36,6 @@ const Home = () => {
   const [weeklyCompletions, setWeeklyCompletions] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAIAgent, setShowAIAgent] = useState(false);
-  const [showCreationModal, setShowCreationModal] = useState(false);
-  const [showHabitModal, setShowHabitModal] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(2); // Mock for now
@@ -135,12 +133,12 @@ const Home = () => {
   };
 
   const handleProfilePress = () => {
-    Haptics.selectionAsync();
+    selectionFeedback();
     router.push('/(root)/(tabs)/settings');
   };
 
   const handleNotificationsPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    lightFeedback();
     setShowNotifications(true);
   };
 
@@ -170,7 +168,7 @@ const Home = () => {
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
                 onPress={() => {
-                  if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  mediumFeedback();
                   setShowAIAgent(true);
                 }}
                 style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16, 185, 129, 0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
@@ -367,25 +365,6 @@ const Home = () => {
         <AIAgentModal
           visible={showAIAgent}
           onClose={() => setShowAIAgent(false)}
-        />
-
-        {/* Creation Modal */}
-        <CreationModal
-          visible={showCreationModal}
-          onClose={() => setShowCreationModal(false)}
-          onSelectGoal={() => router.push({ pathname: '/create', params: { isGoal: 'true' } })}
-          onSelectHabit={() => setShowHabitModal(true)}
-        />
-
-        {/* Habit Creation Modal */}
-        <HabitCreationModal
-          visible={showHabitModal}
-          onClose={() => setShowHabitModal(false)}
-          onSuccess={() => {
-            // Refresh completions
-            const today = new Date().toISOString().split('T')[0];
-            getCompletions(today).then(c => setCompletions(c));
-          }}
         />
 
         {/* Celebration Animation */}

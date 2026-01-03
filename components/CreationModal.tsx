@@ -1,42 +1,58 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, Dimensions, DeviceEventEmitter } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, SlideInUp, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown, useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useRouter } from 'expo-router';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface CreationModalProps {
-    visible: boolean;
-    onClose: () => void;
-    onSelectGoal: () => void;
-    onSelectHabit: () => void;
+    // Props can be empty as it manages its own visibility via events
 }
 
-export const CreationModal: React.FC<CreationModalProps> = ({
-    visible,
-    onClose,
-    onSelectGoal,
-    onSelectHabit
-}) => {
+export const CreationModal: React.FC<CreationModalProps> = () => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { mediumFeedback, lightFeedback } = useHaptics();
+    const router = useRouter();
+    const [visible, setVisible] = useState(false);
+
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('show_creation_modal', () => {
+            lightFeedback();
+            setVisible(true);
+        });
+        return () => subscription.remove();
+    }, []);
+
+    const onClose = () => {
+        setVisible(false);
+    };
 
     const handleGoal = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        onClose();
-        onSelectGoal();
+        mediumFeedback();
+        setVisible(false);
+        // Slightly delay navigation to allow modal to close smoothly
+        setTimeout(() => {
+            router.push('/create');
+        }, 300);
     };
 
     const handleHabit = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        onClose();
-        onSelectHabit();
+        mediumFeedback();
+        setVisible(false);
+        // Emit event to open the specific habit modal
+        setTimeout(() => {
+            DeviceEventEmitter.emit('show_habit_modal');
+        }, 300);
     };
+
+    if (!visible) return null;
 
     return (
         <Modal
@@ -50,77 +66,65 @@ export const CreationModal: React.FC<CreationModalProps> = ({
                 activeOpacity={1}
                 onPress={onClose}
             >
-                <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+                <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
 
                 <Animated.View
-                    entering={SlideInUp.springify().damping(20)}
-                    exiting={SlideOutDown.duration(200)}
-                    style={styles.container}
+                    entering={SlideInDown.springify().damping(15)}
+                    exiting={SlideOutDown}
+                    style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 >
-                    <TouchableOpacity activeOpacity={1}>
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <View style={styles.handle} />
-                            <Text style={[styles.title, { color: colors.textPrimary }]}>
-                                What would you like to create?
-                            </Text>
-                        </View>
+                    <View style={styles.handleContainer}>
+                        <View style={styles.handle} />
+                    </View>
 
-                        {/* Options */}
-                        <View style={styles.options}>
-                            {/* Goal Option */}
-                            <TouchableOpacity
-                                onPress={handleGoal}
-                                style={styles.optionCard}
-                            >
-                                <LinearGradient
-                                    colors={['#8B5CF6', '#7C3AED']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.optionGradient}
-                                >
-                                    <View style={styles.optionIcon}>
-                                        <Ionicons name="flag" size={32} color="#fff" />
-                                    </View>
-                                    <Text style={styles.optionTitle}>Goal</Text>
-                                    <Text style={styles.optionSubtitle}>
-                                        Long-term objectives to work towards
-                                    </Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>
+                        Create New...
+                    </Text>
 
-                            {/* Habit Option */}
-                            <TouchableOpacity
-                                onPress={handleHabit}
-                                style={styles.optionCard}
-                            >
-                                <LinearGradient
-                                    colors={['#10B981', '#059669']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.optionGradient}
-                                >
-                                    <View style={styles.optionIcon}>
-                                        <Ionicons name="checkmark-done" size={32} color="#fff" />
-                                    </View>
-                                    <Text style={styles.optionTitle}>Habit</Text>
-                                    <Text style={styles.optionSubtitle}>
-                                        Daily rituals and recurring tasks
-                                    </Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Cancel Button */}
+                    <View style={styles.optionsContainer}>
+                        {/* Goal Option */}
                         <TouchableOpacity
-                            onPress={onClose}
-                            style={[styles.cancelButton, { backgroundColor: colors.surfaceSecondary }]}
+                            onPress={handleGoal}
+                            activeOpacity={0.9}
+                            style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
                         >
-                            <Text style={[styles.cancelText, { color: colors.textSecondary }]}>
-                                Cancel
-                            </Text>
+                            <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
+                                <Ionicons name="flag" size={32} color="#8B5CF6" />
+                            </View>
+                            <View style={styles.textContainer}>
+                                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Goal</Text>
+                                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                                    Long-term objective
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
                         </TouchableOpacity>
+
+                        {/* Habit Option */}
+                        <TouchableOpacity
+                            onPress={handleHabit}
+                            activeOpacity={0.9}
+                            style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
+                        >
+                            <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+                                <Ionicons name="repeat" size={32} color="#10B981" />
+                            </View>
+                            <View style={styles.textContainer}>
+                                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Habit</Text>
+                                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                                    Recurring daily task
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <Text style={[styles.closeText, { color: colors.textSecondary }]}>Cancel</Text>
                     </TouchableOpacity>
+
+                    {/* Bottom spacer for safe area */}
+                    <View style={{ height: 40 }} />
                 </Animated.View>
             </TouchableOpacity>
         </Modal>
@@ -132,77 +136,77 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'flex-end',
     },
-    container: {
-        backgroundColor: '#0A0A0A',
+    sheet: {
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
-        paddingBottom: 40,
+        paddingHorizontal: 24,
+        paddingTop: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderBottomWidth: 0,
+        width: '100%',
+        maxHeight: height * 0.6,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 10,
     },
-    header: {
+    handleContainer: {
         alignItems: 'center',
-        paddingTop: 12,
-        paddingBottom: 20,
+        marginBottom: 20,
     },
     handle: {
         width: 40,
         height: 4,
         borderRadius: 2,
         backgroundColor: 'rgba(255,255,255,0.2)',
-        marginBottom: 16,
     },
     title: {
-        fontSize: 20,
-        fontWeight: '700',
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 24,
+        textAlign: 'center',
         fontFamily: 'SpaceGrotesk-Bold',
     },
-    options: {
-        flexDirection: 'row',
-        paddingHorizontal: 20,
-        gap: 12,
-        marginBottom: 20,
+    optionsContainer: {
+        gap: 16,
+        marginBottom: 24,
     },
     optionCard: {
-        flex: 1,
-    },
-    optionGradient: {
-        borderRadius: 20,
-        padding: 20,
+        flexDirection: 'row',
         alignItems: 'center',
-        minHeight: 160,
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
     },
-    optionIcon: {
+    iconContainer: {
         width: 56,
         height: 56,
         borderRadius: 28,
-        backgroundColor: 'rgba(255,255,255,0.2)',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 12,
+    },
+    textContainer: {
+        flex: 1,
+        marginLeft: 16,
     },
     optionTitle: {
         fontSize: 18,
-        fontWeight: '700',
-        color: '#fff',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontWeight: 'bold',
         marginBottom: 4,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
-    optionSubtitle: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.8)',
-        textAlign: 'center',
+    optionDesc: {
+        fontSize: 14,
         fontFamily: 'SpaceMono-Regular',
     },
-    cancelButton: {
-        marginHorizontal: 20,
-        paddingVertical: 16,
-        borderRadius: 16,
+    closeButton: {
         alignItems: 'center',
+        paddingVertical: 12,
     },
-    cancelText: {
+    closeText: {
         fontSize: 16,
-        fontWeight: '600',
         fontFamily: 'SpaceGrotesk-Bold',
-    },
+    }
 });

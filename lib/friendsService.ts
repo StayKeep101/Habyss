@@ -169,7 +169,7 @@ export const FriendsService = {
 
             if (error) {
                 if (isTableMissing(error)) {
-                    console.log('Friendships table not set up yet');
+                    // console.log('Friendships table not set up yet');
                     return [];
                 }
                 console.error('Error fetching friends:', error);

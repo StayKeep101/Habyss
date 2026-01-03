@@ -10,7 +10,7 @@ import Animated, {
     runOnJS,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -101,6 +101,7 @@ export const CelebrationAnimation: React.FC<CelebrationProps> = ({ visible, onCo
     const checkScale = useSharedValue(0);
     const ringScale = useSharedValue(0.5);
     const ringOpacity = useSharedValue(0);
+    const { successFeedback } = useHaptics();
 
     const particles: Particle[] = Array.from({ length: 12 }, (_, i) => ({
         id: i,
@@ -114,7 +115,7 @@ export const CelebrationAnimation: React.FC<CelebrationProps> = ({ visible, onCo
 
     useEffect(() => {
         if (visible) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            successFeedback();
 
             // Main container animation
             mainScale.value = withSpring(1, { damping: 12, stiffness: 100 });

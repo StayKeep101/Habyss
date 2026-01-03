@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Image } from 'rea
 import Animated, { FadeInDown, FadeOut, useSharedValue, withSpring, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -35,9 +35,10 @@ interface GenesisCarouselProps {
 
 export const GenesisCarousel: React.FC<GenesisCarouselProps> = ({ onFinish, onLogin }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
+    const { lightFeedback } = useHaptics();
 
     const handleNext = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        lightFeedback();
         if (currentSlide < SLIDES.length - 1) {
             setCurrentSlide(prev => prev + 1);
         } else {

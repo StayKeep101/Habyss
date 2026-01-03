@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions, Platform, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions, Platform, Alert, DeviceEventEmitter } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import * as Haptics from 'expo-haptics';
+
 
 const { width } = Dimensions.get('window');
 
@@ -28,9 +28,12 @@ const TabIcon = ({ name, focused, color }: { name: any, focused: boolean, color:
     );
 };
 
+import { useHaptics } from '@/hooks/useHaptics';
+
 export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { mediumFeedback, selectionFeedback } = useHaptics();
 
     return (
         <View style={styles.container}>
@@ -52,7 +55,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                             });
 
                             if (!isFocused && !event.defaultPrevented) {
-                                Haptics.selectionAsync();
+                                selectionFeedback();
                                 navigation.navigate(route.name);
                             }
                         };
@@ -83,9 +86,9 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    // Navigate to create screen with a selection parameter
-                    navigation.navigate('create', { showSelection: 'true' });
+                    mediumFeedback();
+                    // Emit event for home.tsx to show creation modal
+                    DeviceEventEmitter.emit('show_creation_modal');
                 }}
                 style={styles.orbContainer}
             >

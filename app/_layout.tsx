@@ -16,6 +16,8 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 import { AppSettingsProvider } from '@/constants/AppSettingsContext';
+import { CreationModal } from '@/components/CreationModal';
+import { HabitCreationModal } from '@/components/HabitCreationModal';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -85,6 +87,8 @@ function InnerLayout() {
           <Stack.Screen name="(root)" />
           <Stack.Screen name="+not-found" />
         </Stack>
+        <CreationModal />
+        <HabitCreationModal />
         <StatusBar style={isDark ? "light" : "dark"} />
       </VoidShell>
     </View>

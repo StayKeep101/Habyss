@@ -9,7 +9,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 import { FriendsService, Friend } from '@/lib/friendsService';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 export default function HabitDetailScreen() {
   const router = useRouter();
@@ -19,6 +19,7 @@ export default function HabitDetailScreen() {
 
   const { theme } = useTheme();
   const colors = Colors[theme];
+  const { selectionFeedback } = useHaptics();
 
   // Initialize with passed params to avoid loading state
   const [habit, setHabit] = useState<Habit | null>(() => {
@@ -84,7 +85,7 @@ export default function HabitDetailScreen() {
   };
 
   const toggleShare = async (friendId: string) => {
-    Haptics.selectionAsync();
+    selectionFeedback();
     const isCurrentlyShared = sharedWith.includes(friendId);
 
     if (isCurrentlyShared) {

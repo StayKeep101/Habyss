@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,7 @@ import {
     Dimensions,
     Platform,
     KeyboardAvoidingView,
+    DeviceEventEmitter,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,9 +18,10 @@ import Animated, { FadeIn, SlideInUp, SlideOutDown } from 'react-native-reanimat
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
+
 import { useTheme } from '@/constants/themeContext';
-import * as Haptics from 'expo-haptics';
-import { addHabit, HabitCategory } from '@/lib/habits';
+import { useHaptics } from '@/hooks/useHaptics';
+import { addHabit, HabitCategory, subscribeToHabits, Habit } from '@/lib/habits';
 
 const { width, height } = Dimensions.get('window');
 
@@ -46,20 +48,67 @@ const CATEGORIES: { id: HabitCategory; label: string; icon: string }[] = [
 ];
 
 interface HabitCreationModalProps {
-    visible: boolean;
-    onClose: () => void;
-    onSuccess: () => void;
+    // Optional props for direct control, but can be self-managed
+    visible?: boolean;
+    onClose?: () => void;
+    onSuccess?: () => void;
     goalId?: string;
 }
 
 export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
-    visible,
-    onClose,
-    onSuccess,
-    goalId,
+    visible: propVisible,
+    onClose: propOnClose,
+    onSuccess: propOnSuccess,
+    goalId: propGoalId,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { mediumFeedback, selectionFeedback, successFeedback } = useHaptics();
+
+    // Internal state handling
+    const [isVisible, setIsVisible] = useState(false);
+    const [goalId, setGoalId] = useState<string | undefined>(propGoalId);
+    const [availableGoals, setAvailableGoals] = useState<Habit[]>([]);
+
+    // Fetch goals
+    useEffect(() => {
+        const unsub = subscribeToHabits((habits) => {
+            setAvailableGoals(habits.filter(h => h.isGoal));
+        });
+        return () => { unsub.then(fn => fn()) };
+    }, []);
+
+    // Sync with props
+    useEffect(() => {
+        if (propVisible !== undefined) setIsVisible(propVisible);
+    }, [propVisible]);
+
+    useEffect(() => {
+        if (propGoalId !== undefined) setGoalId(propGoalId);
+    }, [propGoalId]);
+
+    // Listen for global events
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('show_habit_modal', (data) => {
+            selectionFeedback();
+            setIsVisible(true);
+            setGoalId(data?.goalId || undefined);
+        });
+        return () => subscription.remove();
+    }, []);
+
+    const handleClose = () => {
+        setIsVisible(false);
+        if (propOnClose) propOnClose();
+        resetForm();
+    };
+
+    const handleSuccess = () => {
+        successFeedback();
+        setIsVisible(false);
+        if (propOnSuccess) propOnSuccess();
+        resetForm();
+    };
 
     // Form state
     const [title, setTitle] = useState('');
@@ -85,7 +134,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     ];
 
     const toggleDay = (day: string) => {
-        Haptics.selectionAsync();
+        selectionFeedback();
         setSelectedDays(prev =>
             prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
         );
@@ -99,7 +148,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         if (!title.trim()) return;
 
         setSaving(true);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        mediumFeedback();
 
         try {
             const fmtTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -124,10 +173,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 goalId: goalId || undefined,
             });
 
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            successFeedback();
             resetForm();
-            onSuccess();
-            onClose();
+            handleSuccess();
         } catch (e) {
             console.error(e);
             setSaving(false);
@@ -143,15 +191,16 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setStartTime(new Date());
         setEndTime(new Date(Date.now() + 30 * 60 * 1000));
         setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+        setGoalId(undefined);
         setSaving(false);
     };
 
     return (
         <Modal
-            visible={visible}
+            visible={isVisible}
             transparent
             animationType="none"
-            onRequestClose={onClose}
+            onRequestClose={handleClose}
         >
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -171,7 +220,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                             <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
                                 New Habit
                             </Text>
-                            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                            <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
                                 <Ionicons name="close" size={24} color={colors.textSecondary} />
                             </TouchableOpacity>
                         </View>
@@ -206,6 +255,38 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                 multiline
                                 numberOfLines={3}
                             />
+                        </View>
+
+                        {/* Goal Link (Optional) */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>LINK TO GOAL (OPTIONAL)</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                                <TouchableOpacity
+                                    onPress={() => { selectionFeedback(); setGoalId(undefined); }}
+                                    style={[
+                                        styles.goalChip,
+                                        { borderColor: !goalId ? colors.primary : colors.border, backgroundColor: !goalId ? colors.primary + '20' : 'transparent' }
+                                    ]}
+                                >
+                                    <Ionicons name="close-circle-outline" size={16} color={!goalId ? colors.primary : colors.textSecondary} />
+                                    <Text style={{ color: !goalId ? colors.primary : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>None</Text>
+                                </TouchableOpacity>
+                                {availableGoals.map(goal => (
+                                    <TouchableOpacity
+                                        key={goal.id}
+                                        onPress={() => { selectionFeedback(); setGoalId(goal.id); }}
+                                        style={[
+                                            styles.goalChip,
+                                            { borderColor: goalId === goal.id ? goal.color : colors.border, backgroundColor: goalId === goal.id ? goal.color + '20' : 'transparent' }
+                                        ]}
+                                    >
+                                        <Ionicons name={goal.icon as any} size={16} color={goalId === goal.id ? goal.color : colors.textSecondary} />
+                                        <Text style={{ color: goalId === goal.id ? goal.color : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>
+                                            {goal.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
                         </View>
 
                         {/* Time Range */}
@@ -285,7 +366,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     {CATEGORIES.map(cat => (
                                         <TouchableOpacity
                                             key={cat.id}
-                                            onPress={() => { setCategory(cat.id); Haptics.selectionAsync(); }}
+                                            onPress={() => { setCategory(cat.id); selectionFeedback(); }}
                                             style={[
                                                 styles.categoryChip,
                                                 { borderColor: category === cat.id ? selectedColor : colors.border },
@@ -309,7 +390,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                 {ICONS.map(icon => (
                                     <TouchableOpacity
                                         key={icon}
-                                        onPress={() => { setSelectedIcon(icon); Haptics.selectionAsync(); }}
+                                        onPress={() => { setSelectedIcon(icon); selectionFeedback(); }}
                                         style={[
                                             styles.iconButton,
                                             { borderColor: selectedIcon === icon ? selectedColor : colors.border },
@@ -329,7 +410,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                 {COLORS.map(color => (
                                     <TouchableOpacity
                                         key={color}
-                                        onPress={() => { setSelectedColor(color); Haptics.selectionAsync(); }}
+                                        onPress={() => { setSelectedColor(color); selectionFeedback(); }}
                                         style={[
                                             styles.colorButton,
                                             { backgroundColor: color },
@@ -480,6 +561,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 10,
+    },
+    goalChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 20,
+        borderWidth: 1,
     },
     iconButton: {
         width: 48,

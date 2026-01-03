@@ -1,5 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import Animated, {
+    useAnimatedScrollHandler,
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    runOnJS,
+    SlideInDown,
+    SlideOutDown,
+    FadeIn,
+    withTiming
+} from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
@@ -34,6 +46,10 @@ const CalendarScreen = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
 
     const [isWizardVisible, setIsWizardVisible] = useState(false);
+    const [showFilter, setShowFilter] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
 
     // Subscribe to habits list (real-time & cached)
     useEffect(() => {
@@ -61,6 +77,23 @@ const CalendarScreen = () => {
             streak: 0
         }));
         setHabits(mapped);
+
+        // Calculate weekly completions for CalendarStrip
+        const calcWeeklyCompletions = async () => {
+            const result: Record<string, { completed: number; total: number }> = {};
+            const today = new Date();
+            for (let i = -30; i <= 7; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayCompletions = await getCompletions(dateStr);
+                const totalHabits = habitsStore.filter(h => !h.isGoal).length;
+                const completedCount = Object.values(dayCompletions).filter(Boolean).length;
+                result[dateStr] = { completed: completedCount, total: totalHabits };
+            }
+            setWeeklyCompletions(result);
+        };
+        calcWeeklyCompletions();
     }, [habitsStore, completions]);
 
     const { playComplete, playClick } = useSoundEffects();
@@ -69,10 +102,27 @@ const CalendarScreen = () => {
         lightFeedback();
         playClick();
         setSelectedDate(date);
-        // Optimistically clear completions while loading new ones to avoid confusion
-        // Or keep them until new ones load? Keeping them is better for perceived speed if IDs match, 
-        // but clearing is safer for correctness. Let's keep for now as effect runs fast.
     };
+
+    // Pull-to-Filter Logic
+    const scrollY = useSharedValue(0);
+    const filterTriggered = useSharedValue(false);
+
+    const scrollHandler = useAnimatedScrollHandler({
+        onScroll: (event) => {
+            scrollY.value = event.contentOffset.y;
+            if (event.contentOffset.y < -80 && !filterTriggered.value) {
+                filterTriggered.value = true; // Lock
+                runOnJS(lightFeedback)();
+                runOnJS(setShowFilter)(true);
+            }
+        },
+        onEndDrag: () => {
+            filterTriggered.value = false; // Reset lock on release
+        }
+    });
+
+    const categories = ['All', 'Health', 'Fitness', 'Mindfulness', 'Work', 'Personal'];
 
     const handleHabitPress = (habit: Habit) => {
         lightFeedback();
@@ -98,8 +148,14 @@ const CalendarScreen = () => {
         const selected = new Date(selectedDate);
         selected.setHours(0, 0, 0, 0);
 
-        if (selected > today) {
-            Alert.alert("Cannot complete habits in the future", "Please wait until the day arrives!");
+        // Only allow completing habits for today
+        if (selected.getTime() !== today.getTime()) {
+            Alert.alert(
+                "Today Only",
+                selected > today
+                    ? "You can only complete habits for today. Come back when the day arrives!"
+                    : "You can only complete habits for today. Past days cannot be modified."
+            );
             return;
         }
 
@@ -172,13 +228,28 @@ const CalendarScreen = () => {
 
                     {/* Layer 1 (Top): Calendar Strip (Fixed) */}
                     <View style={{ zIndex: 10 }}>
-                        <CalendarStrip selectedDate={selectedDate} onSelectDate={handleDateSelect} />
+                        <CalendarStrip
+                            selectedDate={selectedDate}
+                            onSelectDate={handleDateSelect}
+                            completionData={weeklyCompletions}
+                        />
                     </View>
 
 
-                    {/* Layer 2 (Background): Goals & Habits List */}
-                    <View style={{ flex: 1, paddingHorizontal: 20 }}>
-                        <ScrollView contentContainerStyle={{ paddingBottom: 150, paddingTop: 10 }} showsVerticalScrollIndicator={false}>
+                    <View style={{ flex: 1 }}>
+                        <Animated.ScrollView
+                            onScroll={scrollHandler}
+                            scrollEventThrottle={16}
+                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 150, paddingTop: 10 }}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {/* Pull Hint */}
+                            <Animated.View style={{ height: 0, overflow: 'visible', alignItems: 'center', justifyContent: 'flex-end', marginTop: -50 }}>
+                                <View style={{ alignItems: 'center', opacity: 0.5, paddingBottom: 20 }}>
+                                    <Ionicons name="filter" size={20} color={colors.textSecondary} />
+                                    <Text style={{ color: colors.textSecondary, fontSize: 10, marginTop: 4 }}>PULL TO FILTER</Text>
+                                </View>
+                            </Animated.View>
 
 
 
@@ -226,7 +297,7 @@ const CalendarScreen = () => {
                                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'SpaceMono-Regular' }}>NO OPERATIONS SCHEDULED</Text>
                                 </VoidCard>
                             )}
-                        </ScrollView>
+                        </Animated.ScrollView>
                     </View>
 
                     <GoalCreationWizard
@@ -236,6 +307,104 @@ const CalendarScreen = () => {
                             // Refresh logic if needed
                         }}
                     />
+
+                    {/* Custom Filter Modal (Bottom Sheet Style) */}
+                    {showFilter && (
+                        <Modal
+                            visible={true}
+                            transparent
+                            animationType="none"
+                            onRequestClose={() => setShowFilter(false)}
+                        >
+                            <TouchableOpacity
+                                style={{ flex: 1, justifyContent: 'flex-end' }}
+                                activeOpacity={1}
+                                onPress={() => setShowFilter(false)}
+                            >
+                                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+
+                                <Animated.View
+                                    entering={SlideInDown.springify().damping(15)}
+                                    exiting={SlideOutDown}
+                                    style={{
+                                        backgroundColor: colors.surface,
+                                        borderTopLeftRadius: 32,
+                                        borderTopRightRadius: 32,
+                                        padding: 24,
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.1)',
+                                        shadowColor: "#000",
+                                        shadowOffset: { width: 0, height: -4 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 10,
+                                        paddingBottom: 40
+                                    }}>
+
+                                    <View style={{ alignItems: 'center', marginBottom: 24 }}>
+                                        <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                                    </View>
+
+                                    <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, fontFamily: 'SpaceGrotesk-Bold', marginBottom: 8 }}>
+                                        Filter View
+                                    </Text>
+                                    <Text style={{ color: colors.textSecondary, marginBottom: 24, fontSize: 14 }}>
+                                        Show only specific habits
+                                    </Text>
+
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 32 }}>
+                                        {categories.map((cat) => (
+                                            <TouchableOpacity
+                                                key={cat}
+                                                activeOpacity={0.8}
+                                                onPress={() => {
+                                                    lightFeedback();
+                                                    setSelectedCategory(cat === 'All' ? null : cat.toLowerCase());
+                                                }}
+                                                style={{
+                                                    paddingHorizontal: 16,
+                                                    paddingVertical: 12,
+                                                    borderRadius: 16,
+                                                    backgroundColor: (selectedCategory === cat.toLowerCase() || (cat === 'All' && !selectedCategory))
+                                                        ? colors.primary
+                                                        : 'rgba(255,255,255,0.05)',
+                                                    borderWidth: 1,
+                                                    borderColor: (selectedCategory === cat.toLowerCase() || (cat === 'All' && !selectedCategory))
+                                                        ? colors.primary
+                                                        : 'rgba(255,255,255,0.1)',
+                                                }}
+                                            >
+                                                <Text style={{
+                                                    color: (selectedCategory === cat.toLowerCase() || (cat === 'All' && !selectedCategory)) ? '#fff' : colors.textSecondary,
+                                                    fontWeight: '600',
+                                                    fontSize: 14,
+                                                    fontFamily: 'SpaceMono-Regular'
+                                                }}>
+                                                    {cat}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+
+                                    <TouchableOpacity
+                                        onPress={() => setShowFilter(false)}
+                                        style={{
+                                            backgroundColor: colors.surfaceSecondary,
+                                            paddingVertical: 16,
+                                            borderRadius: 20,
+                                            alignItems: 'center',
+                                            borderWidth: 1,
+                                            borderColor: 'rgba(255,255,255,0.1)'
+                                        }}
+                                    >
+                                        <Text style={{ color: colors.textPrimary, fontWeight: '600', fontSize: 16, fontFamily: 'SpaceGrotesk-Bold' }}>
+                                            Done
+                                        </Text>
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            </TouchableOpacity>
+                        </Modal>
+                    )}
+
 
                 </View>
             </SafeAreaView>

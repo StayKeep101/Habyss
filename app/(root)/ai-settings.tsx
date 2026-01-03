@@ -19,17 +19,18 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const { width } = Dimensions.get('window');
 
 const AISettings = () => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { aiPersonality, setAIPersonality, hapticsEnabled } = useAppSettings();
+    const { aiPersonality, setAIPersonality } = useAppSettings();
+    const { mediumFeedback, selectionFeedback } = useHaptics();
 
     const handleSelectPersonality = (id: PersonalityModeId) => {
-        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        mediumFeedback();
 
         const mode = PERSONALITY_MODES.find(m => m.id === id);
         if (mode?.warning) {
@@ -53,7 +54,7 @@ const AISettings = () => {
                 <View style={styles.header}>
                     <TouchableOpacity
                         onPress={() => {
-                            if (hapticsEnabled) Haptics.selectionAsync();
+                            selectionFeedback();
                             router.back();
                         }}
                         style={styles.backButton}

@@ -15,67 +15,74 @@ export default function RootLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen 
-        name="notifications" 
-        options={{ 
+      <Stack.Screen
+        name="notifications"
+        options={{
           headerShown: false,
           presentation: 'modal'
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="settings" 
-        options={{ 
+      <Stack.Screen
+        name="settings"
+        options={{
           headerShown: false,
           presentation: 'modal'
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="privacy" 
-        options={{ 
+      <Stack.Screen
+        name="privacy"
+        options={{
           headerShown: false,
           presentation: 'modal'
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="data-storage" 
-        options={{ 
+      <Stack.Screen
+        name="data-storage"
+        options={{
           headerShown: false,
           presentation: 'modal'
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="create" 
-        options={{ 
+      <Stack.Screen
+        name="create"
+        options={{
           headerShown: false,
           presentation: 'modal'
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="roadmap" 
-        options={{ 
+      <Stack.Screen
+        name="roadmap"
+        options={{
           headerShown: false,
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="habit-detail" 
-        options={{ 
-          headerShown: false,
-          presentation: 'modal'
-        }} 
-      />
-      <Stack.Screen 
-        name="statistics" 
-        options={{ 
+      <Stack.Screen
+        name="habit-detail"
+        options={{
           headerShown: false,
           presentation: 'modal'
-        }} 
+        }}
       />
-      <Stack.Screen 
-        name="goal-detail" 
-        options={{ 
+      <Stack.Screen
+        name="statistics"
+        options={{
           headerShown: false,
           presentation: 'modal'
-        }} 
+        }}
+      />
+      <Stack.Screen
+        name="goal-detail"
+        options={{
+          headerShown: false,
+          presentation: 'modal'
+        }}
+      />
+      <Stack.Screen
+        name="ai-settings"
+        options={{
+          headerShown: false,
+          presentation: 'modal'
+        }}
       />
     </Stack>
   );

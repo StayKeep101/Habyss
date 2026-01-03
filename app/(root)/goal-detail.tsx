@@ -11,6 +11,7 @@ import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { CosmicView } from '@/components/Goal/CosmicView';
 import { subscribeToHabits, Habit, removeHabitEverywhere } from '@/lib/habits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DeviceEventEmitter } from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -93,12 +94,34 @@ const GoalDetail = () => {
         category: goal.category,
         icon: goal.icon,
         isGoal: 'true',
-        targetDate: goal.targetDate
       }
     });
   };
 
-  const handleAddHabit = () => router.push({ pathname: '/create', params: { goalId: goalId as string } });
+  const handleDeleteGoal = () => {
+    Alert.alert(
+      "Delete Goal",
+      "This will remove the goal but keep its habits. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            if (goal) {
+              await removeHabitEverywhere(goal.id);
+              router.back();
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleAddHabit = () => {
+    // Use global modal with goalId
+    DeviceEventEmitter.emit('show_habit_modal', { goalId });
+  };
 
   const handleDeleteHabit = (habit: Habit) => {
     Alert.alert("Delete Habit", "Are you sure?", [
@@ -228,48 +251,52 @@ const GoalDetail = () => {
                     Target: {new Date(goal.targetDate || '').toLocaleDateString()}
                   </Text>
                 </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity onPress={handleEditGoal} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12 }}>
                   <Ionicons name="pencil" size={20} color="white" />
                 </TouchableOpacity>
-              </View>
-
-              {goal.description && (
-                <Text style={{ color: colors.textSecondary, fontSize: 16, marginTop: 16, lineHeight: 24 }}>
-                  {goal.description}
-                </Text>
-              )}
-
-              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 30 }} />
-
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <Text style={{ fontSize: 20, fontWeight: '700', color: 'white' }}>Mission Habits</Text>
-                <TouchableOpacity onPress={handleAddHabit}>
-                  <Text style={{ color: colors.primary, fontWeight: '600' }}>+ Add New</Text>
+                <TouchableOpacity onPress={handleDeleteGoal} style={{ padding: 8, backgroundColor: 'rgba(239, 68, 68, 0.2)', borderRadius: 12 }}>
+                  <Ionicons name="trash" size={20} color="#EF4444" />
                 </TouchableOpacity>
               </View>
-
-              {associatedHabits.length > 0 ? (
-                associatedHabits.map(habit => (
-                  <SwipeableHabitItem
-                    key={habit.id}
-                    habit={habit}
-                    onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
-                    onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id, goalId: goalId as string } })}
-                    onDelete={handleDeleteHabit}
-                    onFocus={() => { }}
-                  />
-                ))
-              ) : (
-                <View style={{ padding: 40, alignItems: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 20 }}>
-                  <Text style={{ color: colors.textSecondary }}>No habits linked yet.</Text>
-                </View>
-              )}
             </View>
 
+            {goal.description && (
+              <Text style={{ color: colors.textSecondary, fontSize: 16, marginTop: 16, lineHeight: 24 }}>
+                {goal.description}
+              </Text>
+            )}
+
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 30 }} />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: 'white' }}>Mission Habits</Text>
+              <TouchableOpacity onPress={handleAddHabit}>
+                <Text style={{ color: colors.primary, fontWeight: '600' }}>+ Add New</Text>
+              </TouchableOpacity>
+            </View>
+
+            {associatedHabits.length > 0 ? (
+              associatedHabits.map(habit => (
+                <SwipeableHabitItem
+                  key={habit.id}
+                  habit={habit}
+                  onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
+                  onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id, goalId: goalId as string } })}
+                  onDelete={handleDeleteHabit}
+                  onFocus={() => { }}
+                />
+              ))
+            ) : (
+              <View style={{ padding: 40, alignItems: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 20 }}>
+                <Text style={{ color: colors.textSecondary }}>No habits linked yet.</Text>
+              </View>
+            )}
           </View>
         </BlurView>
       </Animated.ScrollView>
-    </View>
+    </View >
   );
 };
 

@@ -16,7 +16,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +32,7 @@ interface SettingOption {
 const SettingsHub = () => {
   const { theme } = useTheme();
   const colors = Colors[theme];
+  const { selectionFeedback, errorFeedback } = useHaptics();
 
   const settings: { section: string; items: SettingOption[] }[] = [
     {
@@ -68,10 +69,10 @@ const SettingsHub = () => {
   ];
 
   const handlePress = (item: SettingOption) => {
-    Haptics.selectionAsync();
+    selectionFeedback();
     if (item.comingSoon) {
       // Show coming soon feedback
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      errorFeedback();
       return;
     }
     if (item.onPress) {
@@ -86,7 +87,7 @@ const SettingsHub = () => {
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => {
-              Haptics.selectionAsync();
+              selectionFeedback();
               router.back();
             }}
             style={styles.backButton}

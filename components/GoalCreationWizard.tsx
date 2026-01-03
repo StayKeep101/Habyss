@@ -9,7 +9,9 @@ import {
     Dimensions,
     Keyboard,
     TouchableWithoutFeedback,
-    Platform
+    Platform,
+    KeyboardAvoidingView,
+    ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,6 +34,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { addHabit, HabitCategory } from '@/lib/habits';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const { width, height } = Dimensions.get('window');
 
@@ -63,6 +66,7 @@ const CATEGORIES: { key: HabitCategory; label: string; icon: keyof typeof Ionico
 export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible, onClose, onSuccess }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { lightFeedback, mediumFeedback, successFeedback, selectionFeedback } = useHaptics();
 
     // State
     const [step, setStep] = useState(0);
@@ -96,14 +100,14 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
     }, [step]);
 
     const handleNext = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        lightFeedback();
         if (step < STEPS.length - 1) {
             setStep(s => s + 1);
         }
     };
 
     const handleBack = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        lightFeedback();
         if (step > 0) {
             setStep(s => s - 1);
         } else {
@@ -115,7 +119,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
     const holdInterval = useRef<NodeJS.Timeout | null>(null);
 
     const startHold = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        mediumFeedback();
         holdProgress.value = withTiming(1, { duration: 1500 }, (finished) => {
             if (finished) {
                 runOnJS(submitGoal)();
@@ -129,7 +133,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
 
     const submitGoal = async () => {
         setIsSubmitting(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        successFeedback();
 
         try {
             await addHabit({
@@ -228,7 +232,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                                     style={[styles.catChip, category === cat.key && styles.catChipActive]}
                                     onPress={() => {
                                         setCategory(cat.key);
-                                        Haptics.selectionAsync();
+                                        selectionFeedback();
                                     }}
                                 >
                                     <Ionicons name={cat.icon as any} size={16} color={category === cat.key ? '#fff' : 'rgba(255,255,255,0.6)'} />
@@ -251,7 +255,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                                         ]}
                                         onPress={() => {
                                             setSelectedTheme(themeKey);
-                                            Haptics.selectionAsync();
+                                            selectionFeedback();
                                         }}
                                     />
                                 )
@@ -286,47 +290,62 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
 
     return (
         <Modal visible={visible} animationType="slide" transparent={false}>
-            <View style={{ flex: 1 }}>
-                <LinearGradient
-                    colors={PRESET_GRADIENTS[selectedTheme] as any}
-                    style={StyleSheet.absoluteFill}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                />
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={{ flex: 1 }}>
+                    <LinearGradient
+                        colors={PRESET_GRADIENTS[selectedTheme] as any}
+                        style={StyleSheet.absoluteFill}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                    />
 
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={handleBack} style={styles.iconButton}>
-                        <Ionicons name="arrow-back" size={24} color="white" />
-                    </TouchableOpacity>
-                    <View style={styles.progressBar}>
-                        <Animated.View style={[styles.progressFill, { width: `${(step + 1) / STEPS.length * 100}%` }]} />
-                    </View>
-                    <View style={{ width: 40 }} />
-                </View>
-
-                {/* Content */}
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <View style={styles.content}>
-                        {renderStepContent()}
-                    </View>
-                </TouchableWithoutFeedback>
-
-                {/* Footer Navigation (Except last step) */}
-                {step < STEPS.length - 1 && (
-                    <View style={styles.footer}>
-                        <TouchableOpacity
-                            onPress={handleNext}
-                            disabled={step === 0 && name.length === 0}
-                            style={[styles.nextButton, (step === 0 && name.length === 0) && styles.nextButtonDisabled]}
-                        >
-                            <Text style={styles.nextButtonText}>{step === 0 ? 'Start' : 'Next'}</Text>
-                            <Ionicons name="arrow-forward" size={20} color="white" />
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={handleBack} style={styles.iconButton}>
+                            <Ionicons name="arrow-back" size={24} color="white" />
                         </TouchableOpacity>
+                        <View style={styles.progressBar}>
+                            <Animated.View style={[styles.progressFill, { width: `${(step + 1) / STEPS.length * 100}%` }]} />
+                        </View>
+                        <View style={{ width: 40 }} />
                     </View>
-                )}
-            </View>
-        </Modal>
+
+                    {/* Content */}
+                    {/* Content */}
+                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                        <ScrollView
+                            contentContainerStyle={styles.scrollContent}
+                            keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={false}
+                        >
+                            {renderStepContent()}
+                        </ScrollView>
+                    </TouchableWithoutFeedback>
+
+                    {/* Footer Navigation (Except last step) */}
+                    {step < STEPS.length - 1 && (
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                            keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+                        >
+                            <View style={styles.footer}>
+                                <TouchableOpacity
+                                    onPress={handleNext}
+                                    disabled={step === 0 && name.length === 0}
+                                    style={[styles.nextButton, (step === 0 && name.length === 0) && styles.nextButtonDisabled]}
+                                >
+                                    <Text style={styles.nextButtonText}>{step === 0 ? 'Start' : 'Next'}</Text>
+                                    <Ionicons name="arrow-forward" size={20} color="white" />
+                                </TouchableOpacity>
+                            </View>
+                        </KeyboardAvoidingView>
+                    )}
+                </View>
+            </KeyboardAvoidingView>
+        </Modal >
     );
 };
 
@@ -354,10 +373,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderRadius: 2,
     },
-    content: {
-        flex: 1,
+    scrollContent: {
+        flexGrow: 1,
         justifyContent: 'center',
         paddingHorizontal: 30,
+        paddingBottom: 100, // Extra padding to ensure content isn't hidden behind footer
     },
     stepContainer: {
         alignItems: 'center',
