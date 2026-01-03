@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { NotificationService } from './notificationService';
+import { WidgetService } from './widgetService';
 
 // --- In-Memory Cache ---
 let cachedHabits: Habit[] | null = null;

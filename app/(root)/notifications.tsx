@@ -93,8 +93,10 @@ const Notifications = () => {
   const [quietStart, setQuietStart] = useState('22:00');
   const [quietEnd, setQuietEnd] = useState('08:00');
 
-  const toggleNotification = (id: string) => {
+  const toggleNotification = async (id: string) => {
     lightFeedback();
+
+    // Optimistic Update
     setNotifications(prev =>
       prev.map(notification =>
         notification.id === id
@@ -102,7 +104,23 @@ const Notifications = () => {
           : notification
       )
     );
+
+    // Actual Service Call
+    if (id === '1') { // Daily Reminders -> Main Toggle
+      const current = notifications.find(n => n.id === '1');
+      const newValue = !current?.enabled;
+      await NotificationService.setNotificationsEnabled(newValue);
+    }
   };
+
+  // Initial Load
+  React.useEffect(() => {
+    const loadState = async () => {
+      const enabled = await NotificationService.areNotificationsEnabled();
+      setNotifications(prev => prev.map(n => n.id === '1' ? { ...n, enabled } : n));
+    };
+    loadState();
+  }, []);
 
   const toggleQuietHours = () => {
     mediumFeedback();

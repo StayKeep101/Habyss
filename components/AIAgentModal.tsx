@@ -60,8 +60,17 @@ const AI_RESPONSES: Record<string, string> = {
     'habit': "Great! To create a habit, just tell me:\n\n• The name (e.g., 'Morning Meditation')\n• The category (health, productivity, mindfulness, etc.)\n• How long it takes (optional)\n\nFor example: 'Create a 10-minute morning meditation habit for health'",
     'goal': "Awesome! For a goal, I'll need:\n\n• The goal name\n• A target date\n• What habits you want to link to it\n\nFor example: 'I want to lose 10 pounds by March'",
     'help': "Here's what I can do for you:\n\n🎯 **Create habits or goals** - Just describe what you want\n📊 **Check your progress** - Ask 'How am I doing?'\n✅ **Mark habits complete** - Say 'I finished my workout'\n🔗 **Link habits to goals** - Connect related activities\n\nWhat would you like to do?",
+    'help': "Here's what I can do for you:\n\n🎯 **Create habits or goals** - Just describe what you want\n📊 **Check your progress** - Ask 'How am I doing?'\n✅ **Mark habits complete** - Say 'I finished my workout'\n🔗 **Link habits to goals** - Connect related activities\n\nWhat would you like to do?",
     'default': "I understand! Let me help you with that. Could you tell me more about what you'd like to accomplish?",
 };
+
+const SUGGESTIONS = [
+    "Create a workout goal",
+    "Log water habit",
+    "How is my streak?",
+    "Add meditation",
+    "Show my goals"
+];
 
 export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
@@ -242,18 +251,51 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                             </Animated.View>
                         )}
 
+                        {/* Suggestions */}
+                        <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+                            <FlatList
+                                data={SUGGESTIONS}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={{ gap: 8 }}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            setInputText(item);
+                                            lightFeedback();
+                                        }}
+                                        style={styles.suggestionChip}
+                                    >
+                                        <Text style={styles.suggestionText}>{item}</Text>
+                                    </TouchableOpacity>
+                                )}
+                                keyExtractor={item => item}
+                            />
+                        </View>
+
                         {/* Input - positioned above keyboard */}
                         <View style={styles.inputContainer}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Ask me anything..."
-                                placeholderTextColor="rgba(255,255,255,0.4)"
-                                value={inputText}
-                                onChangeText={setInputText}
-                                onSubmitEditing={handleSend}
-                                returnKeyType="send"
-                                multiline
-                            />
+                            <View style={styles.inputWrapper}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Ask me anything..."
+                                    placeholderTextColor="rgba(255,255,255,0.4)"
+                                    value={inputText}
+                                    onChangeText={setInputText}
+                                    onSubmitEditing={handleSend}
+                                    returnKeyType="send"
+                                    multiline
+                                />
+                                <View style={styles.inputIcons}>
+                                    <TouchableOpacity style={styles.iconBtnSmall}>
+                                        <Ionicons name="image-outline" size={20} color="rgba(255,255,255,0.6)" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.iconBtnSmall}>
+                                        <Ionicons name="mic-outline" size={20} color="rgba(255,255,255,0.6)" />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
                             <TouchableOpacity
                                 onPress={handleSend}
                                 disabled={!inputText.trim()}
@@ -404,15 +446,48 @@ const styles = StyleSheet.create({
         gap: 12,
         backgroundColor: 'rgba(0,0,0,0.3)',
     },
+    inputWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderRadius: 24,
+        paddingRight: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
     input: {
         flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        borderRadius: 20,
         paddingHorizontal: 16,
         paddingVertical: 12,
         color: '#fff',
         fontSize: 15,
         maxHeight: 100,
+        fontFamily: 'SpaceMono-Regular',
+    },
+    inputIcons: {
+        flexDirection: 'row',
+        gap: 4,
+        paddingRight: 4,
+    },
+    iconBtnSmall: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    suggestionChip: {
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    suggestionText: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 12,
         fontFamily: 'SpaceMono-Regular',
     },
     sendButton: {

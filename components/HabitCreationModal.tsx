@@ -14,8 +14,9 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, SlideInUp, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeIn, SlideInDown, SlideOutDown, useSharedValue, useAnimatedStyle, withSpring, runOnJS, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
 
@@ -195,6 +196,42 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setSaving(false);
     };
 
+    // Gesture Handling
+    const translateY = useSharedValue(0);
+    const context = useSharedValue({ y: 0 });
+
+    const gesture = Gesture.Pan()
+        .onStart(() => {
+            context.value = { y: translateY.value };
+        })
+        .onUpdate((event) => {
+            // Only allow dragging down
+            if (event.translationY > 0) {
+                translateY.value = event.translationY + context.value.y;
+            }
+        })
+        .onEnd(() => {
+            if (translateY.value > 100) {
+                runOnJS(handleClose)();
+            } else {
+                translateY.value = withSpring(0);
+            }
+        });
+
+    const animatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ translateY: translateY.value }]
+        };
+    });
+
+    // Reset translation when modal opens
+    useEffect(() => {
+        if (isVisible) {
+            translateY.value = 0;
+        }
+    }, [isVisible]);
+
+
     return (
         <Modal
             visible={isVisible}
@@ -206,245 +243,258 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.overlay}
             >
-                <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-
-                <Animated.View
-                    entering={SlideInUp.springify().damping(20)}
-                    exiting={SlideOutDown.duration(200)}
-                    style={[styles.container, { backgroundColor: colors.surface }]}
+                <TouchableOpacity
+                    style={StyleSheet.absoluteFill}
+                    activeOpacity={1}
+                    onPress={handleClose}
                 >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <View style={styles.handle} />
-                        <View style={styles.headerRow}>
-                            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                                New Habit
-                            </Text>
-                            <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
-                                <Ionicons name="close" size={24} color={colors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+                </TouchableOpacity>
 
-                    <ScrollView
-                        style={styles.content}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 100 }}
+                <GestureDetector gesture={gesture}>
+                    <Animated.View
+                        entering={SlideInDown.springify().damping(15)}
+                        exiting={SlideOutDown}
+                        style={[styles.container, animatedStyle, { overflow: 'hidden' }]}
                     >
-                        {/* Title */}
-                        <View style={styles.section}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>TITLE</Text>
-                            <TextInput
-                                style={[styles.input, { backgroundColor: colors.surfaceSecondary, color: colors.textPrimary, borderColor: colors.border }]}
-                                placeholder="e.g., Morning Meditation"
-                                placeholderTextColor={colors.textTertiary}
-                                value={title}
-                                onChangeText={setTitle}
-                            />
-                        </View>
+                        <LinearGradient
+                            colors={['#334155', '#0f172a']}
+                            style={StyleSheet.absoluteFill}
+                        />
 
-                        {/* Description */}
-                        <View style={styles.section}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>DESCRIPTION (OPTIONAL)</Text>
-                            <TextInput
-                                style={[styles.input, styles.textArea, { backgroundColor: colors.surfaceSecondary, color: colors.textPrimary, borderColor: colors.border }]}
-                                placeholder="Add details about this habit..."
-                                placeholderTextColor={colors.textTertiary}
-                                value={description}
-                                onChangeText={setDescription}
-                                multiline
-                                numberOfLines={3}
-                            />
-                        </View>
-
-                        {/* Goal Link (Optional) */}
-                        <View style={styles.section}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>LINK TO GOAL (OPTIONAL)</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                                <TouchableOpacity
-                                    onPress={() => { selectionFeedback(); setGoalId(undefined); }}
-                                    style={[
-                                        styles.goalChip,
-                                        { borderColor: !goalId ? colors.primary : colors.border, backgroundColor: !goalId ? colors.primary + '20' : 'transparent' }
-                                    ]}
-                                >
-                                    <Ionicons name="close-circle-outline" size={16} color={!goalId ? colors.primary : colors.textSecondary} />
-                                    <Text style={{ color: !goalId ? colors.primary : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>None</Text>
+                        {/* Header */}
+                        <View style={styles.header}>
+                            <View style={styles.handle} />
+                            <View style={styles.headerRow}>
+                                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+                                    New Habit
+                                </Text>
+                                <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
+                                    <Ionicons name="close" size={24} color={colors.textSecondary} />
                                 </TouchableOpacity>
-                                {availableGoals.map(goal => (
+                            </View>
+                        </View>
+
+                        <ScrollView
+                            style={styles.content}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={{ paddingBottom: 100 }}
+                        >
+                            {/* Title */}
+                            <View style={styles.section}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>TITLE</Text>
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: colors.surfaceSecondary, color: colors.textPrimary, borderColor: colors.border }]}
+                                    placeholder="e.g., Morning Meditation"
+                                    placeholderTextColor={colors.textTertiary}
+                                    value={title}
+                                    onChangeText={setTitle}
+                                />
+                            </View>
+
+                            {/* Description */}
+                            <View style={styles.section}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>DESCRIPTION (OPTIONAL)</Text>
+                                <TextInput
+                                    style={[styles.input, styles.textArea, { backgroundColor: colors.surfaceSecondary, color: colors.textPrimary, borderColor: colors.border }]}
+                                    placeholder="Add details about this habit..."
+                                    placeholderTextColor={colors.textTertiary}
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    multiline
+                                    numberOfLines={3}
+                                />
+                            </View>
+
+                            {/* Goal Link (Optional) */}
+                            <View style={styles.section}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>LINK TO GOAL (OPTIONAL)</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
                                     <TouchableOpacity
-                                        key={goal.id}
-                                        onPress={() => { selectionFeedback(); setGoalId(goal.id); }}
+                                        onPress={() => { selectionFeedback(); setGoalId(undefined); }}
                                         style={[
                                             styles.goalChip,
-                                            { borderColor: goalId === goal.id ? goal.color : colors.border, backgroundColor: goalId === goal.id ? goal.color + '20' : 'transparent' }
+                                            { borderColor: !goalId ? colors.primary : colors.border, backgroundColor: !goalId ? colors.primary + '20' : 'transparent' }
                                         ]}
                                     >
-                                        <Ionicons name={goal.icon as any} size={16} color={goalId === goal.id ? goal.color : colors.textSecondary} />
-                                        <Text style={{ color: goalId === goal.id ? goal.color : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>
-                                            {goal.name}
-                                        </Text>
+                                        <Ionicons name="close-circle-outline" size={16} color={!goalId ? colors.primary : colors.textSecondary} />
+                                        <Text style={{ color: !goalId ? colors.primary : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>None</Text>
                                     </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-
-                        {/* Time Range */}
-                        <View style={styles.section}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>TIME</Text>
-                            <View style={styles.timeRow}>
-                                <TouchableOpacity
-                                    style={[styles.timeButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                                    onPress={() => setShowStartPicker(true)}
-                                >
-                                    <Ionicons name="time-outline" size={18} color={selectedColor} />
-                                    <Text style={{ color: colors.textPrimary, marginLeft: 8 }}>{formatTime(startTime)}</Text>
-                                </TouchableOpacity>
-                                <Text style={{ color: colors.textTertiary, marginHorizontal: 12 }}>to</Text>
-                                <TouchableOpacity
-                                    style={[styles.timeButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                                    onPress={() => setShowEndPicker(true)}
-                                >
-                                    <Ionicons name="time-outline" size={18} color={selectedColor} />
-                                    <Text style={{ color: colors.textPrimary, marginLeft: 8 }}>{formatTime(endTime)}</Text>
-                                </TouchableOpacity>
-                            </View>
-                            {showStartPicker && (
-                                <DateTimePicker
-                                    value={startTime}
-                                    mode="time"
-                                    display="spinner"
-                                    onChange={(e, date) => {
-                                        setShowStartPicker(false);
-                                        if (date) setStartTime(date);
-                                    }}
-                                />
-                            )}
-                            {showEndPicker && (
-                                <DateTimePicker
-                                    value={endTime}
-                                    mode="time"
-                                    display="spinner"
-                                    onChange={(e, date) => {
-                                        setShowEndPicker(false);
-                                        if (date) setEndTime(date);
-                                    }}
-                                />
-                            )}
-                        </View>
-
-                        {/* Days */}
-                        <View style={styles.section}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>REPEAT ON</Text>
-                            <View style={styles.daysRow}>
-                                {DAYS.map(day => (
-                                    <TouchableOpacity
-                                        key={day.id}
-                                        onPress={() => toggleDay(day.id)}
-                                        style={[
-                                            styles.dayButton,
-                                            { borderColor: selectedDays.includes(day.id) ? selectedColor : colors.border },
-                                            selectedDays.includes(day.id) && { backgroundColor: selectedColor + '30' }
-                                        ]}
-                                    >
-                                        <Text style={{
-                                            color: selectedDays.includes(day.id) ? selectedColor : colors.textSecondary,
-                                            fontWeight: '600'
-                                        }}>
-                                            {day.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </View>
-
-                        {/* Category */}
-                        <View style={styles.section}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>CATEGORY</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                <View style={styles.categoriesRow}>
-                                    {CATEGORIES.map(cat => (
+                                    {availableGoals.map(goal => (
                                         <TouchableOpacity
-                                            key={cat.id}
-                                            onPress={() => { setCategory(cat.id); selectionFeedback(); }}
+                                            key={goal.id}
+                                            onPress={() => { selectionFeedback(); setGoalId(goal.id); }}
                                             style={[
-                                                styles.categoryChip,
-                                                { borderColor: category === cat.id ? selectedColor : colors.border },
-                                                category === cat.id && { backgroundColor: selectedColor + '20' }
+                                                styles.goalChip,
+                                                { borderColor: goalId === goal.id ? goal.color : colors.border, backgroundColor: goalId === goal.id ? goal.color + '20' : 'transparent' }
                                             ]}
                                         >
-                                            <Ionicons name={cat.icon as any} size={16} color={category === cat.id ? selectedColor : colors.textSecondary} />
-                                            <Text style={{ color: category === cat.id ? selectedColor : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>
-                                                {cat.label}
+                                            <Ionicons name={goal.icon as any} size={16} color={goalId === goal.id ? goal.color : colors.textSecondary} />
+                                            <Text style={{ color: goalId === goal.id ? goal.color : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>
+                                                {goal.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+
+                            {/* Time Range */}
+                            <View style={styles.section}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>TIME</Text>
+                                <View style={styles.timeRow}>
+                                    <TouchableOpacity
+                                        style={[styles.timeButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                                        onPress={() => setShowStartPicker(true)}
+                                    >
+                                        <Ionicons name="time-outline" size={18} color={selectedColor} />
+                                        <Text style={{ color: colors.textPrimary, marginLeft: 8 }}>{formatTime(startTime)}</Text>
+                                    </TouchableOpacity>
+                                    <Text style={{ color: colors.textTertiary, marginHorizontal: 12 }}>to</Text>
+                                    <TouchableOpacity
+                                        style={[styles.timeButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                                        onPress={() => setShowEndPicker(true)}
+                                    >
+                                        <Ionicons name="time-outline" size={18} color={selectedColor} />
+                                        <Text style={{ color: colors.textPrimary, marginLeft: 8 }}>{formatTime(endTime)}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                {showStartPicker && (
+                                    <DateTimePicker
+                                        value={startTime}
+                                        mode="time"
+                                        display="spinner"
+                                        onChange={(e, date) => {
+                                            setShowStartPicker(false);
+                                            if (date) setStartTime(date);
+                                        }}
+                                    />
+                                )}
+                                {showEndPicker && (
+                                    <DateTimePicker
+                                        value={endTime}
+                                        mode="time"
+                                        display="spinner"
+                                        onChange={(e, date) => {
+                                            setShowEndPicker(false);
+                                            if (date) setEndTime(date);
+                                        }}
+                                    />
+                                )}
+                            </View>
+
+                            {/* Days */}
+                            <View style={styles.section}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>REPEAT ON</Text>
+                                <View style={styles.daysRow}>
+                                    {DAYS.map(day => (
+                                        <TouchableOpacity
+                                            key={day.id}
+                                            onPress={() => toggleDay(day.id)}
+                                            style={[
+                                                styles.dayButton,
+                                                { borderColor: selectedDays.includes(day.id) ? selectedColor : colors.border },
+                                                selectedDays.includes(day.id) && { backgroundColor: selectedColor + '30' }
+                                            ]}
+                                        >
+                                            <Text style={{
+                                                color: selectedDays.includes(day.id) ? selectedColor : colors.textSecondary,
+                                                fontWeight: '600'
+                                            }}>
+                                                {day.label}
                                             </Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
-                            </ScrollView>
-                        </View>
-
-                        {/* Icon */}
-                        <View style={styles.section}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>ICON</Text>
-                            <View style={styles.iconsGrid}>
-                                {ICONS.map(icon => (
-                                    <TouchableOpacity
-                                        key={icon}
-                                        onPress={() => { setSelectedIcon(icon); selectionFeedback(); }}
-                                        style={[
-                                            styles.iconButton,
-                                            { borderColor: selectedIcon === icon ? selectedColor : colors.border },
-                                            selectedIcon === icon && { backgroundColor: selectedColor + '20' }
-                                        ]}
-                                    >
-                                        <Ionicons name={icon as any} size={22} color={selectedIcon === icon ? selectedColor : colors.textSecondary} />
-                                    </TouchableOpacity>
-                                ))}
                             </View>
-                        </View>
 
-                        {/* Color */}
-                        <View style={styles.section}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>COLOR</Text>
-                            <View style={styles.colorsRow}>
-                                {COLORS.map(color => (
-                                    <TouchableOpacity
-                                        key={color}
-                                        onPress={() => { setSelectedColor(color); selectionFeedback(); }}
-                                        style={[
-                                            styles.colorButton,
-                                            { backgroundColor: color },
-                                            selectedColor === color && styles.colorSelected
-                                        ]}
-                                    >
-                                        {selectedColor === color && (
-                                            <Ionicons name="checkmark" size={16} color="#fff" />
-                                        )}
-                                    </TouchableOpacity>
-                                ))}
+                            {/* Category */}
+                            <View style={styles.section}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>CATEGORY</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    <View style={styles.categoriesRow}>
+                                        {CATEGORIES.map(cat => (
+                                            <TouchableOpacity
+                                                key={cat.id}
+                                                onPress={() => { setCategory(cat.id); selectionFeedback(); }}
+                                                style={[
+                                                    styles.categoryChip,
+                                                    { borderColor: category === cat.id ? selectedColor : colors.border },
+                                                    category === cat.id && { backgroundColor: selectedColor + '20' }
+                                                ]}
+                                            >
+                                                <Ionicons name={cat.icon as any} size={16} color={category === cat.id ? selectedColor : colors.textSecondary} />
+                                                <Text style={{ color: category === cat.id ? selectedColor : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>
+                                                    {cat.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </ScrollView>
                             </View>
-                        </View>
-                    </ScrollView>
 
-                    {/* Save Button */}
-                    <View style={[styles.footer, { borderTopColor: colors.border }]}>
-                        <TouchableOpacity
-                            onPress={handleSave}
-                            disabled={!title.trim() || saving}
-                            style={[styles.saveButton, { opacity: !title.trim() ? 0.5 : 1 }]}
-                        >
-                            <LinearGradient
-                                colors={[selectedColor, selectedColor + 'CC']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.saveGradient}
+                            {/* Icon */}
+                            <View style={styles.section}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>ICON</Text>
+                                <View style={styles.iconsGrid}>
+                                    {ICONS.map(icon => (
+                                        <TouchableOpacity
+                                            key={icon}
+                                            onPress={() => { setSelectedIcon(icon); selectionFeedback(); }}
+                                            style={[
+                                                styles.iconButton,
+                                                { borderColor: selectedIcon === icon ? selectedColor : colors.border },
+                                                selectedIcon === icon && { backgroundColor: selectedColor + '20' }
+                                            ]}
+                                        >
+                                            <Ionicons name={icon as any} size={22} color={selectedIcon === icon ? selectedColor : colors.textSecondary} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+
+                            {/* Color */}
+                            <View style={styles.section}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>COLOR</Text>
+                                <View style={styles.colorsRow}>
+                                    {COLORS.map(color => (
+                                        <TouchableOpacity
+                                            key={color}
+                                            onPress={() => { setSelectedColor(color); selectionFeedback(); }}
+                                            style={[
+                                                styles.colorButton,
+                                                { backgroundColor: color },
+                                                selectedColor === color && styles.colorSelected
+                                            ]}
+                                        >
+                                            {selectedColor === color && (
+                                                <Ionicons name="checkmark" size={16} color="#fff" />
+                                            )}
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+                        </ScrollView>
+
+                        {/* Save Button */}
+                        <View style={[styles.footer, { borderTopColor: colors.border }]}>
+                            <TouchableOpacity
+                                onPress={handleSave}
+                                disabled={!title.trim() || saving}
+                                style={[styles.saveButton, { opacity: !title.trim() ? 0.5 : 1 }]}
                             >
-                                <Ionicons name="checkmark" size={20} color="#fff" />
-                                <Text style={styles.saveText}>Create Habit</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </View>
-                </Animated.View>
+                                <LinearGradient
+                                    colors={[selectedColor, selectedColor + 'CC']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.saveGradient}
+                                >
+                                    <Ionicons name="checkmark" size={20} color="#fff" />
+                                    <Text style={styles.saveText}>Create Habit</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
+                </GestureDetector>
             </KeyboardAvoidingView>
         </Modal>
     );

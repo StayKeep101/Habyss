@@ -70,16 +70,14 @@ const GoalDetail = () => {
     scrollY.value = event.contentOffset.y;
   });
 
+  /* Parallax removed/simplified to keep background fixed as requested */
   const headerStyle = useAnimatedStyle(() => {
     return {
       height: HEADER_HEIGHT,
+      // No translation, just keep it fixed at top
       transform: [
-        {
-          translateY: interpolate(scrollY.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75])
-        },
-        {
-          scale: interpolate(scrollY.value, [-HEADER_HEIGHT, 0, HEADER_HEIGHT], [2, 1, 1])
-        }
+        { translateY: 0 },
+        { scale: 1 }
       ]
     };
   });
@@ -199,16 +197,18 @@ const GoalDetail = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Animated Header Background */}
-      <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden', zIndex: 0 }, headerStyle]}>
+      {/* Fixed Header Background (No parallax movement) */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT, zIndex: 0 }}>
         <ImageBackground
           source={bgImage ? { uri: bgImage } : require('@/assets/images/adaptive-icon.png')}
-          style={{ flex: 1, backgroundColor: colors.primary }}
-          imageStyle={{ opacity: 0.7 }}
+          style={{ flex: 1, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' }}
+          imageStyle={{ opacity: 0.6 }}
         >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} />
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+            {/* Progress indicator moved to ScrollView for bleeding effect */}
+          </View>
         </ImageBackground>
-      </Animated.View>
+      </View>
 
       {/* Fixed Sticky Header Area (Back button) */}
       <SafeAreaView style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 }}>
@@ -226,6 +226,27 @@ const GoalDetail = () => {
         contentContainerStyle={{ paddingTop: HEADER_HEIGHT - 40, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Floating Progress Indicator (Bleeding effect) */}
+        <View style={{ alignItems: 'center', marginBottom: -60, zIndex: 100, elevation: 10 }}>
+          <View style={{
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+          }}>
+            <HalfCircleProgress
+              progress={progress}
+              size={120}
+              strokeWidth={12}
+              color="white"
+              backgroundColor="rgba(255,255,255,0.2)"
+              textColor="white"
+              fontSize={24}
+              showPercentage={true}
+            />
+          </View>
+        </View>
+
         <BlurView
           intensity={90}
           tint="dark"
@@ -233,11 +254,12 @@ const GoalDetail = () => {
             borderTopLeftRadius: 32,
             borderTopRightRadius: 32,
             overflow: 'hidden',
-            minHeight: 500,
+            // Ensure it covers the bottom completely (screen height + buffer)
+            minHeight: Dimensions.get('window').height,
             backgroundColor: colors.surface
           }}
         >
-          <View style={{ paddingTop: 40, paddingHorizontal: 24, paddingBottom: 24 }}>
+          <View style={{ paddingTop: 70, paddingHorizontal: 24, paddingBottom: 24 }}>
 
             {/* The Observatory (Cosmic View) */}
             <View style={{ marginBottom: 20 }}>

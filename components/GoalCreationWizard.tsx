@@ -138,8 +138,8 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
         try {
             await addHabit({
                 name: name.trim(),
-                description: why.trim(), // Storing "Why" in description
-                isGoal: true,
+                description: why.trim(),
+                isGoal: true, // EXPLICITLY TRUE
                 targetDate: targetDate.toISOString(),
                 category: category,
                 icon: selectedIcon,

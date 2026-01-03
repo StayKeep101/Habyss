@@ -24,7 +24,7 @@ const ITEM_WIDTH = SCREEN_WIDTH / 7;
 
 const DateButton = React.memo(({ item, selected, isToday, onSelect, width, colors }: any) => {
   const size = 34;
-  const strokeWidth = 2.5;
+  const strokeWidth = 3.5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const progressOffset = circumference - (item.progress * circumference);
@@ -47,7 +47,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke={selected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)'}
+                stroke={selected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)'}
                 strokeWidth={strokeWidth}
                 fill="transparent"
               />
@@ -56,7 +56,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke={selected ? colors.primary : (item.progress > 0 ? colors.primary : 'transparent')}
+                stroke={selected ? 'white' : colors.primary} // White if selected so it contrasts with the blue fill? Or just bolder?
                 strokeWidth={strokeWidth}
                 fill="transparent"
                 strokeDasharray={`${circumference} ${circumference}`}

@@ -71,60 +71,70 @@ export const CreationModal: React.FC<CreationModalProps> = () => {
                 <Animated.View
                     entering={SlideInDown.springify().damping(15)}
                     exiting={SlideOutDown}
-                    style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                >
-                    <View style={styles.handleContainer}>
-                        <View style={styles.handle} />
-                    </View>
+                    style={[styles.sheet, { borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden' }]}>
 
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>
-                        Create New...
-                    </Text>
+                    <LinearGradient
+                        colors={['#334155', '#0f172a']} // Slate gradient
+                        style={StyleSheet.absoluteFill}
+                    />
 
-                    <View style={styles.optionsContainer}>
-                        {/* Goal Option */}
-                        <TouchableOpacity
-                            onPress={handleGoal}
-                            activeOpacity={0.9}
-                            style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
-                        >
-                            <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
-                                <Ionicons name="flag" size={32} color="#8B5CF6" />
-                            </View>
-                            <View style={styles.textContainer}>
-                                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Goal</Text>
-                                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
-                                    Long-term objective
-                                </Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                    {/* Border Gradient Stroke via wrapper or adjust */}
+                    <View style={[StyleSheet.absoluteFill, { borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 32, pointerEvents: 'none' }]} />
+
+                    <View style={{ padding: 24, paddingBottom: 40 }}>
+                        <View style={styles.handleContainer}>
+                            <View style={styles.handle} />
+                        </View>
+
+                        <Text style={[styles.title, { color: colors.textPrimary }]}>
+                            Create New...
+                        </Text>
+
+                        <View style={styles.optionsContainer}>
+                            {/* Goal Option */}
+                            <TouchableOpacity
+                                onPress={handleGoal}
+                                activeOpacity={0.9}
+                                style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
+                            >
+                                <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
+                                    <Ionicons name="flag" size={32} color="#8B5CF6" />
+                                </View>
+                                <View style={styles.textContainer}>
+                                    <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Goal</Text>
+                                    <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                                        Long-term objective
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                            </TouchableOpacity>
+
+                            {/* Habit Option */}
+                            <TouchableOpacity
+                                onPress={handleHabit}
+                                activeOpacity={0.9}
+                                style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
+                            >
+                                <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
+                                    <Ionicons name="repeat" size={32} color="#10B981" />
+                                </View>
+                                <View style={styles.textContainer}>
+                                    <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Habit</Text>
+                                    <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                                        Recurring daily task
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                            <Text style={[styles.closeText, { color: colors.textSecondary }]}>Cancel</Text>
                         </TouchableOpacity>
 
-                        {/* Habit Option */}
-                        <TouchableOpacity
-                            onPress={handleHabit}
-                            activeOpacity={0.9}
-                            style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
-                        >
-                            <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-                                <Ionicons name="repeat" size={32} color="#10B981" />
-                            </View>
-                            <View style={styles.textContainer}>
-                                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Habit</Text>
-                                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
-                                    Recurring daily task
-                                </Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-                        </TouchableOpacity>
+                        {/* Bottom spacer for safe area */}
+                        <View style={{ height: 40 }} />
                     </View>
-
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Text style={[styles.closeText, { color: colors.textSecondary }]}>Cancel</Text>
-                    </TouchableOpacity>
-
-                    {/* Bottom spacer for safe area */}
-                    <View style={{ height: 40 }} />
                 </Animated.View>
             </TouchableOpacity>
         </Modal>
@@ -137,14 +147,8 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     sheet: {
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        paddingHorizontal: 24,
-        paddingTop: 16,
-        borderWidth: 1,
-        borderBottomWidth: 0,
         width: '100%',
-        maxHeight: height * 0.6,
+        maxHeight: height * 0.9,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.3,
