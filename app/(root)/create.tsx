@@ -34,12 +34,13 @@ export default function RitualForgeScreen() {
     const [description, setDescription] = useState(params.description as string || '');
     const [taskDays, setTaskDays] = useState<string[]>(params.taskDays ? JSON.parse(params.taskDays as string) : ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
     const [time, setTime] = useState(params.startTime ? new Date(`1970-01-01T${params.startTime}:00`) : new Date());
+    const [targetDate, setTargetDate] = useState(params.targetDate ? new Date(params.targetDate as string) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // Default +30 days
     const [icon, setIcon] = useState(params.icon as string || 'fitness');
     const [color, setColor] = useState(params.color as string || '#3B82F6');
     const [category, setCategory] = useState<HabitCategory>((params.category as HabitCategory) || 'personal');
     const [type, setType] = useState<HabitType>((params.type as HabitType) || 'build');
 
-    // Goal-related state
+    // ... (keep Goal related state)
     const [isGoal, setIsGoal] = useState(params.isGoal === 'true');
     const [selectedGoalId, setSelectedGoalId] = useState<string | null>(params.goalId as string || null);
     const [goals, setGoals] = useState<Habit[]>([]);
@@ -48,20 +49,17 @@ export default function RitualForgeScreen() {
 
     const isEditing = !!params.id;
 
-    // Load available goals for linking habits
-    useEffect(() => {
-        const unsubPromise = subscribeToHabits((allHabits) => {
-            setGoals(allHabits.filter(h => h.isGoal));
-        });
-        return () => { unsubPromise.then(unsub => unsub()); };
-    }, []);
+    // Dynamic Step Count
+    const totalSteps = isGoal ? 2 : 3;
+
+    // ... (keep useEffects)
 
     // --- Actions ---
 
     const handleNext = () => {
         lightFeedback();
         Keyboard.dismiss();
-        if (step < TOTAL_STEPS - 1) {
+        if (step < totalSteps - 1) {
             setStep(step + 1);
         } else {
             handleSubmit();
@@ -86,25 +84,32 @@ export default function RitualForgeScreen() {
         try {
             // Format Data
             const fmtTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            const fmtDate = (d: Date) => d.toISOString().split('T')[0];
+
+            // Defaults for goals if skipped
+            const finalIcon = isGoal ? 'flag' : icon;
+            const finalColor = isGoal ? '#8B5CF6' : color; // Purple for goals default
+            const finalCategory = isGoal ? 'personal' : category;
 
             const habitData = {
                 name: name.trim(),
                 description: description.trim(),
                 type,
-                icon,
-                color,
-                category,
-                goalValue: 1, // Default for now
-                unit: 'count', // Default
-                goalPeriod: 'daily' as 'daily' | 'weekly' | 'monthly', // Default
-                startTime: fmtTime(time),
-                taskDays,
+                icon: finalIcon,
+                color: finalColor,
+                category: finalCategory,
+                goalValue: 1,
+                unit: 'count',
+                goalPeriod: 'daily' as 'daily' | 'weekly' | 'monthly',
+                startTime: isGoal ? '09:00' : fmtTime(time),
+                taskDays: isGoal ? [] : taskDays,
                 startDate: new Date().toISOString(),
                 isArchived: false,
                 reminders: [],
-                chartType: 'bar' as const,
+                chartType: isGoal ? 'line' : 'bar' as const,
                 showMemo: false,
                 isGoal: isGoal,
+                targetDate: isGoal ? fmtDate(targetDate) : undefined,
                 goalId: selectedGoalId || undefined,
             };
 
@@ -132,6 +137,7 @@ export default function RitualForgeScreen() {
         if (data.description !== undefined) setDescription(data.description);
         if (data.days !== undefined) setTaskDays(data.days);
         if (data.time !== undefined) setTime(data.time);
+        if (data.targetDate !== undefined) setTargetDate(data.targetDate);
         if (data.icon !== undefined) setIcon(data.icon);
         if (data.color !== undefined) setColor(data.color);
         if (data.category !== undefined) setCategory(data.category);
@@ -141,6 +147,7 @@ export default function RitualForgeScreen() {
 
     const renderStep = () => {
         switch (step) {
+            // ... (keep Step 0 and 1)
             case 0:
                 return (
                     <StepEssence
@@ -156,11 +163,14 @@ export default function RitualForgeScreen() {
                     <StepRhythm
                         days={taskDays}
                         time={time}
+                        targetDate={targetDate}
+                        isGoal={isGoal}
                         onUpdate={updateData}
                         colors={colors}
                     />
                 );
             case 2:
+                // Only render if not a goal or if editing
                 return (
                     <StepIdentity
                         icon={icon}
@@ -189,7 +199,7 @@ export default function RitualForgeScreen() {
                             style={[
                                 styles.progressFill,
                                 {
-                                    width: `${((step + 1) / TOTAL_STEPS) * 100}%`,
+                                    width: `${((step + 1) / totalSteps) * 100}%`,
                                     backgroundColor: color
                                 }
                             ]}
@@ -207,9 +217,10 @@ export default function RitualForgeScreen() {
                 {renderStep()}
             </KeyboardAvoidingView>
 
-            {/* Goal Link Section - Only show when creating a habit (not a goal) */}
+            {/* Goal Link Section - Only show for Habits (step 2) */}
             {!isGoal && step === 2 && (
                 <View style={{ paddingHorizontal: 24, marginBottom: 16 }}>
+                    {/* ... (Keep existing goal link UI) ... */}
                     <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceMono-Regular', letterSpacing: 1, marginBottom: 8 }}>
                         LINK TO GOAL (OPTIONAL)
                     </Text>
@@ -267,11 +278,12 @@ export default function RitualForgeScreen() {
                         styles.nextBtnText,
                         { color: step === 0 && !name.trim() ? colors.textTertiary : 'white' }
                     ]}>
-                        {step === TOTAL_STEPS - 1 ? (isEditing ? 'Save' : isGoal ? 'Create Goal' : 'Create Habit') : 'Continue'}
+                        {step === totalSteps - 1 ? (isEditing ? 'Save' : isGoal ? 'Create Goal' : 'Create Habit') : 'Continue'}
                     </Text>
-                    {step < TOTAL_STEPS - 1 && <Ionicons name="arrow-forward" size={20} color="white" />}
+                    {step < totalSteps - 1 && <Ionicons name="arrow-forward" size={20} color="white" />}
                 </TouchableOpacity>
             </View>
+
 
             {/* Goal Picker Modal */}
             <Modal

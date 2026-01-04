@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, LayoutAnimation, Platform, UIManager, InteractionManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
     useAnimatedScrollHandler,
@@ -110,6 +110,7 @@ const CalendarScreen = () => {
         loadCompletions();
     }, [selectedDate]);
 
+    // Map habits with completion status - OPTIMIZED separate effect
     useEffect(() => {
         const mapped: Habit[] = habitsStore.map(item => ({
             ...item,
@@ -117,13 +118,15 @@ const CalendarScreen = () => {
             streak: 0
         }));
         setHabits(mapped);
+    }, [habitsStore, completions]);
 
-        // Weekly Calcs - OPTIMIZED with parallel loading
+    // Weekly Calcs - OPTIMIZED: only run on mount to prevent JS thread hammering
+    useEffect(() => {
         const calcWeeklyCompletions = async () => {
             const today = new Date();
             const dates: string[] = [];
 
-            // Generate date strings (reduced from 38 days to 14 for memory)
+            // Generate date strings (14 days only for performance)
             for (let i = -7; i <= 7; i++) {
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
@@ -131,7 +134,7 @@ const CalendarScreen = () => {
                 dates.push(dateStr);
             }
 
-            // Load all completions in PARALLEL (much faster!)
+            // Load all completions in PARALLEL
             const completionsArray = await Promise.all(dates.map(d => getCompletions(d)));
 
             // Build result map
@@ -144,8 +147,15 @@ const CalendarScreen = () => {
 
             setWeeklyCompletions(result);
         };
-        calcWeeklyCompletions();
-    }, [habitsStore, completions]);
+
+        if (habitsStore.length > 0) {
+            // Defer heavy calculation until after navigation animation
+            const task = InteractionManager.runAfterInteractions(() => {
+                calcWeeklyCompletions();
+            });
+            return () => task.cancel();
+        }
+    }, [habitsStore]); // Only depend on habitsStore, not completions
 
     const { playComplete, playClick } = useSoundEffects();
 
@@ -449,7 +459,7 @@ const CalendarScreen = () => {
                                 activeOpacity={1}
                                 onPress={() => setShowFilter(false)}
                             >
-                                <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+                                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
 
                                 <Animated.View
                                     entering={SlideInDown.springify().damping(15)}
@@ -462,14 +472,26 @@ const CalendarScreen = () => {
                                         maxHeight: '45%',
                                         backgroundColor: 'transparent',
                                         paddingBottom: 40,
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255,255,255,0.1)',
+                                        // Removed border from here, moving to overlay view
                                     }}>
 
-                                    <LinearGradient
-                                        colors={['#334155', '#0f172a']}
-                                        style={StyleSheet.absoluteFill}
-                                    />
+                                    {/* Glass Background */}
+                                    <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
+                                        <LinearGradient
+                                            colors={['rgba(30, 41, 59, 0.7)', 'rgba(15, 23, 42, 0.8)']}
+                                            style={StyleSheet.absoluteFill}
+                                        />
+                                    </BlurView>
+
+                                    {/* Border & Gloss */}
+                                    <View style={[StyleSheet.absoluteFill, {
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.1)',
+                                        borderTopWidth: 1,
+                                        borderTopColor: 'rgba(255,255,255,0.2)',
+                                        borderRadius: 32,
+                                        pointerEvents: 'none'
+                                    }]} />
 
                                     <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
                                         <View style={{ alignItems: 'center', marginBottom: 20 }}>
