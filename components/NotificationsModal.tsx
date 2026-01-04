@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, Dimensions, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,76 +7,34 @@ import { Colors } from '@/constants/Colors';
 
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-
-interface Notification {
-    id: string;
-    title: string;
-    message: string;
-    time: string;
-    icon: string;
-    read: boolean;
-    type: 'success' | 'info' | 'warning' | 'habit';
-}
+import { NotificationService, InAppNotification } from '@/lib/notificationService';
 
 interface NotificationsModalProps {
     visible: boolean;
     onClose: () => void;
 }
 
-const INITIAL_NOTIFICATIONS: Notification[] = [
-    {
-        id: '1',
-        title: 'Streak Achievement!',
-        message: 'You completed a 7-day streak on "Morning Meditation"',
-        time: '2 min ago',
-        icon: 'flame',
-        read: false,
-        type: 'success'
-    },
-    {
-        id: '2',
-        title: 'Daily Reminder',
-        message: 'Time for your evening workout session',
-        time: '15 min ago',
-        icon: 'fitness',
-        read: false,
-        type: 'habit'
-    },
-    {
-        id: '3',
-        title: 'Weekly Report Ready',
-        message: 'Your weekly progress summary is available',
-        time: '1 hour ago',
-        icon: 'stats-chart',
-        read: true,
-        type: 'info'
-    },
-    {
-        id: '4',
-        title: "Don't break your streak!",
-        message: 'You haven\'t completed "Read 30 mins" today',
-        time: '3 hours ago',
-        icon: 'alert-circle',
-        read: true,
-        type: 'warning'
-    },
-    {
-        id: '5',
-        title: 'New Goal Unlocked',
-        message: 'You\'ve earned the "Consistent" badge',
-        time: 'Yesterday',
-        icon: 'trophy',
-        read: true,
-        type: 'success'
-    }
-];
-
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
 
-    const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+    const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // Load notifications when modal opens
+    useEffect(() => {
+        if (visible) {
+            loadNotifications();
+        }
+    }, [visible]);
+
+    const loadNotifications = async () => {
+        setLoading(true);
+        const data = await NotificationService.getInboxNotifications();
+        setNotifications(data);
+        setLoading(false);
+    };
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -85,13 +43,30 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
             case 'success': return '#A3E635';
             case 'warning': return '#F59E0B';
             case 'habit': return '#2DD4BF';
+            case 'streak': return '#F97316';
+            case 'achievement': return '#A855F7';
             case 'info':
             default: return colors.primary;
         }
     };
 
-    const handleMarkAllRead = () => {
+    const formatTimeAgo = (timestamp: number) => {
+        const now = Date.now();
+        const diff = now - timestamp;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes} min ago`;
+        if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        if (days === 1) return 'Yesterday';
+        return `${days} days ago`;
+    };
+
+    const handleMarkAllRead = async () => {
         lightFeedback();
+        await NotificationService.markAllNotificationsRead();
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     };
 
@@ -105,7 +80,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                 {
                     text: 'Clear All',
                     style: 'destructive',
-                    onPress: () => {
+                    onPress: async () => {
+                        await NotificationService.clearAllNotifications();
                         setNotifications([]);
                         onClose();
                     }
@@ -114,8 +90,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
         );
     };
 
-    const handleNotificationPress = (id: string) => {
+    const handleNotificationPress = async (id: string) => {
         selectionFeedback();
+        await NotificationService.markNotificationRead(id);
         setNotifications(prev =>
             prev.map(n => n.id === id ? { ...n, read: true } : n)
         );
@@ -192,7 +169,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                                                         {!notification.read && <View style={styles.unreadDot} />}
                                                     </View>
                                                     <Text style={styles.notificationMessage}>{notification.message}</Text>
-                                                    <Text style={styles.notificationTime}>{notification.time}</Text>
+                                                    <Text style={styles.notificationTime}>{formatTimeAgo(notification.timestamp)}</Text>
                                                 </View>
                                             </TouchableOpacity>
                                         </Animated.View>

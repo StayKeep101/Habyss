@@ -118,9 +118,9 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
         <VoidCard style={styles.cardContent}>
           <View style={[styles.iconContainer, { backgroundColor: habit.completed ? 'rgba(0, 255, 148, 0.1)' : 'rgba(255, 255, 255, 0.05)' }]}>
             <Ionicons
-              name={habit.completed ? "checkmark" : "ellipse-outline"}
+              name={(habit.icon as any) || 'ellipse-outline'}
               size={20}
-              color={habit.completed ? colors.success : colors.textTertiary}
+              color={habit.completed ? colors.success : colors.textSecondary}
             />
           </View>
 

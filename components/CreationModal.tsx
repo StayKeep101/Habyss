@@ -91,40 +91,34 @@ export const CreationModal: React.FC<CreationModalProps> = () => {
                         </Text>
 
                         <View style={styles.optionsContainer}>
-                            {/* Goal Option */}
-                            <TouchableOpacity
-                                onPress={handleGoal}
-                                activeOpacity={0.9}
-                                style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
-                            >
-                                <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
-                                    <Ionicons name="flag" size={32} color="#8B5CF6" />
-                                </View>
-                                <View style={styles.textContainer}>
-                                    <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Goal</Text>
-                                    <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
-                                        Long-term objective
-                                    </Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-                            </TouchableOpacity>
-
-                            {/* Habit Option */}
+                            {/* Habit Option - LEFT */}
                             <TouchableOpacity
                                 onPress={handleHabit}
                                 activeOpacity={0.9}
                                 style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
                             >
                                 <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-                                    <Ionicons name="repeat" size={32} color="#10B981" />
+                                    <Ionicons name="repeat" size={36} color="#10B981" />
                                 </View>
-                                <View style={styles.textContainer}>
-                                    <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Habit</Text>
-                                    <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
-                                        Recurring daily task
-                                    </Text>
+                                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Habit</Text>
+                                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                                    Daily task
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* Goal Option - RIGHT */}
+                            <TouchableOpacity
+                                onPress={handleGoal}
+                                activeOpacity={0.9}
+                                style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
+                            >
+                                <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
+                                    <Ionicons name="flag" size={36} color="#8B5CF6" />
                                 </View>
-                                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Goal</Text>
+                                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
+                                    Big objective
+                                </Text>
                             </TouchableOpacity>
                         </View>
 
@@ -148,7 +142,7 @@ const styles = StyleSheet.create({
     },
     sheet: {
         width: '100%',
-        maxHeight: height * 0.9,
+        maxHeight: height * 0.45,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.3,
@@ -173,23 +167,27 @@ const styles = StyleSheet.create({
         fontFamily: 'SpaceGrotesk-Bold',
     },
     optionsContainer: {
+        flexDirection: 'row',
         gap: 16,
         marginBottom: 24,
     },
     optionCard: {
-        flexDirection: 'row',
+        flex: 1,
+        flexDirection: 'column',
         alignItems: 'center',
-        padding: 16,
-        borderRadius: 20,
+        padding: 20,
+        paddingVertical: 24,
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: 'rgba(255,255,255,0.08)',
     },
     iconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
         alignItems: 'center',
         justifyContent: 'center',
+        marginBottom: 12,
     },
     textContainer: {
         flex: 1,
@@ -199,10 +197,12 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         marginBottom: 4,
+        textAlign: 'center',
         fontFamily: 'SpaceGrotesk-Bold',
     },
     optionDesc: {
-        fontSize: 14,
+        fontSize: 12,
+        textAlign: 'center',
         fontFamily: 'SpaceMono-Regular',
     },
     closeButton: {

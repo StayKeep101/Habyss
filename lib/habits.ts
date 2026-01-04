@@ -7,6 +7,9 @@ let cachedHabits: Habit[] | null = null;
 let habitsSubscription: any = null;
 const habitsListeners: Set<(habits: Habit[]) => void> = new Set();
 
+// Completion cache for optimistic updates - keyed by dateStr
+const completionsCache: Record<string, Record<string, boolean>> = {};
+
 export type HabitCategory = 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc' | 'productivity' | 'learning' | 'creativity' | 'social';
 export type HabitType = 'build' | 'quit';
 export type GoalPeriod = 'daily' | 'weekly' | 'monthly';
@@ -304,10 +307,25 @@ export async function getCompletions(dateISO?: string): Promise<Record<string, b
 
   const dateStr = dateISO ?? todayString();
 
+  // Return cached data immediately if available for this date
+  if (completionsCache[dateStr]) {
+    // Refresh cache in background (don't await)
+    refreshCompletionsCache(dateStr, uid);
+    return completionsCache[dateStr];
+  }
+
+  // Initial fetch
+  const result = await fetchCompletionsFromDB(dateStr, uid);
+  completionsCache[dateStr] = result;
+  return result;
+}
+
+// Internal: fetch from database
+async function fetchCompletionsFromDB(dateStr: string, uid: string): Promise<Record<string, boolean>> {
   const { data, error } = await supabase
     .from('habit_completions')
     .select('habit_id')
-    .eq('user_id', uid) // CRITICAL: Filter by user_id
+    .eq('user_id', uid)
     .eq('date', dateStr);
 
   if (error) {
@@ -322,39 +340,78 @@ export async function getCompletions(dateISO?: string): Promise<Record<string, b
   return result;
 }
 
+// Internal: refresh cache in background
+async function refreshCompletionsCache(dateStr: string, uid: string) {
+  const result = await fetchCompletionsFromDB(dateStr, uid);
+  completionsCache[dateStr] = result;
+}
+
 export async function toggleCompletion(habitId: string, dateISO?: string): Promise<Record<string, boolean>> {
   const uid = await getUserId();
   if (!uid) return {};
 
   const dateStr = dateISO ?? todayString();
 
-  // Check if exists
-  const { data: existing } = await supabase
-    .from('habit_completions')
-    .select('id')
-    .eq('habit_id', habitId)
-    .eq('date', dateStr)
-    .single();
-
-  if (existing) {
-    await supabase.from('habit_completions').delete().eq('id', existing.id);
-  } else {
-    await supabase.from('habit_completions').insert({
-      user_id: uid,
-      habit_id: habitId,
-      date: dateStr,
-      completed: true
-    });
-
-    // Trigger completion notification
-    const habits = await getHabits();
-    const habit = habits.find(h => h.id === habitId);
-    if (habit) {
-      await NotificationService.sendCompletionNotification(habit.name);
-    }
+  // Initialize cache for this date if not exists
+  if (!completionsCache[dateStr]) {
+    completionsCache[dateStr] = {};
   }
 
-  return getCompletions(dateStr);
+  // OPTIMISTIC UPDATE: Toggle in cache IMMEDIATELY
+  const wasCompleted = !!completionsCache[dateStr][habitId];
+  const newCompleted = !wasCompleted;
+
+  if (newCompleted) {
+    completionsCache[dateStr][habitId] = true;
+  } else {
+    delete completionsCache[dateStr][habitId];
+  }
+
+  // Return the updated cache immediately for instant UI response
+  const optimisticResult = { ...completionsCache[dateStr] };
+
+  // Now do the database operation in background (don't block UI)
+  (async () => {
+    try {
+      if (wasCompleted) {
+        // Delete completion
+        await supabase
+          .from('habit_completions')
+          .delete()
+          .eq('user_id', uid)
+          .eq('habit_id', habitId)
+          .eq('date', dateStr);
+      } else {
+        // Insert completion
+        await supabase.from('habit_completions').insert({
+          user_id: uid,
+          habit_id: habitId,
+          date: dateStr,
+          completed: true
+        });
+
+        // Trigger completion notification
+        const habits = await getHabits();
+        const habit = habits.find(h => h.id === habitId);
+        if (habit) {
+          await NotificationService.sendCompletionNotification(habit.name);
+        }
+      }
+
+      // Widget update would be called here with proper data
+      // WidgetService.updateTimeline(widgetData);
+    } catch (error) {
+      console.error('Error toggling completion:', error);
+      // Revert optimistic update on error
+      if (newCompleted) {
+        delete completionsCache[dateStr][habitId];
+      } else {
+        completionsCache[dateStr][habitId] = true;
+      }
+    }
+  })();
+
+  return optimisticResult;
 }
 
 // --- Statistics ---

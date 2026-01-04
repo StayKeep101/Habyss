@@ -10,7 +10,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BarChart, LineChart } from 'react-native-gifted-charts';
-import { subscribeToHabits, getCompletions, Habit } from '@/lib/habits';
+import { subscribeToHabits, getCompletions, toggleCompletion, Habit } from '@/lib/habits';
+import { NotificationService } from '@/lib/notificationService';
 import { NotificationsModal } from '@/components/NotificationsModal';
 import { AIAgentModal } from '@/components/AIAgentModal';
 import { CelebrationAnimation } from '@/components/CelebrationAnimation';
@@ -38,15 +39,19 @@ const Home = () => {
   const [showAIAgent, setShowAIAgent] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
-  const [unreadCount, setUnreadCount] = useState(2); // Mock for now
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Load profile avatar
+  // Load profile avatar and unread count
   useEffect(() => {
-    const loadAvatar = async () => {
+    const loadInitialData = async () => {
       const savedAvatar = await AsyncStorage.getItem('profile_avatar');
       if (savedAvatar) setProfileAvatar(savedAvatar);
+
+      // Load real unread count
+      const count = await NotificationService.getUnreadCount();
+      setUnreadCount(count);
     };
-    loadAvatar();
+    loadInitialData();
   }, []);
 
   // Subscribe to habits
@@ -60,7 +65,9 @@ const Home = () => {
   // Load today's completions
   useEffect(() => {
     const loadCompletions = async () => {
-      const today = new Date().toISOString().split('T')[0];
+      // Use local date format
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const c = await getCompletions(today);
       setCompletions(c);
     };
@@ -74,14 +81,15 @@ const Home = () => {
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
+        // Use local date format
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         const dayCompletions = await getCompletions(dateStr);
         weekData.push(Object.keys(dayCompletions).length);
       }
       setWeeklyCompletions(weekData);
     };
     loadWeeklyData();
-  }, []);
+  }, [completions]); // Re-run when completions change for instant updates
 
   // Computed metrics
   const todaysHabits = habits.length;
@@ -103,6 +111,27 @@ const Home = () => {
   const weeklyTrendData = useMemo(() => {
     return weeklyCompletions.map(val => ({ value: val }));
   }, [weeklyCompletions]);
+
+  // Calculate additional metrics
+  const weeklyTotal = useMemo(() => weeklyCompletions.reduce((a, b) => a + b, 0), [weeklyCompletions]);
+
+  const consistencyScore = useMemo(() => {
+    if (todaysHabits === 0) return 0;
+    const possibleTotal = todaysHabits * 7;
+    return Math.round((weeklyTotal / possibleTotal) * 100);
+  }, [weeklyTotal, todaysHabits]);
+
+  const currentStreak = useMemo(() => {
+    // Calculate streak from weekly completions (consecutive days with completions)
+    let streak = 0;
+    for (let i = weeklyCompletions.length - 1; i >= 0; i--) {
+      if (weeklyCompletions[i] > 0) streak++;
+      else break;
+    }
+    return streak;
+  }, [weeklyCompletions]);
+
+  const bestDayCount = useMemo(() => Math.max(...weeklyCompletions, 0), [weeklyCompletions]);
 
   // Day labels for chart
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -130,6 +159,27 @@ const Home = () => {
     if (percent >= 25) return `Great start! ${completed} down, ${total - completed} to go!`;
     if (completed > 0) return `Good progress! ${completed} habit${completed > 1 ? 's' : ''} done!`;
     return "Let's build some habits today!";
+  };
+
+  // Handle habit toggle from Habit Pulse
+  const handleHabitToggle = async (habitId: string) => {
+    selectionFeedback();
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // Optimistic update - toggle immediately in local state
+    setCompletions(prev => {
+      const updated = { ...prev };
+      if (updated[habitId]) {
+        delete updated[habitId];
+      } else {
+        updated[habitId] = true;
+      }
+      return updated;
+    });
+
+    // Call API (this also updates the cache optimistically)
+    await toggleCompletion(habitId, today);
   };
 
   const handleProfilePress = () => {
@@ -308,6 +358,81 @@ const Home = () => {
             </Animated.View>
           </View>
 
+          {/* Row 3: Streak & Consistency */}
+          <View style={{ flexDirection: 'row', gap: GAP, marginBottom: GAP }}>
+            {/* Streak Tile - Orange/Flame Theme */}
+            <Animated.View entering={FadeInDown.delay(450).duration(600)}>
+              <LinearGradient
+                colors={['#F97316', '#DC2626']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ width: HALF_WIDTH, height: 100, borderRadius: 24, padding: 16, justifyContent: 'space-between' }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View>
+                    <Text style={{ fontSize: 32, color: '#fff', fontFamily: 'SpaceGrotesk-Bold' }}>{currentStreak}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontFamily: 'SpaceMono-Regular', fontSize: 11 }}>DAY STREAK</Text>
+                  </View>
+                  <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 16 }}>
+                    <Ionicons name="flame" size={24} color="#fff" />
+                  </View>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+
+            {/* Consistency Score - Purple Theme */}
+            <Animated.View entering={FadeInDown.delay(500).duration(600)}>
+              <LinearGradient
+                colors={['#8B5CF6', '#6366F1']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ width: HALF_WIDTH, height: 100, borderRadius: 24, padding: 16, justifyContent: 'space-between' }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                      <Text style={{ fontSize: 32, color: '#fff', fontFamily: 'SpaceGrotesk-Bold' }}>{consistencyScore}</Text>
+                      <Text style={{ fontSize: 16, color: 'rgba(255,255,255,0.8)', fontFamily: 'SpaceGrotesk-Bold' }}>%</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontFamily: 'SpaceMono-Regular', fontSize: 11 }}>CONSISTENCY</Text>
+                  </View>
+                  <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 16 }}>
+                    <Ionicons name="pulse" size={24} color="#fff" />
+                  </View>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+          </View>
+
+          {/* Row 4: Best Day & Weekly Count */}
+          <View style={{ flexDirection: 'row', gap: GAP, marginBottom: GAP }}>
+            {/* Best Day */}
+            <Animated.View entering={FadeInDown.delay(550).duration(600)}>
+              <VoidCard style={{ width: HALF_WIDTH, height: 90, padding: 16, justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View>
+                    <Text style={{ fontSize: 28, color: '#2DD4BF', fontFamily: 'SpaceGrotesk-Bold' }}>{bestDayCount}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'SpaceMono-Regular', fontSize: 11 }}>BEST DAY</Text>
+                  </View>
+                  <Ionicons name="trophy" size={22} color="#2DD4BF" />
+                </View>
+              </VoidCard>
+            </Animated.View>
+
+            {/* Weekly Total */}
+            <Animated.View entering={FadeInDown.delay(600).duration(600)}>
+              <VoidCard style={{ width: HALF_WIDTH, height: 90, padding: 16, justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View>
+                    <Text style={{ fontSize: 28, color: '#A3E635', fontFamily: 'SpaceGrotesk-Bold' }}>{weeklyTotal}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontFamily: 'SpaceMono-Regular', fontSize: 11 }}>WEEK TOTAL</Text>
+                  </View>
+                  <Ionicons name="bar-chart" size={22} color="#A3E635" />
+                </View>
+              </VoidCard>
+            </Animated.View>
+          </View>
+
           {/* Bottom: Habit Pulse */}
           <Animated.View entering={FadeInDown.delay(500).duration(600)}>
             <VoidCard style={{ padding: 20 }}>
@@ -322,13 +447,18 @@ const Home = () => {
               {/* Top habits mini list */}
               <View style={{ marginBottom: 20 }}>
                 {topHabits.length > 0 ? topHabits.map((habit, i) => (
-                  <View key={habit.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: i < topHabits.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                  <TouchableOpacity
+                    key={habit.id}
+                    onPress={() => handleHabitToggle(habit.id)}
+                    activeOpacity={0.7}
+                    style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: i < topHabits.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                  >
                     <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: completions[habit.id] ? 'rgba(163, 230, 53, 0.2)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                       <Ionicons name={completions[habit.id] ? "checkmark" : (habit.icon as any) || "ellipse"} size={16} color={completions[habit.id] ? '#A3E635' : 'rgba(255,255,255,0.5)'} />
                     </View>
                     <Text style={{ flex: 1, color: completions[habit.id] ? '#A3E635' : '#fff', fontFamily: 'SpaceMono-Regular', fontSize: 14, textDecorationLine: completions[habit.id] ? 'line-through' : 'none' }}>{habit.name}</Text>
                     <Ionicons name={completions[habit.id] ? "checkmark-circle" : "ellipse-outline"} size={20} color={completions[habit.id] ? '#A3E635' : 'rgba(255,255,255,0.3)'} />
-                  </View>
+                  </TouchableOpacity>
                 )) : (
                   <Text style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'SpaceMono-Regular', fontSize: 12, textAlign: 'center', paddingVertical: 16 }}>No habits yet. Tap the sparkles to create one!</Text>
                 )}

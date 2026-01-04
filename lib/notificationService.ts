@@ -458,4 +458,89 @@ export class NotificationService {
       console.warn('Failed to send error notification', e);
     }
   }
+
+  // ===== IN-APP NOTIFICATION INBOX =====
+
+  static readonly INBOX_KEY = 'habyss_notification_inbox';
+
+  static async getInboxNotifications(): Promise<InAppNotification[]> {
+    try {
+      const data = await AsyncStorage.getItem(this.INBOX_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      console.warn('Failed to get inbox notifications', e);
+      return [];
+    }
+  }
+
+  static async addInboxNotification(notification: Omit<InAppNotification, 'id' | 'timestamp' | 'read'>): Promise<void> {
+    try {
+      const existing = await this.getInboxNotifications();
+      const newNotification: InAppNotification = {
+        ...notification,
+        id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: Date.now(),
+        read: false,
+      };
+      // Keep last 50 notifications
+      const updated = [newNotification, ...existing].slice(0, 50);
+      await AsyncStorage.setItem(this.INBOX_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to add inbox notification', e);
+    }
+  }
+
+  static async markNotificationRead(id: string): Promise<void> {
+    try {
+      const notifications = await this.getInboxNotifications();
+      const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+      await AsyncStorage.setItem(this.INBOX_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to mark notification read', e);
+    }
+  }
+
+  static async markAllNotificationsRead(): Promise<void> {
+    try {
+      const notifications = await this.getInboxNotifications();
+      const updated = notifications.map(n => ({ ...n, read: true }));
+      await AsyncStorage.setItem(this.INBOX_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to mark all notifications read', e);
+    }
+  }
+
+  static async clearAllNotifications(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(this.INBOX_KEY, JSON.stringify([]));
+    } catch (e) {
+      console.warn('Failed to clear notifications', e);
+    }
+  }
+
+  static async getUnreadCount(): Promise<number> {
+    const notifications = await this.getInboxNotifications();
+    return notifications.filter(n => !n.read).length;
+  }
+
+  static async deleteNotification(id: string): Promise<void> {
+    try {
+      const notifications = await this.getInboxNotifications();
+      const updated = notifications.filter(n => n.id !== id);
+      await AsyncStorage.setItem(this.INBOX_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to delete notification', e);
+    }
+  }
+}
+
+// In-app notification type
+export interface InAppNotification {
+  id: string;
+  title: string;
+  message: string;
+  timestamp: number;
+  icon: string;
+  read: boolean;
+  type: 'success' | 'info' | 'warning' | 'habit' | 'streak' | 'achievement';
 }

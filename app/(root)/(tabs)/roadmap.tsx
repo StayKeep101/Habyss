@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -63,11 +63,23 @@ const CalendarScreen = () => {
     // Pull-to-Filter Logic
     const scrollY = useSharedValue(0);
     const filterTriggered = useSharedValue(false);
+    const wasAtTop = useSharedValue(true); // Track if user was at top before pulling
 
     const scrollHandler = useAnimatedScrollHandler({
         onScroll: (event) => {
-            scrollY.value = event.contentOffset.y;
-            if (event.contentOffset.y < -80 && !filterTriggered.value) {
+            const currentY = event.contentOffset.y;
+            scrollY.value = currentY;
+
+            // Track if user is at the top of the content
+            if (currentY <= 0) {
+                wasAtTop.value = true;
+            } else if (currentY > 50) {
+                // Only reset once scrolled down enough
+                wasAtTop.value = false;
+            }
+
+            // Only trigger filter if: pulling down (-80), was already at top, and not already triggered
+            if (currentY < -80 && wasAtTop.value && !filterTriggered.value) {
                 filterTriggered.value = true;
                 runOnJS(lightFeedback)();
                 runOnJS(setShowFilter)(true);
@@ -89,7 +101,9 @@ const CalendarScreen = () => {
 
     useEffect(() => {
         const loadCompletions = async () => {
-            const dateStr = selectedDate.toISOString().split('T')[0];
+            // Use local date format (not UTC)
+            const now = selectedDate;
+            const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const c = await getCompletions(dateStr);
             setCompletions(c);
         };
@@ -104,19 +118,30 @@ const CalendarScreen = () => {
         }));
         setHabits(mapped);
 
-        // Weekly Calcs
+        // Weekly Calcs - OPTIMIZED with parallel loading
         const calcWeeklyCompletions = async () => {
-            const result: Record<string, { completed: number; total: number }> = {};
             const today = new Date();
+            const dates: string[] = [];
+
+            // Generate date strings
             for (let i = -30; i <= 7; i++) {
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
-                const dateStr = date.toISOString().split('T')[0];
-                const dayCompletions = await getCompletions(dateStr);
-                const totalHabits = habitsStore.filter(h => !h.isGoal).length;
-                const completedCount = Object.values(dayCompletions).filter(Boolean).length;
-                result[dateStr] = { completed: completedCount, total: totalHabits };
+                const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                dates.push(dateStr);
             }
+
+            // Load all completions in PARALLEL (much faster!)
+            const completionsArray = await Promise.all(dates.map(d => getCompletions(d)));
+
+            // Build result map
+            const totalHabits = habitsStore.filter(h => !h.isGoal).length;
+            const result: Record<string, { completed: number; total: number }> = {};
+            dates.forEach((dateStr, i) => {
+                const completedCount = Object.values(completionsArray[i]).filter(Boolean).length;
+                result[dateStr] = { completed: completedCount, total: totalHabits };
+            });
+
             setWeeklyCompletions(result);
         };
         calcWeeklyCompletions();
@@ -130,9 +155,17 @@ const CalendarScreen = () => {
         setSelectedDate(date);
     };
 
+    // Debounce ref to prevent double-tap
+    const isNavigating = useRef(false);
+
     const handleHabitPress = (habit: Habit) => {
+        // Prevent double-tap navigation
+        if (isNavigating.current) return;
+        isNavigating.current = true;
+
         lightFeedback();
-        const dateStr = selectedDate.toISOString().split('T')[0];
+        const now = selectedDate;
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         router.push({
             pathname: '/habit-detail',
             params: {
@@ -145,6 +178,9 @@ const CalendarScreen = () => {
                 initialCompleted: habit.completed ? 'true' : 'false'
             }
         });
+
+        // Reset after a short delay
+        setTimeout(() => { isNavigating.current = false; }, 500);
     };
 
     const handleDelete = (habit: Habit) => {
@@ -224,20 +260,31 @@ const CalendarScreen = () => {
                         />
                     </View>
 
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, backgroundColor: colors.background }}>
                         <Animated.ScrollView
                             onScroll={scrollHandler}
                             scrollEventThrottle={16}
                             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 150, paddingTop: 40 }}
                             showsVerticalScrollIndicator={false}
+                            bounces={true}
+                            alwaysBounceVertical={true}
+                            style={{ backgroundColor: colors.background }}
                         >
-                            {/* Pull Hint (Hidden by default, revealed on pull) */}
-                            <Animated.View style={{ height: 0, overflow: 'visible', alignItems: 'center', justifyContent: 'flex-end', marginTop: -50 }}>
-                                <View style={{ alignItems: 'center', opacity: 0.5, paddingBottom: 20 }}>
-                                    <Ionicons name="filter" size={20} color={colors.textSecondary} />
-                                    <Text style={{ color: colors.textSecondary, fontSize: 10, marginTop: 4 }}>PULL TO FILTER</Text>
+                            {/* Pull-to-Filter Hint */}
+                            <View style={{ alignItems: 'center', marginTop: -20, marginBottom: 16 }}>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    backgroundColor: 'rgba(255,255,255,0.03)',
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 6,
+                                    borderRadius: 16,
+                                }}>
+                                    <Ionicons name="arrow-down" size={12} color={colors.textTertiary} style={{ marginRight: 4 }} />
+                                    <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'SpaceMono-Regular' }}>PULL TO FILTER</Text>
+                                    <Ionicons name="filter" size={12} color={colors.textTertiary} style={{ marginLeft: 4 }} />
                                 </View>
-                            </Animated.View>
+                            </View>
 
                             {/* Filter Indicator - Explicitly spaced below pull hint area */}
                             {activeFilter !== 'all' && (
@@ -412,6 +459,7 @@ const CalendarScreen = () => {
                                         borderTopRightRadius: 32,
                                         overflow: 'hidden',
                                         width: '100%',
+                                        maxHeight: '45%',
                                         backgroundColor: 'transparent',
                                         paddingBottom: 40,
                                         borderWidth: 1,

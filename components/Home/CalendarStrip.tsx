@@ -124,8 +124,8 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
 
-      // Get actual completion progress from props
-      const dateStr = date.toISOString().split('T')[0];
+      // Get actual completion progress from props (use local date format)
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const dayData = completionData[dateStr];
       const progress = dayData && dayData.total > 0 ? dayData.completed / dayData.total : 0;
 
@@ -138,7 +138,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
       });
     }
     return d;
-  }, []);
+  }, [completionData]);
 
   // Find index of selected date
   const getIndexForDate = useCallback((date: Date) => {
@@ -202,29 +202,30 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
     index,
   });
 
-  const onMomentumScrollEnd = (event: any) => {
+  // Handle scroll to maintain same day of week - called on both drag end and momentum end
+  const handleScrollEnd = useCallback((event: any) => {
     if (isProgrammaticScroll.current) {
       isProgrammaticScroll.current = false;
       return;
     }
 
     const offsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / ITEM_WIDTH);
+    const weekIndex = Math.round(offsetX / SCREEN_WIDTH);
+    const firstDayIndex = weekIndex * 7;
 
-    // The item at 'index' is the first visible item of the new page (week)
-    if (index >= 0 && index < dates.length) {
-      const firstItem = dates[index];
-      const newWeekStart = firstItem.fullDate;
-
+    // Ensure valid index
+    if (firstDayIndex >= 0 && firstDayIndex < dates.length) {
       const currentDayOfWeek = selectedDate.getDay();
-      const targetDate = new Date(newWeekStart);
-      targetDate.setDate(newWeekStart.getDate() + currentDayOfWeek);
+      // Calculate target date: first day of week + day offset
+      const targetDate = new Date(dates[firstDayIndex].fullDate);
+      targetDate.setDate(targetDate.getDate() + currentDayOfWeek);
 
-      if (targetDate.getTime() !== selectedDate.getTime()) {
+      // Only update if date actually changed
+      if (targetDate.toDateString() !== selectedDate.toDateString()) {
         onSelectDate(targetDate);
       }
     }
-  };
+  }, [dates, selectedDate, onSelectDate]);
 
   const isTodaySelected = useMemo(() => {
     const today = new Date();
@@ -287,7 +288,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
         pagingEnabled
         decelerationRate="fast" // Snap effect
         snapToInterval={SCREEN_WIDTH}
-        onMomentumScrollEnd={onMomentumScrollEnd}
+        onMomentumScrollEnd={handleScrollEnd}
         onScrollToIndexFailed={(info) => {
           const wait = new Promise(resolve => setTimeout(resolve, 500));
           wait.then(() => {
