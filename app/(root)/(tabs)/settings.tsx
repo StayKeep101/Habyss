@@ -86,15 +86,18 @@ export default function ProfileScreen() {
         setCheckingUsername(true);
         const { data: { user } } = await supabase.auth.getUser();
 
+        // Check if any user (other than current user) has this username
         const { data, error } = await supabase
             .from('profiles')
             .select('id')
-            .eq('username', name.toLowerCase())
-            .neq('id', user?.id || '')
-            .single();
+            .ilike('username', name.toLowerCase()) // Case-insensitive search
+            .neq('id', user?.id || '');
 
         setCheckingUsername(false);
-        setUsernameAvailable(!data && !error);
+
+        // Username is available if no matching rows found (data is empty array or null)
+        const isTaken = data && data.length > 0;
+        setUsernameAvailable(!isTaken);
     };
 
     // Save new username
@@ -259,7 +262,23 @@ export default function ProfileScreen() {
                     {/* Profile Section */}
                     <View style={styles.profileSection}>
                         <TouchableOpacity onPress={handleChangeAvatar} style={styles.avatarContainer}>
-                            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border, overflow: 'hidden' }]}>
+                            {/* Premium gradient border */}
+                            {isPremium && (
+                                <LinearGradient
+                                    colors={['#10B981', '#3B82F6', '#8B5CF6', '#10B981']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.premiumAvatarBorder}
+                                />
+                            )}
+                            <View style={[
+                                styles.avatarPlaceholder,
+                                {
+                                    backgroundColor: colors.surfaceSecondary,
+                                    borderColor: isPremium ? 'transparent' : colors.border,
+                                    overflow: 'hidden',
+                                }
+                            ]}>
                                 {avatarUri ? (
                                     <Image source={{ uri: avatarUri }} style={{ width: 100, height: 100 }} />
                                 ) : (
@@ -271,6 +290,17 @@ export default function ProfileScreen() {
                             <View style={[styles.verifiedBadge, { backgroundColor: colors.primary }]}>
                                 <Ionicons name="camera" size={12} color="black" />
                             </View>
+                            {/* PRO Badge */}
+                            {isPremium && (
+                                <LinearGradient
+                                    colors={['#10B981', '#3B82F6']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.proBadge}
+                                >
+                                    <Text style={styles.proBadgeText}>PRO</Text>
+                                </LinearGradient>
+                            )}
                         </TouchableOpacity>
 
                         {/* Username (Editable) */}
@@ -641,5 +671,28 @@ const styles = StyleSheet.create({
         fontSize: 10,
         marginTop: 8,
         fontFamily: 'SpaceMono-Regular',
+    },
+    premiumAvatarBorder: {
+        position: 'absolute',
+        width: 108,
+        height: 108,
+        borderRadius: 54,
+        top: -4,
+        left: -4,
+    },
+    proBadge: {
+        position: 'absolute',
+        bottom: -2,
+        left: '50%',
+        marginLeft: -18,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    proBadgeText: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: '#fff',
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 });

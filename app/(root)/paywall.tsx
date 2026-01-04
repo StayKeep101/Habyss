@@ -46,6 +46,7 @@ export default function PaywallScreen() {
             customerEphemeralKeySecret: ephemeralKey,
             paymentIntentClientSecret: paymentIntent,
             allowsDelayedPaymentMethods: true,
+            returnURL: 'habyss://stripe-redirect',
             appearance: {
                 colors: {
                     primary: '#8B5CF6',

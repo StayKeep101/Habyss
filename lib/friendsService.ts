@@ -89,12 +89,55 @@ export const FriendsService = {
 
     /**
      * Send a friend request
+     * Returns: 'sent' | 'already_friends' | 'already_requested' | 'pending_from_them' | 'error'
      */
     async sendFriendRequest(toUserId: string): Promise<boolean> {
         try {
             const currentUser = await this.getCurrentUser();
             if (!currentUser) return false;
 
+            // Check if already friends
+            const { data: existingFriendship } = await supabase
+                .from('friendships')
+                .select('id')
+                .eq('user_id', currentUser.id)
+                .eq('friend_id', toUserId)
+                .single();
+
+            if (existingFriendship) {
+                console.log('Already friends with this user');
+                return false; // Already friends
+            }
+
+            // Check if there's a pending request from them to us
+            const { data: incomingRequest } = await supabase
+                .from('friend_requests')
+                .select('id')
+                .eq('from_user_id', toUserId)
+                .eq('to_user_id', currentUser.id)
+                .eq('status', 'pending')
+                .single();
+
+            if (incomingRequest) {
+                // Auto-accept their request instead
+                console.log('They already sent us a request - auto-accepting');
+                return await this.acceptFriendRequest(incomingRequest.id);
+            }
+
+            // Check if we already sent them a request
+            const { data: existingRequest } = await supabase
+                .from('friend_requests')
+                .select('id, status')
+                .eq('from_user_id', currentUser.id)
+                .eq('to_user_id', toUserId)
+                .single();
+
+            if (existingRequest) {
+                console.log('Already sent a request to this user, status:', existingRequest.status);
+                return false; // Already sent
+            }
+
+            // Send new request
             const { error } = await supabase
                 .from('friend_requests')
                 .insert({
@@ -105,11 +148,17 @@ export const FriendsService = {
 
             if (error) {
                 if (isTableMissing(error)) return false;
+                // Handle duplicate key error gracefully
+                if (error.code === '23505') {
+                    console.log('Request already exists');
+                    return false;
+                }
                 console.error('Error sending friend request:', error);
                 return false;
             }
             return true;
         } catch (e) {
+            console.error('Exception in sendFriendRequest:', e);
             return false;
         }
     },

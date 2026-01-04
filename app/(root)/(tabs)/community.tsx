@@ -76,11 +76,12 @@ export default function CommunityScreen() {
         lightFeedback();
         const success = await FriendsService.sendFriendRequest(userId);
         if (success) {
-            Alert.alert('Success', 'Friend request sent!');
+            Alert.alert('Success! 🎉', 'Friend request sent (or auto-accepted if they already requested you)!');
             setSearchResults(prev => prev.filter(u => u.id !== userId));
             setSearchQuery('');
+            await loadData(); // Refresh to show new friend if auto-accepted
         } else {
-            Alert.alert('Error', 'Could not send friend request');
+            Alert.alert('Already Connected', 'You may already be friends or have a pending request with this user.');
         }
     };
 

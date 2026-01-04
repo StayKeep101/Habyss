@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, StyleSheet, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,7 +50,32 @@ const SignUp = () => {
   };
 
   const handleGoogleSignUp = async () => {
-    Alert.alert("Coming Soon", "Google Sign-In will be available soon!");
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'habyss://auth/callback',
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.url) {
+        const supported = await Linking.canOpenURL(data.url);
+        if (supported) {
+          await Linking.openURL(data.url);
+        } else {
+          Alert.alert('Error', 'Cannot open browser for sign-up');
+        }
+      }
+    } catch (e: any) {
+      console.error('Google sign-up error:', e);
+      Alert.alert('Error', e.message || 'Could not sign up with Google');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -138,8 +163,25 @@ const SignUp = () => {
 
             </VoidCard>
 
+            {/* Divider */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+              <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'SpaceMono-Regular', marginHorizontal: 12 }}>OR</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+            </View>
+
+            {/* Google Sign Up */}
+            <TouchableOpacity
+              onPress={handleGoogleSignUp}
+              disabled={loading}
+              style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
+            >
+              <Ionicons name="logo-google" size={20} color="#fff" style={{ marginRight: 12 }} />
+              <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>CONTINUE WITH GOOGLE</Text>
+            </TouchableOpacity>
+
             {/* Footer */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 30 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20 }}>
               <Text style={{ color: colors.textSecondary, fontFamily: 'SpaceMono-Regular', fontSize: 12 }}>ALREADY HAVE AN ACCOUNT? </Text>
               <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')}>
                 <Text style={{ color: colors.primary, fontFamily: 'SpaceMono-Regular', fontWeight: 'bold', fontSize: 12 }}>AUTHENTICATE</Text>
@@ -206,6 +248,21 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceMono-Regular',
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  googleButton: {
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  googleButtonText: {
+    fontSize: 12,
+    fontFamily: 'SpaceMono-Regular',
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
 });
 

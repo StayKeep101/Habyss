@@ -99,6 +99,16 @@ export default function HabitDetailScreen() {
 
   const handleToggle = async () => {
     if (!habit) return;
+
+    // Only allow completion for today (using local date, not UTC)
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    if (dateStr !== today) {
+      Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
+      return;
+    }
+
     setCompleted(prev => !prev);
     await toggleCompletion(habit.id, dateStr);
   };

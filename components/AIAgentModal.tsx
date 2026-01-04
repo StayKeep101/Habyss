@@ -273,7 +273,8 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                                 onPress={() => {
                                     mediumFeedback();
                                     onClose();
-                                    router.push('/(root)/settings');
+                                    // Navigate to the existing paywall screen with native Stripe checkout
+                                    router.push('/paywall');
                                 }}
                             >
                                 <LinearGradient
