@@ -74,18 +74,19 @@ const Home = () => {
     loadCompletions();
   }, []);
 
-  // Load weekly completions for chart
+  // Load weekly completions for chart - OPTIMIZED with parallel loading
   useEffect(() => {
     const loadWeeklyData = async () => {
-      const weekData: number[] = [];
+      const dates: string[] = [];
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
-        // Use local date format
         const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        const dayCompletions = await getCompletions(dateStr);
-        weekData.push(Object.keys(dayCompletions).length);
+        dates.push(dateStr);
       }
+      // Load all in parallel (faster!)
+      const completionsArray = await Promise.all(dates.map(d => getCompletions(d)));
+      const weekData = completionsArray.map(c => Object.keys(c).length);
       setWeeklyCompletions(weekData);
     };
     loadWeeklyData();

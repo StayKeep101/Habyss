@@ -340,10 +340,20 @@ async function fetchCompletionsFromDB(dateStr: string, uid: string): Promise<Rec
   return result;
 }
 
-// Internal: refresh cache in background
+// Internal: refresh cache in background with size limit
+const MAX_CACHE_ENTRIES = 14; // Only keep 2 weeks of completion data in memory
 async function refreshCompletionsCache(dateStr: string, uid: string) {
   const result = await fetchCompletionsFromDB(dateStr, uid);
   completionsCache[dateStr] = result;
+
+  // Limit cache size to prevent memory bloat
+  const keys = Object.keys(completionsCache);
+  if (keys.length > MAX_CACHE_ENTRIES) {
+    // Remove oldest entries (sort by date string)
+    keys.sort();
+    const toRemove = keys.slice(0, keys.length - MAX_CACHE_ENTRIES);
+    toRemove.forEach(key => delete completionsCache[key]);
+  }
 }
 
 export async function toggleCompletion(habitId: string, dateISO?: string): Promise<Record<string, boolean>> {

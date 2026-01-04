@@ -123,8 +123,8 @@ const CalendarScreen = () => {
             const today = new Date();
             const dates: string[] = [];
 
-            // Generate date strings
-            for (let i = -30; i <= 7; i++) {
+            // Generate date strings (reduced from 38 days to 14 for memory)
+            for (let i = -7; i <= 7; i++) {
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
                 const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;

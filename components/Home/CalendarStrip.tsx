@@ -104,27 +104,27 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
   const colors = Colors[colorScheme ?? 'light'];
   const flatListRef = useRef<FlatList>(null);
 
-  // Generate a large range of dates aligned to weeks (starting Sunday)
+  // Generate dates for 10 weeks instead of 104 weeks (huge memory savings!)
   const dates = useMemo(() => {
     const d: DateItem[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Align to the Sunday 52 weeks ago
-    const dayOfWeek = today.getDay(); // 0 (Sun) to 6 (Sat)
-    const startOffset = (52 * 7) + dayOfWeek;
+    // Align to Sunday 5 weeks ago (reduced from 52)
+    const dayOfWeek = today.getDay();
+    const startOffset = (5 * 7) + dayOfWeek;
 
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - startOffset);
 
-    // Generate 104 weeks (approx 2 years)
-    const totalDays = 104 * 7;
+    // Generate 10 weeks instead of 104 (70 items vs 728 - 90% less memory!)
+    const totalDays = 10 * 7;
 
     for (let i = 0; i < totalDays; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
 
-      // Get actual completion progress from props (use local date format)
+      // Get completion progress
       const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const dayData = completionData[dateStr];
       const progress = dayData && dayData.total > 0 ? dayData.completed / dayData.total : 0;
@@ -133,7 +133,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
         dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
         dayNumber: date.getDate(),
         fullDate: date,
-        id: date.toISOString(),
+        id: dateStr, // Use dateStr instead of toISOString() - simpler
         progress,
       });
     }
