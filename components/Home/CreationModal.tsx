@@ -18,7 +18,7 @@ import { Colors } from '@/constants/Colors';
 import { Habit } from '@/lib/habits';
 
 const { width, height } = Dimensions.get('window');
-const SHEET_HEIGHT = height * 0.55;
+const SHEET_HEIGHT = height * 0.50;
 const DRAG_THRESHOLD = 80;
 const BOTTOM_PADDING = 100;
 

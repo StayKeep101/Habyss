@@ -88,7 +88,15 @@ const GoalDetail = () => {
   };
 
   const handleAddHabit = () => {
-    DeviceEventEmitter.emit('show_habit_modal', { goalId: goalId as string });
+    try {
+      // Use setTimeout to prevent UI freeze
+      setTimeout(() => {
+        DeviceEventEmitter.emit('show_habit_modal', { goalId: goalId as string });
+      }, 50);
+    } catch (error) {
+      console.error('Error opening habit modal:', error);
+      Alert.alert('Error', 'Could not open habit creation. Please try again.');
+    }
   };
 
   const handleDeleteHabit = (habit: Habit) => {
@@ -104,24 +112,51 @@ const GoalDetail = () => {
       {
         text: "Take Photo",
         onPress: async () => {
-          const { status } = await ImagePicker.requestCameraPermissionsAsync();
-          if (status !== 'granted') return Alert.alert('Permission Required');
-          const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [16, 9], quality: 0.7 });
-          if (!result.canceled && result.assets?.[0]) {
-            setBgImage(result.assets[0].uri);
-            await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+          try {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission Required', 'Camera permission is needed to take photos.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [16, 9],
+              quality: 0.7
+            });
+            if (!result.canceled && result.assets && result.assets[0]) {
+              const uri = result.assets[0].uri;
+              setBgImage(uri);
+              await AsyncStorage.setItem(`goal_bg_${goalId}`, uri);
+            }
+          } catch (error) {
+            console.error('Camera error:', error);
+            Alert.alert('Error', 'Could not access camera. Please try again.');
           }
         }
       },
       {
         text: "Choose from Library",
         onPress: async () => {
-          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (status !== 'granted') return Alert.alert('Permission Required');
-          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [16, 9], quality: 0.7 });
-          if (!result.canceled && result.assets?.[0]) {
-            setBgImage(result.assets[0].uri);
-            await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+          try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission Required', 'Photo library access is needed to select photos.');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [16, 9],
+              quality: 0.7
+            });
+            if (!result.canceled && result.assets && result.assets[0]) {
+              const uri = result.assets[0].uri;
+              setBgImage(uri);
+              await AsyncStorage.setItem(`goal_bg_${goalId}`, uri);
+            }
+          } catch (error) {
+            console.error('Library error:', error);
+            Alert.alert('Error', 'Could not access photo library. Please try again.');
           }
         }
       },
