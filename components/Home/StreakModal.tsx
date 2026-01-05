@@ -17,6 +17,7 @@ import { Habit } from '@/lib/habits';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
+import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 
 const { height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.75;
@@ -36,6 +37,8 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
     const [isOpen, setIsOpen] = useState(false);
     const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
     const [filter, setFilter] = useState<'week' | 'month' | 'year'>('month');
+    const [monthOffset, setMonthOffset] = useState(0); // 0 = current
+    const [showShare, setShowShare] = useState(false);
 
     const translateY = useSharedValue(SHEET_HEIGHT);
     const backdropOpacity = useSharedValue(0);
@@ -63,20 +66,58 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
     const selectedGoal = goals.find(g => g.id === selectedGoalId) || goals[0];
     const goalCompletedDays = selectedGoal ? (completedDays[selectedGoal.id] || []) : [];
 
-    const calendarDays = useMemo(() => {
+    const calendarData = useMemo(() => {
         const now = new Date();
-        let dayCount = filter === 'week' ? 7 : filter === 'month' ? 30 : 365;
-        const days = [];
-        for (let i = dayCount - 1; i >= 0; i--) {
-            const d = new Date(now);
-            d.setDate(d.getDate() - i);
-            days.push({ date: d, dateStr: d.toISOString().split('T')[0], completed: goalCompletedDays.includes(d.toISOString().split('T')[0]) });
+        // Adjust for monthOffset
+        if (filter === 'month' && monthOffset !== 0) {
+            now.setMonth(now.getMonth() + monthOffset);
+            // If viewing past months, show WHOLE month
+            now.setDate(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()); // End of month
         }
-        return days;
-    }, [selectedGoal, goalCompletedDays, filter]);
 
-    const completedCount = calendarDays.filter(d => d.completed).length;
-    const rate = calendarDays.length > 0 ? Math.round((completedCount / calendarDays.length) * 100) : 0;
+        let dayCount = filter === 'week' ? 7 : filter === 'month' ? new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() : 365;
+        // For month view, we want to align to calendar grid if simple, or just list. User asked for "Day of Week info".
+        // Let's generate days for the calendar view.
+
+        const days = [];
+        // If Year, simpler. If Month, full grid logic?
+        // User asked: "see previous month... information regarding days of the week".
+
+        const anchorDate = new Date(now);
+        // For Month, show all days of that month.
+        if (filter === 'month') {
+            anchorDate.setDate(1); // Start of month
+            dayCount = new Date(anchorDate.getFullYear(), anchorDate.getMonth() + 1, 0).getDate();
+            for (let i = 1; i <= dayCount; i++) {
+                const d = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), i);
+                days.push({
+                    date: d,
+                    dateStr: d.toISOString().split('T')[0],
+                    completed: goalCompletedDays.includes(d.toISOString().split('T')[0]),
+                    dayOfWeek: d.getDay() // 0-6
+                });
+            }
+        } else {
+            // Rolling window for week/year
+            for (let i = dayCount - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                days.push({ date: d, dateStr: d.toISOString().split('T')[0], completed: goalCompletedDays.includes(d.toISOString().split('T')[0]), dayOfWeek: d.getDay() });
+            }
+        }
+
+        return days;
+    }, [selectedGoal, goalCompletedDays, filter, monthOffset]);
+
+    const completedCount = calendarData.filter(d => d.completed).length;
+    const rate = calendarData.length > 0 ? Math.round((completedCount / calendarData.length) * 100) : 0;
+
+    // Month Label
+    const currentMonthLabel = useMemo(() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() + monthOffset);
+        return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }, [monthOffset]);
 
     const panGesture = Gesture.Pan()
         .onUpdate((event) => { if (event.translationY > 0) translateY.value = event.translationY; })
@@ -111,7 +152,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                                 <Text style={styles.title}>STREAK</Text>
                                 <Text style={[styles.subtitle, { color: '#F97316' }]}>HISTORY & METRICS</Text>
                             </View>
-                            <TouchableOpacity style={[styles.iconButton, { backgroundColor: 'rgba(249, 115, 22, 0.2)' }]}>
+                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: 'rgba(249, 115, 22, 0.2)' }]}>
                                 <Ionicons name="share-social" size={20} color="#F97316" />
                             </TouchableOpacity>
                         </View>
@@ -124,6 +165,18 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                                     </View>
                                     <Text style={styles.streakValue}>{streak}</Text>
                                     <Text style={styles.streakLabel}>DAY STREAK</Text>
+
+                                    {/* Deadline Display */}
+                                    {selectedGoal?.targetDate && (
+                                        <View style={{ marginTop: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600' }}>
+                                                EXTINGUISH DEADLINE: <Text style={{ color: '#fff' }}>{new Date(selectedGoal.targetDate).toLocaleDateString()}</Text>
+                                                {new Date(selectedGoal.targetDate) > new Date() && (
+                                                    <Text style={{ color: '#F97316' }}> ({Math.ceil((new Date(selectedGoal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} Days left)</Text>
+                                                )}
+                                            </Text>
+                                        </View>
+                                    )}
                                 </VoidCard>
 
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
@@ -139,24 +192,51 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
 
                                 <View style={styles.filterRow}>
                                     {(['week', 'month', 'year'] as const).map(f => (
-                                        <TouchableOpacity key={f} onPress={() => setFilter(f)} style={[styles.filterBtn, filter === f && { backgroundColor: 'rgba(249, 115, 22, 0.2)' }]}>
+                                        <TouchableOpacity key={f} onPress={() => { setFilter(f); setMonthOffset(0); }} style={[styles.filterBtn, filter === f && { backgroundColor: 'rgba(249, 115, 22, 0.2)' }]}>
                                             <Text style={[styles.filterText, { color: filter === f ? '#F97316' : 'rgba(255,255,255,0.5)' }]}>{f.charAt(0).toUpperCase() + f.slice(1)}</Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
 
+                                {/* Month Navigation */}
+                                {filter === 'month' && (
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingHorizontal: 12 }}>
+                                        <TouchableOpacity onPress={() => setMonthOffset(prev => prev - 1)} style={styles.navBtn}>
+                                            <Ionicons name="chevron-back" size={16} color="white" />
+                                        </TouchableOpacity>
+                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>{currentMonthLabel}</Text>
+                                        <TouchableOpacity onPress={() => setMonthOffset(prev => prev + 1)} style={styles.navBtn}>
+                                            <Ionicons name="chevron-forward" size={16} color="white" />
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+
                                 <Text style={styles.sectionTitle}>PERFORMANCE</Text>
                                 <View style={styles.statsRow}>
                                     <VoidCard glass style={styles.statCard}><Text style={styles.statValue}>{completedCount}</Text><Text style={styles.statLabel}>COMPLETED</Text></VoidCard>
                                     <VoidCard glass style={styles.statCard}><Text style={[styles.statValue, { color: '#22C55E' }]}>{rate}%</Text><Text style={styles.statLabel}>RATE</Text></VoidCard>
-                                    <VoidCard glass style={styles.statCard}><Text style={styles.statValue}>{calendarDays.length}</Text><Text style={styles.statLabel}>DAYS</Text></VoidCard>
+                                    <VoidCard glass style={styles.statCard}><Text style={styles.statValue}>{calendarData.length}</Text><Text style={styles.statLabel}>DAYS</Text></VoidCard>
                                 </View>
 
-                                <Text style={styles.sectionTitle}>ACTIVITY</Text>
+                                <Text style={styles.sectionTitle}>ACTIVITY LOG</Text>
                                 <VoidCard glass style={styles.heatmapCard}>
+                                    {/* Weekday Labels - Always Visible */}
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 4 }}>
+                                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                                            <Text key={i} style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, width: 28, textAlign: 'center' }}>{d}</Text>
+                                        ))}
+                                    </View>
+
                                     <View style={styles.heatmap}>
-                                        {calendarDays.map((day, i) => (
-                                            <View key={i} style={[styles.heatCell, day.completed && { backgroundColor: selectedGoal?.color || '#F97316' }]} />
+                                        {/* Blank spaces for alignment */}
+                                        {calendarData.length > 0 && Array.from({ length: calendarData[0].date.getDay() }).map((_, i) => (
+                                            <View key={`empty-${i}`} style={[styles.heatCell, { backgroundColor: 'transparent' }]} />
+                                        ))}
+
+                                        {calendarData.map((day, i) => (
+                                            <View key={i} style={[styles.heatCell, day.completed ? { backgroundColor: selectedGoal?.color || '#F97316' } : { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
+                                                <Text style={{ fontSize: 8, color: day.completed ? 'white' : 'rgba(255,255,255,0.3)' }}>{day.date.getDate()}</Text>
+                                            </View>
                                         ))}
                                     </View>
                                 </VoidCard>
@@ -165,6 +245,16 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                     </Animated.View>
                 </GestureDetector>
             </View>
+            <ShareStatsModal
+                visible={showShare}
+                onClose={() => setShowShare(false)}
+                stats={{
+                    title: "STREAK MASTER",
+                    value: `${streak} FIRE`,
+                    subtitle: `Consistency Rate: ${rate}%`,
+                    type: 'streak'
+                }}
+            />
         </Modal>
     );
 };
@@ -172,7 +262,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
     sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(249, 115, 22, 0.15)', pointerEvents: 'none' },
+    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0, borderBottomWidth: 0, borderColor: 'rgba(249, 115, 22, 0.15)', pointerEvents: 'none' }, // Removed border
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     title: { fontSize: 18, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },
@@ -193,6 +283,7 @@ const styles = StyleSheet.create({
     statValue: { fontSize: 18, fontWeight: 'bold', color: '#fff', fontFamily: 'Lexend' },
     statLabel: { fontSize: 9, marginTop: 4, color: 'rgba(255,255,255,0.5)', fontFamily: 'Lexend_400Regular', letterSpacing: 0.5 },
     heatmapCard: { padding: 14 },
-    heatmap: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
-    heatCell: { width: 12, height: 12, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.06)' },
+    heatmap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-start' }, // Changed gap for better grid
+    heatCell: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+    navBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8 },
 });

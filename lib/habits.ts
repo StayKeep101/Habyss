@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { NotificationService } from './notificationService';
 import { WidgetService } from './widgetService';
+import { DeviceEventEmitter } from 'react-native';
 
 // --- In-Memory Cache ---
 let cachedHabits: Habit[] | null = null;
@@ -53,6 +54,30 @@ export interface Habit {
 
 const todayString = (d = new Date()) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+export const isHabitScheduledForDate = (habit: Habit, date: Date): boolean => {
+  // 1. Check date range
+  const habitStart = new Date(habit.startDate || habit.createdAt);
+  const dateStr = date.toISOString().split('T')[0];
+  const startStr = habitStart.toISOString().split('T')[0];
+
+  // Ignore time, compare dates
+  if (dateStr < startStr) return false;
+
+  if (habit.targetDate) {
+    const targetStr = new Date(habit.targetDate).toISOString().split('T')[0];
+    if (dateStr > targetStr) return false;
+  }
+
+  // 2. Check Weekday
+  const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase(); // 'mon', 'tue'...
+  if (habit.taskDays && habit.taskDays.length > 0) {
+    // Handle potential case differences just in case
+    return habit.taskDays.map(d => d.toLowerCase()).includes(dayName);
+  }
+
+  return true; // Default to every day if no taskDays specified
 };
 
 export async function getUserId(): Promise<string | undefined> {
@@ -418,6 +443,9 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
       }
     }
   })();
+
+  // Broadcast event for instant UI updates across tabs
+  DeviceEventEmitter.emit('habit_completion_updated', { habitId, date: dateStr, completed: newCompleted });
 
   return optimisticResult;
 }

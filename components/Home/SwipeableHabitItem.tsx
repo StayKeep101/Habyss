@@ -4,27 +4,26 @@ import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Habit as BaseHabit } from '@/lib/habits';
+import { Habit } from '@/lib/habits';
 import { useRouter } from 'expo-router';
+import { RoadMapCardSize } from '@/constants/AppSettingsContext';
+import { VoidCard } from '../Layout/VoidCard';
 
-interface Habit extends BaseHabit {
-  completed?: boolean;
-  streak?: number;
-}
-
+// ... interface
 interface SwipeableHabitItemProps {
   habit: Habit;
-  onPress: (habit: Habit) => void;  // Mark complete
+  onPress: (habit: Habit) => void;
   onEdit: (habit: Habit) => void;
   onDelete: (habit: Habit) => void;
   onShare?: (habit: Habit) => void;
+  size: RoadMapCardSize;
 }
 
 const { width } = Dimensions.get('window');
-const ACTION_WIDTH = 70;
+const ACTION_WIDTH = 60; // Smaller actions
 
 export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
-  habit, onPress, onEdit, onDelete, onShare
+  habit, onPress, onEdit, onDelete, onShare, size
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -33,7 +32,18 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
 
   const close = () => swipeableRef.current?.close();
 
-  // Right swipe (swipe left gesture) - Opens habit detail page
+  // Dynamic Sizing (Habits must be smaller than Goals)
+  const isSmall = size === 'small';
+  const isBig = size === 'big';
+
+  // Even for BIG, habits should stay relatively compact compared to goals
+  const paddingV = isSmall ? 4 : (isBig ? 12 : 10);
+  const iconSize = isSmall ? 12 : (isBig ? 16 : 14);
+  const iconBoxSize = isSmall ? 20 : (isBig ? 32 : 26);
+  const fontSize = isSmall ? 11 : (isBig ? 14 : 13);
+  const checkboxSize = isSmall ? 14 : (isBig ? 20 : 18);
+
+  // (renderLeftActions and renderRightActions remain mostly same but slightly smaller)
   const renderLeftActions = (
     progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>
@@ -53,14 +63,12 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
         }}
       >
         <Animated.View style={[styles.actionContent, { transform: [{ translateX: trans }] }]}>
-          <Ionicons name="open-outline" size={20} color="white" />
-          <Text style={styles.actionText}>View</Text>
+          <Ionicons name="open-outline" size={18} color="white" />
         </Animated.View>
       </RectButton>
     );
   };
 
-  // Left swipe (swipe right gesture) - Share, Edit, Delete
   const renderRightActions = () => {
     return (
       <View style={styles.rightActionsContainer}>
@@ -70,8 +78,7 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
             onPress={() => { close(); onShare(habit); }}
           >
             <View style={styles.actionContent}>
-              <Ionicons name="share-outline" size={20} color="white" />
-              <Text style={styles.actionText}>Share</Text>
+              <Ionicons name="share-outline" size={18} color="white" />
             </View>
           </RectButton>
         )}
@@ -80,8 +87,7 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
           onPress={() => { close(); onEdit(habit); }}
         >
           <View style={styles.actionContent}>
-            <Ionicons name="pencil" size={20} color="white" />
-            <Text style={styles.actionText}>Edit</Text>
+            <Ionicons name="pencil" size={18} color="white" />
           </View>
         </RectButton>
         <RectButton
@@ -89,8 +95,7 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
           onPress={() => { close(); onDelete(habit); }}
         >
           <View style={styles.actionContent}>
-            <Ionicons name="trash" size={20} color="white" />
-            <Text style={styles.actionText}>Delete</Text>
+            <Ionicons name="trash" size={18} color="white" />
           </View>
         </RectButton>
       </View>
@@ -111,23 +116,41 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
     >
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={() => onPress(habit)}  // Mark complete on tap
+        onPress={() => onPress(habit)}
         style={styles.cardWrapper}
       >
-        <View style={[styles.card, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: habit.completed ? 'rgba(0, 255, 148, 0.2)' : 'rgba(255,255,255,0.06)' }]}>
-          <View style={[styles.iconContainer, { backgroundColor: habit.completed ? 'rgba(0, 255, 148, 0.1)' : (habit.color || '#8B5CF6') + '15' }]}>
-            <Ionicons name={(habit.icon as any) || 'ellipse-outline'} size={16} color={habit.completed ? colors.success : habit.color || colors.textSecondary} />
+        <VoidCard
+          intensity={40} // Lighter glass for items
+          style={[
+            styles.card,
+            habit.completed && { opacity: 0.7 },
+            { paddingVertical: paddingV }
+          ]}
+        >
+          {/* Checkbox / Hit Area */}
+          <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, habit.completed && { backgroundColor: colors.success, borderColor: colors.success }]}>
+            {habit.completed && <Ionicons name="checkmark" size={checkboxSize * 0.7} color="black" />}
           </View>
+
+          {/* Icon */}
+          <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: habit.completed ? 'rgba(34, 197, 94, 0.1)' : (habit.color || '#8B5CF6') + '15' }]}>
+            <Ionicons name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={habit.completed ? colors.success : habit.color || colors.textSecondary} />
+          </View>
+
+          {/* Text Info */}
           <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: colors.textPrimary, textDecorationLine: habit.completed ? 'line-through' : 'none', opacity: habit.completed ? 0.6 : 1 }]} numberOfLines={1}>{habit.name}</Text>
-            <Text style={[styles.subtitle, { color: colors.textTertiary }]}>
-              {habit.startTime || 'Any time'} {habit.streak ? ` · 🔥${habit.streak}` : ''}
-            </Text>
+            <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: habit.completed ? 'line-through' : 'none' }]} numberOfLines={1}>{habit.name}</Text>
+            {(habit.streak && habit.streak > 0 && !isSmall) ? ( // Hide streak on small if crowded, or just keep it small
+              <Text style={[styles.streakText, { color: '#F59E0B' }]}>🔥 {habit.streak}</Text>
+            ) : null}
           </View>
-          <View style={[styles.checkbox, habit.completed && { backgroundColor: colors.success, borderColor: colors.success }]}>
-            {habit.completed && <Ionicons name="checkmark" size={12} color="white" />}
+
+          {/* Time (Compact) */}
+          <View>
+            <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>{habit.startTime || '--:--'}</Text>
           </View>
-        </View>
+
+        </VoidCard>
       </TouchableOpacity>
     </Swipeable>
   );
@@ -135,52 +158,51 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
 
 const styles = StyleSheet.create({
   swipeableContainer: {
-    marginBottom: 6,
-    borderRadius: 12,
+    marginBottom: 4, // Tighter gap
+    borderRadius: 8,
     overflow: 'hidden',
   },
   cardWrapper: {
-    backgroundColor: '#0a0d14',
+    backgroundColor: 'transparent',
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  subtitle: {
-    fontSize: 11,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
+  },
+  iconContainer: {
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  title: {
+    fontWeight: '500',
+    fontFamily: 'Lexend_400Regular', // Lighter weight for items
+  },
+  streakText: {
+    fontSize: 9,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  timeText: {
+    fontFamily: 'Lexend_400Regular',
   },
   leftAction: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'flex-end',
-    paddingRight: 24,
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
+    paddingRight: 20,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
   },
   rightActionsContainer: {
     flexDirection: 'row',
@@ -193,11 +215,5 @@ const styles = StyleSheet.create({
   actionContent: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  actionText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 4,
   },
 });

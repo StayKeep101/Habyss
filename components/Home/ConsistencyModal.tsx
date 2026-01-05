@@ -17,6 +17,8 @@ import { Habit } from '@/lib/habits';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
+import { MiniGoalGraph } from '@/components/Home/MiniGoalGraph';
+import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 
 const { height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.75;
@@ -26,14 +28,16 @@ interface ConsistencyModalProps {
     visible: boolean;
     onClose: () => void;
     goals: Habit[];
+    habits: Habit[];
     goalConsistency: Record<string, number>;
     avgConsistency: number;
 }
 
-export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onClose, goals, goalConsistency, avgConsistency }) => {
+export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onClose, goals, habits, goalConsistency, avgConsistency }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const [isOpen, setIsOpen] = useState(false);
+    const [showShare, setShowShare] = useState(false);
 
     const translateY = useSharedValue(SHEET_HEIGHT);
     const backdropOpacity = useSharedValue(0);
@@ -102,7 +106,7 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onC
                                 <Text style={styles.title}>CONSISTENCY</Text>
                                 <Text style={[styles.subtitle, { color: '#22C55E' }]}>PERFORMANCE REPORT</Text>
                             </View>
-                            <TouchableOpacity style={[styles.iconButton, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}>
+                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}>
                                 <Ionicons name="share-social" size={20} color="#22C55E" />
                             </TouchableOpacity>
                         </View>
@@ -119,33 +123,39 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onC
                                     </View>
                                 </VoidCard>
 
-                                <Text style={styles.sectionTitle}>PER GOAL BREAKDOWN</Text>
+                                <Text style={styles.sectionTitle}>PER GOAL ACTIVITY</Text>
 
-                                {goals.length > 0 ? goals.map(goal => {
-                                    const score = goalConsistency[goal.id] || 0;
-                                    const color = getColor(score);
-                                    return (
-                                        <VoidCard key={goal.id} glass style={styles.goalRow}>
-                                            <View style={[styles.goalIcon, { backgroundColor: (goal.color || '#8B5CF6') + '15' }]}>
-                                                <Ionicons name={(goal.icon as any) || 'flag'} size={18} color={goal.color || '#8B5CF6'} />
-                                            </View>
-                                            <View style={styles.goalInfo}>
-                                                <Text style={styles.goalName} numberOfLines={1}>{goal.name}</Text>
-                                                <View style={styles.progressBar}>
-                                                    <View style={[styles.progressFill, { width: `${Math.max(score, 3)}%`, backgroundColor: color }]} />
+                                <View style={styles.gridContainer}>
+                                    {goals.length > 0 ? goals.map(goal => {
+                                        const score = goalConsistency[goal.id] || 0;
+                                        const color = getColor(score);
+                                        return (
+                                            <VoidCard key={goal.id} glass style={styles.gridCard}>
+                                                <View style={styles.cardHeader}>
+                                                    <View style={[styles.goalIcon, { backgroundColor: (goal.color || '#8B5CF6') + '15' }]}>
+                                                        <Ionicons name={(goal.icon as any) || 'flag'} size={14} color={goal.color || '#8B5CF6'} />
+                                                    </View>
+                                                    <View style={[styles.miniScoreBadge, { backgroundColor: color + '15' }]}>
+                                                        <Text style={[styles.miniScoreText, { color }]}>{Math.round(score)}%</Text>
+                                                    </View>
                                                 </View>
-                                            </View>
-                                            <View style={[styles.scoreBadge, { backgroundColor: color + '15' }]}>
-                                                <Text style={[styles.scoreText, { color }]}>{Math.round(score)}%</Text>
-                                            </View>
-                                        </VoidCard>
-                                    );
-                                }) : (
-                                    <VoidCard glass style={styles.emptyCard}>
-                                        <Ionicons name="analytics-outline" size={36} color="rgba(255,255,255,0.2)" />
-                                        <Text style={styles.emptyText}>No data</Text>
-                                    </VoidCard>
-                                )}
+
+                                                <Text style={styles.gridGoalName} numberOfLines={1}>{goal.name}</Text>
+
+                                                <View style={{ marginTop: 12 }}>
+                                                    <MiniGoalGraph goal={goal} habits={habits} color={goal.color || colors.primary} />
+                                                </View>
+                                            </VoidCard>
+                                        );
+                                    }) : (
+                                        <View style={{ width: '100%' }}>
+                                            <VoidCard glass style={styles.emptyCard}>
+                                                <Ionicons name="analytics-outline" size={36} color="rgba(255,255,255,0.2)" />
+                                                <Text style={styles.emptyText}>No data</Text>
+                                            </VoidCard>
+                                        </View>
+                                    )}
+                                </View>
 
                                 <View style={styles.infoBox}>
                                     <Ionicons name="information-circle" size={14} color="rgba(255,255,255,0.5)" />
@@ -156,6 +166,16 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onC
                     </Animated.View>
                 </GestureDetector>
             </View>
+            <ShareStatsModal
+                visible={showShare}
+                onClose={() => setShowShare(false)}
+                stats={{
+                    title: "CONSISTENCY",
+                    value: `${Math.round(avgConsistency)}%`,
+                    subtitle: "All Time Performance",
+                    type: 'consistency'
+                }}
+            />
         </Modal>
     );
 };
@@ -163,7 +183,7 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onC
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
     sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(34, 197, 94, 0.15)', pointerEvents: 'none' },
+    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0, borderBottomWidth: 0, borderColor: 'rgba(34, 197, 94, 0.15)', pointerEvents: 'none' }, // Removed border
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     title: { fontSize: 18, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },
@@ -176,15 +196,14 @@ const styles = StyleSheet.create({
     ratingBadge: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14 },
     ratingText: { fontSize: 12, fontWeight: '700' },
     sectionTitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginBottom: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'Lexend_400Regular' },
-    goalRow: { flexDirection: 'row', alignItems: 'center', padding: 14, marginBottom: 8 },
-    goalIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-    goalInfo: { flex: 1 },
-    goalName: { fontSize: 13, fontWeight: '600', marginBottom: 6, color: '#fff' },
-    progressBar: { height: 5, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' },
-    progressFill: { height: '100%', borderRadius: 3 },
-    scoreBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, marginLeft: 10 },
-    scoreText: { fontSize: 12, fontWeight: 'bold' },
-    emptyCard: { alignItems: 'center', padding: 36 },
+    gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    gridCard: { width: '48%', padding: 12, marginBottom: 8, borderRadius: 16 },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    goalIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    miniScoreBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+    miniScoreText: { fontSize: 10, fontWeight: '800' },
+    gridGoalName: { fontSize: 12, fontWeight: '700', color: '#fff', fontFamily: 'Lexend' },
+    emptyCard: { alignItems: 'center', padding: 36, width: '100%' },
     emptyText: { marginTop: 12, color: 'rgba(255,255,255,0.4)', fontSize: 14 },
     infoBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, padding: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.03)' },
     infoText: { fontSize: 11, flex: 1, color: 'rgba(255,255,255,0.5)', fontFamily: 'Lexend_400Regular' },

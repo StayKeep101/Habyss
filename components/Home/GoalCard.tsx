@@ -5,13 +5,23 @@ import { useTheme } from '@/constants/themeContext';
 import { Habit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 
+import { RoadMapCardSize } from '@/constants/AppSettingsContext';
+
+import { VoidCard } from '../Layout/VoidCard';
+
 interface GoalCardProps {
   goal: Habit;
   progress: number;
   onPress: () => void;
+  size: RoadMapCardSize;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  linkedHabitsCount: number;
 }
 
-export const GoalCard: React.FC<GoalCardProps> = ({ goal, progress, onPress }) => {
+export const GoalCard: React.FC<GoalCardProps> = ({
+  goal, progress, onPress, size, isExpanded, onToggleExpand, linkedHabitsCount
+}) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
 
@@ -24,35 +34,66 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, progress, onPress }) =
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.card}>
-      {/* Icon */}
-      <View style={[styles.iconBox, { backgroundColor: (goal.color || '#8B5CF6') + '20' }]}>
-        <Ionicons name={(goal.icon as any) || 'flag'} size={18} color={goal.color || '#8B5CF6'} />
-      </View>
+  // Dynamic Styles based on Size
+  const isSmall = size === 'small';
+  const isBig = size === 'big';
 
-      {/* Content */}
-      <View style={styles.content}>
-        <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>{goal.name}</Text>
-        <View style={styles.metaRow}>
-          <Ionicons name="calendar-outline" size={10} color={colors.textTertiary} />
-          <Text style={[styles.deadline, { color: colors.textTertiary }]}>
-            {goal.targetDate ? formatDate(goal.targetDate) : 'No deadline'}
-          </Text>
-          {daysLeft !== null && (
-            <View style={[styles.daysChip, daysLeft < 7 && { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-              <Text style={[styles.daysText, daysLeft < 7 && { color: '#EF4444' }]}>{daysLeft}d</Text>
-            </View>
-          )}
-        </View>
-        {/* Progress Bar */}
-        <View style={styles.progressRow}>
-          <View style={styles.progressBg}>
-            <View style={[styles.progressFill, { backgroundColor: goal.color || '#8B5CF6', width: `${Math.max(progress, 3)}%` }]} />
+  const padding = isSmall ? 8 : (isBig ? 16 : 12);
+  const iconSize = isSmall ? 14 : (isBig ? 24 : 18);
+  const iconBoxSize = isSmall ? 28 : (isBig ? 48 : 36);
+  const titleSize = isSmall ? 12 : (isBig ? 18 : 14);
+  const barHeight = isSmall ? 3 : (isBig ? 6 : 4);
+
+  return (
+    <TouchableOpacity onPress={onToggleExpand} activeOpacity={0.8} style={{ flex: 1 }}>
+      <VoidCard glass intensity={isBig ? 80 : 60} style={{ ...styles.card, padding }}>
+        {/* NavigationTrigger (Icon) */}
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation();
+            onPress();
+          }}
+          activeOpacity={0.6}
+          style={[styles.iconBox, {
+            width: iconBoxSize, height: iconBoxSize,
+            backgroundColor: (goal.color || '#8B5CF6') + '20'
+          }]}
+        >
+          <Ionicons name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || '#8B5CF6'} />
+          {/* Subtle indicator that this is clickable for details */}
+          <View style={{ position: 'absolute', bottom: -4, right: -4, backgroundColor: colors.surface, borderRadius: 6, padding: 1 }}>
+            <Ionicons name="open-outline" size={8} color={colors.textTertiary} />
           </View>
-          <Text style={[styles.progressText, { color: goal.color || '#8B5CF6' }]}>{progress}%</Text>
+        </TouchableOpacity>
+
+        {/* Content (Expands) */}
+        <View style={styles.content}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: isBig ? 6 : 2 }}>
+            <Text style={[styles.name, { color: colors.textPrimary, fontSize: titleSize }]} numberOfLines={1}>{goal.name}</Text>
+            {daysLeft !== null && (
+              <View style={[styles.daysChip, daysLeft < 7 && { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+                <Text style={[styles.daysText, daysLeft < 7 && { color: '#EF4444' }]}>{daysLeft}d</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={[styles.progressBg, { height: barHeight }]}>
+              <View style={[styles.progressFill, { backgroundColor: goal.color || '#8B5CF6', width: `${Math.max(progress, 3)}%` }]} />
+            </View>
+            <Text style={[styles.progressText, { color: goal.color || '#8B5CF6', fontSize: isSmall ? 9 : 11 }]}>{Math.round(progress)}%</Text>
+          </View>
         </View>
-      </View>
+
+        {/* Expansion Indicator (Visual only, transmits press to parent) */}
+        <View style={styles.toggleBtn}>
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', fontFamily: 'Lexend', marginRight: 4 }}>
+            {linkedHabitsCount}
+          </Text>
+          <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color="rgba(255,255,255,0.5)" />
+        </View>
+
+      </VoidCard>
     </TouchableOpacity>
   );
 };
@@ -61,68 +102,59 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
   },
   iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   content: {
     flex: 1,
+    marginRight: 8,
   },
   name: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 6,
-  },
-  deadline: {
-    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: 'Lexend',
+    marginRight: 8,
+    flex: 1,
   },
   daysChip: {
     backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
-    marginLeft: 4,
   },
   daysText: {
     fontSize: 9,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.6)',
   },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   progressBg: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     overflow: 'hidden',
+    marginRight: 8,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3,
   },
   progressText: {
-    fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'Lexend_400Regular',
+    minWidth: 28,
+    textAlign: 'right',
   },
+  toggleBtn: {
+    paddingLeft: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255,255,255,0.05)',
+    marginLeft: 4,
+  }
 });

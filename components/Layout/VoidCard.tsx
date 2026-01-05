@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { BlurView } from 'expo-blur';
 
 interface VoidCardProps {
     children: React.ReactNode;
-    style?: ViewStyle;
+    style?: StyleProp<ViewStyle>;
     glass?: boolean;
     intensity?: number;
 }
@@ -19,7 +19,7 @@ export const VoidCard: React.FC<VoidCardProps> = ({ children, style, glass = fal
         styles.card,
         {
             backgroundColor: glass ? 'transparent' : 'rgba(255,255,255,0.03)',
-            borderColor: 'rgba(255,255,255,0.08)',
+            borderColor: 'rgba(255,255,255,0.05)', // Much subtler default
         },
         style,
     ];

@@ -38,7 +38,8 @@ export default function ProfileScreen() {
         hapticsEnabled, setHapticsEnabled,
         soundsEnabled, setSoundsEnabled,
         notificationsEnabled, setNotificationsEnabled,
-        aiPersonality
+        aiPersonality,
+        cardSize, setCardSize
     } = useAppSettings();
 
     // Profile picture state
@@ -551,41 +552,59 @@ export default function ProfileScreen() {
                                 alignItems: 'center',
                             }}
                         >
-                            <Text style={{ color: '#000', fontWeight: '700', fontSize: 15, fontFamily: 'Lexend' }}>
-                                Rate on {Platform.OS === 'ios' ? 'App Store' : 'Play Store'}
-                            </Text>
                         </TouchableOpacity>
                     </VoidCard>
 
-                    {/* Developer Options (Only in Dev) */}
-                    {__DEV__ && (
-                        <VoidCard style={{ ...styles.groupCard, borderColor: '#F59E0B' }}>
-                            <Text style={[styles.groupTitle, { color: '#F59E0B' }]}>DEVELOPER ZONE</Text>
-                            <View style={styles.settingItem}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                                    <View style={[styles.iconBox, { borderColor: '#F59E0B' }]}>
-                                        <Ionicons name="construct" size={20} color="#F59E0B" />
+                    {/* Appearance Section */}
+                    <VoidCard glass style={styles.groupCard}>
+                        <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>APPEARANCE</Text>
+
+                        <View style={{ gap: 12 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                    <View style={[styles.iconBox, { borderColor: colors.border }]}>
+                                        <Ionicons name="resize" size={20} color={colors.textSecondary} />
                                     </View>
                                     <View>
-                                        <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Force Premium</Text>
-                                        <Text style={{ color: colors.textSecondary, fontSize: 10 }}>Override payment status</Text>
+                                        <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Roadmap Card Size</Text>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 10, fontFamily: 'Lexend_400Regular' }}>Adjust goals & habits density</Text>
                                     </View>
                                 </View>
-                                <Switch
-                                    trackColor={{ false: '#3e3e3e', true: '#F59E0B' }}
-                                    thumbColor="#fff"
-                                    value={isPremium}
-                                    onValueChange={async (val) => {
-                                        if (hapticsEnabled) Haptics.selectionAsync();
-                                        await AsyncStorage.setItem('HABYSS_DEV_PREMIUM_OVERRIDE', val ? 'true' : 'false');
-
-                                        // Emit update for the rest of the app
-                                        DeviceEventEmitter.emit('dev_premium_update');
-                                    }}
-                                />
                             </View>
-                        </VoidCard>
-                    )}
+
+                            {/* Size Selector */}
+                            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.2)', padding: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                                {(['small', 'standard', 'big'] as const).map((s) => (
+                                    <TouchableOpacity
+                                        key={s}
+                                        onPress={() => {
+                                            if (hapticsEnabled) Haptics.selectionAsync();
+                                            setCardSize(s);
+                                        }}
+                                        style={{
+                                            flex: 1,
+                                            paddingVertical: 8,
+                                            alignItems: 'center',
+                                            borderRadius: 8,
+                                            backgroundColor: cardSize === s ? colors.primary + '30' : 'transparent',
+                                            borderWidth: 1,
+                                            borderColor: cardSize === s ? colors.primary : 'transparent'
+                                        }}
+                                    >
+                                        <Text style={{
+                                            color: cardSize === s ? colors.primary : colors.textSecondary,
+                                            fontSize: 12,
+                                            fontWeight: cardSize === s ? '700' : '500',
+                                            fontFamily: 'Lexend',
+                                            textTransform: 'capitalize'
+                                        }}>
+                                            {s}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    </VoidCard>
 
                     <View style={styles.footer}>
                         <Text style={[styles.quote, { color: colors.textSecondary }]}>"Descend into discipline"</Text>
@@ -607,15 +626,15 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
     },
     headerTitle: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '700',
         letterSpacing: 2,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: 'Lexend',
     },
     settingsButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
@@ -626,15 +645,15 @@ const styles = StyleSheet.create({
     },
     profileSection: {
         alignItems: 'center',
-        marginBottom: 40,
+        marginBottom: 32,
     },
     avatarContainer: {
-        marginBottom: 16,
+        marginBottom: 12,
     },
     avatarPlaceholder: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
@@ -643,24 +662,24 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 0,
         right: 0,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
         borderColor: '#050505',
     },
     name: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: '700',
         fontFamily: 'Lexend',
-        marginBottom: 4,
+        marginBottom: 2,
     },
     email: {
-        fontSize: 14,
+        fontSize: 12,
         fontFamily: 'Lexend_400Regular',
-        marginBottom: 16,
+        marginBottom: 12,
     },
     usernameEditContainer: {
         width: '100%',
@@ -673,12 +692,12 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 12,
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingVertical: 10,
         gap: 8,
     },
     usernameInputText: {
         flex: 1,
-        fontSize: 18,
+        fontSize: 16,
         fontFamily: 'Lexend_400Regular',
     },
     usernameButtons: {
@@ -688,39 +707,39 @@ const styles = StyleSheet.create({
         marginTop: 12,
     },
     cancelBtn: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 16,
         borderWidth: 1,
     },
     saveBtn: {
-        paddingHorizontal: 24,
-        paddingVertical: 10,
-        borderRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        borderRadius: 16,
         minWidth: 80,
         alignItems: 'center',
     },
     tag: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 16,
         borderWidth: 1,
     },
     tagText: {
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: 'bold',
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
     },
     groupCard: {
-        padding: 16,
-        marginBottom: 16,
+        padding: 12,
+        marginBottom: 12,
     },
     groupTitle: {
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: '600',
         letterSpacing: 1,
-        marginBottom: 16,
+        marginBottom: 12,
         fontFamily: 'Lexend_400Regular',
     },
     settingItem: {
@@ -730,41 +749,42 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     iconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        width: 32,
+        height: 32,
+        borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
     },
     settingLabel: {
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: '500',
+        fontFamily: 'Lexend_400Regular',
     },
     divider: {
         height: 1,
-        marginVertical: 8,
+        marginVertical: 6,
     },
     footer: {
         alignItems: 'center',
-        marginTop: 32,
+        marginTop: 24,
         paddingBottom: 20,
     },
     quote: {
-        fontSize: 12,
+        fontSize: 11,
         fontStyle: 'italic',
         fontFamily: 'Lexend_400Regular',
     },
     version: {
-        fontSize: 10,
-        marginTop: 8,
+        fontSize: 9,
+        marginTop: 6,
         fontFamily: 'Lexend_400Regular',
     },
     premiumAvatarBorder: {
         position: 'absolute',
-        width: 108,
-        height: 108,
-        borderRadius: 54,
+        width: 88,
+        height: 88,
+        borderRadius: 44,
         top: -4,
         left: -4,
     },
@@ -772,19 +792,19 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: -2,
         left: '50%',
-        marginLeft: -18,
-        paddingHorizontal: 8,
+        marginLeft: -16,
+        paddingHorizontal: 6,
         paddingVertical: 2,
-        borderRadius: 8,
+        borderRadius: 6,
     },
     proBadgeText: {
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: '900',
         color: '#fff',
         fontFamily: 'Lexend',
     },
     upgradeBtnContainer: {
-        marginTop: 16,
+        marginTop: 12,
         shadowColor: '#8B5CF6',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -794,15 +814,15 @@ const styles = StyleSheet.create({
     upgradeBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 16,
         gap: 8,
     },
     upgradeText: {
-        color: 'white',
+        fontSize: 13,
         fontWeight: '700',
-        fontSize: 14,
+        color: '#fff',
         fontFamily: 'Lexend',
     },
 });

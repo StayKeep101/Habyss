@@ -2,10 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { VoidCard } from '../Layout/VoidCard';
 
 interface StreakCardProps {
     streak: number;
-    completionTier: number; // 0-4 (0 = none, 1 = 25%, 2 = 50%, 3 = 75%, 4 = 100%)
+    completionTier: number; // 0-4
     onPress: () => void;
 }
 
@@ -22,80 +23,84 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
     const isRainbow = completionTier === 4;
 
     return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.container}>
-            <View style={styles.iconContainer}>
-                {isRainbow ? (
-                    <LinearGradient
-                        colors={flameColors as [string, string, ...string[]]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.flameGradient}
-                    >
-                        <Ionicons name="flame" size={32} color="white" />
-                    </LinearGradient>
-                ) : (
-                    <View style={[styles.flameGradient, { backgroundColor: flameColors[0] }]}>
-                        <Ionicons name="flame" size={32} color="white" />
+        <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
+            <VoidCard glass intensity={80} style={styles.container}>
+                <View style={styles.iconContainer}>
+                    {isRainbow ? (
+                        <LinearGradient
+                            colors={flameColors as [string, string, ...string[]]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.flameGradient}
+                        >
+                            <Ionicons name="flame" size={20} color="white" />
+                        </LinearGradient>
+                    ) : (
+                        <View style={[styles.flameGradient, { backgroundColor: flameColors[0] + '30' }]}>
+                            <Ionicons name="flame" size={20} color={flameColors[0]} />
+                        </View>
+                    )}
+                </View>
+
+                <View>
+                    <Text style={styles.value}>{streak}</Text>
+                    <Text style={styles.label}>DAY STREAK</Text>
+                </View>
+
+                {completionTier === 4 && (
+                    <View style={styles.perfectBadge}>
+                        <Ionicons name="star" size={10} color="#FBBF24" />
                     </View>
                 )}
-            </View>
-
-            <Text style={styles.value}>{streak}</Text>
-            <Text style={styles.label}>Day Streak</Text>
-
-            {completionTier === 4 && (
-                <View style={styles.perfectBadge}>
-                    <Ionicons name="star" size={10} color="#FBBF24" />
-                    <Text style={styles.perfectText}>Perfect!</Text>
-                </View>
-            )}
+            </VoidCard>
         </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
+    touchable: {
+        flex: 1, // Important for row layout
+    },
     container: {
         flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderRadius: 20,
-        padding: 16,
+        padding: 10,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(249, 115, 22, 0.2)',
+        justifyContent: 'center',
+        gap: 6,
     },
     iconContainer: {
-        marginBottom: 8,
+        marginBottom: 2,
     },
     flameGradient: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
     },
     value: {
         color: 'white',
-        fontSize: 32,
-        fontWeight: 'bold',
+        fontSize: 24,
+        fontWeight: '900',
+        fontFamily: 'Lexend',
+        textAlign: 'center',
+        lineHeight: 24,
     },
     label: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 12,
+        color: 'rgba(255,255,255,0.4)',
+        fontSize: 8,
+        fontWeight: 'bold',
+        letterSpacing: 1,
+        fontFamily: 'Lexend_400Regular',
+        textAlign: 'center',
         marginTop: 2,
     },
     perfectBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(251, 191, 36, 0.2)',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: 'rgba(251, 191, 36, 0.15)',
+        padding: 4,
         borderRadius: 10,
-        marginTop: 8,
-        gap: 4,
-    },
-    perfectText: {
-        color: '#FBBF24',
-        fontSize: 10,
-        fontWeight: '600',
     },
 });

@@ -18,6 +18,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 
 const { width, height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.75;
@@ -35,6 +36,7 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
     const { theme } = useTheme();
     const colors = Colors[theme];
     const [isOpen, setIsOpen] = useState(false);
+    const [showShare, setShowShare] = useState(false);
 
     const translateY = useSharedValue(SHEET_HEIGHT);
     const backdropOpacity = useSharedValue(0);
@@ -103,7 +105,7 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
                                 <Text style={styles.title}>MISSION CONTROL</Text>
                                 <Text style={[styles.subtitle, { color: colors.primary }]}>GOALS OVERVIEW</Text>
                             </View>
-                            <TouchableOpacity style={[styles.iconButton, { backgroundColor: colors.primary + '20' }]}>
+                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: colors.primary + '20' }]}>
                                 <Ionicons name="share-social" size={20} color={colors.primary} />
                             </TouchableOpacity>
                         </View>
@@ -158,14 +160,24 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
                     </Animated.View>
                 </GestureDetector>
             </View>
-        </Modal>
+            <ShareStatsModal
+                visible={showShare}
+                onClose={() => setShowShare(false)}
+                stats={{
+                    title: "MISSION CONTROL",
+                    value: `${avgProgress}%`,
+                    subtitle: `${goals.length} Active Goals`,
+                    type: 'growth'
+                }}
+            />
+        </Modal >
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
     sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(139, 92, 246, 0.15)', pointerEvents: 'none' },
+    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0, borderBottomWidth: 0, borderColor: 'rgba(139, 92, 246, 0.15)', pointerEvents: 'none' }, // Removed border
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     title: { fontSize: 18, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },

@@ -8,7 +8,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions } from '@/lib/habits';
+import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions, isHabitScheduledForDate } from '@/lib/habits';
 import { NotificationService } from '@/lib/notificationService';
 import { NotificationsModal } from '@/components/NotificationsModal';
 import { AIAgentModal } from '@/components/AIAgentModal';
@@ -28,6 +28,7 @@ import { StreakCard } from '@/components/Home/StreakCard';
 import { ConsistencyCard } from '@/components/Home/ConsistencyCard';
 import { GoalsGridModal } from '@/components/Home/GoalsGridModal';
 import { StreakModal } from '@/components/Home/StreakModal';
+import { AnalyticsDashboard } from '@/components/Home/AnalyticsDashboard';
 import { ConsistencyModal } from '@/components/Home/ConsistencyModal';
 
 const Home = () => {
@@ -45,7 +46,8 @@ const Home = () => {
   const [allHabits, setAllHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
-  const [goalProgressMap, setGoalProgressMap] = useState<Record<string, number>>({});
+  // Stats are now derived, removed explicit state
+  // const [goalProgressMap, setGoalProgressMap] = useState<Record<string, number>>({});
   const [greeting, setGreeting] = useState('');
 
   // UI state
@@ -87,7 +89,7 @@ const Home = () => {
     return () => { unsubPromise.then(unsub => unsub()); };
   }, []);
 
-  // Load today's completions
+  // Load today's completions & subscription to global updates
   useEffect(() => {
     const loadCompletions = async () => {
       const now = new Date();
@@ -96,6 +98,22 @@ const Home = () => {
       setCompletions(c);
     };
     loadCompletions();
+
+    // Listen for updates from other screens (Roadmap, Detail)
+    const sub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId, date, completed }) => {
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+      // Only update if the event matches TODAY (since Home only shows today)
+      if (date === todayStr) {
+        setCompletions(prev => ({
+          ...prev,
+          [habitId]: completed
+        }));
+      }
+    });
+
+    return () => sub.remove();
   }, []);
 
   // Load history data
@@ -107,30 +125,85 @@ const Home = () => {
     return () => task.cancel();
   }, []);
 
-  // Calculate STRICT goal progress (Historical Mission Progress)
-  // This matches Goal Detail page logic
-  useEffect(() => {
-    const loadGoalStats = async () => {
-      const map: Record<string, number> = {};
-      await Promise.all(goals.map(async (g) => {
-        map[g.id] = await calculateGoalProgress(g);
-      }));
-      setGoalProgressMap(map);
-    };
+  // INSTANT: Calculate goal progress synchronously using local state (completions + historyData)
+  // This avoids the network delay of 'calculateGoalProgress' after every toggle
+  const goalProgressMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    const todayStr = new Date().toISOString().split('T')[0];
 
-    if (goals.length > 0) {
-      InteractionManager.runAfterInteractions(() => {
-        loadGoalStats();
-      });
-    }
-  }, [goals]);
+    goals.forEach(goal => {
+      // 1. Get linked habits
+      const linked = habits.filter(h => h.goalId === goal.id && !h.isArchived);
+      if (linked.length === 0) {
+        map[goal.id] = 0;
+        return;
+      }
 
-  // Average Mission Progress
+      // 2. Define Time Range
+      const startDate = new Date(goal.startDate || goal.createdAt);
+      const targetDate = goal.targetDate ? new Date(goal.targetDate) : new Date();
+      // Clamp target date to today? User wanted "Progress towards deadline" usually implies full duration.
+      // But for "Current Progress" visual, usually we mean completions / expected.
+      // Let's stick to the logic: Valid completions in range / Expected completions in range.
+
+      // 3. Iterate days to calculate Expected vs Actual
+      let totalExpected = 0;
+      let totalCompleted = 0;
+
+      const current = new Date(startDate);
+      // Safety break
+      if (current > targetDate) {
+        map[goal.id] = 0;
+        return;
+      }
+
+      // Optimization: Convert habit details to faster lookup
+      // const habitActiveRanges = linked.map... 
+
+      while (current <= targetDate) {
+        const dateStr = current.toISOString().split('T')[0];
+        const dayName = current.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+
+        linked.forEach(habit => {
+          // Check scheduling
+          const hCreated = new Date(habit.createdAt);
+          const createdStr = hCreated.toISOString().split('T')[0];
+
+          if (dateStr >= createdStr) {
+            if (habit.taskDays.includes(dayName)) {
+              totalExpected++;
+
+              // DATA SOURCE 1: Today's local state
+              if (dateStr === todayStr) {
+                if (completions[habit.id]) totalCompleted++;
+              }
+              // DATA SOURCE 2: History (network/cache)
+              else {
+                const historyDay = historyData.find(d => d.date === dateStr);
+                if (historyDay && historyDay.completedIds.includes(habit.id)) {
+                  totalCompleted++;
+                }
+              }
+            }
+          }
+        });
+
+        current.setDate(current.getDate() + 1);
+      }
+
+      if (totalExpected === 0) map[goal.id] = 0;
+      else map[goal.id] = Math.round((totalCompleted / totalExpected) * 100);
+    });
+
+    return map;
+  }, [goals, habits, historyData, completions]);
+
+  // Average Mission Progress (Derived instantly from above)
   const avgGoalProgress = useMemo(() => {
     if (goals.length === 0) return 0;
     const sum = goals.reduce((acc, g) => acc + (goalProgressMap[g.id] || 0), 0);
     return Math.round(sum / goals.length);
-  }, [goals, goalProgressMap]);
+  }, [goals, goals.length, goalProgressMap]);
 
   // Calculate streak (goal-based: streak++ if ALL habits for ANY goal completed)
   const { streak, completionTier, completedDaysPerGoal } = useMemo(() => {
@@ -202,14 +275,25 @@ const Home = () => {
       const today = new Date();
       const totalDays = Math.max(1, Math.ceil((today.getTime() - earliest.getTime()) / (1000 * 60 * 60 * 24)));
 
-      // Count days where all habits were completed
+      // Count days where all SCHEDULED habits were completed
       let completeDays = 0;
+      let scheduledDays = 0;
+
       historyData.forEach(day => {
-        const allDone = goalHabits.every(h => day.completedIds.includes(h.id));
-        if (allDone) completeDays++;
+        const dayDate = new Date(day.date);
+
+        // Filter habits that were actually scheduled for this specific historical date
+        const scheduledHabits = goalHabits.filter(h => isHabitScheduledForDate(h, dayDate));
+
+        if (scheduledHabits.length > 0) {
+          scheduledDays++;
+          const allDone = scheduledHabits.every(h => day.completedIds.includes(h.id));
+          if (allDone) completeDays++;
+        }
       });
 
-      consistency[goal.id] = Math.round((completeDays / totalDays) * 100);
+      // Prevent division by zero if goal just started or no days scheduled yet
+      consistency[goal.id] = scheduledDays > 0 ? Math.round((completeDays / scheduledDays) * 100) : 0;
     });
 
     const avg = goals.length > 0
@@ -220,7 +304,10 @@ const Home = () => {
   }, [goals, habits, historyData]);
 
   // Quick habits (non-goal habits for today)
-  const topHabits = habits.slice(0, 5);
+  // Filter for ONLY habits scheduled for TODAY
+  const topHabits = useMemo(() => {
+    return habits.filter(h => isHabitScheduledForDate(h, new Date())).slice(0, 5);
+  }, [habits]);
 
   // Handlers
   const handleHabitToggle = async (habitId: string) => {
@@ -321,6 +408,10 @@ const Home = () => {
             />
           </Animated.View>
 
+          <AnalyticsDashboard habits={habits} completions={completions} />
+
+          <View style={{ height: 100 }} />
+
           {/* Quick Habits */}
           <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 24 }}>
             <VoidCard style={{ padding: 20 }}>
@@ -385,6 +476,7 @@ const Home = () => {
           visible={showConsistencyModal}
           onClose={() => setShowConsistencyModal(false)}
           goals={goals}
+          habits={habits} // Pass habits for graph calculation
           goalConsistency={goalConsistency}
           avgConsistency={avgConsistency}
         />

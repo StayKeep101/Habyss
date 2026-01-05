@@ -33,7 +33,7 @@ export const streamChatCompletion = async (
         };
 
         // Actually, let's use the v1beta API proper structure
-        const finalUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const finalUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
         // Construct contents
         // Gemini expects: { role, parts: [{ text }] }
@@ -75,7 +75,7 @@ export const generateGreeting = async (personality: string): Promise<string> => 
         const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
         if (!apiKey) return "Welcome back, Master of Routine.";
 
-        const finalUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const finalUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
         const systemPrompt = `You are a motivating AI Habit Coach. Your personality is: ${personality}. 
         Generate a very short, punchy, 1-sentence greeting for the user's home screen. 

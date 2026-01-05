@@ -2,11 +2,15 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PersonalityModeId } from '@/constants/AIPersonalities';
 
+
+export type RoadMapCardSize = 'small' | 'standard' | 'big';
+
 interface AppSettings {
     hapticsEnabled: boolean;
     soundsEnabled: boolean;
     notificationsEnabled: boolean;
     aiPersonality: PersonalityModeId;
+    cardSize: RoadMapCardSize;
 }
 
 interface AppSettingsContextType extends AppSettings {
@@ -14,6 +18,7 @@ interface AppSettingsContextType extends AppSettings {
     setSoundsEnabled: (enabled: boolean) => void;
     setNotificationsEnabled: (enabled: boolean) => void;
     setAIPersonality: (personality: PersonalityModeId) => void;
+    setCardSize: (size: RoadMapCardSize) => void;
     isLoaded: boolean;
 }
 
@@ -22,6 +27,7 @@ const defaultSettings: AppSettings = {
     soundsEnabled: true,
     notificationsEnabled: true,
     aiPersonality: 'friendly',
+    cardSize: 'small', // Default as per user request
 };
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
@@ -82,6 +88,12 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         saveSettings(newSettings);
     };
 
+    const setCardSize = (size: RoadMapCardSize) => {
+        const newSettings = { ...settings, cardSize: size };
+        setSettings(newSettings);
+        saveSettings(newSettings);
+    };
+
     return (
         <AppSettingsContext.Provider
             value={{
@@ -90,6 +102,7 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
                 setSoundsEnabled,
                 setNotificationsEnabled,
                 setAIPersonality,
+                setCardSize,
                 isLoaded,
             }}
         >

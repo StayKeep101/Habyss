@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G } from 'react-native-svg';
+import { VoidCard } from '../Layout/VoidCard';
 
 interface ConsistencyCardProps {
     score: number; // 0-100
@@ -9,8 +10,8 @@ interface ConsistencyCardProps {
 }
 
 export const ConsistencyCard: React.FC<ConsistencyCardProps> = ({ score, onPress }) => {
-    const size = 56;
-    const strokeWidth = 5;
+    const size = 38; // Even smaller
+    const strokeWidth = 4;
     const center = size / 2;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
@@ -27,55 +28,60 @@ export const ConsistencyCard: React.FC<ConsistencyCardProps> = ({ score, onPress
     const color = getColor();
 
     return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.container}>
-            <View style={styles.circleContainer}>
-                <Svg width={size} height={size}>
-                    <G rotation="-90" origin={`${center}, ${center}`}>
-                        <Circle
-                            stroke="rgba(255,255,255,0.1)"
-                            cx={center}
-                            cy={center}
-                            r={radius}
-                            strokeWidth={strokeWidth}
-                            fill="transparent"
-                        />
-                        <Circle
-                            stroke={color}
-                            cx={center}
-                            cy={center}
-                            r={radius}
-                            strokeWidth={strokeWidth}
-                            strokeDasharray={circumference}
-                            strokeDashoffset={strokeDashoffset}
-                            strokeLinecap="round"
-                            fill="transparent"
-                        />
-                    </G>
-                </Svg>
-                <View style={styles.iconOverlay}>
-                    <Ionicons name="pulse" size={20} color={color} />
+        <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
+            <VoidCard glass intensity={80} style={styles.container}>
+                <View style={styles.circleContainer}>
+                    <Svg width={size} height={size}>
+                        <G rotation="-90" origin={`${center}, ${center}`}>
+                            <Circle
+                                stroke="rgba(255,255,255,0.08)"
+                                cx={center}
+                                cy={center}
+                                r={radius}
+                                strokeWidth={strokeWidth}
+                                fill="transparent"
+                            />
+                            <Circle
+                                stroke={color}
+                                cx={center}
+                                cy={center}
+                                r={radius}
+                                strokeWidth={strokeWidth}
+                                strokeDasharray={circumference}
+                                strokeDashoffset={strokeDashoffset}
+                                strokeLinecap="round"
+                                fill="transparent"
+                            />
+                        </G>
+                    </Svg>
+                    <View style={styles.iconOverlay}>
+                        <Ionicons name="pulse" size={14} color={color} />
+                    </View>
                 </View>
-            </View>
 
-            <Text style={[styles.value, { color }]}>{Math.round(score)}%</Text>
-            <Text style={styles.label}>Consistency</Text>
+                <View>
+                    <Text style={[styles.value, { color }]}>{Math.round(score)}%</Text>
+                    <Text style={styles.label}>CONSISTENCY</Text>
+                </View>
+            </VoidCard>
         </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
+    touchable: {
+        flex: 1,
+    },
     container: {
         flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderRadius: 20,
-        padding: 16,
+        padding: 10,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(34, 197, 94, 0.2)',
+        justifyContent: 'center',
+        gap: 6,
     },
     circleContainer: {
         position: 'relative',
-        marginBottom: 8,
+        marginBottom: 2,
     },
     iconOverlay: {
         position: 'absolute',
@@ -88,11 +94,18 @@ const styles = StyleSheet.create({
     },
     value: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontWeight: '900',
+        fontFamily: 'Lexend',
+        textAlign: 'center',
+        lineHeight: 24,
     },
     label: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 12,
+        color: 'rgba(255,255,255,0.4)',
+        fontSize: 8,
+        fontWeight: 'bold',
+        letterSpacing: 1,
+        fontFamily: 'Lexend_400Regular',
+        textAlign: 'center',
         marginTop: 2,
     },
 });

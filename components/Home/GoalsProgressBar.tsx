@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useAnimatedStyle, withSpring, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { VoidCard } from '../Layout/VoidCard';
 
 interface GoalsProgressBarProps {
     progress: number; // 0-100
@@ -22,44 +23,43 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
     }));
 
     return (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.container}>
-            <View style={styles.header}>
-                <View style={styles.titleRow}>
-                    <Ionicons name="flag" size={18} color="#8B5CF6" />
-                    <Text style={styles.title}>Goals Progress</Text>
+        <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+            <VoidCard glass intensity={80} style={styles.container}>
+                <View style={styles.header}>
+                    <View style={styles.titleRow}>
+                        <Ionicons name="flag" size={16} color="#A78BFA" />
+                        <Text style={styles.title}>GOALS PROGRESS</Text>
+                    </View>
+                    <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{goalsCount}</Text>
+                        <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.4)" />
+                    </View>
                 </View>
-                <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{goalsCount} Goals</Text>
-                    <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" />
-                </View>
-            </View>
 
-            <View style={styles.progressContainer}>
-                <View style={styles.progressBg}>
-                    <Animated.View style={[styles.progressFill, progressStyle]}>
-                        <LinearGradient
-                            colors={['#8B5CF6', '#A78BFA', '#C4B5FD']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={StyleSheet.absoluteFill}
-                        />
-                    </Animated.View>
+                <View style={styles.progressContainer}>
+                    <View style={styles.progressBg}>
+                        <Animated.View style={[styles.progressFill, progressStyle]}>
+                            <LinearGradient
+                                colors={['#8B5CF6', '#A78BFA']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={StyleSheet.absoluteFill}
+                            />
+                        </Animated.View>
+                    </View>
+                    <Text style={styles.progressText}>{Math.round(progress)}%</Text>
                 </View>
-                <Text style={styles.progressText}>{Math.round(progress)}%</Text>
-            </View>
 
-            <Text style={styles.subtitle}>Tap to view all goals</Text>
+                <Text style={styles.subtitle}>TRACK YOUR ACTIVE MISSIONS</Text>
+            </VoidCard>
         </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderRadius: 20,
         padding: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(139, 92, 246, 0.3)',
+        // No border here, relying on VoidCard default subtle border
     },
     header: {
         flexDirection: 'row',
@@ -70,55 +70,59 @@ const styles = StyleSheet.create({
     titleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 10,
     },
     title: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '700',
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '900',
+        letterSpacing: 1.5, // Matches Analytics Title
+        fontFamily: 'Lexend',
     },
     badge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255,255,255,0.05)',
         paddingHorizontal: 10,
-        paddingVertical: 4,
+        paddingVertical: 6,
         borderRadius: 12,
         gap: 4,
     },
     badgeText: {
-        color: 'rgba(255,255,255,0.7)',
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 12,
-        fontWeight: '600',
+        fontWeight: 'bold',
+        fontFamily: 'Lexend',
     },
     progressContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 16,
+        marginBottom: 8,
     },
     progressBg: {
         flex: 1,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,255,255,0.08)',
         overflow: 'hidden',
     },
     progressFill: {
         height: '100%',
-        borderRadius: 6,
-        overflow: 'hidden',
+        borderRadius: 3,
     },
     progressText: {
-        color: '#A78BFA',
-        fontSize: 18,
-        fontWeight: 'bold',
-        width: 50,
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: '900',
+        fontFamily: 'Lexend',
+        width: 60,
         textAlign: 'right',
     },
     subtitle: {
         color: 'rgba(255,255,255,0.4)',
-        fontSize: 11,
-        marginTop: 10,
-        textAlign: 'center',
+        fontSize: 10,
+        letterSpacing: 1,
+        fontFamily: 'Lexend_400Regular',
     },
 });

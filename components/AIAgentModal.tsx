@@ -54,7 +54,7 @@ const INITIAL_MESSAGES: Message[] = [
     {
         id: '1',
         role: 'assistant',
-        content: "Hey! I'm your Habyss AI assistant. I can help you create habits, set goals, and track your progress. What would you like to do?",
+        content: "I'm ready to help locally. I can create, update, or delete habits for you. Try 'Create a daily reading habit' or 'Delete my water habit'.",
         timestamp: new Date(),
     }
 ];
@@ -68,6 +68,8 @@ const SUGGESTIONS = [
     "Show my goals"
 ];
 
+import { usePremiumStatus } from '@/hooks/usePremiumStatus';
+
 export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -78,19 +80,19 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
     const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
-    const [isPremium, setIsPremium] = useState<boolean | null>(null);
-    const [checkingPremium, setCheckingPremium] = useState(true);
+
+    // Use the hook that handles dev overrides
+    const { isPremium } = usePremiumStatus();
+    // Assuming the hook returns initialized status immediately or we can treat as loaded.
+    // The hook in usePremiumStatus.ts initializes state to false but updates quickly.
+    // If we need loading state, we might need to update the hook, but for now strict boolean is safer than blocked.
+    const checkingPremium = false;
+
     const flatListRef = useRef<FlatList>(null);
 
-    // Check premium status
+    // Initial message on open if needed
     useEffect(() => {
-        if (visible) {
-            setCheckingPremium(true);
-            StripeService.getSubscriptionStatus().then(status => {
-                setIsPremium(status.premium);
-                setCheckingPremium(false);
-            });
-        }
+        if (visible && messages.length === 0) setMessages(INITIAL_MESSAGES);
     }, [visible]);
 
     // Animated glow effect
@@ -111,6 +113,16 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         opacity: glowOpacity.value,
     }));
 
+    const [habits, setHabits] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (visible) {
+            import('@/lib/habits').then(({ getHabits }) => {
+                getHabits().then(setHabits);
+            });
+        }
+    }, [visible]);
+
     const handleSend = async () => {
         if (!inputText.trim()) return;
 
@@ -129,12 +141,40 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         const newMessages = [...messages, userMessage];
         setMessages(newMessages);
 
-        // Prepare context for AI
-        const personality = PERSONALITY_MODES.find(p => p.id === personalityId) || PERSONALITY_MODES[1];
+        // Prepare context
+        const habitsList = habits.map(h => `- ${h.name} (ID: ${h.id}, Category: ${h.category})`).join('\n');
+        const systemPrompt = `You are an AI assistant for a habit tracker app.
+        CURRENT DATE: ${new Date().toLocaleDateString()}
+        
+        Your goal is to help the user manage their habits. You have access to the following tools via JSON output.
+        
+        EXISTING HABITS:
+        ${habitsList}
 
-        // Convert to Gemini Format
-        // Note: Gemini doesn't support 'system' role in history effectively for all models in same way.
-        // We pass system prompt separately.
+        INSTRUCTIONS:
+        1. If the user asks to CREATE, UPDATE, or DELETE a habit, output a valid JSON object.
+        2. If it's a general question, just reply with text.
+        3. Do NOT output markdown code blocks (like \`\`\`json). Just the raw JSON string or plain text.
+        
+        TOOLS (JSON FORMAT):
+        
+        CREATE:
+        { "action": "create", "data": { "name": "Habit Name", "category": "health", "frequency": "daily" }, "response": "Optional success message" }
+        (Categories: health, fitness, work, personal, mindfulness)
+
+        UPDATE:
+        { "action": "update", "id": "HABIT_ID", "data": { ...fields to update... }, "response": "Update message" }
+        (You MUST find the best matching HABIT_ID from the EXISTING HABITS list based on the name provided)
+
+        DELETE:
+        { "action": "delete", "id": "HABIT_ID", "response": "Delete message" }
+        (You MUST find the best matching HABIT_ID from the EXISTING HABITS list)
+
+        EXAMPLE:
+        User: "Add a workout habit"
+        AI: { "action": "create", "data": { "name": "Workout", "category": "fitness", "durationMinutes": 30 }, "response": "I've added a 30-minute workout habit." }
+        `;
+
         const geminiHistory: GeminiMessage[] = newMessages.map(m => ({
             role: m.role === 'user' ? 'user' : 'model',
             parts: [{ text: m.content }]
@@ -142,28 +182,67 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
 
         await streamChatCompletion(
             geminiHistory,
-            personality.systemPrompt,
-            (chunk) => { },
-            (reply) => {
+            systemPrompt,
+            (chunk) => { }, // We ignore partial chunks for actions to avoid parsing errors
+            async (reply) => {
+                let finalReply = reply;
+                let actionData: any = null;
+
+                // Try parsing JSON
+                try {
+                    // Clean up potential markdown formatting
+                    const cleanReply = reply.replace(/```json/g, '').replace(/```/g, '').trim();
+                    if (cleanReply.startsWith('{')) {
+                        actionData = JSON.parse(cleanReply);
+                    }
+                } catch (e) {
+                    // Not JSON, treat as text
+                }
+
+                if (actionData) {
+                    const { addHabit, updateHabit, removeHabitEverywhere, getHabits } = await import('@/lib/habits');
+
+                    if (actionData.action === 'create') {
+                        await addHabit({
+                            name: actionData.data.name || 'New Habit',
+                            category: actionData.data.category || 'personal',
+                            durationMinutes: actionData.data.durationMinutes,
+                            // Default values
+                            taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+                            isGoal: false
+                        });
+                        finalReply = actionData.response || "Habit created.";
+                    } else if (actionData.action === 'update' && actionData.id) {
+                        await updateHabit({ id: actionData.id, ...actionData.data });
+                        finalReply = actionData.response || "Habit updated.";
+                    } else if (actionData.action === 'delete' && actionData.id) {
+                        await removeHabitEverywhere(actionData.id);
+                        finalReply = actionData.response || "Habit deleted.";
+                    }
+
+                    // Refresh local habits context
+                    const updated = await getHabits();
+                    setHabits(updated);
+                    successFeedback();
+                }
+
                 const aiMessage: Message = {
                     id: (Date.now() + 1).toString(),
                     role: 'assistant',
-                    content: reply,
+                    content: finalReply,
                     timestamp: new Date(),
                 };
                 setMessages(prev => [...prev, aiMessage]);
                 setIsTyping(false);
-                successFeedback();
             },
             (error) => {
                 console.error(error);
                 setIsTyping(false);
                 errorFeedback();
-
                 const errorMessage: Message = {
                     id: (Date.now() + 1).toString(),
                     role: 'assistant',
-                    content: "I'm having trouble connecting to Gemini. Please check your API key.",
+                    content: "I'm having trouble connecting. Please check your network.",
                     timestamp: new Date(),
                 };
                 setMessages(prev => [...prev, errorMessage]);
@@ -303,7 +382,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                             <KeyboardAvoidingView
                                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                                 style={styles.chatContainer}
-                                keyboardVerticalOffset={0}
+                                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // Adjust if needed, usually 0 for full screen modal matches SafeArea
                             >
                                 <FlatList
                                     ref={flatListRef}
@@ -477,10 +556,12 @@ const styles = StyleSheet.create({
         paddingBottom: 100,
     },
     messageBubble: {
-        maxWidth: '85%',
+        maxWidth: '80%',
         padding: 14,
         borderRadius: 18,
         marginBottom: 12,
+        // Ensure it wraps tightly
+        alignSelf: 'flex-start', // Default, overridden for user
     },
     userBubble: {
         alignSelf: 'flex-end',
@@ -506,7 +587,7 @@ const styles = StyleSheet.create({
     messageText: {
         fontSize: 15,
         lineHeight: 22,
-        flex: 1,
+        // flex: 1, // REMOVED: This was causing the text to expand to fill the container height if the container stretched
     },
     typingIndicator: {
         flexDirection: 'row',
