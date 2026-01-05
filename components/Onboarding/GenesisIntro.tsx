@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
         letterSpacing: 2,
         textAlign: 'center',
         textTransform: 'uppercase',
-        fontFamily: 'System', // Use default lightweight system font
+        fontFamily: 'Lexend_400Regular',
     },
     logoBox: {
         width: 80,
@@ -114,5 +114,6 @@ const styles = StyleSheet.create({
         fontSize: 48,
         fontWeight: '900',
         letterSpacing: 8,
+        fontFamily: 'Lexend',
     }
 });

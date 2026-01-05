@@ -4,16 +4,23 @@ import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
-import { subscribeToHabits, Habit, removeHabitEverywhere } from '@/lib/habits';
+import { subscribeToHabits, Habit, removeHabitEverywhere, calculateGoalProgress } from '@/lib/habits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter } from 'react-native';
+import { GoalStats } from '@/components/Goal/GoalStats';
 import Animated, {
   useAnimatedScrollHandler,
   useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withRepeat,
+  Easing,
 } from 'react-native-reanimated';
 
 let ImagePicker: any = null;
@@ -35,6 +42,24 @@ const GoalDetail = () => {
 
   const scrollY = useSharedValue(0);
 
+  // Cockpit glow animation
+  const glowOpacity = useSharedValue(0.5);
+
+  useEffect(() => {
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.5, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
   useEffect(() => {
     const loadBackground = async () => {
       const stored = await AsyncStorage.getItem(`goal_bg_${goalId}`);
@@ -52,13 +77,17 @@ const GoalDetail = () => {
 
   const associatedHabits = useMemo(() => habits.filter(h => h.goalId === goalId), [habits, goalId]);
 
-  const progress = useMemo(() => {
-    if (associatedHabits.length === 0) return 0;
-    // Calculate based on habit completion - for now estimate 65% if habits exist
-    // TODO: Wire up actual completion status when available
-    const completedCount = associatedHabits.filter((h: any) => h.completed).length;
-    return associatedHabits.length > 0 ? Math.round((completedCount / associatedHabits.length) * 100) : 0;
-  }, [associatedHabits]);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (goal) {
+      calculateGoalProgress(goal).then(p => {
+        if (isMounted) setProgress(p);
+      });
+    }
+    return () => { isMounted = false; };
+  }, [goal, habits]);
 
   const scrollHandler = useAnimatedScrollHandler(event => {
     scrollY.value = event.contentOffset.y;
@@ -89,7 +118,6 @@ const GoalDetail = () => {
 
   const handleAddHabit = () => {
     try {
-      // Use setTimeout to prevent UI freeze
       setTimeout(() => {
         DeviceEventEmitter.emit('show_habit_modal', { goalId: goalId as string });
       }, 50);
@@ -107,7 +135,13 @@ const GoalDetail = () => {
   };
 
   const handleChangeBackground = async () => {
-    if (!ImagePicker) return Alert.alert("Feature Unavailable", "Rebuild required.");
+    if (!ImagePicker) {
+      Alert.alert(
+        "Feature Unavailable",
+        "Photo picker requires a development build. Run 'npx expo run:ios' or 'npx expo run:android' to enable this feature."
+      );
+      return;
+    }
     Alert.alert("Change Background", "Choose an option", [
       {
         text: "Take Photo",
@@ -118,6 +152,8 @@ const GoalDetail = () => {
               Alert.alert('Permission Required', 'Camera permission is needed to take photos.');
               return;
             }
+            // Add delay to prevent crash
+            await new Promise(resolve => setTimeout(resolve, 100));
             const result = await ImagePicker.launchCameraAsync({
               allowsEditing: true,
               aspect: [16, 9],
@@ -128,9 +164,9 @@ const GoalDetail = () => {
               setBgImage(uri);
               await AsyncStorage.setItem(`goal_bg_${goalId}`, uri);
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error('Camera error:', error);
-            Alert.alert('Error', 'Could not access camera. Please try again.');
+            Alert.alert('Camera Error', error?.message || 'Could not access camera. If using Expo Go, please create a development build.');
           }
         }
       },
@@ -143,8 +179,10 @@ const GoalDetail = () => {
               Alert.alert('Permission Required', 'Photo library access is needed to select photos.');
               return;
             }
+            // Add delay to prevent crash
+            await new Promise(resolve => setTimeout(resolve, 100));
             const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
+              mediaTypes: ImagePicker.MediaTypeOptions?.Images ?? 'images',
               allowsEditing: true,
               aspect: [16, 9],
               quality: 0.7
@@ -154,9 +192,9 @@ const GoalDetail = () => {
               setBgImage(uri);
               await AsyncStorage.setItem(`goal_bg_${goalId}`, uri);
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error('Library error:', error);
-            Alert.alert('Error', 'Could not access photo library. Please try again.');
+            Alert.alert('Photo Library Error', error?.message || 'Could not access photo library. If using Expo Go, please create a development build.');
           }
         }
       },
@@ -181,8 +219,8 @@ const GoalDetail = () => {
         </ImageBackground>
       </View>
 
-      {/* Fixed Top Header */}
-      <SafeAreaView style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 }}>
+      {/* Fixed Top Header - Lowered icons */}
+      <SafeAreaView style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10 }}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
           <Ionicons name="chevron-back" size={24} color="white" />
         </TouchableOpacity>
@@ -216,8 +254,19 @@ const GoalDetail = () => {
         <BlurView
           intensity={90}
           tint="dark"
-          style={{ borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', minHeight: height * 0.7, backgroundColor: 'rgba(10,10,20,0.95)', borderTopWidth: 1, borderColor: 'rgba(139, 92, 246, 0.2)' }}
+          style={styles.contentContainer}
         >
+          {/* Cockpit glow effect */}
+          <Animated.View style={[styles.cockpitGlow, glowStyle]}>
+            <LinearGradient
+              colors={['transparent', goal.color ? goal.color + '20' : 'rgba(139, 92, 246, 0.15)', 'transparent']}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+
+          {/* Scanline overlay for cockpit aesthetic */}
+          <View style={styles.scanlineOverlay} pointerEvents="none" />
+
           <View style={{ paddingTop: 70, paddingHorizontal: 20, paddingBottom: 24 }}>
 
             {/* Goal Header with Edit/Delete */}
@@ -262,30 +311,7 @@ const GoalDetail = () => {
 
             {/* Tab Content */}
             {activeTab === 'stats' ? (
-              <View style={{ marginTop: 20 }}>
-                <View style={styles.statsGrid}>
-                  <View style={styles.statCard}>
-                    <Ionicons name="flame" size={24} color={colors.primary} />
-                    <Text style={styles.statValue}>{associatedHabits.length}</Text>
-                    <Text style={styles.statLabel}>Total Habits</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Ionicons name="trending-up" size={24} color="#10B981" />
-                    <Text style={styles.statValue}>{progress}%</Text>
-                    <Text style={styles.statLabel}>Progress</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Ionicons name="calendar" size={24} color="#F59E0B" />
-                    <Text style={styles.statValue}>{daysLeft}</Text>
-                    <Text style={styles.statLabel}>Days Left</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Ionicons name="star" size={24} color="#8B5CF6" />
-                    <Text style={styles.statValue}>7</Text>
-                    <Text style={styles.statLabel}>Best Streak</Text>
-                  </View>
-                </View>
-              </View>
+              <GoalStats goal={goal} habits={associatedHabits} />
             ) : (
               <View style={{ marginTop: 20 }}>
                 {/* Mission Habits Header with Add Button */}
@@ -304,7 +330,6 @@ const GoalDetail = () => {
                       onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
                       onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id, goalId: goalId as string } })}
                       onDelete={handleDeleteHabit}
-                      onFocus={() => { }}
                     />
                   ))
                 ) : (
@@ -331,6 +356,34 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  contentContainer: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    overflow: 'hidden',
+    minHeight: height * 0.7,
+    backgroundColor: 'rgba(10,10,20,0.95)',
+    borderTopWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+  },
+  cockpitGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 250,
+  },
+  scanlineOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.03,
+    backgroundColor: 'transparent',
+    backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px)',
   },
   goalHeader: {
     flexDirection: 'row',
@@ -363,6 +416,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 4,
     marginTop: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   tab: {
     flex: 1,
@@ -374,7 +429,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabActive: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(139, 92, 246, 0.3)',
   },
   tabText: {
     color: 'rgba(255,255,255,0.5)',
@@ -402,6 +457,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59, 130, 246, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.5)',
   },
   emptyState: {
     padding: 40,
@@ -410,6 +467,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.02)',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -418,16 +476,27 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '47%',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  statIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   statValue: {
     fontSize: 28,
     fontWeight: 'bold',
     color: 'white',
-    marginTop: 8,
+    marginTop: 4,
   },
   statLabel: {
     fontSize: 12,

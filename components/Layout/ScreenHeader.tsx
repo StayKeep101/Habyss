@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: '900',
         letterSpacing: -1,
-        // Fallback to system bold if fonts aren't perfectly set up, sleek looks good either way
+        fontFamily: 'Lexend',
     },
     subtitle: {
         marginTop: 4,
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         letterSpacing: 2,
         opacity: 0.8,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
         textTransform: 'uppercase',
     }
 });

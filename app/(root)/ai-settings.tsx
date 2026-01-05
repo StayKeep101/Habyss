@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 18,
         fontWeight: '700',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
         letterSpacing: 1,
     },
     headerGlow: {
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         color: '#fff',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
         marginBottom: 8,
         textAlign: 'center',
     },
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: 'rgba(255,255,255,0.7)',
         textAlign: 'center',
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
         lineHeight: 20,
     },
     personalityCard: {
@@ -270,12 +270,12 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontSize: 18,
         fontWeight: '700',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
         marginBottom: 4,
     },
     cardDescription: {
         fontSize: 13,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
         lineHeight: 18,
     },
     selectedBadge: {
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     attributeLabel: {
         width: 80,
         fontSize: 10,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
         textTransform: 'capitalize',
     },
     attributeBar: {
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         letterSpacing: 1,
         marginBottom: 8,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     exampleBubble: {
         padding: 12,

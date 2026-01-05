@@ -32,6 +32,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useHaptics } from '@/hooks/useHaptics';
 import { StripeService } from '@/lib/stripeService';
 import { useRouter } from 'expo-router';
+import { streamChatCompletion, ChatMessage as GeminiMessage } from '@/lib/gemini';
+import { useAIPersonality } from '@/constants/AIPersonalityContext';
+import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,15 +59,7 @@ const INITIAL_MESSAGES: Message[] = [
     }
 ];
 
-// Mock AI responses
-const AI_RESPONSES: Record<string, string> = {
-    'create': "I'd love to help you create something new! Would you like to:\n\n• Create a new **habit** (daily rituals)\n• Create a new **goal** (long-term objectives)\n\nJust tell me which one and what you'd like to call it!",
-    'habit': "Great! To create a habit, just tell me:\n\n• The name (e.g., 'Morning Meditation')\n• The category (health, productivity, mindfulness, etc.)\n• How long it takes (optional)\n\nFor example: 'Create a 10-minute morning meditation habit for health'",
-    'goal': "Awesome! For a goal, I'll need:\n\n• The goal name\n• A target date\n• What habits you want to link to it\n\nFor example: 'I want to lose 10 pounds by March'",
-    'help': "Here's what I can do for you:\n\n🎯 **Create habits or goals** - Just describe what you want\n📊 **Check your progress** - Ask 'How am I doing?'\n✅ **Mark habits complete** - Say 'I finished my workout'\n🔗 **Link habits to goals** - Connect related activities\n\nWhat would you like to do?",
-    'default': "I understand! Let me help you with that. Could you tell me more about what you'd like to accomplish?",
-};
-
+// Mock suggestions
 const SUGGESTIONS = [
     "Create a workout goal",
     "Log water habit",
@@ -76,8 +71,9 @@ const SUGGESTIONS = [
 export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { lightFeedback, successFeedback, mediumFeedback } = useHaptics();
+    const { lightFeedback, successFeedback, mediumFeedback, errorFeedback } = useHaptics();
     const router = useRouter();
+    const { personalityId } = useAIPersonality();
 
     const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
     const [inputText, setInputText] = useState('');
@@ -119,44 +115,60 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         if (!inputText.trim()) return;
 
         lightFeedback();
+        const content = inputText.trim();
+        setInputText('');
+        setIsTyping(true);
 
         const userMessage: Message = {
             id: Date.now().toString(),
             role: 'user',
-            content: inputText.trim(),
+            content,
             timestamp: new Date(),
         };
 
-        setMessages(prev => [...prev, userMessage]);
-        setInputText('');
-        setIsTyping(true);
+        const newMessages = [...messages, userMessage];
+        setMessages(newMessages);
 
-        // Simulate AI thinking
-        setTimeout(() => {
-            const lowercaseInput = inputText.toLowerCase();
-            let response = AI_RESPONSES['default'];
+        // Prepare context for AI
+        const personality = PERSONALITY_MODES.find(p => p.id === personalityId) || PERSONALITY_MODES[1];
 
-            if (lowercaseInput.includes('create') || lowercaseInput.includes('new') || lowercaseInput.includes('add')) {
-                response = AI_RESPONSES['create'];
-            } else if (lowercaseInput.includes('habit') || lowercaseInput.includes('ritual')) {
-                response = AI_RESPONSES['habit'];
-            } else if (lowercaseInput.includes('goal') || lowercaseInput.includes('target')) {
-                response = AI_RESPONSES['goal'];
-            } else if (lowercaseInput.includes('help') || lowercaseInput.includes('what can you')) {
-                response = AI_RESPONSES['help'];
+        // Convert to Gemini Format
+        // Note: Gemini doesn't support 'system' role in history effectively for all models in same way.
+        // We pass system prompt separately.
+        const geminiHistory: GeminiMessage[] = newMessages.map(m => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.content }]
+        }));
+
+        await streamChatCompletion(
+            geminiHistory,
+            personality.systemPrompt,
+            (chunk) => { },
+            (reply) => {
+                const aiMessage: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: reply,
+                    timestamp: new Date(),
+                };
+                setMessages(prev => [...prev, aiMessage]);
+                setIsTyping(false);
+                successFeedback();
+            },
+            (error) => {
+                console.error(error);
+                setIsTyping(false);
+                errorFeedback();
+
+                const errorMessage: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: "I'm having trouble connecting to Gemini. Please check your API key.",
+                    timestamp: new Date(),
+                };
+                setMessages(prev => [...prev, errorMessage]);
             }
-
-            const aiMessage: Message = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: response,
-                timestamp: new Date(),
-            };
-
-            setMessages(prev => [...prev, aiMessage]);
-            setIsTyping(false);
-            successFeedback();
-        }, 1000 + Math.random() * 1000);
+        );
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
@@ -174,7 +186,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                 {!isUser && (
                     <View style={styles.aiAvatar}>
                         <LinearGradient
-                            colors={['#10B981', '#3B82F6']}
+                            colors={['#3B82F6', '#8B5CF6', '#EC4899']}
                             style={styles.avatarGradient}
                         >
                             <Ionicons name="sparkles" size={14} color="#fff" />
@@ -216,7 +228,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                             </TouchableOpacity>
                             <View style={styles.headerCenter}>
                                 <LinearGradient
-                                    colors={['#10B981', '#3B82F6']}
+                                    colors={['#3B82F6', '#8B5CF6', '#EC4899']}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.headerIcon}
@@ -240,7 +252,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                             /* Paywall for non-premium users */
                             <View style={styles.paywallContainer}>
                                 <LinearGradient
-                                    colors={['rgba(16, 185, 129, 0.2)', 'rgba(59, 130, 246, 0.2)']}
+                                    colors={['rgba(59, 130, 246, 0.2)', 'rgba(236, 72, 153, 0.2)']}
                                     style={styles.paywallIcon}
                                 >
                                     <Ionicons name="lock-closed" size={48} color="#fff" />
@@ -276,7 +288,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                                     }}
                                 >
                                     <LinearGradient
-                                        colors={['#10B981', '#3B82F6']}
+                                        colors={['#3B82F6', '#8B5CF6', '#EC4899']}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
                                         style={styles.upgradeButtonGradient}
@@ -374,7 +386,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                                         ]}
                                     >
                                         <LinearGradient
-                                            colors={['#10B981', '#3B82F6']}
+                                            colors={['#3B82F6', '#8B5CF6', '#EC4899']}
                                             style={styles.sendGradient}
                                         >
                                             <Ionicons name="arrow-up" size={20} color="#fff" />
@@ -442,12 +454,12 @@ const styles = StyleSheet.create({
         fontWeight: '900',
         color: '#fff',
         letterSpacing: 2,
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
     },
     headerSubtitle: {
         fontSize: 12,
         color: 'rgba(255,255,255,0.5)',
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     closeButton: {
         width: 40,
@@ -516,7 +528,7 @@ const styles = StyleSheet.create({
     typingText: {
         color: 'rgba(255,255,255,0.5)',
         fontSize: 12,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     inputContainer: {
         flexDirection: 'row',
@@ -545,7 +557,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 15,
         maxHeight: 100,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     inputIcons: {
         flexDirection: 'row',
@@ -570,7 +582,7 @@ const styles = StyleSheet.create({
     suggestionText: {
         color: 'rgba(255,255,255,0.8)',
         fontSize: 12,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     sendButton: {
         width: 44,
@@ -602,7 +614,7 @@ const styles = StyleSheet.create({
         fontSize: 28,
         fontWeight: '800',
         color: '#fff',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
         marginBottom: 12,
         textAlign: 'center',
     },
@@ -613,7 +625,7 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         marginBottom: 32,
         paddingHorizontal: 16,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     paywallFeatures: {
         width: '100%',
@@ -628,7 +640,7 @@ const styles = StyleSheet.create({
     paywallFeatureText: {
         fontSize: 14,
         color: 'rgba(255,255,255,0.8)',
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     upgradeButton: {
         width: '100%',
@@ -645,6 +657,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         color: '#fff',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
     },
 });

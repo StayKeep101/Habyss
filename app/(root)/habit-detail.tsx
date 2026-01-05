@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet, Modal, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -8,7 +8,7 @@ import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
-import { FriendsService, Friend } from '@/lib/friendsService';
+import { ShareHabitModal } from '@/components/ShareHabitModal';
 import { useHaptics } from '@/hooks/useHaptics';
 
 export default function HabitDetailScreen() {
@@ -42,9 +42,6 @@ export default function HabitDetailScreen() {
 
   // Sharing state
   const [showShareModal, setShowShareModal] = useState(false);
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [sharedWith, setSharedWith] = useState<string[]>([]);
-  const [loadingShare, setLoadingShare] = useState(false);
 
   useEffect(() => {
     loadHabitDetails();
@@ -69,32 +66,6 @@ export default function HabitDetailScreen() {
 
   const openShareModal = async () => {
     setShowShareModal(true);
-    setLoadingShare(true);
-    try {
-      const [friendsList, sharedWithList] = await Promise.all([
-        FriendsService.getFriends(),
-        FriendsService.getHabitSharedWith(habitId)
-      ]);
-      setFriends(friendsList);
-      setSharedWith(sharedWithList.map(f => f.id));
-    } catch (error) {
-      console.error('Error loading share data:', error);
-    } finally {
-      setLoadingShare(false);
-    }
-  };
-
-  const toggleShare = async (friendId: string) => {
-    selectionFeedback();
-    const isCurrentlyShared = sharedWith.includes(friendId);
-
-    if (isCurrentlyShared) {
-      await FriendsService.unshareHabit(habitId, friendId);
-      setSharedWith(prev => prev.filter(id => id !== friendId));
-    } else {
-      await FriendsService.shareHabitWithFriend(habitId, friendId);
-      setSharedWith(prev => [...prev, friendId]);
-    }
   };
 
   const handleToggle = async () => {
@@ -221,80 +192,12 @@ export default function HabitDetailScreen() {
       </ScrollView>
 
       {/* Share Modal */}
-      <Modal
+      <ShareHabitModal
         visible={showShareModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowShareModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                SHARE WITH CREW
-              </Text>
-              <TouchableOpacity onPress={() => setShowShareModal(false)}>
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {loadingShare ? (
-              <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 40 }} />
-            ) : friends.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="people-outline" size={48} color={colors.textTertiary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No friends yet
-                </Text>
-                <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-                  Add friends in the Community tab to share habits
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                data={friends}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                style={{ maxHeight: 400 }}
-                renderItem={({ item }) => {
-                  const isShared = sharedWith.includes(item.id);
-                  return (
-                    <TouchableOpacity
-                      onPress={() => toggleShare(item.id)}
-                      style={[
-                        styles.friendItem,
-                        { borderColor: isShared ? colors.primary : colors.border }
-                      ]}
-                    >
-                      <View style={[styles.friendAvatar, { backgroundColor: colors.surfaceTertiary }]}>
-                        <Text style={{ fontSize: 16, color: colors.textSecondary }}>
-                          {item.username[0]?.toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={[styles.friendName, { color: colors.textPrimary }]}>
-                          {item.username}
-                        </Text>
-                        {isShared && (
-                          <Text style={{ color: colors.primary, fontSize: 10, fontFamily: 'SpaceMono-Regular' }}>
-                            SHARING
-                          </Text>
-                        )}
-                      </View>
-                      <View style={[
-                        styles.shareToggle,
-                        { backgroundColor: isShared ? colors.primary : 'transparent', borderColor: colors.primary }
-                      ]}>
-                        {isShared && <Ionicons name="checkmark" size={16} color="#000" />}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                }}
-              />
-            )}
-          </View>
-        </View>
-      </Modal>
+        habitId={habitId}
+        habitName={habit?.name || ''}
+        onClose={() => setShowShareModal(false)}
+      />
     </VoidShell>
   );
 }
@@ -335,13 +238,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: 4,
     textAlign: 'center',
-    fontFamily: 'SpaceGrotesk-Bold',
+    fontFamily: 'Lexend',
   },
   habitMeta: {
     fontSize: 12,
     marginBottom: 24,
     textAlign: 'center',
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     letterSpacing: 1,
   },
   actionButton: {
@@ -355,7 +258,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 14,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     letterSpacing: 0.5,
   },
   sectionTitle: {
@@ -363,7 +266,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: 16,
     letterSpacing: 1,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -381,12 +284,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
     letterSpacing: 1,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   statValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    fontFamily: 'SpaceGrotesk-Bold',
+    fontFamily: 'Lexend',
   },
   descCard: {
     padding: 20,
@@ -395,7 +298,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 8,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     letterSpacing: 1,
   },
   descText: {
@@ -424,7 +327,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 1,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   emptyState: {
     alignItems: 'center',
@@ -439,7 +342,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     textAlign: 'center',
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   friendItem: {
     flexDirection: 'row',
@@ -459,7 +362,7 @@ const styles = StyleSheet.create({
   friendName: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'SpaceGrotesk-Bold',
+    fontFamily: 'Lexend',
   },
   shareToggle: {
     width: 28,

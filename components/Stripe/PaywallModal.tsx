@@ -30,8 +30,8 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, on
     >
       <View style={styles.container}>
         <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
-        
-        <Animated.View 
+
+        <Animated.View
           entering={SlideInDown.springify().damping(15)}
           style={styles.content}
         >
@@ -45,22 +45,25 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, on
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
               <View style={styles.header}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="star" size={40} color="#FFD700" />
-                </View>
+                <LinearGradient
+                  colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                  style={styles.iconContainer}
+                >
+                  <Ionicons name="sparkles" size={40} color="#fff" />
+                </LinearGradient>
                 <Text style={styles.title}>Habyss Premium</Text>
                 <Text style={styles.subtitle}>Unlock your full potential with advanced features</Text>
               </View>
 
               <View style={styles.featuresList}>
                 {FEATURES.map((feature, index) => (
-                  <Animated.View 
+                  <Animated.View
                     key={index}
                     entering={FadeIn.delay(index * 100)}
                     style={styles.featureItem}
                   >
-                    <View style={styles.featureIcon}>
-                      <Ionicons name={feature.icon as any} size={24} color="#007AFF" />
+                    <View style={[styles.featureIcon, { backgroundColor: 'rgba(139, 92, 246, 0.1)' }]}>
+                      <Ionicons name={feature.icon as any} size={24} color="#8B5CF6" />
                     </View>
                     <View style={styles.featureText}>
                       <Text style={styles.featureTitle}>{feature.title}</Text>
@@ -75,20 +78,27 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, on
                 <Text style={styles.period}>/month</Text>
               </View>
 
-              <TouchableOpacity 
-                style={[styles.subscribeButton, loading && styles.disabledButton]} 
+              <TouchableOpacity
+                style={[styles.subscribeButtonContainer, loading && styles.disabledButton]}
                 onPress={onSubscribe}
                 disabled={loading}
               >
-                <Text style={styles.subscribeText}>
-                  {loading ? 'Redirecting...' : 'Upgrade Now'}
-                </Text>
+                <LinearGradient
+                  colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.subscribeButton}
+                >
+                  <Text style={styles.subscribeText}>
+                    {loading ? 'Redirecting...' : 'Upgrade Now'}
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.restoreButton}>
                 <Text style={styles.restoreText}>Restore Purchase</Text>
               </TouchableOpacity>
-              
+
               <Text style={styles.footerText}>
                 Cancel anytime. Payment will be charged to your account.
               </Text>
@@ -197,12 +207,19 @@ const styles = StyleSheet.create({
     color: '#aaa',
     marginLeft: 4,
   },
+  subscribeButtonContainer: {
+    marginBottom: 16,
+    borderRadius: 16,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
   subscribeButton: {
-    backgroundColor: '#007AFF',
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
-    marginBottom: 16,
   },
   disabledButton: {
     opacity: 0.7,

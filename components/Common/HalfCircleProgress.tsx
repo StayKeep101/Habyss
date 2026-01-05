@@ -13,12 +13,12 @@ interface HalfCircleProgressProps {
   showPercentage?: boolean;
 }
 
-export const HalfCircleProgress: React.FC<HalfCircleProgressProps> = ({ 
-  progress, 
-  size, 
-  strokeWidth, 
-  color, 
-  backgroundColor, 
+export const HalfCircleProgress: React.FC<HalfCircleProgressProps> = ({
+  progress,
+  size,
+  strokeWidth,
+  color,
+  backgroundColor,
   textColor,
   fontSize = 12,
   showPercentage = true
@@ -33,7 +33,7 @@ export const HalfCircleProgress: React.FC<HalfCircleProgressProps> = ({
       <Svg width={size} height={size} style={{ position: 'absolute', top: 0 }}>
         {/* Background Path (Half Circle) */}
         <Path
-          d={`M ${strokeWidth/2} ${center} A ${radius} ${radius} 0 0 1 ${size - strokeWidth/2} ${center}`}
+          d={`M ${strokeWidth / 2} ${center} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${center}`}
           fill="none"
           stroke={backgroundColor}
           strokeWidth={strokeWidth}
@@ -41,7 +41,7 @@ export const HalfCircleProgress: React.FC<HalfCircleProgressProps> = ({
         />
         {/* Progress Path (Half Circle) */}
         <Path
-          d={`M ${strokeWidth/2} ${center} A ${radius} ${radius} 0 0 1 ${size - strokeWidth/2} ${center}`}
+          d={`M ${strokeWidth / 2} ${center} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${center}`}
           fill="none"
           stroke={color}
           strokeWidth={strokeWidth}
@@ -51,7 +51,7 @@ export const HalfCircleProgress: React.FC<HalfCircleProgressProps> = ({
         />
       </Svg>
       {showPercentage && (
-        <View style={{ position: 'absolute', bottom: 2 }}>
+        <View style={{ position: 'absolute', bottom: 8 }}>
           <Text style={{ color: textColor, fontWeight: 'bold', fontSize, textAlign: 'center' }}>{Math.round(progress)}%</Text>
         </View>
       )}

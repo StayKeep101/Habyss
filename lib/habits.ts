@@ -247,33 +247,22 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
   const uid = await getUserId();
   if (!uid) return;
 
+  // Build update object with only fields that exist in the database
+  const updateData: Record<string, any> = {};
+
+  if (updatedHabit.name !== undefined) updateData.name = updatedHabit.name;
+  if (updatedHabit.category !== undefined) updateData.category = updatedHabit.category;
+  if (updatedHabit.icon !== undefined) updateData.icon = updatedHabit.icon;
+  if (updatedHabit.durationMinutes !== undefined) updateData.duration_minutes = updatedHabit.durationMinutes;
+  if (updatedHabit.startTime !== undefined) updateData.start_time = updatedHabit.startTime;
+  if (updatedHabit.endTime !== undefined) updateData.end_time = updatedHabit.endTime;
+  if (updatedHabit.isGoal !== undefined) updateData.is_goal = updatedHabit.isGoal;
+  if (updatedHabit.targetDate !== undefined) updateData.target_date = updatedHabit.targetDate;
+  if (updatedHabit.goalId !== undefined) updateData.goal_id = updatedHabit.goalId;
+
   const { error } = await supabase
     .from('habits')
-    .update({
-      name: updatedHabit.name,
-      description: updatedHabit.description,
-      category: updatedHabit.category,
-      icon: updatedHabit.icon,
-      duration_minutes: updatedHabit.durationMinutes,
-      start_time: updatedHabit.startTime,
-      end_time: updatedHabit.endTime,
-      is_goal: updatedHabit.isGoal,
-      target_date: updatedHabit.targetDate,
-      // description: updatedHabit.description,
-      // type: updatedHabit.type,
-      // color: updatedHabit.color, // DB schema missing
-      // goal_period: updatedHabit.goalPeriod,
-      // goal_value: updatedHabit.goalValue,
-      // unit: updatedHabit.unit,
-      // task_days: updatedHabit.taskDays,
-      // reminders: updatedHabit.reminders,
-      // chart_type: updatedHabit.chartType, // Not in DB yet
-      // start_date: updatedHabit.startDate,
-      // end_date: updatedHabit.endDate,
-      // is_archived: updatedHabit.isArchived,
-      // show_memo: updatedHabit.showMemo,
-      ...(updatedHabit.goalId ? { goal_id: updatedHabit.goalId } : {})
-    })
+    .update(updateData)
     .eq('id', updatedHabit.id);
 
   if (error) {
@@ -529,11 +518,72 @@ export async function getStreakData(): Promise<{ currentStreak: number; bestStre
   };
 }
 
-export async function getHeatmapData(): Promise<{ date: string; count: number }[]> {
-  const history = await getLastNDaysCompletions(91);
-  return history.map(h => ({
-    date: h.date,
-    count: h.completedIds.length
-  }));
+export async function calculateGoalProgress(goal: Habit): Promise<number> {
+  const uid = await getUserId();
+  if (!uid || !goal.isGoal) return 0;
+
+  // 1. Get linked habits
+  const habits = await getHabits();
+  const linked = habits.filter(h => h.goalId === goal.id && !h.isArchived);
+
+  if (linked.length === 0) return 0;
+
+  // 2. Define Time Range
+  const startDate = new Date(goal.startDate || goal.createdAt);
+  const targetDate = goal.targetDate ? new Date(goal.targetDate) : new Date();
+
+  // Cap target date at today for "current progress" vs "total completion"?
+  // User phrased: "if a goal starts on Jan 1st and must be completed, all 30 habits should be completed."
+  // This implies the denominator is the FULL duration.
+
+  // 3. Fetch Completions in Range
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = targetDate.toISOString().split('T')[0];
+
+  const { data: completions, error } = await supabase
+    .from('habit_completions')
+    .select('habit_id, date')
+    .in('habit_id', linked.map(h => h.id))
+    .gte('date', startStr)
+    .lte('date', endStr);
+
+  if (error) {
+    console.error('Error fetching goal completions:', error);
+    return 0;
+  }
+
+  // 4. Calculate Expected
+  let totalExpected = 0;
+  let totalCompleted = completions?.length || 0;
+
+  // Iterate through every day in the range
+  const current = new Date(startDate);
+  // Ensure we don't go into infinite loop if dates are weird
+  if (current > targetDate) return 0;
+
+  while (current <= targetDate) {
+    const dayName = current.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase(); // mon, tue...
+    const dateStr = current.toISOString().split('T')[0];
+
+    linked.forEach(habit => {
+      // Check if habit is active on this day
+      // (Simplification: assuming habit creation date doesn't block "past" expectations if the goal started earlier? 
+      //  Actually, habit only exists after creation. But usually habits are created with the goal. 
+      //  We should clamp expectations to max(goal.start, habit.created).) 
+      const hCreated = new Date(habit.createdAt);
+      // We only expect completion if the date is >= habit creation (ignoring time)
+      if (new Date(dateStr) >= new Date(hCreated.toISOString().split('T')[0])) {
+        if (habit.taskDays.includes(dayName)) {
+          totalExpected++;
+        }
+      }
+    });
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  if (totalExpected === 0) return 0;
+
+  return Math.round((totalCompleted / totalExpected) * 100);
 }
 

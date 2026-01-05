@@ -101,13 +101,14 @@ const styles = StyleSheet.create({
     mainText: {
         color: 'white',
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: 'Lexend',
         textAlign: 'right',
     },
     subText: {
         color: 'rgba(255,255,255,0.8)',
         fontSize: 12,
         textAlign: 'right',
+        fontFamily: 'Lexend_400Regular',
     },
     shine: {
         position: 'absolute',

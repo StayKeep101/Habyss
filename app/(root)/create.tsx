@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Keyboard, DeviceEventEmitter, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useGlobalSearchParams } from 'expo-router';
@@ -8,9 +8,9 @@ import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 import { useHaptics } from '@/hooks/useHaptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-import { addHabit } from '@/lib/habits';
+import { addHabit, getHabits, updateHabit } from '@/lib/habits';
 
-// Simple 2-step Goal Creation Wizard
+// Simple 2-step Goal Creation/Edit Wizard
 // Step 1: Name + Description
 // Step 2: Target Date
 
@@ -21,15 +21,50 @@ export default function GoalCreationWizard() {
     const colors = Colors[theme];
     const { lightFeedback, successFeedback } = useHaptics();
 
+    // Check if editing existing goal
+    const editId = params.id as string | undefined;
+    const isEditing = !!editId;
+
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(isEditing);
 
     // Form State
-    const [name, setName] = useState('');
-    const [description, setDescription] = useState('');
+    const [name, setName] = useState((params.name as string) || '');
+    const [description, setDescription] = useState((params.description as string) || '');
     const [targetDate, setTargetDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // +30 days
+    const [icon, setIcon] = useState((params.icon as string) || 'flag');
+    const [color, setColor] = useState('#8B5CF6');
+    const [category, setCategory] = useState((params.category as string) || 'personal');
 
     const totalSteps = 2;
+
+    // Load existing goal data if editing
+    useEffect(() => {
+        if (isEditing) {
+            const loadGoal = async () => {
+                try {
+                    const habits = await getHabits();
+                    const goal = habits.find(h => h.id === editId);
+                    if (goal) {
+                        setName(goal.name || '');
+                        setDescription(goal.description || '');
+                        setIcon(goal.icon || 'flag');
+                        setColor(goal.color || '#8B5CF6');
+                        setCategory(goal.category || 'personal');
+                        if (goal.targetDate) {
+                            setTargetDate(new Date(goal.targetDate));
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error loading goal:', e);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadGoal();
+        }
+    }, [editId, isEditing]);
 
     const handleNext = () => {
         lightFeedback();
@@ -59,44 +94,64 @@ export default function GoalCreationWizard() {
         try {
             const fmtDate = (d: Date) => d.toISOString().split('T')[0];
 
-            await addHabit({
+            const goalData = {
                 name: name.trim(),
                 description: description.trim(),
-                type: 'build',
-                icon: 'flag',
-                color: '#8B5CF6',
-                category: 'personal',
+                type: 'build' as const,
+                icon,
+                color,
+                category: category as any,
                 goalValue: 1,
                 unit: 'count',
-                goalPeriod: 'daily',
+                goalPeriod: 'daily' as const,
                 startTime: '09:00',
-                taskDays: [],
+                taskDays: [] as string[],
                 startDate: new Date().toISOString(),
                 isArchived: false,
-                reminders: [],
-                chartType: 'line',
+                reminders: [] as string[],
+                chartType: 'line' as const,
                 showMemo: false,
                 isGoal: true,
                 targetDate: fmtDate(targetDate),
-            });
+            };
+
+            if (isEditing && editId) {
+                // Update existing goal
+                await updateHabit({ id: editId, ...goalData });
+            } else {
+                // Create new goal
+                await addHabit(goalData);
+            }
 
             DeviceEventEmitter.emit('habit_created');
             router.back();
 
         } catch (e) {
             console.error(e);
-            Alert.alert("Error", "Failed to create goal.");
+            Alert.alert("Error", `Failed to ${isEditing ? 'update' : 'create'} goal.`);
             setSaving(false);
         }
     };
+
+    if (loading) {
+        return (
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: colors.textSecondary }}>Loading...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     const renderStep = () => {
         if (step === 0) {
             return (
                 <Animated.View entering={FadeIn} style={styles.stepContainer}>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>Name your goal</Text>
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>
+                        {isEditing ? 'Edit your goal' : 'Name your goal'}
+                    </Text>
                     <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                        What do you want to achieve?
+                        {isEditing ? 'Update your goal details' : 'What do you want to achieve?'}
                     </Text>
 
                     <TextInput
@@ -105,7 +160,7 @@ export default function GoalCreationWizard() {
                         placeholderTextColor={colors.textTertiary}
                         value={name}
                         onChangeText={setName}
-                        autoFocus
+                        autoFocus={!isEditing}
                         returnKeyType="next"
                     />
 
@@ -124,7 +179,9 @@ export default function GoalCreationWizard() {
 
         return (
             <Animated.View entering={FadeIn} style={styles.stepContainer}>
-                <Text style={[styles.title, { color: colors.textPrimary }]}>Set your target date</Text>
+                <Text style={[styles.title, { color: colors.textPrimary }]}>
+                    {isEditing ? 'Update target date' : 'Set your target date'}
+                </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                     When do you want to achieve this?
                 </Text>
@@ -141,7 +198,7 @@ export default function GoalCreationWizard() {
                 </View>
 
                 <View style={[styles.datePreview, { backgroundColor: colors.surfaceSecondary }]}>
-                    <Ionicons name="flag" size={24} color="#8B5CF6" />
+                    <Ionicons name="flag" size={24} color={color} />
                     <View style={{ flex: 1, marginLeft: 12 }}>
                         <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>TARGET</Text>
                         <Text style={[styles.previewDate, { color: colors.textPrimary }]}>
@@ -167,7 +224,7 @@ export default function GoalCreationWizard() {
                     <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
                         <Animated.View
                             layout={Layout.springify()}
-                            style={[styles.progressFill, { width: `${((step + 1) / totalSteps) * 100}%`, backgroundColor: '#8B5CF6' }]}
+                            style={[styles.progressFill, { width: `${((step + 1) / totalSteps) * 100}%`, backgroundColor: color }]}
                         />
                     </View>
                 </View>
@@ -186,11 +243,11 @@ export default function GoalCreationWizard() {
                     disabled={(step === 0 && !name.trim()) || saving}
                     style={[
                         styles.nextBtn,
-                        { backgroundColor: (step === 0 && !name.trim()) || saving ? colors.surfaceSecondary : '#8B5CF6' }
+                        { backgroundColor: (step === 0 && !name.trim()) || saving ? colors.surfaceSecondary : color }
                     ]}
                 >
                     <Text style={[styles.nextBtnText, { color: (step === 0 && !name.trim()) || saving ? colors.textTertiary : '#fff' }]}>
-                        {saving ? 'Creating...' : step === totalSteps - 1 ? 'Create Goal' : 'Continue'}
+                        {saving ? (isEditing ? 'Saving...' : 'Creating...') : step === totalSteps - 1 ? (isEditing ? 'Save Changes' : 'Create Goal') : 'Continue'}
                     </Text>
                     {step < totalSteps - 1 && !saving && <Ionicons name="arrow-forward" size={20} color="#fff" />}
                 </TouchableOpacity>

@@ -8,13 +8,19 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { subscribeToHabits, getCompletions, toggleCompletion, Habit, getLastNDaysCompletions } from '@/lib/habits';
+import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions } from '@/lib/habits';
 import { NotificationService } from '@/lib/notificationService';
 import { NotificationsModal } from '@/components/NotificationsModal';
 import { AIAgentModal } from '@/components/AIAgentModal';
 import { CelebrationAnimation } from '@/components/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { useFocusEffect } from 'expo-router';
+import { usePremiumStatus } from '@/hooks/usePremiumStatus';
+import { useAppSettings } from '@/constants/AppSettingsContext';
+import { generateGreeting } from '@/lib/gemini';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // New Dashboard Components
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
@@ -31,10 +37,16 @@ const Home = () => {
   const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
   const { width } = Dimensions.get('window');
 
+  // Pro Hooks
+  const { isPremium } = usePremiumStatus();
+  const { aiPersonality } = useAppSettings();
+
   // Data state
   const [allHabits, setAllHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
+  const [goalProgressMap, setGoalProgressMap] = useState<Record<string, number>>({});
+  const [greeting, setGreeting] = useState('');
 
   // UI state
   const [showNotifications, setShowNotifications] = useState(false);
@@ -50,16 +62,24 @@ const Home = () => {
   const goals = useMemo(() => allHabits.filter(h => h.isGoal), [allHabits]);
   const habits = useMemo(() => allHabits.filter(h => !h.isGoal), [allHabits]);
 
-  // Load initial data
-  useEffect(() => {
-    const loadInitialData = async () => {
-      const savedAvatar = await AsyncStorage.getItem('profile_avatar');
-      if (savedAvatar) setProfileAvatar(savedAvatar);
-      const count = await NotificationService.getUnreadCount();
-      setUnreadCount(count);
-    };
-    loadInitialData();
-  }, []);
+  // Load initial data & Sync on Focus
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        const savedAvatar = await AsyncStorage.getItem('profile_avatar');
+        if (savedAvatar) setProfileAvatar(savedAvatar);
+        const count = await NotificationService.getUnreadCount();
+        setUnreadCount(count);
+      };
+
+      loadData();
+
+      // Update greeting if premium
+      if (isPremium) {
+        generateGreeting(aiPersonality).then(g => setGreeting(g));
+      }
+    }, [isPremium, aiPersonality])
+  );
 
   // Subscribe to habits
   useEffect(() => {
@@ -87,27 +107,30 @@ const Home = () => {
     return () => task.cancel();
   }, []);
 
-  // Calculate goal progress (per goal)
-  const goalProgress = useMemo(() => {
-    const progress: Record<string, number> = {};
-    goals.forEach(goal => {
-      const goalHabits = habits.filter(h => h.goalId === goal.id);
-      if (goalHabits.length === 0) {
-        progress[goal.id] = 0;
-        return;
-      }
-      // Mock progress - in production, calculate from completions
-      const completed = goalHabits.filter(h => completions[h.id]).length;
-      progress[goal.id] = Math.round((completed / goalHabits.length) * 100);
-    });
-    return progress;
-  }, [goals, habits, completions]);
+  // Calculate STRICT goal progress (Historical Mission Progress)
+  // This matches Goal Detail page logic
+  useEffect(() => {
+    const loadGoalStats = async () => {
+      const map: Record<string, number> = {};
+      await Promise.all(goals.map(async (g) => {
+        map[g.id] = await calculateGoalProgress(g);
+      }));
+      setGoalProgressMap(map);
+    };
 
+    if (goals.length > 0) {
+      InteractionManager.runAfterInteractions(() => {
+        loadGoalStats();
+      });
+    }
+  }, [goals]);
+
+  // Average Mission Progress
   const avgGoalProgress = useMemo(() => {
     if (goals.length === 0) return 0;
-    const sum = goals.reduce((acc, g) => acc + (goalProgress[g.id] || 0), 0);
+    const sum = goals.reduce((acc, g) => acc + (goalProgressMap[g.id] || 0), 0);
     return Math.round(sum / goals.length);
-  }, [goals, goalProgress]);
+  }, [goals, goalProgressMap]);
 
   // Calculate streak (goal-based: streak++ if ALL habits for ANY goal completed)
   const { streak, completionTier, completedDaysPerGoal } = useMemo(() => {
@@ -226,15 +249,32 @@ const Home = () => {
         <ScrollView contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}>
 
           {/* Header */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 20 }}>
-            <TouchableOpacity onPress={handleProfilePress} style={{ padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 24 }}>
-              {profileAvatar ? (
-                <Image source={{ uri: profileAvatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-              ) : (
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="person" size={20} color="rgba(255,255,255,0.6)" />
-                </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: isPremium ? 12 : 20 }}>
+            {/* Profile Avatar with Pro Ring */}
+            <TouchableOpacity onPress={handleProfilePress} style={{ position: 'relative' }}>
+              {isPremium && (
+                <LinearGradient
+                  colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ position: 'absolute', width: 48, height: 48, borderRadius: 24, top: -4, left: -4 }}
+                />
               )}
+              <View style={{
+                padding: 2,
+                borderWidth: isPremium ? 0 : 1,
+                borderColor: 'rgba(255,255,255,0.2)',
+                borderRadius: 24,
+                backgroundColor: colors.background // Ensure background covers ring if needed, or transparent
+              }}>
+                {profileAvatar ? (
+                  <Image source={{ uri: profileAvatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                ) : (
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="person" size={20} color="rgba(255,255,255,0.6)" />
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
 
             <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -247,6 +287,17 @@ const Home = () => {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* AI Greeting (Pro Only) */}
+          {isPremium && greeting ? (
+            <Animated.View entering={FadeInDown.duration(600)} style={{ marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Ionicons name="chatbubble-ellipses-outline" size={12} color={colors.primary} />
+                <Text style={{ fontSize: 10, color: colors.primary, fontFamily: 'Lexend_400Regular', letterSpacing: 1 }}>AI COACH</Text>
+              </View>
+              <Text style={{ fontSize: 15, color: '#fff', fontFamily: 'Lexend_300Light', fontStyle: 'italic', lineHeight: 22 }}>"{greeting}"</Text>
+            </Animated.View>
+          ) : null}
 
           {/* Goals Progress Bar */}
           <Animated.View entering={FadeInDown.delay(100).duration(500)}>
@@ -321,7 +372,7 @@ const Home = () => {
           visible={showGoalsModal}
           onClose={() => setShowGoalsModal(false)}
           goals={goals}
-          goalProgress={goalProgress}
+          goalProgress={goalProgressMap}
         />
         <StreakModal
           visible={showStreakModal}

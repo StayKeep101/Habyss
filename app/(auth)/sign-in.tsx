@@ -145,7 +145,7 @@ const SignIn = () => {
               </View>
 
               <TouchableOpacity style={{ alignItems: 'flex-end', marginTop: 12 }}>
-                <Text style={{ color: colors.primary, fontSize: 13, fontFamily: 'SpaceMono-Regular', letterSpacing: 0.5 }}>FORGOT PASSWORD?</Text>
+                <Text style={{ color: colors.primary, fontSize: 13, fontFamily: 'Lexend_400Regular', letterSpacing: 0.5 }}>FORGOT PASSWORD?</Text>
               </TouchableOpacity>
 
               {/* Sign In Button */}
@@ -166,7 +166,7 @@ const SignIn = () => {
             {/* Divider */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
               <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'SpaceMono-Regular', marginHorizontal: 12 }}>OR</Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'Lexend_400Regular', marginHorizontal: 12 }}>OR</Text>
               <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
             </View>
 
@@ -184,13 +184,13 @@ const SignIn = () => {
             <View style={{ marginTop: 20, gap: 16 }}>
               {/* Google / Guest could go here or be hidden for cleaner void look */}
               <TouchableOpacity onPress={handleSkip} style={{ alignItems: 'center' }}>
-                <Text style={{ color: colors.textTertiary, fontSize: 12, fontFamily: 'SpaceMono-Regular' }}>CONTINUE AS GUEST</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>CONTINUE AS GUEST</Text>
               </TouchableOpacity>
 
               <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}>
-                <Text style={{ color: colors.textSecondary, fontFamily: 'SpaceMono-Regular', fontSize: 12 }}>NO ID? </Text>
+                <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>NO ID? </Text>
                 <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')}>
-                  <Text style={{ color: colors.primary, fontFamily: 'SpaceMono-Regular', fontWeight: 'bold', fontSize: 12 }}>INITIALIZE</Text>
+                  <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>INITIALIZE</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -205,13 +205,13 @@ const SignIn = () => {
 const styles = StyleSheet.create({
   title: {
     fontSize: 32,
-    fontFamily: 'SpaceGrotesk-Bold',
+    fontFamily: 'Lexend',
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   subtitle: {
     fontSize: 14,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 10,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     height: '100%',
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   button: {
     height: 56,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'black', // High contrast on cyan/primary
     fontSize: 14,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     fontWeight: 'bold',
     letterSpacing: 1,
   },
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   },
   googleButtonText: {
     fontSize: 12,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },

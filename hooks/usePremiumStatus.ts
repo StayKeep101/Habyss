@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { DeviceEventEmitter } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StripeService, SubscriptionStatus } from '@/lib/stripeService';
 import { useHaptics } from './useHaptics';
 
@@ -18,6 +20,16 @@ export const usePremiumStatus = () => {
   const refreshStatus = useCallback(async () => {
     setLoading(true);
     try {
+      // Check for Dev Override
+      if (__DEV__) {
+        const override = await AsyncStorage.getItem('HABYSS_DEV_PREMIUM_OVERRIDE');
+        if (override === 'true') {
+          setStatus({ premium: true, status: 'dev_active', expires: null });
+          setLoading(false);
+          return;
+        }
+      }
+
       const currentStatus = await StripeService.getSubscriptionStatus();
       setStatus(currentStatus);
     } catch (error) {
@@ -29,6 +41,15 @@ export const usePremiumStatus = () => {
 
   useEffect(() => {
     refreshStatus();
+
+    // Listen for Dev Mode updates
+    const subscription = DeviceEventEmitter.addListener('dev_premium_update', () => {
+      refreshStatus();
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [refreshStatus]);
 
   const isPremium = status.premium;

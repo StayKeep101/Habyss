@@ -145,11 +145,11 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         marginBottom: 4,
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
     },
     goalSubtitle: {
         fontSize: 14,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     legendContainer: {
         flexDirection: 'row',
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     },
     legendText: {
         fontSize: 10,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },

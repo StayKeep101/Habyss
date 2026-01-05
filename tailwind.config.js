@@ -41,12 +41,12 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Lexend_400Regular'],
+        sans: ['Lexend_400Regular'], // Default sans
         'inter-regular': ['Lexend_400Regular'],
-        'inter-medium': ['Lexend_500Medium'],
+        'inter-medium': ['Lexend_500Medium'], // Header Date
         'inter-semibold': ['Lexend_600SemiBold'],
-        'inter-bold': ['Lexend_700Bold'],
-        display: ['Lexend_700Bold'],
+        'inter-bold': ['Lexend_700Bold'], // Day Numbers (when combined with font-bold)
+        display: ['Lexend_700Bold'], // Header "Today"
       },
       borderRadius: {
         lg: "var(--radius)",

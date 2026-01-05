@@ -1,13 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { BlurView } from 'expo-blur';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withTiming,
+    withDelay,
+    Easing,
+    runOnJS,
+    interpolate,
+    Extrapolation,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FriendsService, Friend } from '@/lib/friendsService';
+
+const { height } = Dimensions.get('window');
+const SHEET_HEIGHT = height * 0.40;
+const DRAG_THRESHOLD = 60;
 
 interface ShareHabitModalProps {
     visible: boolean;
@@ -25,10 +38,32 @@ export const ShareHabitModal: React.FC<ShareHabitModalProps> = ({ visible, habit
     const [sharedWith, setSharedWith] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+
+    const translateY = useSharedValue(SHEET_HEIGHT);
+    const backdropOpacity = useSharedValue(0);
+    const contentOpacity = useSharedValue(0);
+
+    const openModal = useCallback(() => {
+        setIsOpen(true);
+        translateY.value = withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) });
+        backdropOpacity.value = withTiming(1, { duration: 250 });
+        contentOpacity.value = withDelay(150, withTiming(1, { duration: 300 }));
+    }, []);
+
+    const closeModal = useCallback(() => {
+        contentOpacity.value = withTiming(0, { duration: 100 });
+        translateY.value = withTiming(SHEET_HEIGHT, { duration: 250, easing: Easing.in(Easing.cubic) });
+        backdropOpacity.value = withTiming(0, { duration: 200 });
+        setTimeout(() => { setIsOpen(false); onClose(); }, 250);
+    }, [onClose]);
 
     useEffect(() => {
-        if (visible) {
+        if (visible && !isOpen) {
+            openModal();
             loadData();
+        } else if (!visible && isOpen) {
+            closeModal();
         }
     }, [visible]);
 
@@ -45,175 +80,98 @@ export const ShareHabitModal: React.FC<ShareHabitModalProps> = ({ visible, habit
 
     const toggleShare = (friendId: string) => {
         lightFeedback();
-        setSharedWith(prev =>
-            prev.includes(friendId)
-                ? prev.filter(id => id !== friendId)
-                : [...prev, friendId]
-        );
+        setSharedWith(prev => prev.includes(friendId) ? prev.filter(id => id !== friendId) : [...prev, friendId]);
     };
 
     const handleSave = async () => {
         setSaving(true);
-
-        // Get current shared list
         const currentShared = await FriendsService.getHabitSharedWith(habitId);
         const currentIds = currentShared.map(f => f.id);
-
-        // Unshare from removed friends
-        for (const id of currentIds) {
-            if (!sharedWith.includes(id)) {
-                await FriendsService.unshareHabit(habitId, id);
-            }
-        }
-
-        // Share with new friends
-        for (const id of sharedWith) {
-            if (!currentIds.includes(id)) {
-                await FriendsService.shareHabitWithFriend(habitId, id);
-            }
-        }
-
+        for (const id of currentIds) { if (!sharedWith.includes(id)) await FriendsService.unshareHabit(habitId, id); }
+        for (const id of sharedWith) { if (!currentIds.includes(id)) await FriendsService.shareHabitWithFriend(habitId, id); }
         successFeedback();
         setSaving(false);
-        onClose();
+        closeModal();
     };
 
+    const panGesture = Gesture.Pan()
+        .onUpdate((event) => { if (event.translationY > 0) translateY.value = event.translationY; })
+        .onEnd((event) => {
+            if (event.translationY > DRAG_THRESHOLD || event.velocityY > 500) runOnJS(closeModal)();
+            else translateY.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
+        });
+
+    const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+    const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(translateY.value, [0, SHEET_HEIGHT], [1, 0], Extrapolation.CLAMP) }));
+    const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
+
+    if (!isOpen && !visible) return null;
+
     return (
-        <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-            <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-                <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+        <Modal visible={isOpen || visible} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
+            <View style={styles.container}>
+                <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
+                    <TouchableOpacity style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }]} activeOpacity={1} onPress={closeModal} />
+                </Animated.View>
 
-                <Animated.View
-                    entering={SlideInDown.springify().damping(15)}
-                    exiting={SlideOutDown}
-                    style={styles.sheet}
-                >
-                    <LinearGradient colors={['#334155', '#0f172a']} style={StyleSheet.absoluteFill} />
-                    <View style={[StyleSheet.absoluteFill, { borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 32, pointerEvents: 'none' }]} />
+                <GestureDetector gesture={panGesture}>
+                    <Animated.View style={[styles.sheet, sheetStyle]}>
+                        <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
+                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
 
-                    <TouchableOpacity activeOpacity={1} onPress={e => e.stopPropagation()}>
-                        <View style={{ padding: 24 }}>
-                            {/* Handle */}
-                            <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-                            </View>
-
-                            {/* Title */}
-                            <Text style={[styles.title, { color: colors.textPrimary }]}>Share Habit</Text>
-                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 24, fontFamily: 'SpaceMono-Regular' }}>
-                                "{habitName}"
-                            </Text>
+                        <Animated.View style={[styles.content, contentStyle]}>
+                            <Text style={styles.title}>SHARE</Text>
+                            <Text style={[styles.subtitle, { color: '#3B82F6' }]} numberOfLines={1}>{habitName.toUpperCase()}</Text>
 
                             {loading ? (
-                                <ActivityIndicator color={colors.primary} style={{ marginVertical: 40 }} />
+                                <ActivityIndicator color={colors.primary} style={{ marginVertical: 30 }} />
                             ) : friends.length === 0 ? (
-                                <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                                    <Ionicons name="people-outline" size={48} color={colors.textTertiary} />
-                                    <Text style={{ color: colors.textSecondary, marginTop: 12 }}>No friends yet</Text>
-                                    <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 4 }}>
-                                        Add friends to share habits with them
-                                    </Text>
+                                <View style={styles.emptyState}>
+                                    <Ionicons name="people-outline" size={36} color="rgba(255,255,255,0.2)" />
+                                    <Text style={styles.emptyText}>No friends yet</Text>
                                 </View>
                             ) : (
-                                <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendsRow}>
                                     {friends.map(friend => {
                                         const isShared = sharedWith.includes(friend.id);
                                         return (
-                                            <TouchableOpacity
-                                                key={friend.id}
-                                                onPress={() => toggleShare(friend.id)}
-                                                style={[styles.friendRow, isShared && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
-                                            >
-                                                <View style={styles.avatar}>
-                                                    <Text style={{ fontSize: 14 }}>{friend.username[0]?.toUpperCase()}</Text>
+                                            <TouchableOpacity key={friend.id} onPress={() => toggleShare(friend.id)} style={[styles.friendChip, isShared && styles.friendChipActive]}>
+                                                <View style={[styles.avatar, isShared && { backgroundColor: '#3B82F6' }]}>
+                                                    <Text style={{ fontSize: 12, color: isShared ? '#fff' : colors.textSecondary, fontFamily: 'Lexend' }}>{friend.username[0]?.toUpperCase()}</Text>
                                                 </View>
-                                                <Text style={[styles.friendName, { color: colors.textPrimary }]}>{friend.username}</Text>
-                                                <Ionicons
-                                                    name={isShared ? 'checkmark-circle' : 'ellipse-outline'}
-                                                    size={24}
-                                                    color={isShared ? colors.primary : colors.textTertiary}
-                                                />
+                                                <Text style={[styles.friendName, { color: isShared ? '#3B82F6' : colors.textSecondary }]} numberOfLines={1}>{friend.username}</Text>
+                                                {isShared && <Ionicons name="checkmark" size={14} color="#3B82F6" />}
                                             </TouchableOpacity>
                                         );
                                     })}
                                 </ScrollView>
                             )}
 
-                            {/* Actions */}
-                            <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
-                                <TouchableOpacity
-                                    onPress={onClose}
-                                    style={[styles.button, { backgroundColor: 'rgba(255,255,255,0.1)' }]}
-                                >
-                                    <Text style={{ color: colors.textSecondary }}>Cancel</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={handleSave}
-                                    disabled={saving}
-                                    style={[styles.button, { backgroundColor: colors.primary, flex: 2, opacity: saving ? 0.6 : 1 }]}
-                                >
-                                    {saving ? (
-                                        <ActivityIndicator color="#fff" size="small" />
-                                    ) : (
-                                        <Text style={{ color: '#fff', fontWeight: '600' }}>Save</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={{ height: 20 }} />
-                        </View>
-                    </TouchableOpacity>
-                </Animated.View>
-            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.saveButton, { opacity: saving ? 0.6 : 1 }]}>
+                                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveText}>Save Changes</Text>}
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </Animated.View>
+                </GestureDetector>
+            </View>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-    },
-    sheet: {
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        overflow: 'hidden',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 4,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    friendRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-        backgroundColor: 'rgba(255,255,255,0.03)',
-    },
-    avatar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    friendName: {
-        flex: 1,
-        marginLeft: 12,
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    button: {
-        flex: 1,
-        paddingVertical: 14,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+    container: { flex: 1, justifyContent: 'flex-end' },
+    sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(59, 130, 246, 0.15)', pointerEvents: 'none' },
+    content: { flex: 1, paddingHorizontal: 24, paddingTop: 28, alignItems: 'center' },
+    title: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },
+    subtitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1, fontFamily: 'Lexend_400Regular', marginTop: 2, marginBottom: 24 },
+    emptyState: { alignItems: 'center', paddingVertical: 30 },
+    emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 8, fontFamily: 'Lexend_400Regular' },
+    friendsRow: { paddingVertical: 8, gap: 10 },
+    friendChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+    friendChipActive: { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: '#3B82F6' },
+    avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+    friendName: { fontSize: 13, fontWeight: '600', maxWidth: 80, fontFamily: 'Lexend' },
+    saveButton: { marginTop: 20, backgroundColor: '#3B82F6', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
+    saveText: { color: '#fff', fontSize: 14, fontWeight: '600', fontFamily: 'Lexend' },
 });

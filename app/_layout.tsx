@@ -24,7 +24,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function MobileLayout() {
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    'Lexend': Lexend_700Bold,
     Lexend_400Regular,
     Lexend_500Medium,
     Lexend_600SemiBold,

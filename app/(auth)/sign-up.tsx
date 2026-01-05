@@ -166,7 +166,7 @@ const SignUp = () => {
             {/* Divider */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
               <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'SpaceMono-Regular', marginHorizontal: 12 }}>OR</Text>
+              <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'Lexend_400Regular', marginHorizontal: 12 }}>OR</Text>
               <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
             </View>
 
@@ -182,9 +182,9 @@ const SignUp = () => {
 
             {/* Footer */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20 }}>
-              <Text style={{ color: colors.textSecondary, fontFamily: 'SpaceMono-Regular', fontSize: 12 }}>ALREADY HAVE AN ACCOUNT? </Text>
+              <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>ALREADY HAVE AN ACCOUNT? </Text>
               <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')}>
-                <Text style={{ color: colors.primary, fontFamily: 'SpaceMono-Regular', fontWeight: 'bold', fontSize: 12 }}>AUTHENTICATE</Text>
+                <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>AUTHENTICATE</Text>
               </TouchableOpacity>
             </View>
 
@@ -198,13 +198,13 @@ const SignUp = () => {
 const styles = StyleSheet.create({
   title: {
     fontSize: 32,
-    fontFamily: 'SpaceGrotesk-Bold',
+    fontFamily: 'Lexend',
     marginBottom: 4,
     textTransform: 'uppercase',
   },
   subtitle: {
     fontSize: 14,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 10,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     height: '100%',
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   button: {
     height: 56,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'black',
     fontSize: 14,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     fontWeight: 'bold',
     letterSpacing: 1,
   },
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   },
   googleButtonText: {
     fontSize: 12,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },

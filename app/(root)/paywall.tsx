@@ -1,23 +1,63 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, SafeAreaView, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, SafeAreaView, StyleSheet, StatusBar, ScrollView, Dimensions } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { AscensionBackground } from '@/components/Paywall/AscensionBackground';
-import { BenefitPrism } from '@/components/Paywall/BenefitPrism';
 import { StargateButton } from '@/components/Paywall/StargateButton';
+import { VoidCard } from '@/components/Layout/VoidCard';
+
+const { width } = Dimensions.get('window');
+
+const BENEFITS = [
+    {
+        id: 'ai',
+        icon: 'sparkles',
+        title: 'Cosmic Wisdom',
+        desc: 'Unlock specific AI personalities (Friendly, Dad Mode, Bully) and unlimited coaching chats.',
+        color: '#8B5CF6'
+    },
+    {
+        id: 'analytics',
+        icon: 'analytics',
+        title: 'Quantified Self',
+        desc: 'Access advanced heatmaps, trend predictions, and consistency scores.',
+        color: '#3B82F6'
+    },
+    {
+        id: 'void',
+        icon: 'infinite',
+        title: 'No Limits',
+        desc: 'Create infinite habits, goals, and customize your Void with unlimited categories.',
+        color: '#10B981'
+    },
+    {
+        id: 'sync',
+        icon: 'cloud-upload',
+        title: 'Universal Sync',
+        desc: 'Your data flows seamlessly across all your devices in real-time.',
+        color: '#F59E0B'
+    },
+    {
+        id: 'export',
+        icon: 'download',
+        title: 'Total Ownership',
+        desc: 'Export your entire history to CSV/JSON anytime. Your data is yours.',
+        color: '#EC4899'
+    }
+];
 
 export default function PaywallScreen() {
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
     const [loading, setLoading] = useState(false);
     const { restorePurchases } = usePremiumStatus();
 
-    // --- Stripe Logic (Kept from original) ---
-
+    // --- Stripe Logic ---
     const fetchPaymentSheetParams = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         const { data, error } = await supabase.functions.invoke('payment-sheet', {
@@ -52,10 +92,10 @@ export default function PaywallScreen() {
                     primary: '#8B5CF6',
                     background: '#0a0a0a',
                     componentBackground: '#1a1a1a',
-                    componentBorder: '#333',
-                    componentDivider: '#333',
-                    primaryText: '#fff',
-                    secondaryText: '#aaa',
+                    componentBorder: '#333333',
+                    componentDivider: '#333333',
+                    primaryText: '#ffffff',
+                    secondaryText: '#aaaaaa',
                 },
                 primaryButton: {
                     colors: {
@@ -117,40 +157,72 @@ export default function PaywallScreen() {
             <StatusBar barStyle="light-content" />
             <AscensionBackground />
 
-            {/* Close Button */}
-            <SafeAreaView style={styles.safeArea}>
+            {/* Close Button - Floated */}
+            <SafeAreaView style={styles.headerSafe}>
                 <TouchableOpacity
                     style={styles.closeBtn}
                     onPress={() => router.back()}
                     hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                 >
-                    <Ionicons name="close" size={28} color="white" />
+                    <Ionicons name="close" size={24} color="white" />
                 </TouchableOpacity>
+            </SafeAreaView>
 
-                <Animated.View entering={FadeIn.duration(800).delay(200)} style={styles.header}>
-                    <Ionicons name="planet" size={64} color="#8B5CF6" style={{ marginBottom: 16 }} />
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <Animated.View entering={FadeIn.duration(800)} style={styles.heroSection}>
+                    <View style={styles.iconRing}>
+                        <Ionicons name="planet" size={64} color="#8B5CF6" />
+                    </View>
                     <Text style={styles.title}>Ascend to Pro</Text>
-                    <Text style={styles.subtitle}>Unlock the full universe of features.</Text>
+                    <Text style={styles.subtitle}>Unlock the full universe of features and destroy your limits.</Text>
                 </Animated.View>
 
-                <View style={styles.spacer} />
+                <View style={styles.featuresContainer}>
+                    {BENEFITS.map((benefit, index) => (
+                        <Animated.View
+                            key={benefit.id}
+                            entering={FadeInDown.delay(index * 100 + 300).springify()}
+                        >
+                            <VoidCard glass style={styles.benefitCard}>
+                                <View style={[styles.iconBox, { backgroundColor: benefit.color + '20' }]}>
+                                    <Ionicons name={benefit.icon as any} size={24} color={benefit.color} />
+                                </View>
+                                <View style={styles.benefitTextContent}>
+                                    <Text style={styles.benefitTitle}>{benefit.title}</Text>
+                                    <Text style={styles.benefitDesc}>{benefit.desc}</Text>
+                                </View>
+                            </VoidCard>
+                        </Animated.View>
+                    ))}
+                </View>
 
-                <BenefitPrism />
+                {/* Social Proof / Trust */}
+                <View style={styles.trustSection}>
+                    <View style={styles.stars}>
+                        {[1, 2, 3, 4, 5].map(s => (
+                            <Ionicons key={s} name="star" size={16} color="#F59E0B" />
+                        ))}
+                    </View>
+                    <Text style={styles.trustText}>"The only habit tracker that actually works."</Text>
+                </View>
 
-                <View style={styles.spacer} />
+                <View style={{ height: 120 }} />
+            </ScrollView>
 
-                {/* Footer Actions */}
+            {/* Floating Bottom Bar */}
+            <BlurView intensity={20} tint="dark" style={styles.bottomBar}>
                 <StargateButton
                     onPress={handleSubscribe}
                     loading={loading}
                     price="$9.99"
                 />
-
                 <TouchableOpacity onPress={handleRestore} disabled={loading} style={styles.restoreBtn}>
                     <Text style={styles.restoreText}>Restore Purchase</Text>
                 </TouchableOpacity>
-
-            </SafeAreaView>
+            </BlurView>
         </View>
     );
 }
@@ -160,42 +232,120 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#000',
     },
-    safeArea: {
-        flex: 1,
+    headerSafe: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        alignItems: 'flex-end',
+        paddingHorizontal: 20,
     },
     closeBtn: {
-        position: 'absolute',
-        top: 50, // Approximate safe area
-        right: 24,
-        zIndex: 10,
+        width: 40,
+        height: 40,
         backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 20,
-        padding: 8,
-    },
-    header: {
         alignItems: 'center',
-        marginTop: 60,
-        marginBottom: 20,
+        justifyContent: 'center',
+        marginTop: 10, // Adjust for status bar
+    },
+    scrollContent: {
+        paddingTop: 100,
+        paddingBottom: 40,
+    },
+    heroSection: {
+        alignItems: 'center',
+        paddingHorizontal: 32,
+        marginBottom: 40,
+    },
+    iconRing: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(139, 92, 246, 0.3)',
     },
     title: {
         fontSize: 36,
-        fontWeight: '900',
         color: 'white',
         letterSpacing: 1,
         textAlign: 'center',
+        fontFamily: 'Lexend',
+        marginBottom: 12,
     },
     subtitle: {
         fontSize: 16,
         color: 'rgba(255,255,255,0.6)',
-        marginTop: 8,
         textAlign: 'center',
+        fontFamily: 'Lexend_400Regular',
+        lineHeight: 24,
     },
-    spacer: {
+    featuresContainer: {
+        paddingHorizontal: 20,
+        gap: 16,
+    },
+    benefitCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        gap: 16,
+        backgroundColor: 'rgba(20, 20, 30, 0.6)',
+    },
+    iconBox: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    benefitTextContent: {
         flex: 1,
+    },
+    benefitTitle: {
+        fontSize: 16,
+        color: 'white',
+        fontFamily: 'Lexend',
+        marginBottom: 4,
+    },
+    benefitDesc: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.6)',
+        fontFamily: 'Lexend_400Regular',
+        lineHeight: 18,
+    },
+    trustSection: {
+        marginTop: 40,
+        alignItems: 'center',
+        gap: 8,
+    },
+    stars: {
+        flexDirection: 'row',
+        gap: 4,
+    },
+    trustText: {
+        color: 'rgba(255,255,255,0.4)',
+        fontFamily: 'Lexend_400Regular',
+        fontStyle: 'italic',
+        fontSize: 14,
+    },
+    bottomBar: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingTop: 20,
+        paddingBottom: 40,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.1)',
     },
     restoreBtn: {
         alignItems: 'center',
-        paddingBottom: 20,
+        marginTop: 4,
     },
     restoreText: {
         color: 'rgba(255,255,255,0.4)',
@@ -203,5 +353,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textTransform: 'uppercase',
         letterSpacing: 1,
+        fontFamily: 'Lexend_400Regular',
     }
 });

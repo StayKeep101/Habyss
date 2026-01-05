@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, TextInput, Alert, ActivityIndicator, Image, Linking, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, TextInput, Alert, ActivityIndicator, Image, Linking, Platform, DeviceEventEmitter } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { StripeService } from '@/lib/stripeService';
+import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Conditionally require ImagePicker
@@ -42,7 +43,7 @@ export default function ProfileScreen() {
 
     // Profile picture state
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
-    const [isPremium, setIsPremium] = useState(false);
+    const { isPremium } = usePremiumStatus();
 
     // Load user profile
     useEffect(() => {
@@ -67,10 +68,6 @@ export default function ProfileScreen() {
                 // Load saved avatar
                 const savedAvatar = await AsyncStorage.getItem('profile_avatar');
                 if (savedAvatar) setAvatarUri(savedAvatar);
-
-                // Check premium status
-                const status = await StripeService.getSubscriptionStatus();
-                setIsPremium(status.premium);
             }
         };
         loadProfile();
@@ -128,7 +125,13 @@ export default function ProfileScreen() {
     };
 
     const handleChangeAvatar = async () => {
-        if (!ImagePicker) return Alert.alert("Feature Unavailable", "Rebuild required.");
+        if (!ImagePicker) {
+            Alert.alert(
+                "Feature Unavailable",
+                "Photo picker requires a development build. Run 'npx expo run:ios' or 'npx expo run:android' to enable this feature."
+            );
+            return;
+        }
 
         Alert.alert(
             "Change Profile Picture",
@@ -144,6 +147,9 @@ export default function ProfileScreen() {
                                 return;
                             }
 
+                            // Add delay to prevent crash
+                            await new Promise(resolve => setTimeout(resolve, 100));
+
                             const result = await ImagePicker.launchCameraAsync({
                                 allowsEditing: true,
                                 aspect: [1, 1],
@@ -156,9 +162,9 @@ export default function ProfileScreen() {
                                 await AsyncStorage.setItem('profile_avatar', uri);
                                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             }
-                        } catch (error) {
+                        } catch (error: any) {
                             console.error('Camera error:', error);
-                            Alert.alert('Error', 'Could not access camera. Please try again.');
+                            Alert.alert('Camera Error', error?.message || 'Could not access camera. If using Expo Go, please create a development build.');
                         }
                     }
                 },
@@ -172,8 +178,11 @@ export default function ProfileScreen() {
                                 return;
                             }
 
+                            // Add delay to prevent crash
+                            await new Promise(resolve => setTimeout(resolve, 100));
+
                             const result = await ImagePicker.launchImageLibraryAsync({
-                                mediaTypes: ['images'],
+                                mediaTypes: ImagePicker.MediaTypeOptions?.Images ?? 'images',
                                 allowsEditing: true,
                                 aspect: [1, 1],
                                 quality: 0.7,
@@ -185,9 +194,9 @@ export default function ProfileScreen() {
                                 await AsyncStorage.setItem('profile_avatar', uri);
                                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             }
-                        } catch (error) {
+                        } catch (error: any) {
                             console.error('Library error:', error);
-                            Alert.alert('Error', 'Could not access photo library. Please try again.');
+                            Alert.alert('Photo Library Error', error?.message || 'Could not access photo library. If using Expo Go, please create a development build.');
                         }
                     }
                 },
@@ -265,7 +274,7 @@ export default function ProfileScreen() {
                             {/* Premium gradient border */}
                             {isPremium && (
                                 <LinearGradient
-                                    colors={['#10B981', '#3B82F6', '#8B5CF6', '#10B981']}
+                                    colors={['#3B82F6', '#8B5CF6', '#EC4899']} // Standardized PRO_GRADIENT
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.premiumAvatarBorder}
@@ -293,7 +302,7 @@ export default function ProfileScreen() {
                             {/* PRO Badge */}
                             {isPremium && (
                                 <LinearGradient
-                                    colors={['#10B981', '#3B82F6']}
+                                    colors={['#3B82F6', '#8B5CF6', '#EC4899']}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.proBadge}
@@ -302,6 +311,42 @@ export default function ProfileScreen() {
                                 </LinearGradient>
                             )}
                         </TouchableOpacity>
+
+                        {/* Upgrade Button OR Manage Subscription */}
+                        {!isPremium ? (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    Haptics.selectionAsync();
+                                    router.push('/(root)/paywall');
+                                }}
+                                style={styles.upgradeBtnContainer}
+                            >
+                                <LinearGradient
+                                    colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.upgradeBtn}
+                                >
+                                    <Ionicons name="sparkles" size={16} color="white" />
+                                    <Text style={styles.upgradeText}>Upgrade to Pro</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    Haptics.selectionAsync();
+                                    Alert.alert("Manage Subscription", "Manage your subscription settings.");
+                                }}
+                                style={[styles.upgradeBtnContainer, { shadowOpacity: 0.1 }]}
+                            >
+                                <View
+                                    style={[styles.upgradeBtn, { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }]}
+                                >
+                                    <Ionicons name="card" size={16} color={colors.textSecondary} />
+                                    <Text style={[styles.upgradeText, { color: colors.textSecondary }]}>Manage Subscription</Text>
+                                </View>
+                            </TouchableOpacity>
+                        )}
 
                         {/* Username (Editable) */}
                         {isEditingUsername ? (
@@ -366,6 +411,19 @@ export default function ProfileScreen() {
                         </View>
                     </View>
 
+                    {/* Journey Section */}
+                    <VoidCard glass style={styles.groupCard}>
+                        <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>JOURNEY</Text>
+                        <MenuLink
+                            icon="trophy-outline"
+                            label="Hall of Fame"
+                            onPress={() => {
+                                if (hapticsEnabled) Haptics.selectionAsync();
+                                router.push('/(root)/accomplishments');
+                            }}
+                        />
+                    </VoidCard>
+
                     {/* Settings Groups */}
                     <VoidCard glass style={styles.groupCard}>
                         <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>PREFERENCES</Text>
@@ -393,7 +451,7 @@ export default function ProfileScreen() {
                                 </View>
                                 <View>
                                     <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>AI Personality</Text>
-                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceMono-Regular' }}>
+                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>
                                         {PERSONALITY_MODES.find(m => m.id === aiPersonality)?.name || 'Normal'}
                                     </Text>
                                 </View>
@@ -414,7 +472,7 @@ export default function ProfileScreen() {
                     {/* Feedback Section */}
                     <VoidCard style={styles.groupCard}>
                         <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>FEEDBACK</Text>
-                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16, fontFamily: 'SpaceMono-Regular' }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16, fontFamily: 'Lexend_400Regular' }}>
                             We'd love to hear from you! Help us make Habyss even better.
                         </Text>
                         <TouchableOpacity
@@ -431,7 +489,7 @@ export default function ProfileScreen() {
                             <Ionicons name="mail-outline" size={20} color={colors.primary} />
                             <View style={{ flex: 1 }}>
                                 <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '600' }}>Send Feedback</Text>
-                                <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceMono-Regular' }}>feedback@habyss.app</Text>
+                                <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>feedback@habyss.app</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
@@ -450,7 +508,7 @@ export default function ProfileScreen() {
                             <Ionicons name="bulb-outline" size={20} color="#F59E0B" />
                             <View style={{ flex: 1 }}>
                                 <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '600' }}>Request a Feature</Text>
-                                <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'SpaceMono-Regular' }}>Tell us what you want</Text>
+                                <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>Tell us what you want</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
@@ -459,7 +517,7 @@ export default function ProfileScreen() {
                     {/* Rating Section */}
                     <VoidCard style={styles.groupCard}>
                         <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>RATE US</Text>
-                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16, fontFamily: 'SpaceMono-Regular' }}>
+                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16, fontFamily: 'Lexend_400Regular' }}>
                             Enjoying Habyss? Leave a review!
                         </Text>
                         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
@@ -493,11 +551,41 @@ export default function ProfileScreen() {
                                 alignItems: 'center',
                             }}
                         >
-                            <Text style={{ color: '#000', fontWeight: '700', fontSize: 15, fontFamily: 'SpaceGrotesk-Bold' }}>
+                            <Text style={{ color: '#000', fontWeight: '700', fontSize: 15, fontFamily: 'Lexend' }}>
                                 Rate on {Platform.OS === 'ios' ? 'App Store' : 'Play Store'}
                             </Text>
                         </TouchableOpacity>
                     </VoidCard>
+
+                    {/* Developer Options (Only in Dev) */}
+                    {__DEV__ && (
+                        <VoidCard style={{ ...styles.groupCard, borderColor: '#F59E0B' }}>
+                            <Text style={[styles.groupTitle, { color: '#F59E0B' }]}>DEVELOPER ZONE</Text>
+                            <View style={styles.settingItem}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                                    <View style={[styles.iconBox, { borderColor: '#F59E0B' }]}>
+                                        <Ionicons name="construct" size={20} color="#F59E0B" />
+                                    </View>
+                                    <View>
+                                        <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Force Premium</Text>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 10 }}>Override payment status</Text>
+                                    </View>
+                                </View>
+                                <Switch
+                                    trackColor={{ false: '#3e3e3e', true: '#F59E0B' }}
+                                    thumbColor="#fff"
+                                    value={isPremium}
+                                    onValueChange={async (val) => {
+                                        if (hapticsEnabled) Haptics.selectionAsync();
+                                        await AsyncStorage.setItem('HABYSS_DEV_PREMIUM_OVERRIDE', val ? 'true' : 'false');
+
+                                        // Emit update for the rest of the app
+                                        DeviceEventEmitter.emit('dev_premium_update');
+                                    }}
+                                />
+                            </View>
+                        </VoidCard>
+                    )}
 
                     <View style={styles.footer}>
                         <Text style={[styles.quote, { color: colors.textSecondary }]}>"Descend into discipline"</Text>
@@ -522,7 +610,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         letterSpacing: 2,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     settingsButton: {
         width: 40,
@@ -566,12 +654,12 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 24,
         fontWeight: '700',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
         marginBottom: 4,
     },
     email: {
         fontSize: 14,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
         marginBottom: 16,
     },
     usernameEditContainer: {
@@ -591,7 +679,7 @@ const styles = StyleSheet.create({
     usernameInputText: {
         flex: 1,
         fontSize: 18,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     usernameButtons: {
         flexDirection: 'row',
@@ -622,7 +710,7 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: 'bold',
         letterSpacing: 1,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     groupCard: {
         padding: 16,
@@ -633,7 +721,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         letterSpacing: 1,
         marginBottom: 16,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     settingItem: {
         flexDirection: 'row',
@@ -665,12 +753,12 @@ const styles = StyleSheet.create({
     quote: {
         fontSize: 12,
         fontStyle: 'italic',
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     version: {
         fontSize: 10,
         marginTop: 8,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     premiumAvatarBorder: {
         position: 'absolute',
@@ -693,6 +781,28 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '900',
         color: '#fff',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
+    },
+    upgradeBtnContainer: {
+        marginTop: 16,
+        shadowColor: '#8B5CF6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    upgradeBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 20,
+        gap: 8,
+    },
+    upgradeText: {
+        color: 'white',
+        fontWeight: '700',
+        fontSize: 14,
+        fontFamily: 'Lexend',
     },
 });

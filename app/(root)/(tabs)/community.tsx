@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: '900',
         letterSpacing: -1,
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
     },
     headerSubtitle: {
         marginTop: 4,
@@ -432,14 +432,14 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         letterSpacing: 2,
         opacity: 0.8,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     sectionLabel: {
         fontSize: 10,
         fontWeight: '600',
         letterSpacing: 1,
         marginBottom: 12,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     searchContainer: {
         flexDirection: 'row',
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     searchInput: {
         flex: 1,
         fontSize: 14,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     searchResult: {
         flexDirection: 'row',
@@ -487,11 +487,11 @@ const styles = StyleSheet.create({
     username: {
         fontSize: 14,
         fontWeight: '600',
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     email: {
         fontSize: 11,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     addButton: {
         width: 36,
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     friendName: {
         fontSize: 16,
         fontWeight: '700',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
         marginBottom: 4,
     },
     statsRow: {
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     },
     statText: {
         fontSize: 11,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     progressDot: {
         width: 6,
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '700',
         letterSpacing: 1,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     emptyText: {
         fontSize: 16,
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
     emptySubtext: {
         fontSize: 12,
         marginTop: 4,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     leaderboardRow: {
         flexDirection: 'row',
@@ -579,11 +579,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         marginLeft: 12,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     leaderStreak: {
         fontSize: 14,
         marginLeft: 4,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
 });

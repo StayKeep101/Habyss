@@ -17,7 +17,7 @@ import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { GoalCreationWizard } from '@/components/GoalCreationWizard';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
-import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, Habit as StoreHabit } from '@/lib/habits';
+import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
@@ -38,6 +38,7 @@ interface Habit extends StoreHabit {
 }
 
 type FilterType = 'all' | 'goals_only' | 'habits_only';
+type SortType = 'default' | 'name' | 'progress';
 
 const CalendarScreen = () => {
     const router = useRouter();
@@ -50,11 +51,13 @@ const CalendarScreen = () => {
     const [habits, setHabits] = useState<Habit[]>([]);
     const [completions, setCompletions] = useState<Record<string, boolean>>({});
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const [goalProgress, setGoalProgress] = useState<Record<string, number>>({});
 
     // UI State
     const [isWizardVisible, setIsWizardVisible] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+    const [activeSort, setActiveSort] = useState<SortType>('default');
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
     const [shareModalVisible, setShareModalVisible] = useState(false);
@@ -119,6 +122,28 @@ const CalendarScreen = () => {
         }));
         setHabits(mapped);
     }, [habitsStore, completions]);
+
+    // Load strict goal progress
+    useEffect(() => {
+        const loadProgress = async () => {
+            const goals = habitsStore.filter(h => h.isGoal);
+            const progressMap: Record<string, number> = {};
+
+            await Promise.all(goals.map(async (g) => {
+                // Async calculate strict progress
+                const p = await calculateGoalProgress(g);
+                progressMap[g.id] = p;
+            }));
+
+            setGoalProgress(progressMap);
+        };
+
+        if (habitsStore.length > 0) {
+            InteractionManager.runAfterInteractions(() => {
+                loadProgress();
+            });
+        }
+    }, [habitsStore]);
 
     // Weekly Calcs - OPTIMIZED: only run on mount to prevent JS thread hammering
     useEffect(() => {
@@ -256,6 +281,15 @@ const CalendarScreen = () => {
     const isGoalFilter = activeFilter === 'goals_only';
     const isHabitFilter = activeFilter === 'habits_only';
 
+    // Sorting Logic
+    const sortedGoals = [...goals].sort((a, b) => {
+        if (activeSort === 'name') return a.name.localeCompare(b.name);
+        if (activeSort === 'progress') {
+            return (goalProgress[b.id] || 0) - (goalProgress[a.id] || 0);
+        }
+        return 0; // Default (Creation order usually)
+    });
+
     return (
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
@@ -317,19 +351,17 @@ const CalendarScreen = () => {
                             {/* GOALS SECTION */}
                             {!isHabitFilter && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
-                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'SpaceMono-Regular', letterSpacing: 2, marginBottom: 10 }}>
+                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2, marginBottom: 10 }}>
                                         GOALS
                                     </Text>
 
-                                    {goals.length > 0 ? (
-                                        goals.map(goal => {
+                                    {sortedGoals.length > 0 ? (
+                                        sortedGoals.map(goal => {
                                             const linkedHabits = habitsByGoal[goal.id] || [];
                                             const isExpanded = expandedGoals[goal.id];
 
-                                            // Progress Calculation
-                                            const linkedCount = linkedHabits.length;
-                                            const completedCount = linkedHabits.filter(h => h.completed).length;
-                                            const progress = linkedCount > 0 ? Math.round((completedCount / linkedCount) * 100) : 0;
+                                            // Progress Calculation - USE STRICT PROGRESS
+                                            const progress = goalProgress[goal.id] || 0;
 
                                             return (
                                                 <View key={goal.id} style={{ marginBottom: 16 }}>
@@ -346,18 +378,21 @@ const CalendarScreen = () => {
                                                             style={{
                                                                 position: 'absolute',
                                                                 right: 12,
-                                                                bottom: 12,
+                                                                top: 12, // Moved to top to avoid blocking progress
                                                                 zIndex: 10,
                                                                 backgroundColor: 'rgba(0,0,0,0.3)',
-                                                                padding: 6,
-                                                                borderRadius: 20,
+                                                                paddingHorizontal: 8,
+                                                                paddingVertical: 4,
+                                                                borderRadius: 12,
                                                                 flexDirection: 'row',
                                                                 alignItems: 'center',
-                                                                gap: 4
+                                                                gap: 4,
+                                                                borderWidth: 1,
+                                                                borderColor: 'rgba(255,255,255,0.05)'
                                                             }}
                                                         >
-                                                            <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>{linkedHabits.length}</Text>
-                                                            <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color="white" />
+                                                            <Text style={{ color: 'white', fontSize: 10, fontWeight: '700', fontFamily: 'Lexend' }}>{linkedHabits.length}</Text>
+                                                            <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={12} color="white" />
                                                         </TouchableOpacity>
                                                     </View>
 
@@ -378,7 +413,6 @@ const CalendarScreen = () => {
                                                                         onPress={() => handleHabitPress(habit)}
                                                                         onEdit={handleEdit}
                                                                         onDelete={handleDelete}
-                                                                        onFocus={handleHabitPress}
                                                                         onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
                                                                     />
                                                                 ))
@@ -394,7 +428,7 @@ const CalendarScreen = () => {
                                         })
                                     ) : (
                                         <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
-                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'SpaceMono-Regular' }}>NO ACTIVE GOALS</Text>
+                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Lexend_400Regular' }}>NO ACTIVE GOALS</Text>
                                         </VoidCard>
                                     )}
                                 </View>
@@ -418,96 +452,79 @@ const CalendarScreen = () => {
                             transparent
                             animationType="none"
                             onRequestClose={() => setShowFilter(false)}
+                            statusBarTranslucent
                         >
-                            <TouchableOpacity
-                                style={{ flex: 1, justifyContent: 'flex-end' }}
-                                activeOpacity={1}
-                                onPress={() => setShowFilter(false)}
-                            >
-                                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                                <TouchableOpacity
+                                    style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }]}
+                                    activeOpacity={1}
+                                    onPress={() => setShowFilter(false)}
+                                />
 
                                 <Animated.View
-                                    entering={SlideInDown.springify().damping(15)}
+                                    entering={SlideInDown.springify().damping(20).stiffness(300)}
                                     exiting={SlideOutDown}
                                     style={{
-                                        borderTopLeftRadius: 32,
-                                        borderTopRightRadius: 32,
+                                        height: 'auto', // Use auto height
+                                        minHeight: '50%',
+                                        maxHeight: '80%',
+                                        borderTopLeftRadius: 24,
+                                        borderTopRightRadius: 24,
                                         overflow: 'hidden',
-                                        width: '100%',
-                                        maxHeight: '45%',
-                                        backgroundColor: 'transparent',
-                                        paddingBottom: 40,
-                                        // Removed border from here, moving to overlay view
+                                        paddingBottom: 40 // Add padding at bottom
                                     }}>
+                                    <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
+                                    <View style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(139, 92, 246, 0.15)', pointerEvents: 'none' }]} />
 
-                                    {/* Glass Background */}
-                                    <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
-                                        <LinearGradient
-                                            colors={['rgba(30, 41, 59, 0.7)', 'rgba(15, 23, 42, 0.8)']}
-                                            style={StyleSheet.absoluteFill}
-                                        />
-                                    </BlurView>
+                                    <View style={{ padding: 24 }}>
+                                        <Text style={{ fontSize: 14, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend', textAlign: 'center', marginBottom: 4 }}>FILTER</Text>
+                                        <Text style={{ fontSize: 10, color: colors.primary, letterSpacing: 1.5, fontFamily: 'Lexend_400Regular', textAlign: 'center', marginBottom: 24 }}>VIEW OPTIONS</Text>
 
-                                    {/* Border & Gloss */}
-                                    <View style={[StyleSheet.absoluteFill, {
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255,255,255,0.1)',
-                                        borderTopWidth: 1,
-                                        borderTopColor: 'rgba(255,255,255,0.2)',
-                                        borderRadius: 32,
-                                        pointerEvents: 'none'
-                                    }]} />
+                                        <View style={{ gap: 10 }}>
+                                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 'bold', marginBottom: 4, marginTop: 4 }}>FILTER BY TYPE</Text>
+                                            <TouchableOpacity
+                                                onPress={() => { selectionFeedback(); setActiveFilter('all'); }}
+                                                style={[styles.filterOption, activeFilter === 'all' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                                            >
+                                                <Ionicons name="list" size={18} color={activeFilter === 'all' ? colors.primary : 'rgba(255,255,255,0.5)'} />
+                                                <Text style={[styles.filterText, activeFilter === 'all' && { color: colors.primary }]}>All Items</Text>
+                                            </TouchableOpacity>
 
-                                    <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
-                                        <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                                            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+                                            <TouchableOpacity
+                                                onPress={() => { selectionFeedback(); setActiveFilter('goals_only'); }}
+                                                style={[styles.filterOption, activeFilter === 'goals_only' && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                                            >
+                                                <Ionicons name="flag" size={18} color={activeFilter === 'goals_only' ? colors.primary : 'rgba(255,255,255,0.5)'} />
+                                                <Text style={[styles.filterText, activeFilter === 'goals_only' && { color: colors.primary }]}>Goals & Linked Habits</Text>
+                                            </TouchableOpacity>
+
+                                            {/* Independent Habits option removed as requested */}
+
+                                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 'bold', marginBottom: 4, marginTop: 16 }}>SORT BY</Text>
+                                            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                                                <TouchableOpacity
+                                                    onPress={() => { selectionFeedback(); setActiveSort('default'); }}
+                                                    style={[styles.sortChip, activeSort === 'default' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                                                >
+                                                    <Text style={[styles.sortText, activeSort === 'default' && { color: 'white' }]}>Default</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    onPress={() => { selectionFeedback(); setActiveSort('name'); }}
+                                                    style={[styles.sortChip, activeSort === 'name' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                                                >
+                                                    <Text style={[styles.sortText, activeSort === 'name' && { color: 'white' }]}>Name</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    onPress={() => { selectionFeedback(); setActiveSort('progress'); }}
+                                                    style={[styles.sortChip, activeSort === 'progress' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                                                >
+                                                    <Text style={[styles.sortText, activeSort === 'progress' && { color: 'white' }]}>Progress</Text>
+                                                </TouchableOpacity>
+                                            </View>
                                         </View>
-
-                                        <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, fontFamily: 'SpaceGrotesk-Bold', marginBottom: 24, textAlign: 'center' }}>
-                                            View Options
-                                        </Text>
-
-                                        <View style={{ gap: 12, marginBottom: 32 }}>
-                                            <TouchableOpacity
-                                                onPress={() => { selectionFeedback(); setActiveFilter('all'); setShowFilter(false); }}
-                                                style={[
-                                                    styles.filterOption,
-                                                    activeFilter === 'all' && { backgroundColor: colors.primary, borderColor: colors.primary }
-                                                ]}
-                                            >
-                                                <Ionicons name="list" size={20} color={activeFilter === 'all' ? 'white' : colors.textSecondary} />
-                                                <Text style={[styles.filterText, activeFilter === 'all' && { color: 'white' }]}>All Items</Text>
-                                            </TouchableOpacity>
-
-                                            <TouchableOpacity
-                                                onPress={() => { selectionFeedback(); setActiveFilter('goals_only'); setShowFilter(false); }}
-                                                style={[
-                                                    styles.filterOption,
-                                                    activeFilter === 'goals_only' && { backgroundColor: colors.primary, borderColor: colors.primary }
-                                                ]}
-                                            >
-                                                <Ionicons name="flag" size={20} color={activeFilter === 'goals_only' ? 'white' : colors.textSecondary} />
-                                                <Text style={[styles.filterText, activeFilter === 'goals_only' && { color: 'white' }]}>Goals & Linked Habits Only</Text>
-                                            </TouchableOpacity>
-
-                                            <TouchableOpacity
-                                                onPress={() => { selectionFeedback(); setActiveFilter('habits_only'); setShowFilter(false); }}
-                                                style={[
-                                                    styles.filterOption,
-                                                    activeFilter === 'habits_only' && { backgroundColor: colors.primary, borderColor: colors.primary }
-                                                ]}
-                                            >
-                                                <Ionicons name="layers" size={20} color={activeFilter === 'habits_only' ? 'white' : colors.textSecondary} />
-                                                <Text style={[styles.filterText, activeFilter === 'habits_only' && { color: 'white' }]}>Independent Habits Only</Text>
-                                            </TouchableOpacity>
-                                        </View>
-
-                                        <TouchableOpacity onPress={() => setShowFilter(false)} style={{ alignItems: 'center', paddingVertical: 12 }}>
-                                            <Text style={{ fontSize: 16, fontFamily: 'SpaceGrotesk-Bold', color: colors.textSecondary }}>Close</Text>
-                                        </TouchableOpacity>
                                     </View>
                                 </Animated.View>
-                            </TouchableOpacity>
+                            </View>
                         </Modal>
                     )}
                 </View>
@@ -541,7 +558,23 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: 'rgba(255,255,255,0.7)',
-        fontFamily: 'SpaceMono-Regular'
+        fontFamily: 'Lexend_400Regular'
+    },
+    sortChip: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+    sortText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: 'rgba(255,255,255,0.5)',
+        fontFamily: 'Lexend_400Regular'
     }
 });
 

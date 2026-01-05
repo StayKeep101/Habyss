@@ -218,12 +218,12 @@ const styles = StyleSheet.create({
     username: {
         fontSize: 24,
         fontWeight: '700',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
     },
     email: {
         fontSize: 14,
         marginTop: 4,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     statsGrid: {
         flexDirection: 'row',
@@ -245,11 +245,11 @@ const styles = StyleSheet.create({
     progressValue: {
         fontSize: 28,
         fontWeight: '800',
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'Lexend',
     },
     progressLabel: {
         fontSize: 10,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
         letterSpacing: 1,
     },
     statsColumn: {
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     },
     miniLabel: {
         fontSize: 9,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
         letterSpacing: 0.5,
         marginTop: 2,
     },
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 11,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
         letterSpacing: 1,
         marginBottom: 12,
     },
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     },
     dayLabel: {
         fontSize: 10,
-        fontFamily: 'SpaceMono-Regular',
+        fontFamily: 'Lexend_400Regular',
     },
     actions: {
         flexDirection: 'row',

@@ -19,8 +19,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
-    withSpring,
     withTiming,
+    withDelay,
+    Easing,
     runOnJS,
     interpolate,
     Extrapolation,
@@ -34,9 +35,9 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { addHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit } from '@/lib/habits';
 
 const { width, height } = Dimensions.get('window');
-const SHEET_HEIGHT = height * 0.85;
-const DRAG_THRESHOLD = 100;
-const BOTTOM_PADDING = 150;
+const SHEET_HEIGHT = height; // Full screen
+const DRAG_THRESHOLD = 120;
+const BOTTOM_PADDING = 100;
 
 const ICONS = [
     'fitness', 'book', 'water', 'bed', 'cafe', 'walk', 'bicycle', 'barbell',
@@ -127,7 +128,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [useFreeTime, setUseFreeTime] = useState(false);
     const [habitStartDate, setHabitStartDate] = useState(new Date());
     const [saving, setSaving] = useState(false);
-    
+
     // New fields
     const [reminderEnabled, setReminderEnabled] = useState(true);
     const [reminderTime, setReminderTime] = useState(new Date());
@@ -178,19 +179,19 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
     const openModal = useCallback(() => {
         setIsOpen(true);
-        translateY.value = withSpring(0, { damping: 15, stiffness: 150 });
+        translateY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
         backdropOpacity.value = withTiming(1, { duration: 300 });
     }, []);
 
     const closeModal = useCallback(() => {
-        translateY.value = withSpring(SHEET_HEIGHT, { damping: 20, stiffness: 300 });
-        backdropOpacity.value = withTiming(0, { duration: 200 });
+        translateY.value = withTiming(SHEET_HEIGHT, { duration: 350, easing: Easing.in(Easing.cubic) });
+        backdropOpacity.value = withTiming(0, { duration: 250 });
         setTimeout(() => {
             setIsOpen(false);
             setIsVisible(false);
             if (propOnClose) propOnClose();
             resetForm();
-        }, 300);
+        }, 350);
     }, [propOnClose]);
 
     useEffect(() => {
@@ -285,7 +286,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             if (event.translationY > DRAG_THRESHOLD || event.velocityY > 500) {
                 runOnJS(closeModal)();
             } else {
-                translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
+                translateY.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
             }
         });
 
@@ -307,25 +308,27 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         <Modal visible={isOpen || isVisible} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
             <View style={styles.container}>
                 <Animated.View style={[StyleSheet.absoluteFill, backdropAnimatedStyle]}>
-                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+                    <TouchableOpacity style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }]} activeOpacity={1} onPress={closeModal} />
                 </Animated.View>
-                <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeModal} />
-                
+
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
-                        <LinearGradient colors={['#1a1f2e', '#0a0d14']} style={[StyleSheet.absoluteFill, { height: SHEET_HEIGHT + BOTTOM_PADDING }]} />
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder, { height: SHEET_HEIGHT + BOTTOM_PADDING }]} />
+                        <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
+                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
 
-                        <Animated.View style={[styles.handleContainer, handleIndicatorStyle]}>
+                        <View style={styles.handleContainer}>
                             <View style={styles.handle} />
-                        </Animated.View>
+                        </View>
 
                         {/* Header */}
                         <View style={styles.header}>
                             <TouchableOpacity onPress={closeModal} style={styles.closeBtn}>
-                                <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
+                                <Ionicons name="arrow-back" size={22} color="rgba(255,255,255,0.8)" />
                             </TouchableOpacity>
-                            <Text style={styles.headerTitle}>New Habit</Text>
+                            <View style={{ flex: 1, marginLeft: 16 }}>
+                                <Text style={styles.headerTitle}>NEW HABIT</Text>
+                                <Text style={[styles.headerSubtitle, { color: linkedGoal?.color || '#10B981' }]}>{linkedGoal ? linkedGoal.name.toUpperCase() : 'DAILY ROUTINE'}</Text>
+                            </View>
                             <View style={{ width: 40 }} />
                         </View>
 
@@ -343,8 +346,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                         value={title}
                                         onChangeText={setTitle}
                                     />
-                                    <TouchableOpacity onPress={() => { selectionFeedback(); setShowColorPicker(true); }} style={[styles.colorBtn, { backgroundColor: selectedColor }]}>
-                                        <Ionicons name="color-palette" size={16} color="white" />
+                                    <TouchableOpacity onPress={() => { selectionFeedback(); setShowColorPicker(true); }} style={[styles.milicolorBtn, { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}>
+                                        <View style={[styles.milicolorDot, { backgroundColor: selectedColor }]} />
+                                        <Text style={[styles.milicolorText, { color: selectedColor }]}>milicolor</Text>
                                     </TouchableOpacity>
                                 </View>
 
@@ -551,13 +555,25 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                             <Text style={styles.pickerTitle}>Set Time Frame</Text>
                             <View style={styles.timePickerRow}>
                                 <View style={styles.timePickerColumn}>
-                                    <Text style={styles.timePickerLabel}>Start</Text>
-                                    <DateTimePicker value={startTime} mode="time" display="spinner" onChange={(_, d) => d && setStartTime(d)} textColor="#fff" style={{ height: 150 }} />
+                                    <View style={styles.timePickerLabelContainer}>
+                                        <Ionicons name="time-outline" size={16} color="#10B981" />
+                                        <Text style={styles.timePickerLabel}>Start</Text>
+                                    </View>
+                                    <View style={styles.timePickerWrapper}>
+                                        <DateTimePicker value={startTime} mode="time" display="spinner" onChange={(_, d) => d && setStartTime(d)} textColor="#fff" style={{ height: 180, width: 140 }} />
+                                    </View>
                                 </View>
-                                <View style={styles.timePickerDivider} />
+                                <View style={styles.timePickerDivider}>
+                                    <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.3)" />
+                                </View>
                                 <View style={styles.timePickerColumn}>
-                                    <Text style={styles.timePickerLabel}>End</Text>
-                                    <DateTimePicker value={endTime} mode="time" display="spinner" onChange={(_, d) => d && setEndTime(d)} textColor="#fff" style={{ height: 150 }} />
+                                    <View style={styles.timePickerLabelContainer}>
+                                        <Ionicons name="time-outline" size={16} color="#EF4444" />
+                                        <Text style={styles.timePickerLabel}>End</Text>
+                                    </View>
+                                    <View style={styles.timePickerWrapper}>
+                                        <DateTimePicker value={endTime} mode="time" display="spinner" onChange={(_, d) => d && setEndTime(d)} textColor="#fff" style={{ height: 180, width: 140 }} />
+                                    </View>
                                 </View>
                             </View>
                             <TouchableOpacity onPress={() => setShowTimePicker(false)} style={[styles.doneBtn, { backgroundColor: selectedColor }]}>
@@ -609,7 +625,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                         <View style={styles.bottomModal}>
                             <View style={styles.pickerHandle} />
                             <Text style={styles.pickerTitle}>Set Measurement</Text>
-                            
+
                             {/* Number controls */}
                             <View style={styles.measurementControls}>
                                 <TouchableOpacity onPress={() => { selectionFeedback(); setMeasurementValue(Math.max(1, measurementValue - 1)); }} style={styles.measurementControlBtn}>
@@ -674,13 +690,14 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
-    sheet: { height: SHEET_HEIGHT + BOTTOM_PADDING, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
-    sheetBorder: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(139, 92, 246, 0.3)', pointerEvents: 'none' },
+    sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(16, 185, 129, 0.15)', pointerEvents: 'none' },
     handleContainer: { alignItems: 'center', paddingTop: 12, paddingBottom: 4 },
     handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-    closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },
+    headerSubtitle: { fontSize: 9, fontWeight: '600', letterSpacing: 1.5, fontFamily: 'Lexend_400Regular', marginTop: 1 },
     content: { flex: 1, padding: 20 },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 24 },
     iconBtn: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
@@ -700,22 +717,27 @@ const styles = StyleSheet.create({
     dateBox: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     fabContainer: { position: 'absolute', bottom: 30, right: 20, zIndex: 100 },
     fabBtn: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+    overlay: { flex: 1, backgroundColor: '#0a0d14', justifyContent: 'flex-end' },
     pickerModal: { width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, backgroundColor: '#1a1f2e' },
     pickerHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)', alignSelf: 'center', marginBottom: 16 },
     pickerTitle: { fontSize: 18, fontWeight: '700', marginBottom: 20, textAlign: 'center', color: '#fff' },
     iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
     iconOption: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
     bottomModalContainer: { flex: 1, justifyContent: 'flex-end' },
-    bottomModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
-    bottomModal: { backgroundColor: '#1a1f2e', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40 },
+    bottomModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)' },
+    bottomModal: { backgroundColor: '#0f1218', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.05)' },
     colorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
     colorOption: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, borderColor: 'transparent' },
     colorSelected: { borderColor: '#fff' },
-    timePickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-    timePickerColumn: { flex: 1, alignItems: 'center' },
-    timePickerDivider: { width: 1, height: 100, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 10 },
-    timePickerLabel: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.5)', marginBottom: 8 },
+    timePickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingHorizontal: 10 },
+    timePickerColumn: { flex: 1, alignItems: 'center', maxWidth: 160 },
+    timePickerDivider: { width: 40, alignItems: 'center', justifyContent: 'center' },
+    timePickerLabel: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginLeft: 6 },
+    timePickerLabelContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    timePickerWrapper: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    milicolorBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
+    milicolorDot: { width: 12, height: 12, borderRadius: 6, marginRight: 6 },
+    milicolorText: { fontSize: 12, fontWeight: '600' },
     doneBtn: { paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
     listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, marginBottom: 8, gap: 12 },
     listItemText: { flex: 1, fontSize: 15, fontWeight: '500' },

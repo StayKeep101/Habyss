@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    fontFamily: 'SpaceGrotesk-Bold',
+    fontFamily: 'Lexend',
     letterSpacing: 1,
   },
   headerGlow: {
@@ -247,13 +247,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#fff',
     letterSpacing: 3,
-    fontFamily: 'SpaceGrotesk-Bold',
+    fontFamily: 'Lexend',
     marginBottom: 4,
   },
   heroSubtitle: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)',
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   section: {
     marginBottom: 24,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 12,
     marginLeft: 4,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   sectionCard: {
     padding: 0,
@@ -295,12 +295,12 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 15,
     fontWeight: '600',
-    fontFamily: 'SpaceGrotesk-Bold',
+    fontFamily: 'Lexend',
   },
   itemSubtitle: {
     fontSize: 12,
     marginTop: 2,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   comingSoonBadge: {
     marginLeft: 8,
@@ -327,12 +327,12 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     fontStyle: 'italic',
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
   versionText: {
     fontSize: 10,
     marginTop: 8,
-    fontFamily: 'SpaceMono-Regular',
+    fontFamily: 'Lexend_400Regular',
   },
 });
 

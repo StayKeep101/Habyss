@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, Dimensions, Alert } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
-    withSpring,
     withTiming,
+    withDelay,
+    Easing,
     runOnJS,
     interpolate,
     Extrapolation,
@@ -18,11 +18,11 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { NotificationService, InAppNotification } from '@/lib/notificationService';
+import { VoidCard } from '@/components/Layout/VoidCard';
 
 const { height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.75;
 const DRAG_THRESHOLD = 100;
-const BOTTOM_PADDING = 100;
 
 interface NotificationsModalProps {
     visible: boolean;
@@ -40,20 +40,20 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
 
     const translateY = useSharedValue(SHEET_HEIGHT);
     const backdropOpacity = useSharedValue(0);
+    const contentOpacity = useSharedValue(0);
 
     const openModal = useCallback(() => {
         setIsOpen(true);
-        translateY.value = withSpring(0, { damping: 15, stiffness: 150 });
+        translateY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
         backdropOpacity.value = withTiming(1, { duration: 300 });
+        contentOpacity.value = withDelay(200, withTiming(1, { duration: 400 }));
     }, []);
 
     const closeModal = useCallback(() => {
-        translateY.value = withSpring(SHEET_HEIGHT, { damping: 20, stiffness: 300 });
-        backdropOpacity.value = withTiming(0, { duration: 200 });
-        setTimeout(() => {
-            setIsOpen(false);
-            onClose();
-        }, 300);
+        contentOpacity.value = withTiming(0, { duration: 150 });
+        translateY.value = withTiming(SHEET_HEIGHT, { duration: 300, easing: Easing.in(Easing.cubic) });
+        backdropOpacity.value = withTiming(0, { duration: 250 });
+        setTimeout(() => { setIsOpen(false); onClose(); }, 300);
     }, [onClose]);
 
     useEffect(() => {
@@ -123,75 +123,79 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
         .onUpdate((event) => { if (event.translationY > 0) translateY.value = event.translationY; })
         .onEnd((event) => {
             if (event.translationY > DRAG_THRESHOLD || event.velocityY > 500) runOnJS(closeModal)();
-            else translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
+            else translateY.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
         });
 
-    const sheetAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
-    const backdropAnimatedStyle = useAnimatedStyle(() => ({ opacity: interpolate(translateY.value, [0, SHEET_HEIGHT], [1, 0], Extrapolation.CLAMP) }));
-    const handleIndicatorStyle = useAnimatedStyle(() => ({ opacity: interpolate(translateY.value, [0, 50], [1, 0.5], Extrapolation.CLAMP) }));
+    const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+    const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(translateY.value, [0, SHEET_HEIGHT], [1, 0], Extrapolation.CLAMP) }));
+    const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
 
     if (!isOpen && !visible) return null;
 
     return (
         <Modal visible={isOpen || visible} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
             <View style={styles.container}>
-                <Animated.View style={[StyleSheet.absoluteFill, backdropAnimatedStyle]}>
-                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+                <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
+                    <TouchableOpacity style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }]} activeOpacity={1} onPress={closeModal} />
                 </Animated.View>
-                <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeModal} />
-                <GestureDetector gesture={panGesture}>
-                    <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
-                        <LinearGradient colors={['#1a1f2e', '#0a0d14']} style={[StyleSheet.absoluteFill, { height: SHEET_HEIGHT + BOTTOM_PADDING }]} />
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder, { height: SHEET_HEIGHT + BOTTOM_PADDING }]} />
 
-                        <Animated.View style={[styles.handleContainer, handleIndicatorStyle]}>
-                            <View style={styles.handle} />
-                        </Animated.View>
+                <GestureDetector gesture={panGesture}>
+                    <Animated.View style={[styles.sheet, sheetStyle]}>
+                        <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
+                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
 
                         <View style={styles.header}>
-                            <View>
-                                <Text style={styles.headerTitle}>Notifications</Text>
-                                {unreadCount > 0 && <Text style={styles.headerSubtitle}>{unreadCount} unread</Text>}
+                            <TouchableOpacity onPress={closeModal} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}>
+                                <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+                            </TouchableOpacity>
+                            <View style={{ flex: 1, marginLeft: 16 }}>
+                                <Text style={styles.title}>NOTIFICATIONS</Text>
+                                <Text style={[styles.subtitle, { color: '#2DD4BF' }]}>{unreadCount > 0 ? `${unreadCount} UNREAD` : 'ALL CAUGHT UP'}</Text>
                             </View>
+                            {unreadCount > 0 && (
+                                <TouchableOpacity onPress={handleMarkAllRead} style={[styles.iconButton, { backgroundColor: 'rgba(45, 212, 191, 0.2)' }]}>
+                                    <Ionicons name="checkmark-done" size={20} color="#2DD4BF" />
+                                </TouchableOpacity>
+                            )}
                         </View>
 
-                        <ScrollView style={styles.listContainer} contentContainerStyle={{ paddingBottom: BOTTOM_PADDING }} showsVerticalScrollIndicator={false}>
-                            {notifications.length === 0 ? (
-                                <View style={styles.emptyState}>
-                                    <Ionicons name="notifications-off-outline" size={48} color="rgba(255,255,255,0.2)" />
-                                    <Text style={styles.emptyText}>No notifications</Text>
-                                    <Text style={styles.emptySubtext}>You're all caught up!</Text>
-                                </View>
-                            ) : (
-                                notifications.map((notification, index) => (
-                                    <Animated.View key={notification.id} entering={FadeInDown.delay(index * 50).duration(300)}>
-                                        <TouchableOpacity onPress={() => handleNotificationPress(notification.id)} style={[styles.notificationItem, !notification.read && styles.unreadItem]}>
-                                            <View style={[styles.iconContainer, { backgroundColor: getTypeColor(notification.type) + '20' }]}>
-                                                <Ionicons name={notification.icon as any} size={20} color={getTypeColor(notification.type)} />
-                                            </View>
-                                            <View style={styles.contentContainer}>
-                                                <View style={styles.titleRow}>
-                                                    <Text style={styles.notificationTitle}>{notification.title}</Text>
-                                                    {!notification.read && <View style={styles.unreadDot} />}
-                                                </View>
-                                                <Text style={styles.notificationMessage}>{notification.message}</Text>
-                                                <Text style={styles.notificationTime}>{formatTimeAgo(notification.timestamp)}</Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                ))
-                            )}
+                        <ScrollView style={styles.listContainer} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                            <Animated.View style={contentStyle}>
+                                {notifications.length === 0 ? (
+                                    <VoidCard glass style={styles.emptyCard}>
+                                        <Ionicons name="notifications-off-outline" size={40} color="rgba(255,255,255,0.2)" />
+                                        <Text style={styles.emptyText}>No notifications</Text>
+                                        <Text style={styles.emptySubtext}>You're all caught up!</Text>
+                                    </VoidCard>
+                                ) : (
+                                    notifications.map((notification, index) => (
+                                        <Animated.View key={notification.id} entering={FadeInDown.delay(index * 30).duration(300)}>
+                                            <TouchableOpacity onPress={() => handleNotificationPress(notification.id)}>
+                                                <VoidCard glass style={{ ...styles.notificationItem, ...(!notification.read ? styles.unreadItem : {}) }}>
+                                                    <View style={[styles.notifIconContainer, { backgroundColor: getTypeColor(notification.type) + '20' }]}>
+                                                        <Ionicons name={notification.icon as any} size={20} color={getTypeColor(notification.type)} />
+                                                    </View>
+                                                    <View style={styles.notifContent}>
+                                                        <View style={styles.titleRow}>
+                                                            <Text style={styles.notificationTitle}>{notification.title}</Text>
+                                                            {!notification.read && <View style={styles.unreadDot} />}
+                                                        </View>
+                                                        <Text style={styles.notificationMessage} numberOfLines={2}>{notification.message}</Text>
+                                                        <Text style={styles.notificationTime}>{formatTimeAgo(notification.timestamp)}</Text>
+                                                    </View>
+                                                </VoidCard>
+                                            </TouchableOpacity>
+                                        </Animated.View>
+                                    ))
+                                )}
+                            </Animated.View>
                         </ScrollView>
 
                         {notifications.length > 0 && (
                             <View style={styles.actionsRow}>
-                                <TouchableOpacity style={[styles.actionButton, unreadCount === 0 && styles.actionDisabled]} onPress={handleMarkAllRead} disabled={unreadCount === 0}>
-                                    <Ionicons name="checkmark-done" size={16} color={unreadCount > 0 ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.2)'} style={{ marginRight: 6 }} />
-                                    <Text style={[styles.actionText, unreadCount === 0 && { color: 'rgba(255,255,255,0.2)' }]}>Mark all read</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.actionButton, styles.actionButtonDanger]} onPress={handleClearAll}>
-                                    <Ionicons name="trash-outline" size={16} color="#EF4444" style={{ marginRight: 6 }} />
-                                    <Text style={styles.actionTextDanger}>Clear All</Text>
+                                <TouchableOpacity style={styles.clearButton} onPress={handleClearAll}>
+                                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                                    <Text style={styles.clearText}>Clear All</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -204,30 +208,27 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
 
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
-    sheet: { height: SHEET_HEIGHT + BOTTOM_PADDING, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
-    sheetBorder: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(139, 92, 246, 0.3)', pointerEvents: 'none' },
-    handleContainer: { alignItems: 'center', paddingTop: 12, paddingBottom: 8 },
-    handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
-    header: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-    headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', letterSpacing: -0.5, textAlign: 'center' },
-    headerSubtitle: { fontSize: 12, color: '#2DD4BF', marginTop: 2, textAlign: 'center' },
+    sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(45, 212, 191, 0.15)', pointerEvents: 'none' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    title: { fontSize: 18, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },
+    subtitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1.5, fontFamily: 'Lexend_400Regular', marginTop: 2 },
     listContainer: { flex: 1 },
-    emptyState: { alignItems: 'center', paddingVertical: 60 },
+    scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
+    emptyCard: { alignItems: 'center', padding: 40 },
     emptyText: { fontSize: 16, fontWeight: '600', color: 'rgba(255,255,255,0.4)', marginTop: 12 },
     emptySubtext: { fontSize: 12, color: 'rgba(255,255,255,0.2)', marginTop: 4 },
-    notificationItem: { flexDirection: 'row', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)' },
-    unreadItem: { backgroundColor: 'rgba(255,255,255,0.02)' },
-    iconContainer: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-    contentContainer: { flex: 1 },
+    notificationItem: { flexDirection: 'row', padding: 14, marginBottom: 8 },
+    unreadItem: { borderLeftWidth: 3, borderLeftColor: '#2DD4BF' },
+    notifIconContainer: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    notifContent: { flex: 1 },
     titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
     notificationTitle: { fontSize: 14, fontWeight: '600', color: '#fff' },
     unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#2DD4BF', marginLeft: 8 },
-    notificationMessage: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 4 },
-    notificationTime: { fontSize: 11, color: 'rgba(255,255,255,0.3)' },
-    actionsRow: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 16, gap: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-    actionButton: { flex: 1, flexDirection: 'row', paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
-    actionDisabled: { opacity: 0.5 },
-    actionButtonDanger: { backgroundColor: 'rgba(239, 68, 68, 0.1)' },
-    actionText: { color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '600' },
-    actionTextDanger: { color: '#EF4444', fontSize: 13, fontWeight: '600' },
+    notificationMessage: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 4 },
+    notificationTime: { fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: 'Lexend_400Regular' },
+    actionsRow: { paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
+    clearButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', gap: 8 },
+    clearText: { color: '#EF4444', fontSize: 13, fontWeight: '600' },
 });

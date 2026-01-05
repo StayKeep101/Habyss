@@ -28,6 +28,20 @@ const BENEFITS = [
         title: 'Unlimited Potential',
         desc: 'Infinite habits, goals, and categories.',
         color: '#10B981'
+    },
+    {
+        id: 'sync',
+        icon: 'cloud-upload',
+        title: 'Universal Sync',
+        desc: 'Seamlessly sync across all your devices.',
+        color: '#F59E0B'
+    },
+    {
+        id: 'export',
+        icon: 'download',
+        title: 'Data Sovereignty',
+        desc: 'Export your data anytime. You own your story.',
+        color: '#EC4899'
     }
 ];
 
@@ -93,7 +107,7 @@ const styles = StyleSheet.create({
     title: {
         color: '#fff',
         fontSize: 18,
-        fontWeight: '700',
+        fontFamily: 'Lexend',
         marginBottom: 4,
         letterSpacing: 0.5,
     },
@@ -101,5 +115,6 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)',
         fontSize: 14,
         lineHeight: 20,
+        fontFamily: 'Lexend_400Regular',
     },
 });
