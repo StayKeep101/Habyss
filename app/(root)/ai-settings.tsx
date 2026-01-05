@@ -102,10 +102,10 @@ const AISettings = () => {
                                 activeOpacity={0.8}
                             >
                                 <VoidCard
-                                    style={[
-                                        styles.personalityCard,
-                                        isSelected && { borderColor: '#10B981', borderWidth: 2 }
-                                    ]}
+                                    style={{
+                                        ...styles.personalityCard,
+                                        ...(isSelected && { borderColor: '#10B981', borderWidth: 2 })
+                                    }}
                                 >
                                     <View style={styles.cardHeader}>
                                         <View style={styles.cardTitleRow}>

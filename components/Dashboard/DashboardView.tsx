@@ -18,18 +18,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
 
     return (
         <View className="flex-1">
-            <HeroStats 
+            <HeroStats
                 currentStreak={data.currentStreak}
                 percentAboveBest={data.percentAboveBest}
-                goalsProgress={data.goalsProgress}
-                weeklyCompletionRate={data.weeklyCompletionRate}
+                habitScore={data.habitScore || 0}
+                consistencyScore={data.consistencyScore || 0}
                 weeklyData={data.weeklyData}
             />
-            
+
             <GoalsList goals={data.goals} />
-            
+
             <HabitHeatmap habits={data.goals.flatMap(g => g.habits)} />
-            
+
             <WeeklyTrends />
         </View>
     );

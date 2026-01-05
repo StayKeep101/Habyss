@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -11,25 +11,28 @@ import {
     Platform,
     KeyboardAvoidingView,
     DeviceEventEmitter,
+    Alert,
+    Pressable,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, SlideInDown, SlideOutDown, useSharedValue, useAnimatedStyle, withSpring, runOnJS, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, SlideInUp, SlideOutDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { addHabit, HabitCategory, subscribeToHabits, Habit } from '@/lib/habits';
+import { addHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit } from '@/lib/habits';
 
 const { width, height } = Dimensions.get('window');
 
 const ICONS = [
     'fitness', 'book', 'water', 'bed', 'cafe', 'walk', 'bicycle', 'barbell',
     'heart', 'musical-notes', 'brush', 'code-slash', 'language', 'leaf',
-    'moon', 'sunny', 'flash', 'rocket', 'bulb', 'star'
+    'moon', 'sunny', 'flash', 'rocket', 'bulb', 'star', 'trophy', 'medkit',
+    'pizza', 'wine', 'game-controller', 'headset', 'camera', 'airplane'
 ];
 
 const COLORS = [
@@ -39,17 +42,26 @@ const COLORS = [
 
 const CATEGORIES: { id: HabitCategory; label: string; icon: string }[] = [
     { id: 'health', label: 'Health', icon: 'heart' },
+    { id: 'fitness', label: 'Fitness', icon: 'barbell' },
     { id: 'productivity', label: 'Productivity', icon: 'rocket' },
     { id: 'mindfulness', label: 'Mindfulness', icon: 'leaf' },
-    { id: 'fitness', label: 'Fitness', icon: 'barbell' },
     { id: 'learning', label: 'Learning', icon: 'book' },
     { id: 'creativity', label: 'Creativity', icon: 'brush' },
     { id: 'social', label: 'Social', icon: 'people' },
     { id: 'personal', label: 'Personal', icon: 'person' },
 ];
 
+const WEEKDAYS = [
+    { id: 'mon', label: 'Mon' },
+    { id: 'tue', label: 'Tue' },
+    { id: 'wed', label: 'Wed' },
+    { id: 'thu', label: 'Thu' },
+    { id: 'fri', label: 'Fri' },
+    { id: 'sat', label: 'Sat' },
+    { id: 'sun', label: 'Sun' },
+];
+
 interface HabitCreationModalProps {
-    // Optional props for direct control, but can be self-managed
     visible?: boolean;
     onClose?: () => void;
     onSuccess?: () => void;
@@ -66,10 +78,31 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const colors = Colors[theme];
     const { mediumFeedback, selectionFeedback, successFeedback } = useHaptics();
 
-    // Internal state handling
+    // Modal visibility
     const [isVisible, setIsVisible] = useState(false);
-    const [goalId, setGoalId] = useState<string | undefined>(propGoalId);
     const [availableGoals, setAvailableGoals] = useState<Habit[]>([]);
+
+    // Form state
+    const [title, setTitle] = useState('');
+    const [selectedIcon, setSelectedIcon] = useState('fitness');
+    const [selectedColor, setSelectedColor] = useState('#10B981');
+    const [category, setCategory] = useState<HabitCategory>('personal');
+    const [goalId, setGoalId] = useState<string | undefined>(propGoalId);
+    const [frequency, setFrequency] = useState<HabitFrequency>('daily');
+    const [selectedDays, setSelectedDays] = useState<string[]>(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+    const [startTime, setStartTime] = useState(new Date());
+    const [endTime, setEndTime] = useState(new Date(Date.now() + 30 * 60 * 1000));
+    const [useFreeTime, setUseFreeTime] = useState(false);
+    const [habitStartDate, setHabitStartDate] = useState(new Date());
+    const [saving, setSaving] = useState(false);
+
+    // Sub-modals
+    const [showIconPicker, setShowIconPicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
+    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+
+    // Linked goal data
+    const linkedGoal = useMemo(() => availableGoals.find(g => g.id === goalId), [availableGoals, goalId]);
 
     // Fetch goals
     useEffect(() => {
@@ -88,7 +121,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         if (propGoalId !== undefined) setGoalId(propGoalId);
     }, [propGoalId]);
 
-    // Listen for global events
+    // Global event listener
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('show_habit_modal', (data) => {
             selectionFeedback();
@@ -98,570 +131,326 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         return () => subscription.remove();
     }, []);
 
+    const resetForm = () => {
+        setTitle('');
+        setSelectedIcon('fitness');
+        setSelectedColor('#10B981');
+        setCategory('personal');
+        setFrequency('daily');
+        setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+        setStartTime(new Date());
+        setEndTime(new Date(Date.now() + 30 * 60 * 1000));
+        setUseFreeTime(false);
+        setHabitStartDate(new Date());
+    };
+
     const handleClose = () => {
         setIsVisible(false);
         if (propOnClose) propOnClose();
         resetForm();
     };
 
-    const handleSuccess = () => {
-        successFeedback();
-        setIsVisible(false);
-        if (propOnSuccess) propOnSuccess();
-        resetForm();
-    };
-
-    // Form state
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [selectedIcon, setSelectedIcon] = useState('fitness');
-    const [selectedColor, setSelectedColor] = useState('#10B981');
-    const [category, setCategory] = useState<HabitCategory>('personal');
-    const [startTime, setStartTime] = useState(new Date());
-    const [endTime, setEndTime] = useState(new Date(Date.now() + 30 * 60 * 1000));
-    const [showStartPicker, setShowStartPicker] = useState(false);
-    const [showEndPicker, setShowEndPicker] = useState(false);
-    const [selectedDays, setSelectedDays] = useState(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
-    const [saving, setSaving] = useState(false);
-
-    const DAYS = [
-        { id: 'mon', label: 'M' },
-        { id: 'tue', label: 'T' },
-        { id: 'wed', label: 'W' },
-        { id: 'thu', label: 'T' },
-        { id: 'fri', label: 'F' },
-        { id: 'sat', label: 'S' },
-        { id: 'sun', label: 'S' },
-    ];
-
-    const toggleDay = (day: string) => {
-        selectionFeedback();
-        setSelectedDays(prev =>
-            prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
-        );
-    };
-
-    const formatTime = (date: Date) => {
-        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    };
-
     const handleSave = async () => {
-        if (!title.trim()) return;
+        if (!title.trim()) {
+            Alert.alert('Missing Title', 'Please enter a title for your habit.');
+            return;
+        }
+        if (!goalId) {
+            Alert.alert('Goal Required', 'Every habit must be linked to a goal.');
+            return;
+        }
 
         setSaving(true);
         mediumFeedback();
 
         try {
             const fmtTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            const fmtDate = (d: Date) => d.toISOString().split('T')[0];
 
             await addHabit({
                 name: title.trim(),
-                description: description.trim(),
-                type: 'build',
                 icon: selectedIcon,
                 color: selectedColor,
                 category,
-                goalValue: 1,
-                unit: 'count',
-                goalPeriod: 'daily',
-                startTime: fmtTime(startTime),
-                endTime: fmtTime(endTime),
-                taskDays: selectedDays,
-                startDate: new Date().toISOString(),
+                goalId,
+                startTime: useFreeTime ? undefined : fmtTime(startTime),
+                endTime: useFreeTime ? undefined : fmtTime(endTime),
+                taskDays: frequency === 'weekly' ? selectedDays : ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+                startDate: fmtDate(habitStartDate),
                 isArchived: false,
-                reminders: [],
-                isGoal: false,
-                goalId: goalId || undefined,
             });
 
             successFeedback();
+            setIsVisible(false);
+            if (propOnSuccess) propOnSuccess();
             resetForm();
-            handleSuccess();
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            console.error('Error adding habit:', e);
+            Alert.alert('Error', e.message || 'Failed to create habit');
+        } finally {
             setSaving(false);
         }
     };
 
-    const resetForm = () => {
-        setTitle('');
-        setDescription('');
-        setSelectedIcon('fitness');
-        setSelectedColor('#10B981');
-        setCategory('personal');
-        setStartTime(new Date());
-        setEndTime(new Date(Date.now() + 30 * 60 * 1000));
-        setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
-        setGoalId(undefined);
-        setSaving(false);
+    const toggleDay = (dayId: string) => {
+        selectionFeedback();
+        setSelectedDays(prev =>
+            prev.includes(dayId) ? prev.filter(d => d !== dayId) : [...prev, dayId]
+        );
     };
 
-    // Gesture Handling
-    const translateY = useSharedValue(0);
-    const context = useSharedValue({ y: 0 });
+    const repeatText = useMemo(() => {
+        if (frequency !== 'weekly') return '';
+        const days = WEEKDAYS.filter(d => selectedDays.includes(d.id)).map(d => d.label);
+        if (days.length === 7) return 'Every day';
+        if (days.length === 0) return 'Select days';
+        return `Every ${days.join(', ')}`;
+    }, [frequency, selectedDays]);
 
-    const gesture = Gesture.Pan()
-        .onStart(() => {
-            context.value = { y: translateY.value };
-        })
-        .onUpdate((event) => {
-            // Only allow dragging down
-            if (event.translationY > 0) {
-                translateY.value = event.translationY + context.value.y;
-            }
-        })
-        .onEnd(() => {
-            if (translateY.value > 100) {
-                runOnJS(handleClose)();
-            } else {
-                translateY.value = withSpring(0);
-            }
-        });
+    const formatTime = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const animatedStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ translateY: translateY.value }]
-        };
-    });
-
-    // Reset translation when modal opens
-    useEffect(() => {
-        if (isVisible) {
-            translateY.value = 0;
-        }
-    }, [isVisible]);
-
+    if (!isVisible) return null;
 
     return (
-        <Modal
-            visible={isVisible}
-            transparent
-            animationType="none"
-            onRequestClose={handleClose}
-        >
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.overlay}
-            >
-                <TouchableOpacity
-                    style={StyleSheet.absoluteFill}
-                    activeOpacity={1}
-                    onPress={handleClose}
-                >
-                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-                </TouchableOpacity>
+        <Modal visible={isVisible} animationType="slide" presentationStyle="fullScreen" onRequestClose={handleClose}>
+            <View style={[styles.container, { backgroundColor: colors.background }]}>
+                <SafeAreaView style={{ flex: 1 }}>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={handleClose} style={styles.headerBtn}>
+                            <Ionicons name="close" size={24} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>New Habit</Text>
+                        <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.saveBtn, { backgroundColor: selectedColor }]}>
+                            <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Create'}</Text>
+                        </TouchableOpacity>
+                    </View>
 
-                <GestureDetector gesture={gesture}>
-                    <Animated.View
-                        entering={SlideInDown.springify().damping(15)}
-                        exiting={SlideOutDown}
-                        style={[styles.container, animatedStyle, { overflow: 'hidden' }]}
-                    >
-                        <LinearGradient
-                            colors={['#334155', '#0f172a']}
-                            style={StyleSheet.absoluteFill}
-                        />
+                    <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+                        {/* Title Row with Icon */}
+                        <View style={styles.titleRow}>
+                            <TouchableOpacity onPress={() => { selectionFeedback(); setShowIconPicker(true); }} style={[styles.iconBtn, { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}>
+                                <Ionicons name={selectedIcon as any} size={28} color={selectedColor} />
+                            </TouchableOpacity>
+                            <TextInput
+                                style={[styles.titleInput, { color: colors.textPrimary, borderColor: colors.border }]}
+                                placeholder="Habit name..."
+                                placeholderTextColor={colors.textTertiary}
+                                value={title}
+                                onChangeText={setTitle}
+                            />
+                        </View>
 
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <View style={styles.handle} />
-                            <View style={styles.headerRow}>
-                                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-                                    New Habit
-                                </Text>
-                                <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
-                                    <Ionicons name="close" size={24} color={colors.textSecondary} />
-                                </TouchableOpacity>
+                        {/* Category */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>CATEGORY</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    {CATEGORIES.map(cat => (
+                                        <TouchableOpacity
+                                            key={cat.id}
+                                            onPress={() => { selectionFeedback(); setCategory(cat.id); }}
+                                            style={[styles.catChip, category === cat.id && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                        >
+                                            <Ionicons name={cat.icon as any} size={14} color={category === cat.id ? selectedColor : colors.textSecondary} />
+                                            <Text style={{ color: category === cat.id ? selectedColor : colors.textSecondary, fontSize: 12, marginLeft: 6 }}>{cat.label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </ScrollView>
+                        </View>
+
+                        {/* Color Picker */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>COLOR</Text>
+                            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+                                {COLORS.map(c => (
+                                    <TouchableOpacity key={c} onPress={() => { selectionFeedback(); setSelectedColor(c); }} style={[styles.colorDot, { backgroundColor: c, borderWidth: selectedColor === c ? 3 : 0, borderColor: 'white' }]} />
+                                ))}
                             </View>
                         </View>
 
-                        <ScrollView
-                            style={styles.content}
-                            showsVerticalScrollIndicator={false}
-                            contentContainerStyle={{ paddingBottom: 100 }}
-                        >
-                            {/* Title */}
-                            <View style={styles.section}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>TITLE</Text>
-                                <TextInput
-                                    style={[styles.input, { backgroundColor: colors.surfaceSecondary, color: colors.textPrimary, borderColor: colors.border }]}
-                                    placeholder="e.g., Morning Meditation"
-                                    placeholderTextColor={colors.textTertiary}
-                                    value={title}
-                                    onChangeText={setTitle}
-                                />
-                            </View>
-
-                            {/* Description */}
-                            <View style={styles.section}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>DESCRIPTION (OPTIONAL)</Text>
-                                <TextInput
-                                    style={[styles.input, styles.textArea, { backgroundColor: colors.surfaceSecondary, color: colors.textPrimary, borderColor: colors.border }]}
-                                    placeholder="Add details about this habit..."
-                                    placeholderTextColor={colors.textTertiary}
-                                    value={description}
-                                    onChangeText={setDescription}
-                                    multiline
-                                    numberOfLines={3}
-                                />
-                            </View>
-
-                            {/* Goal Link (Optional) */}
-                            <View style={styles.section}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>LINK TO GOAL (OPTIONAL)</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                                    <TouchableOpacity
-                                        onPress={() => { selectionFeedback(); setGoalId(undefined); }}
-                                        style={[
-                                            styles.goalChip,
-                                            { borderColor: !goalId ? colors.primary : colors.border, backgroundColor: !goalId ? colors.primary + '20' : 'transparent' }
-                                        ]}
-                                    >
-                                        <Ionicons name="close-circle-outline" size={16} color={!goalId ? colors.primary : colors.textSecondary} />
-                                        <Text style={{ color: !goalId ? colors.primary : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>None</Text>
-                                    </TouchableOpacity>
-                                    {availableGoals.map(goal => (
+                        {/* Goal Link */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>LINKED GOAL <Text style={{ color: '#EF4444' }}>*</Text></Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    {availableGoals.length === 0 ? (
+                                        <View style={[styles.goalChip, { borderColor: '#EF4444', backgroundColor: 'rgba(239,68,68,0.1)' }]}>
+                                            <Ionicons name="warning" size={14} color="#EF4444" />
+                                            <Text style={{ color: '#EF4444', marginLeft: 6, fontSize: 12 }}>Create a goal first</Text>
+                                        </View>
+                                    ) : availableGoals.map(goal => (
                                         <TouchableOpacity
                                             key={goal.id}
                                             onPress={() => { selectionFeedback(); setGoalId(goal.id); }}
-                                            style={[
-                                                styles.goalChip,
-                                                { borderColor: goalId === goal.id ? goal.color : colors.border, backgroundColor: goalId === goal.id ? goal.color + '20' : 'transparent' }
-                                            ]}
+                                            style={[styles.goalChip, goalId === goal.id && { backgroundColor: goal.color + '20', borderColor: goal.color }]}
                                         >
-                                            <Ionicons name={goal.icon as any} size={16} color={goalId === goal.id ? goal.color : colors.textSecondary} />
-                                            <Text style={{ color: goalId === goal.id ? goal.color : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>
-                                                {goal.name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                            </View>
-
-                            {/* Time Range */}
-                            <View style={styles.section}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>TIME</Text>
-                                <View style={styles.timeRow}>
-                                    <TouchableOpacity
-                                        style={[styles.timeButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                                        onPress={() => setShowStartPicker(true)}
-                                    >
-                                        <Ionicons name="time-outline" size={18} color={selectedColor} />
-                                        <Text style={{ color: colors.textPrimary, marginLeft: 8 }}>{formatTime(startTime)}</Text>
-                                    </TouchableOpacity>
-                                    <Text style={{ color: colors.textTertiary, marginHorizontal: 12 }}>to</Text>
-                                    <TouchableOpacity
-                                        style={[styles.timeButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-                                        onPress={() => setShowEndPicker(true)}
-                                    >
-                                        <Ionicons name="time-outline" size={18} color={selectedColor} />
-                                        <Text style={{ color: colors.textPrimary, marginLeft: 8 }}>{formatTime(endTime)}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                {showStartPicker && (
-                                    <DateTimePicker
-                                        value={startTime}
-                                        mode="time"
-                                        display="spinner"
-                                        onChange={(e, date) => {
-                                            setShowStartPicker(false);
-                                            if (date) setStartTime(date);
-                                        }}
-                                    />
-                                )}
-                                {showEndPicker && (
-                                    <DateTimePicker
-                                        value={endTime}
-                                        mode="time"
-                                        display="spinner"
-                                        onChange={(e, date) => {
-                                            setShowEndPicker(false);
-                                            if (date) setEndTime(date);
-                                        }}
-                                    />
-                                )}
-                            </View>
-
-                            {/* Days */}
-                            <View style={styles.section}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>REPEAT ON</Text>
-                                <View style={styles.daysRow}>
-                                    {DAYS.map(day => (
-                                        <TouchableOpacity
-                                            key={day.id}
-                                            onPress={() => toggleDay(day.id)}
-                                            style={[
-                                                styles.dayButton,
-                                                { borderColor: selectedDays.includes(day.id) ? selectedColor : colors.border },
-                                                selectedDays.includes(day.id) && { backgroundColor: selectedColor + '30' }
-                                            ]}
-                                        >
-                                            <Text style={{
-                                                color: selectedDays.includes(day.id) ? selectedColor : colors.textSecondary,
-                                                fontWeight: '600'
-                                            }}>
-                                                {day.label}
-                                            </Text>
+                                            <Ionicons name={goal.icon as any} size={14} color={goalId === goal.id ? goal.color : colors.textSecondary} />
+                                            <Text style={{ color: goalId === goal.id ? goal.color : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>{goal.name}</Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
+                            </ScrollView>
+                        </View>
+
+                        {/* Frequency */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>FREQUENCY</Text>
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                {(['daily', 'weekly'] as HabitFrequency[]).map(f => (
+                                    <TouchableOpacity
+                                        key={f}
+                                        onPress={() => { selectionFeedback(); setFrequency(f); }}
+                                        style={[styles.freqBtn, frequency === f && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                    >
+                                        <Text style={{ color: frequency === f ? selectedColor : colors.textSecondary, fontWeight: '600' }}>{f.charAt(0).toUpperCase() + f.slice(1)}</Text>
+                                    </TouchableOpacity>
+                                ))}
                             </View>
 
-                            {/* Category */}
-                            <View style={styles.section}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>CATEGORY</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                    <View style={styles.categoriesRow}>
-                                        {CATEGORIES.map(cat => (
+                            {/* Weekly Day Selector */}
+                            {frequency === 'weekly' && (
+                                <View style={{ marginTop: 16 }}>
+                                    <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'space-between' }}>
+                                        {WEEKDAYS.map(day => (
                                             <TouchableOpacity
-                                                key={cat.id}
-                                                onPress={() => { setCategory(cat.id); selectionFeedback(); }}
-                                                style={[
-                                                    styles.categoryChip,
-                                                    { borderColor: category === cat.id ? selectedColor : colors.border },
-                                                    category === cat.id && { backgroundColor: selectedColor + '20' }
-                                                ]}
+                                                key={day.id}
+                                                onPress={() => toggleDay(day.id)}
+                                                style={[styles.dayBtn, selectedDays.includes(day.id) && { backgroundColor: selectedColor, borderColor: selectedColor }]}
                                             >
-                                                <Ionicons name={cat.icon as any} size={16} color={category === cat.id ? selectedColor : colors.textSecondary} />
-                                                <Text style={{ color: category === cat.id ? selectedColor : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>
-                                                    {cat.label}
-                                                </Text>
+                                                <Text style={{ color: selectedDays.includes(day.id) ? 'white' : colors.textSecondary, fontSize: 11, fontWeight: '600' }}>{day.label[0]}</Text>
                                             </TouchableOpacity>
                                         ))}
                                     </View>
-                                </ScrollView>
-                            </View>
-
-                            {/* Icon */}
-                            <View style={styles.section}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>ICON</Text>
-                                <View style={styles.iconsGrid}>
-                                    {ICONS.map(icon => (
-                                        <TouchableOpacity
-                                            key={icon}
-                                            onPress={() => { setSelectedIcon(icon); selectionFeedback(); }}
-                                            style={[
-                                                styles.iconButton,
-                                                { borderColor: selectedIcon === icon ? selectedColor : colors.border },
-                                                selectedIcon === icon && { backgroundColor: selectedColor + '20' }
-                                            ]}
-                                        >
-                                            <Ionicons name={icon as any} size={22} color={selectedIcon === icon ? selectedColor : colors.textSecondary} />
-                                        </TouchableOpacity>
-                                    ))}
+                                    <Text style={{ color: colors.textTertiary, fontSize: 12, marginTop: 8, textAlign: 'center' }}>{repeatText}</Text>
                                 </View>
-                            </View>
-
-                            {/* Color */}
-                            <View style={styles.section}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>COLOR</Text>
-                                <View style={styles.colorsRow}>
-                                    {COLORS.map(color => (
-                                        <TouchableOpacity
-                                            key={color}
-                                            onPress={() => { setSelectedColor(color); selectionFeedback(); }}
-                                            style={[
-                                                styles.colorButton,
-                                                { backgroundColor: color },
-                                                selectedColor === color && styles.colorSelected
-                                            ]}
-                                        >
-                                            {selectedColor === color && (
-                                                <Ionicons name="checkmark" size={16} color="#fff" />
-                                            )}
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </View>
-                        </ScrollView>
-
-                        {/* Save Button */}
-                        <View style={[styles.footer, { borderTopColor: colors.border }]}>
-                            <TouchableOpacity
-                                onPress={handleSave}
-                                disabled={!title.trim() || saving}
-                                style={[styles.saveButton, { opacity: !title.trim() ? 0.5 : 1 }]}
-                            >
-                                <LinearGradient
-                                    colors={[selectedColor, selectedColor + 'CC']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.saveGradient}
-                                >
-                                    <Ionicons name="checkmark" size={20} color="#fff" />
-                                    <Text style={styles.saveText}>Create Habit</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
+                            )}
                         </View>
-                    </Animated.View>
-                </GestureDetector>
-            </KeyboardAvoidingView>
+
+                        {/* Time */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>TIME</Text>
+                            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                                <TouchableOpacity
+                                    onPress={() => { selectionFeedback(); setUseFreeTime(!useFreeTime); }}
+                                    style={[styles.freeTimeBtn, useFreeTime && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                >
+                                    <Ionicons name="calendar-outline" size={16} color={useFreeTime ? selectedColor : colors.textSecondary} />
+                                    <Text style={{ color: useFreeTime ? selectedColor : colors.textSecondary, marginLeft: 6, fontSize: 12 }}>Free Time</Text>
+                                </TouchableOpacity>
+
+                                {!useFreeTime && (
+                                    <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.timeBtn}>
+                                        <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{formatTime(startTime)} - {formatTime(endTime)}</Text>
+                                        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+
+                        {/* Date Range */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: colors.textSecondary }]}>DATE RANGE</Text>
+                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={[styles.dateBox, { flex: 1 }]}>
+                                    <Text style={{ color: colors.textTertiary, fontSize: 10, marginBottom: 4 }}>START DATE</Text>
+                                    <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>{habitStartDate.toLocaleDateString()}</Text>
+                                </TouchableOpacity>
+                                <View style={[styles.dateBox, { flex: 1, opacity: 0.6 }]}>
+                                    <Text style={{ color: colors.textTertiary, fontSize: 10, marginBottom: 4 }}>END DATE (FROM GOAL)</Text>
+                                    <Text style={{ color: colors.textPrimary, fontWeight: '600' }}>
+                                        {linkedGoal?.targetDate ? new Date(linkedGoal.targetDate).toLocaleDateString() : 'No goal'}
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    </ScrollView>
+                </SafeAreaView>
+
+                {/* Icon Picker Modal */}
+                <Modal visible={showIconPicker} transparent animationType="fade">
+                    <Pressable style={styles.overlay} onPress={() => setShowIconPicker(false)}>
+                        <Pressable style={[styles.pickerModal, { backgroundColor: colors.surface }]} onPress={e => e.stopPropagation()}>
+                            <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>Choose Icon</Text>
+                            <View style={styles.iconGrid}>
+                                {ICONS.map(icon => (
+                                    <TouchableOpacity
+                                        key={icon}
+                                        onPress={() => { selectionFeedback(); setSelectedIcon(icon); setShowIconPicker(false); }}
+                                        style={[styles.iconOption, selectedIcon === icon && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                    >
+                                        <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor : colors.textSecondary} />
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </Pressable>
+                    </Pressable>
+                </Modal>
+
+                {/* Time Picker Modal */}
+                <Modal visible={showTimePicker} transparent animationType="fade">
+                    <Pressable style={styles.overlay} onPress={() => setShowTimePicker(false)}>
+                        <Pressable style={[styles.timePickerModal, { backgroundColor: colors.surface }]} onPress={e => e.stopPropagation()}>
+                            <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>Set Time</Text>
+                            <View style={styles.timePickerRow}>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
+                                    <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Start</Text>
+                                    <DateTimePicker value={startTime} mode="time" display="spinner" onChange={(_, d) => d && setStartTime(d)} textColor={colors.textPrimary} />
+                                </View>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
+                                    <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>End</Text>
+                                    <DateTimePicker value={endTime} mode="time" display="spinner" onChange={(_, d) => d && setEndTime(d)} textColor={colors.textPrimary} />
+                                </View>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowTimePicker(false)} style={[styles.doneBtn, { backgroundColor: selectedColor }]}>
+                                <Text style={{ color: 'white', fontWeight: '600' }}>Done</Text>
+                            </TouchableOpacity>
+                        </Pressable>
+                    </Pressable>
+                </Modal>
+
+                {/* Start Date Picker */}
+                {showStartDatePicker && (
+                    <DateTimePicker
+                        value={habitStartDate}
+                        mode="date"
+                        display="default"
+                        onChange={(_, d) => { setShowStartDatePicker(false); if (d) setHabitStartDate(d); }}
+                    />
+                )}
+            </View>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-    },
-    container: {
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        maxHeight: height * 0.9,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    header: {
-        alignItems: 'center',
-        paddingTop: 12,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-    },
-    handle: {
-        width: 40,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        marginBottom: 16,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '100%',
-        paddingHorizontal: 20,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    closeBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    content: {
-        paddingHorizontal: 20,
-    },
-    section: {
-        marginTop: 20,
-    },
-    label: {
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 1,
-        marginBottom: 10,
-        fontFamily: 'SpaceMono-Regular',
-    },
-    input: {
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        fontSize: 16,
-        borderWidth: 1,
-    },
-    textArea: {
-        minHeight: 80,
-        textAlignVertical: 'top',
-    },
-    timeRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    timeButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        flex: 1,
-    },
-    daysRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    dayButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-    },
-    categoriesRow: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    categoryChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 20,
-        borderWidth: 1,
-    },
-    iconsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-    },
-    goalChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 20,
-        borderWidth: 1,
-    },
-    iconButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-    },
-    colorsRow: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    colorButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    colorSelected: {
-        borderWidth: 3,
-        borderColor: '#fff',
-    },
-    footer: {
-        padding: 20,
-        borderTopWidth: 1,
-    },
-    saveButton: {
-        borderRadius: 16,
-        overflow: 'hidden',
-    },
-    saveGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 16,
-        gap: 8,
-    },
-    saveText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
+    container: { flex: 1 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
+    headerBtn: { padding: 8 },
+    headerTitle: { fontSize: 18, fontWeight: '700' },
+    saveBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },
+    saveBtnText: { color: 'white', fontWeight: '700', fontSize: 14 },
+    content: { flex: 1, padding: 20 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
+    iconBtn: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
+    titleInput: { flex: 1, fontSize: 18, fontWeight: '600', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, backgroundColor: 'rgba(255,255,255,0.05)' },
+    section: { marginBottom: 24 },
+    label: { fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 10 },
+    catChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
+    colorDot: { width: 32, height: 32, borderRadius: 16 },
+    goalChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
+    freqBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
+    dayBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
+    freeTimeBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
+    timeBtn: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    dateBox: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    pickerModal: { width: '100%', maxWidth: 350, borderRadius: 20, padding: 20 },
+    pickerTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16, textAlign: 'center' },
+    iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+    iconOption: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
+    timePickerModal: { width: '100%', maxWidth: 400, borderRadius: 20, padding: 20 },
+    timePickerRow: { flexDirection: 'row', marginBottom: 20 },
+    doneBtn: { paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
 });

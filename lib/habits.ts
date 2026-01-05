@@ -14,32 +14,41 @@ export type HabitCategory = 'health' | 'fitness' | 'work' | 'personal' | 'mindfu
 export type HabitType = 'build' | 'quit';
 export type GoalPeriod = 'daily' | 'weekly' | 'monthly';
 export type ChartType = 'bar' | 'line';
+export type HabitFrequency = 'daily' | 'weekly' | 'yearly';
+export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'free_time';
+export type TrackingMethod = 'boolean' | 'numeric';
 
 export interface Habit {
   id: string;
   name: string;
   description?: string;
-  icon?: string; // Ionicons name
+  icon?: string;
   category: HabitCategory;
-  createdAt: string; // ISO date
-  durationMinutes?: number; // optional time factor per session
-  startTime?: string; // 'HH:mm'
-  endTime?: string;   // 'HH:mm'
-  isGoal?: boolean; // true if this is a goal with target date
-  targetDate?: string; // ISO date for goal target
+  createdAt: string;
+  durationMinutes?: number;
+  startTime?: string;
+  endTime?: string;
+  isGoal?: boolean;
+  targetDate?: string;
   type: HabitType;
   color: string;
   goalPeriod: GoalPeriod;
   goalValue: number;
   unit: string;
-  taskDays: string[]; // ['mon', 'tue', ...]
-  reminders: string[]; // ['09:00', ...]
+  taskDays: string[];
+  reminders: string[];
   chartType: ChartType;
-  startDate: string; // YYYY-MM-DD
+  startDate: string;
   endDate?: string;
   isArchived: boolean;
   showMemo: boolean;
-  goalId?: string; // ID of the goal this habit belongs to
+  goalId?: string;
+  // Enhanced fields
+  frequency?: HabitFrequency;
+  timeOfDay?: TimeOfDay;
+  trackingMethod?: TrackingMethod;
+  ringtone?: string;
+  locationReminders?: { name: string; latitude: number; longitude: number }[];
 }
 
 const todayString = (d = new Date()) => {

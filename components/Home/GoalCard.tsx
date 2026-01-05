@@ -3,8 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { Habit } from '@/lib/habits';
-import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { Ionicons } from '@expo/vector-icons';
 
 interface GoalCardProps {
   goal: Habit;
@@ -16,104 +15,114 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, progress, onPress }) =
   const { theme } = useTheme();
   const colors = Colors[theme];
 
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={{ marginBottom: 16 }}>
-      <VoidCard style={{ padding: 20 }}>
-        <View style={styles.container}>
-          <View style={styles.leftContent}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.surfaceTertiary }]}>
-              <Text style={styles.icon}>{goal.icon || '🎯'}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[styles.title, { color: colors.textPrimary }]}
-                numberOfLines={1}
-              >
-                {goal.name}
-              </Text>
-              <View style={styles.metaRow}>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>ACTIVE</Text>
-                </View>
-                <Text style={[styles.targetText, { color: colors.textSecondary }]}>
-                  T-{Math.ceil((new Date(goal.targetDate || '').getTime() - Date.now()) / (1000 * 60 * 60 * 24))} DAYS
-                </Text>
-              </View>
-            </View>
-          </View>
+  const daysLeft = goal.targetDate
+    ? Math.max(0, Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null;
 
-          <View style={styles.progressContainer}>
-            <HalfCircleProgress
-              progress={progress}
-              size={50}
-              strokeWidth={5}
-              color={goal.color || colors.primary}
-              backgroundColor={colors.surfaceTertiary}
-              textColor={colors.textPrimary}
-            />
-          </View>
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.card}>
+      {/* Icon */}
+      <View style={[styles.iconBox, { backgroundColor: (goal.color || '#8B5CF6') + '20' }]}>
+        <Ionicons name={(goal.icon as any) || 'flag'} size={18} color={goal.color || '#8B5CF6'} />
+      </View>
+
+      {/* Content */}
+      <View style={styles.content}>
+        <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>{goal.name}</Text>
+        <View style={styles.metaRow}>
+          <Ionicons name="calendar-outline" size={10} color={colors.textTertiary} />
+          <Text style={[styles.deadline, { color: colors.textTertiary }]}>
+            {goal.targetDate ? formatDate(goal.targetDate) : 'No deadline'}
+          </Text>
+          {daysLeft !== null && (
+            <View style={[styles.daysChip, daysLeft < 7 && { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+              <Text style={[styles.daysText, daysLeft < 7 && { color: '#EF4444' }]}>{daysLeft}d</Text>
+            </View>
+          )}
         </View>
-      </VoidCard>
+        {/* Progress Bar */}
+        <View style={styles.progressRow}>
+          <View style={styles.progressBg}>
+            <View style={[styles.progressFill, { backgroundColor: goal.color || '#8B5CF6', width: `${Math.max(progress, 3)}%` }]} />
+          </View>
+          <Text style={[styles.progressText, { color: goal.color || '#8B5CF6' }]}>{progress}%</Text>
+        </View>
+      </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  leftContent: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: 10,
   },
-  icon: {
-    fontSize: 24,
+  content: {
+    flex: 1,
   },
-  title: {
-    fontSize: 18,
-    fontFamily: 'SpaceGrotesk-Bold',
-    marginBottom: 4,
+  name: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
   },
-  badge: {
-    backgroundColor: 'rgba(78, 205, 196, 0.1)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(78, 205, 196, 0.3)',
-  },
-  badgeText: {
-    color: '#4ECDC4',
-    fontSize: 8,
-    fontFamily: 'SpaceMono-Regular',
-    fontWeight: 'bold',
-  },
-  targetText: {
+  deadline: {
     fontSize: 10,
-    fontFamily: 'SpaceMono-Regular',
-    letterSpacing: 0.5,
   },
-  progressContainer: {
-    width: 60,
-    height: 60,
+  daysChip: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 4,
+  },
+  daysText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  progressRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  }
+    gap: 8,
+  },
+  progressBg: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
 });

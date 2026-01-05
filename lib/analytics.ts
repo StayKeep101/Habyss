@@ -45,10 +45,10 @@ export const Analytics = {
             }
         });
 
-        // Calculate time invested (assume 15 min avg per habit completion for timer habits)
+        // Calculate time invested (assume 15 min avg per habit completion for timed habits)
         habits.forEach(h => {
-            if (h.trackingMethod === 'timer') {
-                totalTime += totalCompletions * 15; // Placeholder
+            if (h.durationMinutes) {
+                totalTime += totalCompletions * (h.durationMinutes || 15);
             }
         });
 

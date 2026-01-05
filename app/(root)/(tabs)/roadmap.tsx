@@ -282,18 +282,7 @@ const CalendarScreen = () => {
                         >
                             {/* Pull-to-Filter Hint */}
                             <View style={{ alignItems: 'center', marginTop: -20, marginBottom: 16 }}>
-                                <View style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    backgroundColor: 'rgba(255,255,255,0.03)',
-                                    paddingHorizontal: 12,
-                                    paddingVertical: 6,
-                                    borderRadius: 16,
-                                }}>
-                                    <Ionicons name="arrow-down" size={12} color={colors.textTertiary} style={{ marginRight: 4 }} />
-                                    <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'SpaceMono-Regular' }}>PULL TO FILTER</Text>
-                                    <Ionicons name="filter" size={12} color={colors.textTertiary} style={{ marginLeft: 4 }} />
-                                </View>
+                                {/* Pull hint removed for cleaner UI */}
                             </View>
 
                             {/* Filter Indicator - Explicitly spaced below pull hint area */}
@@ -319,7 +308,7 @@ const CalendarScreen = () => {
                                         }}>
                                         <Ionicons name="filter" size={12} color="white" />
                                         <Text style={{ color: 'white', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>
-                                            {activeFilter === 'goals_only' ? 'GOALS & LINKS' : 'INDEPENDENT HABITS'}
+                                            GOALS FILTER ACTIVE
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -327,9 +316,9 @@ const CalendarScreen = () => {
 
                             {/* GOALS SECTION */}
                             {!isHabitFilter && (
-                                <View style={{ marginTop: 20, marginBottom: 24 }}>
-                                    <Text style={{ fontSize: 20, color: colors.textPrimary, fontFamily: 'SpaceGrotesk-Bold', letterSpacing: 1, marginBottom: 16 }}>
-                                        GOALS & LINKS
+                                <View style={{ marginTop: 0, marginBottom: 16 }}>
+                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'SpaceMono-Regular', letterSpacing: 2, marginBottom: 10 }}>
+                                        GOALS
                                     </Text>
 
                                     {goals.length > 0 ? (
@@ -411,31 +400,7 @@ const CalendarScreen = () => {
                                 </View>
                             )}
 
-                            {/* LOOSE HABITS SECTION */}
-                            {!isGoalFilter && (
-                                <View style={{ marginTop: 8 }}>
-                                    <Text style={{ fontSize: 20, color: colors.textPrimary, fontFamily: 'SpaceGrotesk-Bold', letterSpacing: 1, marginBottom: 16 }}>
-                                        HABITS
-                                    </Text>
-                                    {looseHabits.length > 0 ? (
-                                        looseHabits.map((habit) => (
-                                            <SwipeableHabitItem
-                                                key={habit.id}
-                                                habit={habit}
-                                                onPress={() => handleHabitPress(habit)}
-                                                onEdit={handleEdit}
-                                                onDelete={handleDelete}
-                                                onFocus={handleHabitPress}
-                                                onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
-                                            />
-                                        ))
-                                    ) : (
-                                        <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
-                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'SpaceMono-Regular' }}>NO INDEPENDENT HABITS</Text>
-                                        </VoidCard>
-                                    )}
-                                </View>
-                            )}
+                            {/* Habits section removed - all habits must be linked to goals */}
 
                         </Animated.ScrollView>
                     </View>

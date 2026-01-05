@@ -3,6 +3,7 @@ import { View, TouchableOpacity, StyleSheet, Dimensions, Platform, Alert, Device
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Home, Calendar, Users, User, Plus } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -10,7 +11,13 @@ import { useTheme } from '@/constants/themeContext';
 
 const { width } = Dimensions.get('window');
 
-const TabIcon = ({ name, focused, color }: { name: any, focused: boolean, color: string }) => {
+interface TabIconProps {
+    routeName: string;
+    focused: boolean;
+    color: string;
+}
+
+const TabIcon = ({ routeName, focused, color }: TabIconProps) => {
     const scale = useSharedValue(focused ? 1 : 1);
 
     React.useEffect(() => {
@@ -21,9 +28,27 @@ const TabIcon = ({ name, focused, color }: { name: any, focused: boolean, color:
         transform: [{ scale: scale.value }],
     }));
 
+    const getIcon = () => {
+        const size = 22;
+        const strokeWidth = focused ? 2 : 1.5;
+
+        switch (routeName) {
+            case 'home':
+                return <Home size={size} color={color} strokeWidth={strokeWidth} />;
+            case 'roadmap':
+                return <Calendar size={size} color={color} strokeWidth={strokeWidth} />;
+            case 'community':
+                return <Users size={size} color={color} strokeWidth={strokeWidth} />;
+            case 'settings':
+                return <User size={size} color={color} strokeWidth={strokeWidth} />;
+            default:
+                return <Home size={size} color={color} strokeWidth={strokeWidth} />;
+        }
+    };
+
     return (
         <Animated.View style={[animatedStyle, styles.iconContainer]}>
-            <Ionicons name={name} size={24} color={color} />
+            {getIcon()}
         </Animated.View>
     );
 };
@@ -60,12 +85,6 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                             }
                         };
 
-                        let iconName: any = 'square';
-                        if (route.name === 'home') iconName = isFocused ? 'home' : 'home-outline';
-                        if (route.name === 'roadmap') iconName = isFocused ? 'calendar' : 'calendar-outline';
-                        if (route.name === 'community') iconName = isFocused ? 'people' : 'people-outline';
-                        if (route.name === 'settings') iconName = isFocused ? 'person' : 'person-outline';
-
                         const iconColor = isFocused ? '#8BADD6' : 'rgba(255,255,255,0.4)';
 
                         return (
@@ -75,7 +94,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                 onPress={onPress}
                                 style={styles.tabButton}
                             >
-                                <TabIcon name={iconName} focused={isFocused} color={iconColor} />
+                                <TabIcon routeName={route.name} focused={isFocused} color={iconColor} />
                             </TouchableOpacity>
                         );
                     })}

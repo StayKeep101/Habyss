@@ -1,8 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, Dimensions, DeviceEventEmitter } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown, useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+    runOnJS,
+    interpolate,
+    Extrapolation,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -10,6 +19,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useRouter } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
+const SHEET_HEIGHT = 340;
+const DRAG_THRESHOLD = 100;
 
 interface CreationModalProps {
     // Props can be empty as it manages its own visibility via events
@@ -22,35 +33,87 @@ export const CreationModal: React.FC<CreationModalProps> = () => {
     const router = useRouter();
     const [visible, setVisible] = useState(false);
 
+    const translateY = useSharedValue(SHEET_HEIGHT);
+    const backdropOpacity = useSharedValue(0);
+
+    const openModal = useCallback(() => {
+        setVisible(true);
+        translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
+        backdropOpacity.value = withTiming(1, { duration: 300 });
+    }, []);
+
+    const closeModal = useCallback(() => {
+        translateY.value = withSpring(SHEET_HEIGHT, { damping: 20, stiffness: 300 });
+        backdropOpacity.value = withTiming(0, { duration: 200 });
+        setTimeout(() => {
+            runOnJS(setVisible)(false);
+        }, 300);
+    }, []);
+
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('show_creation_modal', () => {
             lightFeedback();
-            setVisible(true);
+            openModal();
         });
         return () => subscription.remove();
-    }, []);
+    }, [openModal]);
 
     const onClose = () => {
-        setVisible(false);
+        closeModal();
     };
 
     const handleGoal = () => {
         mediumFeedback();
-        setVisible(false);
-        // Slightly delay navigation to allow modal to close smoothly
+        closeModal();
         setTimeout(() => {
             router.push('/create');
-        }, 300);
+        }, 350);
     };
 
     const handleHabit = () => {
         mediumFeedback();
-        setVisible(false);
-        // Emit event to open the specific habit modal
+        closeModal();
         setTimeout(() => {
             DeviceEventEmitter.emit('show_habit_modal');
-        }, 300);
+        }, 350);
     };
+
+    const panGesture = Gesture.Pan()
+        .onUpdate((event) => {
+            // Only allow dragging down (positive translateY)
+            if (event.translationY > 0) {
+                translateY.value = event.translationY;
+            }
+        })
+        .onEnd((event) => {
+            if (event.translationY > DRAG_THRESHOLD || event.velocityY > 500) {
+                runOnJS(closeModal)();
+            } else {
+                translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
+            }
+        });
+
+    const sheetAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: translateY.value }],
+    }));
+
+    const backdropAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(
+            translateY.value,
+            [0, SHEET_HEIGHT],
+            [1, 0],
+            Extrapolation.CLAMP
+        ),
+    }));
+
+    const handleIndicatorStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(
+            translateY.value,
+            [0, 50],
+            [1, 0.5],
+            Extrapolation.CLAMP
+        ),
+    }));
 
     if (!visible) return null;
 
@@ -60,157 +123,152 @@ export const CreationModal: React.FC<CreationModalProps> = () => {
             transparent
             animationType="none"
             onRequestClose={onClose}
+            statusBarTranslucent
         >
-            <TouchableOpacity
-                style={styles.overlay}
-                activeOpacity={1}
-                onPress={onClose}
-            >
-                <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-
-                <Animated.View
-                    entering={SlideInDown.springify().damping(15)}
-                    exiting={SlideOutDown}
-                    style={[styles.sheet, { borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden' }]}>
-
-                    <LinearGradient
-                        colors={['#334155', '#0f172a']} // Slate gradient
-                        style={StyleSheet.absoluteFill}
-                    />
-
-                    {/* Border Gradient Stroke via wrapper or adjust */}
-                    <View style={[StyleSheet.absoluteFill, { borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 32, pointerEvents: 'none' }]} />
-
-                    <View style={{ padding: 24, paddingBottom: 40 }}>
-                        <View style={styles.handleContainer}>
-                            <View style={styles.handle} />
-                        </View>
-
-                        <Text style={[styles.title, { color: colors.textPrimary }]}>
-                            Create New...
-                        </Text>
-
-                        <View style={styles.optionsContainer}>
-                            {/* Habit Option - LEFT */}
-                            <TouchableOpacity
-                                onPress={handleHabit}
-                                activeOpacity={0.9}
-                                style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
-                            >
-                                <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-                                    <Ionicons name="repeat" size={36} color="#10B981" />
-                                </View>
-                                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Habit</Text>
-                                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
-                                    Daily task
-                                </Text>
-                            </TouchableOpacity>
-
-                            {/* Goal Option - RIGHT */}
-                            <TouchableOpacity
-                                onPress={handleGoal}
-                                activeOpacity={0.9}
-                                style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary }]}
-                            >
-                                <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.2)' }]}>
-                                    <Ionicons name="flag" size={36} color="#8B5CF6" />
-                                </View>
-                                <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Goal</Text>
-                                <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>
-                                    Big objective
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <Text style={[styles.closeText, { color: colors.textSecondary }]}>Cancel</Text>
-                        </TouchableOpacity>
-
-                        {/* Bottom spacer for safe area */}
-                        <View style={{ height: 40 }} />
-                    </View>
+            <View style={styles.container}>
+                {/* Blur backdrop */}
+                <Animated.View style={[StyleSheet.absoluteFill, backdropAnimatedStyle]}>
+                    <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
                 </Animated.View>
-            </TouchableOpacity>
+
+                {/* Tap to dismiss overlay */}
+                <TouchableOpacity
+                    style={StyleSheet.absoluteFill}
+                    activeOpacity={1}
+                    onPress={onClose}
+                />
+
+                {/* Bottom sheet */}
+                <GestureDetector gesture={panGesture}>
+                    <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
+                        {/* Darker gradient background */}
+                        <LinearGradient
+                            colors={['#1a1f2e', '#0a0d14']}
+                            style={StyleSheet.absoluteFill}
+                        />
+                        {/* Subtle border overlay */}
+                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
+
+                        {/* Handle indicator */}
+                        <Animated.View style={[styles.handleContainer, handleIndicatorStyle]}>
+                            <View style={styles.handle} />
+                        </Animated.View>
+
+                        {/* Content */}
+                        <View style={styles.content}>
+                            <Text style={[styles.title, { color: '#FFFFFF' }]}>
+                                Create New
+                            </Text>
+
+                            <View style={styles.optionsContainer}>
+                                {/* Habit Option */}
+                                <TouchableOpacity
+                                    onPress={handleHabit}
+                                    activeOpacity={0.8}
+                                    style={styles.optionCard}
+                                >
+                                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                                        <Ionicons name="repeat" size={28} color="#10B981" />
+                                    </View>
+                                    <Text style={styles.optionTitle}>Habit</Text>
+                                    <Text style={styles.optionDesc}>Daily routine</Text>
+                                </TouchableOpacity>
+
+                                {/* Goal Option */}
+                                <TouchableOpacity
+                                    onPress={handleGoal}
+                                    activeOpacity={0.8}
+                                    style={styles.optionCard}
+                                >
+                                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
+                                        <Ionicons name="flag" size={28} color="#8B5CF6" />
+                                    </View>
+                                    <Text style={styles.optionTitle}>Goal</Text>
+                                    <Text style={styles.optionDesc}>Big objective</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {/* Safe area padding */}
+                        <View style={{ height: 34 }} />
+                    </Animated.View>
+                </GestureDetector>
+            </View>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
-    overlay: {
+    container: {
         flex: 1,
         justifyContent: 'flex-end',
     },
     sheet: {
-        width: '100%',
-        maxHeight: height * 0.45,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-        elevation: 10,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        minHeight: SHEET_HEIGHT,
+        overflow: 'hidden',
+    },
+    sheetBorder: {
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        borderWidth: 1,
+        borderBottomWidth: 0,
+        borderColor: 'rgba(255,255,255,0.08)',
+        pointerEvents: 'none',
     },
     handleContainer: {
         alignItems: 'center',
-        marginBottom: 20,
+        paddingTop: 12,
+        paddingBottom: 8,
     },
     handle: {
-        width: 40,
+        width: 36,
         height: 4,
         borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.2)',
+        backgroundColor: 'rgba(255,255,255,0.25)',
+    },
+    content: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 20,
     },
     title: {
-        fontSize: 24,
-        fontWeight: 'bold',
+        fontSize: 22,
+        fontWeight: '700',
         marginBottom: 24,
         textAlign: 'center',
-        fontFamily: 'SpaceGrotesk-Bold',
+        letterSpacing: -0.5,
     },
     optionsContainer: {
         flexDirection: 'row',
-        gap: 16,
-        marginBottom: 24,
+        gap: 12,
     },
     optionCard: {
         flex: 1,
-        flexDirection: 'column',
         alignItems: 'center',
-        padding: 20,
-        paddingVertical: 24,
-        borderRadius: 24,
+        padding: 24,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.04)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        borderColor: 'rgba(255,255,255,0.06)',
     },
     iconContainer: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
+        width: 56,
+        height: 56,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 12,
     },
-    textContainer: {
-        flex: 1,
-        marginLeft: 16,
-    },
     optionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#FFFFFF',
         marginBottom: 4,
-        textAlign: 'center',
-        fontFamily: 'SpaceGrotesk-Bold',
     },
     optionDesc: {
         fontSize: 12,
-        textAlign: 'center',
-        fontFamily: 'SpaceMono-Regular',
+        color: 'rgba(255,255,255,0.5)',
     },
-    closeButton: {
-        alignItems: 'center',
-        paddingVertical: 12,
-    },
-    closeText: {
-        fontSize: 16,
-        fontFamily: 'SpaceGrotesk-Bold',
-    }
 });

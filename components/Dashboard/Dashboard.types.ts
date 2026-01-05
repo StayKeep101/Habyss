@@ -40,9 +40,11 @@ export interface DashboardData {
   bestStreak: number;
   percentAboveBest: number;
   percentile: number;
-  goalsProgress: number; // Aggregate progress
+  goalsProgress: number;
   weeklyCompletionRate: number;
   weeklyData: WeeklyData[];
   goals: Goal[];
   heatmapData: HeatmapData[];
+  habitScore?: number;
+  consistencyScore?: number;
 }
