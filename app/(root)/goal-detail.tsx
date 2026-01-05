@@ -53,6 +53,14 @@ const GoalDetail = () => {
 
   const scrollY = useSharedValue(0);
 
+  // Header Animation - Defined early to avoid hook errors
+  const headerStyle = useAnimatedStyle(() => {
+    return {
+      opacity: 1 - Math.min(1, scrollY.value / 200),
+      transform: [{ translateY: scrollY.value * 0.5 }]
+    };
+  });
+
   useEffect(() => {
     const loadBackground = async () => {
       const stored = await AsyncStorage.getItem(`goal_bg_${goalId}`);
@@ -199,13 +207,8 @@ const GoalDetail = () => {
 
   const daysLeft = goal.targetDate ? Math.max(0, Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
 
-  // Header Animation
-  const headerStyle = useAnimatedStyle(() => {
-    return {
-      opacity: 1 - Math.min(1, scrollY.value / 200),
-      transform: [{ translateY: scrollY.value * 0.5 }]
-    };
-  });
+  // Header Animation moved to top
+
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>

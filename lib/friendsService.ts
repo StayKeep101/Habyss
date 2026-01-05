@@ -554,10 +554,24 @@ export const FriendsService = {
         const friends = await this.getFriends();
 
         // Mock progress data - in production, query completions for each friend
-        return friends.map((friend, i) => ({
+        const mappedFriends = friends.map((friend, i) => ({
             ...friend,
             todayCompletion: Math.floor(Math.random() * 100), // Random for demo
             currentStreak: Math.floor(Math.random() * 30),
         }));
+
+        // DEMO: Ensure "Erwin" appears if not present
+        if (!mappedFriends.find(f => f.username.toLowerCase() === 'erwin')) {
+            mappedFriends.push({
+                id: 'erwin-demo-id',
+                username: 'Erwin',
+                email: 'erwin@habyss.com',
+                avatarUrl: 'https://i.pravatar.cc/150?u=erwin',
+                currentStreak: 12,
+                todayCompletion: 85,
+            });
+        }
+
+        return mappedFriends;
     },
 };

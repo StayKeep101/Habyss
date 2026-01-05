@@ -170,7 +170,7 @@ const Home = () => {
           const createdStr = hCreated.toISOString().split('T')[0];
 
           if (dateStr >= createdStr) {
-            if (habit.taskDays.includes(dayName)) {
+            if (habit.taskDays?.includes(dayName)) {
               totalExpected++;
 
               // DATA SOURCE 1: Today's local state
@@ -180,7 +180,7 @@ const Home = () => {
               // DATA SOURCE 2: History (network/cache)
               else {
                 const historyDay = historyData.find(d => d.date === dateStr);
-                if (historyDay && historyDay.completedIds.includes(habit.id)) {
+                if (historyDay && historyDay.completedIds?.includes(habit.id)) {
                   totalCompleted++;
                 }
               }
@@ -223,7 +223,7 @@ const Home = () => {
         const goalHabits = habits.filter(h => h.goalId === goal.id);
         if (goalHabits.length === 0) return;
 
-        const allDone = goalHabits.every(h => dayData.completedIds.includes(h.id));
+        const allDone = goalHabits.every(h => dayData.completedIds?.includes(h.id));
         if (allDone) {
           anyGoalComplete = true;
           completedDaysPerGoal[goal.id].push(dayData.date);
@@ -287,7 +287,7 @@ const Home = () => {
 
         if (scheduledHabits.length > 0) {
           scheduledDays++;
-          const allDone = scheduledHabits.every(h => day.completedIds.includes(h.id));
+          const allDone = scheduledHabits.every(h => day.completedIds?.includes(h.id));
           if (allDone) completeDays++;
         }
       });

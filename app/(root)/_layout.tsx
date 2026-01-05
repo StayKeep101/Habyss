@@ -2,7 +2,6 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
-import { HabitCreationModal } from '@/components/HabitCreationModal';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -87,7 +86,6 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-      <HabitCreationModal />
     </>
   );
 }

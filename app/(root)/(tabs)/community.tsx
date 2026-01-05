@@ -310,9 +310,18 @@ export default function CommunityScreen() {
                             </Text>
                         </VoidCard>
                     ) : (
-                        friends.map(friend => (
-                            <TouchableOpacity key={friend.id} onPress={() => handleFriendPress(friend)} activeOpacity={0.7}>
-                                <VoidCard style={{ padding: 16, marginBottom: 12 }}>
+                        <VoidCard style={{ padding: 0 }}>
+                            {friends.map((friend, index) => (
+                                <TouchableOpacity
+                                    key={friend.id}
+                                    onPress={() => handleFriendPress(friend)}
+                                    activeOpacity={0.7}
+                                    style={{
+                                        padding: 16,
+                                        borderBottomWidth: index < friends.length - 1 ? 1 : 0,
+                                        borderBottomColor: 'rgba(255,255,255,0.05)'
+                                    }}
+                                >
                                     <View style={styles.friendRow}>
                                         {/* Avatar */}
                                         <View style={[styles.avatarLarge, { backgroundColor: colors.surfaceTertiary }]}>
@@ -362,9 +371,9 @@ export default function CommunityScreen() {
                                             <Text style={[styles.nudgeText, { color: colors.primary }]}>👋</Text>
                                         </TouchableOpacity>
                                     </View>
-                                </VoidCard>
-                            </TouchableOpacity>
-                        ))
+                                </TouchableOpacity>
+                            ))}
+                        </VoidCard>
                     )}
                 </View>
 

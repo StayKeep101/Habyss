@@ -13,6 +13,7 @@ import {
     DeviceEventEmitter,
     Alert,
     Pressable,
+    Keyboard
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,10 @@ import Animated, {
     runOnJS,
     interpolate,
     Extrapolation,
+    FadeIn,
+    FadeOut,
+    SlideInDown,
+    SlideOutDown
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,12 +38,14 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { addHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit } from '@/lib/habits';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { TopDragHandle } from './TopDragHandle';
 
 const { width, height } = Dimensions.get('window');
 const SHEET_HEIGHT = height; // Full screen
 const DRAG_THRESHOLD = 120;
-const BOTTOM_PADDING = 100;
 
+// --- CONSTANTS ---
 const ICONS = [
     'fitness', 'book', 'water', 'bed', 'cafe', 'walk', 'bicycle', 'barbell',
     'heart', 'musical-notes', 'brush', 'code-slash', 'language', 'leaf',
@@ -112,6 +119,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const colors = Colors[theme];
     const { mediumFeedback, selectionFeedback, successFeedback } = useHaptics();
 
+    // Visibility management
     const [isVisible, setIsVisible] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [availableGoals, setAvailableGoals] = useState<Habit[]>([]);
@@ -129,7 +137,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [habitStartDate, setHabitStartDate] = useState(new Date());
     const [saving, setSaving] = useState(false);
 
-    // New fields
+    // Advanced fields
     const [reminderEnabled, setReminderEnabled] = useState(true);
     const [reminderTime, setReminderTime] = useState(new Date());
     const [ringtone, setRingtone] = useState('default');
@@ -137,22 +145,17 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [measurementUnit, setMeasurementUnit] = useState('times');
     const [graphStyle, setGraphStyle] = useState('progress');
 
-    // Sub-modals
-    const [showIconPicker, setShowIconPicker] = useState(false);
-    const [showColorPicker, setShowColorPicker] = useState(false);
-    const [showTimePicker, setShowTimePicker] = useState(false);
-    const [showReminderPicker, setShowReminderPicker] = useState(false);
-    const [showRingtonePicker, setShowRingtonePicker] = useState(false);
-    const [showMeasurementPicker, setShowMeasurementPicker] = useState(false);
-    const [showGraphPicker, setShowGraphPicker] = useState(false);
-    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+    // Active Overlay (Replacing nested modals)
+    type OverlayType = 'none' | 'icon' | 'color' | 'time' | 'reminder' | 'ringtone' | 'measurement' | 'graph' | 'startDate';
+    const [activeOverlay, setActiveOverlay] = useState<OverlayType>('none');
 
-    // Bottom sheet animation
+    // Animations
     const translateY = useSharedValue(SHEET_HEIGHT);
     const backdropOpacity = useSharedValue(0);
 
     const linkedGoal = useMemo(() => availableGoals.find(g => g.id === goalId), [availableGoals, goalId]);
 
+    // --- EFFECTS ---
     useEffect(() => {
         const unsub = subscribeToHabits((habits) => {
             setAvailableGoals(habits.filter(h => h.isGoal));
@@ -177,6 +180,13 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         return () => subscription.remove();
     }, []);
 
+    useEffect(() => {
+        if (isVisible && !isOpen) {
+            openModal();
+        }
+    }, [isVisible]);
+
+    // --- ANIMATIONS ---
     const openModal = useCallback(() => {
         setIsOpen(true);
         translateY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
@@ -184,6 +194,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     }, []);
 
     const closeModal = useCallback(() => {
+        setActiveOverlay('none'); // Close any overlays first
         translateY.value = withTiming(SHEET_HEIGHT, { duration: 350, easing: Easing.in(Easing.cubic) });
         backdropOpacity.value = withTiming(0, { duration: 250 });
         setTimeout(() => {
@@ -193,12 +204,6 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             resetForm();
         }, 350);
     }, [propOnClose]);
-
-    useEffect(() => {
-        if (isVisible && !isOpen) {
-            openModal();
-        }
-    }, [isVisible]);
 
     const resetForm = () => {
         setTitle('');
@@ -216,8 +221,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setMeasurementValue(1);
         setMeasurementUnit('times');
         setGraphStyle('progress');
+        setActiveOverlay('none');
     };
 
+    // --- ACTIONS ---
     const handleSave = async () => {
         if (!title.trim()) {
             Alert.alert('Missing Title', 'Please enter a title for your habit.');
@@ -276,6 +283,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
     const formatTime = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    // --- GESTURES ---
     const panGesture = Gesture.Pan()
         .onUpdate((event) => {
             if (event.translationY > 0) {
@@ -298,451 +306,433 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         opacity: interpolate(translateY.value, [0, SHEET_HEIGHT], [1, 0], Extrapolation.CLAMP),
     }));
 
-    const handleIndicatorStyle = useAnimatedStyle(() => ({
-        opacity: interpolate(translateY.value, [0, 50], [1, 0.5], Extrapolation.CLAMP),
-    }));
-
     if (!isOpen && !isVisible) return null;
 
     return (
-        <Modal visible={isOpen || isVisible} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
+        <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+            {/* MAIN CONTAINER */}
             <View style={styles.container}>
+                {/* BACKDROP */}
                 <Animated.View style={[StyleSheet.absoluteFill, backdropAnimatedStyle]}>
-                    <TouchableOpacity style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }]} activeOpacity={1} onPress={closeModal} />
+                    <TouchableOpacity style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5, 5, 16, 0.8)' }]} activeOpacity={1} onPress={closeModal} />
                 </Animated.View>
 
-                <GestureDetector gesture={panGesture}>
+                {/* BOTTOM SHEET */}
+                <GestureDetector gesture={activeOverlay === 'none' ? panGesture : Gesture.Native()}>
                     <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
-                        <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
-
-                        <View style={styles.handleContainer}>
-                            <View style={styles.handle} />
-                        </View>
-
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <TouchableOpacity onPress={closeModal} style={styles.closeBtn}>
-                                <Ionicons name="arrow-back" size={22} color="rgba(255,255,255,0.8)" />
-                            </TouchableOpacity>
-                            <View style={{ flex: 1, marginLeft: 16 }}>
-                                <Text style={styles.headerTitle}>NEW HABIT</Text>
-                                <Text style={[styles.headerSubtitle, { color: linkedGoal?.color || '#10B981' }]}>{linkedGoal ? linkedGoal.name.toUpperCase() : 'DAILY ROUTINE'}</Text>
+                        <LinearGradient
+                            colors={['#050510', '#0a0a1a']}
+                            style={StyleSheet.absoluteFill}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        />
+                        {/* Glass Border */}
+                        <View style={styles.sheetLayout}>
+                            <View style={styles.handleContainer}>
+                                <View style={styles.handle} />
                             </View>
-                            <View style={{ width: 40 }} />
-                        </View>
 
-                        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-                            <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                                {/* Title Row with Icon and Color */}
-                                <View style={styles.titleRow}>
-                                    <TouchableOpacity onPress={() => { selectionFeedback(); setShowIconPicker(true); }} style={[styles.iconBtn, { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}>
-                                        <Ionicons name={selectedIcon as any} size={28} color={selectedColor} />
-                                    </TouchableOpacity>
-                                    <TextInput
-                                        style={styles.titleInput}
-                                        placeholder="Habit name..."
-                                        placeholderTextColor="rgba(255,255,255,0.3)"
-                                        value={title}
-                                        onChangeText={setTitle}
-                                    />
-                                    <TouchableOpacity onPress={() => { selectionFeedback(); setShowColorPicker(true); }} style={[styles.milicolorBtn, { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}>
-                                        <View style={[styles.milicolorDot, { backgroundColor: selectedColor }]} />
-                                        <Text style={[styles.milicolorText, { color: selectedColor }]}>milicolor</Text>
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Goal Link */}
-                                <View style={styles.section}>
-                                    <Text style={styles.label}>LINKED GOAL <Text style={{ color: '#EF4444' }}>*</Text></Text>
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                            {availableGoals.length === 0 ? (
-                                                <View style={[styles.goalChip, { borderColor: '#EF4444', backgroundColor: 'rgba(239,68,68,0.1)' }]}>
-                                                    <Ionicons name="warning" size={14} color="#EF4444" />
-                                                    <Text style={{ color: '#EF4444', marginLeft: 6, fontSize: 12 }}>Create a goal first</Text>
-                                                </View>
-                                            ) : availableGoals.map(goal => (
-                                                <TouchableOpacity
-                                                    key={goal.id}
-                                                    onPress={() => { selectionFeedback(); setGoalId(goal.id); }}
-                                                    style={[styles.goalChip, goalId === goal.id && { backgroundColor: goal.color + '20', borderColor: goal.color }]}
-                                                >
-                                                    <Ionicons name={goal.icon as any} size={14} color={goalId === goal.id ? goal.color : 'rgba(255,255,255,0.5)'} />
-                                                    <Text style={{ color: goalId === goal.id ? goal.color : 'rgba(255,255,255,0.5)', marginLeft: 6, fontSize: 12 }}>{goal.name}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    </ScrollView>
-                                </View>
-
-                                {/* Frequency */}
-                                <View style={styles.section}>
-                                    <Text style={styles.label}>FREQUENCY</Text>
-                                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                                        {(['daily', 'weekly'] as HabitFrequency[]).map(f => (
-                                            <TouchableOpacity
-                                                key={f}
-                                                onPress={() => { selectionFeedback(); setFrequency(f); }}
-                                                style={[styles.optionBtn, frequency === f && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
-                                            >
-                                                <Text style={{ color: frequency === f ? selectedColor : 'rgba(255,255,255,0.5)', fontWeight: '600' }}>{f.charAt(0).toUpperCase() + f.slice(1)}</Text>
-                                            </TouchableOpacity>
-                                        ))}
+                            {/* Header */}
+                            <View style={styles.header}>
+                                <TouchableOpacity onPress={closeModal} style={styles.iconButton}>
+                                    <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
+                                </TouchableOpacity>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
+                                    <Text style={styles.headerTitle}>NEW HABIT</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, opacity: 0.7 }}>
+                                        <Text style={{ color: linkedGoal?.color || '#fff', fontSize: 10, fontFamily: 'Lexend', marginRight: 4 }}>
+                                            {linkedGoal ? linkedGoal.name.toUpperCase() : 'NO GOAL'}
+                                        </Text>
                                     </View>
+                                </View>
+                                <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.iconButton, { backgroundColor: selectedColor }]}>
+                                    <Ionicons name={saving ? "hourglass" : "checkmark"} size={20} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
 
-                                    {frequency === 'weekly' && (
-                                        <View style={{ marginTop: 16 }}>
-                                            <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'space-between' }}>
-                                                {WEEKDAYS.map(day => (
+                            {/* Content */}
+                            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                                <ScrollView
+                                    style={{ flex: 1 }}
+                                    contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+                                    showsVerticalScrollIndicator={false}
+                                >
+                                    {/* Main Input Card */}
+                                    <VoidCard glass intensity={20} style={styles.mainCard}>
+                                        <View style={styles.inputRow}>
+                                            <TouchableOpacity
+                                                onPress={() => { selectionFeedback(); setActiveOverlay('icon'); }}
+                                                style={[styles.bigIconBtn, { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                            >
+                                                <Ionicons name={selectedIcon as any} size={24} color={selectedColor} />
+                                            </TouchableOpacity>
+
+                                            <TextInput
+                                                style={styles.mainInput}
+                                                placeholder="What's the habit?"
+                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                value={title}
+                                                onChangeText={setTitle}
+                                                autoFocus={false}
+                                            />
+
+                                            <TouchableOpacity
+                                                onPress={() => { selectionFeedback(); setActiveOverlay('color'); }}
+                                                style={[styles.colorDotBtn, { backgroundColor: selectedColor }]}
+                                            />
+                                        </View>
+                                    </VoidCard>
+
+                                    {/* Settings Grid */}
+                                    <Text style={styles.sectionTitle}>CONFIGURATION</Text>
+                                    <View style={styles.grid}>
+
+                                        {/* Goal Link */}
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                // Just cycle through available goals if specific overlay not needed yet, or minimal picker
+                                                // For now, let's keep inline horizontal scroll in main view
+                                            }}
+                                            activeOpacity={1} // Just a label wrapper
+                                            style={[styles.gridItem, { gridColumn: 'span 2', width: '100%' }]}
+                                        >
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                                                <Text style={styles.gridLabel}>LINKED GOAL</Text>
+                                                <Text style={{ fontSize: 10, color: '#EF4444' }}>* Required</Text>
+                                            </View>
+                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -12, paddingHorizontal: 12 }}>
+                                                {availableGoals.map(g => (
                                                     <TouchableOpacity
-                                                        key={day.id}
-                                                        onPress={() => toggleDay(day.id)}
-                                                        style={[styles.dayBtn, selectedDays.includes(day.id) && { backgroundColor: selectedColor, borderColor: selectedColor }]}
+                                                        key={g.id}
+                                                        onPress={() => { selectionFeedback(); setGoalId(g.id); }}
+                                                        style={[styles.goalChip, goalId === g.id && { backgroundColor: g.color + '20', borderColor: g.color }]}
                                                     >
-                                                        <Text style={{ color: selectedDays.includes(day.id) ? 'white' : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600' }}>{day.label[0]}</Text>
+                                                        <Ionicons name={g.icon as any} size={12} color={goalId === g.id ? g.color : 'rgba(255,255,255,0.4)'} />
+                                                        <Text style={[styles.goalChipText, goalId === g.id && { color: g.color }]}>{g.name}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                                {availableGoals.length === 0 && (
+                                                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontStyle: 'italic' }}>No goals found. Create one first.</Text>
+                                                )}
+                                            </ScrollView>
+                                        </TouchableOpacity>
+
+                                        {/* Frequency */}
+                                        <View style={[styles.gridItem, { width: '100%' }]}>
+                                            <Text style={styles.gridLabel}>FREQUENCY</Text>
+                                            <View style={styles.segmentContainer}>
+                                                {(['daily', 'weekly'] as HabitFrequency[]).map(f => (
+                                                    <TouchableOpacity
+                                                        key={f}
+                                                        onPress={() => { selectionFeedback(); setFrequency(f); }}
+                                                        style={[styles.segmentBtn, frequency === f && { backgroundColor: 'rgba(255,255,255,0.1)' }]}
+                                                    >
+                                                        <Text style={{ color: frequency === f ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '600' }}>
+                                                            {f.toUpperCase()}
+                                                        </Text>
                                                     </TouchableOpacity>
                                                 ))}
                                             </View>
-                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 8, textAlign: 'center' }}>{repeatText}</Text>
+                                            {frequency === 'weekly' && (
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+                                                    {WEEKDAYS.map(day => (
+                                                        <TouchableOpacity
+                                                            key={day.id}
+                                                            onPress={() => toggleDay(day.id)}
+                                                            style={[styles.dayCircle, selectedDays.includes(day.id) && { backgroundColor: selectedColor, borderColor: selectedColor }]}
+                                                        >
+                                                            <Text style={{ fontSize: 9, color: selectedDays.includes(day.id) ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '700' }}>
+                                                                {day.label[0]}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                            )}
                                         </View>
-                                    )}
-                                </View>
 
-                                {/* Time */}
-                                <View style={styles.section}>
-                                    <Text style={styles.label}>TIME FRAME</Text>
-                                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                                        {/* Time Picker Trigger */}
+                                        <TouchableOpacity
+                                            onPress={() => { selectionFeedback(); setActiveOverlay('time'); }}
+                                            style={styles.gridItem}
+                                        >
+                                            <Ionicons name="time-outline" size={20} color={useFreeTime ? '#8B5CF6' : selectedColor} />
+                                            <Text style={styles.gridValue}>{useFreeTime ? 'Anytime' : `${formatTime(startTime)}`}</Text>
+                                            <Text style={styles.gridLabel}>SCHEDULE</Text>
+                                        </TouchableOpacity>
+
+                                        {/* Reminder Trigger */}
+                                        <TouchableOpacity
+                                            onPress={() => { selectionFeedback(); setActiveOverlay('reminder'); }}
+                                            style={styles.gridItem}
+                                        >
+                                            <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={20} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.3)'} />
+                                            <Text style={styles.gridValue}>{reminderEnabled ? formatTime(reminderTime) : 'Off'}</Text>
+                                            <Text style={styles.gridLabel}>REMINDERS</Text>
+                                        </TouchableOpacity>
+
+                                        {/* Graph Style */}
+                                        <TouchableOpacity
+                                            onPress={() => { selectionFeedback(); setActiveOverlay('graph'); }}
+                                            style={styles.gridItem}
+                                        >
+                                            <Ionicons name={GRAPH_STYLES.find(g => g.id === graphStyle)?.icon as any} size={20} color={selectedColor} />
+                                            <Text style={styles.gridValue} numberOfLines={1}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
+                                            <Text style={styles.gridLabel}>VISUALIZATION</Text>
+                                        </TouchableOpacity>
+
+                                        {/* Measurement */}
+                                        <TouchableOpacity
+                                            onPress={() => { selectionFeedback(); setActiveOverlay('measurement'); }}
+                                            style={styles.gridItem}
+                                        >
+                                            <Ionicons name="scale-outline" size={20} color={selectedColor} />
+                                            <Text style={styles.gridValue}>{measurementValue} {UNITS.find(u => u.id === measurementUnit)?.label}</Text>
+                                            <Text style={styles.gridLabel}>TARGET</Text>
+                                        </TouchableOpacity>
+
+                                    </View>
+                                </ScrollView>
+                            </KeyboardAvoidingView>
+                        </View>
+
+                        {/* --- OVERLAYS (Simulated Modals) --- */}
+                        {/* Dimmer for overlays */}
+                        {activeOverlay !== 'none' && (
+                            <Animated.View
+                                entering={FadeIn.duration(200)}
+                                exiting={FadeOut.duration(200)}
+                                style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 10 }]}
+                            >
+                                <Pressable style={StyleSheet.absoluteFill} onPress={() => setActiveOverlay('none')} />
+                            </Animated.View>
+                        )}
+
+                        {/* Overlay Container with Separate Gesture */}
+                        <GestureDetector gesture={Gesture.Pan().onUpdate((e) => {
+                            if (e.translationY > 50) runOnJS(setActiveOverlay)('none');
+                        })}>
+                            <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+
+                                {/* ICON OVERLAY */}
+                                {activeOverlay === 'icon' && (
+                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
+                                        <TopDragHandle />
+                                        <Text style={styles.overlayTitle}>Choose Icon</Text>
+                                        <ScrollView contentContainerStyle={styles.iconGrid}>
+                                            {ICONS.map(icon => (
+                                                <TouchableOpacity
+                                                    key={icon}
+                                                    onPress={() => { selectionFeedback(); setSelectedIcon(icon); setActiveOverlay('none'); }}
+                                                    style={[styles.iconOption, selectedIcon === icon && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                                >
+                                                    <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor : 'rgba(255,255,255,0.5)'} />
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </Animated.View>
+                                )}
+
+                                {/* COLOR OVERLAY */}
+                                {activeOverlay === 'color' && (
+                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
+                                        <TopDragHandle />
+                                        <Text style={styles.overlayTitle}>Choose Color</Text>
+                                        <View style={styles.colorGrid}>
+                                            {COLORS.map(c => (
+                                                <TouchableOpacity
+                                                    key={c}
+                                                    onPress={() => { selectionFeedback(); setSelectedColor(c); setActiveOverlay('none'); }}
+                                                    style={[styles.colorOption, { backgroundColor: c }, selectedColor === c && styles.colorSelected]}
+                                                />
+                                            ))}
+                                        </View>
+                                    </Animated.View>
+                                )}
+
+                                {/* TIME OVERLAY */}
+                                {activeOverlay === 'time' && (
+                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
+                                        <TopDragHandle />
+                                        <Text style={styles.overlayTitle}>Set Schedule</Text>
                                         <TouchableOpacity
                                             onPress={() => { selectionFeedback(); setUseFreeTime(!useFreeTime); }}
-                                            style={[styles.optionBtn, useFreeTime && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                            style={[styles.toggleRow, { marginBottom: 20 }]}
                                         >
-                                            <Ionicons name="infinite" size={16} color={useFreeTime ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                            <Text style={{ color: useFreeTime ? selectedColor : 'rgba(255,255,255,0.5)', marginLeft: 6, fontSize: 12 }}>Anytime</Text>
+                                            <Text style={{ color: 'white', fontWeight: '600' }}>Anytime / All Day</Text>
+                                            <Ionicons name={useFreeTime ? "checkbox" : "square-outline"} size={24} color={selectedColor} />
                                         </TouchableOpacity>
 
                                         {!useFreeTime && (
-                                            <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.timeBtn}>
-                                                <Ionicons name="time-outline" size={16} color={selectedColor} />
-                                                <Text style={{ color: '#fff', fontWeight: '600', marginLeft: 8 }}>{formatTime(startTime)} - {formatTime(endTime)}</Text>
-                                            </TouchableOpacity>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 20 }}>
+                                                <View style={{ flex: 1, alignItems: 'center' }}>
+                                                    <Text style={styles.pickerLabel}>START</Text>
+                                                    <DateTimePicker
+                                                        value={startTime}
+                                                        mode="time"
+                                                        display="spinner"
+                                                        onChange={(_, d) => d && setStartTime(d)}
+                                                        textColor="#fff"
+                                                        style={{ height: 120, width: '100%' }}
+                                                    />
+                                                </View>
+                                                <View style={{ flex: 1, alignItems: 'center' }}>
+                                                    <Text style={styles.pickerLabel}>END</Text>
+                                                    <DateTimePicker
+                                                        value={endTime}
+                                                        mode="time"
+                                                        display="spinner"
+                                                        onChange={(_, d) => d && setEndTime(d)}
+                                                        textColor="#fff"
+                                                        style={{ height: 120, width: '100%' }}
+                                                    />
+                                                </View>
+                                            </View>
                                         )}
-                                    </View>
-                                </View>
+                                        <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
+                                            <Text style={styles.doneButtonText}>Done</Text>
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                )}
 
-                                {/* Measurement */}
-                                <View style={styles.section}>
-                                    <Text style={styles.label}>GOAL MEASUREMENT</Text>
-                                    <TouchableOpacity onPress={() => setShowMeasurementPicker(true)} style={styles.measurementBtn}>
-                                        <Text style={styles.measurementValue}>{measurementValue}</Text>
-                                        <Text style={styles.measurementUnit}>{UNITS.find(u => u.id === measurementUnit)?.label}</Text>
-                                        <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Reminder */}
-                                <View style={styles.section}>
-                                    <Text style={styles.label}>REMINDER</Text>
-                                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                                {/* REMINDER OVERLAY */}
+                                {activeOverlay === 'reminder' && (
+                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
+                                        <TopDragHandle />
+                                        <Text style={styles.overlayTitle}>Notifications</Text>
                                         <TouchableOpacity
                                             onPress={() => { selectionFeedback(); setReminderEnabled(!reminderEnabled); }}
-                                            style={[styles.optionBtn, reminderEnabled && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                            style={[styles.toggleRow, { marginBottom: 20 }]}
                                         >
-                                            <Ionicons name={reminderEnabled ? 'notifications' : 'notifications-off'} size={16} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                            <Text style={{ color: reminderEnabled ? selectedColor : 'rgba(255,255,255,0.5)', marginLeft: 6, fontSize: 12 }}>{reminderEnabled ? 'On' : 'Off'}</Text>
+                                            <Text style={{ color: 'white', fontWeight: '600' }}>Enable Reminders</Text>
+                                            <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={24} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.3)'} />
                                         </TouchableOpacity>
 
                                         {reminderEnabled && (
-                                            <TouchableOpacity onPress={() => setShowReminderPicker(true)} style={styles.timeBtn}>
-                                                <Ionicons name="alarm-outline" size={16} color={selectedColor} />
-                                                <Text style={{ color: '#fff', fontWeight: '600', marginLeft: 8 }}>{formatTime(reminderTime)}</Text>
-                                            </TouchableOpacity>
+                                            <View style={{ alignItems: 'center', height: 150 }}>
+                                                <DateTimePicker
+                                                    value={reminderTime}
+                                                    mode="time"
+                                                    display="spinner"
+                                                    onChange={(_, d) => d && setReminderTime(d)}
+                                                    textColor="#fff"
+                                                    style={{ height: 150 }}
+                                                />
+                                            </View>
                                         )}
-                                    </View>
-                                </View>
-
-                                {/* Ringtone */}
-                                <View style={styles.section}>
-                                    <Text style={styles.label}>RINGTONE</Text>
-                                    <TouchableOpacity onPress={() => setShowRingtonePicker(true)} style={styles.selectBtn}>
-                                        <Ionicons name={RINGTONES.find(r => r.id === ringtone)?.icon as any} size={18} color={selectedColor} />
-                                        <Text style={styles.selectText}>{RINGTONES.find(r => r.id === ringtone)?.label}</Text>
-                                        <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Graph Style */}
-                                <View style={styles.section}>
-                                    <Text style={styles.label}>GRAPH STYLE</Text>
-                                    <TouchableOpacity onPress={() => setShowGraphPicker(true)} style={styles.selectBtn}>
-                                        <Ionicons name={GRAPH_STYLES.find(g => g.id === graphStyle)?.icon as any} size={18} color={selectedColor} />
-                                        <Text style={styles.selectText}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
-                                        <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Date Range */}
-                                <View style={styles.section}>
-                                    <Text style={styles.label}>DATE RANGE</Text>
-                                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                                        <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={[styles.dateBox, { flex: 1 }]}>
-                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 4 }}>START DATE</Text>
-                                            <Text style={{ color: '#fff', fontWeight: '600' }}>{habitStartDate.toLocaleDateString()}</Text>
+                                        <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 20 }]}>
+                                            <Text style={styles.doneButtonText}>Done</Text>
                                         </TouchableOpacity>
-                                        <View style={[styles.dateBox, { flex: 1, opacity: 0.6 }]}>
-                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 4 }}>END DATE</Text>
-                                            <Text style={{ color: '#fff', fontWeight: '600' }}>
-                                                {linkedGoal?.targetDate ? new Date(linkedGoal.targetDate).toLocaleDateString() : 'From goal'}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </View>
-                            </ScrollView>
-                        </KeyboardAvoidingView>
+                                    </Animated.View>
+                                )}
 
-                        {/* FAB Create Button */}
-                        <View style={styles.fabContainer}>
-                            <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.fabBtn, { backgroundColor: selectedColor }]}>
-                                <Ionicons name={saving ? 'hourglass' : 'checkmark'} size={28} color="white" />
-                            </TouchableOpacity>
-                        </View>
+                                {/* GRAPH OVERLAY */}
+                                {activeOverlay === 'graph' && (
+                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
+                                        <TopDragHandle />
+                                        <Text style={styles.overlayTitle}>Graph Style</Text>
+                                        {GRAPH_STYLES.map(g => (
+                                            <TouchableOpacity
+                                                key={g.id}
+                                                onPress={() => { selectionFeedback(); setGraphStyle(g.id); setActiveOverlay('none'); }}
+                                                style={[styles.listItem, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}
+                                            >
+                                                <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : 'rgba(255,255,255,0.5)'} />
+                                                <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : '#fff' }]}>{g.label}</Text>
+                                                {graphStyle === g.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
+                                            </TouchableOpacity>
+                                        ))}
+                                    </Animated.View>
+                                )}
+
+                                {/* MEASUREMENT OVERLAY */}
+                                {activeOverlay === 'measurement' && (
+                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
+                                        <TopDragHandle />
+                                        <Text style={styles.overlayTitle}>Target & Units</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 30 }}>
+                                            <TouchableOpacity onPress={() => setMeasurementValue(Math.max(1, measurementValue - 1))} style={styles.counterBtn}>
+                                                <Ionicons name="remove" size={24} color="#fff" />
+                                            </TouchableOpacity>
+                                            <Text style={{ fontSize: 40, fontWeight: '900', color: '#fff' }}>{measurementValue}</Text>
+                                            <TouchableOpacity onPress={() => setMeasurementValue(measurementValue + 1)} style={styles.counterBtn}>
+                                                <Ionicons name="add" size={24} color="#fff" />
+                                            </TouchableOpacity>
+                                        </View>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                {UNITS.map(u => (
+                                                    <TouchableOpacity
+                                                        key={u.id}
+                                                        onPress={() => { selectionFeedback(); setMeasurementUnit(u.id); }}
+                                                        style={[styles.unitChip, measurementUnit === u.id && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                                    >
+                                                        <Text style={{ color: measurementUnit === u.id ? selectedColor : 'rgba(255,255,255,0.5)' }}>{u.label}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        </ScrollView>
+                                        <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
+                                            <Text style={styles.doneButtonText}>Done</Text>
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                )}
+                            </View>
+                        </GestureDetector>
+
                     </Animated.View>
                 </GestureDetector>
-
-                {/* Icon Picker Modal */}
-                <Modal visible={showIconPicker} transparent animationType="fade">
-                    <Pressable style={styles.overlay} onPress={() => setShowIconPicker(false)}>
-                        <Pressable style={styles.pickerModal} onPress={e => e.stopPropagation()}>
-                            <View style={styles.pickerHandle} />
-                            <Text style={styles.pickerTitle}>Choose Icon</Text>
-                            <View style={styles.iconGrid}>
-                                {ICONS.map(icon => (
-                                    <TouchableOpacity
-                                        key={icon}
-                                        onPress={() => { selectionFeedback(); setSelectedIcon(icon); setShowIconPicker(false); }}
-                                        style={[styles.iconOption, selectedIcon === icon && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
-                                    >
-                                        <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </Pressable>
-                    </Pressable>
-                </Modal>
-
-                {/* Color Picker Modal */}
-                <Modal visible={showColorPicker} transparent animationType="slide">
-                    <View style={styles.bottomModalContainer}>
-                        <Pressable style={styles.bottomModalBackdrop} onPress={() => setShowColorPicker(false)} />
-                        <View style={styles.bottomModal}>
-                            <View style={styles.pickerHandle} />
-                            <Text style={styles.pickerTitle}>Choose Color</Text>
-                            <View style={styles.colorGrid}>
-                                {COLORS.map(c => (
-                                    <TouchableOpacity key={c} onPress={() => { selectionFeedback(); setSelectedColor(c); setShowColorPicker(false); }} style={[styles.colorOption, { backgroundColor: c }, selectedColor === c && styles.colorSelected]} />
-                                ))}
-                            </View>
-                        </View>
-                    </View>
-                </Modal>
-
-                {/* Time Picker Modal */}
-                <Modal visible={showTimePicker} transparent animationType="slide">
-                    <View style={styles.bottomModalContainer}>
-                        <Pressable style={styles.bottomModalBackdrop} onPress={() => setShowTimePicker(false)} />
-                        <View style={styles.bottomModal}>
-                            <View style={styles.pickerHandle} />
-                            <Text style={styles.pickerTitle}>Set Time Frame</Text>
-                            <View style={styles.timePickerRow}>
-                                <View style={styles.timePickerColumn}>
-                                    <View style={styles.timePickerLabelContainer}>
-                                        <Ionicons name="time-outline" size={16} color="#10B981" />
-                                        <Text style={styles.timePickerLabel}>Start</Text>
-                                    </View>
-                                    <View style={styles.timePickerWrapper}>
-                                        <DateTimePicker value={startTime} mode="time" display="spinner" onChange={(_, d) => d && setStartTime(d)} textColor="#fff" style={{ height: 180, width: 140 }} />
-                                    </View>
-                                </View>
-                                <View style={styles.timePickerDivider}>
-                                    <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.3)" />
-                                </View>
-                                <View style={styles.timePickerColumn}>
-                                    <View style={styles.timePickerLabelContainer}>
-                                        <Ionicons name="time-outline" size={16} color="#EF4444" />
-                                        <Text style={styles.timePickerLabel}>End</Text>
-                                    </View>
-                                    <View style={styles.timePickerWrapper}>
-                                        <DateTimePicker value={endTime} mode="time" display="spinner" onChange={(_, d) => d && setEndTime(d)} textColor="#fff" style={{ height: 180, width: 140 }} />
-                                    </View>
-                                </View>
-                            </View>
-                            <TouchableOpacity onPress={() => setShowTimePicker(false)} style={[styles.doneBtn, { backgroundColor: selectedColor }]}>
-                                <Text style={{ color: 'white', fontWeight: '700' }}>Done</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
-
-                {/* Reminder Time Picker */}
-                <Modal visible={showReminderPicker} transparent animationType="slide">
-                    <View style={styles.bottomModalContainer}>
-                        <Pressable style={styles.bottomModalBackdrop} onPress={() => setShowReminderPicker(false)} />
-                        <View style={styles.bottomModal}>
-                            <View style={styles.pickerHandle} />
-                            <Text style={styles.pickerTitle}>Set Reminder</Text>
-                            <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                                <DateTimePicker value={reminderTime} mode="time" display="spinner" onChange={(_, d) => d && setReminderTime(d)} textColor="#fff" style={{ height: 150, width: 200 }} />
-                            </View>
-                            <TouchableOpacity onPress={() => setShowReminderPicker(false)} style={[styles.doneBtn, { backgroundColor: selectedColor }]}>
-                                <Text style={{ color: 'white', fontWeight: '700' }}>Done</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
-
-                {/* Ringtone Picker Modal */}
-                <Modal visible={showRingtonePicker} transparent animationType="slide">
-                    <View style={styles.bottomModalContainer}>
-                        <Pressable style={styles.bottomModalBackdrop} onPress={() => setShowRingtonePicker(false)} />
-                        <View style={styles.bottomModal}>
-                            <View style={styles.pickerHandle} />
-                            <Text style={styles.pickerTitle}>Choose Ringtone</Text>
-                            {RINGTONES.map(r => (
-                                <TouchableOpacity key={r.id} onPress={() => { selectionFeedback(); setRingtone(r.id); setShowRingtonePicker(false); }} style={[styles.listItem, ringtone === r.id && { backgroundColor: selectedColor + '20' }]}>
-                                    <Ionicons name={r.icon as any} size={20} color={ringtone === r.id ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                    <Text style={[styles.listItemText, { color: ringtone === r.id ? selectedColor : '#fff' }]}>{r.label}</Text>
-                                    {ringtone === r.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-                </Modal>
-
-                {/* Measurement Picker Modal */}
-                <Modal visible={showMeasurementPicker} transparent animationType="slide">
-                    <View style={styles.bottomModalContainer}>
-                        <Pressable style={styles.bottomModalBackdrop} onPress={() => setShowMeasurementPicker(false)} />
-                        <View style={styles.bottomModal}>
-                            <View style={styles.pickerHandle} />
-                            <Text style={styles.pickerTitle}>Set Measurement</Text>
-
-                            {/* Number controls */}
-                            <View style={styles.measurementControls}>
-                                <TouchableOpacity onPress={() => { selectionFeedback(); setMeasurementValue(Math.max(1, measurementValue - 1)); }} style={styles.measurementControlBtn}>
-                                    <Ionicons name="remove" size={28} color="#fff" />
-                                </TouchableOpacity>
-                                <Text style={styles.measurementDisplay}>{measurementValue}</Text>
-                                <TouchableOpacity onPress={() => { selectionFeedback(); setMeasurementValue(measurementValue + 1); }} style={styles.measurementControlBtn}>
-                                    <Ionicons name="add" size={28} color="#fff" />
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Unit selection */}
-                            <Text style={[styles.label, { marginTop: 20, marginBottom: 10 }]}>UNIT</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-                                <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4 }}>
-                                    {UNITS.map(u => (
-                                        <TouchableOpacity key={u.id} onPress={() => { selectionFeedback(); setMeasurementUnit(u.id); }} style={[styles.unitChip, measurementUnit === u.id && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}>
-                                            <Text style={{ color: measurementUnit === u.id ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13 }}>{u.label}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </ScrollView>
-
-                            <TouchableOpacity onPress={() => setShowMeasurementPicker(false)} style={[styles.doneBtn, { backgroundColor: selectedColor }]}>
-                                <Text style={{ color: 'white', fontWeight: '700' }}>Done</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
-
-                {/* Graph Style Picker Modal */}
-                <Modal visible={showGraphPicker} transparent animationType="slide">
-                    <View style={styles.bottomModalContainer}>
-                        <Pressable style={styles.bottomModalBackdrop} onPress={() => setShowGraphPicker(false)} />
-                        <View style={styles.bottomModal}>
-                            <View style={styles.pickerHandle} />
-                            <Text style={styles.pickerTitle}>Choose Graph Style</Text>
-                            {GRAPH_STYLES.map(g => (
-                                <TouchableOpacity key={g.id} onPress={() => { selectionFeedback(); setGraphStyle(g.id); setShowGraphPicker(false); }} style={[styles.listItem, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}>
-                                    <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                    <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : '#fff' }]}>{g.label}</Text>
-                                    {graphStyle === g.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-                </Modal>
-
-                {/* Start Date Picker */}
-                {showStartDatePicker && (
-                    <DateTimePicker
-                        value={habitStartDate}
-                        mode="date"
-                        display="default"
-                        onChange={(_, d) => { setShowStartDatePicker(false); if (d) setHabitStartDate(d); }}
-                    />
-                )}
             </View>
-        </Modal>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
-    sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(16, 185, 129, 0.15)', pointerEvents: 'none' },
-    handleContainer: { alignItems: 'center', paddingTop: 12, paddingBottom: 4 },
-    handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-    closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },
-    headerSubtitle: { fontSize: 9, fontWeight: '600', letterSpacing: 1.5, fontFamily: 'Lexend_400Regular', marginTop: 1 },
-    content: { flex: 1, padding: 20 },
-    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 24 },
-    iconBtn: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-    colorBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    titleInput: { flex: 1, fontSize: 16, fontWeight: '600', color: '#fff', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.05)' },
-    section: { marginBottom: 20 },
-    label: { fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 10, color: 'rgba(255,255,255,0.5)' },
-    goalChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
-    optionBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
-    dayBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
-    timeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    measurementBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    measurementValue: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginRight: 8 },
-    measurementUnit: { fontSize: 14, color: 'rgba(255,255,255,0.6)', flex: 1 },
-    selectBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', gap: 12 },
-    selectText: { flex: 1, fontSize: 14, fontWeight: '500', color: '#fff' },
-    dateBox: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    fabContainer: { position: 'absolute', bottom: 30, right: 20, zIndex: 100 },
-    fabBtn: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
-    overlay: { flex: 1, backgroundColor: '#0a0d14', justifyContent: 'flex-end' },
-    pickerModal: { width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, backgroundColor: '#1a1f2e' },
-    pickerHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)', alignSelf: 'center', marginBottom: 16 },
-    pickerTitle: { fontSize: 18, fontWeight: '700', marginBottom: 20, textAlign: 'center', color: '#fff' },
-    iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
-    iconOption: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
-    bottomModalContainer: { flex: 1, justifyContent: 'flex-end' },
-    bottomModalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)' },
-    bottomModal: { backgroundColor: '#0f1218', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.05)' },
-    colorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
+    sheet: { height: SHEET_HEIGHT, overflow: 'hidden', borderTopLeftRadius: 30, borderTopRightRadius: 30 },
+    sheetLayout: { flex: 1, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderBottomWidth: 0 },
+    handleContainer: { alignItems: 'center', paddingTop: 10, paddingBottom: 5 },
+    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 10, marginBottom: 10 },
+    headerTitle: { fontSize: 16, textAlign: 'center', fontWeight: '900', color: '#fff', letterSpacing: 2, fontFamily: 'Lexend' },
+    iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+    mainCard: { padding: 16, borderRadius: 20, marginBottom: 30 },
+    inputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    bigIconBtn: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+    mainInput: { flex: 1, fontSize: 18, fontWeight: '600', color: '#fff', fontFamily: 'Lexend' },
+    colorDotBtn: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)' },
+    sectionTitle: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 16, fontFamily: 'Lexend' },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    gridItem: { width: '48%', backgroundColor: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', minHeight: 100, justifyContent: 'space-between' },
+    gridLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.3)', letterSpacing: 1, marginTop: 8 },
+    gridValue: { fontSize: 15, fontWeight: '600', color: '#fff', fontFamily: 'Lexend' },
+    goalChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'transparent', marginRight: 8 },
+    goalChipText: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginLeft: 6 },
+    segmentContainer: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 2, marginBottom: 12 },
+    segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6 },
+    dayCircle: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
+
+    // OVERLAY PANEL
+    overlayPanel: {
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        backgroundColor: '#0f1218',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        padding: 24, paddingBottom: 50,
+        zIndex: 20,
+        borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+        shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 20
+    },
+    overlayTitle: { fontSize: 18, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 24, fontFamily: 'Lexend' },
+    iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
+    iconOption: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    colorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'center' },
     colorOption: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, borderColor: 'transparent' },
     colorSelected: { borderColor: '#fff' },
-    timePickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingHorizontal: 10 },
-    timePickerColumn: { flex: 1, alignItems: 'center', maxWidth: 160 },
-    timePickerDivider: { width: 40, alignItems: 'center', justifyContent: 'center' },
-    timePickerLabel: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginLeft: 6 },
-    timePickerLabelContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    timePickerWrapper: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    milicolorBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
-    milicolorDot: { width: 12, height: 12, borderRadius: 6, marginRight: 6 },
-    milicolorText: { fontSize: 12, fontWeight: '600' },
-    doneBtn: { paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
-    listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, marginBottom: 8, gap: 12 },
+    toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 12 },
+    pickerLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)', marginBottom: 8 },
+    doneButton: { paddingVertical: 16, borderRadius: 16, alignItems: 'center', width: '100%' },
+    doneButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, marginBottom: 8, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     listItemText: { flex: 1, fontSize: 15, fontWeight: '500' },
-    measurementControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24 },
-    measurementControlBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    measurementDisplay: { fontSize: 48, fontWeight: 'bold', color: '#fff', minWidth: 80, textAlign: 'center' },
-    unitChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
+    counterBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+    unitChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
 });
