@@ -90,133 +90,110 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.title}>MY ANALYTICS</Text>
-                    <Text style={styles.subtitle}>LIFE BALANCE MATRIX</Text>
-                </View>
-                <TouchableOpacity onPress={() => setViewMode(prev => prev === 'radar' ? 'stats' : 'radar')} style={styles.toggleBtn}>
-                    <Ionicons name={viewMode === 'radar' ? "stats-chart" : "aperture"} size={18} color="#fff" />
-                </TouchableOpacity>
-            </View>
-
+            {/* Life Balance Matrix Card */}
             <VoidCard glass style={styles.chartCard} intensity={90}>
-                {viewMode === 'radar' ? (
-                    <View style={{ alignItems: 'center', justifyContent: 'center', height: CHART_SIZE }}>
-                        <Svg width={CHART_SIZE} height={CHART_SIZE}>
-                            <Defs>
-                                <LinearGradient id="radarGrad" x1="0" y1="0" x2="0" y2="1">
-                                    <Stop offset="0" stopColor="#3B82F6" stopOpacity="0.8" />
-                                    <Stop offset="1" stopColor="#EC4899" stopOpacity="0.6" />
-                                </LinearGradient>
-                            </Defs>
+                <Text style={styles.cardTitle}>LIFE BALANCE MATRIX</Text>
+                <View style={{ alignItems: 'center', justifyContent: 'center', height: CHART_SIZE }}>
+                    <Svg width={CHART_SIZE} height={CHART_SIZE}>
+                        <Defs>
+                            <LinearGradient id="radarGrad" x1="0" y1="0" x2="0" y2="1">
+                                <Stop offset="0" stopColor="#3B82F6" stopOpacity="0.8" />
+                                <Stop offset="1" stopColor="#EC4899" stopOpacity="0.6" />
+                            </LinearGradient>
+                        </Defs>
 
-                            {/* Background Webs */}
-                            {levels.map((level, i) => {
-                                const pts = CATEGORIES.map((_, idx) => {
-                                    const { x, y } = getCoordinates(level, idx);
-                                    return `${x},${y}`;
-                                }).join(' ');
-                                return (
-                                    <Polygon
-                                        key={i}
-                                        points={pts}
-                                        stroke="rgba(255,255,255,0.1)"
-                                        strokeWidth="1"
-                                        fill={i === levels.length - 1 ? "rgba(255,255,255,0.02)" : "none"}
-                                    />
-                                );
-                            })}
+                        {/* Background Webs */}
+                        {levels.map((level, i) => {
+                            const pts = CATEGORIES.map((_, idx) => {
+                                const { x, y } = getCoordinates(level, idx);
+                                return `${x},${y}`;
+                            }).join(' ');
+                            return (
+                                <Polygon
+                                    key={i}
+                                    points={pts}
+                                    stroke="rgba(255,255,255,0.1)"
+                                    strokeWidth="1"
+                                    fill={i === levels.length - 1 ? "rgba(255,255,255,0.02)" : "none"}
+                                />
+                            );
+                        })}
 
-                            {/* Axis Lines */}
-                            {CATEGORIES.map((_, i) => {
-                                const { x, y } = getCoordinates(1, i);
-                                return (
-                                    <Line
-                                        key={`line-${i}`}
-                                        x1={CENTER}
-                                        y1={CENTER}
-                                        x2={x}
-                                        y2={y}
-                                        stroke="rgba(255,255,255,0.1)"
-                                        strokeWidth="1"
-                                    />
-                                );
-                            })}
+                        {/* Axis Lines */}
+                        {CATEGORIES.map((_, i) => {
+                            const { x, y } = getCoordinates(1, i);
+                            return (
+                                <Line
+                                    key={`line-${i}`}
+                                    x1={CENTER}
+                                    y1={CENTER}
+                                    x2={x}
+                                    y2={y}
+                                    stroke="rgba(255,255,255,0.1)"
+                                    strokeWidth="1"
+                                />
+                            );
+                        })}
 
-                            {/* Labels */}
-                            {CATEGORIES.map((cat, i) => {
-                                const { x, y } = getCoordinates(1.15, i);
-                                return (
-                                    <SvgText
-                                        key={`label-${i}`}
-                                        x={x}
-                                        y={y}
-                                        fill="rgba(255,255,255,0.6)"
-                                        fontSize="9"
-                                        fontWeight="bold"
-                                        textAnchor="middle"
-                                        alignmentBaseline="middle"
-                                        letterSpacing="1"
-                                    >
-                                        {cat.label}
-                                    </SvgText>
-                                );
-                            })}
+                        {/* Labels */}
+                        {CATEGORIES.map((cat, i) => {
+                            const { x, y } = getCoordinates(1.15, i);
+                            return (
+                                <SvgText
+                                    key={`label-${i}`}
+                                    x={x}
+                                    y={y}
+                                    fill="rgba(255,255,255,0.6)"
+                                    fontSize="9"
+                                    fontWeight="bold"
+                                    textAnchor="middle"
+                                    alignmentBaseline="middle"
+                                    letterSpacing="1"
+                                >
+                                    {cat.label}
+                                </SvgText>
+                            );
+                        })}
 
-                            {/* The Actual Radar Shape */}
-                            <AnimatedPolygon
-                                points={radarPoints}
-                                fill="url(#radarGrad)"
-                                fillOpacity="0.4"
+                        {/* The Actual Radar Shape */}
+                        <AnimatedPolygon
+                            points={radarPoints}
+                            fill="url(#radarGrad)"
+                            fillOpacity="0.4"
+                            stroke="#8B5CF6"
+                            strokeWidth="2"
+                        />
+
+                        {/* Data Points */}
+                        {radarNativePoints.map((p, i) => (
+                            <Circle
+                                key={`point-${i}`}
+                                cx={p.x}
+                                cy={p.y}
+                                r="3"
+                                fill="#fff"
                                 stroke="#8B5CF6"
                                 strokeWidth="2"
                             />
+                        ))}
+                    </Svg>
+                </View>
+            </VoidCard>
 
-                            {/* Data Points */}
-                            {radarNativePoints.map((p, i) => (
-                                <Circle
-                                    key={`point-${i}`}
-                                    cx={p.x}
-                                    cy={p.y}
-                                    r="3"
-                                    fill="#fff"
-                                    stroke="#8B5CF6"
-                                    strokeWidth="2"
-                                />
-                            ))}
-                        </Svg>
-                    </View>
-                ) : (
-                    <View style={styles.statsContainer}>
-                        <View style={styles.bigStat}>
-                            <ExpoLinearGradient colors={['#3B82F6', '#8B5CF6']} style={styles.bigStatIcon}>
-                                <Ionicons name="pie-chart" size={24} color="#fff" />
-                            </ExpoLinearGradient>
-                            <Text style={styles.bigStatValue}>{dayProgress}%</Text>
-                            <Text style={styles.bigStatLabel}>TODAY'S COMPLETION</Text>
-                        </View>
-
-                        <View style={styles.gridStats}>
-                            <View style={styles.gridItem}>
-                                <Text style={styles.gridVal}>{totalHabits}</Text>
-                                <Text style={styles.gridLbl}>ACTIVE HABITS</Text>
-                            </View>
-                            <View style={styles.gridItem}>
-                                <Text style={styles.gridVal}>{completedHabits}</Text>
-                                <Text style={styles.gridLbl}>DONE TODAY</Text>
-                            </View>
-                            <View style={styles.gridItem}>
-                                <Text style={styles.gridVal}>{habits.filter(h => h.isGoal).length}</Text>
-                                <Text style={styles.gridLbl}>ACTIVE GOALS</Text>
-                            </View>
-                            <View style={styles.gridItem}>
-                                <Text style={styles.gridVal}>{CATEGORIES.length}</Text>
-                                <Text style={styles.gridLbl}>AREAS</Text>
-                            </View>
+            {/* Today's Completion Card */}
+            <VoidCard glass style={styles.completionCard} intensity={90}>
+                <View style={styles.completionRow}>
+                    <View style={styles.completionLeft}>
+                        <ExpoLinearGradient colors={['#3B82F6', '#8B5CF6']} style={styles.completionIcon}>
+                            <Ionicons name="pie-chart" size={20} color="#fff" />
+                        </ExpoLinearGradient>
+                        <View>
+                            <Text style={styles.completionLabel}>TODAY'S COMPLETION</Text>
+                            <Text style={styles.completionSubtext}>{completedHabits}/{totalHabits} habits done</Text>
                         </View>
                     </View>
-                )}
+                    <Text style={styles.completionValue}>{dayProgress}%</Text>
+                </View>
             </VoidCard>
         </View>
     );
@@ -319,5 +296,53 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.4)',
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
-    }
+    },
+    cardTitle: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: 'rgba(255,255,255,0.5)',
+        letterSpacing: 2,
+        fontFamily: 'Lexend',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    completionCard: {
+        marginTop: 12,
+        padding: 16,
+    },
+    completionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    completionLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    completionIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    completionLabel: {
+        fontSize: 10,
+        color: 'rgba(255,255,255,0.5)',
+        letterSpacing: 1,
+        fontFamily: 'Lexend_400Regular',
+    },
+    completionSubtext: {
+        fontSize: 12,
+        color: '#fff',
+        fontWeight: '500',
+        marginTop: 2,
+    },
+    completionValue: {
+        fontSize: 28,
+        fontWeight: '900',
+        color: '#fff',
+        fontFamily: 'Lexend',
+    },
 });

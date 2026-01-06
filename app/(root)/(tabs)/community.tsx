@@ -379,14 +379,14 @@ export default function CommunityScreen() {
 
                 {/* Leaderboard */}
                 <View style={{ marginBottom: 24 }}>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>WEEKLY LEADERBOARD</Text>
+                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>FRIEND LEADERBOARD</Text>
                     <VoidCard glass style={{ padding: 16 }}>
                         {leaderboard.length === 0 ? (
                             <Text style={[styles.emptyText, { color: colors.textSecondary, textAlign: 'center', paddingVertical: 24 }]}>
                                 Add friends to see rankings!
                             </Text>
                         ) : (
-                            leaderboard.slice(0, 5).map(({ rank, friend }) => (
+                            leaderboard.map(({ rank, friend }) => (
                                 <TouchableOpacity
                                     key={friend.id}
                                     onPress={() => handleFriendPress(friend)}

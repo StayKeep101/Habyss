@@ -445,6 +445,37 @@ const CalendarScreen = () => {
                                 </View>
                             )}
 
+                            {/* HABITS ONLY SECTION */}
+                            {isHabitFilter && (
+                                <View style={{ marginTop: 0, marginBottom: 16 }}>
+                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2, marginBottom: 10 }}>
+                                        ALL HABITS
+                                    </Text>
+
+                                    {habits.filter(h => !h.isArchived && !h.isGoal).length > 0 ? (
+                                        habits.filter(h => !h.isArchived && !h.isGoal).map(habit => (
+                                            <SwipeableHabitItem
+                                                key={habit.id}
+                                                habit={habit}
+                                                onPress={(h) => {
+                                                    selectionFeedback();
+                                                    toggleCompletion(h.id, selectedDate.toISOString().split('T')[0]);
+                                                    setCompletions(prev => ({ ...prev, [h.id]: !prev[h.id] }));
+                                                }}
+                                                onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id } })}
+                                                onDelete={(h) => { handleDelete(h); }}
+                                                onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
+                                                size={cardSize}
+                                            />
+                                        ))
+                                    ) : (
+                                        <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
+                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Lexend_400Regular' }}>NO HABITS</Text>
+                                        </VoidCard>
+                                    )}
+                                </View>
+                            )}
+
                             {/* Habits section removed - all habits must be linked to goals */}
 
                         </Animated.ScrollView>
@@ -524,6 +555,20 @@ const CalendarScreen = () => {
                                                         </View>
                                                         <Text style={[styles.filterText, activeFilter === 'goals_only' && { color: '#fff' }]}>Goals & Linked Habits</Text>
                                                         {activeFilter === 'goals_only' && <Ionicons name="checkmark" size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />}
+                                                    </TouchableOpacity>
+
+                                                    <TouchableOpacity
+                                                        onPress={() => { selectionFeedback(); setActiveFilter('habits_only'); }}
+                                                        style={[
+                                                            styles.filterOption,
+                                                            activeFilter === 'habits_only' && { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: colors.primary }
+                                                        ]}
+                                                    >
+                                                        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: activeFilter === 'habits_only' ? colors.primary : 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <Ionicons name="checkbox" size={16} color={activeFilter === 'habits_only' ? '#fff' : 'rgba(255,255,255,0.5)'} />
+                                                        </View>
+                                                        <Text style={[styles.filterText, activeFilter === 'habits_only' && { color: '#fff' }]}>Habits Only</Text>
+                                                        {activeFilter === 'habits_only' && <Ionicons name="checkmark" size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />}
                                                     </TouchableOpacity>
                                                 </View>
                                             </View>

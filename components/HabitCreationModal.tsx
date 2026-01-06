@@ -41,16 +41,48 @@ import { addHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit } fro
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { TopDragHandle } from './TopDragHandle';
 
+const OverlayHeader = ({ title, onClose }: { title: string, onClose: () => void }) => {
+    const dragGesture = Gesture.Pan().onUpdate((e) => {
+        if (e.translationY > 50) runOnJS(onClose)();
+    });
+
+    return (
+        <GestureDetector gesture={dragGesture}>
+            <View style={{ width: '100%', alignItems: 'center', backgroundColor: 'transparent' }}>
+                <TopDragHandle />
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 24, fontFamily: 'Lexend' }}>{title}</Text>
+            </View>
+        </GestureDetector>
+    );
+};
+
 const { width, height } = Dimensions.get('window');
 const SHEET_HEIGHT = height; // Full screen
 const DRAG_THRESHOLD = 120;
 
 // --- CONSTANTS ---
 const ICONS = [
-    'fitness', 'book', 'water', 'bed', 'cafe', 'walk', 'bicycle', 'barbell',
-    'heart', 'musical-notes', 'brush', 'code-slash', 'language', 'leaf',
-    'moon', 'sunny', 'flash', 'rocket', 'bulb', 'star', 'trophy', 'medkit',
-    'pizza', 'wine', 'game-controller', 'headset', 'camera', 'airplane'
+    // Health & Fitness
+    'fitness', 'barbell', 'body', 'walk', 'bicycle', 'footsteps', 'pulse', 'heart', 'medical', 'medkit', 'nutrition',
+    // Mind & Wellness
+    'bed', 'moon', 'sunny', 'partly-sunny', 'snow', 'rainy', 'thunderstorm', 'water', 'leaf', 'rose', 'flower',
+    // Productivity
+    'book', 'reader', 'newspaper', 'document-text', 'pencil', 'create', 'clipboard', 'calendar', 'time', 'timer', 'alarm', 'hourglass',
+    // Tech & Work
+    'code-slash', 'terminal', 'laptop', 'desktop', 'phone-portrait', 'tablet-portrait', 'globe', 'wifi', 'cloud', 'server', 'git-branch',
+    // Creative
+    'brush', 'color-palette', 'camera', 'videocam', 'mic', 'musical-notes', 'headset', 'film', 'image',
+    // Food & Drink
+    'cafe', 'beer', 'wine', 'pizza', 'fast-food', 'restaurant', 'ice-cream', 'nutrition',
+    // Travel & Places
+    'airplane', 'car', 'bus', 'train', 'boat', 'navigate', 'compass', 'map', 'location', 'flag', 'home', 'business',
+    // Communication
+    'mail', 'chatbubbles', 'call', 'notifications', 'megaphone', 'paper-plane',
+    // Fun & Games
+    'game-controller', 'dice', 'football', 'basketball', 'baseball', 'tennis-ball', 'golf', 'american-football',
+    // General
+    'rocket', 'flash', 'bulb', 'star', 'trophy', 'medal', 'ribbon', 'diamond', 'gift', 'sparkles', 'happy', 'sad', 'skull',
+    'paw', 'bug', 'fish', 'construct', 'hammer', 'wrench', 'key', 'lock-closed', 'shield-checkmark', 'eye', 'glasses', 'accessibility'
 ];
 
 const COLORS = [
@@ -148,6 +180,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     // Active Overlay (Replacing nested modals)
     type OverlayType = 'none' | 'icon' | 'color' | 'time' | 'reminder' | 'ringtone' | 'measurement' | 'graph' | 'startDate';
     const [activeOverlay, setActiveOverlay] = useState<OverlayType>('none');
+    const [iconSearch, setIconSearch] = useState('');
+    const [customColor, setCustomColor] = useState('');
 
     // Animations
     const translateY = useSharedValue(SHEET_HEIGHT);
@@ -253,6 +287,15 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 taskDays: frequency === 'weekly' ? selectedDays : ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
                 startDate: fmtDate(habitStartDate),
                 isArchived: false,
+                // Reminder settings
+                reminders: reminderEnabled ? [fmtTime(reminderTime)] : [],
+                ringtone: ringtone,
+                // Measurement settings
+                goalValue: measurementValue,
+                unit: measurementUnit,
+                // Graph/tracking settings
+                chartType: graphStyle === 'bar' ? 'bar' : 'line',
+                trackingMethod: measurementUnit === 'times' ? 'boolean' : 'numeric',
             });
 
             successFeedback();
@@ -309,7 +352,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     if (!isOpen && !isVisible) return null;
 
     return (
-        <View style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+        <View style={[StyleSheet.absoluteFill, { zIndex: 99999 }]}>
             {/* MAIN CONTAINER */}
             <View style={styles.container}>
                 {/* BACKDROP */}
@@ -394,7 +437,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                 // For now, let's keep inline horizontal scroll in main view
                                             }}
                                             activeOpacity={1} // Just a label wrapper
-                                            style={[styles.gridItem, { gridColumn: 'span 2', width: '100%' }]}
+                                            style={[styles.gridItem, { width: '100%' }]}
                                         >
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                                                 <Text style={styles.gridLabel}>LINKED GOAL</Text>
@@ -508,177 +551,348 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                         )}
 
                         {/* Overlay Container with Separate Gesture */}
-                        <GestureDetector gesture={Gesture.Pan().onUpdate((e) => {
-                            if (e.translationY > 50) runOnJS(setActiveOverlay)('none');
-                        })}>
-                            <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+                        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
 
-                                {/* ICON OVERLAY */}
-                                {activeOverlay === 'icon' && (
-                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
-                                        <TopDragHandle />
-                                        <Text style={styles.overlayTitle}>Choose Icon</Text>
-                                        <ScrollView contentContainerStyle={styles.iconGrid}>
-                                            {ICONS.map(icon => (
-                                                <TouchableOpacity
-                                                    key={icon}
-                                                    onPress={() => { selectionFeedback(); setSelectedIcon(icon); setActiveOverlay('none'); }}
-                                                    style={[styles.iconOption, selectedIcon === icon && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
-                                                >
-                                                    <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                                </TouchableOpacity>
-                                            ))}
-                                        </ScrollView>
-                                    </Animated.View>
-                                )}
-
-                                {/* COLOR OVERLAY */}
-                                {activeOverlay === 'color' && (
-                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
-                                        <TopDragHandle />
-                                        <Text style={styles.overlayTitle}>Choose Color</Text>
-                                        <View style={styles.colorGrid}>
-                                            {COLORS.map(c => (
-                                                <TouchableOpacity
-                                                    key={c}
-                                                    onPress={() => { selectionFeedback(); setSelectedColor(c); setActiveOverlay('none'); }}
-                                                    style={[styles.colorOption, { backgroundColor: c }, selectedColor === c && styles.colorSelected]}
-                                                />
-                                            ))}
-                                        </View>
-                                    </Animated.View>
-                                )}
-
-                                {/* TIME OVERLAY */}
-                                {activeOverlay === 'time' && (
-                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
-                                        <TopDragHandle />
-                                        <Text style={styles.overlayTitle}>Set Schedule</Text>
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setUseFreeTime(!useFreeTime); }}
-                                            style={[styles.toggleRow, { marginBottom: 20 }]}
-                                        >
-                                            <Text style={{ color: 'white', fontWeight: '600' }}>Anytime / All Day</Text>
-                                            <Ionicons name={useFreeTime ? "checkbox" : "square-outline"} size={24} color={selectedColor} />
-                                        </TouchableOpacity>
-
-                                        {!useFreeTime && (
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 20 }}>
-                                                <View style={{ flex: 1, alignItems: 'center' }}>
-                                                    <Text style={styles.pickerLabel}>START</Text>
-                                                    <DateTimePicker
-                                                        value={startTime}
-                                                        mode="time"
-                                                        display="spinner"
-                                                        onChange={(_, d) => d && setStartTime(d)}
-                                                        textColor="#fff"
-                                                        style={{ height: 120, width: '100%' }}
-                                                    />
-                                                </View>
-                                                <View style={{ flex: 1, alignItems: 'center' }}>
-                                                    <Text style={styles.pickerLabel}>END</Text>
-                                                    <DateTimePicker
-                                                        value={endTime}
-                                                        mode="time"
-                                                        display="spinner"
-                                                        onChange={(_, d) => d && setEndTime(d)}
-                                                        textColor="#fff"
-                                                        style={{ height: 120, width: '100%' }}
-                                                    />
-                                                </View>
-                                            </View>
+                            {/* ICON OVERLAY */}
+                            {activeOverlay === 'icon' && (
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.7 }]}>
+                                    <OverlayHeader title="Choose Icon" onClose={() => { setActiveOverlay('none'); setIconSearch(''); }} />
+                                    {/* Search Bar */}
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, marginBottom: 16 }}>
+                                        <Ionicons name="search" size={18} color="rgba(255,255,255,0.4)" />
+                                        <TextInput
+                                            style={{ flex: 1, color: '#fff', paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }}
+                                            placeholder="Search icons..."
+                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            value={iconSearch}
+                                            onChangeText={setIconSearch}
+                                            autoCapitalize="none"
+                                        />
+                                        {iconSearch.length > 0 && (
+                                            <TouchableOpacity onPress={() => setIconSearch('')}>
+                                                <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
+                                            </TouchableOpacity>
                                         )}
-                                        <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
-                                            <Text style={styles.doneButtonText}>Done</Text>
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                )}
-
-                                {/* REMINDER OVERLAY */}
-                                {activeOverlay === 'reminder' && (
-                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
-                                        <TopDragHandle />
-                                        <Text style={styles.overlayTitle}>Notifications</Text>
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setReminderEnabled(!reminderEnabled); }}
-                                            style={[styles.toggleRow, { marginBottom: 20 }]}
-                                        >
-                                            <Text style={{ color: 'white', fontWeight: '600' }}>Enable Reminders</Text>
-                                            <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={24} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.3)'} />
-                                        </TouchableOpacity>
-
-                                        {reminderEnabled && (
-                                            <View style={{ alignItems: 'center', height: 150 }}>
-                                                <DateTimePicker
-                                                    value={reminderTime}
-                                                    mode="time"
-                                                    display="spinner"
-                                                    onChange={(_, d) => d && setReminderTime(d)}
-                                                    textColor="#fff"
-                                                    style={{ height: 150 }}
-                                                />
-                                            </View>
-                                        )}
-                                        <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 20 }]}>
-                                            <Text style={styles.doneButtonText}>Done</Text>
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                )}
-
-                                {/* GRAPH OVERLAY */}
-                                {activeOverlay === 'graph' && (
-                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
-                                        <TopDragHandle />
-                                        <Text style={styles.overlayTitle}>Graph Style</Text>
-                                        {GRAPH_STYLES.map(g => (
+                                    </View>
+                                    <ScrollView contentContainerStyle={styles.iconGrid} showsVerticalScrollIndicator={false}>
+                                        {ICONS.filter(icon => icon.toLowerCase().includes(iconSearch.toLowerCase())).map(icon => (
                                             <TouchableOpacity
-                                                key={g.id}
-                                                onPress={() => { selectionFeedback(); setGraphStyle(g.id); setActiveOverlay('none'); }}
-                                                style={[styles.listItem, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}
+                                                key={icon}
+                                                onPress={() => { selectionFeedback(); setSelectedIcon(icon); setActiveOverlay('none'); setIconSearch(''); }}
+                                                style={[styles.iconOption, selectedIcon === icon && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
                                             >
-                                                <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                                <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : '#fff' }]}>{g.label}</Text>
-                                                {graphStyle === g.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
+                                                <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor : 'rgba(255,255,255,0.5)'} />
                                             </TouchableOpacity>
                                         ))}
-                                    </Animated.View>
-                                )}
+                                    </ScrollView>
+                                </Animated.View>
+                            )}
 
-                                {/* MEASUREMENT OVERLAY */}
-                                {activeOverlay === 'measurement' && (
-                                    <Animated.View entering={SlideInDown.springify()} exiting={SlideOutDown} style={styles.overlayPanel}>
-                                        <TopDragHandle />
-                                        <Text style={styles.overlayTitle}>Target & Units</Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 30 }}>
-                                            <TouchableOpacity onPress={() => setMeasurementValue(Math.max(1, measurementValue - 1))} style={styles.counterBtn}>
-                                                <Ionicons name="remove" size={24} color="#fff" />
-                                            </TouchableOpacity>
-                                            <Text style={{ fontSize: 40, fontWeight: '900', color: '#fff' }}>{measurementValue}</Text>
-                                            <TouchableOpacity onPress={() => setMeasurementValue(measurementValue + 1)} style={styles.counterBtn}>
-                                                <Ionicons name="add" size={24} color="#fff" />
-                                            </TouchableOpacity>
-                                        </View>
-                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-                                            <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                {UNITS.map(u => (
-                                                    <TouchableOpacity
-                                                        key={u.id}
-                                                        onPress={() => { selectionFeedback(); setMeasurementUnit(u.id); }}
-                                                        style={[styles.unitChip, measurementUnit === u.id && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
-                                                    >
-                                                        <Text style={{ color: measurementUnit === u.id ? selectedColor : 'rgba(255,255,255,0.5)' }}>{u.label}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
+                            {/* COLOR OVERLAY */}
+                            {activeOverlay === 'color' && (
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.85 }]}>
+                                    <OverlayHeader title="Choose Color" onClose={() => setActiveOverlay('none')} />
+
+                                    {/* Color Wheel */}
+                                    <View style={{ alignItems: 'center', marginBottom: 24 }}>
+                                        <View
+                                            style={{
+                                                width: 220,
+                                                height: 220,
+                                                borderRadius: 110,
+                                                position: 'relative'
+                                            }}
+                                            onTouchMove={(e) => {
+                                                const touch = e.nativeEvent;
+                                                const centerX = 110;
+                                                const centerY = 110;
+                                                const x = touch.locationX - centerX;
+                                                const y = touch.locationY - centerY;
+
+                                                // Calculate angle for hue (0-360)
+                                                let angle = Math.atan2(y, x) * (180 / Math.PI) + 90;
+                                                if (angle < 0) angle += 360;
+                                                const hue = Math.round(angle);
+
+                                                // Calculate distance for saturation (0-100%)
+                                                const distance = Math.min(Math.sqrt(x * x + y * y), 100);
+                                                const saturation = Math.round((distance / 100) * 100);
+
+                                                // Fixed lightness at 50%
+                                                const lightness = 50;
+
+                                                // Convert HSL to hex
+                                                const h = hue / 360;
+                                                const s = saturation / 100;
+                                                const l = lightness / 100;
+
+                                                const hue2rgb = (p: number, q: number, t: number) => {
+                                                    if (t < 0) t += 1;
+                                                    if (t > 1) t -= 1;
+                                                    if (t < 1 / 6) return p + (q - p) * 6 * t;
+                                                    if (t < 1 / 2) return q;
+                                                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                                                    return p;
+                                                };
+
+                                                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                                                const p = 2 * l - q;
+                                                const r = Math.round(hue2rgb(p, q, h + 1 / 3) * 255);
+                                                const g = Math.round(hue2rgb(p, q, h) * 255);
+                                                const b = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
+
+                                                const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+                                                setSelectedColor(hex);
+                                            }}
+                                            onTouchStart={(e) => {
+                                                selectionFeedback();
+                                                const touch = e.nativeEvent;
+                                                const centerX = 110;
+                                                const centerY = 110;
+                                                const x = touch.locationX - centerX;
+                                                const y = touch.locationY - centerY;
+
+                                                let angle = Math.atan2(y, x) * (180 / Math.PI) + 90;
+                                                if (angle < 0) angle += 360;
+                                                const hue = Math.round(angle);
+                                                const distance = Math.min(Math.sqrt(x * x + y * y), 100);
+                                                const saturation = Math.round((distance / 100) * 100);
+
+                                                const h = hue / 360;
+                                                const s = saturation / 100;
+                                                const l = 0.5;
+
+                                                const hue2rgb = (p: number, q: number, t: number) => {
+                                                    if (t < 0) t += 1;
+                                                    if (t > 1) t -= 1;
+                                                    if (t < 1 / 6) return p + (q - p) * 6 * t;
+                                                    if (t < 1 / 2) return q;
+                                                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                                                    return p;
+                                                };
+
+                                                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                                                const p = 2 * l - q;
+                                                const r = Math.round(hue2rgb(p, q, h + 1 / 3) * 255);
+                                                const g = Math.round(hue2rgb(p, q, h) * 255);
+                                                const b = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
+
+                                                const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+                                                setSelectedColor(hex);
+                                            }}
+                                        >
+                                            {/* Render color wheel segments */}
+                                            {Array.from({ length: 360 }, (_, i) => {
+                                                const angle = (i - 90) * (Math.PI / 180);
+                                                const x1 = 110 + Math.cos(angle) * 20;
+                                                const y1 = 110 + Math.sin(angle) * 20;
+                                                const x2 = 110 + Math.cos(angle) * 100;
+                                                const y2 = 110 + Math.sin(angle) * 100;
+                                                return (
+                                                    <View
+                                                        key={i}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            left: x1,
+                                                            top: y1,
+                                                            width: 3,
+                                                            height: 80,
+                                                            backgroundColor: `hsl(${i}, 100%, 50%)`,
+                                                            transform: [{ rotate: `${i}deg` }],
+                                                            transformOrigin: 'center top',
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                            {/* White center gradient overlay */}
+                                            <View style={{
+                                                position: 'absolute',
+                                                width: 220,
+                                                height: 220,
+                                                borderRadius: 110,
+                                                backgroundColor: 'transparent'
+                                            }}>
+                                                <LinearGradient
+                                                    colors={['rgba(255,255,255,1)', 'rgba(255,255,255,0)']}
+                                                    style={{
+                                                        width: 220,
+                                                        height: 220,
+                                                        borderRadius: 110,
+                                                        position: 'absolute'
+                                                    }}
+                                                    start={{ x: 0.5, y: 0.5 }}
+                                                    end={{ x: 0, y: 0 }}
+                                                />
                                             </View>
-                                        </ScrollView>
-                                        <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
-                                            <Text style={styles.doneButtonText}>Done</Text>
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                )}
-                            </View>
-                        </GestureDetector>
+                                            {/* Selected color indicator in center */}
+                                            <View style={{
+                                                position: 'absolute',
+                                                left: 85,
+                                                top: 85,
+                                                width: 50,
+                                                height: 50,
+                                                borderRadius: 25,
+                                                backgroundColor: selectedColor,
+                                                borderWidth: 3,
+                                                borderColor: '#fff',
+                                                shadowColor: '#000',
+                                                shadowOffset: { width: 0, height: 4 },
+                                                shadowOpacity: 0.3,
+                                                shadowRadius: 8,
+                                            }} />
+                                        </View>
 
+                                        {/* Current color display */}
+                                        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 16 }}>{selectedColor.toUpperCase()}</Text>
+                                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>Tap or drag to pick color</Text>
+                                    </View>
+
+                                    {/* Preset Colors */}
+                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 1 }}>PRESETS</Text>
+                                    <View style={styles.colorGrid}>
+                                        {COLORS.map(c => (
+                                            <TouchableOpacity
+                                                key={c}
+                                                onPress={() => { selectionFeedback(); setSelectedColor(c); setActiveOverlay('none'); }}
+                                                style={[styles.colorOption, { backgroundColor: c }, selectedColor === c && styles.colorSelected]}
+                                            />
+                                        ))}
+                                    </View>
+                                </Animated.View>
+                            )}
+
+                            {/* TIME OVERLAY */}
+                            {activeOverlay === 'time' && (
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
+                                    <OverlayHeader title="Set Schedule" onClose={() => setActiveOverlay('none')} />
+
+                                    {/* Time Pickers - Always Visible */}
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 20, marginBottom: 24 }}>
+                                        <View style={{ flex: 1, alignItems: 'center' }}>
+                                            <Text style={styles.pickerLabel}>START</Text>
+                                            <DateTimePicker
+                                                value={startTime}
+                                                mode="time"
+                                                display="spinner"
+                                                onChange={(_, d) => d && setStartTime(d)}
+                                                textColor="#fff"
+                                                style={{ height: 120, width: '100%', opacity: useFreeTime ? 0.3 : 1 }}
+                                                disabled={useFreeTime}
+                                            />
+                                        </View>
+                                        <View style={{ flex: 1, alignItems: 'center' }}>
+                                            <Text style={styles.pickerLabel}>END</Text>
+                                            <DateTimePicker
+                                                value={endTime}
+                                                mode="time"
+                                                display="spinner"
+                                                onChange={(_, d) => d && setEndTime(d)}
+                                                textColor="#fff"
+                                                style={{ height: 120, width: '100%', opacity: useFreeTime ? 0.3 : 1 }}
+                                                disabled={useFreeTime}
+                                            />
+                                        </View>
+                                    </View>
+
+                                    {/* Anytime Toggle */}
+                                    <TouchableOpacity
+                                        onPress={() => { selectionFeedback(); setUseFreeTime(!useFreeTime); }}
+                                        style={[styles.toggleRow, { marginBottom: 24 }]}
+                                    >
+                                        <Text style={{ color: 'white', fontWeight: '600' }}>Anytime / All Day</Text>
+                                        <Ionicons name={useFreeTime ? "checkbox" : "square-outline"} size={24} color={selectedColor} />
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
+                                        <Text style={styles.doneButtonText}>Done</Text>
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            )}
+
+                            {/* REMINDER OVERLAY */}
+                            {activeOverlay === 'reminder' && (
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
+                                    <OverlayHeader title="Notifications" onClose={() => setActiveOverlay('none')} />
+
+                                    {/* Toggle */}
+                                    <TouchableOpacity
+                                        onPress={() => { selectionFeedback(); setReminderEnabled(!reminderEnabled); }}
+                                        style={[styles.toggleRow, { marginBottom: 24 }]}
+                                    >
+                                        <Text style={{ color: 'white', fontWeight: '600' }}>Enable Reminders</Text>
+                                        <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={24} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.3)'} />
+                                    </TouchableOpacity>
+
+                                    {/* Time Picker - Always visible but faded when disabled */}
+                                    <View style={{ alignItems: 'center', marginBottom: 24, opacity: reminderEnabled ? 1 : 0.3 }}>
+                                        <Text style={styles.pickerLabel}>REMINDER TIME</Text>
+                                        <DateTimePicker
+                                            value={reminderTime}
+                                            mode="time"
+                                            display="spinner"
+                                            onChange={(_, d) => d && setReminderTime(d)}
+                                            textColor="#fff"
+                                            style={{ height: 150 }}
+                                            disabled={!reminderEnabled}
+                                        />
+                                    </View>
+
+                                    <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
+                                        <Text style={styles.doneButtonText}>Done</Text>
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            )}
+
+                            {/* GRAPH OVERLAY */}
+                            {activeOverlay === 'graph' && (
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
+                                    <OverlayHeader title="Graph Style" onClose={() => setActiveOverlay('none')} />
+                                    {GRAPH_STYLES.map(g => (
+                                        <TouchableOpacity
+                                            key={g.id}
+                                            onPress={() => { selectionFeedback(); setGraphStyle(g.id); setActiveOverlay('none'); }}
+                                            style={[styles.listItem, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}
+                                        >
+                                            <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : 'rgba(255,255,255,0.5)'} />
+                                            <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : '#fff' }]}>{g.label}</Text>
+                                            {graphStyle === g.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
+                                        </TouchableOpacity>
+                                    ))}
+                                </Animated.View>
+                            )}
+
+                            {/* MEASUREMENT OVERLAY */}
+                            {activeOverlay === 'measurement' && (
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
+                                    <OverlayHeader title="Target & Units" onClose={() => setActiveOverlay('none')} />
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 30 }}>
+                                        <TouchableOpacity onPress={() => setMeasurementValue(Math.max(1, measurementValue - 1))} style={styles.counterBtn}>
+                                            <Ionicons name="remove" size={24} color="#fff" />
+                                        </TouchableOpacity>
+                                        <Text style={{ fontSize: 40, fontWeight: '900', color: '#fff' }}>{measurementValue}</Text>
+                                        <TouchableOpacity onPress={() => setMeasurementValue(measurementValue + 1)} style={styles.counterBtn}>
+                                            <Ionicons name="add" size={24} color="#fff" />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                                            {UNITS.map(u => (
+                                                <TouchableOpacity
+                                                    key={u.id}
+                                                    onPress={() => { selectionFeedback(); setMeasurementUnit(u.id); }}
+                                                    style={[styles.unitChip, measurementUnit === u.id && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                                >
+                                                    <Text style={{ color: measurementUnit === u.id ? selectedColor : 'rgba(255,255,255,0.5)' }}>{u.label}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                    <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
+                                        <Text style={styles.doneButtonText}>Done</Text>
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            )}
+                        </View>
                     </Animated.View>
                 </GestureDetector>
             </View>
@@ -716,9 +930,8 @@ const styles = StyleSheet.create({
         position: 'absolute', bottom: 0, left: 0, right: 0,
         backgroundColor: '#0f1218',
         borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        padding: 24, paddingBottom: 50,
+        padding: 24, paddingBottom: 100,
         zIndex: 20,
-        borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
         shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 20
     },
     overlayTitle: { fontSize: 18, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 24, fontFamily: 'Lexend' },

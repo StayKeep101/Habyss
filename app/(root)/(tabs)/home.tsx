@@ -410,10 +410,8 @@ const Home = () => {
 
           <AnalyticsDashboard habits={habits} completions={completions} />
 
-          <View style={{ height: 100 }} />
-
           {/* Quick Habits */}
-          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 24 }}>
+          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
             <VoidCard style={{ padding: 20 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Text style={{ fontSize: 16, color: '#fff', fontWeight: '700' }}>Today's Habits</Text>

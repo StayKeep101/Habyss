@@ -315,11 +315,8 @@ const GoalDetail = () => {
               </Animated.View>
             ) : (
               <Animated.View entering={FadeIn}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ marginBottom: 16 }}>
                   <Text style={styles.sectionTitle}>Checklist</Text>
-                  <TouchableOpacity onPress={handleAddHabit} style={[styles.addBtn, { backgroundColor: goal.color || colors.primary }]}>
-                    <Ionicons name="add" size={20} color="white" />
-                  </TouchableOpacity>
                 </View>
 
                 {associatedHabits.length > 0 ? (
