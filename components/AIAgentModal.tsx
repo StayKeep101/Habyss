@@ -24,6 +24,7 @@ import Animated, {
     FadeIn,
     FadeOut,
     SlideInDown,
+    cancelAnimation,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
@@ -99,15 +100,19 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
     const glowOpacity = useSharedValue(0.5);
 
     useEffect(() => {
-        glowOpacity.value = withRepeat(
-            withSequence(
-                withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-                withTiming(0.5, { duration: 1500, easing: Easing.inOut(Easing.ease) })
-            ),
-            -1,
-            true
-        );
-    }, []);
+        if (visible) {
+            glowOpacity.value = withRepeat(
+                withSequence(
+                    withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+                    withTiming(0.5, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+                ),
+                -1,
+                true
+            );
+        }
+        // CRITICAL: Cancel animation on unmount to prevent memory leak
+        return () => cancelAnimation(glowOpacity);
+    }, [visible]);
 
     const glowStyle = useAnimatedStyle(() => ({
         opacity: glowOpacity.value,

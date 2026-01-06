@@ -17,13 +17,14 @@ const CHART_SIZE = width - 80;
 const CENTER = CHART_SIZE / 2;
 const RADIUS = CHART_SIZE / 2.5;
 
+// 6 Pillars of Life Balance
 const CATEGORIES = [
-    { key: 'health', label: 'HEALTH', color: '#10B981' },
-    { key: 'fitness', label: 'FITNESS', color: '#F97316' },
-    { key: 'work', label: 'WORK', color: '#3B82F6' },
-    { key: 'personal', label: 'GROWTH', color: '#8B5CF6' },
-    { key: 'mindfulness', label: 'MIND', color: '#EC4899' },
-    { key: 'social', label: 'SOCIAL', color: '#EAB308' },
+    { key: 'body', label: 'BODY', fullName: 'Physical Health', color: '#EF4444', icon: 'fitness' },
+    { key: 'wealth', label: 'WEALTH', fullName: 'Career & Finances', color: '#F59E0B', icon: 'briefcase' },
+    { key: 'heart', label: 'HEART', fullName: 'Relationships', color: '#EC4899', icon: 'heart' },
+    { key: 'mind', label: 'MIND', fullName: 'Intellectual Growth', color: '#3B82F6', icon: 'bulb' },
+    { key: 'soul', label: 'SOUL', fullName: 'Emotional & Spiritual', color: '#8B5CF6', icon: 'sparkles' },
+    { key: 'play', label: 'PLAY', fullName: 'Recreation', color: '#10B981', icon: 'game-controller' },
 ];
 
 interface AnalyticProps {

@@ -6,7 +6,8 @@ import Animated, {
     withRepeat,
     withTiming,
     useAnimatedStyle,
-    withSequence
+    withSequence,
+    cancelAnimation
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -28,6 +29,8 @@ export const StargateButton: React.FC<StargateButtonProps> = ({ onPress, loading
             -1,
             false
         );
+        // CRITICAL: Cancel animation on unmount to prevent memory leak
+        return () => cancelAnimation(shine);
     }, []);
 
     const shineStyle = useAnimatedStyle(() => ({

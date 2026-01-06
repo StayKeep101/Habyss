@@ -3,7 +3,7 @@ import { View, StyleSheet, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
-import Animated, { useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing, cancelAnimation } from 'react-native-reanimated';
 
 interface VoidShellProps {
     children: React.ReactNode;
@@ -22,6 +22,10 @@ export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
             -1,
             true
         );
+        // CRITICAL: Cancel animation on unmount to prevent memory leak
+        return () => {
+            cancelAnimation(opacity);
+        };
     }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({

@@ -60,9 +60,11 @@ export const FriendsService = {
             const { data, error } = await supabase
                 .from('profiles')
                 .select('id, username, email, avatar_url')
-                .or(`email.ilike.%${query}%,username.ilike.%${query}%`)
+                // Search by Username, Email OR Friend Code (ID prefix)
+                // Use cast for ID search: id::text
+                .or(`email.ilike.%${query}%,username.ilike.%${query}%,id.ilike.${query}%`)
                 .neq('id', currentUser.id)
-                .limit(20); // Increased from 10 to 20
+                .limit(20);
 
             if (error) {
                 if (isTableMissing(error)) {
@@ -236,61 +238,51 @@ export const FriendsService = {
             const currentUser = await this.getCurrentUser();
             if (!currentUser) return [];
 
-            // Query friendships where current user is either user_id or friend_id
+            // 1. Get Friendship IDs (Raw, no joins)
             const [outgoing, incoming] = await Promise.all([
-                // Friends I added
                 supabase
                     .from('friendships')
-                    .select(`
-                        friend_id,
-                        profiles:friend_id (id, username, email, avatar_url)
-                    `)
+                    .select('friend_id')
                     .eq('user_id', currentUser.id),
-                // Friends who added me
                 supabase
                     .from('friendships')
-                    .select(`
-                        user_id,
-                        profiles:user_id (id, username, email, avatar_url)
-                    `)
+                    .select('user_id')
                     .eq('friend_id', currentUser.id)
             ]);
 
-            const friendsMap = new Map<string, Friend>();
+            const friendIds = new Set<string>();
+            (outgoing.data || []).forEach((row: any) => {
+                if (row.friend_id) friendIds.add(row.friend_id);
+            });
+            (incoming.data || []).forEach((row: any) => {
+                if (row.user_id) friendIds.add(row.user_id);
+            });
 
-            // Process outgoing friendships
-            for (const row of outgoing.data || []) {
-                const profile = row.profiles as any;
-                if (!profile || profile.id === currentUser.id) continue;
+            if (friendIds.size === 0) return [];
 
-                friendsMap.set(profile.id, {
-                    id: profile.id,
-                    username: profile.username || profile.email?.split('@')[0] || 'User',
-                    email: profile.email || '',
-                    avatarUrl: profile.avatar_url,
+            // 2. Fetch Profiles separately
+            // If profiles are missing (RLS or deleted), we still want to show the friend with fallback
+            const idArray = Array.from(friendIds);
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, username, email, avatar_url')
+                .in('id', idArray);
+
+            const profilesMap = new Map();
+            (profiles || []).forEach((p: any) => profilesMap.set(p.id, p));
+
+            // 3. Construct Result
+            return idArray.map(id => {
+                const profile = profilesMap.get(id);
+                return {
+                    id: id,
+                    username: profile?.username || profile?.email?.split('@')[0] || 'User',
+                    email: profile?.email || '',
+                    avatarUrl: profile?.avatar_url,
                     currentStreak: 0,
-                    todayCompletion: 0,
-                });
-            }
-
-            // Process incoming friendships
-            for (const row of incoming.data || []) {
-                const profile = row.profiles as any;
-                if (!profile || profile.id === currentUser.id) continue;
-
-                if (!friendsMap.has(profile.id)) {
-                    friendsMap.set(profile.id, {
-                        id: profile.id,
-                        username: profile.username || profile.email?.split('@')[0] || 'User',
-                        email: profile.email || '',
-                        avatarUrl: profile.avatar_url,
-                        currentStreak: 0,
-                        todayCompletion: 0,
-                    });
-                }
-            }
-
-            return Array.from(friendsMap.values());
+                    todayCompletion: 0
+                };
+            });
         } catch (e) {
             console.log('Friends list not available:', e);
             return [];
@@ -500,38 +492,48 @@ export const FriendsService = {
             const currentUser = await this.getCurrentUser();
             if (!currentUser) return [];
 
-            const { data, error } = await supabase
+            // 1. Get Shared IDs
+            const { data: shares, error } = await supabase
                 .from('shared_habits')
-                .select(`
-                    habit_id,
-                    owner_id,
-                    habits:habit_id (id, name, icon, category),
-                    profiles:owner_id (id, username)
-                `)
+                .select('habit_id, owner_id')
                 .eq('shared_with_id', currentUser.id);
 
-            if (error) {
-                if (isTableMissing(error)) return [];
-                return [];
-            }
+            if (error || !shares || shares.length === 0) return [];
 
-            return (data || []).map(row => {
-                const habit = row.habits as any;
-                const owner = row.profiles as any;
+            // 2. Collect IDs
+            const habitIds = Array.from(new Set(shares.map(s => s.habit_id)));
+            const ownerIds = Array.from(new Set(shares.map(s => s.owner_id)));
+
+            // 3. Fetch Data Separately
+            const [habitsResult, profilesResult] = await Promise.all([
+                supabase.from('habits').select('id, name, icon, category').in('id', habitIds),
+                supabase.from('profiles').select('id, username').in('id', ownerIds)
+            ]);
+
+            const habitsMap = new Map(habitsResult.data?.map(h => [h.id, h]));
+            const ownersMap = new Map(profilesResult.data?.map(p => [p.id, p]));
+
+            // 4. Map Results
+            return shares.map(share => {
+                const habit = habitsMap.get(share.habit_id);
+                const owner = ownersMap.get(share.owner_id);
+
+                if (!habit) return null; // Skip if habit deleted
+
                 return {
                     habit: {
-                        id: habit?.id,
-                        name: habit?.name,
-                        icon: habit?.icon,
-                        category: habit?.category,
+                        id: habit.id,
+                        name: habit.name,
+                        icon: habit.icon,
+                        category: habit.category,
                     },
                     owner: {
-                        id: owner?.id,
-                        username: owner?.username,
+                        id: share.owner_id,
+                        username: owner?.username || 'Unknown Friend',
                     },
                     todayCompleted: false,
                 };
-            });
+            }).filter(item => item !== null);
         } catch (e) {
             return [];
         }

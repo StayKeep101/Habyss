@@ -143,14 +143,19 @@ const Home = () => {
     return () => clearInterval(interval);
   }, [motivationalQuote]);
 
-  // Pull-to-refresh handler
+  // Pull-to-refresh handler - OPTIMIZED: reload all stats data here
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     // Change the motivational quote (triggers typewriter effect)
     setMotivationalQuote(getRandomQuote());
-    // Reload data
-    const completionsData = await getCompletions();
+    // Reload completions for today
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const completionsData = await getCompletions(today);
     setCompletions(completionsData);
+    // Reload history data for accurate stats (streak, consistency, goal progress)
+    const historyResult = await getLastNDaysCompletions(90);
+    setHistoryData(historyResult);
     setRefreshing(false);
   }, [getRandomQuote]);
 
@@ -441,22 +446,17 @@ const Home = () => {
 
           {/* Header */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: isPremium ? 12 : 20 }}>
-            {/* Profile Avatar with Pro Ring */}
-            <TouchableOpacity onPress={handleProfilePress} style={{ position: 'relative' }}>
-              {isPremium && (
-                <LinearGradient
-                  colors={['#3B82F6', '#8B5CF6', '#EC4899']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ position: 'absolute', width: 48, height: 48, borderRadius: 24, top: -4, left: -4 }}
-                />
-              )}
+            {/* Profile Avatar - Clean and consistent */}
+            <TouchableOpacity onPress={handleProfilePress}>
               <View style={{
-                padding: 2,
-                borderWidth: isPremium ? 0 : 1,
-                borderColor: 'rgba(255,255,255,0.2)',
-                borderRadius: 24,
-                backgroundColor: colors.background // Ensure background covers ring if needed, or transparent
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                borderWidth: isPremium ? 2 : 1,
+                borderColor: isPremium ? '#8B5CF6' : 'rgba(255,255,255,0.2)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
               }}>
                 {profileAvatar ? (
                   <Image source={{ uri: profileAvatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
@@ -469,8 +469,15 @@ const Home = () => {
             </TouchableOpacity>
 
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity onPress={() => { mediumFeedback(); setShowAIAgent(true); }} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16, 185, 129, 0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
-                <Ionicons name="sparkles" size={20} color="#10B981" />
+              <TouchableOpacity onPress={() => { mediumFeedback(); setShowAIAgent(true); }} style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }}>
+                <LinearGradient
+                  colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons name="sparkles" size={18} color="#fff" />
+                </LinearGradient>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => { lightFeedback(); setShowNotifications(true); }} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="notifications" size={20} color="#fff" />

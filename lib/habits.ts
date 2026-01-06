@@ -11,11 +11,12 @@ const habitsListeners: Set<(habits: Habit[]) => void> = new Set();
 // Completion cache for optimistic updates - keyed by dateStr
 const completionsCache: Record<string, Record<string, boolean>> = {};
 
-export type HabitCategory = 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc' | 'productivity' | 'learning' | 'creativity' | 'social';
+// 6 Pillars of Life Balance categories
+export type HabitCategory = 'body' | 'wealth' | 'heart' | 'mind' | 'soul' | 'play';
 export type HabitType = 'build' | 'quit';
 export type GoalPeriod = 'daily' | 'weekly' | 'monthly';
 export type ChartType = 'bar' | 'line';
-export type HabitFrequency = 'daily' | 'weekly' | 'yearly';
+export type HabitFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'free_time';
 export type TrackingMethod = 'boolean' | 'numeric';
 
@@ -46,6 +47,8 @@ export interface Habit {
   goalId?: string;
   // Enhanced fields
   frequency?: HabitFrequency;
+  weekInterval?: number; // New: every N weeks (1, 2, 3, 4)
+  graphStyle?: string; // New: progress | bar | line | heatmap | streak
   timeOfDay?: TimeOfDay;
   trackingMethod?: TrackingMethod;
   ringtone?: string;
@@ -70,7 +73,40 @@ export const isHabitScheduledForDate = (habit: Habit, date: Date): boolean => {
     if (dateStr > targetStr) return false;
   }
 
-  // 2. Check Weekday
+  // 2. Check Week Interval (for weekly habits)
+  if (habit.weekInterval && habit.weekInterval > 1) {
+    // Calculate the start of the week for both dates (Monday as start)
+    const getWeekNumber = (d: Date): number => {
+      // Clone to avoid modifying original
+      const date = new Date(d);
+      date.setHours(0, 0, 0, 0);
+      // Get first Thursday of the year (ISO week definition)
+      const jan1st = new Date(date.getFullYear(), 0, 1);
+      const days = Math.floor((date.getTime() - jan1st.getTime()) / (24 * 60 * 60 * 1000));
+      return Math.ceil((days + jan1st.getDay() + 1) / 7);
+    };
+
+    const startWeek = getWeekNumber(habitStart);
+    const currentWeek = getWeekNumber(date);
+    const weeksDiff = currentWeek - startWeek;
+
+    // Only show habit if we're on a week that matches the interval
+    // (week 0, week N, week 2N, etc. from start)
+    if (weeksDiff % habit.weekInterval !== 0) {
+      return false;
+    }
+  }
+
+  // 3. Check Frequency (Monthly)
+  if (habit.frequency === 'monthly') {
+    const startDay = parseInt(habit.startDate.split('-')[2], 10);
+    const currentDay = parseInt(dateStr.split('-')[2], 10);
+    if (startDay !== currentDay) return false;
+    // If monthly matches, we ignore weekday check (taskDays usually full for monthly)
+    return true;
+  }
+
+  // 4. Check Weekday
   const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase(); // 'mon', 'tue'...
   if (habit.taskDays && habit.taskDays.length > 0) {
     // Handle potential case differences just in case
@@ -643,7 +679,7 @@ export function calculateGoalProgressInstant(
   goal: Habit,
   habits: Habit[],
   todayCompletions: Record<string, boolean>,
-  historyData: { date: string; completedIds: string[] }[] = []
+  historyMap: Record<string, string[]> = {}
 ): number {
   if (!goal.isGoal) return 0;
 
@@ -681,10 +717,10 @@ export function calculateGoalProgressInstant(
           if (dateStr === todayStr) {
             if (todayCompletions[habit.id]) totalCompleted++;
           }
-          // DATA SOURCE 2: History (network/cache)
+          // DATA SOURCE 2: History (network/cache) using Map Lookup O(1)
           else {
-            const historyDay = historyData.find(d => d.date === dateStr);
-            if (historyDay && historyDay.completedIds?.includes(habit.id)) {
+            const completedIds = historyMap[dateStr];
+            if (completedIds && completedIds.includes(habit.id)) {
               totalCompleted++;
             }
           }

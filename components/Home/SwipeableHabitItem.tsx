@@ -23,13 +23,14 @@ interface SwipeableHabitItemProps {
   onDelete: (habit: ExtendedHabit) => void;
   onShare?: (habit: ExtendedHabit) => void;
   size: RoadMapCardSize;
+  completed?: boolean; // New prop for performance (avoids object recreation)
 }
 
 const { width } = Dimensions.get('window');
 const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 
-export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
-  habit, onPress, onEdit, onDelete, onShare, size
+export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
+  habit, onPress, onEdit, onDelete, onShare, size, completed
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -38,6 +39,9 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
   const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
 
   const close = () => swipeableRef.current?.close();
+
+  // Prefer dedicated prop, fallback to object property
+  const isCompleted = completed !== undefined ? completed : habit.completed;
 
   // Dynamic Sizing (Habits must be smaller than Goals)
   const isSmall = size === 'small';
@@ -143,23 +147,23 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
           intensity={40} // Lighter glass for items
           style={[
             styles.card,
-            habit.completed && { opacity: 0.7 },
+            isCompleted && { opacity: 0.7 },
             { paddingVertical: paddingV }
           ]}
         >
           {/* Checkbox / Hit Area */}
-          <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, habit.completed && { backgroundColor: colors.success, borderColor: colors.success }]}>
-            {habit.completed && <Ionicons name="checkmark" size={checkboxSize * 0.7} color="black" />}
+          <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, isCompleted && { backgroundColor: colors.success, borderColor: colors.success }]}>
+            {isCompleted && <Ionicons name="checkmark" size={checkboxSize * 0.7} color="black" />}
           </View>
 
           {/* Icon */}
-          <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: habit.completed ? 'rgba(34, 197, 94, 0.1)' : (habit.color || '#8B5CF6') + '15' }]}>
-            <Ionicons name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={habit.completed ? colors.success : habit.color || colors.textSecondary} />
+          <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: isCompleted ? 'rgba(34, 197, 94, 0.1)' : (habit.color || '#8B5CF6') + '15' }]}>
+            <Ionicons name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={isCompleted ? colors.success : habit.color || colors.textSecondary} />
           </View>
 
           {/* Text Info */}
           <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: habit.completed ? 'line-through' : 'none' }]} numberOfLines={1}>{habit.name}</Text>
+            <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }]} numberOfLines={1}>{habit.name}</Text>
             {(habit.streak && habit.streak > 0 && !isSmall) ? ( // Hide streak on small if crowded, or just keep it small
               <Text style={[styles.streakText, { color: '#F59E0B' }]}>🔥 {habit.streak}</Text>
             ) : null}
@@ -174,7 +178,7 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
       </TouchableOpacity>
     </Swipeable>
   );
-};
+});
 
 const styles = StyleSheet.create({
   swipeableContainer: {

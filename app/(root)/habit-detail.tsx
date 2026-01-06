@@ -3,13 +3,17 @@ import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Sty
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Habit, getHabits, toggleCompletion, getCompletions } from '@/lib/habits';
+import { Habit, getHabits, toggleCompletion, getCompletions, getLastNDaysCompletions } from '@/lib/habits';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
 import { useHaptics } from '@/hooks/useHaptics';
+import { BarChart, LineChart, PieChart } from "react-native-gifted-charts";
+import { Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 export default function HabitDetailScreen() {
   const router = useRouter();
@@ -46,6 +50,7 @@ export default function HabitDetailScreen() {
   const [completed, setCompleted] = useState(params.initialCompleted === 'true');
   const [loading, setLoading] = useState(!habit); // Only load if we didn't get params
   const [streak, setStreak] = useState(0);
+  const [history, setHistory] = useState<{ date: string; completed: boolean }[]>([]);
 
   // Sharing state
   const [showShareModal, setShowShareModal] = useState(false);
@@ -65,16 +70,38 @@ export default function HabitDetailScreen() {
 
   const loadHabitDetails = async () => {
     try {
-      if (!habit) {
+      let currentHabit = habit;
+      if (!currentHabit) {
         const habits = await getHabits();
         const found = habits.find(h => h.id === habitId);
-        if (found) setHabit(found);
+        if (found) {
+          setHabit(found);
+          currentHabit = found;
+        }
       }
 
       const completions = await getCompletions(dateStr);
       setCompleted(!!completions[habitId]);
 
-      setStreak(0);
+      // Fetch history for charts (30 days)
+      const last30 = await getLastNDaysCompletions(30);
+      const habitHistory = last30.map(d => ({
+        date: d.date,
+        completed: d.completedIds.includes(habitId)
+      }));
+      // Sort by date ascending
+      habitHistory.sort((a, b) => a.date.localeCompare(b.date));
+      setHistory(habitHistory);
+
+      // Simple streak calc (can be improved)
+      let currentStreak = 0;
+      for (let i = habitHistory.length - 1; i >= 0; i--) {
+        if (habitHistory[i].completed) currentStreak++;
+        else if (i === habitHistory.length - 1 && dateStr === todayStr) continue; // Allow today as gap if not done yet? No, streak breaks if yesterday missing.
+        else break;
+      }
+      // If today is done, include it? logic is simple for now.
+      setStreak(currentStreak);
     } finally {
       setLoading(false);
     }
@@ -177,6 +204,14 @@ export default function HabitDetailScreen() {
         </VoidCard>
 
         {/* Stats Grid */}
+        {/* Visualization Card */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
+          <VoidCard glass style={{ padding: 16, alignItems: 'center' }}>
+            <HabitVisualization habit={habit} history={history} colors={colors} />
+          </VoidCard>
+        </View>
+
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>PERFORMANCE</Text>
 
         <View style={styles.statsGrid}>
@@ -389,3 +424,97 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+// --- Visualization Component ---
+const HabitVisualization = ({ habit, history, colors }: { habit: Habit, history: { date: string; completed: boolean }[], colors: any }) => {
+  const style = habit.graphStyle || 'progress'; // default
+
+  if (history.length === 0) return <Text style={{ color: colors.textSecondary }}>No data yet</Text>;
+
+  const data = history.map(h => ({
+    value: h.completed ? 1 : 0,
+    label: h.date.split('-')[2], // Day
+    frontColor: h.completed ? colors.primary : 'rgba(255,255,255,0.1)',
+    labelTextStyle: { fontSize: 8, color: colors.textSecondary }
+  }));
+
+  if (style === 'bar') {
+    const barData = data.slice(-7).map(d => ({ ...d, topLabelComponent: () => d.value ? <Ionicons name="checkmark" size={10} color={colors.primary} /> : null }));
+    return (
+      <BarChart
+        data={barData}
+        barWidth={20}
+        noOfSections={1}
+        barBorderRadius={4}
+        frontColor={colors.primary}
+        yAxisThickness={0}
+        xAxisThickness={0}
+        hideYAxisText
+        height={150}
+        width={width - 80}
+        isAnimated
+      />
+    );
+  }
+
+  if (style === 'line') {
+    return (
+      <LineChart
+        data={data.map(d => ({ value: d.value }))}
+        color={colors.primary}
+        thickness={3}
+        dataPointsColor={colors.primary}
+        hideRules
+        hideYAxisText
+        yAxisThickness={0}
+        xAxisThickness={0}
+        height={150}
+        width={width - 80}
+        isAnimated
+        curved
+        areaChart
+        startFillColor={colors.primary}
+        startOpacity={0.2}
+        endOpacity={0}
+      />
+    );
+  }
+
+  if (style === 'progress') {
+    const completedCount = history.filter(h => h.completed).length;
+    const total = history.length;
+    const percent = Math.round((completedCount / total) * 100);
+    return (
+      <View style={{ alignItems: 'center', justifyContent: 'center', height: 180 }}>
+        <PieChart
+          data={[
+            { value: completedCount, color: colors.primary, focused: true },
+            { value: total - completedCount, color: 'rgba(255,255,255,0.1)' }
+          ]}
+          donut
+          radius={80}
+          innerRadius={60}
+          centerLabelComponent={() => (
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }}>{percent}%</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 10 }}>CONSISTENCY</Text>
+            </View>
+          )}
+        />
+      </View>
+    );
+  }
+
+  // Default or Streak/Heatmap (Fallback to bar for now as Heatmap is complex)
+  return (
+    <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 4, height: 150, alignContent: 'center', justifyContent: 'center' }}>
+      {history.map((h, i) => (
+        <View key={i} style={{
+          width: 12, height: 12,
+          borderRadius: 2,
+          backgroundColor: h.completed ? colors.primary : 'rgba(255,255,255,0.1)'
+        }} />
+      ))}
+    </View>
+  );
+};

@@ -9,7 +9,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
-import { subscribeToHabits, Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, calculateGoalProgress } from '@/lib/habits';
+import { subscribeToHabits, Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, calculateGoalProgressInstant, getLastNDaysCompletions } from '@/lib/habits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter, LayoutAnimation } from 'react-native';
 import { GoalStats } from '@/components/Goal/GoalStats';
@@ -47,6 +47,7 @@ const GoalDetail = () => {
   const [bgImage, setBgImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'habits' | 'stats'>('habits');
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
+  const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
 
   const { selectionFeedback, lightFeedback, mediumFeedback } = useHaptics();
   const { playComplete } = useSoundEffects();
@@ -82,15 +83,18 @@ const GoalDetail = () => {
     };
     loadCompletions();
 
+    // Load history data for accurate progress calculation
+    const loadHistory = async () => {
+      const data = await getLastNDaysCompletions(90);
+      setHistoryData(data);
+    };
+    loadHistory();
+
     const sub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId, date, completed }) => {
       const now = new Date();
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       if (date === todayStr) {
         setCompletions(prev => ({ ...prev, [habitId]: completed }));
-        // Instantly recalculate goal progress when habit is toggled
-        if (goal) {
-          calculateGoalProgress(goal).then(p => setProgress(p));
-        }
       }
     });
 
@@ -102,17 +106,50 @@ const GoalDetail = () => {
 
   const associatedHabits = useMemo(() => habits.filter(h => h.goalId === goalId), [habits, goalId]);
 
+  // Optimized History Map
+  const historyMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    historyData.forEach(d => map[d.date] = d.completedIds);
+    return map;
+  }, [historyData]);
+
+  // Helper: Calculate required completions for a habit until target date
+  const calculateRequiredCompletions = (habit: Habit): number => {
+    if (!goal?.targetDate) return 0;
+    const today = new Date();
+    const target = new Date(goal.targetDate);
+    if (target <= today) return 0;
+
+    const diffTime = target.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (habit.frequency === 'daily') {
+      return diffDays;
+    } else if (habit.frequency === 'weekly') {
+      const weeks = Math.ceil(diffDays / 7);
+      const daysPerWeek = habit.taskDays?.length || 7;
+      return Math.ceil(weeks * daysPerWeek);
+    } else if (habit.frequency === 'monthly') {
+      const months = Math.ceil(diffDays / 30);
+      return months;
+    }
+    return diffDays;
+  };
+
+  // Count completions for a habit from history
+  const getHabitCompletionCount = (habitId: string): number => {
+    return historyData.filter(day => day.completedIds.includes(habitId)).length;
+  };
+
   const [progress, setProgress] = useState(0);
 
+  // Calculate progress using instant method with history data
   useEffect(() => {
-    let isMounted = true;
-    if (goal) {
-      calculateGoalProgress(goal).then(p => {
-        if (isMounted) setProgress(p);
-      });
+    if (goal && habits.length > 0 && historyData.length > 0) {
+      const p = calculateGoalProgressInstant(goal, habits, completions, historyMap);
+      setProgress(p);
     }
-    return () => { isMounted = false; };
-  }, [goal, habits]);
+  }, [goal, habits, completions, historyMap]);
 
   const scrollHandler = useAnimatedScrollHandler(event => {
     scrollY.value = event.contentOffset.y;
@@ -207,9 +244,18 @@ const GoalDetail = () => {
     ]);
   };
 
-  if (!goal) return null;
+  const daysLeft = useMemo(() => {
+    if (!goal?.targetDate) return 0;
+    const target = new Date(goal.targetDate);
+    const today = new Date();
+    // Reset times to midnight for accurate day difference
+    target.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    const diff = target.getTime() - today.getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [goal?.targetDate]);
 
-  const daysLeft = goal.targetDate ? Math.max(0, Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
+  if (!goal) return null;
 
   // Header Animation moved to top
 
@@ -324,16 +370,28 @@ const GoalDetail = () => {
                 </View>
 
                 {associatedHabits.length > 0 ? (
-                  associatedHabits.map(habit => (
-                    <SwipeableHabitItem
-                      key={habit.id}
-                      habit={{ ...habit, completed: !!completions[habit.id] }}
-                      onPress={handleHabitPress}
-                      onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id, goalId: goalId as string } })}
-                      onDelete={handleDeleteHabit}
-                      size="standard" // Explicitly pass standard size
-                    />
-                  ))
+                  associatedHabits.map(habit => {
+                    const required = calculateRequiredCompletions(habit);
+                    const completed = getHabitCompletionCount(habit.id);
+                    return (
+                      <View key={habit.id}>
+                        <SwipeableHabitItem
+                          habit={{ ...habit, completed: !!completions[habit.id] }}
+                          onPress={handleHabitPress}
+                          onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id, goalId: goalId as string } })}
+                          onDelete={handleDeleteHabit}
+                          size="standard"
+                        />
+                        {goal?.targetDate && required > 0 && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 16, marginTop: -4, marginBottom: 8 }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>
+                              {completed}/{required} completions
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })
                 ) : (
                   <TouchableOpacity onPress={handleAddHabit}>
                     <VoidCard glass style={styles.emptyCard}>

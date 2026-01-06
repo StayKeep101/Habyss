@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, RefreshControl, StyleSheet, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, StyleSheet, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Share } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,23 +25,33 @@ export default function CommunityScreen() {
     const [searchResults, setSearchResults] = useState<Friend[]>([]);
     const [searching, setSearching] = useState(false);
     const [friendsFeed, setFriendsFeed] = useState<FriendActivity[]>([]);
+    const [sharedHabits, setSharedHabits] = useState<any[]>([]);
     const [sentReactions, setSentReactions] = useState<Record<string, ReactionType>>({});
     const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
     const [showFriendStats, setShowFriendStats] = useState(false);
+    const [userCode, setUserCode] = useState('');
 
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [friendsList, requests, rankings, feed] = await Promise.all([
+            const user = await FriendsService.getCurrentUser();
+            if (user) {
+                // Friend Code is first 8 chars of ID
+                setUserCode(user.id.substring(0, 8).toUpperCase());
+            }
+
+            const [friendsList, requests, rankings, feed, shared] = await Promise.all([
                 FriendsService.getFriendsWithProgress(),
                 FriendsService.getFriendRequests(),
                 FriendsService.getLeaderboard(),
                 FriendsService.getFriendsFeed(),
+                FriendsService.getHabitsSharedWithMe(),
             ]);
             setFriends(friendsList);
             setFriendRequests(requests);
             setLeaderboard(rankings);
             setFriendsFeed(feed);
+            setSharedHabits(shared);
         } catch (error) {
             console.error('Error loading community data:', error);
         } finally {
@@ -137,6 +147,17 @@ export default function CommunityScreen() {
         setShowFriendStats(true);
     };
 
+    const handleShareCode = async () => {
+        try {
+            lightFeedback();
+            await Share.share({
+                message: `Join my crew on Habyss! Add me with my Friend Code: ${userCode}`,
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     return (
         <VoidShell>
             <ScrollView
@@ -151,6 +172,30 @@ export default function CommunityScreen() {
                     <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COMMUNITY</Text>
                     <Text style={[styles.headerSubtitle, { color: colors.primary }]}>CREW STATUS</Text>
                 </View>
+
+                {/* Shared Habits */}
+                {sharedHabits.length > 0 && (
+                    <View style={{ marginBottom: 24 }}>
+                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SHARED WITH YOU</Text>
+                        <VoidCard style={{ padding: 16 }}>
+                            {sharedHabits.map((item, index) => (
+                                <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index < sharedHabits.length - 1 ? 12 : 0 }}>
+                                    <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
+                                        <Text>{item.habit.icon ? item.habit.icon : '📝'}</Text>
+                                    </View>
+                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                        <Text style={[styles.username, { color: colors.textPrimary }]}>{item.habit.name}</Text>
+                                        <Text style={[styles.email, { color: colors.textTertiary }]}>Shared by {item.owner.username}</Text>
+                                    </View>
+                                    {/* Action Button (e.g. Accept/Clone - For now just visual) */}
+                                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.primary }]}>
+                                        <Ionicons name="add" size={18} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </VoidCard>
+                    </View>
+                )}
 
                 {/* Friends Feed */}
                 {friendsFeed.length > 0 && (
@@ -225,14 +270,40 @@ export default function CommunityScreen() {
                     </View>
                 )}
 
-                {/* Search Friends */}
+                {/* Search Friends & Your Code */}
                 <View style={{ marginBottom: 24 }}>
                     <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ADD FRIENDS</Text>
+
+                    {/* Your Code Card */}
+                    <VoidCard style={{ padding: 16, marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View>
+                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>YOUR FRIEND CODE</Text>
+                            <Text style={{ color: colors.primary, fontSize: 24, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: 2 }}>
+                                {userCode || '...'}
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            onPress={handleShareCode}
+                            style={{
+                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                paddingHorizontal: 16,
+                                paddingVertical: 10,
+                                borderRadius: 8,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 6
+                            }}
+                        >
+                            <Ionicons name="share-outline" size={16} color="#fff" />
+                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>SHARE</Text>
+                        </TouchableOpacity>
+                    </VoidCard>
+
                     <VoidCard style={{ padding: 16 }}>
                         <View style={styles.searchContainer}>
                             <Ionicons name="search" size={20} color={colors.textTertiary} />
                             <TextInput
-                                placeholder="Search by email or username..."
+                                placeholder="Enter Friend Code or username..."
                                 placeholderTextColor={colors.textTertiary}
                                 style={[styles.searchInput, { color: colors.textPrimary }]}
                                 value={searchQuery}

@@ -1,5 +1,6 @@
 import { ThemeProvider } from "../constants/themeContext";
 import { useFonts, Lexend_400Regular, Lexend_500Medium, Lexend_600SemiBold, Lexend_700Bold } from '@expo-google-fonts/lexend';
+import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -29,6 +30,7 @@ export default function MobileLayout() {
     Lexend_500Medium,
     Lexend_600SemiBold,
     Lexend_700Bold,
+    SpaceGrotesk_700Bold,
   });
 
   useEffect(() => {

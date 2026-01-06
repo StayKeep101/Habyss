@@ -7,7 +7,8 @@ import Animated, {
     withTiming,
     useAnimatedStyle,
     Easing,
-    interpolate
+    interpolate,
+    cancelAnimation
 } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
@@ -28,6 +29,11 @@ export const AscensionBackground = () => {
             -1,
             true
         );
+        // CRITICAL: Cancel animations on unmount to prevent memory leak
+        return () => {
+            cancelAnimation(shift);
+            cancelAnimation(pulse);
+        };
     }, []);
 
     const animatedStyle = useAnimatedStyle(() => {
@@ -76,6 +82,8 @@ const Star = ({ index }: { index: number }) => {
             -1,
             true
         );
+        // CRITICAL: Cancel animation on unmount
+        return () => cancelAnimation(opacity);
     }, []);
 
     const style = useAnimatedStyle(() => ({

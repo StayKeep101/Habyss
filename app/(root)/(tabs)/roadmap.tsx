@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, LayoutAnimation, Platform, UIManager, InteractionManager, DeviceEventEmitter } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -19,7 +19,7 @@ import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { GoalCreationWizard } from '@/components/GoalCreationWizard';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
-import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, Habit as StoreHabit } from '@/lib/habits';
+import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, isHabitScheduledForDate, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
@@ -42,6 +42,16 @@ interface Habit extends StoreHabit {
 
 type FilterType = 'all' | 'goals_only' | 'habits_only';
 type SortType = 'default' | 'name' | 'progress';
+type TimeFilter = 'all' | 'morning' | 'afternoon' | 'evening';
+
+// Helper to categorize habits by their start time
+const getTimeCategory = (startTime?: string): TimeFilter => {
+    if (!startTime) return 'all';
+    const hour = parseInt(startTime.split(':')[0], 10);
+    if (hour >= 5 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 17) return 'afternoon';
+    return 'evening';
+};
 
 const CalendarScreen = () => {
     const router = useRouter();
@@ -52,7 +62,7 @@ const CalendarScreen = () => {
 
     // Data State
     const [habitsStore, setHabitsStore] = useState<StoreHabit[]>([]);
-    const [habits, setHabits] = useState<Habit[]>([]);
+    // habits state removed - usage replaced by memoized derivation
     const [completions, setCompletions] = useState<Record<string, boolean>>({});
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [goalProgress, setGoalProgress] = useState<Record<string, number>>({});
@@ -62,6 +72,7 @@ const CalendarScreen = () => {
     const [showFilter, setShowFilter] = useState(false);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
     const [activeSort, setActiveSort] = useState<SortType>('default');
+    const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>('all');
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
     const [shareModalVisible, setShareModalVisible] = useState(false);
@@ -124,64 +135,52 @@ const CalendarScreen = () => {
 
             // Only update if the event matches the currently viewed date
             if (date === currentDateStr) {
-                // Update completions state
-                const newCompletions = {
-                    ...completions,
+                setCompletions(prev => ({
+                    ...prev,
                     [habitId]: completed
-                };
-                setCompletions(newCompletions);
-
-                // INSTANT SYNC: Recalculate ALL goal progress using LOCAL state + historyData
-                const goals = habitsStore.filter(h => h.isGoal);
-                const progressMap: Record<string, number> = {};
-                goals.forEach(g => {
-                    progressMap[g.id] = calculateGoalProgressInstant(g, habitsStore, newCompletions, historyData);
-                });
-                setGoalProgress(progressMap);
+                }));
             }
         });
 
-        // Load history data for accurate progress calculation
+        return () => sub.remove();
+    }, [selectedDate]); // FIXED: Removed historyData from deps to prevent infinite loop
+
+    // SEPARATE EFFECT: Load history data ONCE on mount (not on every historyData change!)
+    useEffect(() => {
         const loadHistory = async () => {
             const data = await getLastNDaysCompletions(90);
             setHistoryData(data);
         };
         loadHistory();
+    }, []); // Empty deps - only run once on mount
 
-        return () => sub.remove();
-    }, [selectedDate, historyData]);
+    // Optimized History Lookup Maps
+    const historyMap = useMemo(() => {
+        const map: Record<string, string[]> = {};
+        historyData.forEach(d => map[d.date] = d.completedIds);
+        return map;
+    }, [historyData]);
 
-    // Map habits with completion status - OPTIMIZED separate effect
+    // SEPARATE EFFECT: Recalculate goal progress when relevant data changes
     useEffect(() => {
-        const mapped: Habit[] = habitsStore.map(item => ({
-            ...item,
-            completed: !!completions[item.id],
-            streak: 0
-        }));
-        setHabits(mapped);
-    }, [habitsStore, completions]);
+        if (historyData.length === 0) return; // Wait for history to load
 
-    // Load strict goal progress
-    useEffect(() => {
-        const loadProgress = async () => {
-            const goals = habitsStore.filter(h => h.isGoal);
+        const goals = habitsStore.filter(h => h.isGoal);
+        if (goals.length === 0) return;
+
+        // Defer heavy calculation to after navigation animation
+        const task = InteractionManager.runAfterInteractions(() => {
             const progressMap: Record<string, number> = {};
-
-            await Promise.all(goals.map(async (g) => {
-                // Async calculate strict progress
-                const p = await calculateGoalProgress(g);
-                progressMap[g.id] = p;
-            }));
-
-            setGoalProgress(progressMap);
-        };
-
-        if (habitsStore.length > 0) {
-            InteractionManager.runAfterInteractions(() => {
-                loadProgress();
+            goals.forEach(g => {
+                progressMap[g.id] = calculateGoalProgressInstant(g, habitsStore, completions, historyMap);
             });
-        }
-    }, [habitsStore]);
+            setGoalProgress(progressMap);
+        });
+        return () => task.cancel();
+    }, [habitsStore, completions, historyMap]);
+
+    // Map habits with completion status - OPTIMIZED: only on data changes
+    // Map habits effect removed - redundant O(N) state update
 
     // Weekly Calcs - OPTIMIZED: only run on mount to prevent JS thread hammering
     useEffect(() => {
@@ -231,7 +230,7 @@ const CalendarScreen = () => {
     // Debounce ref to prevent double-tap
     const isNavigating = useRef(false);
 
-    const handleHabitPress = async (habit: Habit) => {
+    const handleHabitPress = useCallback(async (habit: Habit) => {
         // Prevent double-tap
         if (isNavigating.current) return;
         isNavigating.current = true;
@@ -273,7 +272,7 @@ const CalendarScreen = () => {
         }
 
         setTimeout(() => { isNavigating.current = false; }, 300);
-    };
+    }, [selectedDate, completions, playComplete, selectionFeedback, lightFeedback]);
 
     const handleDelete = (habit: Habit) => {
         Alert.alert(
@@ -319,33 +318,41 @@ const CalendarScreen = () => {
     };
 
     // --- Grouping Logic ---
-    const goals = habits.filter(h => h.isGoal);
-    const allHabits = habits.filter(h => !h.isGoal);
+    const goals = useMemo(() => habitsStore.filter(h => h.isGoal), [habitsStore]);
+    // Only show habits scheduled for the selected date
+    // Memoized Data derivation
+    const { allHabits, habitsByGoal } = useMemo(() => {
+        const filtered = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate));
+        const byGoal: Record<string, Habit[]> = {};
 
-    // Group habits by their goalId
-    const habitsByGoal: Record<string, Habit[]> = {};
-    const looseHabits: Habit[] = [];
+        filtered.forEach(h => {
+            if (h.goalId) {
+                if (!byGoal[h.goalId]) byGoal[h.goalId] = [];
+                byGoal[h.goalId].push(h);
+            }
+        });
 
-    allHabits.forEach(h => {
-        if (h.goalId && goals.some(g => g.id === h.goalId)) {
-            if (!habitsByGoal[h.goalId]) habitsByGoal[h.goalId] = [];
-            habitsByGoal[h.goalId].push(h);
-        } else {
-            looseHabits.push(h);
-        }
-    });
+        return { allHabits: filtered, habitsByGoal: byGoal };
+    }, [habitsStore, selectedDate]);
+
+    // Loose habits are those not linked to any goal, or linked to a non-existent goal
+    const looseHabits = useMemo(() => {
+        return allHabits.filter(h => !h.goalId || !goals.some(g => g.id === h.goalId));
+    }, [allHabits, goals]);
 
     const isGoalFilter = activeFilter === 'goals_only';
     const isHabitFilter = activeFilter === 'habits_only';
 
     // Sorting Logic
-    const sortedGoals = [...goals].sort((a, b) => {
-        if (activeSort === 'name') return a.name.localeCompare(b.name);
-        if (activeSort === 'progress') {
-            return (goalProgress[b.id] || 0) - (goalProgress[a.id] || 0);
-        }
-        return 0; // Default (Creation order usually)
-    });
+    const sortedGoals = useMemo(() => {
+        return [...goals].sort((a, b) => {
+            if (activeSort === 'name') return a.name.localeCompare(b.name);
+            if (activeSort === 'progress') {
+                return (goalProgress[b.id] || 0) - (goalProgress[a.id] || 0);
+            }
+            return 0; // Default (Creation order usually)
+        });
+    }, [goals, activeSort, goalProgress]);
 
     return (
         <VoidShell>
@@ -414,7 +421,11 @@ const CalendarScreen = () => {
 
                                     {sortedGoals.length > 0 ? (
                                         sortedGoals.map(goal => {
-                                            const linkedHabits = habitsByGoal[goal.id] || [];
+                                            // Filter linked habits by time category if active
+                                            const allLinkedHabits = habitsByGoal[goal.id] || [];
+                                            const linkedHabits = activeTimeFilter === 'all'
+                                                ? allLinkedHabits
+                                                : allLinkedHabits.filter(h => getTimeCategory(h.startTime) === activeTimeFilter || getTimeCategory(h.startTime) === 'all');
                                             const isExpanded = expandedGoals[goal.id];
 
                                             // Progress Calculation - USE STRICT PROGRESS
@@ -450,6 +461,7 @@ const CalendarScreen = () => {
                                                                         key={habit.id}
                                                                         habit={habit}
                                                                         size={cardSize}
+                                                                        completed={!!completions[habit.id]}
                                                                         onPress={() => handleHabitPress(habit)}
                                                                         onEdit={handleEdit}
                                                                         onDelete={handleDelete}
@@ -474,44 +486,40 @@ const CalendarScreen = () => {
                                 </View>
                             )}
 
-                            {/* HABITS ONLY SECTION */}
-                            {isHabitFilter && (
+                            {/* HABITS SECTION */}
+                            {!isGoalFilter && (activeFilter === 'all' ? looseHabits : allHabits).length > 0 && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
                                     <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2, marginBottom: 10 }}>
-                                        ALL HABITS
+                                        {activeFilter === 'all' ? 'OTHER HABITS' : 'ALL HABITS'}
                                     </Text>
 
-                                    {habits.filter(h => !h.isArchived && !h.isGoal).length > 0 ? (
-                                        habits.filter(h => !h.isArchived && !h.isGoal).map(habit => (
-                                            <SwipeableHabitItem
-                                                key={habit.id}
-                                                habit={habit}
-                                                onPress={(h) => {
-                                                    // Use local date format, not UTC
-                                                    const today = new Date();
-                                                    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                                    const selectedStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+                                    {(activeFilter === 'all' ? looseHabits : allHabits).map(habit => (
+                                        <SwipeableHabitItem
+                                            key={habit.id}
+                                            habit={habit}
+                                            completed={!!completions[habit.id]}
+                                            onPress={(h) => {
+                                                // Use local date format, not UTC
+                                                const today = new Date();
+                                                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                                const selectedStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
-                                                    if (selectedStr !== todayStr) {
-                                                        Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
-                                                        return;
-                                                    }
+                                                if (selectedStr !== todayStr) {
+                                                    Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
+                                                    return;
+                                                }
 
-                                                    selectionFeedback();
-                                                    toggleCompletion(h.id, todayStr);
-                                                    setCompletions(prev => ({ ...prev, [h.id]: !prev[h.id] }));
-                                                }}
-                                                onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id } })}
-                                                onDelete={(h) => { handleDelete(h); }}
-                                                onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
-                                                size={cardSize}
-                                            />
-                                        ))
-                                    ) : (
-                                        <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
-                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Lexend_400Regular' }}>NO HABITS</Text>
-                                        </VoidCard>
-                                    )}
+                                                selectionFeedback();
+                                                toggleCompletion(h.id, todayStr);
+                                                setCompletions(prev => ({ ...prev, [h.id]: !prev[h.id] }));
+                                            }}
+                                            onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id } })}
+                                            onDelete={(h) => { handleDelete(h); }}
+                                            onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
+                                            size={cardSize}
+                                        />
+                                    ))
+                                    }
                                 </View>
                             )}
 
@@ -567,48 +575,27 @@ const CalendarScreen = () => {
                                         <View style={{ gap: 20 }}>
                                             <View>
                                                 <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 12, letterSpacing: 1 }}>FILTER ORGANIZE</Text>
-                                                <View style={{ gap: 8 }}>
-                                                    <TouchableOpacity
-                                                        onPress={() => { selectionFeedback(); setActiveFilter('all'); }}
-                                                        style={[
-                                                            styles.filterOption,
-                                                            activeFilter === 'all' && { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: colors.primary }
-                                                        ]}
-                                                    >
-                                                        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: activeFilter === 'all' ? colors.primary : 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Ionicons name="layers" size={16} color={activeFilter === 'all' ? '#fff' : 'rgba(255,255,255,0.5)'} />
-                                                        </View>
-                                                        <Text style={[styles.filterText, activeFilter === 'all' && { color: '#fff' }]}>All Items</Text>
-                                                        {activeFilter === 'all' && <Ionicons name="checkmark" size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />}
-                                                    </TouchableOpacity>
-
-                                                    <TouchableOpacity
-                                                        onPress={() => { selectionFeedback(); setActiveFilter('goals_only'); }}
-                                                        style={[
-                                                            styles.filterOption,
-                                                            activeFilter === 'goals_only' && { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: colors.primary }
-                                                        ]}
-                                                    >
-                                                        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: activeFilter === 'goals_only' ? colors.primary : 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Ionicons name="flag" size={16} color={activeFilter === 'goals_only' ? '#fff' : 'rgba(255,255,255,0.5)'} />
-                                                        </View>
-                                                        <Text style={[styles.filterText, activeFilter === 'goals_only' && { color: '#fff' }]}>Goals & Linked Habits</Text>
-                                                        {activeFilter === 'goals_only' && <Ionicons name="checkmark" size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />}
-                                                    </TouchableOpacity>
-
-                                                    <TouchableOpacity
-                                                        onPress={() => { selectionFeedback(); setActiveFilter('habits_only'); }}
-                                                        style={[
-                                                            styles.filterOption,
-                                                            activeFilter === 'habits_only' && { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: colors.primary }
-                                                        ]}
-                                                    >
-                                                        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: activeFilter === 'habits_only' ? colors.primary : 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Ionicons name="checkbox" size={16} color={activeFilter === 'habits_only' ? '#fff' : 'rgba(255,255,255,0.5)'} />
-                                                        </View>
-                                                        <Text style={[styles.filterText, activeFilter === 'habits_only' && { color: '#fff' }]}>Habits Only</Text>
-                                                        {activeFilter === 'habits_only' && <Ionicons name="checkmark" size={18} color={colors.primary} style={{ marginLeft: 'auto' }} />}
-                                                    </TouchableOpacity>
+                                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                    {[
+                                                        { id: 'all', label: 'All', icon: 'layers' },
+                                                        { id: 'goals_only', label: 'Goals', icon: 'flag' },
+                                                        { id: 'habits_only', label: 'Habits', icon: 'checkbox' },
+                                                    ].map((filter) => (
+                                                        <TouchableOpacity
+                                                            key={filter.id}
+                                                            onPress={() => { selectionFeedback(); setActiveFilter(filter.id as FilterType); }}
+                                                            style={[
+                                                                styles.sortChip,
+                                                                { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+                                                                activeFilter === filter.id && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                                            ]}
+                                                        >
+                                                            <Ionicons name={filter.icon as any} size={14} color={activeFilter === filter.id ? 'white' : 'rgba(255,255,255,0.5)'} />
+                                                            <Text style={[styles.sortText, activeFilter === filter.id && { color: 'white' }]}>
+                                                                {filter.label}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
                                                 </View>
                                             </View>
 
@@ -626,6 +613,39 @@ const CalendarScreen = () => {
                                                         >
                                                             <Text style={[styles.sortText, activeSort === sort && { color: 'white' }]}>
                                                                 {sort.charAt(0).toUpperCase() + sort.slice(1)}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                            </View>
+
+                                            {/* Time of Day Filter */}
+                                            <View>
+                                                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 12, letterSpacing: 1 }}>TIME OF DAY</Text>
+                                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                    {[
+                                                        { id: 'all', label: 'All', icon: 'time' },
+                                                        { id: 'morning', label: 'Morning', icon: 'sunny' },
+                                                        { id: 'afternoon', label: 'Afternoon', icon: 'partly-sunny' },
+                                                        { id: 'evening', label: 'Evening', icon: 'moon' },
+                                                    ].map((time) => (
+                                                        <TouchableOpacity
+                                                            key={time.id}
+                                                            onPress={() => { selectionFeedback(); setActiveTimeFilter(time.id as TimeFilter); }}
+                                                            style={[
+                                                                styles.sortChip,
+                                                                { flex: 1 },
+                                                                activeTimeFilter === time.id && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                                            ]}
+                                                        >
+                                                            <Ionicons
+                                                                name={time.icon as any}
+                                                                size={12}
+                                                                color={activeTimeFilter === time.id ? 'white' : 'rgba(255,255,255,0.5)'}
+                                                                style={{ marginBottom: 2 }}
+                                                            />
+                                                            <Text style={[styles.sortText, { fontSize: 9 }, activeTimeFilter === time.id && { color: 'white' }]}>
+                                                                {time.label}
                                                             </Text>
                                                         </TouchableOpacity>
                                                     ))}
