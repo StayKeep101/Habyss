@@ -322,6 +322,26 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
   }
 }
 
+/**
+ * Delete a goal AND all habits linked to it
+ */
+export async function removeGoalWithLinkedHabits(goalId: string): Promise<void> {
+  // First, get all habits linked to this goal
+  const habits = cachedHabits || await getHabits();
+  const linkedHabits = habits.filter(h => h.goalId === goalId);
+
+  // Delete all linked habits first
+  for (const habit of linkedHabits) {
+    await removeHabitEverywhere(habit.id);
+  }
+
+  // Then delete the goal itself
+  await removeHabitEverywhere(goalId);
+
+  // Emit event for UI update
+  DeviceEventEmitter.emit('goal_deleted', { goalId });
+}
+
 // --- Completions ---
 
 export async function getCompletions(dateISO?: string): Promise<Record<string, boolean>> {
@@ -612,6 +632,70 @@ export async function calculateGoalProgress(goal: Habit): Promise<number> {
 
   if (totalExpected === 0) return 0;
 
+  return Math.round((totalCompleted / totalExpected) * 100);
+}
+
+/**
+ * Calculate goal progress using LOCAL CACHE for instant updates
+ * EXACT COPY of home.tsx logic: counts expected vs actual completions across goal date range
+ */
+export function calculateGoalProgressInstant(
+  goal: Habit,
+  habits: Habit[],
+  todayCompletions: Record<string, boolean>,
+  historyData: { date: string; completedIds: string[] }[] = []
+): number {
+  if (!goal.isGoal) return 0;
+
+  // 1. Get linked habits
+  const linked = habits.filter(h => h.goalId === goal.id && !h.isArchived);
+  if (linked.length === 0) return 0;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // 2. Define Time Range
+  const startDate = new Date(goal.startDate || goal.createdAt);
+  const targetDate = goal.targetDate ? new Date(goal.targetDate) : new Date();
+
+  // 3. Iterate days to calculate Expected vs Actual
+  let totalExpected = 0;
+  let totalCompleted = 0;
+
+  const current = new Date(startDate);
+  if (current > targetDate) return 0;
+
+  while (current <= targetDate) {
+    const dateStr = current.toISOString().split('T')[0];
+    const dayName = current.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+
+    linked.forEach(habit => {
+      // Check scheduling
+      const hCreated = new Date(habit.createdAt);
+      const createdStr = hCreated.toISOString().split('T')[0];
+
+      if (dateStr >= createdStr) {
+        if (habit.taskDays?.includes(dayName)) {
+          totalExpected++;
+
+          // DATA SOURCE 1: Today's local state
+          if (dateStr === todayStr) {
+            if (todayCompletions[habit.id]) totalCompleted++;
+          }
+          // DATA SOURCE 2: History (network/cache)
+          else {
+            const historyDay = historyData.find(d => d.date === dateStr);
+            if (historyDay && historyDay.completedIds?.includes(habit.id)) {
+              totalCompleted++;
+            }
+          }
+        }
+      }
+    });
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  if (totalExpected === 0) return 0;
   return Math.round((totalCompleted / totalExpected) * 100);
 }
 

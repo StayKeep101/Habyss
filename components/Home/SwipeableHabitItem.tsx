@@ -8,19 +8,25 @@ import { Habit } from '@/lib/habits';
 import { useRouter } from 'expo-router';
 import { RoadMapCardSize } from '@/constants/AppSettingsContext';
 import { VoidCard } from '../Layout/VoidCard';
+import { useHaptics } from '@/hooks/useHaptics';
 
-// ... interface
+// Extended habit type with runtime properties
+interface ExtendedHabit extends Habit {
+  completed?: boolean;
+  streak?: number;
+}
+
 interface SwipeableHabitItemProps {
-  habit: Habit;
-  onPress: (habit: Habit) => void;
-  onEdit: (habit: Habit) => void;
-  onDelete: (habit: Habit) => void;
-  onShare?: (habit: Habit) => void;
+  habit: ExtendedHabit;
+  onPress: (habit: ExtendedHabit) => void;
+  onEdit: (habit: ExtendedHabit) => void;
+  onDelete: (habit: ExtendedHabit) => void;
+  onShare?: (habit: ExtendedHabit) => void;
   size: RoadMapCardSize;
 }
 
 const { width } = Dimensions.get('window');
-const ACTION_WIDTH = 60; // Smaller actions
+const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 
 export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
   habit, onPress, onEdit, onDelete, onShare, size
@@ -29,6 +35,7 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
   const colors = Colors[theme];
   const swipeableRef = useRef<Swipeable>(null);
   const router = useRouter();
+  const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
 
   const close = () => swipeableRef.current?.close();
 
@@ -43,6 +50,11 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
   const fontSize = isSmall ? 11 : (isBig ? 14 : 13);
   const checkboxSize = isSmall ? 14 : (isBig ? 20 : 18);
 
+  // Swipe threshold trigger with haptic
+  const onSwipeableWillOpen = (direction: 'left' | 'right') => {
+    lightFeedback(); // Subtle haptic when swipe reveals actions
+  };
+
   // (renderLeftActions and renderRightActions remain mostly same but slightly smaller)
   const renderLeftActions = (
     progress: Animated.AnimatedInterpolation<number>,
@@ -53,17 +65,23 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
       outputRange: [-20, 0, 0],
       extrapolate: 'clamp',
     });
+    const scale = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.8, 1],
+      extrapolate: 'clamp',
+    });
 
     return (
       <RectButton
         style={[styles.leftAction, { backgroundColor: colors.primary }]}
         onPress={() => {
+          selectionFeedback();
           close();
           router.push({ pathname: '/habit-detail', params: { habitId: habit.id } });
         }}
       >
-        <Animated.View style={[styles.actionContent, { transform: [{ translateX: trans }] }]}>
-          <Ionicons name="open-outline" size={18} color="white" />
+        <Animated.View style={[styles.actionContent, { transform: [{ translateX: trans }, { scale }] }]}>
+          <Ionicons name="open-outline" size={20} color="white" />
         </Animated.View>
       </RectButton>
     );
@@ -75,27 +93,27 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
         {onShare && (
           <RectButton
             style={[styles.rightAction, { backgroundColor: '#3B82F6' }]}
-            onPress={() => { close(); onShare(habit); }}
+            onPress={() => { selectionFeedback(); close(); onShare(habit); }}
           >
             <View style={styles.actionContent}>
-              <Ionicons name="share-outline" size={18} color="white" />
+              <Ionicons name="share-outline" size={20} color="white" />
             </View>
           </RectButton>
         )}
         <RectButton
           style={[styles.rightAction, { backgroundColor: '#F59E0B' }]}
-          onPress={() => { close(); onEdit(habit); }}
+          onPress={() => { selectionFeedback(); close(); onEdit(habit); }}
         >
           <View style={styles.actionContent}>
-            <Ionicons name="pencil" size={18} color="white" />
+            <Ionicons name="pencil" size={20} color="white" />
           </View>
         </RectButton>
         <RectButton
           style={[styles.rightAction, { backgroundColor: '#EF4444' }]}
-          onPress={() => { close(); onDelete(habit); }}
+          onPress={() => { mediumFeedback(); close(); onDelete(habit); }}
         >
           <View style={styles.actionContent}>
-            <Ionicons name="trash" size={18} color="white" />
+            <Ionicons name="trash" size={20} color="white" />
           </View>
         </RectButton>
       </View>
@@ -107,11 +125,13 @@ export const SwipeableHabitItem: React.FC<SwipeableHabitItemProps> = ({
       ref={swipeableRef}
       renderLeftActions={renderLeftActions}
       renderRightActions={renderRightActions}
-      leftThreshold={50}
-      rightThreshold={40}
+      leftThreshold={40}
+      rightThreshold={30}
       overshootLeft={false}
       overshootRight={false}
-      friction={2}
+      overshootFriction={8}
+      friction={1.5}
+      onSwipeableWillOpen={onSwipeableWillOpen}
       containerStyle={styles.swipeableContainer}
     >
       <TouchableOpacity

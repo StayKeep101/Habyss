@@ -1,13 +1,25 @@
-import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, Modal, Dimensions, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withTiming,
+    withDelay,
+    Easing,
+    runOnJS,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Friend } from '@/lib/friendsService';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { Friend, FriendsService } from '@/lib/friendsService';
 import Svg, { Circle } from 'react-native-svg';
+
+const { height, width } = Dimensions.get('window');
+const SHEET_HEIGHT = height * 0.75;
+const DRAG_THRESHOLD = 100;
 
 interface FriendStatsModalProps {
     visible: boolean;
@@ -16,7 +28,13 @@ interface FriendStatsModalProps {
     onNudge: (friend: Friend) => void;
 }
 
-const { width } = Dimensions.get('window');
+interface FriendDetailedStats {
+    totalHabits: number;
+    completedToday: number;
+    totalGoals: number;
+    weeklyActivity: boolean[]; // Last 7 days
+    longestStreak: number;
+}
 
 export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
     visible,
@@ -26,6 +44,85 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const [isOpen, setIsOpen] = useState(false);
+    const [detailedStats, setDetailedStats] = useState<FriendDetailedStats | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const translateY = useSharedValue(SHEET_HEIGHT);
+    const backdropOpacity = useSharedValue(0);
+    const contentOpacity = useSharedValue(0);
+
+    const openModal = useCallback(() => {
+        setIsOpen(true);
+        translateY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
+        backdropOpacity.value = withTiming(1, { duration: 300 });
+        contentOpacity.value = withDelay(200, withTiming(1, { duration: 400 }));
+    }, []);
+
+    const closeModal = useCallback(() => {
+        contentOpacity.value = withTiming(0, { duration: 150 });
+        translateY.value = withTiming(SHEET_HEIGHT, { duration: 300, easing: Easing.in(Easing.cubic) });
+        backdropOpacity.value = withTiming(0, { duration: 250 });
+        setTimeout(() => { setIsOpen(false); onClose(); }, 300);
+    }, [onClose]);
+
+    useEffect(() => {
+        if (visible && !isOpen) {
+            openModal();
+            // Load detailed stats when modal opens
+            if (friend) {
+                loadDetailedStats(friend.id);
+            }
+        } else if (!visible && isOpen) {
+            closeModal();
+        }
+    }, [visible, friend]);
+
+    const loadDetailedStats = async (friendId: string) => {
+        setLoading(true);
+        try {
+            // For now, generate reasonable stats based on friend data
+            // In production, this would query the friend's actual data
+            const stats: FriendDetailedStats = {
+                totalHabits: Math.floor(Math.random() * 10) + 3,
+                completedToday: Math.floor((friend?.todayCompletion || 0) / 20),
+                totalGoals: Math.floor(Math.random() * 5) + 1,
+                weeklyActivity: Array.from({ length: 7 }, () => Math.random() > 0.3),
+                longestStreak: Math.max(friend?.currentStreak || 0, Math.floor(Math.random() * 30) + (friend?.currentStreak || 0)),
+            };
+            setDetailedStats(stats);
+        } catch (e) {
+            console.error('Error loading friend stats:', e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const backdropStyle = useAnimatedStyle(() => ({
+        opacity: backdropOpacity.value,
+    }));
+
+    const sheetStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: translateY.value }],
+    }));
+
+    const contentStyle = useAnimatedStyle(() => ({
+        opacity: contentOpacity.value,
+    }));
+
+    const panGesture = Gesture.Pan()
+        .onUpdate((e) => {
+            if (e.translationY > 0) {
+                translateY.value = e.translationY;
+            }
+        })
+        .onEnd((e) => {
+            if (e.translationY > DRAG_THRESHOLD) {
+                runOnJS(closeModal)();
+            } else {
+                translateY.value = withTiming(0, { duration: 200 });
+            }
+        });
 
     if (!friend) return null;
 
@@ -33,48 +130,52 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
     const streak = friend.currentStreak || 0;
 
     // Circle progress calculations
-    const size = 120;
-    const strokeWidth = 10;
+    const size = 140;
+    const strokeWidth = 12;
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
 
     return (
-        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <BlurView intensity={40} style={StyleSheet.absoluteFill} tint="dark">
-                <TouchableOpacity
-                    style={styles.backdrop}
-                    activeOpacity={1}
-                    onPress={onClose}
-                >
-                    <Animated.View
-                        entering={SlideInDown.springify().damping(20)}
-                        style={styles.modalContainer}
-                    >
-                        <TouchableOpacity activeOpacity={1}>
-                            <LinearGradient
-                                colors={['rgba(30, 41, 59, 0.95)', 'rgba(15, 23, 42, 0.98)']}
-                                style={styles.modalContent}
-                            >
-                                {/* Header */}
+        <Modal visible={isOpen || visible} transparent animationType="none" onRequestClose={closeModal}>
+            <View style={styles.container}>
+                {/* Backdrop */}
+                <Animated.View style={[styles.backdrop, backdropStyle]}>
+                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} activeOpacity={1} />
+                </Animated.View>
+
+                {/* Sheet */}
+                <GestureDetector gesture={panGesture}>
+                    <Animated.View style={[styles.sheet, sheetStyle]}>
+                        <LinearGradient
+                            colors={['#1a1f2e', '#0f1218']}
+                            style={styles.sheetGradient}
+                        >
+                            {/* Drag Handle */}
+                            <View style={styles.handleContainer}>
+                                <View style={styles.handle} />
+                            </View>
+
+                            <Animated.View style={[styles.content, contentStyle]}>
+                                {/* Header with Avatar */}
                                 <View style={styles.header}>
-                                    <View style={[styles.avatarLarge, { backgroundColor: colors.surfaceTertiary }]}>
-                                        <Text style={styles.avatarText}>
-                                            {friend.username[0]?.toUpperCase()}
-                                        </Text>
+                                    <View style={[styles.avatarLarge, { borderColor: colors.primary }]}>
+                                        {friend.avatarUrl ? (
+                                            <Image source={{ uri: friend.avatarUrl }} style={styles.avatarImage} />
+                                        ) : (
+                                            <Text style={styles.avatarText}>
+                                                {friend.username[0]?.toUpperCase()}
+                                            </Text>
+                                        )}
                                     </View>
-                                    <Text style={[styles.username, { color: colors.textPrimary }]}>
-                                        {friend.username}
-                                    </Text>
-                                    <Text style={[styles.email, { color: colors.textTertiary }]}>
-                                        {friend.email}
-                                    </Text>
+                                    <Text style={styles.username}>{friend.username}</Text>
+                                    <Text style={styles.email}>{friend.email}</Text>
                                 </View>
 
                                 {/* Stats Grid */}
-                                <View style={styles.statsGrid}>
-                                    {/* Today's Progress */}
-                                    <View style={[styles.statCard, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                                <View style={styles.statsRow}>
+                                    {/* Today's Progress Ring */}
+                                    <VoidCard glass style={styles.progressCard}>
                                         <Svg width={size} height={size}>
                                             {/* Background Circle */}
                                             <Circle
@@ -87,7 +188,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                             />
                                             {/* Progress Circle */}
                                             <Circle
-                                                stroke={progressPercent >= 100 ? colors.success : colors.primary}
+                                                stroke={progressPercent >= 100 ? '#22C55E' : colors.primary}
                                                 fill="none"
                                                 cx={size / 2}
                                                 cy={size / 2}
@@ -101,38 +202,33 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                             />
                                         </Svg>
                                         <View style={styles.progressCenter}>
-                                            <Text style={[styles.progressValue, { color: colors.textPrimary }]}>
-                                                {progressPercent}%
-                                            </Text>
-                                            <Text style={[styles.progressLabel, { color: colors.textTertiary }]}>
-                                                TODAY
-                                            </Text>
+                                            <Text style={styles.progressValue}>{progressPercent}%</Text>
+                                            <Text style={styles.progressLabel}>TODAY</Text>
                                         </View>
-                                    </View>
+                                    </VoidCard>
 
-                                    {/* Streak & Stats */}
-                                    <View style={styles.statsColumn}>
-                                        <View style={[styles.miniCard, { backgroundColor: 'rgba(255,215,61,0.1)' }]}>
-                                            <Ionicons name="flame" size={24} color="#FFD93D" />
-                                            <Text style={styles.miniValue}>{streak}</Text>
-                                            <Text style={[styles.miniLabel, { color: colors.textTertiary }]}>DAY STREAK</Text>
-                                        </View>
-                                        <View style={[styles.miniCard, { backgroundColor: 'rgba(0,255,148,0.1)' }]}>
-                                            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
-                                            <Text style={styles.miniValue}>{Math.floor(progressPercent / 20)}/5</Text>
-                                            <Text style={[styles.miniLabel, { color: colors.textTertiary }]}>HABITS TODAY</Text>
-                                        </View>
+                                    {/* Quick Stats */}
+                                    <View style={styles.quickStats}>
+                                        <VoidCard glass style={styles.statCard}>
+                                            <Ionicons name="flame" size={28} color="#FFD93D" />
+                                            <Text style={styles.statValue}>{streak}</Text>
+                                            <Text style={styles.statLabel}>DAY STREAK</Text>
+                                        </VoidCard>
+                                        <VoidCard glass style={styles.statCard}>
+                                            <Ionicons name="trophy" size={28} color="#F97316" />
+                                            <Text style={styles.statValue}>{detailedStats?.longestStreak || streak}</Text>
+                                            <Text style={styles.statLabel}>BEST STREAK</Text>
+                                        </VoidCard>
                                     </View>
                                 </View>
 
                                 {/* Weekly Activity */}
-                                <View style={styles.weeklySection}>
-                                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                                        THIS WEEK
-                                    </Text>
+                                <VoidCard glass style={styles.weeklyCard}>
+                                    <Text style={styles.sectionTitle}>THIS WEEK'S ACTIVITY</Text>
                                     <View style={styles.weekDays}>
                                         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
-                                            const isActive = Math.random() > 0.3; // Mock data
+                                            const isActive = detailedStats?.weeklyActivity[i] ?? Math.random() > 0.3;
+                                            const isToday = i === new Date().getDay() - 1 || (i === 6 && new Date().getDay() === 0);
                                             return (
                                                 <View key={i} style={styles.dayColumn}>
                                                     <View
@@ -140,102 +236,129 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                                             styles.dayDot,
                                                             {
                                                                 backgroundColor: isActive
-                                                                    ? colors.success
+                                                                    ? isToday ? colors.primary : '#22C55E'
                                                                     : 'rgba(255,255,255,0.1)',
+                                                                borderWidth: isToday ? 2 : 0,
+                                                                borderColor: colors.primary,
                                                             },
                                                         ]}
-                                                    />
-                                                    <Text style={[styles.dayLabel, { color: colors.textTertiary }]}>
+                                                    >
+                                                        {isActive && <Ionicons name="checkmark" size={16} color="#fff" />}
+                                                    </View>
+                                                    <Text style={[styles.dayLabel, isToday && { color: colors.primary }]}>
                                                         {day}
                                                     </Text>
                                                 </View>
                                             );
                                         })}
                                     </View>
-                                </View>
+                                </VoidCard>
 
                                 {/* Actions */}
                                 <View style={styles.actions}>
                                     <TouchableOpacity
-                                        style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                                        style={[styles.nudgeButton, { backgroundColor: colors.primary }]}
                                         onPress={() => {
                                             onNudge(friend);
-                                            onClose();
+                                            closeModal();
                                         }}
                                     >
-                                        <Text style={styles.actionText}>👋 Nudge</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.closeButton, { borderColor: colors.border }]}
-                                        onPress={onClose}
-                                    >
-                                        <Text style={[styles.closeText, { color: colors.textSecondary }]}>Close</Text>
+                                        <Text style={styles.nudgeText}>👋 Send Nudge</Text>
                                     </TouchableOpacity>
                                 </View>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                            </Animated.View>
+                        </LinearGradient>
                     </Animated.View>
-                </TouchableOpacity>
-            </BlurView>
+                </GestureDetector>
+            </View>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
-    backdrop: {
+    container: {
         flex: 1,
-        justifyContent: 'center',
+    },
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+    },
+    sheet: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: SHEET_HEIGHT,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        overflow: 'hidden',
+    },
+    sheetGradient: {
+        flex: 1,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+    },
+    handleContainer: {
         alignItems: 'center',
-        padding: 24,
+        paddingVertical: 12,
     },
-    modalContainer: {
-        width: width - 48,
-        maxWidth: 400,
+    handle: {
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: 'rgba(255,255,255,0.3)',
     },
-    modalContent: {
-        borderRadius: 24,
-        padding: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+    content: {
+        flex: 1,
+        paddingHorizontal: 24,
     },
     header: {
         alignItems: 'center',
         marginBottom: 24,
     },
     avatarLarge: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 100,
+        height: 100,
+        borderRadius: 50,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 12,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderWidth: 3,
+        marginBottom: 16,
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
     },
     avatarText: {
-        fontSize: 32,
+        fontSize: 40,
         fontWeight: '700',
         color: 'rgba(255,255,255,0.5)',
     },
     username: {
-        fontSize: 24,
-        fontWeight: '700',
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#fff',
         fontFamily: 'Lexend',
     },
     email: {
         fontSize: 14,
+        color: 'rgba(255,255,255,0.5)',
         marginTop: 4,
         fontFamily: 'Lexend_400Regular',
     },
-    statsGrid: {
+    statsRow: {
         flexDirection: 'row',
         gap: 16,
-        marginBottom: 24,
+        marginBottom: 20,
     },
-    statCard: {
+    progressCard: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
         padding: 16,
-        borderRadius: 16,
         position: 'relative',
     },
     progressCenter: {
@@ -243,46 +366,51 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     progressValue: {
-        fontSize: 28,
-        fontWeight: '800',
+        fontSize: 32,
+        fontWeight: '900',
+        color: '#fff',
         fontFamily: 'Lexend',
     },
     progressLabel: {
         fontSize: 10,
-        fontFamily: 'Lexend_400Regular',
+        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 1,
+        fontFamily: 'Lexend_400Regular',
     },
-    statsColumn: {
+    quickStats: {
         flex: 1,
         gap: 12,
     },
-    miniCard: {
+    statCard: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
         padding: 12,
-        borderRadius: 12,
     },
-    miniValue: {
-        fontSize: 20,
-        fontWeight: '700',
+    statValue: {
+        fontSize: 24,
+        fontWeight: '800',
         color: '#fff',
         marginTop: 4,
+        fontFamily: 'Lexend',
     },
-    miniLabel: {
+    statLabel: {
         fontSize: 9,
-        fontFamily: 'Lexend_400Regular',
+        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 0.5,
         marginTop: 2,
+        fontFamily: 'Lexend_400Regular',
     },
-    weeklySection: {
-        marginBottom: 24,
+    weeklyCard: {
+        padding: 20,
+        marginBottom: 20,
     },
     sectionTitle: {
         fontSize: 11,
-        fontFamily: 'Lexend_400Regular',
+        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 1,
-        marginBottom: 12,
+        marginBottom: 16,
+        fontFamily: 'Lexend_400Regular',
     },
     weekDays: {
         flexDirection: 'row',
@@ -293,38 +421,30 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     dayDot: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     dayLabel: {
-        fontSize: 10,
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.5)',
         fontFamily: 'Lexend_400Regular',
     },
     actions: {
-        flexDirection: 'row',
-        gap: 12,
+        marginTop: 'auto',
+        paddingBottom: 40,
     },
-    actionButton: {
-        flex: 1,
-        paddingVertical: 14,
-        borderRadius: 12,
+    nudgeButton: {
+        paddingVertical: 16,
+        borderRadius: 16,
         alignItems: 'center',
     },
-    actionText: {
+    nudgeText: {
         color: '#fff',
+        fontSize: 18,
         fontWeight: '700',
-        fontSize: 16,
-    },
-    closeButton: {
-        flex: 1,
-        paddingVertical: 14,
-        borderRadius: 12,
-        alignItems: 'center',
-        borderWidth: 1,
-    },
-    closeText: {
-        fontWeight: '600',
-        fontSize: 16,
+        fontFamily: 'Lexend',
     },
 });

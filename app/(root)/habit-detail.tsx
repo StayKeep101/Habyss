@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -15,11 +15,18 @@ export default function HabitDetailScreen() {
   const router = useRouter();
   const params = useGlobalSearchParams();
   const habitId = params.habitId as string;
-  const dateStr = params.date as string || new Date().toISOString().split('T')[0];
+
+  // Use consistent LOCAL date format (not UTC)
+  const getLocalDateStr = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+  const dateStr = params.date as string || getLocalDateStr();
+  const todayStr = getLocalDateStr();
 
   const { theme } = useTheme();
   const colors = Colors[theme];
-  const { selectionFeedback } = useHaptics();
+  const { selectionFeedback, mediumFeedback } = useHaptics();
 
   // Initialize with passed params to avoid loading state
   const [habit, setHabit] = useState<Habit | null>(() => {
@@ -45,6 +52,15 @@ export default function HabitDetailScreen() {
 
   useEffect(() => {
     loadHabitDetails();
+
+    // Listen for completion updates from other screens for instant sync
+    const sub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId: updatedId, date, completed: isCompleted }) => {
+      if (updatedId === habitId && date === dateStr) {
+        setCompleted(isCompleted);
+      }
+    });
+
+    return () => sub.remove();
   }, [habitId, dateStr]);
 
   const loadHabitDetails = async () => {
@@ -71,14 +87,14 @@ export default function HabitDetailScreen() {
   const handleToggle = async () => {
     if (!habit) return;
 
-    // Only allow completion for today (using local date, not UTC)
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-    if (dateStr !== today) {
+    // Only allow completion for today
+    if (dateStr !== todayStr) {
       Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
       return;
     }
+
+    // Haptic feedback for satisfying interaction
+    mediumFeedback();
 
     setCompleted(prev => !prev);
     await toggleCompletion(habit.id, dateStr);

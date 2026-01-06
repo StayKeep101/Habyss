@@ -313,7 +313,7 @@ export default function CommunityScreen() {
                         <VoidCard style={{ padding: 0 }}>
                             {friends.map((friend, index) => (
                                 <TouchableOpacity
-                                    key={friend.id}
+                                    key={`crew_${friend.id}`}
                                     onPress={() => handleFriendPress(friend)}
                                     activeOpacity={0.7}
                                     style={{
@@ -388,7 +388,7 @@ export default function CommunityScreen() {
                         ) : (
                             leaderboard.map(({ rank, friend }) => (
                                 <TouchableOpacity
-                                    key={friend.id}
+                                    key={`leaderboard_${friend.id}`}
                                     onPress={() => handleFriendPress(friend)}
                                     activeOpacity={friend.username === 'You' ? 1 : 0.7}
                                 >

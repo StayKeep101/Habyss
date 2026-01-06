@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, DeviceEventEmitter, InteractionManager } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, DeviceEventEmitter, InteractionManager, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
@@ -21,6 +21,50 @@ import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { generateGreeting } from '@/lib/gemini';
 import { LinearGradient } from 'expo-linear-gradient';
+
+// Pro user motivational quotes by AI personality
+const PRO_QUOTES: Record<string, string[]> = {
+  mentor: [
+    "Every step forward counts. Keep building.",
+    "Consistency beats intensity. You've got this.",
+    "Your habits are shaping your future self.",
+    "Progress is progress, no matter how small.",
+    "Today's discipline is tomorrow's freedom.",
+  ],
+  coach: [
+    "Let's crush it today! 💪",
+    "You're stronger than your excuses!",
+    "Champions are made in the daily grind!",
+    "No limits! Push through!",
+    "Your potential is unlimited!",
+  ],
+  friend: [
+    "Hey! You're doing amazing 🌟",
+    "So proud of your progress!",
+    "One day at a time, friend.",
+    "You've got this, I believe in you!",
+    "Keep going, you're inspiring!",
+  ],
+  minimal: [
+    "Execute.",
+    "Focus. Discipline. Results.",
+    "Less talk. More action.",
+    "Build the habit.",
+    "Stay consistent.",
+  ],
+};
+
+// Free user promotional messages
+const FREE_PROMOS = [
+  "Unlock AI coaching with Habyss Pro ✨",
+  "Go Pro for personalized habit insights",
+  "Pro users get smart reminders & analytics",
+  "Upgrade to Pro for unlimited goals",
+  "Pro: Advanced stats & AI motivation",
+  "Unlock your full potential with Pro",
+  "Pro users see 3x better habit retention",
+  "Get AI-powered habit suggestions with Pro",
+];
 
 // New Dashboard Components
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
@@ -59,6 +103,56 @@ const Home = () => {
   const [showConsistencyModal, setShowConsistencyModal] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [motivationalQuote, setMotivationalQuote] = useState('');
+  const [displayedQuote, setDisplayedQuote] = useState('');
+
+  // Get random quote based on pro status and AI personality
+  const getRandomQuote = useCallback(() => {
+    if (isPremium) {
+      const personality = aiPersonality || 'mentor';
+      const quotes = PRO_QUOTES[personality] || PRO_QUOTES.mentor;
+      return quotes[Math.floor(Math.random() * quotes.length)];
+    } else {
+      return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
+    }
+  }, [isPremium, aiPersonality]);
+
+  // Set initial quote
+  useEffect(() => {
+    setMotivationalQuote(getRandomQuote());
+  }, [isPremium, aiPersonality]);
+
+  // Typewriter animation effect - FIXED closure bug
+  useEffect(() => {
+    if (!motivationalQuote) return;
+
+    setDisplayedQuote('');
+    let currentIndex = 0;
+
+    const interval = setInterval(() => {
+      if (currentIndex < motivationalQuote.length) {
+        const char = motivationalQuote.charAt(currentIndex);
+        setDisplayedQuote(motivationalQuote.substring(0, currentIndex + 1));
+        currentIndex++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 30); // 30ms per character for smooth typing effect
+
+    return () => clearInterval(interval);
+  }, [motivationalQuote]);
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // Change the motivational quote (triggers typewriter effect)
+    setMotivationalQuote(getRandomQuote());
+    // Reload data
+    const completionsData = await getCompletions();
+    setCompletions(completionsData);
+    setRefreshing(false);
+  }, [getRandomQuote]);
 
   // Derived data
   const goals = useMemo(() => allHabits.filter(h => h.isGoal), [allHabits]);
@@ -333,7 +427,17 @@ const Home = () => {
   return (
     <VoidShell>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+        >
 
           {/* Header */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: isPremium ? 12 : 20 }}>
@@ -375,16 +479,27 @@ const Home = () => {
             </View>
           </View>
 
-          {/* AI Greeting (Pro Only) */}
-          {isPremium && greeting ? (
-            <Animated.View entering={FadeInDown.duration(600)} style={{ marginBottom: 20 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <Ionicons name="chatbubble-ellipses-outline" size={12} color={colors.primary} />
-                <Text style={{ fontSize: 10, color: colors.primary, fontFamily: 'Lexend_400Regular', letterSpacing: 1 }}>AI COACH</Text>
-              </View>
-              <Text style={{ fontSize: 15, color: '#fff', fontFamily: 'Lexend_300Light', fontStyle: 'italic', lineHeight: 22 }}>"{greeting}"</Text>
+          {/* Motivational Quote - changes on pull-to-refresh */}
+          {motivationalQuote ? (
+            <Animated.View entering={FadeInDown.duration(400)} style={{ marginBottom: 16, paddingHorizontal: 4 }}>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '700',
+                color: isPremium ? '#fff' : colors.textSecondary,
+                fontFamily: 'Lexend',
+                textAlign: 'left',
+                lineHeight: 20,
+              }}>
+                {displayedQuote}
+                {displayedQuote.length < motivationalQuote.length && (
+                  <Text style={{ color: colors.primary }}>|</Text>
+                )}
+              </Text>
             </Animated.View>
           ) : null}
+
+
+          {/* AI Coach greeting removed - now using motivational quotes instead */}
 
           {/* Goals Progress Bar */}
           <Animated.View entering={FadeInDown.delay(100).duration(500)}>
@@ -408,7 +523,10 @@ const Home = () => {
             />
           </Animated.View>
 
-          <AnalyticsDashboard habits={habits} completions={completions} />
+          {/* Analytics Dashboard (Life Balance Matrix) */}
+          <View style={{ marginTop: 16 }}>
+            <AnalyticsDashboard habits={habits} completions={completions} />
+          </View>
 
           {/* Quick Habits */}
           <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>

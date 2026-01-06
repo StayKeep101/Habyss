@@ -450,18 +450,7 @@ export default function ProfileScreen() {
                         </View>
                     </View>
 
-                    {/* Journey Section */}
-                    <VoidCard glass style={styles.groupCard}>
-                        <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>JOURNEY</Text>
-                        <MenuLink
-                            icon="trophy-outline"
-                            label="Hall of Fame"
-                            onPress={() => {
-                                if (hapticsEnabled) Haptics.selectionAsync();
-                                router.push('/(root)/accomplishments');
-                            }}
-                        />
-                    </VoidCard>
+                    {/* Settings Groups - removed Hall of Fame/Journey section */}
 
                     {/* Settings Groups */}
                     <VoidCard glass style={styles.groupCard}>

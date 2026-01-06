@@ -19,7 +19,7 @@ import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { GoalCreationWizard } from '@/components/GoalCreationWizard';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
-import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, Habit as StoreHabit } from '@/lib/habits';
+import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, Habit as StoreHabit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
@@ -66,6 +66,7 @@ const CalendarScreen = () => {
     const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
     const [shareModalVisible, setShareModalVisible] = useState(false);
     const [habitToShare, setHabitToShare] = useState<Habit | null>(null);
+    const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
 
     // Pull-to-Filter Logic
     const scrollY = useSharedValue(0);
@@ -123,15 +124,32 @@ const CalendarScreen = () => {
 
             // Only update if the event matches the currently viewed date
             if (date === currentDateStr) {
-                setCompletions(prev => ({
-                    ...prev,
+                // Update completions state
+                const newCompletions = {
+                    ...completions,
                     [habitId]: completed
-                }));
+                };
+                setCompletions(newCompletions);
+
+                // INSTANT SYNC: Recalculate ALL goal progress using LOCAL state + historyData
+                const goals = habitsStore.filter(h => h.isGoal);
+                const progressMap: Record<string, number> = {};
+                goals.forEach(g => {
+                    progressMap[g.id] = calculateGoalProgressInstant(g, habitsStore, newCompletions, historyData);
+                });
+                setGoalProgress(progressMap);
             }
         });
 
+        // Load history data for accurate progress calculation
+        const loadHistory = async () => {
+            const data = await getLastNDaysCompletions(90);
+            setHistoryData(data);
+        };
+        loadHistory();
+
         return () => sub.remove();
-    }, [selectedDate]);
+    }, [selectedDate, historyData]);
 
     // Map habits with completion status - OPTIMIZED separate effect
     useEffect(() => {
@@ -221,6 +239,17 @@ const CalendarScreen = () => {
         // TOGGLE COMPLETION LOGIC for Roadmap
         const now = selectedDate;
         const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+        // Get today's date for comparison
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        // Only allow completion for TODAY
+        if (dateStr !== todayStr) {
+            Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
+            isNavigating.current = false;
+            return;
+        }
 
         // 1. Optimistic Update
         const isCompleted = !completions[habit.id];
@@ -458,8 +487,18 @@ const CalendarScreen = () => {
                                                 key={habit.id}
                                                 habit={habit}
                                                 onPress={(h) => {
+                                                    // Use local date format, not UTC
+                                                    const today = new Date();
+                                                    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                                    const selectedStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+
+                                                    if (selectedStr !== todayStr) {
+                                                        Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
+                                                        return;
+                                                    }
+
                                                     selectionFeedback();
-                                                    toggleCompletion(h.id, selectedDate.toISOString().split('T')[0]);
+                                                    toggleCompletion(h.id, todayStr);
                                                     setCompletions(prev => ({ ...prev, [h.id]: !prev[h.id] }));
                                                 }}
                                                 onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id } })}

@@ -9,7 +9,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
-import { subscribeToHabits, Habit, removeHabitEverywhere, calculateGoalProgress } from '@/lib/habits';
+import { subscribeToHabits, Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, calculateGoalProgress } from '@/lib/habits';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter, LayoutAnimation } from 'react-native';
 import { GoalStats } from '@/components/Goal/GoalStats';
@@ -87,6 +87,10 @@ const GoalDetail = () => {
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       if (date === todayStr) {
         setCompletions(prev => ({ ...prev, [habitId]: completed }));
+        // Instantly recalculate goal progress when habit is toggled
+        if (goal) {
+          calculateGoalProgress(goal).then(p => setProgress(p));
+        }
       }
     });
 
@@ -123,13 +127,13 @@ const GoalDetail = () => {
   };
 
   const handleDeleteGoal = () => {
-    Alert.alert("Delete Goal", "This will remove the goal but keep its habits. Continue?", [
+    Alert.alert("Delete Goal", "This will delete the goal AND all habits linked to it. Continue?", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Delete", style: "destructive",
+        text: "Delete All", style: "destructive",
         onPress: async () => {
           if (goal) {
-            await removeHabitEverywhere(goal.id);
+            await removeGoalWithLinkedHabits(goal.id);
             router.back();
           }
         }
