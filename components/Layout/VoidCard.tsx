@@ -18,15 +18,15 @@ export const VoidCard: React.FC<VoidCardProps> = ({ children, style, glass = fal
     const containerStyle = [
         styles.card,
         {
-            backgroundColor: glass ? 'transparent' : 'rgba(255,255,255,0.03)',
-            borderColor: 'rgba(255,255,255,0.05)', // Much subtler default
+            backgroundColor: glass ? 'transparent' : colors.surface,
+            borderColor: colors.border,
         },
         style,
     ];
 
     if (glass) {
         return (
-            <BlurView intensity={intensity} tint="dark" style={containerStyle}>
+            <BlurView intensity={intensity} tint={theme === 'light' ? 'light' : 'dark'} style={containerStyle}>
                 {children}
             </BlurView>
         );

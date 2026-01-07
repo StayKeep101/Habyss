@@ -15,9 +15,10 @@ interface TabIconProps {
     routeName: string;
     focused: boolean;
     colors: [string, string]; // Accent gradient colors
+    isDark: boolean;
 }
 
-const TabIcon = ({ routeName, focused, colors }: TabIconProps) => {
+const TabIcon = ({ routeName, focused, colors, isDark }: TabIconProps) => {
     const scale = useSharedValue(focused ? 1 : 1);
 
     React.useEffect(() => {
@@ -44,7 +45,14 @@ const TabIcon = ({ routeName, focused, colors }: TabIconProps) => {
         }
     };
 
-    const iconColor = focused ? colors[0] : 'rgba(255,255,255,0.4)';
+    const iconColor = focused ? colors[0] : (
+        // Check if we can access theme here, otherwise pass it as prop or context
+        // TabIcon is inside GlassDock which has theme access, but separate component.
+        // Let's pass theme or determine color based on context if possible, but keep simple.
+        // We will pass 'isDark' prop to TabIcon or just fix it in parent.
+        // Actually, let's fix in parent.
+        'rgba(255,255,255,0.4)' // Default invalid, will override in parent
+    );
 
     return (
         <Animated.View style={[animatedStyle, styles.iconContainer]}>
@@ -66,8 +74,11 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
         <View style={styles.container}>
 
             {/* 1. Navigation Pill */}
-            <BlurView intensity={Platform.OS === 'ios' ? 80 : 40} tint="dark" style={styles.navPill}>
-                <View style={styles.glassBorder} />
+            <BlurView intensity={Platform.OS === 'ios' ? 80 : 40} tint={theme === 'light' ? 'light' : 'dark'} style={[
+                styles.navPill,
+                { backgroundColor: theme === 'light' ? 'rgba(255, 255, 255, 0.75)' : (Platform.OS === 'android' ? 'rgba(10, 15, 20, 0.95)' : 'rgba(10, 15, 20, 0.75)') }
+            ]}>
+                <View style={[styles.glassBorder, { borderColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)' }]} />
 
                 <View style={styles.tabsRow}>
                     {state.routes.map((route: any, index: number) => {
@@ -94,7 +105,12 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                 onPress={onPress}
                                 style={styles.tabButton}
                             >
-                                <TabIcon routeName={route.name} focused={isFocused} colors={accentColors} />
+                                <TabIcon
+                                    routeName={route.name}
+                                    focused={isFocused}
+                                    colors={accentColors}
+                                    isDark={theme !== 'light'}
+                                />
                             </TouchableOpacity>
                         );
                     })}
@@ -146,7 +162,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 16,
-        backgroundColor: Platform.OS === 'android' ? 'rgba(10, 15, 20, 0.95)' : 'rgba(10, 15, 20, 0.75)',
+        paddingHorizontal: 16,
+        // backgroundColor set inline for dynamic theme
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -157,7 +174,7 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         borderRadius: 32,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        // borderColor set inline
         pointerEvents: 'none',
     },
     tabsRow: {

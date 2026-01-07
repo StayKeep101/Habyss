@@ -23,6 +23,12 @@ const Help = () => {
         Linking.openURL('mailto:support@habyss.app');
     };
 
+    const playTutorial = () => {
+        lightFeedback();
+        // TODO: Trigger tutorial
+        router.push('/(root)/tutorial');
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
@@ -37,6 +43,20 @@ const Help = () => {
 
                 {/* FAQ */}
                 <View style={styles.content}>
+                    <TouchableOpacity
+                        style={[styles.tutorialCard, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}
+                        onPress={playTutorial}
+                    >
+                        <View style={[styles.iconCircle, { backgroundColor: colors.primary }]}>
+                            <Ionicons name="play" size={24} color="white" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.tutTitle, { color: colors.textPrimary }]}>Play Tutorial</Text>
+                            <Text style={[styles.tutSub, { color: colors.textSecondary }]}>Learn how to master Habyss</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                    </TouchableOpacity>
+
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>FAQ</Text>
                     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         {faqs.map((item, index) => (
@@ -136,6 +156,33 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontFamily: 'Lexend',
     },
-});
+    fontFamily: 'Lexend',
+},
+    tutorialCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 32,
+    gap: 16,
+},
+    iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+},
+    tutTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Lexend',
+    marginBottom: 4,
+},
+    tutSub: {
+    fontSize: 13,
+    fontFamily: 'Lexend_400Regular',
+},
 
 export default Help;

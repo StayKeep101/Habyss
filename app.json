@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Habyss",
-    "slug": "Habyss",
+    "name": "Habyss Beta",
+    "slug": "habyss-beta",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/Habyss Logo.png",

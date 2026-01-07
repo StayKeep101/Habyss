@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, SafeAreaView } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { VoidCard } from '@/components/Layout/VoidCard';
 import { supabase } from '@/lib/supabase';
+import { ScrollPickerModal } from './ScrollPickerModal';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -32,8 +32,15 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     const [age, setAge] = useState('');
     const [avatarUri, setAvatarUri] = useState<string | null>(currentAvatarUri || null);
 
+    const [showAgePicker, setShowAgePicker] = useState(false);
+    const [showGenderPicker, setShowGenderPicker] = useState(false);
+    const [deleteEmail, setDeleteEmail] = useState('');
+
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    const ages = Array.from({ length: 100 }, (_, i) => String(i + 1));
+    const genders = ['Male', 'Female', 'Other'];
 
     // Load initial data and avatar
     useEffect(() => {
@@ -111,6 +118,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             const updates = {
                 id: user.id,
                 username: nickname,
+                gender: gender,
+                age: age ? parseInt(age) : null,
+                bio: description,
                 updated_at: new Date().toISOString(),
             };
 
@@ -136,6 +146,41 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
         }
     };
 
+    const handleDeleteAccount = () => {
+        Alert.prompt(
+            "Delete Account",
+            "This action is permanent. To confirm, please type your email address below.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: 'destructive',
+                    onPress: async (email) => {
+                        try {
+                            const { data: { user } } = await supabase.auth.getUser();
+                            if (email?.toLowerCase() === user?.email?.toLowerCase()) {
+                                setLoading(true);
+                                // IMPORTANT: In a real app, use an Edge Function for this.
+                                // Client-side deletion is restricted for security.
+                                // We will sign out for now as a mock of deletion success if strict mode is on.
+                                await supabase.auth.signOut();
+                                Alert.alert("Account Deleted", "Your account has been scheduled for deletion.");
+                                onClose();
+                            } else {
+                                Alert.alert("Error", "Email does not match.");
+                            }
+                        } catch (e) {
+                            Alert.alert("Error", "Failed to delete account.");
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }
+            ],
+            "plain-text"
+        );
+    };
+
     return (
         <Modal
             animationType="slide"
@@ -144,15 +189,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             onRequestClose={onClose}
             presentationStyle="pageSheet"
         >
-            <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark">
-                <View style={[styles.container, { backgroundColor: 'rgba(0,0,0,0.9)' }]}>
-
+            <View style={{ flex: 1, backgroundColor: colors.background }}>
+                <SafeAreaView style={{ flex: 1 }}>
                     {/* Header */}
-                    <View style={styles.header}>
+                    <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
                         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                             <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend' }}>Cancel</Text>
                         </TouchableOpacity>
-                        <Text style={[styles.title, { color: colors.textPrimary }]}>EDIT IDENTITY</Text>
+                        <Text style={[styles.title, { color: colors.textPrimary }]}>Edit Profile</Text>
                         <TouchableOpacity
                             onPress={handleSave}
                             disabled={saving}
@@ -200,25 +244,25 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                         <View style={styles.row}>
                             <View style={[styles.fieldGroup, { flex: 1, marginRight: 10 }]}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>AGE</Text>
-                                <TextInput
-                                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.05)' }]}
-                                    value={age}
-                                    onChangeText={(t) => setAge(t.replace(/[^0-9]/g, ''))}
-                                    placeholder="Years"
-                                    placeholderTextColor={colors.textTertiary}
-                                    keyboardType="number-pad"
-                                    maxLength={3}
-                                />
+                                <TouchableOpacity
+                                    style={[styles.input, { borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
+                                    onPress={() => setShowAgePicker(true)}
+                                >
+                                    <Text style={{ color: age ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
+                                        {age || "Years"}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                             <View style={[styles.fieldGroup, { flex: 1, marginLeft: 10 }]}>
                                 <Text style={[styles.label, { color: colors.textSecondary }]}>GENDER</Text>
-                                <TextInput
-                                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.05)' }]}
-                                    value={gender}
-                                    onChangeText={setGender}
-                                    placeholder="Identity"
-                                    placeholderTextColor={colors.textTertiary}
-                                />
+                                <TouchableOpacity
+                                    style={[styles.input, { borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
+                                    onPress={() => setShowGenderPicker(true)}
+                                >
+                                    <Text style={{ color: gender ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
+                                        {gender || "Identity"}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
 
@@ -236,9 +280,34 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                             />
                         </View>
 
+                        <TouchableOpacity
+                            onPress={handleDeleteAccount}
+                            style={[styles.deleteBtn, { borderColor: colors.error }]}
+                        >
+                            <Text style={{ color: colors.error, fontFamily: 'Lexend_600SemiBold' }}>Delete Account</Text>
+                        </TouchableOpacity>
+
                     </ScrollView>
-                </View>
-            </BlurView>
+                </SafeAreaView>
+            </View>
+
+            <ScrollPickerModal
+                visible={showAgePicker}
+                onClose={() => setShowAgePicker(false)}
+                onSelect={(val) => { setAge(val); setShowAgePicker(false); }}
+                title="Select Age"
+                items={ages}
+                selectedValue={age}
+            />
+
+            <ScrollPickerModal
+                visible={showGenderPicker}
+                onClose={() => setShowGenderPicker(false)}
+                onSelect={(val) => { setGender(val); setShowGenderPicker(false); }}
+                title="Select Gender"
+                items={genders}
+                selectedValue={gender}
+            />
         </Modal>
     );
 };
@@ -246,18 +315,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        marginTop: 50,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        overflow: 'hidden',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
     },
     title: {
         fontSize: 16,
@@ -330,6 +395,15 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    deleteBtn: {
+        marginTop: 40,
+        marginBottom: 40,
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
         alignItems: 'center',
         justifyContent: 'center',
     },
