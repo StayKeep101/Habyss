@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 16,
-        paddingHorizontal: 16,
+
         // backgroundColor set inline for dynamic theme
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },

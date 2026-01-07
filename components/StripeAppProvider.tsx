@@ -13,7 +13,7 @@ export default function StripeAppProvider({ children }: { children: React.ReactN
             publishableKey={publishableKey || ''}
             merchantIdentifier="merchant.com.yourcompany.habyss"
         >
-            {children}
+            <>{children}</>
         </StripeProviderNative>
     );
 }

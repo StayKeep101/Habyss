@@ -33,8 +33,8 @@ export const ScrollPickerModal: React.FC<ScrollPickerModalProps> = ({ visible, o
             <View style={styles.overlay}>
                 <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} />
 
-                <BlurView intensity={theme === 'dark' ? 20 : 80} tint={theme === 'dark' ? 'dark' : 'light'} style={styles.blurContainer}>
-                    <View style={[styles.container, { backgroundColor: theme === 'dark' ? '#1A1A1A' : '#ffffff' }]}>
+                <BlurView intensity={(theme as string) === 'dark' ? 20 : 80} tint={(theme as string) === 'dark' ? 'dark' : 'light'} style={styles.blurContainer}>
+                    <View style={[styles.container, { backgroundColor: (theme as string) === 'dark' ? '#1A1A1A' : '#ffffff' }]}>
                         <View style={[styles.header, { borderBottomColor: colors.border }]}>
                             <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
                             <TouchableOpacity onPress={onClose}>

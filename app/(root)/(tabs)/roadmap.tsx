@@ -64,6 +64,7 @@ const CalendarScreen = () => {
     const [habitsStore, setHabitsStore] = useState<StoreHabit[]>([]);
     // habits state removed - usage replaced by memoized derivation
     const [completions, setCompletions] = useState<Record<string, boolean>>({});
+    const [todayCompletions, setTodayCompletions] = useState<Record<string, boolean>>({});
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [goalProgress, setGoalProgress] = useState<Record<string, number>>({});
 
@@ -133,9 +134,19 @@ const CalendarScreen = () => {
             const now = selectedDate;
             const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-            // Only update if the event matches the currently viewed date
+            // Update viewed completions if date matches
             if (date === currentDateStr) {
                 setCompletions(prev => ({
+                    ...prev,
+                    [habitId]: completed
+                }));
+            }
+
+            // Update todayCompletions if date matches today
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            if (date === todayStr) {
+                setTodayCompletions(prev => ({
                     ...prev,
                     [habitId]: completed
                 }));
@@ -144,6 +155,17 @@ const CalendarScreen = () => {
 
         return () => sub.remove();
     }, [selectedDate]); // FIXED: Removed historyData from deps to prevent infinite loop
+
+    // Load Today's Completions specifically for Goal Calculation
+    useEffect(() => {
+        const loadToday = async () => {
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const c = await getCompletions(todayStr);
+            setTodayCompletions(c);
+        };
+        loadToday();
+    }, []);
 
     // SEPARATE EFFECT: Load history data ONCE on mount (not on every historyData change!)
     useEffect(() => {
@@ -172,12 +194,13 @@ const CalendarScreen = () => {
         const task = InteractionManager.runAfterInteractions(() => {
             const progressMap: Record<string, number> = {};
             goals.forEach(g => {
-                progressMap[g.id] = calculateGoalProgressInstant(g, habitsStore, completions, historyMap);
+                // IMPORTANT: Pass todayCompletions, NOT current view completions
+                progressMap[g.id] = calculateGoalProgressInstant(g, habitsStore, todayCompletions, historyMap);
             });
             setGoalProgress(progressMap);
         });
         return () => task.cancel();
-    }, [habitsStore, completions, historyMap]);
+    }, [habitsStore, todayCompletions, historyMap]);
 
     // Map habits with completion status - OPTIMIZED: only on data changes
     // Map habits effect removed - redundant O(N) state update
@@ -253,6 +276,8 @@ const CalendarScreen = () => {
         // 1. Optimistic Update
         const isCompleted = !completions[habit.id];
         setCompletions(prev => ({ ...prev, [habit.id]: isCompleted }));
+        // Also update todayCompletions since we are editing today
+        setTodayCompletions(prev => ({ ...prev, [habit.id]: isCompleted }));
 
         // 2. Feedback
         if (isCompleted) {

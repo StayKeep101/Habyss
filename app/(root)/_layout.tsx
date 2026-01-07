@@ -92,6 +92,45 @@ export default function RootLayout() {
             presentation: 'modal'
           }}
         />
+        <Stack.Screen
+          name="active-task-reminder" // Note: placeholder if needed, normally not part of layout
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="appearance"
+          options={{
+            headerShown: false,
+            presentation: 'modal'
+          }}
+        />
+        <Stack.Screen
+          name="integrations"
+          options={{
+            headerShown: false,
+            presentation: 'modal'
+          }}
+        />
+        <Stack.Screen
+          name="help"
+          options={{
+            headerShown: false,
+            presentation: 'modal'
+          }}
+        />
+        <Stack.Screen
+          name="contact"
+          options={{
+            headerShown: false,
+            presentation: 'modal'
+          }}
+        />
+        <Stack.Screen
+          name="about"
+          options={{
+            headerShown: false,
+            presentation: 'modal'
+          }}
+        />
       </Stack>
     </>
   );

@@ -17,9 +17,9 @@ export const DarkTheme: Theme = {
   ...NavigationDarkTheme,
   colors: {
     ...NavigationDarkTheme.colors,
-    background: Colors.dark.background,
-    primary: Colors.dark.tint,
-    text: Colors.dark.text,
+    background: Colors.abyss.background,
+    primary: Colors.abyss.tint,
+    text: Colors.abyss.text,
     card: "#1E1E1E", // Optional
     border: "#333333", // Optional
   },

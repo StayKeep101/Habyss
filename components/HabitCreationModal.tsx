@@ -42,6 +42,7 @@ import { addHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit, getG
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { TopDragHandle } from './TopDragHandle';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CalendarService } from '@/lib/calendarService';
 
 const OverlayHeader = ({ title, onClose }: { title: string, onClose: () => void }) => {
     const dragGesture = Gesture.Pan().onUpdate((e) => {
@@ -1127,7 +1128,6 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             selectionFeedback();
                                             setIsLoadingSlots(true);
                                             try {
-                                                const { CalendarService } = await import('@/lib/calendarService');
                                                 const hasPermission = await CalendarService.hasPermission();
                                                 if (!hasPermission) {
                                                     const granted = await CalendarService.requestPermission();

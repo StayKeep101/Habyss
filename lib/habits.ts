@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { NotificationService } from './notificationService';
 import { WidgetService } from './widgetService';
 import { DeviceEventEmitter } from 'react-native';
+import { HealthKitService } from './HealthKitService';
 
 // --- In-Memory Cache ---
 let cachedHabits: Habit[] | null = null;
@@ -12,7 +13,9 @@ const habitsListeners: Set<(habits: Habit[]) => void> = new Set();
 const completionsCache: Record<string, Record<string, boolean>> = {};
 
 // 6 Pillars of Life Balance categories
-export type HabitCategory = 'body' | 'wealth' | 'heart' | 'mind' | 'soul' | 'play';
+export type HabitCategory = 'body' | 'wealth' | 'heart' | 'mind' | 'soul' | 'play' | 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc' | 'productivity' | 'learning' | 'creativity' | 'social' | 'family' | 'finance';
+
+
 export type HabitType = 'build' | 'quit';
 export type GoalPeriod = 'daily' | 'weekly' | 'monthly';
 export type ChartType = 'bar' | 'line';
@@ -741,3 +744,78 @@ export function calculateGoalProgressInstant(
   return Math.round((totalCompleted / totalExpected) * 100);
 }
 
+
+export async function getHeatmapData(): Promise<{ date: string; count: number }[]> {
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - 365); // Last year
+
+  const startStr = todayString(startDate);
+  const endStr = todayString(endDate);
+
+  const { data, error } = await supabase
+    .from('habit_completions')
+    .select('date')
+    .gte('date', startStr)
+    .lte('date', endStr);
+
+  if (error) {
+    console.error(error);
+    return [];
+  }
+
+  const counts: Record<string, number> = {};
+  data.forEach((row: any) => {
+    counts[row.date] = (counts[row.date] || 0) + 1;
+  });
+
+  return Object.keys(counts).map(date => ({
+    date,
+    count: counts[date]
+  }));
+}
+
+export async function syncHealthKitData() {
+  const isAvailable = await HealthKitService.init();
+  if (!isAvailable) return;
+
+  const habits = await getHabits();
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  // 1. Get Health Data
+  const steps = await HealthKitService.getSteps(today);
+  const sleepMinutes = await HealthKitService.getSleep(today);
+
+  // 2. Check Habits
+  for (const habit of habits) {
+    if (habit.isArchived) continue;
+
+    let shouldComplete = false;
+
+    // STEPS
+    if (habit.category === 'body' && (habit.unit === 'steps' || habit.name.toLowerCase().includes('steps') || habit.name.toLowerCase().includes('walk'))) {
+      if (steps >= habit.goalValue) { // Assuming goalValue is the target steps
+        shouldComplete = true;
+      }
+    }
+
+    // SLEEP
+    if (habit.category === 'body' && (habit.unit === 'hours' || habit.name.toLowerCase().includes('sleep'))) {
+      // goalValue usually in hours if unit is hours
+      const targetMinutes = habit.unit === 'hours' ? habit.goalValue * 60 : habit.goalValue;
+      if (sleepMinutes >= targetMinutes) {
+        shouldComplete = true;
+      }
+    }
+
+    if (shouldComplete) {
+      // Check if already completed to avoid redundant calls
+      const completions = await getCompletions(todayStr);
+      if (!completions[habit.id]) {
+        await toggleCompletion(habit.id, todayStr);
+        console.log(`[HealthKit] Auto-completed habit: ${habit.name}`);
+      }
+    }
+  }
+}

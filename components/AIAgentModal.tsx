@@ -232,7 +232,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
 
                         // Execute the action
                         if (isSettingsAction) {
-                            await executeSettingsAction(agentAction, appSettings);
+                            await executeSettingsAction(agentAction, appSettings as any);
                         } else {
                             await executeNavigationAction(agentAction);
                         }

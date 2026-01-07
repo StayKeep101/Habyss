@@ -23,6 +23,14 @@ const CATEGORY_CONFIG: Record<HabitCategory, { label: string; color: string }> =
   learning: { label: 'Learning', color: '#06B6D4' },
   creativity: { label: 'Creativity', color: '#EC4899' },
   social: { label: 'Social', color: '#6366F1' },
+  body: { label: 'Body', color: '#34D399' },
+  wealth: { label: 'Wealth', color: '#FBBF24' },
+  heart: { label: 'Heart', color: '#F472B6' },
+  mind: { label: 'Mind', color: '#A78BFA' },
+  soul: { label: 'Soul', color: '#8B5CF6' },
+  play: { label: 'Play', color: '#F59E0B' },
+  family: { label: 'Family', color: '#10B981' },
+  finance: { label: 'Finance', color: '#3B82F6' },
 };
 
 export default function StatisticsScreen() {

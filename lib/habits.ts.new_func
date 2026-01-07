@@ -1,0 +1,30 @@
+
+export async function getHeatmapData(): Promise<{ date: string; count: number }[]> {
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - 365); // Last year
+
+  const startStr = todayString(startDate);
+  const endStr = todayString(endDate);
+
+  const { data, error } = await supabase
+    .from('habit_completions')
+    .select('date')
+    .gte('date', startStr)
+    .lte('date', endStr);
+
+  if (error) {
+    console.error(error);
+    return [];
+  }
+
+  const counts: Record<string, number> = {};
+  data.forEach((row: any) => {
+    counts[row.date] = (counts[row.date] || 0) + 1;
+  });
+
+  return Object.keys(counts).map(date => ({
+    date,
+    count: counts[date]
+  }));
+}
