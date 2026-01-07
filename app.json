@@ -61,7 +61,14 @@
       ],
       "expo-secure-store",
       "react-native-health-connect",
-      "react-native-health"
+      "react-native-health",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "The app needs to access your calendar to sync habits.",
+          "remindersPermission": "The app needs to access your reminders to sync habits."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

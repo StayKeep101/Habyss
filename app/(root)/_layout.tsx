@@ -23,13 +23,7 @@ export default function RootLayout() {
             presentation: 'modal'
           }}
         />
-        <Stack.Screen
-          name="settings"
-          options={{
-            headerShown: false,
-            presentation: 'modal'
-          }}
-        />
+
         <Stack.Screen
           name="app-settings"
           options={{
@@ -92,10 +86,7 @@ export default function RootLayout() {
             presentation: 'modal'
           }}
         />
-        <Stack.Screen
-          name="active-task-reminder" // Note: placeholder if needed, normally not part of layout
-          options={{ headerShown: false }}
-        />
+
         <Stack.Screen
           name="appearance"
           options={{

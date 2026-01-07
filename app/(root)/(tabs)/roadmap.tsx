@@ -393,7 +393,7 @@ const CalendarScreen = () => {
                         />
                     </View>
 
-                    <View style={{ flex: 1, backgroundColor: colors.background }}>
+                    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
                         <Animated.ScrollView
                             onScroll={scrollHandler}
                             scrollEventThrottle={16}
@@ -401,7 +401,7 @@ const CalendarScreen = () => {
                             showsVerticalScrollIndicator={false}
                             bounces={true}
                             alwaysBounceVertical={true}
-                            style={{ backgroundColor: colors.background }}
+                            style={{ backgroundColor: 'transparent' }}
                         >
                             {/* Pull-to-Filter Hint */}
                             <View style={{ alignItems: 'center', marginTop: -20, marginBottom: 16 }}>

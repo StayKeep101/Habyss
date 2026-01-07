@@ -8,7 +8,7 @@ import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { IntegrationService, Integration } from '@/lib/integrationService';
-import * as Calendar from 'expo-calendar';
+// import * as Calendar from 'expo-calendar'; // Removed static import
 
 interface IntegrationItem {
     id: string;
@@ -73,18 +73,24 @@ export default function IntegrationsScreen() {
         setLoading(prev => ({ ...prev, apple_calendar: true }));
         try {
             if (enabled) {
-                const { status } = await Calendar.requestCalendarPermissionsAsync();
-                if (status === 'granted') {
-                    // Get default calendar
-                    const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-                    if (calendars.length > 0) {
-                        await IntegrationService.connectService('apple_calendar', { accessToken: 'local' });
-                        setIntegrations(prev => ({ ...prev, apple_calendar: true }));
-                        successFeedback();
-                        Alert.alert('Connected', 'Calendar integration enabled');
+                try {
+                    const Calendar = require('expo-calendar');
+                    const { status } = await Calendar.requestCalendarPermissionsAsync();
+                    if (status === 'granted') {
+                        // Get default calendar
+                        const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+                        if (calendars.length > 0) {
+                            await IntegrationService.connectService('apple_calendar', { accessToken: 'local' });
+                            setIntegrations(prev => ({ ...prev, apple_calendar: true }));
+                            successFeedback();
+                            Alert.alert('Connected', 'Calendar integration enabled');
+                        }
+                    } else {
+                        Alert.alert('Permission Denied', 'Calendar access is required for this feature');
                     }
-                } else {
-                    Alert.alert('Permission Denied', 'Calendar access is required for this feature');
+                } catch (e) {
+                    Alert.alert('Not Available', 'Calendar feature is not available in this build.');
+                    console.error(e);
                 }
             } else {
                 await IntegrationService.disconnectService('apple_calendar');
@@ -102,14 +108,20 @@ export default function IntegrationsScreen() {
         setLoading(prev => ({ ...prev, apple_reminders: true }));
         try {
             if (enabled) {
-                const { status } = await Calendar.requestRemindersPermissionsAsync();
-                if (status === 'granted') {
-                    await IntegrationService.connectService('apple_reminders', { accessToken: 'local' });
-                    setIntegrations(prev => ({ ...prev, apple_reminders: true }));
-                    successFeedback();
-                    Alert.alert('Connected', 'Reminders integration enabled');
-                } else {
-                    Alert.alert('Permission Denied', 'Reminders access is required for this feature');
+                try {
+                    const Calendar = require('expo-calendar');
+                    const { status } = await Calendar.requestRemindersPermissionsAsync();
+                    if (status === 'granted') {
+                        await IntegrationService.connectService('apple_reminders', { accessToken: 'local' });
+                        setIntegrations(prev => ({ ...prev, apple_reminders: true }));
+                        successFeedback();
+                        Alert.alert('Connected', 'Reminders integration enabled');
+                    } else {
+                        Alert.alert('Permission Denied', 'Reminders access is required for this feature');
+                    }
+                } catch (e) {
+                    Alert.alert('Not Available', 'Reminders feature is not available in this build.');
+                    console.error(e);
                 }
             } else {
                 await IntegrationService.disconnectService('apple_reminders');
