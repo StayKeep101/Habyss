@@ -5,7 +5,8 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,16 +39,17 @@ const SettingsHub = () => {
     {
       section: 'APP PREFERENCES',
       items: [
-        { id: 'notifications', icon: 'notifications-outline', title: 'Notifications', subtitle: 'Manage alerts and reminders' },
-        { id: 'appearance', icon: 'color-palette-outline', title: 'Appearance', subtitle: 'Theme, colors, and display' },
-        { id: 'sounds', icon: 'volume-high-outline', title: 'Sounds & Haptics', subtitle: 'Audio feedback settings' },
+        { id: 'ai-personality', icon: 'sparkles-outline', title: 'AI Personality', subtitle: 'Customize your AI coach', onPress: () => router.push('/(root)/ai-settings') },
+        { id: 'notifications', icon: 'notifications-outline', title: 'Notifications', subtitle: 'Manage alerts and reminders', onPress: () => router.push('/(root)/notifications') },
+        { id: 'appearance', icon: 'color-palette-outline', title: 'Appearance', subtitle: 'Theme, colors, and display', onPress: () => Alert.alert('Appearance', 'Theme settings coming soon. Choose between light, dark, and auto modes.') },
+        { id: 'sounds', icon: 'volume-high-outline', title: 'Sounds & Haptics', subtitle: 'Audio feedback settings', onPress: () => Alert.alert('Sounds & Haptics', 'Audio settings coming soon. Toggle completion sounds and haptic feedback.') },
       ]
     },
     {
       section: 'DATA & SYNC',
       items: [
-        { id: 'backup', icon: 'cloud-upload-outline', title: 'Backup & Restore', subtitle: 'Cloud sync and data export' },
-        { id: 'integrations', icon: 'link-outline', title: 'Integrations', subtitle: 'Connect external services' },
+        { id: 'backup', icon: 'cloud-upload-outline', title: 'Backup & Restore', subtitle: 'Cloud sync and data export', onPress: () => router.push('/(root)/data-storage') },
+        { id: 'integrations', icon: 'link-outline', title: 'Integrations', subtitle: 'Connect external services', onPress: () => Alert.alert('Integrations', 'Third-party integrations coming soon. Connect with Apple Health, Google Fit, and more.') },
         { id: 'widgets', icon: 'apps-outline', title: 'Widgets', subtitle: 'Home screen widgets', comingSoon: true },
       ]
     },
@@ -55,15 +57,15 @@ const SettingsHub = () => {
       section: 'ACCOUNT',
       items: [
         { id: 'subscription', icon: 'star-outline', title: 'Subscription', subtitle: 'Manage your plan', onPress: () => router.push('/paywall') },
-        { id: 'privacy', icon: 'shield-checkmark-outline', title: 'Privacy & Security', subtitle: 'Data and security options' },
+        { id: 'privacy', icon: 'shield-checkmark-outline', title: 'Privacy & Security', subtitle: 'Data and security options', onPress: () => router.push('/(root)/privacy') },
       ]
     },
     {
       section: 'SUPPORT',
       items: [
-        { id: 'help', icon: 'help-buoy-outline', title: 'Help Center', subtitle: 'FAQs and guides' },
-        { id: 'contact', icon: 'mail-outline', title: 'Contact Support', subtitle: 'Get help from our team' },
-        { id: 'about', icon: 'information-circle-outline', title: 'About Habyss', subtitle: 'Version and legal info' },
+        { id: 'help', icon: 'help-buoy-outline', title: 'Help Center', subtitle: 'FAQs and guides', onPress: () => router.push('/(root)/help') },
+        { id: 'contact', icon: 'mail-outline', title: 'Contact Support', subtitle: 'Get help from our team', onPress: () => router.push('/(root)/contact') },
+        { id: 'about', icon: 'information-circle-outline', title: 'About Habyss', subtitle: 'Version and legal info', onPress: () => router.push('/(root)/about') },
       ]
     }
   ];
@@ -85,6 +87,8 @@ const SettingsHub = () => {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
+          <View style={{ width: 40 }} />
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Settings</Text>
           <TouchableOpacity
             onPress={() => {
               selectionFeedback();
@@ -92,15 +96,13 @@ const SettingsHub = () => {
             }}
             style={styles.backButton}
           >
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+            <Ionicons name="close" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Settings</Text>
-          <View style={{ width: 40 }} />
         </View>
 
         {/* Cockpit Header Glow */}
         <LinearGradient
-          colors={['rgba(16, 185, 129, 0.1)', 'transparent']}
+          colors={['rgba(139, 92, 246, 0.1)', 'transparent']}
           style={styles.headerGlow}
         />
 
@@ -112,13 +114,13 @@ const SettingsHub = () => {
           <View style={styles.heroSection}>
             <BlurView intensity={40} tint="dark" style={styles.heroBlur}>
               <LinearGradient
-                colors={['rgba(16, 185, 129, 0.2)', 'rgba(59, 130, 246, 0.2)']}
+                colors={['rgba(59, 130, 246, 0.2)', 'rgba(139, 92, 246, 0.2)', 'rgba(236, 72, 153, 0.2)']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.heroGradient}
               >
                 <View style={styles.heroIcon}>
-                  <Ionicons name="settings" size={28} color="#10B981" />
+                  <Ionicons name="settings" size={28} color="#8B5CF6" />
                 </View>
                 <Text style={styles.heroTitle}>CONTROL CENTER</Text>
                 <Text style={styles.heroSubtitle}>Customize your Habyss experience</Text>

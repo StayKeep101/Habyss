@@ -393,12 +393,10 @@ const GoalDetail = () => {
                     );
                   })
                 ) : (
-                  <TouchableOpacity onPress={handleAddHabit}>
-                    <VoidCard glass style={styles.emptyCard}>
-                      <Ionicons name="add-circle-outline" size={32} color="rgba(255,255,255,0.4)" />
-                      <Text style={{ color: 'rgba(255,255,255,0.6)', marginTop: 8, fontFamily: 'Lexend' }}>Create your first habit</Text>
-                    </VoidCard>
-                  </TouchableOpacity>
+                  <VoidCard glass style={styles.emptyCard}>
+                    <Ionicons name="add-circle-outline" size={32} color="rgba(255,255,255,0.4)" />
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', marginTop: 8, fontFamily: 'Lexend' }}>Create your first habit</Text>
+                  </VoidCard>
                 )}
               </Animated.View>
             )}
@@ -481,7 +479,7 @@ const styles = StyleSheet.create({
   },
   miniActionBtn: {
     width: 36, height: 36,
-    borderRadius: 12,
+    borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
   },
   tabContainer: {

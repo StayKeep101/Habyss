@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useAppSettings } from '@/constants/AppSettingsContext';
-import { generateGreeting } from '@/lib/gemini';
+import { generateGreeting } from '@/lib/groq';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Pro user motivational quotes by AI personality

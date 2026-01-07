@@ -8,6 +8,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { FriendsService, Friend, FriendRequest, FriendActivity, ReactionType } from '@/lib/friendsService';
 import { FriendStatsModal } from '@/components/FriendStatsModal';
+import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence } from 'react-native-reanimated';
 
 export default function CommunityScreen() {
@@ -29,6 +30,7 @@ export default function CommunityScreen() {
     const [sentReactions, setSentReactions] = useState<Record<string, ReactionType>>({});
     const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
     const [showFriendStats, setShowFriendStats] = useState(false);
+    const [showAddFriendModal, setShowAddFriendModal] = useState(false);
     const [userCode, setUserCode] = useState('');
 
     const loadData = useCallback(async () => {
@@ -168,9 +170,25 @@ export default function CommunityScreen() {
                 }
             >
                 {/* Header */}
-                <View style={{ marginBottom: 24 }}>
-                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COMMUNITY</Text>
-                    <Text style={[styles.headerSubtitle, { color: colors.primary }]}>CREW STATUS</Text>
+                <View style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View>
+                        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COMMUNITY</Text>
+                        <Text style={[styles.headerSubtitle, { color: colors.primary }]}>CREW STATUS</Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => {
+                            mediumFeedback();
+                            setShowAddFriendModal(true);
+                        }}
+                        style={{
+                            width: 40, height: 40, borderRadius: 20,
+                            backgroundColor: colors.surfaceSecondary,
+                            alignItems: 'center', justifyContent: 'center',
+                            borderWidth: 1, borderColor: colors.border
+                        }}
+                    >
+                        <Ionicons name="person-add" size={20} color={colors.primary} />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Shared Habits */}
@@ -270,73 +288,7 @@ export default function CommunityScreen() {
                     </View>
                 )}
 
-                {/* Search Friends & Your Code */}
-                <View style={{ marginBottom: 24 }}>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ADD FRIENDS</Text>
 
-                    {/* Your Code Card */}
-                    <VoidCard style={{ padding: 16, marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <View>
-                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 4 }}>YOUR FRIEND CODE</Text>
-                            <Text style={{ color: colors.primary, fontSize: 24, fontWeight: '700', fontFamily: 'SpaceGrotesk_700Bold', letterSpacing: 2 }}>
-                                {userCode || '...'}
-                            </Text>
-                        </View>
-                        <TouchableOpacity
-                            onPress={handleShareCode}
-                            style={{
-                                backgroundColor: 'rgba(255,255,255,0.1)',
-                                paddingHorizontal: 16,
-                                paddingVertical: 10,
-                                borderRadius: 8,
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 6
-                            }}
-                        >
-                            <Ionicons name="share-outline" size={16} color="#fff" />
-                            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>SHARE</Text>
-                        </TouchableOpacity>
-                    </VoidCard>
-
-                    <VoidCard style={{ padding: 16 }}>
-                        <View style={styles.searchContainer}>
-                            <Ionicons name="search" size={20} color={colors.textTertiary} />
-                            <TextInput
-                                placeholder="Enter Friend Code or username..."
-                                placeholderTextColor={colors.textTertiary}
-                                style={[styles.searchInput, { color: colors.textPrimary }]}
-                                value={searchQuery}
-                                onChangeText={handleSearch}
-                                autoCapitalize="none"
-                            />
-                            {searching && <ActivityIndicator size="small" color={colors.primary} />}
-                        </View>
-
-                        {/* Search Results */}
-                        {searchResults.length > 0 && (
-                            <View style={{ marginTop: 16 }}>
-                                {searchResults.map(user => (
-                                    <View key={user.id} style={styles.searchResult}>
-                                        <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
-                                            <Text style={{ fontSize: 16 }}>{user.username[0]?.toUpperCase()}</Text>
-                                        </View>
-                                        <View style={{ flex: 1, marginLeft: 12 }}>
-                                            <Text style={[styles.username, { color: colors.textPrimary }]}>{user.username}</Text>
-                                            <Text style={[styles.email, { color: colors.textTertiary }]}>{user.email}</Text>
-                                        </View>
-                                        <TouchableOpacity
-                                            onPress={() => handleSendRequest(user.id)}
-                                            style={[styles.addButton, { backgroundColor: colors.primary }]}
-                                        >
-                                            <Ionicons name="person-add" size={16} color="#fff" />
-                                        </TouchableOpacity>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                    </VoidCard>
-                </View>
 
                 {/* Friend Requests */}
                 {friendRequests.length > 0 && (
@@ -494,6 +446,14 @@ export default function CommunityScreen() {
                 friend={selectedFriend}
                 onClose={() => setShowFriendStats(false)}
                 onNudge={handleNudge}
+            />
+
+            {/* Add Friend Modal */}
+            <AddFriendModal
+                visible={showAddFriendModal}
+                onClose={() => setShowAddFriendModal(false)}
+                userCode={userCode}
+                onFriendAdded={loadData}
             />
         </VoidShell>
     );

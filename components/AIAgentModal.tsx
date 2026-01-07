@@ -33,7 +33,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useHaptics } from '@/hooks/useHaptics';
 import { StripeService } from '@/lib/stripeService';
 import { useRouter } from 'expo-router';
-import { streamChatCompletion, ChatMessage as GeminiMessage } from '@/lib/gemini';
+import { streamChatCompletion, ChatMessage as GroqMessage, EXPERT_SYSTEM_PROMPT } from '@/lib/groq';
 import { useAIPersonality } from '@/constants/AIPersonalityContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 
@@ -180,13 +180,14 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         AI: { "action": "create", "data": { "name": "Workout", "category": "fitness", "durationMinutes": 30 }, "response": "I've added a 30-minute workout habit." }
         `;
 
-        const geminiHistory: GeminiMessage[] = newMessages.map(m => ({
-            role: m.role === 'user' ? 'user' : 'model',
-            parts: [{ text: m.content }]
+        // Convert to Groq/OpenAI format
+        const groqHistory: GroqMessage[] = newMessages.map(m => ({
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: m.content
         }));
 
         await streamChatCompletion(
-            geminiHistory,
+            groqHistory,
             systemPrompt,
             (chunk) => { }, // We ignore partial chunks for actions to avoid parsing errors
             async (reply) => {
@@ -592,7 +593,9 @@ const styles = StyleSheet.create({
     messageText: {
         fontSize: 15,
         lineHeight: 22,
-        // flex: 1, // REMOVED: This was causing the text to expand to fill the container height if the container stretched
+        flexShrink: 1,
+        flexWrap: 'wrap',
+        fontFamily: 'Lexend_400Regular',
     },
     typingIndicator: {
         flexDirection: 'row',

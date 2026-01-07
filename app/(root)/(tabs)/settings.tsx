@@ -15,6 +15,18 @@ import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { StripeService } from '@/lib/stripeService';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { LinearGradient } from 'expo-linear-gradient';
+import { EditProfileModal } from '@/components/Profile/EditProfileModal';
+import { useHaptics } from '@/hooks/useHaptics';
+
+// Settings configuration
+interface SettingOption {
+    id: string;
+    icon: string;
+    title: string;
+    subtitle?: string;
+    onPress?: () => void;
+    comingSoon?: boolean;
+}
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
@@ -32,6 +44,7 @@ export default function ProfileScreen() {
     const [checkingUsername, setCheckingUsername] = useState(false);
     const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
     const [saving, setSaving] = useState(false);
+    const [showEditProfile, setShowEditProfile] = useState(false);
 
     // Settings state - use global context
     const {
@@ -291,25 +304,17 @@ export default function ProfileScreen() {
     return (
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header with Settings Button */}
+                {/* Header - No Settings Button */}
                 <View style={styles.header}>
-                    <TouchableOpacity
-                        onPress={() => {
-                            Haptics.selectionAsync();
-                            router.push('/(root)/settings');
-                        }}
-                        style={[styles.settingsButton, { borderColor: colors.border }]}
-                    >
-                        <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>PROFILE</Text>
+                    <View style={{ width: 40 }} />
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: 24, fontFamily: 'Lexend_700Bold' }]}>PROFILE</Text>
                     <View style={{ width: 40 }} />
                 </View>
 
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     {/* Profile Section */}
                     <View style={styles.profileSection}>
-                        <TouchableOpacity onPress={handleChangeAvatar} style={styles.avatarContainer}>
+                        <TouchableOpacity onPress={() => setShowEditProfile(true)} style={styles.avatarContainer}>
                             {/* Premium gradient border */}
                             {isPremium && (
                                 <LinearGradient
@@ -335,24 +340,25 @@ export default function ProfileScreen() {
                                     </Text>
                                 )}
                             </View>
-                            <View style={[styles.verifiedBadge, { backgroundColor: colors.primary }]}>
-                                <Ionicons name="camera" size={12} color="black" />
-                            </View>
-                            {/* PRO Badge */}
-                            {isPremium && (
+                            {/* Badge: PRO for premium users, star for non-premium */}
+                            {isPremium ? (
                                 <LinearGradient
                                     colors={['#3B82F6', '#8B5CF6', '#EC4899']}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
-                                    style={styles.proBadge}
+                                    style={styles.verifiedBadge}
                                 >
-                                    <Text style={styles.proBadgeText}>PRO</Text>
+                                    <Text style={{ color: 'white', fontSize: 8, fontWeight: '900', fontFamily: 'Lexend' }}>PRO</Text>
                                 </LinearGradient>
+                            ) : (
+                                <View style={[styles.verifiedBadge, { backgroundColor: colors.primary }]}>
+                                    <Ionicons name="star" size={12} color="black" />
+                                </View>
                             )}
                         </TouchableOpacity>
 
-                        {/* Upgrade Button OR Manage Subscription */}
-                        {!isPremium ? (
+                        {/* Upgrade Button (only for non-premium) */}
+                        {!isPremium && (
                             <TouchableOpacity
                                 onPress={() => {
                                     Haptics.selectionAsync();
@@ -370,276 +376,157 @@ export default function ProfileScreen() {
                                     <Text style={styles.upgradeText}>Upgrade to Pro</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
-                        ) : (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    Haptics.selectionAsync();
-                                    Alert.alert("Manage Subscription", "Manage your subscription settings.");
-                                }}
-                                style={[styles.upgradeBtnContainer, { shadowOpacity: 0.1 }]}
-                            >
-                                <View
-                                    style={[styles.upgradeBtn, { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }]}
-                                >
-                                    <Ionicons name="card" size={16} color={colors.textSecondary} />
-                                    <Text style={[styles.upgradeText, { color: colors.textSecondary }]}>Manage Subscription</Text>
-                                </View>
-                            </TouchableOpacity>
                         )}
 
-                        {/* Username (Editable) */}
-                        {isEditingUsername ? (
-                            <View style={styles.usernameEditContainer}>
-                                <View style={[styles.usernameInput, { borderColor: usernameAvailable ? colors.success : colors.border }]}>
-                                    <TextInput
-                                        value={newUsername}
-                                        onChangeText={(text) => {
-                                            setNewUsername(text);
-                                            checkUsernameAvailability(text);
-                                        }}
-                                        placeholder="Enter username"
-                                        placeholderTextColor={colors.textTertiary}
-                                        style={[styles.usernameInputText, { color: colors.textPrimary }]}
-                                        autoCapitalize="none"
-                                        autoFocus
-                                    />
-                                    {checkingUsername && <ActivityIndicator size="small" color={colors.primary} />}
-                                    {!checkingUsername && usernameAvailable === true && (
-                                        <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                                    )}
-                                    {!checkingUsername && usernameAvailable === false && (
-                                        <Ionicons name="close-circle" size={20} color={colors.error} />
-                                    )}
-                                </View>
-                                <View style={styles.usernameButtons}>
-                                    <TouchableOpacity
-                                        onPress={() => setIsEditingUsername(false)}
-                                        style={[styles.cancelBtn, { borderColor: colors.border }]}
-                                    >
-                                        <Text style={{ color: colors.textSecondary }}>Cancel</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={saveUsername}
-                                        disabled={!usernameAvailable || saving}
-                                        style={[styles.saveBtn, { backgroundColor: usernameAvailable ? colors.primary : colors.surfaceTertiary }]}
-                                    >
-                                        {saving ? (
-                                            <ActivityIndicator size="small" color="#000" />
-                                        ) : (
-                                            <Text style={{ color: '#000', fontWeight: 'bold' }}>Save</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ) : (
-                            <TouchableOpacity onPress={() => {
-                                setNewUsername(username);
-                                setIsEditingUsername(true);
-                            }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                    <Text style={[styles.name, { color: colors.textPrimary }]}>{username}</Text>
-                                    <Ionicons name="pencil" size={16} color={colors.textTertiary} />
-                                </View>
-                            </TouchableOpacity>
-                        )}
-
-                        <Text style={[styles.email, { color: colors.textSecondary }]}>{email}</Text>
-
-                        <View style={[styles.tag, { borderColor: colors.primary, backgroundColor: colors.primary + '15' }]}>
-                            <Text style={[styles.tagText, { color: colors.primary }]}>MASTER OF ROUTINE</Text>
-                        </View>
+                        {/* Username Display (non-editable here, edit in modal) */}
+                        <Text style={[styles.name, { color: colors.textPrimary }]}>{username}</Text>
                     </View>
 
-                    {/* Settings Groups - removed Hall of Fame/Journey section */}
-
-                    {/* Settings Groups */}
-                    <VoidCard glass style={styles.groupCard}>
-                        <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>PREFERENCES</Text>
-                        <SettingItem icon="notifications-outline" label="Notifications" value={notificationsEnabled} onToggle={() => toggleGlobalSetting(setNotificationsEnabled, notificationsEnabled)} />
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <SettingItem icon="volume-high-outline" label="Sound Effects" value={soundsEnabled} onToggle={() => toggleGlobalSetting(setSoundsEnabled, soundsEnabled)} />
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <SettingItem icon="phone-portrait-outline" label="Haptics" value={hapticsEnabled} onToggle={() => toggleGlobalSetting(setHapticsEnabled, hapticsEnabled)} />
-                    </VoidCard>
-
-                    {/* AI Section */}
-                    <VoidCard glass style={styles.groupCard}>
-                        <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>AI ASSISTANT</Text>
-                        <TouchableOpacity
-                            onPress={() => {
-                                if (hapticsEnabled) Haptics.selectionAsync();
-                                router.push('/(root)/ai-settings');
-                            }}
-                            activeOpacity={0.7}
-                            style={styles.settingItem}
-                        >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                                <View style={[styles.iconBox, { borderColor: colors.border }]}>
-                                    <Text style={{ fontSize: 18 }}>{PERSONALITY_MODES.find(m => m.id === aiPersonality)?.icon || '🙂'}</Text>
+                    {/* Inline Settings Sections */}
+                    {/* APP PREFERENCES */}
+                    <View style={styles.settingsSection}>
+                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>APP PREFERENCES</Text>
+                        <VoidCard style={styles.sectionCard}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/ai-settings'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
+                                    <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
                                 </View>
-                                <View>
-                                    <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>AI Personality</Text>
-                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>
-                                        {PERSONALITY_MODES.find(m => m.id === aiPersonality)?.name || 'Normal'}
-                                    </Text>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>AI Personality</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Customize your AI coach</Text>
                                 </View>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} style={{ opacity: 0.5 }} />
-                        </TouchableOpacity>
-                    </VoidCard>
-
-                    <VoidCard glass style={styles.groupCard}>
-                        <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
-                        <MenuLink icon="star-outline" label="Manage Subscription" onPress={() => router.push('/paywall')} />
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <MenuLink icon="help-buoy-outline" label="Support" onPress={() => { }} />
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <MenuLink icon="log-out-outline" label="Log Out" onPress={handleLogout} destructive />
-                    </VoidCard>
-
-                    {/* Feedback Section */}
-                    <VoidCard style={styles.groupCard}>
-                        <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>FEEDBACK</Text>
-                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16, fontFamily: 'Lexend_400Regular' }}>
-                            We'd love to hear from you! Help us make Habyss even better.
-                        </Text>
-                        <TouchableOpacity
-                            onPress={() => Linking.openURL('mailto:feedback@habyss.app?subject=Habyss Feedback')}
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                backgroundColor: colors.primary + '20',
-                                padding: 16,
-                                borderRadius: 12,
-                                gap: 12,
-                            }}
-                        >
-                            <Ionicons name="mail-outline" size={20} color={colors.primary} />
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '600' }}>Send Feedback</Text>
-                                <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>feedback@habyss.app</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => Linking.openURL('https://habyss.app/feature-request')}
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                backgroundColor: colors.surfaceSecondary,
-                                padding: 16,
-                                borderRadius: 12,
-                                gap: 12,
-                                marginTop: 12,
-                            }}
-                        >
-                            <Ionicons name="bulb-outline" size={20} color="#F59E0B" />
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ color: colors.textPrimary, fontSize: 15, fontWeight: '600' }}>Request a Feature</Text>
-                                <Text style={{ color: colors.textSecondary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>Tell us what you want</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                    </VoidCard>
-
-                    {/* Rating Section */}
-                    <VoidCard style={styles.groupCard}>
-                        <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>RATE US</Text>
-                        <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 16, fontFamily: 'Lexend_400Regular' }}>
-                            Enjoying Habyss? Leave a review!
-                        </Text>
-                        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <TouchableOpacity
-                                    key={star}
-                                    onPress={() => {
-                                        if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        // Open App Store
-                                        const storeUrl = Platform.OS === 'ios'
-                                            ? 'https://apps.apple.com/app/habyss/id123456789'
-                                            : 'https://play.google.com/store/apps/details?id=com.habyss.app';
-                                        Linking.openURL(storeUrl);
-                                    }}
-                                >
-                                    <Ionicons name="star" size={32} color="#F59E0B" />
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                        <TouchableOpacity
-                            onPress={() => {
-                                const storeUrl = Platform.OS === 'ios'
-                                    ? 'https://apps.apple.com/app/habyss/id123456789'
-                                    : 'https://play.google.com/store/apps/details?id=com.habyss.app';
-                                Linking.openURL(storeUrl);
-                            }}
-                            style={{
-                                backgroundColor: '#F59E0B',
-                                paddingVertical: 14,
-                                borderRadius: 12,
-                                alignItems: 'center',
-                            }}
-                        >
-                        </TouchableOpacity>
-                    </VoidCard>
-
-                    {/* Appearance Section */}
-                    <VoidCard glass style={styles.groupCard}>
-                        <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>APPEARANCE</Text>
-
-                        <View style={{ gap: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                    <View style={[styles.iconBox, { borderColor: colors.border }]}>
-                                        <Ionicons name="resize" size={20} color={colors.textSecondary} />
-                                    </View>
-                                    <View>
-                                        <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Roadmap Card Size</Text>
-                                        <Text style={{ color: colors.textSecondary, fontSize: 10, fontFamily: 'Lexend_400Regular' }}>Adjust goals & habits density</Text>
-                                    </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/notifications'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
+                                    <Ionicons name="notifications-outline" size={20} color={colors.primary} />
                                 </View>
-                            </View>
-
-                            {/* Size Selector */}
-                            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.2)', padding: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                                {(['small', 'standard', 'big'] as const).map((s) => (
-                                    <TouchableOpacity
-                                        key={s}
-                                        onPress={() => {
-                                            if (hapticsEnabled) Haptics.selectionAsync();
-                                            setCardSize(s);
-                                        }}
-                                        style={{
-                                            flex: 1,
-                                            paddingVertical: 8,
-                                            alignItems: 'center',
-                                            borderRadius: 8,
-                                            backgroundColor: cardSize === s ? colors.primary + '30' : 'transparent',
-                                            borderWidth: 1,
-                                            borderColor: cardSize === s ? colors.primary : 'transparent'
-                                        }}
-                                    >
-                                        <Text style={{
-                                            color: cardSize === s ? colors.primary : colors.textSecondary,
-                                            fontSize: 12,
-                                            fontWeight: cardSize === s ? '700' : '500',
-                                            fontFamily: 'Lexend',
-                                            textTransform: 'capitalize'
-                                        }}>
-                                            {s}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </View>
-                    </VoidCard>
-
-                    {/* DEV MODE Section - Only in Development */}
-                    {__DEV__ && (
-                        <VoidCard glass style={[styles.groupCard, { borderColor: '#F59E0B', borderWidth: 1 }]}>
-                            <Text style={[styles.groupTitle, { color: '#F59E0B' }]}>🛠 DEV MODE</Text>
-                            <DevPremiumToggle colors={colors} />
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Notifications</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Manage alerts and reminders</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); Alert.alert('Appearance', 'Theme settings coming soon.'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
+                                    <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
+                                </View>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Appearance</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Theme, colors, and display</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
                         </VoidCard>
-                    )}
+                    </View>
+
+                    {/* DATA & SYNC */}
+                    <View style={styles.settingsSection}>
+                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>DATA & SYNC</Text>
+                        <VoidCard style={styles.sectionCard}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/data-storage'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.success + '20' }]}>
+                                    <Ionicons name="cloud-upload-outline" size={20} color={colors.success} />
+                                </View>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Backup & Restore</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Cloud sync and data export</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); Alert.alert('Integrations', 'Third-party integrations coming soon.'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.success + '20' }]}>
+                                    <Ionicons name="link-outline" size={20} color={colors.success} />
+                                </View>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Integrations</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Connect external services</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                        </VoidCard>
+                    </View>
+
+                    {/* ACCOUNT */}
+                    <View style={styles.settingsSection}>
+                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ACCOUNT</Text>
+                        <VoidCard style={styles.sectionCard}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/paywall'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: '#8B5CF6' + '20' }]}>
+                                    <Ionicons name="star-outline" size={20} color="#8B5CF6" />
+                                </View>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Subscription</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Manage your plan</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/privacy'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.warning + '20' }]}>
+                                    <Ionicons name="shield-checkmark-outline" size={20} color={colors.warning} />
+                                </View>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Privacy & Security</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Data and security options</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                        </VoidCard>
+                    </View>
+
+                    {/* SUPPORT */}
+                    <View style={styles.settingsSection}>
+                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>SUPPORT</Text>
+                        <VoidCard style={styles.sectionCard}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/help'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.secondary + '20' }]}>
+                                    <Ionicons name="help-buoy-outline" size={20} color={colors.secondary} />
+                                </View>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Help Center</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>FAQs and guides</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/contact'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.secondary + '20' }]}>
+                                    <Ionicons name="mail-outline" size={20} color={colors.secondary} />
+                                </View>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Contact Support</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Get help from our team</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/about'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.secondary + '20' }]}>
+                                    <Ionicons name="information-circle-outline" size={20} color={colors.secondary} />
+                                </View>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>About Habyss</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Version and legal info</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                        </VoidCard>
+                    </View>
+
+                    {/* Sign Out */}
+                    <View style={styles.settingsSection}>
+                        <TouchableOpacity
+                            style={[styles.signOutButton, { backgroundColor: colors.error + '20' }]}
+                            onPress={handleLogout}
+                        >
+                            <Ionicons name="log-out-outline" size={20} color={colors.error} />
+                            <Text style={[styles.signOutText, { color: colors.error }]}>Sign Out</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <View style={styles.footer}>
                         <Text style={[styles.quote, { color: colors.textSecondary }]}>"Descend into discipline"</Text>
@@ -648,6 +535,24 @@ export default function ProfileScreen() {
 
                 </ScrollView>
             </SafeAreaView>
+            <EditProfileModal
+                visible={showEditProfile}
+                onClose={() => setShowEditProfile(false)}
+                currentUsername={username}
+                currentAvatarUri={avatarUri}
+                onProfileUpdate={(newAvatarUri) => {
+                    // Reload username and avatar
+                    supabase.auth.getUser().then(({ data: { user } }) => {
+                        if (user) {
+                            supabase.from('profiles').select('username').eq('id', user.id).single()
+                                .then(({ data }) => {
+                                    if (data?.username) setUsername(data.username);
+                                });
+                        }
+                    });
+                    if (newAvatarUri) setAvatarUri(newAvatarUri);
+                }}
+            />
         </VoidShell>
     );
 }
@@ -661,10 +566,9 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
     },
     headerTitle: {
-        fontSize: 12,
-        fontWeight: '700',
-        letterSpacing: 2,
-        fontFamily: 'Lexend',
+        fontSize: 24,
+        fontFamily: 'Lexend_700Bold', // Matches CalendarStrip day font
+        letterSpacing: 0,
     },
     settingsButton: {
         width: 36,
@@ -681,6 +585,7 @@ const styles = StyleSheet.create({
     profileSection: {
         alignItems: 'center',
         marginBottom: 32,
+        marginTop: 20,
     },
     avatarContainer: {
         marginBottom: 12,
@@ -777,12 +682,6 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         fontFamily: 'Lexend_400Regular',
     },
-    settingItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 8,
-    },
     iconBox: {
         width: 32,
         height: 32,
@@ -858,6 +757,64 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '700',
         color: '#fff',
+        fontFamily: 'Lexend',
+    },
+    // Inline settings styles
+    settingsSection: {
+        marginTop: 20,
+    },
+    sectionTitle: {
+        fontSize: 11,
+        fontWeight: '600',
+        letterSpacing: 1,
+        marginBottom: 10,
+        marginLeft: 4,
+        fontFamily: 'Lexend_400Regular',
+    },
+    sectionCard: {
+        padding: 4,
+    },
+    settingItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        gap: 12,
+    },
+    settingIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    settingContent: {
+        flex: 1,
+    },
+    settingTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+        fontFamily: 'Lexend',
+    },
+    settingSubtitle: {
+        fontSize: 12,
+        fontFamily: 'Lexend_400Regular',
+        marginTop: 2,
+    },
+    settingDivider: {
+        height: 1,
+        marginHorizontal: 14,
+    },
+    signOutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        borderRadius: 16,
+        gap: 8,
+    },
+    signOutText: {
+        fontSize: 15,
+        fontWeight: '600',
         fontFamily: 'Lexend',
     },
 });

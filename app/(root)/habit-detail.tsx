@@ -160,15 +160,23 @@ export default function HabitDetailScreen() {
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <TouchableOpacity
               onPress={openShareModal}
-              style={[styles.iconButton, { backgroundColor: colors.primary + '20' }]}
-            >
-              <Ionicons name="share-social" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => Alert.alert('Options', 'Edit or Delete functionality to be implemented')}
               style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
             >
-              <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
+              <Ionicons name="share-social" size={20} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                selectionFeedback();
+                if (habit) {
+                  router.push({
+                    pathname: '/create',
+                    params: { id: habit.id, goalId: habit.goalId }
+                  });
+                }
+              }}
+              style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
+            >
+              <Ionicons name="pencil" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>

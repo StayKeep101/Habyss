@@ -37,7 +37,7 @@ export const HalfCircleProgress: React.FC<HalfCircleProgressProps> = ({
           fill="none"
           stroke={backgroundColor}
           strokeWidth={strokeWidth}
-          strokeLinecap="round"
+          strokeLinecap="butt"
         />
         {/* Progress Path (Half Circle) */}
         <Path
@@ -47,7 +47,7 @@ export const HalfCircleProgress: React.FC<HalfCircleProgressProps> = ({
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
+          strokeLinecap="butt"
         />
       </Svg>
       {showPercentage && (
