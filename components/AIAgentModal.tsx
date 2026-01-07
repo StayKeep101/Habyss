@@ -36,6 +36,18 @@ import { useRouter } from 'expo-router';
 import { streamChatCompletion, ChatMessage as GroqMessage, EXPERT_SYSTEM_PROMPT } from '@/lib/groq';
 import { useAIPersonality } from '@/constants/AIPersonalityContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
+import { useAppSettings } from '@/constants/AppSettingsContext';
+import { AIActionFeed } from '@/components/AIActionFeed';
+import {
+    parseAgentAction,
+    generateActionSteps,
+    executeSettingsAction,
+    executeNavigationAction,
+    getAgentSystemPromptExtension,
+    ActionStep,
+    AgentAction,
+    AVAILABLE_ACTIONS,
+} from '@/lib/aiAgentService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,18 +67,18 @@ const INITIAL_MESSAGES: Message[] = [
     {
         id: '1',
         role: 'assistant',
-        content: "I'm ready to help locally. I can create, update, or delete habits for you. Try 'Create a daily reading habit' or 'Delete my water habit'.",
+        content: "I'm ABYSS, your AI agent. I can manage your habits, change settings, navigate the app, and more. Try: 'Turn on notifications', 'Enable bully mode', or 'Create a workout habit'.",
         timestamp: new Date(),
     }
 ];
 
-// Mock suggestions
+// Mock suggestions - updated to include settings
 const SUGGESTIONS = [
-    "Create a workout goal",
-    "Log water habit",
-    "How is my streak?",
-    "Add meditation",
-    "Show my goals"
+    "Turn on notifications",
+    "Enable bully mode",
+    "Create workout habit",
+    "Show my streak",
+    "Go to settings"
 ];
 
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
@@ -82,11 +94,16 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
 
+    // Action feed state
+    const [showActionFeed, setShowActionFeed] = useState(false);
+    const [actionSteps, setActionSteps] = useState<ActionStep[]>([]);
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+    // App settings for agent actions
+    const appSettings = useAppSettings();
+
     // Use the hook that handles dev overrides
     const { isPremium } = usePremiumStatus();
-    // Assuming the hook returns initialized status immediately or we can treat as loaded.
-    // The hook in usePremiumStatus.ts initializes state to false but updates quickly.
-    // If we need loading state, we might need to update the hook, but for now strict boolean is safer than blocked.
     const checkingPremium = false;
 
     const flatListRef = useRef<FlatList>(null);
@@ -146,38 +163,21 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         const newMessages = [...messages, userMessage];
         setMessages(newMessages);
 
-        // Prepare context
+        // Prepare context with extended agent capabilities
         const habitsList = habits.map(h => `- ${h.name} (ID: ${h.id}, Category: ${h.category})`).join('\n');
-        const systemPrompt = `You are an AI assistant for a habit tracker app.
+        const agentExtension = getAgentSystemPromptExtension();
+        const systemPrompt = `You are an AI agent for a habit tracker app called Habyss.
         CURRENT DATE: ${new Date().toLocaleDateString()}
-        
-        Your goal is to help the user manage their habits. You have access to the following tools via JSON output.
         
         EXISTING HABITS:
         ${habitsList}
 
+        ${agentExtension}
+
         INSTRUCTIONS:
-        1. If the user asks to CREATE, UPDATE, or DELETE a habit, output a valid JSON object.
+        1. If the user asks to change settings, navigate, or manage habits, output a valid JSON object.
         2. If it's a general question, just reply with text.
-        3. Do NOT output markdown code blocks (like \`\`\`json). Just the raw JSON string or plain text.
-        
-        TOOLS (JSON FORMAT):
-        
-        CREATE:
-        { "action": "create", "data": { "name": "Habit Name", "category": "health", "frequency": "daily" }, "response": "Optional success message" }
-        (Categories: health, fitness, work, personal, mindfulness)
-
-        UPDATE:
-        { "action": "update", "id": "HABIT_ID", "data": { ...fields to update... }, "response": "Update message" }
-        (You MUST find the best matching HABIT_ID from the EXISTING HABITS list based on the name provided)
-
-        DELETE:
-        { "action": "delete", "id": "HABIT_ID", "response": "Delete message" }
-        (You MUST find the best matching HABIT_ID from the EXISTING HABITS list)
-
-        EXAMPLE:
-        User: "Add a workout habit"
-        AI: { "action": "create", "data": { "name": "Workout", "category": "fitness", "durationMinutes": 30 }, "response": "I've added a 30-minute workout habit." }
+        3. Do NOT output markdown code blocks. Just raw JSON or plain text.
         `;
 
         // Convert to Groq/OpenAI format
@@ -206,30 +206,70 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                 }
 
                 if (actionData) {
-                    const { addHabit, updateHabit, removeHabitEverywhere, getHabits } = await import('@/lib/habits');
+                    // Check if it's a settings or navigation action first
+                    const isSettingsAction = ['toggle_notifications', 'toggle_haptics', 'toggle_sounds', 'change_ai_personality', 'change_card_size'].includes(actionData.action);
+                    const isNavigationAction = ['navigate_to', 'open_modal'].includes(actionData.action);
+                    const isHabitAction = ['create', 'update', 'delete'].includes(actionData.action);
 
-                    if (actionData.action === 'create') {
-                        await addHabit({
-                            name: actionData.data.name || 'New Habit',
-                            category: actionData.data.category || 'personal',
-                            durationMinutes: actionData.data.durationMinutes,
-                            // Default values
-                            taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
-                            isGoal: false
-                        });
-                        finalReply = actionData.response || "Habit created.";
-                    } else if (actionData.action === 'update' && actionData.id) {
-                        await updateHabit({ id: actionData.id, ...actionData.data });
-                        finalReply = actionData.response || "Habit updated.";
-                    } else if (actionData.action === 'delete' && actionData.id) {
-                        await removeHabitEverywhere(actionData.id);
-                        finalReply = actionData.response || "Habit deleted.";
+                    if (isSettingsAction || isNavigationAction) {
+                        // Show action feed for settings/navigation
+                        const agentAction: AgentAction = {
+                            action: actionData.action,
+                            category: isSettingsAction ? 'settings' : 'navigation',
+                            data: actionData.data,
+                            response: actionData.response || 'Done.',
+                        };
+
+                        const steps = generateActionSteps(agentAction);
+                        setActionSteps(steps);
+                        setCurrentStepIndex(0);
+                        setShowActionFeed(true);
+
+                        // Animate through steps
+                        for (let i = 0; i < steps.length; i++) {
+                            await new Promise(resolve => setTimeout(resolve, 400));
+                            setCurrentStepIndex(i);
+                        }
+
+                        // Execute the action
+                        if (isSettingsAction) {
+                            await executeSettingsAction(agentAction, appSettings);
+                        } else {
+                            await executeNavigationAction(agentAction);
+                        }
+
+                        // Show completion
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        setShowActionFeed(false);
+
+                        finalReply = actionData.response || "Done!";
+                        successFeedback();
+
+                    } else if (isHabitAction) {
+                        // Original habit logic
+                        const { addHabit, updateHabit, removeHabitEverywhere, getHabits } = await import('@/lib/habits');
+
+                        if (actionData.action === 'create') {
+                            await addHabit({
+                                name: actionData.data?.name || 'New Habit',
+                                category: actionData.data?.category || 'personal',
+                                durationMinutes: actionData.data?.durationMinutes,
+                                taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+                                isGoal: false
+                            });
+                            finalReply = actionData.response || "Habit created.";
+                        } else if (actionData.action === 'update' && actionData.id) {
+                            await updateHabit({ id: actionData.id, ...actionData.data });
+                            finalReply = actionData.response || "Habit updated.";
+                        } else if (actionData.action === 'delete' && actionData.id) {
+                            await removeHabitEverywhere(actionData.id);
+                            finalReply = actionData.response || "Habit deleted.";
+                        }
+
+                        const updated = await getHabits();
+                        setHabits(updated);
+                        successFeedback();
                     }
-
-                    // Refresh local habits context
-                    const updated = await getHabits();
-                    setHabits(updated);
-                    successFeedback();
                 }
 
                 const aiMessage: Message = {
@@ -483,6 +523,13 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
                     </SafeAreaView>
                 </View>
             </BlurView>
+
+            {/* AI Action Feed Overlay */}
+            <AIActionFeed
+                visible={showActionFeed}
+                steps={actionSteps}
+                currentStepIndex={currentStepIndex}
+            />
         </Modal>
     );
 };

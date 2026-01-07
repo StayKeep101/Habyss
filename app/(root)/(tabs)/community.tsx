@@ -142,8 +142,7 @@ export default function CommunityScreen() {
     };
 
     const handleFriendPress = (friend: Friend) => {
-        // Don't show modal for "You" (current user)
-        if (friend.username === 'You') return;
+        // Allow viewing own profile too - shows what friends see
         lightFeedback();
         setSelectedFriend(friend);
         setShowFriendStats(true);
@@ -413,7 +412,7 @@ export default function CommunityScreen() {
                                 <TouchableOpacity
                                     key={`leaderboard_${friend.id}`}
                                     onPress={() => handleFriendPress(friend)}
-                                    activeOpacity={friend.username === 'You' ? 1 : 0.7}
+                                    activeOpacity={0.7}
                                 >
                                     <View style={[styles.leaderboardRow, rank <= 3 && { opacity: 1 }]}>
                                         <Text style={[styles.rankText, { color: rank <= 3 ? '#FFD93D' : colors.textTertiary }]}>

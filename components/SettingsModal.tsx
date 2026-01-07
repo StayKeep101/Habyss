@@ -1,24 +1,21 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Dimensions, Platform, Pressable, DimensionValue } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Dimensions, Platform, Pressable, ScrollView } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { SlideInDown, FadeIn, FadeOut } from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 
-const { width } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
-interface TechModalProps {
+interface SettingsModalProps {
     visible: boolean;
     onClose: () => void;
     title: string;
     children: React.ReactNode;
-    subtitle?: string;
-    height?: DimensionValue;
-    showCloseBtn?: boolean;
 }
 
-export const TechModal: React.FC<TechModalProps> = ({ visible, onClose, title, children, subtitle, height, showCloseBtn = true }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose, title, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
 
@@ -39,31 +36,29 @@ export const TechModal: React.FC<TechModalProps> = ({ visible, onClose, title, c
                 {/* Modal Content */}
                 <Animated.View
                     entering={SlideInDown.springify().damping(20).mass(0.8)}
-                    style={[styles.modalWrapper, height ? { height } : undefined]}
+                    style={[styles.modalWrapper, { backgroundColor: theme === 'light' ? colors.background : 'rgba(10, 10, 15, 0.95)' }]}
                 >
-                    <BlurView intensity={Platform.OS === 'ios' ? 40 : 100} tint="dark" style={StyleSheet.absoluteFill} />
-
-                    {/* Glowing Border Top */}
-                    <View style={styles.glowLine} />
+                    {theme !== 'light' && (
+                        <BlurView intensity={Platform.OS === 'ios' ? 40 : 100} tint="dark" style={StyleSheet.absoluteFill} />
+                    )}
 
                     <View style={styles.content}>
                         <View style={styles.handle} />
 
                         <View style={styles.header}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.title}>{title.toUpperCase()}</Text>
-                                {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-                            </View>
-                            {showCloseBtn && (
-                                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                                    <Ionicons name="close" size={20} color="rgba(255,255,255,0.5)" />
-                                </TouchableOpacity>
-                            )}
+                            <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+                            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor: colors.surfaceTertiary }]}>
+                                <Ionicons name="close" size={20} color={colors.textSecondary} />
+                            </TouchableOpacity>
                         </View>
 
-                        <View style={styles.body}>
+                        <ScrollView
+                            style={styles.body}
+                            contentContainerStyle={{ paddingBottom: 40 }}
+                            showsVerticalScrollIndicator={false}
+                        >
                             {children}
-                        </View>
+                        </ScrollView>
                     </View>
                 </Animated.View>
             </View>
@@ -82,28 +77,13 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.6)',
     },
     modalWrapper: {
-        backgroundColor: 'rgba(10, 10, 15, 0.85)',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         overflow: 'hidden',
         borderWidth: 1,
         borderBottomWidth: 0,
         borderColor: 'rgba(255,255,255,0.1)',
-        paddingBottom: 40,
-        maxHeight: '90%',
-    },
-    glowLine: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 1,
-        backgroundColor: '#8B5CF6',
-        shadowColor: '#8B5CF6',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 10,
-        zIndex: 10,
+        maxHeight: height * 0.85,
     },
     content: {
         padding: 24,
@@ -123,27 +103,18 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     title: {
-        fontSize: 14,
-        fontWeight: '900',
-        color: '#fff',
-        letterSpacing: 1.5,
+        fontSize: 20,
+        fontWeight: '700',
         fontFamily: 'Lexend',
-    },
-    subtitle: {
-        fontSize: 10,
-        color: 'rgba(255,255,255,0.5)',
-        marginTop: 4,
-        fontFamily: 'Lexend_400Regular',
     },
     closeBtn: {
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     body: {
-        // flex: 1,
+        maxHeight: height * 0.6,
     }
 });

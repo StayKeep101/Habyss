@@ -7,6 +7,10 @@ export interface Friend {
     avatarUrl?: string;
     currentStreak: number;
     todayCompletion: number;
+    // Profile info for display
+    bio?: string;
+    age?: number;
+    gender?: string;
 }
 
 export interface FriendRequest {
@@ -265,7 +269,7 @@ export const FriendsService = {
             const idArray = Array.from(friendIds);
             const { data: profiles } = await supabase
                 .from('profiles')
-                .select('id, username, email, avatar_url')
+                .select('id, username, email, avatar_url, bio, age, gender')
                 .in('id', idArray);
 
             const profilesMap = new Map();
@@ -280,7 +284,10 @@ export const FriendsService = {
                     email: profile?.email || '',
                     avatarUrl: profile?.avatar_url,
                     currentStreak: 0,
-                    todayCompletion: 0
+                    todayCompletion: 0,
+                    bio: profile?.bio,
+                    age: profile?.age,
+                    gender: profile?.gender,
                 };
             });
         } catch (e) {
@@ -411,6 +418,13 @@ export const FriendsService = {
             const userCompletedToday = userCompletions?.length || 0;
             const userTodayCompletion = userTotalHabits > 0 ? Math.round((userCompletedToday / userTotalHabits) * 100) : 0;
 
+            // Get current user's profile info
+            const { data: userProfile } = await supabase
+                .from('profiles')
+                .select('username, bio, age, gender, avatar_url')
+                .eq('id', currentUser.id)
+                .single();
+
             // Add current user to list
             const allUsers = [
                 ...friends,
@@ -420,6 +434,10 @@ export const FriendsService = {
                     email: currentUser.email || '',
                     currentStreak: 0, // Would need full streak calc
                     todayCompletion: userTodayCompletion,
+                    bio: userProfile?.bio,
+                    age: userProfile?.age,
+                    gender: userProfile?.gender,
+                    avatarUrl: userProfile?.avatar_url,
                 }
             ];
 

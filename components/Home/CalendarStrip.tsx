@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, Dimensions } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useAccentGradient } from '@/constants/AccentContext';
 import Svg, { Circle } from 'react-native-svg';
 
 interface CalendarStripProps {
@@ -22,7 +23,7 @@ interface DateItem {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_WIDTH / 7;
 
-const DateButton = React.memo(({ item, selected, isToday, onSelect, width, colors }: any) => {
+const DateButton = React.memo(({ item, selected, isToday, onSelect, width, colors, accentColor }: any) => {
   const size = 34;
   const strokeWidth = 3.5;
   const radius = (size - strokeWidth) / 2;
@@ -56,7 +57,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke={selected ? 'white' : colors.primary} // White if selected so it contrasts with the blue fill? Or just bolder?
+                stroke={selected ? 'white' : accentColor} // Use accent color for progress arc
                 strokeWidth={strokeWidth}
                 fill="transparent"
                 strokeDasharray={`${circumference} ${circumference}`}
@@ -72,7 +73,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
               width: size - 8, // Smaller inner circle
               height: size - 8,
               borderRadius: (size - 8) / 2,
-              backgroundColor: selected ? colors.primary : 'transparent',
+              backgroundColor: selected ? accentColor : 'transparent',
               alignItems: 'center',
               justifyContent: 'center',
               // Optional: Add a subtle fill for non-selected if needed, or keep transparent
@@ -102,6 +103,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
 export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSelectDate, completionData = {} }) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { primary: accentColor } = useAccentGradient();
   const flatListRef = useRef<FlatList>(null);
 
   // Generate dates for 10 weeks instead of 104 weeks (huge memory savings!)
@@ -192,9 +194,10 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
         onSelect={onSelectDate}
         width={ITEM_WIDTH}
         colors={colors}
+        accentColor={accentColor}
       />
     );
-  }, [selectedDate, colors, onSelectDate]);
+  }, [selectedDate, colors, onSelectDate, accentColor]);
 
   const getItemLayout = (_: any, index: number) => ({
     length: ITEM_WIDTH,

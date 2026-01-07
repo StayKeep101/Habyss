@@ -169,7 +169,20 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                         )}
                                     </View>
                                     <Text style={styles.username}>{friend.username}</Text>
-                                    <Text style={styles.email}>{friend.email}</Text>
+                                    {friend.bio && (
+                                        <Text style={styles.bio}>{friend.bio}</Text>
+                                    )}
+                                    <View style={styles.profileInfo}>
+                                        {friend.age && (
+                                            <Text style={styles.infoText}>{friend.age} years</Text>
+                                        )}
+                                        {friend.age && friend.gender && (
+                                            <Text style={styles.infoText}>•</Text>
+                                        )}
+                                        {friend.gender && (
+                                            <Text style={styles.infoText}>{friend.gender}</Text>
+                                        )}
+                                    </View>
                                 </View>
 
                                 {/* Stats Grid */}
@@ -256,15 +269,19 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
 
                                 {/* Actions */}
                                 <View style={styles.actions}>
-                                    <TouchableOpacity
-                                        style={[styles.nudgeButton, { backgroundColor: colors.primary }]}
-                                        onPress={() => {
-                                            onNudge(friend);
-                                            closeModal();
-                                        }}
-                                    >
-                                        <Text style={styles.nudgeText}>👋 Send Nudge</Text>
-                                    </TouchableOpacity>
+                                    {friend.username === 'You' ? (
+                                        <Text style={styles.previewText}>This is how your profile appears to friends</Text>
+                                    ) : (
+                                        <TouchableOpacity
+                                            style={[styles.nudgeButton, { backgroundColor: colors.primary }]}
+                                            onPress={() => {
+                                                onNudge(friend);
+                                                closeModal();
+                                            }}
+                                        >
+                                            <Text style={styles.nudgeText}>👋 Send Nudge</Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
                             </Animated.View>
                         </LinearGradient>
@@ -347,6 +364,25 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: 'rgba(255,255,255,0.5)',
         marginTop: 4,
+        fontFamily: 'Lexend_400Regular',
+    },
+    bio: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.7)',
+        marginTop: 8,
+        textAlign: 'center',
+        fontStyle: 'italic',
+        fontFamily: 'Lexend_400Regular',
+    },
+    profileInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 6,
+    },
+    infoText: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.4)',
         fontFamily: 'Lexend_400Regular',
     },
     statsRow: {
@@ -446,5 +482,12 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         fontFamily: 'Lexend',
+    },
+    previewText: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 13,
+        fontStyle: 'italic',
+        textAlign: 'center',
+        fontFamily: 'Lexend_400Regular',
     },
 });

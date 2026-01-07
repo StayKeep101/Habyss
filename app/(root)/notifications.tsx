@@ -1,395 +1,189 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
-import { NotificationService } from '@/lib/notificationService';
-
-interface NotificationSetting {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: string;
-  enabled: boolean;
-  category: 'general' | 'habits' | 'focus' | 'reminders';
-}
+import { useAppSettings } from '@/constants/AppSettingsContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Notifications = () => {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const { lightFeedback, mediumFeedback } = useHaptics();
+  const colors = Colors[colorScheme ?? 'dark'];
+  const { lightFeedback } = useHaptics();
+  const { notificationsEnabled, setNotificationsEnabled } = useAppSettings();
 
-  const [notifications, setNotifications] = useState<NotificationSetting[]>([
-    {
-      id: '1',
-      title: 'Daily Reminders',
-      subtitle: 'Get reminded about your daily habits',
-      icon: 'notifications',
-      enabled: true,
-      category: 'general'
-    },
-    {
-      id: '2',
-      title: 'Habit Streaks',
-      subtitle: 'Celebrate your habit milestones',
-      icon: 'flame',
-      enabled: true,
-      category: 'habits'
-    },
-    {
-      id: '3',
-      title: 'Focus Sessions',
-      subtitle: 'Start and end focus timer notifications',
-      icon: 'timer',
-      enabled: true,
-      category: 'focus'
-    },
-    {
-      id: '4',
-      title: 'Water Reminders',
-      subtitle: 'Stay hydrated throughout the day',
-      icon: 'water',
-      enabled: false,
-      category: 'reminders'
-    },
-    {
-      id: '5',
-      title: 'Break Reminders',
-      subtitle: 'Take regular breaks during work',
-      icon: 'cafe',
-      enabled: true,
-      category: 'reminders'
-    },
-    {
-      id: '6',
-      title: 'Weekly Reports',
-      subtitle: 'Get your weekly progress summary',
-      icon: 'stats-chart',
-      enabled: true,
-      category: 'general'
-    },
-    {
-      id: '7',
-      title: 'Goal Milestones',
-      subtitle: 'Celebrate when you reach goals',
-      icon: 'trophy',
-      enabled: true,
-      category: 'habits'
-    },
-    {
-      id: '8',
-      title: 'Bedtime Reminder',
-      subtitle: 'Get ready for a good night\'s sleep',
-      icon: 'bed',
-      enabled: false,
-      category: 'reminders'
-    }
-  ]);
+  const [habitReminders, setHabitReminders] = useState(true);
+  const [streakAlerts, setStreakAlerts] = useState(true);
+  const [weeklyReport, setWeeklyReport] = useState(false);
 
-  const [quietHours, setQuietHours] = useState(false);
-  const [quietStart, setQuietStart] = useState('22:00');
-  const [quietEnd, setQuietEnd] = useState('08:00');
-
-  const toggleNotification = async (id: string) => {
-    lightFeedback();
-
-    // Optimistic Update
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id
-          ? { ...notification, enabled: !notification.enabled }
-          : notification
-      )
-    );
-
-    // Actual Service Call
-    if (id === '1') { // Daily Reminders -> Main Toggle
-      const current = notifications.find(n => n.id === '1');
-      const newValue = !current?.enabled;
-      await NotificationService.setNotificationsEnabled(newValue);
-    }
-  };
-
-  // Initial Load
-  React.useEffect(() => {
-    const loadState = async () => {
-      const enabled = await NotificationService.areNotificationsEnabled();
-      setNotifications(prev => prev.map(n => n.id === '1' ? { ...n, enabled } : n));
+  // Load saved preferences
+  useEffect(() => {
+    const loadPrefs = async () => {
+      const h = await AsyncStorage.getItem('notif_habits');
+      const s = await AsyncStorage.getItem('notif_streaks');
+      const w = await AsyncStorage.getItem('notif_weekly');
+      if (h !== null) setHabitReminders(h === 'true');
+      if (s !== null) setStreakAlerts(s === 'true');
+      if (w !== null) setWeeklyReport(w === 'true');
     };
-    loadState();
+    loadPrefs();
   }, []);
 
-  const toggleQuietHours = () => {
-    mediumFeedback();
-    setQuietHours(!quietHours);
-  };
-
-  const handleTestNotification = () => {
+  const toggleSetting = async (key: string, value: boolean, setter: (v: boolean) => void) => {
     lightFeedback();
-    Alert.alert(
-      'Test Notification',
-      'This is a test notification from Habyss!',
-      [{ text: 'OK' }]
-    );
+    setter(value);
+    await AsyncStorage.setItem(key, value.toString());
   };
-
-  const handleSaveSettings = () => {
-    mediumFeedback();
-    Alert.alert(
-      'Settings Saved',
-      'Your notification preferences have been saved successfully!',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'general': return colors.primary;
-      case 'habits': return colors.success;
-      case 'focus': return colors.secondary;
-      case 'reminders': return colors.warning;
-      default: return colors.primary;
-    }
-  };
-
-  const groupedNotifications = notifications.reduce((acc, notification) => {
-    if (!acc[notification.category]) {
-      acc[notification.category] = [];
-    }
-    acc[notification.category].push(notification);
-    return acc;
-  }, {} as Record<string, NotificationSetting[]>);
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
-      {/* Header */}
-      <View className="px-6 pt-4 pb-6">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <TouchableOpacity
-              className="w-10 h-10 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: colors.surfaceSecondary }}
-              onPress={() => {
-                lightFeedback();
-                router.back();
-              }}
-            >
-              <Ionicons name="arrow-back" size={20} color={colors.primary} />
-            </TouchableOpacity>
-            <View>
-              <Text className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                Notifications
-              </Text>
-              <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                Manage your alerts and reminders
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: colors.primary }}
-            onPress={handleSaveSettings}
-          >
-            <Ionicons name="checkmark" size={20} color="white" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView className="flex-1 px-6">
-        {/* Quick Actions */}
-        <View className="mb-6">
-          <View
-            className="p-4 rounded-2xl"
-            style={{ backgroundColor: colors.surfaceSecondary }}
-          >
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-                Quick Actions
-              </Text>
-            </View>
-            <View className="flex-row space-x-3">
-              <TouchableOpacity
-                className="flex-1 p-3 rounded-xl items-center"
-                style={{ backgroundColor: colors.primary + '20' }}
-                onPress={handleTestNotification}
-              >
-                <Ionicons name="notifications" size={20} color={colors.primary} />
-                <Text className="text-sm font-medium mt-1" style={{ color: colors.primary }}>
-                  Test
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 p-3 rounded-xl items-center"
-                style={{ backgroundColor: colors.success + '20' }}
-                onPress={() => {
-                  lightFeedback();
-                  setNotifications(prev => prev.map(n => ({ ...n, enabled: true })));
-                }}
-              >
-                <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                <Text className="text-sm font-medium mt-1" style={{ color: colors.success }}>
-                  Enable All
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="flex-1 p-3 rounded-xl items-center"
-                style={{ backgroundColor: colors.error + '20' }}
-                onPress={() => {
-                  lightFeedback();
-                  setNotifications(prev => prev.map(n => ({ ...n, enabled: false })));
-                }}
-              >
-                <Ionicons name="close-circle" size={20} color={colors.error} />
-                <Text className="text-sm font-medium mt-1" style={{ color: colors.error }}>
-                  Disable All
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Notifications</Text>
+          <View style={{ width: 40 }} />
         </View>
 
-        {/* Quiet Hours */}
-        <View className="mb-6">
-          <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
-            Quiet Hours
-          </Text>
-          <View
-            className="p-4 rounded-2xl"
-            style={{ backgroundColor: colors.surfaceSecondary }}
-          >
-            <View className="flex-row items-center justify-between mb-3">
-              <View className="flex-row items-center">
-                <Ionicons name="moon" size={20} color={colors.primary} />
-                <Text className="ml-2 font-medium" style={{ color: colors.textPrimary }}>
-                  Do Not Disturb
-                </Text>
+        {/* Settings */}
+        <View style={styles.content}>
+          {/* Master Toggle */}
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.row}>
+              <View style={styles.rowContent}>
+                <Ionicons name="notifications" size={22} color={colors.primary} />
+                <View style={styles.textContent}>
+                  <Text style={[styles.label, { color: colors.textPrimary }]}>Push Notifications</Text>
+                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enable all notifications</Text>
+                </View>
               </View>
               <Switch
-                value={quietHours}
-                onValueChange={toggleQuietHours}
-                trackColor={{ false: '#e2e8f0', true: colors.primary }}
-                thumbColor={quietHours ? 'white' : '#f1f5f9'}
+                value={notificationsEnabled}
+                onValueChange={(v) => {
+                  lightFeedback();
+                  setNotificationsEnabled(v);
+                }}
+                trackColor={{ false: colors.border, true: colors.primary }}
               />
             </View>
-            {quietHours && (
-              <View className="flex-row items-center space-x-4">
-                <View className="flex-1">
-                  <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                    Start Time
-                  </Text>
-                  <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-                    {quietStart}
-                  </Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                    End Time
-                  </Text>
-                  <Text className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
-                    {quietEnd}
-                  </Text>
-                </View>
-              </View>
-            )}
           </View>
-        </View>
 
-        {/* Notification Categories */}
-        {Object.entries(groupedNotifications).map(([category, categoryNotifications]) => (
-          <View key={category} className="mb-6">
-            <Text className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
-              {category.charAt(0).toUpperCase() + category.slice(1)} Notifications
-            </Text>
-            <View
-              className="rounded-2xl overflow-hidden"
-              style={{ backgroundColor: colors.surfaceSecondary }}
-            >
-              {categoryNotifications.map((notification, index) => (
-                <View key={notification.id}>
-                  <TouchableOpacity
-                    className="flex-row items-center p-4"
-                    onPress={() => toggleNotification(notification.id)}
-                  >
-                    <View
-                      className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                      style={{ backgroundColor: getCategoryColor(notification.category) + '20' }}
-                    >
-                      <Ionicons
-                        name={notification.icon as any}
-                        size={20}
-                        color={getCategoryColor(notification.category)}
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="font-semibold" style={{ color: colors.textPrimary }}>
-                        {notification.title}
-                      </Text>
-                      <Text className="text-sm" style={{ color: colors.textSecondary }}>
-                        {notification.subtitle}
-                      </Text>
-                    </View>
-                    <Switch
-                      value={notification.enabled}
-                      onValueChange={() => toggleNotification(notification.id)}
-                      trackColor={{ false: '#e2e8f0', true: getCategoryColor(notification.category) }}
-                      thumbColor={notification.enabled ? 'white' : '#f1f5f9'}
-                    />
-                  </TouchableOpacity>
-                  {index < categoryNotifications.length - 1 && (
-                    <View
-                      className="h-[0.5px] mx-4"
-                      style={{ backgroundColor: colors.border }}
-                    />
-                  )}
-                </View>
-              ))}
+          {/* Individual Settings */}
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, opacity: notificationsEnabled ? 1 : 0.5 }]}>
+            <View style={styles.row}>
+              <View style={styles.rowContent}>
+                <Ionicons name="alarm-outline" size={22} color={colors.textSecondary} />
+                <Text style={[styles.label, { color: colors.textPrimary }]}>Habit Reminders</Text>
+              </View>
+              <Switch
+                value={habitReminders && notificationsEnabled}
+                onValueChange={(v) => toggleSetting('notif_habits', v, setHabitReminders)}
+                disabled={!notificationsEnabled}
+                trackColor={{ false: colors.border, true: colors.success }}
+              />
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            <View style={styles.row}>
+              <View style={styles.rowContent}>
+                <Ionicons name="flame-outline" size={22} color={colors.textSecondary} />
+                <Text style={[styles.label, { color: colors.textPrimary }]}>Streak Alerts</Text>
+              </View>
+              <Switch
+                value={streakAlerts && notificationsEnabled}
+                onValueChange={(v) => toggleSetting('notif_streaks', v, setStreakAlerts)}
+                disabled={!notificationsEnabled}
+                trackColor={{ false: colors.border, true: colors.success }}
+              />
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            <View style={styles.row}>
+              <View style={styles.rowContent}>
+                <Ionicons name="bar-chart-outline" size={22} color={colors.textSecondary} />
+                <Text style={[styles.label, { color: colors.textPrimary }]}>Weekly Report</Text>
+              </View>
+              <Switch
+                value={weeklyReport && notificationsEnabled}
+                onValueChange={(v) => toggleSetting('notif_weekly', v, setWeeklyReport)}
+                disabled={!notificationsEnabled}
+                trackColor={{ false: colors.border, true: colors.success }}
+              />
             </View>
           </View>
-        ))}
-
-        {/* Debug Section */}
-        <View className="mb-6">
-          <Text className="text-lg font-bold mb-4" style={{ color: colors.textPrimary }}>
-            Debug Information
-          </Text>
-          <View
-            className="p-4 rounded-2xl"
-            style={{ backgroundColor: colors.surfaceSecondary }}
-          >
-            <TouchableOpacity
-              className="flex-row items-center justify-between"
-              onPress={async () => {
-                const token = await NotificationService.registerForPushNotificationsAsync();
-                if (token) {
-                  console.log('Push Token:', token);
-                  Alert.alert('Push Token', token, [
-                    { text: 'Copy', onPress: () => console.log('Copy not implemented yet, check logs') },
-                    { text: 'OK' }
-                  ]);
-                } else {
-                  Alert.alert('Error', 'Could not retrieve push token');
-                }
-              }}
-            >
-              <View className="flex-row items-center">
-                <Ionicons name="bug" size={20} color={colors.textSecondary} />
-                <Text className="ml-2 font-medium" style={{ color: colors.textPrimary }}>
-                  Get Push Token
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
         </View>
-
-        {/* Bottom Spacing */}
-        <View className="h-20" />
-      </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'Lexend',
+  },
+  content: {
+    padding: 16,
+    gap: 16,
+  },
+  card: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  rowContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  textContent: {
+    flex: 1,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'Lexend',
+  },
+  subtitle: {
+    fontSize: 12,
+    fontFamily: 'Lexend_400Regular',
+    marginTop: 2,
+  },
+  divider: {
+    height: 1,
+    marginHorizontal: 16,
+  },
+});
 
 export default Notifications;

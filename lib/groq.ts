@@ -180,8 +180,125 @@ export const generateGreeting = async (personality: string): Promise<string> => 
 };
 
 /**
+ * User data for smart greeting generation
+ */
+export interface UserGreetingData {
+    currentStreak: number;
+    consistencyScore: number;
+    todayCompleted: number;
+    todayTotal: number;
+    recentMissedHabits?: string[];
+    topHabit?: string;
+    daysSinceStart?: number;
+    username?: string;
+}
+
+/**
+ * Generate a smart, personalized greeting using actual user data
+ */
+export const generateSmartGreeting = async (
+    personality: string,
+    userData: UserGreetingData
+): Promise<string> => {
+    try {
+        const apiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
+        if (!apiKey) {
+            // Fallback to a data-driven static greeting
+            if (userData.currentStreak > 7) {
+                return `${userData.currentStreak}-day streak. Keep the momentum.`;
+            }
+            if (userData.todayCompleted === userData.todayTotal && userData.todayTotal > 0) {
+                return "All habits done. Tomorrow awaits.";
+            }
+            return `${userData.todayCompleted}/${userData.todayTotal} habits. Let's go.`;
+        }
+
+        const personalityGuidelines = getPersonalityGuidelines(personality);
+
+        const systemPrompt = `You are ABYSS, an AI habit coach. Generate a SHORT, personalized greeting (1-2 sentences max, under 20 words total).
+
+PERSONALITY: ${personality}
+${personalityGuidelines}
+
+USER DATA:
+- Current streak: ${userData.currentStreak} days
+- Consistency score: ${userData.consistencyScore}%
+- Today's progress: ${userData.todayCompleted}/${userData.todayTotal} habits done
+${userData.topHabit ? `- Best habit: "${userData.topHabit}"` : ''}
+${userData.recentMissedHabits?.length ? `- Recently missed: ${userData.recentMissedHabits.join(', ')}` : ''}
+
+RULES:
+1. Be SPECIFIC - reference their actual numbers
+2. Keep it SHORT (max 20 words)
+3. Match the personality tone
+4. No emojis, no hashtags
+5. If they have a streak, acknowledge it
+6. If behind today, motivate them to catch up
+
+EXAMPLES:
+- "15-day streak? You're not stopping now. Day 16 awaits."
+- "2/5 done before noon. Solid start. Finish strong."
+- "0% consistency this week? Time to fix that."
+- "That ${userData.topHabit || 'meditation'} streak is impressive. Keep building."`;
+
+        const response = await fetch(GROQ_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: 'llama-3.1-8b-instant',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: 'Generate my personalized greeting based on my data.' }
+                ],
+                temperature: 0.8,
+                max_tokens: 60,
+            }),
+        });
+
+        if (!response.ok) {
+            // Fallback
+            return `${userData.currentStreak > 0 ? `${userData.currentStreak}-day streak. ` : ''}${userData.todayCompleted}/${userData.todayTotal} done.`;
+        }
+
+        const data = await response.json();
+        const greeting = data.choices?.[0]?.message?.content?.trim();
+
+        // Clean up any quotes the AI might add
+        return greeting?.replace(/^["']|["']$/g, '') || "Time to build.";
+
+    } catch (e) {
+        console.error("Smart Greeting Error", e);
+        return userData.currentStreak > 0
+            ? `${userData.currentStreak}-day streak. Keep going.`
+            : "Ready to build habits?";
+    }
+};
+
+/**
+ * Get personality-specific guidelines for greeting generation
+ */
+const getPersonalityGuidelines = (personality: string): string => {
+    switch (personality) {
+        case 'friendly':
+            return 'Be warm, encouraging, and supportive. Celebrate their wins!';
+        case 'normal':
+            return 'Be balanced and professional. Mix encouragement with data.';
+        case 'dad_mode':
+            return 'Be firm but caring. Hold them accountable with love.';
+        case 'bully_mode':
+            return 'Be intense and direct. No excuses. Maximum accountability. Slightly aggressive but motivating.';
+        default:
+            return 'Be motivating and concise.';
+    }
+};
+
+/**
  * Quick utility to check if API key is configured
  */
 export const isConfigured = (): boolean => {
     return !!process.env.EXPO_PUBLIC_GROQ_API_KEY;
 };
+

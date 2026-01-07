@@ -409,7 +409,7 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); Alert.alert('Appearance', 'Theme settings coming soon.'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/appearance'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
                                     <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
                                 </View>
@@ -437,13 +437,13 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); Alert.alert('Integrations', 'Third-party integrations coming soon.'); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: colors.success + '20' }]}>
-                                    <Ionicons name="link-outline" size={20} color={colors.success} />
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/integrations'); }}>
+                                <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
+                                    <Ionicons name="link-outline" size={20} color={colors.primary} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Integrations</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Connect external services</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Calendar, Reminders, Health</Text>
                                 </View>
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>

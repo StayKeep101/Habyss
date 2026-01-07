@@ -41,6 +41,17 @@ export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
         );
     }
 
+    // True Dark - No gradients, pure black for OLED
+    if (theme === 'trueDark') {
+        return (
+            <View style={[styles.container, { backgroundColor: '#000000' }]}>
+                <StatusBar barStyle="light-content" />
+                {children}
+            </View>
+        );
+    }
+
+    // Abyss theme with gradients
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />

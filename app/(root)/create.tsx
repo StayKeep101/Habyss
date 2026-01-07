@@ -231,27 +231,27 @@ export default function GoalCreationWizard() {
                 <View style={styles.headerBtn} />
             </View>
 
-            {/* Content */}
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.content}>
+            {/* Content with Footer inside for keyboard avoidance */}
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.content} keyboardVerticalOffset={10}>
                 {renderStep()}
-            </KeyboardAvoidingView>
 
-            {/* Footer */}
-            <View style={styles.footer}>
-                <TouchableOpacity
-                    onPress={handleNext}
-                    disabled={(step === 0 && !name.trim()) || saving}
-                    style={[
-                        styles.nextBtn,
-                        { backgroundColor: (step === 0 && !name.trim()) || saving ? colors.surfaceSecondary : color }
-                    ]}
-                >
-                    <Text style={[styles.nextBtnText, { color: (step === 0 && !name.trim()) || saving ? colors.textTertiary : '#fff' }]}>
-                        {saving ? (isEditing ? 'Saving...' : 'Creating...') : step === totalSteps - 1 ? (isEditing ? 'Save Changes' : 'Create Goal') : 'Continue'}
-                    </Text>
-                    {step < totalSteps - 1 && !saving && <Ionicons name="arrow-forward" size={20} color="#fff" />}
-                </TouchableOpacity>
-            </View>
+                {/* Footer */}
+                <View style={styles.footer}>
+                    <TouchableOpacity
+                        onPress={handleNext}
+                        disabled={(step === 0 && !name.trim()) || saving}
+                        style={[
+                            styles.nextBtn,
+                            { backgroundColor: (step === 0 && !name.trim()) || saving ? colors.surfaceSecondary : color }
+                        ]}
+                    >
+                        <Text style={[styles.nextBtnText, { color: (step === 0 && !name.trim()) || saving ? colors.textTertiary : '#fff' }]}>
+                            {saving ? (isEditing ? 'Saving...' : 'Creating...') : step === totalSteps - 1 ? (isEditing ? 'Save Changes' : 'Create Goal') : 'Continue'}
+                        </Text>
+                        {step < totalSteps - 1 && !saving && <Ionicons name="arrow-forward" size={20} color="#fff" />}
+                    </TouchableOpacity>
+                </View>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }

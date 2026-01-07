@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useAppSettings } from '@/constants/AppSettingsContext';
-import { generateGreeting } from '@/lib/groq';
+import { generateGreeting, generateSmartGreeting, UserGreetingData } from '@/lib/groq';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Pro user motivational quotes by AI personality
@@ -107,7 +107,54 @@ const Home = () => {
   const [motivationalQuote, setMotivationalQuote] = useState('');
   const [displayedQuote, setDisplayedQuote] = useState('');
 
-  // Get random quote based on pro status and AI personality
+  // Generate smart greeting using user data
+  const generateUserGreeting = useCallback(async () => {
+    // Calculate inline stats for greeting (avoid referencing later-calculated useMemo variables)
+    const scheduledForToday = allHabits.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, new Date()));
+    const completedTodayCount = scheduledForToday.filter(h => completions[h.id]).length;
+
+    // Simple streak calculation from history
+    let currentStreak = 0;
+    const sortedHistory = [...historyData].sort((a, b) => b.date.localeCompare(a.date));
+    for (const day of sortedHistory) {
+      if (day.completedIds && day.completedIds.length > 0) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+
+    // Simple consistency (last 7 days)
+    const last7Days = historyData.slice(0, 7);
+    const daysWithCompletions = last7Days.filter(d => d.completedIds && d.completedIds.length > 0).length;
+    const consistencyScore = last7Days.length > 0 ? Math.round((daysWithCompletions / last7Days.length) * 100) : 0;
+
+    // Gather user data for smart greeting
+    const userData: UserGreetingData = {
+      currentStreak,
+      consistencyScore,
+      todayCompleted: completedTodayCount,
+      todayTotal: scheduledForToday.length,
+      topHabit: allHabits.find(h => !h.isGoal && !h.isArchived)?.name,
+    };
+
+    // Try smart greeting first (API-powered)
+    try {
+      const smartGreeting = await generateSmartGreeting(aiPersonality || 'mentor', userData);
+      return smartGreeting;
+    } catch {
+      // Fallback to static quotes
+      if (isPremium) {
+        const personality = aiPersonality || 'mentor';
+        const quotes = PRO_QUOTES[personality] || PRO_QUOTES.mentor;
+        return quotes[Math.floor(Math.random() * quotes.length)];
+      } else {
+        return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
+      }
+    }
+  }, [isPremium, aiPersonality, allHabits, completions, historyData]);
+
+  // Get random quote based on pro status and AI personality (fallback)
   const getRandomQuote = useCallback(() => {
     if (isPremium) {
       const personality = aiPersonality || 'mentor';
@@ -118,9 +165,14 @@ const Home = () => {
     }
   }, [isPremium, aiPersonality]);
 
-  // Set initial quote
+  // Set initial quote - use smart greeting for premium users
   useEffect(() => {
-    setMotivationalQuote(getRandomQuote());
+    if (isPremium) {
+      // Use smart greeting with user data
+      generateUserGreeting().then(q => setMotivationalQuote(q));
+    } else {
+      setMotivationalQuote(getRandomQuote());
+    }
   }, [isPremium, aiPersonality]);
 
   // Typewriter animation effect - FIXED closure bug
@@ -146,8 +198,12 @@ const Home = () => {
   // Pull-to-refresh handler - OPTIMIZED: reload all stats data here
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Change the motivational quote (triggers typewriter effect)
-    setMotivationalQuote(getRandomQuote());
+    // Generate new smart greeting with fresh data
+    if (isPremium) {
+      generateUserGreeting().then(q => setMotivationalQuote(q));
+    } else {
+      setMotivationalQuote(getRandomQuote());
+    }
     // Reload completions for today
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -157,7 +213,7 @@ const Home = () => {
     const historyResult = await getLastNDaysCompletions(90);
     setHistoryData(historyResult);
     setRefreshing(false);
-  }, [getRandomQuote]);
+  }, [isPremium, getRandomQuote, generateUserGreeting]);
 
   // Derived data
   const goals = useMemo(() => allHabits.filter(h => h.isGoal), [allHabits]);

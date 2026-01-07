@@ -19,7 +19,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { FriendsService, Friend } from '@/lib/friendsService';
 
 const { height } = Dimensions.get('window');
-const SHEET_HEIGHT = height * 0.40;
+const SHEET_HEIGHT = height * 0.50; // Increased from 0.40 to ensure button visibility
 const DRAG_THRESHOLD = 60;
 
 interface ShareHabitModalProps {
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
     sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
     sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(59, 130, 246, 0.15)', pointerEvents: 'none' },
-    content: { flex: 1, paddingHorizontal: 24, paddingTop: 28, alignItems: 'center' },
+    content: { flex: 1, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 40, alignItems: 'center' },
     title: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },
     subtitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1, fontFamily: 'Lexend_400Regular', marginTop: 2, marginBottom: 24 },
     emptyState: { alignItems: 'center', paddingVertical: 30 },

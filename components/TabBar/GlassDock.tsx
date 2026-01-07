@@ -1,63 +1,65 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions, Platform, Alert, DeviceEventEmitter } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions, Platform, DeviceEventEmitter } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Home, Calendar, Users, User, Plus } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-
+import { useAccentGradient } from '@/constants/AccentContext';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const { width } = Dimensions.get('window');
 
 interface TabIconProps {
     routeName: string;
     focused: boolean;
-    color: string;
+    colors: [string, string]; // Accent gradient colors
 }
 
-const TabIcon = ({ routeName, focused, color }: TabIconProps) => {
+const TabIcon = ({ routeName, focused, colors }: TabIconProps) => {
     const scale = useSharedValue(focused ? 1 : 1);
 
     React.useEffect(() => {
-        scale.value = withSpring(focused ? 1.2 : 1);
+        scale.value = withSpring(focused ? 1.15 : 1);
     }, [focused]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
     }));
 
-    const getIcon = () => {
-        const size = 22;
-        const strokeWidth = focused ? 2 : 1.5;
-
+    // Get Ionicons name based on route
+    const getIconName = (): keyof typeof Ionicons.glyphMap => {
         switch (routeName) {
             case 'home':
-                return <Home size={size} color={color} strokeWidth={strokeWidth} />;
+                return focused ? 'home' : 'home-outline';
             case 'roadmap':
-                return <Calendar size={size} color={color} strokeWidth={strokeWidth} />;
+                return focused ? 'map' : 'map-outline';
             case 'community':
-                return <Users size={size} color={color} strokeWidth={strokeWidth} />;
+                return focused ? 'people' : 'people-outline';
             case 'settings':
-                return <User size={size} color={color} strokeWidth={strokeWidth} />;
+                return focused ? 'settings' : 'settings-outline'; // Gear icon
             default:
-                return <Home size={size} color={color} strokeWidth={strokeWidth} />;
+                return 'home-outline';
         }
     };
 
+    const iconColor = focused ? colors[0] : 'rgba(255,255,255,0.4)';
+
     return (
         <Animated.View style={[animatedStyle, styles.iconContainer]}>
-            {getIcon()}
+            <Ionicons name={getIconName()} size={24} color={iconColor} />
+            {focused && (
+                <View style={[styles.focusDot, { backgroundColor: colors[0] }]} />
+            )}
         </Animated.View>
     );
 };
 
-import { useHaptics } from '@/hooks/useHaptics';
-
 export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { theme } = useTheme();
-    const colors = Colors[theme];
+    const themeColors = Colors[theme];
+    const { colors: accentColors, shadowColor } = useAccentGradient();
     const { mediumFeedback, selectionFeedback } = useHaptics();
 
     return (
@@ -85,8 +87,6 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                             }
                         };
 
-                        const iconColor = isFocused ? '#8BADD6' : 'rgba(255,255,255,0.4)';
-
                         return (
                             <TouchableOpacity
                                 key={route.key}
@@ -94,25 +94,24 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                 onPress={onPress}
                                 style={styles.tabButton}
                             >
-                                <TabIcon routeName={route.name} focused={isFocused} color={iconColor} />
+                                <TabIcon routeName={route.name} focused={isFocused} colors={accentColors} />
                             </TouchableOpacity>
                         );
                     })}
                 </View>
             </BlurView>
 
-            {/* 2. Creation Orb (Plus Button) */}
+            {/* 2. Creation Orb (Plus Button) - Uses accent gradient */}
             <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => {
                     mediumFeedback();
-                    // Emit event for home.tsx to show creation modal
                     DeviceEventEmitter.emit('show_creation_modal');
                 }}
-                style={styles.orbContainer}
+                style={[styles.orbContainer, { shadowColor }]}
             >
                 <LinearGradient
-                    colors={['#3A5A8C', '#8BADD6']}
+                    colors={accentColors}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.orbGradient}
@@ -177,23 +176,16 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    glowDot: {
+    focusDot: {
         width: 4,
         height: 4,
         borderRadius: 2,
         marginTop: 4,
-        position: 'absolute',
-        bottom: -8,
-        shadowColor: "#fff",
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 4,
     },
     orbContainer: {
         width: 64,
         height: 64,
         borderRadius: 32,
-        shadowColor: "#8BADD6",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
         shadowRadius: 12,

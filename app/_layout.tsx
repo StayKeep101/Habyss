@@ -17,6 +17,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 import { AppSettingsProvider } from '@/constants/AppSettingsContext';
+import { AccentProvider } from '@/constants/AccentContext';
 import { CreationModal } from '@/components/CreationModal';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
 
@@ -67,9 +68,11 @@ export default function MobileLayout() {
       {/* <StripeAppProvider> */}
       <AppSettingsProvider>
         <AIPersonalityProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <InnerLayout />
-          </GestureHandlerRootView>
+          <AccentProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <InnerLayout />
+            </GestureHandlerRootView>
+          </AccentProvider>
         </AIPersonalityProvider>
       </AppSettingsProvider>
       {/* </StripeAppProvider> */}

@@ -3,45 +3,45 @@
  * Based on BRAND.md and FIGMA_FILE.md
  */
 
-const tintColorLight = '#3A5A8C';
-const tintColorDark = '#8BADD6';
+const tintColorLight = '#3B82F6';
+const tintColorDark = '#8B5CF6';
 
 export const Colors = {
   light: {
     text: '#1F2937', // Text Primary
-    background: '#F8F9FA', // Background Light
+    background: '#FFFFFF', // Pure white background
     tint: tintColorLight,
     tabIconDefault: '#9CA3AF', // Text Tertiary
     tabIconSelected: tintColorLight,
 
-    // Brand Colors
-    primary: '#3A5A8C', // Deep Blue
-    primaryLight: '#8BADD6', // Light Blue
-    primaryDark: '#2A4470', // Blue-900 (Deepest)
-    secondary: '#5B7FB8', // Mid Blue
-    accent: '#FF6B6B', // Energetic Coral
+    // Brand Colors - Keep the Habyss vibe with blues/purples
+    primary: '#3B82F6', // Blue-500
+    primaryLight: '#60A5FA', // Blue-400
+    primaryDark: '#2563EB', // Blue-600
+    secondary: '#8B5CF6', // Violet-500
+    accent: '#EC4899', // Pink-500
 
     // Status
-    success: '#10B981', // Semantic Success
-    brandSuccess: '#4ECDC4', // Success Green
-    warning: '#F59E0B',
-    error: '#EF4444',
+    success: '#10B981', // Emerald-500
+    brandSuccess: '#4ECDC4', // Teal
+    warning: '#F59E0B', // Amber-500
+    error: '#EF4444', // Red-500
 
-    // Surfaces
-    surface: '#FFFFFF',
-    surfaceSecondary: '#F3F4F6', // Gray-100 ish for secondary surfaces
-    surfaceTertiary: '#E5E7EB', // Border Light color used as tertiary surface if needed
+    // Surfaces - Light mode surfaces
+    surface: '#FFFFFF', // Pure white
+    surfaceSecondary: '#F8FAFC', // Slate-50 - very subtle gray
+    surfaceTertiary: '#F1F5F9', // Slate-100
 
-    border: '#E5E7EB',
-    borderLight: '#F3F4F6',
+    border: '#E2E8F0', // Slate-200
+    borderLight: '#F1F5F9', // Slate-100
 
-    textPrimary: '#1F2937',
-    textSecondary: '#6B7280',
-    textTertiary: '#9CA3AF',
+    textPrimary: '#0F172A', // Slate-900 - almost black
+    textSecondary: '#475569', // Slate-600
+    textTertiary: '#94A3B8', // Slate-400
 
-    // Gradients
-    gradientStart: '#3A5A8C',
-    gradientEnd: '#5B7FB8',
+    // Gradients - Use vibrant Habyss colors for light mode
+    gradientStart: '#3B82F6', // Blue-500
+    gradientEnd: '#8B5CF6', // Violet-500
   },
   abyss: {
     text: '#E0E6ED', // High Emphasis (Cloud White)
@@ -81,39 +81,39 @@ export const Colors = {
   },
   trueDark: {
     text: '#FFFFFF',
-    background: '#000000', // Pure Black
-    tint: tintColorDark,
-    tabIconDefault: '#6B7280',
-    tabIconSelected: tintColorDark,
+    background: '#000000', // Pure Black - OLED
+    tint: '#8BADD6', // Muted Light Blue (same as abyss)
+    tabIconDefault: '#4B5563', // Darker icons
+    tabIconSelected: '#8BADD6', // Muted Light Blue
 
-    // Brand Colors
-    primary: '#8BADD6', // Light Blue
-    primaryLight: '#C8D9ED', // Blue-100
-    primaryDark: '#5B7FB8', // Mid Blue
-    secondary: '#5B7FB8',
-    accent: '#FF6B6B',
+    // Brand Colors - Use muted blue (accent color via context overrides these)
+    primary: '#8BADD6', // Muted Light Blue (not purple)
+    primaryLight: '#A8C4E0', // Lighter blue
+    primaryDark: '#5B7FB8', // Mid blue
+    secondary: '#3A5A8C', // Deep blue
+    accent: '#8BADD6', // Muted blue
 
     // Status
-    success: '#34D399',
+    success: '#10B981', // Emerald-500
     brandSuccess: '#4ECDC4',
-    warning: '#FBBF24',
-    error: '#F87171',
+    warning: '#F59E0B',
+    error: '#EF4444',
 
-    // Surfaces
-    surface: '#121212', // Slightly off-black for OLED contrast
-    surfaceSecondary: '#1C1C1E', // Standard iOS dark gray
-    surfaceTertiary: '#2C2C2E',
+    // Surfaces - Pure blacks for OLED
+    surface: '#000000', // Pure black
+    surfaceSecondary: '#0A0A0A', // Nearly pure black
+    surfaceTertiary: '#171717', // Very dark gray
 
-    border: '#333333',
-    borderLight: '#444444',
+    border: '#262626', // Neutral-800
+    borderLight: '#3F3F46', // Zinc-700
 
     textPrimary: '#FFFFFF',
-    textSecondary: '#A1A1AA', // Gray-400 equivalent
-    textTertiary: '#71717A', // Gray-500
+    textSecondary: '#A1A1AA', // Zinc-400
+    textTertiary: '#71717A', // Zinc-500
 
-    // Gradients
-    gradientStart: '#3A5A8C',
-    gradientEnd: '#5B7FB8',
+    // Gradients - No gradients in true dark, use solid colors
+    gradientStart: '#000000',
+    gradientEnd: '#000000',
   },
   common: {
     black: '#000000',
