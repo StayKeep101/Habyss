@@ -48,6 +48,7 @@ import {
     AgentAction,
     AVAILABLE_ACTIONS,
 } from '@/lib/aiAgentService';
+import { getHabits, addHabit, updateHabit, removeHabitEverywhere } from '@/lib/habits'; // Static import to avoid async-require issues
 
 const { width, height } = Dimensions.get('window');
 
@@ -139,9 +140,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
 
     useEffect(() => {
         if (visible) {
-            import('@/lib/habits').then(({ getHabits }) => {
-                getHabits().then(setHabits);
-            });
+            getHabits().then(setHabits);
         }
     }, [visible]);
 
@@ -247,7 +246,6 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
 
                     } else if (isHabitAction) {
                         // Original habit logic
-                        const { addHabit, updateHabit, removeHabitEverywhere, getHabits } = await import('@/lib/habits');
 
                         if (actionData.action === 'create') {
                             await addHabit({

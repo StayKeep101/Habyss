@@ -17,6 +17,7 @@ import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
+import { clearHabitsCache } from '@/lib/habits'; // Static import to avoid async-require issues
 
 // Settings configuration
 interface SettingOption {
@@ -294,7 +295,6 @@ export default function ProfileScreen() {
 
     const handleLogout = async () => {
         // Clear all cached user data before logging out
-        const { clearHabitsCache } = await import('@/lib/habits');
         clearHabitsCache();
 
         await supabase.auth.signOut();

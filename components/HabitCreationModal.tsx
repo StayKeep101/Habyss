@@ -38,7 +38,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { addHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit } from '@/lib/habits';
+import { addHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit, getGoals } from '@/lib/habits'; // Static import including getGoals
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { TopDragHandle } from './TopDragHandle';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -326,6 +326,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         const unsub = subscribeToHabits((habits) => {
             setAvailableGoals(habits.filter(h => h.isGoal));
         });
+        // Also fetch initial state immediately
+        getGoals().then(setAvailableGoals);
         return () => { unsub.then(fn => fn()) };
     }, []);
 

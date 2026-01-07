@@ -221,6 +221,12 @@ export async function getHabits(): Promise<Habit[]> {
   }
 }
 
+
+export async function getGoals(): Promise<Habit[]> {
+  const habits = await getHabits();
+  return habits.filter(h => h.isGoal);
+}
+
 export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null> {
   const uid = await getUserId();
   if (!uid) return null;
