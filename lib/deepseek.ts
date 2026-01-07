@@ -120,7 +120,9 @@ export interface UserGreetingData {
     todayCompleted: number;
     todayTotal: number;
     recentMissedHabits?: string[];
-    topHabit?: string;
+    topHabit?: string; // Kept for backward compatibility
+    bestHabit?: string; // New: High completion rate
+    strugglingHabit?: string; // New: Low completion rate
     daysSinceStart?: number;
     username?: string;
 }
@@ -251,7 +253,9 @@ export const generateSmartGreeting = async (
         // User context as a structured message for consistent caching
         const userContext = `Personality: ${personality} (${personalityGuidelines})
 Stats: ${userData.currentStreak}-day streak, ${userData.consistencyScore}% consistency, ${userData.todayCompleted}/${userData.todayTotal} today.
-${userData.topHabit ? `Top habit: ${userData.topHabit}` : ''}
+${userData.bestHabit ? `Best habit (crushing it): ${userData.bestHabit}` : ''}
+${userData.strugglingHabit ? `Struggling with: ${userData.strugglingHabit}` : ''}
+${userData.topHabit && !userData.bestHabit ? `Top habit: ${userData.topHabit}` : ''}
 Generate a personalized greeting.`;
 
         const response = await fetch(DEEPSEEK_API_URL, {

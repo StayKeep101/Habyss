@@ -112,8 +112,9 @@ const Home = () => {
 
   // Generate smart greeting using user data
   const generateUserGreeting = useCallback(async () => {
-    // Calculate inline stats for greeting (avoid referencing later-calculated useMemo variables)
-    const scheduledForToday = allHabits.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, new Date()));
+    // Calculate inline stats for greeting
+    const activeHabits = allHabits.filter(h => !h.isGoal && !h.isArchived);
+    const scheduledForToday = activeHabits.filter(h => isHabitScheduledForDate(h, new Date()));
     const completedTodayCount = scheduledForToday.filter(h => completions[h.id]).length;
 
     // Simple streak calculation from history
@@ -132,13 +133,28 @@ const Home = () => {
     const daysWithCompletions = last7Days.filter(d => d.completedIds && d.completedIds.length > 0).length;
     const consistencyScore = last7Days.length > 0 ? Math.round((daysWithCompletions / last7Days.length) * 100) : 0;
 
+    // Identify Best & Struggling habits (Last 7 days)
+    const habitCounts: Record<string, number> = {};
+    activeHabits.forEach(h => habitCounts[h.id] = 0);
+    last7Days.forEach(day => {
+      day.completedIds?.forEach(id => { if (habitCounts[id] !== undefined) habitCounts[id]++; });
+    });
+
+    const sortedStats = activeHabits.sort((a, b) => habitCounts[b.id] - habitCounts[a.id]);
+    const bestHabitName = sortedStats.length > 0 && habitCounts[sortedStats[0].id] > 0 ? sortedStats[0].name : undefined;
+    const strugglingHabitName = sortedStats.length > 1 && habitCounts[sortedStats[sortedStats.length - 1].id] < 3
+      ? sortedStats[sortedStats.length - 1].name
+      : undefined;
+
     // Gather user data for smart greeting
     const userData: UserGreetingData = {
       currentStreak,
       consistencyScore,
       todayCompleted: completedTodayCount,
       todayTotal: scheduledForToday.length,
-      topHabit: allHabits.find(h => !h.isGoal && !h.isArchived)?.name,
+      bestHabit: bestHabitName,
+      strugglingHabit: strugglingHabitName,
+      topHabit: bestHabitName, // Fallback
     };
 
     // ONLY call API if greetingStyle is 'ai' - otherwise use static quotes

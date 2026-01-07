@@ -683,100 +683,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             </View>
                                         </View>
 
-                                        {/* Frequency */}
-                                        <View style={[styles.gridItem, { width: '100%' }]}>
-                                            <Text style={styles.gridLabel}>FREQUENCY</Text>
-                                            <View style={styles.segmentContainer}>
-                                                {(['daily', 'weekly', 'monthly'] as HabitFrequency[]).map(f => (
-                                                    <TouchableOpacity
-                                                        key={f}
-                                                        onPress={() => {
-                                                            selectionFeedback();
-                                                            setFrequency(f);
-                                                            // Clear selected days when switching to weekly (user must choose)
-                                                            if (f === 'weekly' && frequency !== 'weekly') {
-                                                                setSelectedDays([]);
-                                                            }
-                                                            // Reset to all days when switching to daily
-                                                            if (f === 'daily') {
-                                                                setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
-                                                            }
-                                                            // Monthly doesn't need specific days
-                                                            if (f === 'monthly') {
-                                                                setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
-                                                            }
-                                                        }}
-                                                        style={[styles.segmentBtn, frequency === f && { backgroundColor: 'rgba(255,255,255,0.1)' }]}
-                                                    >
-                                                        <Text style={{ color: frequency === f ? '#fff' : 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600' }}>
-                                                            {f.toUpperCase()}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </View>
-                                            {frequency === 'weekly' && (
-                                                <>
-                                                    {/* Week Interval Selector */}
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12, marginBottom: 8 }}>
-                                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginRight: 8 }}>Every</Text>
-                                                        {[1, 2, 3, 4].map(interval => (
-                                                            <TouchableOpacity
-                                                                key={interval}
-                                                                onPress={() => { selectionFeedback(); setWeekInterval(interval); }}
-                                                                style={[styles.dayCircle, { marginHorizontal: 4 }, weekInterval === interval && { backgroundColor: selectedColor, borderColor: selectedColor }]}
-                                                            >
-                                                                <Text style={{ fontSize: 11, color: weekInterval === interval ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '700' }}>
-                                                                    {interval}
-                                                                </Text>
-                                                            </TouchableOpacity>
-                                                        ))}
-                                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginLeft: 8 }}>week{weekInterval > 1 ? 's' : ''}</Text>
-                                                    </View>
-                                                    {/* Day Selection */}
-                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                                                        {WEEKDAYS.map(day => (
-                                                            <TouchableOpacity
-                                                                key={day.id}
-                                                                onPress={() => toggleDay(day.id)}
-                                                                style={[styles.dayCircle, selectedDays.includes(day.id) && { backgroundColor: selectedColor, borderColor: selectedColor }]}
-                                                            >
-                                                                <Text style={{ fontSize: 9, color: selectedDays.includes(day.id) ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '700' }}>
-                                                                    {day.label[0]}
-                                                                </Text>
-                                                            </TouchableOpacity>
-                                                        ))}
-                                                    </View>
-                                                    {selectedDays.length === 0 && (
-                                                        <Text style={{ color: '#EF4444', fontSize: 10, textAlign: 'center', marginTop: 6 }}>Select at least one day</Text>
-                                                    )}
-                                                </>
-                                            )}
-                                            {frequency === 'monthly' && (
-                                                <View style={{ marginTop: 12 }}>
-                                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, textAlign: 'center', marginBottom: 8 }}>Repeat on day</Text>
-                                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 }}>
-                                                        {[1, 5, 10, 15, 20, 25, 28].map(day => (
-                                                            <TouchableOpacity
-                                                                key={day}
-                                                                onPress={() => { selectionFeedback(); setMonthDay(day); }}
-                                                                style={[
-                                                                    styles.dayCircle,
-                                                                    { width: 36, height: 36 },
-                                                                    monthDay === day && { backgroundColor: selectedColor, borderColor: selectedColor }
-                                                                ]}
-                                                            >
-                                                                <Text style={{ fontSize: 12, color: monthDay === day ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '700' }}>
-                                                                    {day}
-                                                                </Text>
-                                                            </TouchableOpacity>
-                                                        ))}
-                                                    </View>
-                                                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, textAlign: 'center', marginTop: 8 }}>
-                                                        Habit will repeat on the {monthDay}{monthDay === 1 ? 'st' : monthDay === 2 ? 'nd' : monthDay === 3 ? 'rd' : 'th'} of each month
-                                                    </Text>
-                                                </View>
-                                            )}
-                                        </View>
+                                        {/* Frequency Section REMOVED */}
 
                                         {/* Time Picker Trigger */}
                                         <TouchableOpacity
@@ -875,7 +782,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* COLOR OVERLAY */}
                             {activeOverlay === 'color' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.6 }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8 }]}>
                                     <OverlayHeader title="Choose Color" onClose={() => setActiveOverlay('none')} />
 
                                     {/* Selected Color Preview */}
@@ -896,9 +803,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     </View>
 
                                     {/* Scrollable content for presets + custom */}
-                                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+                                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
                                         {/* Preset Colors */}
-                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 1 }}>PRESETS</Text>
+                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 16, letterSpacing: 1 }}>PRESETS</Text>
                                         <View style={styles.colorGrid}>
                                             {COLORS.map(c => (
                                                 <TouchableOpacity
