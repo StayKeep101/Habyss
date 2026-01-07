@@ -39,20 +39,16 @@ const TabIcon = ({ routeName, focused, colors, isDark }: TabIconProps) => {
             case 'community':
                 return focused ? 'people' : 'people-outline';
             case 'settings':
-                return focused ? 'settings' : 'settings-outline'; // Gear icon
+                return focused ? 'settings' : 'settings-outline';
             default:
                 return 'home-outline';
         }
     };
 
-    const iconColor = focused ? colors[0] : (
-        // Check if we can access theme here, otherwise pass it as prop or context
-        // TabIcon is inside GlassDock which has theme access, but separate component.
-        // Let's pass theme or determine color based on context if possible, but keep simple.
-        // We will pass 'isDark' prop to TabIcon or just fix it in parent.
-        // Actually, let's fix in parent.
-        'rgba(255,255,255,0.4)' // Default invalid, will override in parent
-    );
+    // When focused, use accent color; otherwise white for dark mode, dark for light mode
+    const iconColor = focused
+        ? colors[0]
+        : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)');
 
     return (
         <Animated.View style={[animatedStyle, styles.iconContainer]}>

@@ -17,7 +17,8 @@ import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
-import { clearHabitsCache } from '@/lib/habits'; // Static import to avoid async-require issues
+import { clearHabitsCache } from '@/lib/habits';
+import { AIConfigModal } from '@/components/AIConfigModal';
 
 // Settings configuration
 interface SettingOption {
@@ -46,6 +47,7 @@ export default function ProfileScreen() {
     const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
     const [saving, setSaving] = useState(false);
     const [showEditProfile, setShowEditProfile] = useState(false);
+    const [showAIConfig, setShowAIConfig] = useState(false);
 
     // Settings state - use global context
     const {
@@ -387,13 +389,13 @@ export default function ProfileScreen() {
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>APP PREFERENCES</Text>
                         <VoidCard style={styles.sectionCard}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/ai-settings'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); setShowAIConfig(true); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
                                     <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
                                 </View>
                                 <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>AI Personality</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Customize your AI coach</Text>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>AI Configuration</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Personality & greeting settings</Text>
                                 </View>
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
@@ -552,6 +554,10 @@ export default function ProfileScreen() {
                     });
                     if (newAvatarUri) setAvatarUri(newAvatarUri);
                 }}
+            />
+            <AIConfigModal
+                visible={showAIConfig}
+                onClose={() => setShowAIConfig(false)}
             />
         </VoidShell>
     );

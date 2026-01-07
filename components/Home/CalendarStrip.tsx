@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { View, Text, FlatList, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -23,12 +23,16 @@ interface DateItem {
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_WIDTH / 7;
 
-const DateButton = React.memo(({ item, selected, isToday, onSelect, width, colors, accentColor }: any) => {
+const DateButton = React.memo(({ item, selected, isToday, onSelect, width, colors, accentColor, isLight }: any) => {
   const size = 34;
   const strokeWidth = 3.5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const progressOffset = circumference - (item.progress * circumference);
+
+  const trackColor = isLight
+    ? (selected ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.08)')
+    : (selected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)');
 
   return (
     <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
@@ -48,7 +52,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke={selected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)'}
+                stroke={trackColor}
                 strokeWidth={strokeWidth}
                 fill="transparent"
               />
@@ -57,7 +61,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke={selected ? 'white' : accentColor} // Use accent color for progress arc
+                stroke={selected ? (isLight ? 'black' : 'white') : accentColor}
                 strokeWidth={strokeWidth}
                 fill="transparent"
                 strokeDasharray={`${circumference} ${circumference}`}
@@ -70,13 +74,12 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
           {/* Inner Circle (Solid if selected, else transparent or subtle) */}
           <View
             style={{
-              width: size - 8, // Smaller inner circle
+              width: size - 8,
               height: size - 8,
               borderRadius: (size - 8) / 2,
               backgroundColor: selected ? accentColor : 'transparent',
               alignItems: 'center',
               justifyContent: 'center',
-              // Optional: Add a subtle fill for non-selected if needed, or keep transparent
             }}
           >
             <Text
@@ -101,8 +104,9 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
 });
 
 export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSelectDate, completionData = {} }) => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const { theme } = useTheme();
+  const colors = Colors[theme];
+  const isLight = theme === 'light';
   const { primary: accentColor } = useAccentGradient();
   const flatListRef = useRef<FlatList>(null);
 
@@ -195,9 +199,10 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
         width={ITEM_WIDTH}
         colors={colors}
         accentColor={accentColor}
+        isLight={isLight}
       />
     );
-  }, [selectedDate, colors, onSelectDate, accentColor]);
+  }, [selectedDate, colors, onSelectDate, accentColor, isLight]);
 
   const getItemLayout = (_: any, index: number) => ({
     length: ITEM_WIDTH,
@@ -262,10 +267,10 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
 
         <View className="items-center">
           <TouchableOpacity onPress={() => onSelectDate(new Date())} className="items-center">
-            <Text className="font-display mb-0" style={{ fontSize: 24, color: 'white' }}>
+            <Text className="font-display mb-0" style={{ fontSize: 24, color: colors.textPrimary }}>
               {headerTitle}
             </Text>
-            <Text className="text-sm font-inter-medium" style={{ color: '#AFC3E8' }}>
+            <Text className="text-sm font-inter-medium" style={{ color: colors.primary }}>
               {headerDate}
             </Text>
           </TouchableOpacity>

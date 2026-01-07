@@ -4,6 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { VoidCard } from '../Layout/VoidCard';
+import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/constants/themeContext';
 
 interface GoalsProgressBarProps {
     progress: number; // 0-100
@@ -12,6 +14,10 @@ interface GoalsProgressBarProps {
 }
 
 export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, onPress, goalsCount }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+
     const animatedWidth = useSharedValue(0);
 
     React.useEffect(() => {
@@ -24,20 +30,20 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-            <VoidCard glass intensity={80} style={styles.container}>
+            <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.header}>
                     <View style={styles.titleRow}>
                         <Ionicons name="flag" size={16} color="#A78BFA" />
-                        <Text style={styles.title}>GOALS PROGRESS</Text>
+                        <Text style={[styles.title, { color: colors.textPrimary }]}>GOALS PROGRESS</Text>
                     </View>
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{goalsCount}</Text>
-                        <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.4)" />
+                    <View style={[styles.badge, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
+                        <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{goalsCount}</Text>
+                        <Ionicons name="chevron-forward" size={12} color={colors.textTertiary} />
                     </View>
                 </View>
 
                 <View style={styles.progressContainer}>
-                    <View style={styles.progressBg}>
+                    <View style={[styles.progressBg, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }]}>
                         <Animated.View style={[styles.progressFill, progressStyle]}>
                             <LinearGradient
                                 colors={['#8B5CF6', '#A78BFA']}
@@ -47,10 +53,10 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
                             />
                         </Animated.View>
                     </View>
-                    <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+                    <Text style={[styles.progressText, { color: colors.textPrimary }]}>{Math.round(progress)}%</Text>
                 </View>
 
-                <Text style={styles.subtitle}>TRACK YOUR ACTIVE MISSIONS</Text>
+                <Text style={[styles.subtitle, { color: colors.textTertiary }]}>TRACK YOUR ACTIVE MISSIONS</Text>
             </VoidCard>
         </TouchableOpacity>
     );
@@ -59,7 +65,6 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
 const styles = StyleSheet.create({
     container: {
         padding: 20,
-        // No border here, relying on VoidCard default subtle border
     },
     header: {
         flexDirection: 'row',
@@ -73,23 +78,20 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     title: {
-        color: '#fff',
         fontSize: 14,
         fontWeight: '900',
-        letterSpacing: 1.5, // Matches Analytics Title
+        letterSpacing: 1.5,
         fontFamily: 'Lexend',
     },
     badge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 12,
         gap: 4,
     },
     badgeText: {
-        color: 'rgba(255,255,255,0.6)',
         fontSize: 12,
         fontWeight: 'bold',
         fontFamily: 'Lexend',
@@ -104,7 +106,6 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 6,
         borderRadius: 3,
-        backgroundColor: 'rgba(255,255,255,0.08)',
         overflow: 'hidden',
     },
     progressFill: {
@@ -112,7 +113,6 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     progressText: {
-        color: '#fff',
         fontSize: 24,
         fontWeight: '900',
         fontFamily: 'Lexend',
@@ -120,7 +120,6 @@ const styles = StyleSheet.create({
         textAlign: 'right',
     },
     subtitle: {
-        color: 'rgba(255,255,255,0.4)',
         fontSize: 10,
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',

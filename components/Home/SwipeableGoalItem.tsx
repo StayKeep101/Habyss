@@ -24,6 +24,7 @@ export const SwipeableGoalItem: React.FC<SwipeableGoalItemProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const isLight = theme === 'light';
     const swipeableRef = useRef<Swipeable>(null);
     const router = useRouter();
     const [expanded, setExpanded] = useState(false);
@@ -98,25 +99,28 @@ export const SwipeableGoalItem: React.FC<SwipeableGoalItemProps> = ({
             >
                 <TouchableOpacity
                     activeOpacity={0.8}
-                    onPress={() => setExpanded(!expanded)}  // Toggle habits view on tap
-                    style={styles.cardWrapper}
+                    onPress={() => setExpanded(!expanded)}
+                    style={[styles.cardWrapper, { backgroundColor: isLight ? colors.surfaceSecondary : '#0a0d14' }]}
                 >
-                    <View style={[styles.card, { borderColor: (goal.color || '#8B5CF6') + '30' }]}>
+                    <View style={[styles.card, {
+                        borderColor: (goal.color || '#8B5CF6') + '30',
+                        backgroundColor: isLight ? colors.surface : 'rgba(255,255,255,0.02)'
+                    }]}>
                         <View style={[styles.iconContainer, { backgroundColor: (goal.color || '#8B5CF6') + '15' }]}>
                             <Ionicons name={(goal.icon as any) || 'flag'} size={18} color={goal.color || '#8B5CF6'} />
                         </View>
                         <View style={{ flex: 1 }}>
                             <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>{goal.name}</Text>
                             <View style={styles.progressRow}>
-                                <View style={styles.progressBar}>
+                                <View style={[styles.progressBar, { backgroundColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)' }]}>
                                     <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: goal.color || '#8B5CF6' }]} />
                                 </View>
                                 <Text style={[styles.progressText, { color: goal.color || '#8B5CF6' }]}>{progress}%</Text>
                             </View>
                         </View>
                         <View style={styles.habitCount}>
-                            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color="rgba(255,255,255,0.4)" />
-                            <Text style={styles.habitCountText}>{linkedHabits.length}</Text>
+                            <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textTertiary} />
+                            <Text style={[styles.habitCountText, { color: colors.textTertiary }]}>{linkedHabits.length}</Text>
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -124,15 +128,15 @@ export const SwipeableGoalItem: React.FC<SwipeableGoalItemProps> = ({
 
             {/* Expanded Habits List */}
             {expanded && linkedHabits.length > 0 && (
-                <View style={styles.habitsContainer}>
+                <View style={[styles.habitsContainer, { borderLeftColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)' }]}>
                     {linkedHabits.map(habit => (
                         <TouchableOpacity
                             key={habit.id}
                             onPress={() => onHabitPress?.(habit)}
                             style={styles.habitRow}
                         >
-                            <View style={[styles.habitDot, { backgroundColor: (habit as any).completed ? colors.success : 'rgba(255,255,255,0.2)' }]} />
-                            <Text style={[styles.habitName, (habit as any).completed && { textDecorationLine: 'line-through', opacity: 0.6 }]} numberOfLines={1}>
+                            <View style={[styles.habitDot, { backgroundColor: (habit as any).completed ? colors.success : (isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)') }]} />
+                            <Text style={[styles.habitName, { color: colors.textSecondary }, (habit as any).completed && { textDecorationLine: 'line-through', opacity: 0.6 }]} numberOfLines={1}>
                                 {habit.name}
                             </Text>
                             {(habit as any).completed && <Ionicons name="checkmark" size={14} color={colors.success} />}
@@ -153,7 +157,6 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     cardWrapper: {
-        backgroundColor: '#0a0d14',
     },
     card: {
         flexDirection: 'row',
@@ -161,7 +164,6 @@ const styles = StyleSheet.create({
         padding: 14,
         borderRadius: 14,
         borderWidth: 1,
-        backgroundColor: 'rgba(255,255,255,0.02)',
     },
     iconContainer: {
         width: 40,
@@ -184,7 +186,6 @@ const styles = StyleSheet.create({
     progressBar: {
         flex: 1,
         height: 4,
-        backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 2,
         overflow: 'hidden',
     },
@@ -204,7 +205,6 @@ const styles = StyleSheet.create({
     },
     habitCountText: {
         fontSize: 10,
-        color: 'rgba(255,255,255,0.4)',
         marginTop: 2,
     },
     leftAction: {
@@ -238,7 +238,6 @@ const styles = StyleSheet.create({
         marginLeft: 54,
         paddingLeft: 14,
         borderLeftWidth: 2,
-        borderLeftColor: 'rgba(255,255,255,0.05)',
     },
     habitRow: {
         flexDirection: 'row',
@@ -255,6 +254,5 @@ const styles = StyleSheet.create({
     habitName: {
         flex: 1,
         fontSize: 13,
-        color: 'rgba(255,255,255,0.7)',
     },
 });

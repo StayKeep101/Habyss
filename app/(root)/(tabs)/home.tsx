@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useAppSettings } from '@/constants/AppSettingsContext';
-import { generateGreeting, generateSmartGreeting, UserGreetingData } from '@/lib/groq';
+import { generateGreeting, generateSmartGreeting, UserGreetingData } from '@/lib/deepseek';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Pro user motivational quotes by AI personality
@@ -66,6 +66,8 @@ const FREE_PROMOS = [
   "Get AI-powered habit suggestions with Pro",
 ];
 
+import { useTheme } from '@/constants/themeContext';
+
 // New Dashboard Components
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { StreakCard } from '@/components/Home/StreakCard';
@@ -77,14 +79,15 @@ import { ConsistencyModal } from '@/components/Home/ConsistencyModal';
 
 const Home = () => {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  const { theme } = useTheme();
+  const colors = Colors[theme];
+  const isLight = theme === 'light';
   const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
   const { width } = Dimensions.get('window');
 
   // Pro Hooks
   const { isPremium } = usePremiumStatus();
-  const { aiPersonality } = useAppSettings();
+  const { aiPersonality, greetingStyle } = useAppSettings();
 
   // Data state
   const [allHabits, setAllHabits] = useState<Habit[]>([]);
@@ -138,12 +141,9 @@ const Home = () => {
       topHabit: allHabits.find(h => !h.isGoal && !h.isArchived)?.name,
     };
 
-    // Try smart greeting first (API-powered)
-    try {
-      const smartGreeting = await generateSmartGreeting(aiPersonality || 'mentor', userData);
-      return smartGreeting;
-    } catch {
-      // Fallback to static quotes
+    // ONLY call API if greetingStyle is 'ai' - otherwise use static quotes
+    if (greetingStyle !== 'ai') {
+      // Use static quotes - NO API CALLS
       if (isPremium) {
         const personality = aiPersonality || 'mentor';
         const quotes = PRO_QUOTES[personality] || PRO_QUOTES.mentor;
@@ -152,7 +152,22 @@ const Home = () => {
         return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
       }
     }
-  }, [isPremium, aiPersonality, allHabits, completions, historyData]);
+
+    // AI mode - try smart greeting (API-powered)
+    try {
+      const smartGreeting = await generateSmartGreeting(aiPersonality || 'mentor', userData);
+      return smartGreeting;
+    } catch {
+      // Fallback to static quotes on error
+      if (isPremium) {
+        const personality = aiPersonality || 'mentor';
+        const quotes = PRO_QUOTES[personality] || PRO_QUOTES.mentor;
+        return quotes[Math.floor(Math.random() * quotes.length)];
+      } else {
+        return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
+      }
+    }
+  }, [isPremium, aiPersonality, allHabits, completions, historyData, greetingStyle]);
 
   // Get random quote based on pro status and AI personality (fallback)
   const getRandomQuote = useCallback(() => {
@@ -165,15 +180,16 @@ const Home = () => {
     }
   }, [isPremium, aiPersonality]);
 
-  // Set initial quote - use smart greeting for premium users
+  // Set initial quote - use smart greeting for premium users with AI setting
   useEffect(() => {
-    if (isPremium) {
-      // Use smart greeting with user data
+    // Premium users with AI greeting style get smart AI-generated greetings
+    if (isPremium && greetingStyle === 'ai') {
       generateUserGreeting().then(q => setMotivationalQuote(q));
     } else {
+      // Non-premium users or those who prefer quotes-only
       setMotivationalQuote(getRandomQuote());
     }
-  }, [isPremium, aiPersonality]);
+  }, [isPremium, aiPersonality, greetingStyle]);
 
   // Typewriter animation effect - FIXED closure bug
   useEffect(() => {
@@ -198,8 +214,8 @@ const Home = () => {
   // Pull-to-refresh handler - OPTIMIZED: reload all stats data here
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Generate new smart greeting with fresh data
-    if (isPremium) {
+    // Generate new greeting based on preference
+    if (isPremium && greetingStyle === 'ai') {
       generateUserGreeting().then(q => setMotivationalQuote(q));
     } else {
       setMotivationalQuote(getRandomQuote());
@@ -213,7 +229,7 @@ const Home = () => {
     const historyResult = await getLastNDaysCompletions(90);
     setHistoryData(historyResult);
     setRefreshing(false);
-  }, [isPremium, getRandomQuote, generateUserGreeting]);
+  }, [isPremium, greetingStyle, getRandomQuote, generateUserGreeting]);
 
   // Derived data
   const goals = useMemo(() => allHabits.filter(h => h.isGoal), [allHabits]);
@@ -231,11 +247,12 @@ const Home = () => {
 
       loadData();
 
-      // Update greeting if premium
-      if (isPremium) {
+      // Update greeting ONLY if premium AND using AI greeting style
+      // This prevents unnecessary API calls when quotes-only is selected
+      if (isPremium && greetingStyle === 'ai') {
         generateGreeting(aiPersonality).then(g => setGreeting(g));
       }
-    }, [isPremium, aiPersonality])
+    }, [isPremium, aiPersonality, greetingStyle])
   );
 
   // Subscribe to habits
@@ -500,31 +517,54 @@ const Home = () => {
           }
         >
 
-          {/* Header */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: isPremium ? 12 : 20 }}>
-            {/* Profile Avatar - Clean and consistent */}
-            <TouchableOpacity onPress={handleProfilePress}>
-              <View style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                borderWidth: isPremium ? 2 : 1,
-                borderColor: isPremium ? '#8B5CF6' : 'rgba(255,255,255,0.2)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-              }}>
-                {profileAvatar ? (
-                  <Image source={{ uri: profileAvatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                ) : (
-                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="person" size={20} color="rgba(255,255,255,0.6)" />
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
+          {/* Header Row */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 20 }}>
+            {/* Left: Profile + AI Greeting */}
+            <View style={{ flex: 1, marginRight: 12 }}>
+              {/* Profile Avatar */}
+              <TouchableOpacity onPress={handleProfilePress} style={{ marginBottom: 12 }}>
+                <View style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 26,
+                  borderWidth: isPremium ? 2 : 1,
+                  borderColor: isPremium ? '#8B5CF6' : 'rgba(255,255,255,0.2)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                }}>
+                  {profileAvatar ? (
+                    <Image source={{ uri: profileAvatar }} style={{ width: 48, height: 48, borderRadius: 24 }} />
+                  ) : (
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="person" size={22} color="rgba(255,255,255,0.6)" />
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
 
-            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {/* AI Greeting - Right below profile */}
+              {motivationalQuote ? (
+                <Animated.View entering={FadeInDown.duration(400)}>
+                  <Text style={{
+                    fontSize: 15,
+                    fontWeight: '600',
+                    color: isPremium ? '#fff' : colors.textSecondary,
+                    fontFamily: 'Lexend',
+                    textAlign: 'left',
+                    lineHeight: 22,
+                  }}>
+                    {displayedQuote}
+                    {displayedQuote.length < motivationalQuote.length && (
+                      <Text style={{ color: colors.primary }}>|</Text>
+                    )}
+                  </Text>
+                </Animated.View>
+              ) : null}
+            </View>
+
+            {/* Right: Action Buttons */}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
               <TouchableOpacity onPress={() => { mediumFeedback(); setShowAIAgent(true); }} style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }}>
                 <LinearGradient
                   colors={['#3B82F6', '#8B5CF6', '#EC4899']}
@@ -542,27 +582,8 @@ const Home = () => {
             </View>
           </View>
 
-          {/* Motivational Quote - changes on pull-to-refresh */}
-          {motivationalQuote ? (
-            <Animated.View entering={FadeInDown.duration(400)} style={{ marginBottom: 16, paddingHorizontal: 4 }}>
-              <Text style={{
-                fontSize: 14,
-                fontWeight: '700',
-                color: isPremium ? '#fff' : colors.textSecondary,
-                fontFamily: 'Lexend',
-                textAlign: 'left',
-                lineHeight: 20,
-              }}>
-                {displayedQuote}
-                {displayedQuote.length < motivationalQuote.length && (
-                  <Text style={{ color: colors.primary }}>|</Text>
-                )}
-              </Text>
-            </Animated.View>
-          ) : null}
-
-
-          {/* AI Coach greeting removed - now using motivational quotes instead */}
+          {/* Spacer after header */}
+          <View style={{ height: 16 }} />
 
           {/* Goals Progress Bar */}
           <Animated.View entering={FadeInDown.delay(100).duration(500)}>

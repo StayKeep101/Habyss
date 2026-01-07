@@ -23,18 +23,9 @@ export interface InAppNotification {
   data?: any;
 }
 
-// Mock In-Memory Store for Inbox (since we don't have a backend for this specifically yet)
-let inbox: InAppNotification[] = [
-  {
-    id: '1',
-    title: 'Welcome to Habyss',
-    message: 'Start your journey by creating your first habit.',
-    type: 'info',
-    timestamp: Date.now() - 100000,
-    read: false,
-    icon: 'information-circle'
-  }
-];
+// Mock In-Memory Store for Inbox
+// Welcome notification is now handled separately to avoid showing on every restart
+let inbox: InAppNotification[] = [];
 
 export class NotificationService {
   static async init() {

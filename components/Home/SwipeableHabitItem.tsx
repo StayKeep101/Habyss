@@ -91,7 +91,23 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
     );
   };
 
-  const renderRightActions = () => {
+  const renderRightActions = (
+    progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>
+  ) => {
+    // Reveal animation
+    const trans = dragX.interpolate({
+      inputRange: [-ACTION_WIDTH * 3, 0],
+      outputRange: [0, ACTION_WIDTH * 3],
+      extrapolate: 'clamp',
+    });
+
+    const scale = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.8, 1],
+      extrapolate: 'clamp',
+    });
+
     return (
       <View style={styles.rightActionsContainer}>
         {onShare && (
@@ -99,26 +115,26 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
             style={[styles.rightAction, { backgroundColor: '#3B82F6' }]}
             onPress={() => { selectionFeedback(); close(); onShare(habit); }}
           >
-            <View style={styles.actionContent}>
+            <Animated.View style={[styles.actionContent, { transform: [{ scale }, { translateX: Animated.multiply(trans, 0.1) }] }]}>
               <Ionicons name="share-outline" size={20} color="white" />
-            </View>
+            </Animated.View>
           </RectButton>
         )}
         <RectButton
           style={[styles.rightAction, { backgroundColor: '#F59E0B' }]}
           onPress={() => { selectionFeedback(); close(); onEdit(habit); }}
         >
-          <View style={styles.actionContent}>
+          <Animated.View style={[styles.actionContent, { transform: [{ scale }, { translateX: Animated.multiply(trans, 0.2) }] }]}>
             <Ionicons name="pencil" size={20} color="white" />
-          </View>
+          </Animated.View>
         </RectButton>
         <RectButton
           style={[styles.rightAction, { backgroundColor: '#EF4444' }]}
           onPress={() => { mediumFeedback(); close(); onDelete(habit); }}
         >
-          <View style={styles.actionContent}>
+          <Animated.View style={[styles.actionContent, { transform: [{ scale }, { translateX: Animated.multiply(trans, 0.3) }] }]}>
             <Ionicons name="trash" size={20} color="white" />
-          </View>
+          </Animated.View>
         </RectButton>
       </View>
     );
@@ -129,12 +145,12 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
       ref={swipeableRef}
       renderLeftActions={renderLeftActions}
       renderRightActions={renderRightActions}
-      leftThreshold={40}
-      rightThreshold={30}
+      leftThreshold={50}
+      rightThreshold={40}
       overshootLeft={false}
-      overshootRight={false}
+      overshootRight={true} // Allow slight overshoot for organic feel
       overshootFriction={8}
-      friction={1.5}
+      friction={1.2} // More responsive (1.0 is 1:1, >1 is slower)
       onSwipeableWillOpen={onSwipeableWillOpen}
       containerStyle={styles.swipeableContainer}
     >
@@ -197,7 +213,7 @@ const styles = StyleSheet.create({
   },
   checkbox: {
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(128,128,128,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,

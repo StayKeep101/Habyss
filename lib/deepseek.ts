@@ -1,20 +1,18 @@
 /**
  * DeepSeek AI Service for Habyss
  * 
- * DeepSeek is a cost-effective alternative to OpenAI and Gemini.
- * Pricing: ~$0.14 per million input tokens, ~$0.28 per million output tokens
+ * Uses DeepSeek's direct API with automatic prefix caching for maximum cost efficiency.
+ * Cache hits are ~10x cheaper than cache misses ($0.014 vs $0.14 per 1M tokens).
+ * 
+ * CACHE OPTIMIZATION STRATEGY:
+ * - Keep system prompt identical and at the start (automatic prefix caching)
+ * - System prompt > 64 tokens enables caching
+ * - Subsequent requests with same prefix = cache hit
  * 
  * SETUP: Add your DeepSeek API key to .env:
  * EXPO_PUBLIC_DEEPSEEK_API_KEY=your_api_key_here
  * 
  * Get your API key at: https://platform.deepseek.com/
- * 
- * Alternative cheaper options considered:
- * - DeepSeek: $0.14-0.28/M tokens (CURRENT - best value for quality)
- * - Groq (Llama): Free tier, then $0.05-0.10/M tokens (very fast, good for simple tasks)
- * - OpenRouter: Access to many models, pay per token
- * - Claude Haiku: $0.25/M input, $1.25/M output (higher quality but more expensive)
- * - GPT-4o-mini: $0.15/M input, $0.60/M output
  */
 
 export interface ChatMessage {
@@ -24,66 +22,24 @@ export interface ChatMessage {
 
 // DeepSeek API Configuration
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-const MODEL = 'deepseek-chat'; // or 'deepseek-coder' for code-focused tasks
+const MODEL = 'deepseek-chat'; // Use deepseek-chat for cost efficiency, deepseek-reasoner for complex reasoning
 
 /**
- * Expert System Prompt with PhD-level knowledge on habits, goals, behavior psychology
+ * COMPACT System Prompt (~150 tokens) for cache efficiency
+ * Must stay under 500 total input tokens (prompt + history)
  */
-export const EXPERT_SYSTEM_PROMPT = `You are ABYSS, an elite AI habit and goal coach embedded in the Habyss app. You possess PhD-level expertise across:
+export const EXPERT_SYSTEM_PROMPT = `You are ABYSS, an AI habit coach. Expert in psychology, nutrition, fitness, and habit science. Be warm, concise (<2000 chars), and actionable.
 
-## BEHAVIORAL SCIENCE MASTERY
-- **Habit Loop Theory** (Charles Duhigg): Cue → Routine → Reward. Help users identify and redesign each component.
-- **Atomic Habits Framework** (James Clear): 1% improvements, habit stacking, environment design, identity-based habits.
-- **Implementation Intentions** (Peter Gollwitzer): "When X happens, I will do Y" - help users create specific action plans.
-- **Fogg Behavior Model**: B=MAP (Behavior = Motivation + Ability + Prompt). Analyze which factor is limiting.
-- **Self-Determination Theory**: Autonomy, Competence, Relatedness - the three pillars of intrinsic motivation.
-- **Temporal Motivation Theory**: Understand procrastination through the lens of value, expectancy, impulsiveness, and delay.
+HABIT ACTIONS (use JSON when user asks to manage habits):
+CREATE: {"action":"create","data":{"name":"...","category":"..."},"response":"..."}
+UPDATE: {"action":"update","id":"ID","data":{...},"response":"..."}  
+DELETE: {"action":"delete","id":"ID","response":"..."}
 
-## GOAL SCIENCE EXPERTISE
-- **SMART Goals**: Specific, Measurable, Achievable, Relevant, Time-bound.
-- **WOOP Method** (Gabriele Oettingen): Wish, Outcome, Obstacle, Plan - mental contrasting with implementation intentions.
-- **OKRs**: Objectives and Key Results for ambitious goal-setting.
-- **Goal Gradient Effect**: Motivation increases as we approach goals - help users see progress.
-- **Process vs Outcome Goals**: Guide users to focus on controllable actions, not just results.
-
-## PSYCHOLOGY & NEUROSCIENCE
-- **Dopamine Dynamics**: Variable rewards, anticipation vs reward, avoiding dopamine depletion.
-- **Prefrontal Cortex Fatigue**: Decision fatigue, ego depletion, willpower as a limited resource.
-- **Neuroplasticity**: 21-66 day habit formation research, synaptic strengthening.
-- **Cognitive Load Theory**: Reduce friction, automate decisions.
-- **Social Comparison Theory**: Use community features strategically.
-
-## APP-SPECIFIC KNOWLEDGE
-You are integrated with Habyss and can:
-- CREATE habits with specific names, categories, and durations
-- UPDATE existing habits (modify names, schedules, etc.)
-- DELETE habits when users want to remove them
-- Access user's current habit list and completion data
-
-## PERSONALITY ADAPTATION
-Adapt your communication style based on the user's selected personality mode while maintaining your expertise.
-
-## RESPONSE GUIDELINES
-1. Be concise but impactful - every word should add value
-2. Reference scientific research when helpful, but keep it accessible
-3. Provide actionable steps, not just theory
-4. Celebrate wins genuinely, address failures with compassion and strategy
-5. Ask probing questions to understand root causes
-6. Use metaphors and analogies for complex concepts
-
-## AGENT ACTIONS
-When the user wants to create, update, or delete habits, respond with a JSON object:
-
-CREATE: { "action": "create", "data": { "name": "...", "category": "...", "durationMinutes": N }, "response": "..." }
-UPDATE: { "action": "update", "id": "HABIT_ID", "data": { ...fields... }, "response": "..." }
-DELETE: { "action": "delete", "id": "HABIT_ID", "response": "..." }
-
-For regular conversations, just respond normally with text.
-
-Remember: You are not just a chatbot. You are a world-class behavioral scientist dedicated to transforming lives through systematic habit optimization.`;
+Otherwise respond with helpful text.`;
 
 /**
- * Stream chat completion from DeepSeek API
+ * Cache-optimized chat completion using DeepSeek's direct API
+ * The system prompt is kept static to maximize prefix cache hits
  */
 export const streamChatCompletion = async (
     history: ChatMessage[],
@@ -101,15 +57,19 @@ export const streamChatCompletion = async (
             return;
         }
 
-        // Combine expert prompt with personality-specific instructions
-        const fullSystemPrompt = `${EXPERT_SYSTEM_PROMPT}\n\n## CURRENT PERSONALITY MODE\n${systemInstruction}`;
+        // CACHE OPTIMIZATION: Keep messages minimal for 500 token input limit
+        // Only send system prompt + last 4 messages to stay under limit
+        const recentHistory = history.slice(-4);
 
-        // DeepSeek uses OpenAI-compatible format
+        // If a dynamic system instruction is provided (from AIAgentModal), use it.
+        // Otherwise fallback to the static EXPERT_SYSTEM_PROMPT.
+        const systemPrompt = systemInstruction || EXPERT_SYSTEM_PROMPT;
+
         const messages: ChatMessage[] = [
-            { role: 'system', content: fullSystemPrompt },
-            ...history.map(msg => ({
+            { role: 'system', content: systemPrompt },
+            ...recentHistory.map(msg => ({
                 role: msg.role as 'user' | 'assistant',
-                content: msg.content
+                content: msg.content.slice(0, 500) // Truncate long messages
             }))
         ];
 
@@ -123,8 +83,7 @@ export const streamChatCompletion = async (
                 model: MODEL,
                 messages,
                 temperature: 0.7,
-                max_tokens: 1024,
-                stream: false, // Set to true for streaming (requires different handling)
+                max_tokens: 1000, // Allow longer responses for complex JSON actions
             }),
         });
 
@@ -136,6 +95,14 @@ export const streamChatCompletion = async (
         const data = await response.json();
         const reply = data.choices?.[0]?.message?.content || '';
 
+        // Log cache statistics for monitoring
+        if (data.usage) {
+            const cacheHit = data.usage.prompt_cache_hit_tokens || 0;
+            const cacheMiss = data.usage.prompt_cache_miss_tokens || 0;
+            const hitRate = cacheHit + cacheMiss > 0 ? (cacheHit / (cacheHit + cacheMiss) * 100).toFixed(1) : 0;
+            console.log(`DeepSeek Cache: ${cacheHit} hit, ${cacheMiss} miss (${hitRate}% hit rate)`);
+        }
+
         onComplete(reply);
 
     } catch (error) {
@@ -145,17 +112,44 @@ export const streamChatCompletion = async (
 };
 
 /**
- * Generate a motivational greeting
+ * User data for smart greeting generation
+ */
+export interface UserGreetingData {
+    currentStreak: number;
+    consistencyScore: number;
+    todayCompleted: number;
+    todayTotal: number;
+    recentMissedHabits?: string[];
+    topHabit?: string;
+    daysSinceStart?: number;
+    username?: string;
+}
+
+/**
+ * STATIC greeting prompt for cache optimization
+ * Must be >64 tokens for DeepSeek to cache the prefix
+ * This prompt is reused for ALL greeting requests to maximize cache hits
+ */
+const GREETING_SYSTEM_PROMPT = `You are ABYSS, the AI habit coach for Habyss app. Your expertise spans behavioral psychology, habit science, and motivation.
+
+TASK: Generate exactly ONE motivational greeting sentence.
+
+RULES:
+- Maximum 15 words
+- Be inspiring and acknowledge the user's habit journey  
+- Match the personality style provided
+- No emojis, hashtags, or quotation marks
+- Be genuine and warm
+
+Personality styles: Supportive (warm/encouraging), Drill Sergeant (intense/pushing), Stoic (calm/philosophical), Playful (fun/light), Mindful (peaceful/zen).`;
+
+/**
+ * Generate a motivational greeting with cache optimization
  */
 export const generateGreeting = async (personality: string): Promise<string> => {
     try {
         const apiKey = process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
-        if (!apiKey) return "Welcome back, Master of Routine.";
-
-        const systemPrompt = `You are a motivating AI Habit Coach. Your personality is: ${personality}. 
-        Generate a very short, punchy, 1-sentence greeting for the user's home screen. 
-        It should be inspiring, slightly edgy (if fits personality), and acknowledge they are here to work.
-        Max 15 words. No hashtags. No emojis.`;
+        if (!apiKey) return "Welcome back, warrior of habits.";
 
         const response = await fetch(DEEPSEEK_API_URL, {
             method: 'POST',
@@ -166,8 +160,8 @@ export const generateGreeting = async (personality: string): Promise<string> => 
             body: JSON.stringify({
                 model: MODEL,
                 messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: 'Give me a greeting.' }
+                    { role: 'system', content: GREETING_SYSTEM_PROMPT },
+                    { role: 'user', content: `Personality: ${personality}. Give me a greeting.` }
                 ],
                 temperature: 0.9,
                 max_tokens: 50,
@@ -177,6 +171,12 @@ export const generateGreeting = async (personality: string): Promise<string> => 
         if (!response.ok) return "Welcome back.";
 
         const data = await response.json();
+
+        // Log cache stats
+        if (data.usage) {
+            console.log(`Greeting Cache: ${data.usage.prompt_cache_hit_tokens || 0} hit, ${data.usage.prompt_cache_miss_tokens || 0} miss`);
+        }
+
         return data.choices?.[0]?.message?.content || "Welcome back.";
 
     } catch (e) {
@@ -186,8 +186,112 @@ export const generateGreeting = async (personality: string): Promise<string> => 
 };
 
 /**
- * Quick utility to check if API key is configured
+ * Get personality-specific guidelines for greeting generation
  */
-export const isConfigured = (): boolean => {
-    return !!process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
+const getPersonalityGuidelines = (personality: string): string => {
+    switch (personality.toLowerCase()) {
+        case 'supportive':
+            return 'Be warm, encouraging, and celebrate their efforts.';
+        case 'drill_sergeant':
+            return 'Be direct, intense, and push them hard. Use military-style motivation.';
+        case 'stoic':
+            return 'Be calm, philosophical, and focused on discipline and virtue.';
+        case 'playful':
+            return 'Be fun, light-hearted, use humor and friendly energy.';
+        case 'mindful':
+            return 'Be peaceful, zen-like, focused on presence and inner calm.';
+        default:
+            return 'Be motivating and encouraging.';
+    }
+};
+
+/**
+ * STATIC smart greeting prompt for cache optimization
+ * Must be >64 tokens for DeepSeek caching to work
+ * This identical prompt enables prefix caching across all users
+ */
+const SMART_GREETING_SYSTEM_PROMPT = `You are ABYSS, the AI habit coach for Habyss app. You have deep expertise in behavioral psychology, habit formation, and personal motivation.
+
+TASK: Generate exactly ONE personalized greeting sentence based on user stats.
+
+RULES:
+- Maximum 20 words
+- Reference their specific streak, consistency, or progress
+- Match the personality style provided
+- Be genuine and motivating
+- No emojis, hashtags, or quotation marks
+
+Personality styles: Supportive (warm/encouraging), Drill Sergeant (intense/pushing), Stoic (calm/philosophical), Playful (fun/light), Mindful (peaceful/zen).
+
+You will receive user stats including streak days, consistency percentage, and habits completed today.`;
+
+/**
+ * Generate a smart, personalized greeting using actual user data
+ * Optimized for cache hits by keeping system prompt static
+ */
+export const generateSmartGreeting = async (
+    personality: string,
+    userData: UserGreetingData
+): Promise<string> => {
+    try {
+        const apiKey = process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
+        if (!apiKey) {
+            // Fallback to data-driven static greeting
+            if (userData.currentStreak > 7) {
+                return `${userData.currentStreak}-day streak. Keep the momentum.`;
+            }
+            if (userData.todayCompleted === userData.todayTotal && userData.todayTotal > 0) {
+                return "All habits done. Tomorrow awaits.";
+            }
+            return `${userData.todayCompleted}/${userData.todayTotal} habits. Let's go.`;
+        }
+
+        const personalityGuidelines = getPersonalityGuidelines(personality);
+
+        // User context as a structured message for consistent caching
+        const userContext = `Personality: ${personality} (${personalityGuidelines})
+Stats: ${userData.currentStreak}-day streak, ${userData.consistencyScore}% consistency, ${userData.todayCompleted}/${userData.todayTotal} today.
+${userData.topHabit ? `Top habit: ${userData.topHabit}` : ''}
+Generate a personalized greeting.`;
+
+        const response = await fetch(DEEPSEEK_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: MODEL,
+                messages: [
+                    { role: 'system', content: SMART_GREETING_SYSTEM_PROMPT },
+                    { role: 'user', content: userContext }
+                ],
+                temperature: 0.8,
+                max_tokens: 60,
+            }),
+        });
+
+        if (!response.ok) {
+            return userData.currentStreak > 0
+                ? `${userData.currentStreak}-day streak. Keep going.`
+                : "Ready to build today.";
+        }
+
+        const data = await response.json();
+
+        // Log cache statistics
+        if (data.usage) {
+            console.log(`Smart Greeting Cache: ${data.usage.prompt_cache_hit_tokens || 0} hit, ${data.usage.prompt_cache_miss_tokens || 0} miss`);
+        }
+
+        const greeting = data.choices?.[0]?.message?.content?.trim();
+
+        return greeting || `${userData.currentStreak}-day streak. Let's build.`;
+
+    } catch (e) {
+        console.error("Smart Greeting Error:", e);
+        return userData.currentStreak > 0
+            ? `${userData.currentStreak} days strong. Continue.`
+            : "Time to build habits.";
+    }
 };

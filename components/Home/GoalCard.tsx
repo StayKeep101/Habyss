@@ -24,6 +24,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
+  const isLight = theme === 'light';
 
   const daysLeft = goal.targetDate
     ? Math.max(0, Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
@@ -46,7 +47,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
   return (
     <TouchableOpacity onPress={onToggleExpand} activeOpacity={0.8} style={{ flex: 1 }}>
-      <VoidCard glass intensity={isBig ? 80 : 60} style={{ ...styles.card, padding }}>
+      <VoidCard glass intensity={isLight ? 20 : (isBig ? 80 : 60)} style={[styles.card, { padding }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
         {/* NavigationTrigger (Icon) */}
         <TouchableOpacity
           onPress={(e) => {
@@ -71,14 +72,14 @@ export const GoalCard: React.FC<GoalCardProps> = ({
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: isBig ? 6 : 2 }}>
             <Text style={[styles.name, { color: colors.textPrimary, fontSize: titleSize }]} numberOfLines={1}>{goal.name}</Text>
             {daysLeft !== null && (
-              <View style={[styles.daysChip, daysLeft < 7 && { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-                <Text style={[styles.daysText, daysLeft < 7 && { color: '#EF4444' }]}>{daysLeft}d</Text>
+              <View style={[styles.daysChip, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }, daysLeft < 7 && { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+                <Text style={[styles.daysText, { color: colors.textSecondary }, daysLeft < 7 && { color: '#EF4444' }]}>{daysLeft}d</Text>
               </View>
             )}
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={[styles.progressBg, { height: barHeight }]}>
+            <View style={[styles.progressBg, { height: barHeight, backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }]}>
               <View style={[styles.progressFill, { backgroundColor: goal.color || '#8B5CF6', width: `${Math.max(progress, 3)}%` }]} />
             </View>
             <Text style={[styles.progressText, { color: goal.color || '#8B5CF6', fontSize: isSmall ? 9 : 11 }]}>{Math.round(progress)}%</Text>
@@ -86,11 +87,11 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         </View>
 
         {/* Expansion Indicator (Visual only, transmits press to parent) */}
-        <View style={styles.toggleBtn}>
-          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', fontFamily: 'Lexend', marginRight: 4 }}>
+        <View style={[styles.toggleBtn, { borderLeftColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)' }]}>
+          <Text style={{ color: colors.textTertiary, fontSize: 10, fontWeight: '700', fontFamily: 'Lexend', marginRight: 4 }}>
             {linkedHabitsCount}
           </Text>
-          <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color="rgba(255,255,255,0.5)" />
+          <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.textTertiary} />
         </View>
 
       </VoidCard>
@@ -121,7 +122,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   daysChip: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -129,12 +129,10 @@ const styles = StyleSheet.create({
   daysText: {
     fontSize: 9,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
   },
   progressBg: {
     flex: 1,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
     overflow: 'hidden',
     marginRight: 8,
   },
@@ -154,7 +152,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255,255,255,0.05)',
     marginLeft: 4,
   }
 });

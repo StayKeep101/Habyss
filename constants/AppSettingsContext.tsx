@@ -4,6 +4,7 @@ import { PersonalityModeId } from '@/constants/AIPersonalities';
 
 
 export type RoadMapCardSize = 'small' | 'standard' | 'big';
+export type GreetingStyle = 'ai' | 'quotes';
 
 interface AppSettings {
     hapticsEnabled: boolean;
@@ -11,6 +12,7 @@ interface AppSettings {
     notificationsEnabled: boolean;
     aiPersonality: PersonalityModeId;
     cardSize: RoadMapCardSize;
+    greetingStyle: GreetingStyle;
 }
 
 interface AppSettingsContextType extends AppSettings {
@@ -19,6 +21,7 @@ interface AppSettingsContextType extends AppSettings {
     setNotificationsEnabled: (enabled: boolean) => void;
     setAIPersonality: (personality: PersonalityModeId) => void;
     setCardSize: (size: RoadMapCardSize) => void;
+    setGreetingStyle: (style: GreetingStyle) => void;
     isLoaded: boolean;
 }
 
@@ -27,7 +30,8 @@ const defaultSettings: AppSettings = {
     soundsEnabled: true,
     notificationsEnabled: true,
     aiPersonality: 'friendly',
-    cardSize: 'small', // Default as per user request
+    cardSize: 'small',
+    greetingStyle: 'ai', // Default to AI-powered greetings
 };
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
@@ -94,6 +98,12 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         saveSettings(newSettings);
     };
 
+    const setGreetingStyle = (style: GreetingStyle) => {
+        const newSettings = { ...settings, greetingStyle: style };
+        setSettings(newSettings);
+        saveSettings(newSettings);
+    };
+
     return (
         <AppSettingsContext.Provider
             value={{
@@ -103,6 +113,7 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
                 setNotificationsEnabled,
                 setAIPersonality,
                 setCardSize,
+                setGreetingStyle,
                 isLoaded,
             }}
         >

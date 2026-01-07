@@ -10,7 +10,8 @@ import {
     Platform,
     StyleSheet,
     Dimensions,
-    ActivityIndicator
+    ActivityIndicator,
+    Alert
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,7 +34,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useHaptics } from '@/hooks/useHaptics';
 import { StripeService } from '@/lib/stripeService';
 import { useRouter } from 'expo-router';
-import { streamChatCompletion, ChatMessage as GroqMessage, EXPERT_SYSTEM_PROMPT } from '@/lib/groq';
+import { streamChatCompletion, ChatMessage as AIStackMessage, EXPERT_SYSTEM_PROMPT } from '@/lib/deepseek';
 import { useAIPersonality } from '@/constants/AIPersonalityContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { useAppSettings } from '@/constants/AppSettingsContext';
@@ -64,25 +65,93 @@ interface AIAgentModalProps {
     onClose: () => void;
 }
 
-const INITIAL_MESSAGES: Message[] = [
-    {
-        id: '1',
-        role: 'assistant',
-        content: "I'm ABYSS, your AI agent. I can manage your habits, change settings, navigate the app, and more. Try: 'Turn on notifications', 'Enable bully mode', or 'Create a workout habit'.",
-        timestamp: new Date(),
+// Get personality-aware greeting for initial message
+const getPersonalityGreeting = (personality: string): string => {
+    switch (personality) {
+        case 'drill_sergeant':
+            return "Listen up! I'm ABYSS, your no-excuses AI coach. I can create habits, set goals, change your settings, and push you to greatness. No weakness allowed. What do you need?";
+        case 'stoic':
+            return "Greetings. I am ABYSS, your guide on the path of discipline. I can manage your habits, set meaningful goals, and configure your experience. What wisdom do you seek?";
+        case 'playful':
+            return "Hey there! 🎉 I'm ABYSS, your fun habit buddy! I can create habits, smash goals, tweak settings - basically I run this place. What's the plan, friend?";
+        case 'mindful':
+            return "Welcome. I am ABYSS, here to support your mindful journey. I can create habits aligned with your intentions, set peaceful goals, and adjust your experience. How may I serve you?";
+        default:
+            return "Hey! I'm ABYSS, your AI habit coach. I can create habits, set goals, change settings, navigate the app, and more. How can I help you today?";
     }
-];
+};
 
-// Mock suggestions - updated to include settings
+const INITIAL_MESSAGES: Message[] = [];
+
+// Action-oriented suggestions
 const SUGGESTIONS = [
-    "Turn on notifications",
-    "Enable bully mode",
-    "Create workout habit",
-    "Show my streak",
-    "Go to settings"
+    "Build my marathon plan",
+    "Create $100k roadmap",
+    "Set up weight loss system",
+    "Nudge my friend to workout",
+    "Create 5am club routine"
 ];
 
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
+
+// Animated typing dots component
+const AnimatedTypingDots = () => {
+    const dot1 = useSharedValue(0);
+    const dot2 = useSharedValue(0);
+    const dot3 = useSharedValue(0);
+
+    useEffect(() => {
+        // Staggered bouncing animation
+        dot1.value = withRepeat(
+            withSequence(
+                withTiming(-4, { duration: 300, easing: Easing.out(Easing.ease) }),
+                withTiming(0, { duration: 300, easing: Easing.in(Easing.ease) })
+            ),
+            -1,
+            false
+        );
+
+        setTimeout(() => {
+            dot2.value = withRepeat(
+                withSequence(
+                    withTiming(-4, { duration: 300, easing: Easing.out(Easing.ease) }),
+                    withTiming(0, { duration: 300, easing: Easing.in(Easing.ease) })
+                ),
+                -1,
+                false
+            );
+        }, 150);
+
+        setTimeout(() => {
+            dot3.value = withRepeat(
+                withSequence(
+                    withTiming(-4, { duration: 300, easing: Easing.out(Easing.ease) }),
+                    withTiming(0, { duration: 300, easing: Easing.in(Easing.ease) })
+                ),
+                -1,
+                false
+            );
+        }, 300);
+
+        return () => {
+            cancelAnimation(dot1);
+            cancelAnimation(dot2);
+            cancelAnimation(dot3);
+        };
+    }, []);
+
+    const style1 = useAnimatedStyle(() => ({ transform: [{ translateY: dot1.value }] }));
+    const style2 = useAnimatedStyle(() => ({ transform: [{ translateY: dot2.value }] }));
+    const style3 = useAnimatedStyle(() => ({ transform: [{ translateY: dot3.value }] }));
+
+    return (
+        <View style={styles.typingDots}>
+            <Animated.View style={[styles.dot, style1]} />
+            <Animated.View style={[styles.dot, style2]} />
+            <Animated.View style={[styles.dot, style3]} />
+        </View>
+    );
+};
 
 export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
@@ -109,10 +178,18 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
 
     const flatListRef = useRef<FlatList>(null);
 
-    // Initial message on open if needed
+    // Initial message on open - use personality
     useEffect(() => {
-        if (visible && messages.length === 0) setMessages(INITIAL_MESSAGES);
-    }, [visible]);
+        if (visible && messages.length === 0) {
+            const greeting = getPersonalityGreeting(appSettings.aiPersonality || 'mentor');
+            setMessages([{
+                id: '1',
+                role: 'assistant',
+                content: greeting,
+                timestamp: new Date(),
+            }]);
+        }
+    }, [visible, appSettings.aiPersonality]);
 
     // Animated glow effect
     const glowOpacity = useSharedValue(0.5);
@@ -144,6 +221,33 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         }
     }, [visible]);
 
+    // Clear chat and start fresh
+    const handleNewChat = () => {
+        mediumFeedback();
+        setMessages(INITIAL_MESSAGES);
+        setInputText('');
+    };
+
+    // Handle image upload
+    const handleImageUpload = () => {
+        lightFeedback();
+        Alert.alert(
+            'Image Upload',
+            'Image analysis is coming soon! You\'ll be able to share food photos for nutrition advice, workout form checks, and more.',
+            [{ text: 'Got it', style: 'default' }]
+        );
+    };
+
+    // Handle voice input
+    const handleVoiceInput = () => {
+        lightFeedback();
+        Alert.alert(
+            'Voice Input',
+            'Voice input is coming soon! You\'ll be able to talk to ABYSS hands-free.',
+            [{ text: 'Got it', style: 'default' }]
+        );
+    };
+
     const handleSend = async () => {
         if (!inputText.trim()) return;
 
@@ -162,25 +266,29 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         const newMessages = [...messages, userMessage];
         setMessages(newMessages);
 
-        // Prepare context with extended agent capabilities
-        const habitsList = habits.map(h => `- ${h.name} (ID: ${h.id}, Category: ${h.category})`).join('\n');
-        const agentExtension = getAgentSystemPromptExtension();
-        const systemPrompt = `You are an AI agent for a habit tracker app called Habyss.
-        CURRENT DATE: ${new Date().toLocaleDateString()}
-        
-        EXISTING HABITS:
-        ${habitsList}
+        // Prepare context
+        const habitsList = habits.map(h => `- ${h.name} (ID: ${h.id}, Category: ${h.category}${h.goalId ? ', Goal: ' + h.goalId : ''})`).join('\n');
 
-        ${agentExtension}
+        const personality = appSettings.aiPersonality || 'mentor';
+        const agentExtension = getAgentSystemPromptExtension(personality);
 
-        INSTRUCTIONS:
-        1. If the user asks to change settings, navigate, or manage habits, output a valid JSON object.
-        2. If it's a general question, just reply with text.
-        3. Do NOT output markdown code blocks. Just raw JSON or plain text.
-        `;
+        // CRITICAL: Force personality and action mode in EVERY system prompt
+        const systemPrompt = `You are ABYSS. MODE: ${personality.toUpperCase()}.
+DATE: ${new Date().toLocaleDateString()}
 
-        // Convert to Groq/OpenAI format
-        const groqHistory: GroqMessage[] = newMessages.map(m => ({
+EXISTING HABITS:
+${habitsList || 'None'}
+
+${agentExtension}
+
+REMEMBER:
+1. You are an ACTION AGENT.
+2. If user asks for a plan, BUILD IT (Create Goal + Habits).
+3. NO advice. NO yapping. ACTIONS only.
+4. STAY IN character: ${personality.toUpperCase()}`;
+
+        // Convert to DeepSeek/OpenAI format
+        const groqHistory: AIStackMessage[] = newMessages.map(m => ({
             role: m.role === 'user' ? 'user' : 'assistant',
             content: m.content
         }));
@@ -191,345 +299,383 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
             (chunk) => { }, // We ignore partial chunks for actions to avoid parsing errors
             async (reply) => {
                 let finalReply = reply;
-                let actionData: any = null;
+                let actionsToExecute: any[] = [];
+                let hasJson = false;
 
-                // Try parsing JSON
+                // Robust JSON parsing: Find any JSON object or array in the text
                 try {
-                    // Clean up potential markdown formatting
-                    const cleanReply = reply.replace(/```json/g, '').replace(/```/g, '').trim();
-                    if (cleanReply.startsWith('{')) {
-                        actionData = JSON.parse(cleanReply);
+                    const jsonMatch = reply.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+                    if (jsonMatch) {
+                        const parsed = JSON.parse(jsonMatch[0]);
+                        if (Array.isArray(parsed)) {
+                            actionsToExecute = parsed;
+                        } else if (parsed.action) {
+                            actionsToExecute = [parsed];
+                        }
+                        hasJson = true;
+
+                        // If there is text outside the JSON, we might want to keep it?
+                        // For now, if we have actions, use the action response as the reply
+                        // and DON'T show the raw JSON block.
                     }
                 } catch (e) {
-                    // Not JSON, treat as text
+                    console.error("JSON Parse Error:", e);
                 }
 
-                if (actionData) {
-                    // Check if it's a settings or navigation action first
-                    const isSettingsAction = ['toggle_notifications', 'toggle_haptics', 'toggle_sounds', 'change_ai_personality', 'change_card_size'].includes(actionData.action);
-                    const isNavigationAction = ['navigate_to', 'open_modal'].includes(actionData.action);
-                    const isHabitAction = ['create', 'update', 'delete'].includes(actionData.action);
+                if (actionsToExecute.length > 0) {
+                    // Show action feed
+                    const agentAction: AgentAction = {
+                        action: 'multi_action', // Generic for UI
+                        category: 'settings', // Default
+                        data: {},
+                        response: 'Executing plan...'
+                    };
 
-                    if (isSettingsAction || isNavigationAction) {
-                        // Show action feed for settings/navigation
-                        const agentAction: AgentAction = {
+                    const steps: ActionStep[] = actionsToExecute.map((a, i) => ({
+                        id: i.toString(),
+                        label: `${a.action.replace(/_/g, ' ')}: ${a.data?.name || 'Action'}`,
+                        status: 'pending'
+                    }));
+                    setActionSteps(steps);
+                    setCurrentStepIndex(0);
+                    setShowActionFeed(true);
+
+                    // Execute sequentially
+                    for (let i = 0; i < actionsToExecute.length; i++) {
+                        setCurrentStepIndex(i);
+                        const actionData = actionsToExecute[i];
+
+                        // Check action types
+                        const isSettingsAction = ['toggle_notifications', 'toggle_haptics', 'toggle_sounds', 'change_ai_personality', 'change_card_size', 'change_greeting_style', 'change_theme'].includes(actionData.action);
+                        const isNavigationAction = ['navigate_to', 'open_modal'].includes(actionData.action);
+                        const isHabitAction = ['create', 'update', 'delete'].includes(actionData.action);
+                        const isGoalAction = ['create_goal', 'update_goal'].includes(actionData.action);
+
+                        const stepAction: AgentAction = {
                             action: actionData.action,
                             category: isSettingsAction ? 'settings' : 'navigation',
                             data: actionData.data,
-                            response: actionData.response || 'Done.',
+                            response: actionData.response
                         };
 
-                        const steps = generateActionSteps(agentAction);
-                        setActionSteps(steps);
-                        setCurrentStepIndex(0);
-                        setShowActionFeed(true);
-
-                        // Animate through steps
-                        for (let i = 0; i < steps.length; i++) {
-                            await new Promise(resolve => setTimeout(resolve, 400));
-                            setCurrentStepIndex(i);
-                        }
-
-                        // Execute the action
                         if (isSettingsAction) {
-                            await executeSettingsAction(agentAction, appSettings as any);
-                        } else {
-                            await executeNavigationAction(agentAction);
-                        }
+                            if (actionData.action === 'change_greeting_style') {
+                                appSettings.setGreetingStyle?.(actionData.data?.style || 'quotes');
+                            } else if (actionData.action === 'change_theme') {
+                                // Theme handled elsewhere or added to executeSettingsAction
+                            } else {
+                                await executeSettingsAction(stepAction, appSettings as any);
+                            }
+                        } else if (isNavigationAction) {
+                            await executeNavigationAction(stepAction);
+                        } else if (isGoalAction) {
+                            if (actionData.action === 'create_goal') {
+                                name: actionData.data?.name || 'New Goal',
+                                    category: actionData.data?.category || 'personal',
+                                        isGoal: true,
+                                            taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+                                    ...actionData.data
+                                } as any);
+} else if (actionData.action === 'update_goal' && actionData.id) {
+    await updateHabit({ id: actionData.id, ...actionData.data });
+}
+                        } else if (isHabitAction) {
+    if (actionData.action === 'create') {
+        await addHabit({
+            name: actionData.data?.name || 'New Habit',
+            category: actionData.data?.category || 'personal',
+            durationMinutes: actionData.data?.durationMinutes,
+            taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+            isGoal: false,
+            goalId: actionData.data?.goalId,
+        });
+    } else if (actionData.action === 'update' && actionData.id) {
+        await updateHabit({ id: actionData.id, ...actionData.data });
+    } else if (actionData.action === 'delete' && actionData.id) {
+        await removeHabitEverywhere(actionData.id);
+    }
+}
 
-                        // Show completion
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                        setShowActionFeed(false);
+// Small delay between steps
+await new Promise(resolve => setTimeout(resolve, 800));
 
-                        finalReply = actionData.response || "Done!";
-                        successFeedback();
-
-                    } else if (isHabitAction) {
-                        // Original habit logic
-
-                        if (actionData.action === 'create') {
-                            await addHabit({
-                                name: actionData.data?.name || 'New Habit',
-                                category: actionData.data?.category || 'personal',
-                                durationMinutes: actionData.data?.durationMinutes,
-                                taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
-                                isGoal: false
-                            });
-                            finalReply = actionData.response || "Habit created.";
-                        } else if (actionData.action === 'update' && actionData.id) {
-                            await updateHabit({ id: actionData.id, ...actionData.data });
-                            finalReply = actionData.response || "Habit updated.";
-                        } else if (actionData.action === 'delete' && actionData.id) {
-                            await removeHabitEverywhere(actionData.id);
-                            finalReply = actionData.response || "Habit deleted.";
-                        }
-
-                        const updated = await getHabits();
-                        setHabits(updated);
-                        successFeedback();
+// Use the LAST action's response as the final chat reply
+if (i === actionsToExecute.length - 1) {
+    finalReply = actionData.response || "Plan executed.";
+}
                     }
-                }
 
-                const aiMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: finalReply,
-                    timestamp: new Date(),
-                };
-                setMessages(prev => [...prev, aiMessage]);
-                setIsTyping(false);
+const updated = await getHabits();
+setHabits(updated);
+successFeedback();
+setShowActionFeed(false);
+                } else {
+    // No actions, just chat
+    // If no JSON found, finalReply is just the text (which is correct)
+    // If JSON was found but empty? unlikely.
+}
+
+const aiMessage: Message = {
+    id: (Date.now() + 1).toString(),
+    role: 'assistant',
+    content: finalReply,
+    timestamp: new Date(),
+};
+setMessages(prev => [...prev, aiMessage]);
+setIsTyping(false);
             },
-            (error) => {
-                console.error(error);
-                setIsTyping(false);
-                errorFeedback();
-                const errorMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: "I'm having trouble connecting. Please check your network.",
-                    timestamp: new Date(),
-                };
-                setMessages(prev => [...prev, errorMessage]);
-            }
+(error) => {
+    console.error(error);
+    setIsTyping(false);
+    errorFeedback();
+    const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: "I'm having trouble connecting. Please check your network.",
+        timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, errorMessage]);
+}
         );
     };
 
-    const renderMessage = ({ item }: { item: Message }) => {
-        const isUser = item.role === 'user';
-
-        return (
-            <Animated.View
-                entering={SlideInDown.duration(300)}
-                style={[
-                    styles.messageBubble,
-                    isUser ? styles.userBubble : styles.aiBubble,
-                    { backgroundColor: isUser ? colors.primary : 'rgba(255,255,255,0.08)' }
-                ]}
-            >
-                {!isUser && (
-                    <View style={styles.aiAvatar}>
-                        <LinearGradient
-                            colors={['#3B82F6', '#8B5CF6', '#EC4899']}
-                            style={styles.avatarGradient}
-                        >
-                            <Ionicons name="sparkles" size={14} color="#fff" />
-                        </LinearGradient>
-                    </View>
-                )}
-                <Text style={[
-                    styles.messageText,
-                    { color: isUser ? '#000' : colors.textPrimary }
-                ]}>
-                    {item.content}
-                </Text>
-            </Animated.View>
-        );
-    };
+const renderMessage = ({ item }: { item: Message }) => {
+    const isUser = item.role === 'user';
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            presentationStyle="fullScreen"
-            onRequestClose={onClose}
+        <Animated.View
+            entering={SlideInDown.duration(300)}
+            style={[
+                styles.messageBubble,
+                isUser ? styles.userBubble : styles.aiBubble,
+                { backgroundColor: isUser ? colors.primary : 'rgba(255,255,255,0.08)' }
+            ]}
         >
-            <BlurView intensity={90} tint="dark" style={styles.blurContainer}>
-                <View style={styles.contentOverlay}>
-                    <SafeAreaView style={{ flex: 1 }}>
-                        {/* Animated background glow */}
-                        <Animated.View style={[styles.glowEffect, glowStyle]}>
-                            <LinearGradient
-                                colors={['transparent', 'rgba(16, 185, 129, 0.15)', 'transparent']}
-                                style={StyleSheet.absoluteFill}
-                            />
-                        </Animated.View>
+            {!isUser && (
+                <View style={styles.aiAvatar}>
+                    <LinearGradient
+                        colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                        style={styles.avatarGradient}
+                    >
+                        <Ionicons name="sparkles" size={14} color="#fff" />
+                    </LinearGradient>
+                </View>
+            )}
+            <Text style={[
+                styles.messageText,
+                { color: isUser ? '#000' : colors.textPrimary }
+            ]}>
+                {item.content}
+            </Text>
+        </Animated.View>
+    );
+};
 
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                                <Ionicons name="close" size={24} color="white" />
-                            </TouchableOpacity>
-                            <View style={styles.headerCenter}>
+return (
+    <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={onClose}
+    >
+        <BlurView intensity={90} tint="dark" style={styles.blurContainer}>
+            <View style={styles.contentOverlay}>
+                <SafeAreaView style={{ flex: 1 }}>
+                    {/* Animated background glow */}
+                    <Animated.View style={[styles.glowEffect, glowStyle]}>
+                        <LinearGradient
+                            colors={['transparent', 'rgba(16, 185, 129, 0.15)', 'transparent']}
+                            style={StyleSheet.absoluteFill}
+                        />
+                    </Animated.View>
+
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                            <Ionicons name="close" size={24} color="white" />
+                        </TouchableOpacity>
+                        <View style={styles.headerCenter}>
+                            <LinearGradient
+                                colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.headerIcon}
+                            >
+                                <Ionicons name="sparkles" size={18} color="#fff" />
+                            </LinearGradient>
+                            <View>
+                                <Text style={styles.headerTitle}>ABYSS</Text>
+                                <Text style={styles.headerSubtitle}>
+                                    {(appSettings.aiPersonality || 'MENTOR').replace(/_/g, ' ').toUpperCase()}
+                                </Text>
+                            </View>
+                        </View>
+                        {/* New Chat Button */}
+                        <TouchableOpacity onPress={handleNewChat} style={styles.newChatButton}>
+                            <Ionicons name="create-outline" size={20} color="white" />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Premium Check Loading */}
+                    {checkingPremium ? (
+                        <View style={styles.paywallContainer}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                        </View>
+                    ) : !isPremium ? (
+                        /* Paywall for non-premium users */
+                        <View style={styles.paywallContainer}>
+                            <LinearGradient
+                                colors={['rgba(59, 130, 246, 0.2)', 'rgba(236, 72, 153, 0.2)']}
+                                style={styles.paywallIcon}
+                            >
+                                <Ionicons name="lock-closed" size={48} color="#fff" />
+                            </LinearGradient>
+
+                            <Text style={styles.paywallTitle}>Unlock AI Assistant</Text>
+                            <Text style={styles.paywallSubtitle}>
+                                Get unlimited access to your personal Habyss AI to help you build habits faster
+                            </Text>
+
+                            <View style={styles.paywallFeatures}>
+                                <View style={styles.paywallFeature}>
+                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                    <Text style={styles.paywallFeatureText}>Create habits with natural language</Text>
+                                </View>
+                                <View style={styles.paywallFeature}>
+                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                    <Text style={styles.paywallFeatureText}>Smart progress tracking & insights</Text>
+                                </View>
+                                <View style={styles.paywallFeature}>
+                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                                    <Text style={styles.paywallFeatureText}>Personalized recommendations</Text>
+                                </View>
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.upgradeButton}
+                                onPress={() => {
+                                    mediumFeedback();
+                                    onClose();
+                                    // Navigate to the existing paywall screen with native Stripe checkout
+                                    router.push('/paywall');
+                                }}
+                            >
                                 <LinearGradient
                                     colors={['#3B82F6', '#8B5CF6', '#EC4899']}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
-                                    style={styles.headerIcon}
+                                    style={styles.upgradeButtonGradient}
                                 >
-                                    <Ionicons name="sparkles" size={18} color="#fff" />
+                                    <Ionicons name="diamond" size={18} color="#fff" />
+                                    <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
                                 </LinearGradient>
-                                <View>
-                                    <Text style={styles.headerTitle}>HABYSS AI</Text>
-                                    <Text style={styles.headerSubtitle}>Your personal assistant</Text>
-                                </View>
-                            </View>
-                            <View style={{ width: 40 }} />
+                            </TouchableOpacity>
                         </View>
+                    ) : (
+                        /* Messages - Only for premium users */
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                            style={styles.chatContainer}
+                            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // Adjust if needed, usually 0 for full screen modal matches SafeArea
+                        >
+                            <FlatList
+                                ref={flatListRef}
+                                data={messages}
+                                renderItem={renderMessage}
+                                keyExtractor={item => item.id}
+                                contentContainerStyle={styles.messagesList}
+                                showsVerticalScrollIndicator={false}
+                                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                                keyboardShouldPersistTaps="handled"
+                            />
 
-                        {/* Premium Check Loading */}
-                        {checkingPremium ? (
-                            <View style={styles.paywallContainer}>
-                                <ActivityIndicator size="large" color={colors.primary} />
-                            </View>
-                        ) : !isPremium ? (
-                            /* Paywall for non-premium users */
-                            <View style={styles.paywallContainer}>
-                                <LinearGradient
-                                    colors={['rgba(59, 130, 246, 0.2)', 'rgba(236, 72, 153, 0.2)']}
-                                    style={styles.paywallIcon}
+                            {/* Typing indicator */}
+                            {isTyping && (
+                                <Animated.View
+                                    entering={FadeIn}
+                                    exiting={FadeOut}
+                                    style={styles.typingIndicator}
                                 >
-                                    <Ionicons name="lock-closed" size={48} color="#fff" />
-                                </LinearGradient>
+                                    <AnimatedTypingDots />
+                                    <Text style={styles.typingText}>ABYSS is thinking...</Text>
+                                </Animated.View>
+                            )}
 
-                                <Text style={styles.paywallTitle}>Unlock AI Assistant</Text>
-                                <Text style={styles.paywallSubtitle}>
-                                    Get unlimited access to your personal Habyss AI to help you build habits faster
-                                </Text>
+                            {/* Suggestions */}
+                            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+                                <FlatList
+                                    data={SUGGESTIONS}
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={{ gap: 8 }}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setInputText(item);
+                                                lightFeedback();
+                                            }}
+                                            style={styles.suggestionChip}
+                                        >
+                                            <Text style={styles.suggestionText}>{item}</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    keyExtractor={item => item}
+                                />
+                            </View>
 
-                                <View style={styles.paywallFeatures}>
-                                    <View style={styles.paywallFeature}>
-                                        <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                        <Text style={styles.paywallFeatureText}>Create habits with natural language</Text>
-                                    </View>
-                                    <View style={styles.paywallFeature}>
-                                        <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                        <Text style={styles.paywallFeatureText}>Smart progress tracking & insights</Text>
-                                    </View>
-                                    <View style={styles.paywallFeature}>
-                                        <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                        <Text style={styles.paywallFeatureText}>Personalized recommendations</Text>
+                            {/* Input - positioned above keyboard */}
+                            <View style={styles.inputContainer}>
+                                <View style={styles.inputWrapper}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Ask me anything..."
+                                        placeholderTextColor="rgba(255,255,255,0.4)"
+                                        value={inputText}
+                                        onChangeText={setInputText}
+                                        onSubmitEditing={handleSend}
+                                        returnKeyType="send"
+                                        multiline
+                                    />
+                                    <View style={styles.inputIcons}>
+                                        <TouchableOpacity style={styles.iconBtnSmall} onPress={handleImageUpload}>
+                                            <Ionicons name="image-outline" size={20} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.iconBtnSmall} onPress={handleVoiceInput}>
+                                            <Ionicons name="mic-outline" size={20} color="rgba(255,255,255,0.6)" />
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
 
                                 <TouchableOpacity
-                                    style={styles.upgradeButton}
-                                    onPress={() => {
-                                        mediumFeedback();
-                                        onClose();
-                                        // Navigate to the existing paywall screen with native Stripe checkout
-                                        router.push('/paywall');
-                                    }}
+                                    onPress={handleSend}
+                                    disabled={!inputText.trim()}
+                                    style={[
+                                        styles.sendButton,
+                                        { opacity: inputText.trim() ? 1 : 0.5 }
+                                    ]}
                                 >
                                     <LinearGradient
                                         colors={['#3B82F6', '#8B5CF6', '#EC4899']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.upgradeButtonGradient}
+                                        style={styles.sendGradient}
                                     >
-                                        <Ionicons name="diamond" size={18} color="#fff" />
-                                        <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+                                        <Ionicons name="arrow-up" size={20} color="#fff" />
                                     </LinearGradient>
                                 </TouchableOpacity>
                             </View>
-                        ) : (
-                            /* Messages - Only for premium users */
-                            <KeyboardAvoidingView
-                                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                                style={styles.chatContainer}
-                                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} // Adjust if needed, usually 0 for full screen modal matches SafeArea
-                            >
-                                <FlatList
-                                    ref={flatListRef}
-                                    data={messages}
-                                    renderItem={renderMessage}
-                                    keyExtractor={item => item.id}
-                                    contentContainerStyle={styles.messagesList}
-                                    showsVerticalScrollIndicator={false}
-                                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                                    keyboardShouldPersistTaps="handled"
-                                />
+                        </KeyboardAvoidingView>
+                    )}
+                </SafeAreaView>
+            </View>
+        </BlurView>
 
-                                {/* Typing indicator */}
-                                {isTyping && (
-                                    <Animated.View
-                                        entering={FadeIn}
-                                        exiting={FadeOut}
-                                        style={styles.typingIndicator}
-                                    >
-                                        <View style={styles.typingDots}>
-                                            <View style={[styles.dot, { animationDelay: '0s' }]} />
-                                            <View style={[styles.dot, { animationDelay: '0.2s' }]} />
-                                            <View style={[styles.dot, { animationDelay: '0.4s' }]} />
-                                        </View>
-                                        <Text style={styles.typingText}>AI is thinking...</Text>
-                                    </Animated.View>
-                                )}
-
-                                {/* Suggestions */}
-                                <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-                                    <FlatList
-                                        data={SUGGESTIONS}
-                                        horizontal
-                                        showsHorizontalScrollIndicator={false}
-                                        contentContainerStyle={{ gap: 8 }}
-                                        renderItem={({ item }) => (
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    setInputText(item);
-                                                    lightFeedback();
-                                                }}
-                                                style={styles.suggestionChip}
-                                            >
-                                                <Text style={styles.suggestionText}>{item}</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                        keyExtractor={item => item}
-                                    />
-                                </View>
-
-                                {/* Input - positioned above keyboard */}
-                                <View style={styles.inputContainer}>
-                                    <View style={styles.inputWrapper}>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Ask me anything..."
-                                            placeholderTextColor="rgba(255,255,255,0.4)"
-                                            value={inputText}
-                                            onChangeText={setInputText}
-                                            onSubmitEditing={handleSend}
-                                            returnKeyType="send"
-                                            multiline
-                                        />
-                                        <View style={styles.inputIcons}>
-                                            <TouchableOpacity style={styles.iconBtnSmall}>
-                                                <Ionicons name="image-outline" size={20} color="rgba(255,255,255,0.6)" />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity style={styles.iconBtnSmall}>
-                                                <Ionicons name="mic-outline" size={20} color="rgba(255,255,255,0.6)" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-
-                                    <TouchableOpacity
-                                        onPress={handleSend}
-                                        disabled={!inputText.trim()}
-                                        style={[
-                                            styles.sendButton,
-                                            { opacity: inputText.trim() ? 1 : 0.5 }
-                                        ]}
-                                    >
-                                        <LinearGradient
-                                            colors={['#3B82F6', '#8B5CF6', '#EC4899']}
-                                            style={styles.sendGradient}
-                                        >
-                                            <Ionicons name="arrow-up" size={20} color="#fff" />
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                </View>
-                            </KeyboardAvoidingView>
-                        )}
-                    </SafeAreaView>
-                </View>
-            </BlurView>
-
-            {/* AI Action Feed Overlay */}
-            <AIActionFeed
-                visible={showActionFeed}
-                steps={actionSteps}
-                currentStepIndex={currentStepIndex}
-            />
-        </Modal>
-    );
+        {/* AI Action Feed Overlay */}
+        <AIActionFeed
+            visible={showActionFeed}
+            steps={actionSteps}
+            currentStepIndex={currentStepIndex}
+        />
+    </Modal>
+);
 };
 
 const styles = StyleSheet.create({
@@ -592,6 +738,14 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend_400Regular',
     },
     closeButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    newChatButton: {
         width: 40,
         height: 40,
         borderRadius: 20,

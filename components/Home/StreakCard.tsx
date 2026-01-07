@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '../Layout/VoidCard';
+import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/constants/themeContext';
 
 interface StreakCardProps {
     streak: number;
@@ -19,12 +21,16 @@ const FLAME_COLORS: Record<number, string[]> = {
 };
 
 export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, onPress }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+
     const flameColors = FLAME_COLORS[completionTier] || FLAME_COLORS[0];
     const isRainbow = completionTier === 4;
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
-            <VoidCard glass intensity={80} style={styles.container}>
+            <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.iconContainer}>
                     {isRainbow ? (
                         <LinearGradient
@@ -43,8 +49,8 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
                 </View>
 
                 <View>
-                    <Text style={styles.value}>{streak}</Text>
-                    <Text style={styles.label}>DAY STREAK</Text>
+                    <Text style={[styles.value, { color: colors.textPrimary }]}>{streak}</Text>
+                    <Text style={[styles.label, { color: colors.textTertiary }]}>DAY STREAK</Text>
                 </View>
 
                 {completionTier === 4 && (
@@ -59,7 +65,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
 
 const styles = StyleSheet.create({
     touchable: {
-        flex: 1, // Important for row layout
+        flex: 1,
     },
     container: {
         flex: 1,
@@ -79,7 +85,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     value: {
-        color: 'white',
         fontSize: 24,
         fontWeight: '900',
         fontFamily: 'Lexend',
@@ -87,7 +92,6 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
     label: {
-        color: 'rgba(255,255,255,0.4)',
         fontSize: 8,
         fontWeight: 'bold',
         letterSpacing: 1,

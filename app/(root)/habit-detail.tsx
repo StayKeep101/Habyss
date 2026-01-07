@@ -12,6 +12,8 @@ import { ShareHabitModal } from '@/components/ShareHabitModal';
 import { useHaptics } from '@/hooks/useHaptics';
 import { BarChart, LineChart, PieChart } from "react-native-gifted-charts";
 import { Dimensions } from 'react-native';
+import { PomodoroTimer } from '@/components/Habit/PomodoroTimer';
+import { SpotifyPlayer } from '@/components/Habit/SpotifyPlayer';
 
 const { width } = Dimensions.get('window');
 
@@ -211,7 +213,18 @@ export default function HabitDetailScreen() {
           </TouchableOpacity>
         </VoidCard>
 
-        {/* Stats Grid */}
+        {/* Pomodoro Timer */}
+        <View style={{ marginBottom: 16 }}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>FOCUS TIMER</Text>
+          <PomodoroTimer defaultMinutes={habit.durationMinutes} />
+        </View>
+
+        {/* Spotify Music */}
+        <View style={{ marginBottom: 24 }}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>MUSIC</Text>
+          <SpotifyPlayer habitId={habitId} />
+        </View>
+
         {/* Visualization Card */}
         <View style={{ marginBottom: 24 }}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>

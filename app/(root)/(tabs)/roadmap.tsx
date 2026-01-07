@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
@@ -55,8 +55,9 @@ const getTimeCategory = (startTime?: string): TimeFilter => {
 
 const CalendarScreen = () => {
     const router = useRouter();
-    const colorScheme = useColorScheme();
-    const colors = Colors[colorScheme ?? 'light'];
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
     const { lightFeedback, selectionFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
 
@@ -478,7 +479,7 @@ const CalendarScreen = () => {
                                                             marginLeft: 16,
                                                             paddingLeft: 16,
                                                             borderLeftWidth: 2,
-                                                            borderLeftColor: 'rgba(255,255,255,0.1)'
+                                                            borderLeftColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'
                                                         }}>
                                                             {linkedHabits.length > 0 ? (
                                                                 linkedHabits.map(habit => (
@@ -505,7 +506,7 @@ const CalendarScreen = () => {
                                         })
                                     ) : (
                                         <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
-                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Lexend_400Regular' }}>NO ACTIVE GOALS</Text>
+                                            <Text style={{ color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>NO ACTIVE GOALS</Text>
                                         </VoidCard>
                                     )}
                                 </View>
@@ -582,18 +583,18 @@ const CalendarScreen = () => {
                                         borderTopLeftRadius: 32,
                                         borderTopRightRadius: 32,
                                         overflow: 'hidden',
-                                        backgroundColor: '#0f1218',
+                                        backgroundColor: isLight ? '#ffffff' : '#0f1218',
                                         maxHeight: '80%'
                                     }}>
-                                    <View style={{ borderTopLeftRadius: 32, borderTopRightRadius: 32, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(139, 92, 246, 0.2)', pointerEvents: 'none', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+                                    <View style={{ borderTopLeftRadius: 32, borderTopRightRadius: 32, borderWidth: 1, borderBottomWidth: 0, borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(139, 92, 246, 0.2)', pointerEvents: 'none', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
 
                                     {/* Handle Bar */}
                                     <View style={{ alignItems: 'center', paddingTop: 12 }}>
-                                        <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+                                        <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)' }} />
                                     </View>
 
                                     <View style={{ padding: 24, paddingBottom: 40 }}>
-                                        <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: 0.5, fontFamily: 'Lexend', textAlign: 'center', marginBottom: 24 }}>
+                                        <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary, letterSpacing: 0.5, fontFamily: 'Lexend', textAlign: 'center', marginBottom: 24 }}>
                                             Filter & Sort
                                         </Text>
 
@@ -705,14 +706,11 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        backgroundColor: 'rgba(255,255,255,0.05)',
         gap: 12
     },
     filterText: {
         fontSize: 16,
         fontWeight: '600',
-        color: 'rgba(255,255,255,0.7)',
         fontFamily: 'Lexend_400Regular'
     },
     sortChip: {
@@ -722,13 +720,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderColor: 'rgba(128,128,128,0.2)',
+        backgroundColor: 'rgba(128,128,128,0.05)',
     },
     sortText: {
         fontSize: 12,
         fontWeight: '600',
-        color: 'rgba(255,255,255,0.5)',
+        color: 'rgba(128,128,128,0.7)',
         fontFamily: 'Lexend_400Regular'
     }
 });

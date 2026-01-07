@@ -14,19 +14,27 @@ interface VoidCardProps {
 export const VoidCard: React.FC<VoidCardProps> = ({ children, style, glass = false, intensity = 20 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const isLight = theme === 'light';
 
     const containerStyle = [
         styles.card,
         {
-            backgroundColor: glass ? 'transparent' : colors.surface,
-            borderColor: colors.border,
+            backgroundColor: glass ? (isLight ? 'rgba(255,255,255,0.9)' : 'transparent') : colors.surface,
+            borderColor: isLight ? 'rgba(0,0,0,0.08)' : colors.border,
+        },
+        isLight && {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 2,
         },
         style,
     ];
 
-    if (glass) {
+    if (glass && !isLight) {
         return (
-            <BlurView intensity={intensity} tint={theme === 'light' ? 'light' : 'dark'} style={containerStyle}>
+            <BlurView intensity={intensity} tint="dark" style={containerStyle}>
                 {children}
             </BlurView>
         );

@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G } from 'react-native-svg';
 import { VoidCard } from '../Layout/VoidCard';
+import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/constants/themeContext';
 
 interface ConsistencyCardProps {
     score: number; // 0-100
@@ -10,7 +12,11 @@ interface ConsistencyCardProps {
 }
 
 export const ConsistencyCard: React.FC<ConsistencyCardProps> = ({ score, onPress }) => {
-    const size = 38; // Even smaller
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+
+    const size = 38;
     const strokeWidth = 4;
     const center = size / 2;
     const radius = (size - strokeWidth) / 2;
@@ -29,12 +35,12 @@ export const ConsistencyCard: React.FC<ConsistencyCardProps> = ({ score, onPress
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
-            <VoidCard glass intensity={80} style={styles.container}>
+            <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.circleContainer}>
                     <Svg width={size} height={size}>
                         <G rotation="-90" origin={`${center}, ${center}`}>
                             <Circle
-                                stroke="rgba(255,255,255,0.08)"
+                                stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)'}
                                 cx={center}
                                 cy={center}
                                 r={radius}
@@ -61,7 +67,7 @@ export const ConsistencyCard: React.FC<ConsistencyCardProps> = ({ score, onPress
 
                 <View>
                     <Text style={[styles.value, { color }]}>{Math.round(score)}%</Text>
-                    <Text style={styles.label}>CONSISTENCY</Text>
+                    <Text style={[styles.label, { color: colors.textTertiary }]}>CONSISTENCY</Text>
                 </View>
             </VoidCard>
         </TouchableOpacity>
@@ -100,7 +106,6 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
     label: {
-        color: 'rgba(255,255,255,0.4)',
         fontSize: 8,
         fontWeight: 'bold',
         letterSpacing: 1,

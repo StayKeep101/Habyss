@@ -875,164 +875,26 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* COLOR OVERLAY */}
                             {activeOverlay === 'color' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.85 }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.6 }]}>
                                     <OverlayHeader title="Choose Color" onClose={() => setActiveOverlay('none')} />
 
-                                    {/* Color Wheel */}
+                                    {/* Selected Color Preview */}
                                     <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                                        <View
-                                            style={{
-                                                width: 220,
-                                                height: 220,
-                                                borderRadius: 110,
-                                                position: 'relative'
-                                            }}
-                                            onTouchMove={(e) => {
-                                                const touch = e.nativeEvent;
-                                                const centerX = 110;
-                                                const centerY = 110;
-                                                const x = touch.locationX - centerX;
-                                                const y = touch.locationY - centerY;
-
-                                                // Calculate angle for hue (0-360)
-                                                let angle = Math.atan2(y, x) * (180 / Math.PI) + 90;
-                                                if (angle < 0) angle += 360;
-                                                const hue = Math.round(angle);
-
-                                                // Calculate distance for saturation (0-100%)
-                                                const distance = Math.min(Math.sqrt(x * x + y * y), 100);
-                                                const saturation = Math.round((distance / 100) * 100);
-
-                                                // Fixed lightness at 50%
-                                                const lightness = 50;
-
-                                                // Convert HSL to hex
-                                                const h = hue / 360;
-                                                const s = saturation / 100;
-                                                const l = lightness / 100;
-
-                                                const hue2rgb = (p: number, q: number, t: number) => {
-                                                    if (t < 0) t += 1;
-                                                    if (t > 1) t -= 1;
-                                                    if (t < 1 / 6) return p + (q - p) * 6 * t;
-                                                    if (t < 1 / 2) return q;
-                                                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-                                                    return p;
-                                                };
-
-                                                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-                                                const p = 2 * l - q;
-                                                const r = Math.round(hue2rgb(p, q, h + 1 / 3) * 255);
-                                                const g = Math.round(hue2rgb(p, q, h) * 255);
-                                                const b = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
-
-                                                const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
-                                                setSelectedColor(hex);
-                                            }}
-                                            onTouchStart={(e) => {
-                                                selectionFeedback();
-                                                const touch = e.nativeEvent;
-                                                const centerX = 110;
-                                                const centerY = 110;
-                                                const x = touch.locationX - centerX;
-                                                const y = touch.locationY - centerY;
-
-                                                let angle = Math.atan2(y, x) * (180 / Math.PI) + 90;
-                                                if (angle < 0) angle += 360;
-                                                const hue = Math.round(angle);
-                                                const distance = Math.min(Math.sqrt(x * x + y * y), 100);
-                                                const saturation = Math.round((distance / 100) * 100);
-
-                                                const h = hue / 360;
-                                                const s = saturation / 100;
-                                                const l = 0.5;
-
-                                                const hue2rgb = (p: number, q: number, t: number) => {
-                                                    if (t < 0) t += 1;
-                                                    if (t > 1) t -= 1;
-                                                    if (t < 1 / 6) return p + (q - p) * 6 * t;
-                                                    if (t < 1 / 2) return q;
-                                                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-                                                    return p;
-                                                };
-
-                                                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-                                                const p = 2 * l - q;
-                                                const r = Math.round(hue2rgb(p, q, h + 1 / 3) * 255);
-                                                const g = Math.round(hue2rgb(p, q, h) * 255);
-                                                const b = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
-
-                                                const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
-                                                setSelectedColor(hex);
-                                            }}
-                                        >
-                                            {/* Render color wheel segments */}
-                                            {Array.from({ length: 360 }, (_, i) => {
-                                                const angle = (i - 90) * (Math.PI / 180);
-                                                const x1 = 110 + Math.cos(angle) * 20;
-                                                const y1 = 110 + Math.sin(angle) * 20;
-                                                const x2 = 110 + Math.cos(angle) * 100;
-                                                const y2 = 110 + Math.sin(angle) * 100;
-                                                return (
-                                                    <View
-                                                        key={i}
-                                                        style={{
-                                                            position: 'absolute',
-                                                            left: x1,
-                                                            top: y1,
-                                                            width: 3,
-                                                            height: 80,
-                                                            backgroundColor: `hsl(${i}, 100%, 50%)`,
-                                                            transform: [{ rotate: `${i}deg` }],
-                                                            transformOrigin: 'center top',
-                                                        }}
-                                                    />
-                                                );
-                                            })}
-                                            {/* White center gradient overlay */}
-                                            <View style={{
-                                                position: 'absolute',
-                                                width: 220,
-                                                height: 220,
-                                                borderRadius: 110,
-                                                backgroundColor: 'transparent'
-                                            }}>
-                                                <LinearGradient
-                                                    colors={['rgba(255,255,255,1)', 'rgba(255,255,255,0)']}
-                                                    style={{
-                                                        width: 220,
-                                                        height: 220,
-                                                        borderRadius: 110,
-                                                        position: 'absolute'
-                                                    }}
-                                                    start={{ x: 0.5, y: 0.5 }}
-                                                    end={{ x: 0, y: 0 }}
-                                                />
-                                            </View>
-                                            {/* Selected color indicator in center */}
-                                            <View style={{
-                                                position: 'absolute',
-                                                left: 85,
-                                                top: 85,
-                                                width: 50,
-                                                height: 50,
-                                                borderRadius: 25,
-                                                backgroundColor: selectedColor,
-                                                borderWidth: 3,
-                                                borderColor: '#fff',
-                                                shadowColor: '#000',
-                                                shadowOffset: { width: 0, height: 4 },
-                                                shadowOpacity: 0.3,
-                                                shadowRadius: 8,
-                                            }} />
-                                        </View>
-
-                                        {/* Current color display */}
-                                        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 16 }}>{selectedColor.toUpperCase()}</Text>
-                                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>Tap or drag to pick color</Text>
+                                        <View style={{
+                                            width: 60,
+                                            height: 60,
+                                            borderRadius: 30,
+                                            backgroundColor: selectedColor,
+                                            borderWidth: 3,
+                                            borderColor: 'rgba(255,255,255,0.3)',
+                                            shadowColor: selectedColor,
+                                            shadowOffset: { width: 0, height: 4 },
+                                            shadowOpacity: 0.4,
+                                            shadowRadius: 12,
+                                        }} />
+                                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600', marginTop: 12 }}>{selectedColor.toUpperCase()}</Text>
                                     </View>
 
-                                    {/* Scrollable content for presets + custom */}
                                     {/* Scrollable content for presets + custom */}
                                     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
                                         {/* Preset Colors */}
@@ -1049,7 +911,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                                         {/* Custom Colors Section */}
                                         {customColors.length > 0 && (
-                                            <View style={{ marginTop: 16 }}>
+                                            <View style={{ marginTop: 20 }}>
                                                 <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 1 }}>MY COLORS</Text>
                                                 <View style={styles.colorGrid}>
                                                     {customColors.map(c => (
@@ -1064,19 +926,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                         )}
                                     </ScrollView>
 
-                                    {/* Save Custom Color & Done Buttons */}
-                                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-                                        <TouchableOpacity
-                                            onPress={() => saveCustomColor(selectedColor)}
-                                            style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-                                        >
-                                            <Ionicons name="add-circle" size={18} color="rgba(255,255,255,0.6)" />
-                                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 13 }}>Save Color</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, flex: 1 }]}>
-                                            <Text style={styles.doneButtonText}>Done</Text>
-                                        </TouchableOpacity>
-                                    </View>
+                                    {/* Done Button */}
+                                    <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 16 }]}>
+                                        <Text style={styles.doneButtonText}>Done</Text>
+                                    </TouchableOpacity>
                                 </Animated.View>
                             )}
 

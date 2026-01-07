@@ -8,6 +8,7 @@ import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { IntegrationService, Integration } from '@/lib/integrationService';
+import { SpotifyService } from '@/lib/spotifyService';
 // import * as Calendar from 'expo-calendar'; // Removed static import
 
 interface IntegrationItem {
@@ -19,6 +20,13 @@ interface IntegrationItem {
 }
 
 const INTEGRATIONS: IntegrationItem[] = [
+    {
+        id: 'spotify',
+        name: 'Spotify',
+        description: 'Play music while building habits',
+        icon: 'musical-notes',
+        service: 'spotify',
+    },
     {
         id: 'calendar',
         name: 'Calendar',
@@ -152,8 +160,38 @@ export default function IntegrationsScreen() {
         }
     };
 
+    const handleSpotifyToggle = async (enabled: boolean) => {
+        setLoading(prev => ({ ...prev, spotify: true }));
+        try {
+            if (enabled) {
+                const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID;
+                if (!clientId) {
+                    Alert.alert(
+                        'Configuration Required',
+                        'Add EXPO_PUBLIC_SPOTIFY_CLIENT_ID to your .env file.\n\n' +
+                        'Get it from: https://developer.spotify.com/dashboard'
+                    );
+                    setLoading(prev => ({ ...prev, spotify: false }));
+                    return;
+                }
+                await SpotifyService.connect();
+                // Note: OAuth callback will update the connection status
+                Alert.alert('Spotify', 'Complete the login in your browser, then return to the app.');
+            } else {
+                await SpotifyService.disconnect();
+                setIntegrations(prev => ({ ...prev, spotify: false }));
+                lightFeedback();
+            }
+        } catch (e) {
+            console.error('Spotify toggle error:', e);
+            Alert.alert('Error', 'Failed to connect to Spotify');
+        }
+        setLoading(prev => ({ ...prev, spotify: false }));
+    };
+
     const getToggleHandler = (service: string) => {
         switch (service) {
+            case 'spotify': return handleSpotifyToggle;
             case 'apple_calendar': return handleCalendarToggle;
             case 'apple_reminders': return handleRemindersToggle;
             case 'apple_health': return handleHealthToggle;

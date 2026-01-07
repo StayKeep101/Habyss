@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Habit } from '@/lib/habits';
 import { VoidCard } from '../Layout/VoidCard';
 import { BlurView } from 'expo-blur';
+import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/constants/themeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -36,23 +38,22 @@ const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completions }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+
     const [viewMode, setViewMode] = useState<'radar' | 'stats'>('radar');
 
     // ------------------------------------------------------------------
     // 1. CALCULATE RADAR DATA
     // ------------------------------------------------------------------
     const radarData = useMemo(() => {
-        // Mocking some "Level" data based on habits count and completions
-        // In reality, this would likely aggregatre historical data
         return CATEGORIES.map(cat => {
             const catHabits = habits.filter(h => h.category === cat.key);
-            if (catHabits.length === 0) return { ...cat, value: 0.2 }; // Base value
+            if (catHabits.length === 0) return { ...cat, value: 0.2 };
 
             const total = catHabits.length;
             const completed = catHabits.filter(h => completions[h.id]).length;
-
-            // Normalize: 0.2 (base) + (0.8 * completionRate)
-            // Or just simplified "Habit Score"
             const score = total > 0 ? (completed / total) : 0;
             const value = 0.3 + (score * 0.7);
             return { ...cat, value };
@@ -64,9 +65,8 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
     // ------------------------------------------------------------------
     const angleSlice = (Math.PI * 2) / CATEGORIES.length;
 
-    // Helper to get coordinates
     const getCoordinates = (value: number, index: number) => {
-        const angle = index * angleSlice - Math.PI / 2; // Start from top
+        const angle = index * angleSlice - Math.PI / 2;
         const x = CENTER + Math.cos(angle) * (RADIUS * value);
         const y = CENTER + Math.sin(angle) * (RADIUS * value);
         return { x, y };
@@ -79,7 +79,6 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
 
     const radarNativePoints = radarData.map((d, i) => getCoordinates(d.value, i));
 
-    // Background Web Grid (Concentric Levels)
     const levels = [0.25, 0.5, 0.75, 1];
 
     // ------------------------------------------------------------------
@@ -89,11 +88,16 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
     const completedHabits = Object.values(completions).filter(Boolean).length;
     const dayProgress = totalHabits > 0 ? Math.round((completedHabits / totalHabits) * 100) : 0;
 
+    // Theme-specific colors
+    const gridLineColor = isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
+    const gridFillColor = isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)';
+    const labelColor = isLight ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)';
+
     return (
         <View style={styles.container}>
             {/* Life Balance Matrix Card */}
-            <VoidCard glass style={styles.chartCard} intensity={90}>
-                <Text style={styles.cardTitle}>LIFE BALANCE MATRIX</Text>
+            <VoidCard glass style={[styles.chartCard, isLight && { backgroundColor: colors.surfaceSecondary }]} intensity={isLight ? 20 : 90}>
+                <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>LIFE BALANCE MATRIX</Text>
                 <View style={{ alignItems: 'center', justifyContent: 'center', height: CHART_SIZE }}>
                     <Svg width={CHART_SIZE} height={CHART_SIZE}>
                         <Defs>
@@ -113,9 +117,9 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                                 <Polygon
                                     key={i}
                                     points={pts}
-                                    stroke="rgba(255,255,255,0.1)"
+                                    stroke={gridLineColor}
                                     strokeWidth="1"
-                                    fill={i === levels.length - 1 ? "rgba(255,255,255,0.02)" : "none"}
+                                    fill={i === levels.length - 1 ? gridFillColor : "none"}
                                 />
                             );
                         })}
@@ -130,7 +134,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                                     y1={CENTER}
                                     x2={x}
                                     y2={y}
-                                    stroke="rgba(255,255,255,0.1)"
+                                    stroke={gridLineColor}
                                     strokeWidth="1"
                                 />
                             );
@@ -144,7 +148,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                                     key={`label-${i}`}
                                     x={x}
                                     y={y}
-                                    fill="rgba(255,255,255,0.6)"
+                                    fill={labelColor}
                                     fontSize="9"
                                     fontWeight="bold"
                                     textAnchor="middle"
@@ -172,7 +176,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                                 cx={p.x}
                                 cy={p.y}
                                 r="3"
-                                fill="#fff"
+                                fill={isLight ? colors.background : '#fff'}
                                 stroke="#8B5CF6"
                                 strokeWidth="2"
                             />
@@ -182,18 +186,18 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
             </VoidCard>
 
             {/* Today's Completion Card */}
-            <VoidCard glass style={styles.completionCard} intensity={90}>
+            <VoidCard glass style={[styles.completionCard, isLight && { backgroundColor: colors.surfaceSecondary }]} intensity={isLight ? 20 : 90}>
                 <View style={styles.completionRow}>
                     <View style={styles.completionLeft}>
                         <ExpoLinearGradient colors={['#3B82F6', '#8B5CF6']} style={styles.completionIcon}>
                             <Ionicons name="pie-chart" size={20} color="#fff" />
                         </ExpoLinearGradient>
                         <View>
-                            <Text style={styles.completionLabel}>TODAY'S COMPLETION</Text>
-                            <Text style={styles.completionSubtext}>{completedHabits}/{totalHabits} habits done</Text>
+                            <Text style={[styles.completionLabel, { color: colors.textSecondary }]}>TODAY'S COMPLETION</Text>
+                            <Text style={[styles.completionSubtext, { color: colors.textPrimary }]}>{completedHabits}/{totalHabits} habits done</Text>
                         </View>
                     </View>
-                    <Text style={styles.completionValue}>{dayProgress}%</Text>
+                    <Text style={[styles.completionValue, { color: colors.textPrimary }]}>{dayProgress}%</Text>
                 </View>
             </VoidCard>
         </View>
@@ -214,13 +218,11 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 14,
         fontWeight: '900',
-        color: '#fff',
         letterSpacing: 2,
         fontFamily: 'Lexend',
     },
     subtitle: {
         fontSize: 9,
-        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
     },
@@ -228,11 +230,9 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)'
     },
     chartCard: {
         padding: 12,
@@ -261,12 +261,10 @@ const styles = StyleSheet.create({
     bigStatValue: {
         fontSize: 32,
         fontWeight: '900',
-        color: '#fff',
         fontFamily: 'Lexend',
     },
     bigStatLabel: {
         fontSize: 10,
-        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 2,
         fontFamily: 'Lexend_400Regular',
     },
@@ -278,30 +276,25 @@ const styles = StyleSheet.create({
     gridItem: {
         flex: 1,
         minWidth: '40%',
-        backgroundColor: 'rgba(255,255,255,0.03)',
         padding: 12,
         borderRadius: 12,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)'
     },
     gridVal: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#fff',
         fontFamily: 'Lexend',
         marginBottom: 2,
     },
     gridLbl: {
         fontSize: 8,
-        color: 'rgba(255,255,255,0.4)',
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
     },
     cardTitle: {
         fontSize: 10,
         fontWeight: '700',
-        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 2,
         fontFamily: 'Lexend',
         marginBottom: 8,
@@ -330,20 +323,17 @@ const styles = StyleSheet.create({
     },
     completionLabel: {
         fontSize: 10,
-        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
     },
     completionSubtext: {
         fontSize: 12,
-        color: '#fff',
         fontWeight: '500',
         marginTop: 2,
     },
     completionValue: {
         fontSize: 28,
         fontWeight: '900',
-        color: '#fff',
         fontFamily: 'Lexend',
     },
 });
