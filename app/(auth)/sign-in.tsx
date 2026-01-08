@@ -102,7 +102,7 @@ const SignIn = () => {
             {/* Header */}
             <View style={{ marginBottom: 40 }}>
               <Text style={[styles.title, { color: colors.textPrimary }]}>WELCOME BACK</Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>ENTER THE VOID</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Log in to continue</Text>
             </View>
 
             {/* Form Container */}
@@ -157,7 +157,7 @@ const SignIn = () => {
                 {loading ? (
                   <ActivityIndicator color="black" />
                 ) : (
-                  <Text style={styles.buttonText}>AUTHENTICATE</Text>
+                  <Text style={styles.buttonText}>SIGN IN</Text>
                 )}
               </TouchableOpacity>
 
@@ -176,21 +176,16 @@ const SignIn = () => {
               disabled={loading}
               style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
             >
-              <Ionicons name="logo-google" size={20} color="#fff" style={{ marginRight: 12 }} />
-              <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>CONTINUE WITH GOOGLE</Text>
+              <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 12 }} />
+              <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
             </TouchableOpacity>
 
             {/* Footer Actions */}
             <View style={{ marginTop: 20, gap: 16 }}>
-              {/* Google / Guest could go here or be hidden for cleaner void look */}
-              <TouchableOpacity onPress={handleSkip} style={{ alignItems: 'center' }}>
-                <Text style={{ color: colors.textTertiary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>CONTINUE AS GUEST</Text>
-              </TouchableOpacity>
-
               <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}>
-                <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>NO ID? </Text>
-                <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')}>
-                  <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>INITIALIZE</Text>
+                <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>Don't have an account? </Text>
+                <TouchableOpacity onPress={() => router.replace('/(auth)/sign-up')}>
+                  <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>Join Us</Text>
                 </TouchableOpacity>
               </View>
             </View>

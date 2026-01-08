@@ -181,34 +181,39 @@ export default function CommunityScreen() {
 
     return (
         <VoidShell>
-            {/* Loading Overlay */}
-            {loading && (
-                <View style={{
-                    ...StyleSheet.absoluteFillObject,
-                    backgroundColor: colors.background,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    zIndex: 100,
-                }}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={{
-                        color: colors.textSecondary,
-                        marginTop: 16,
-                        fontSize: 14,
-                        fontFamily: 'Lexend_400Regular'
-                    }}>
-                        Loading crew data...
-                    </Text>
-                </View>
-            )}
-
             <ScrollView
                 contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 20, paddingBottom: 140 }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={'transparent'}
+                        progressBackgroundColor={'transparent'}
+                        style={{ backgroundColor: 'transparent' }}
+                    />
                 }
             >
+                {/* Custom Refresh Spinner */}
+                {refreshing && (
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                        {(() => {
+                            const { SpinningLogo } = require('@/components/SpinningLogo');
+                            return <SpinningLogo />;
+                        })()}
+                    </View>
+                )}
+
+                {/* Initial Loading State - Inline, non-blocking */}
+                {loading && !refreshing && (
+                    <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                        {(() => {
+                            const { SpinningLogo } = require('@/components/SpinningLogo');
+                            return <SpinningLogo />;
+                        })()}
+                        <Text style={{ color: colors.textSecondary, marginTop: 12, fontFamily: 'Lexend_400Regular' }}>Getting crew data...</Text>
+                    </View>
+                )}
                 {/* Header */}
                 <View style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View>

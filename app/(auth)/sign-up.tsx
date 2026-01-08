@@ -89,8 +89,8 @@ const SignUp = () => {
 
             {/* Header */}
             <View style={{ marginBottom: 32 }}>
-              <Text style={[styles.title, { color: colors.textPrimary }]}>INITIATE</Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>BEGIN YOUR ASCENT</Text>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>CREATE ACCOUNT</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Join us</Text>
             </View>
 
             {/* Form Container */}
@@ -157,7 +157,7 @@ const SignUp = () => {
                 {loading ? (
                   <ActivityIndicator color="black" />
                 ) : (
-                  <Text style={styles.buttonText}>CREATE ACCOUNT</Text>
+                  <Text style={styles.buttonText}>SIGN UP</Text>
                 )}
               </TouchableOpacity>
 
@@ -176,15 +176,15 @@ const SignUp = () => {
               disabled={loading}
               style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
             >
-              <Ionicons name="logo-google" size={20} color="#fff" style={{ marginRight: 12 }} />
-              <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>CONTINUE WITH GOOGLE</Text>
+              <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 12 }} />
+              <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
             </TouchableOpacity>
 
             {/* Footer */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20 }}>
-              <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>ALREADY HAVE AN ACCOUNT? </Text>
-              <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')}>
-                <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>AUTHENTICATE</Text>
+              <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => router.replace('/(auth)/sign-in')}>
+                <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>Sign In</Text>
               </TouchableOpacity>
             </View>
 

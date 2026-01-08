@@ -3,6 +3,8 @@ import { Stack } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
+import { TimerProvider } from '@/contexts/TimerContext';
+import { FloatingTimer } from '@/components/GlobalTimer/FloatingTimer';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -36,7 +38,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <>
+    <TimerProvider>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -51,6 +53,8 @@ export default function RootLayout() {
             presentation: 'modal'
           }}
         />
+
+        {/* ... (existing screens) ... */}
 
         <Stack.Screen
           name="app-settings"
@@ -151,6 +155,7 @@ export default function RootLayout() {
           }}
         />
       </Stack>
-    </>
+      <FloatingTimer />
+    </TimerProvider>
   );
 }

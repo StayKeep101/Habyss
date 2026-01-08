@@ -4,6 +4,7 @@ import { View, ActivityIndicator, useColorScheme } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { Colors } from '@/constants/Colors';
+import { SpinningLogo } from "@/components/SpinningLogo";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -25,7 +26,7 @@ export default function App() {
   if (session === undefined) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <SpinningLogo />
       </View>
     );
   }

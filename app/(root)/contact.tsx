@@ -7,10 +7,12 @@ import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 const Contact = () => {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme ?? 'dark'];
+    const { colors: accentColors } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
     const [message, setMessage] = useState('');
@@ -72,7 +74,7 @@ const Contact = () => {
 
                     <TouchableOpacity onPress={handleSend}>
                         <LinearGradient
-                            colors={['#3B82F6', '#8B5CF6']}
+                            colors={accentColors} // Use user accent colors
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.sendBtn}

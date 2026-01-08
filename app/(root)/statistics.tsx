@@ -9,6 +9,7 @@ import { LifeAreaChart } from '@/components/Statistics/LifeAreaChart';
 import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { DashboardView } from '@/components/Dashboard/DashboardView';
 import { DashboardData, Goal, Habit as DashboardHabit } from '@/components/Dashboard/Dashboard.types';
+import { SpinningLogo } from '@/components/SpinningLogo';
 
 const { width } = Dimensions.get('window');
 
@@ -150,7 +151,7 @@ export default function StatisticsScreen() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <SpinningLogo />
       </View>
     )
   }

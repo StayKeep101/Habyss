@@ -4,6 +4,8 @@ import Animated, { FadeInDown, FadeOut, useSharedValue, withSpring, useAnimatedS
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/constants/Colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,6 +38,8 @@ interface GenesisCarouselProps {
 export const GenesisCarousel: React.FC<GenesisCarouselProps> = ({ onFinish, onLogin }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
     const { lightFeedback } = useHaptics();
+    const { theme } = useTheme();
+    const colors = Colors[theme];
 
     const handleNext = () => {
         lightFeedback();
@@ -59,11 +63,11 @@ export const GenesisCarousel: React.FC<GenesisCarouselProps> = ({ onFinish, onLo
                             exiting={FadeOut.duration(200)}
                             style={styles.slideContent}
                         >
-                            <View style={styles.iconContainer}>
-                                <Ionicons name={slide.icon as any} size={80} color="#fff" />
+                            <View style={[styles.iconContainer, { backgroundColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', borderColor: theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)', shadowColor: colors.textPrimary }]}>
+                                <Ionicons name={slide.icon as any} size={80} color={colors.textPrimary} />
                             </View>
-                            <Text style={styles.title}>{slide.title}</Text>
-                            <Text style={styles.desc}>{slide.desc}</Text>
+                            <Text style={[styles.title, { color: colors.textPrimary }]}>{slide.title}</Text>
+                            <Text style={[styles.desc, { color: colors.textSecondary }]}>{slide.desc}</Text>
                         </Animated.View>
                     );
                 })}
@@ -76,7 +80,7 @@ export const GenesisCarousel: React.FC<GenesisCarouselProps> = ({ onFinish, onLo
                         key={index}
                         style={[
                             styles.dot,
-                            { backgroundColor: index === currentSlide ? '#fff' : 'rgba(255,255,255,0.2)', width: index === currentSlide ? 24 : 8 }
+                            { backgroundColor: index === currentSlide ? colors.textPrimary : colors.textTertiary, width: index === currentSlide ? 24 : 8 }
                         ]}
                     />
                 ))}
@@ -85,15 +89,15 @@ export const GenesisCarousel: React.FC<GenesisCarouselProps> = ({ onFinish, onLo
             {/* Actions */}
             <View style={styles.footer}>
                 <TouchableOpacity onPress={handleNext} activeOpacity={0.8}>
-                    <BlurView intensity={20} style={styles.primaryBtn}>
-                        <Text style={styles.primaryBtnText}>
+                    <BlurView intensity={20} style={[styles.primaryBtn, { borderColor: colors.border, backgroundColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }]}>
+                        <Text style={[styles.primaryBtnText, { color: colors.textPrimary }]}>
                             {currentSlide === SLIDES.length - 1 ? 'BEGIN JOURNEY' : 'CONTINUE'}
                         </Text>
                     </BlurView>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={onLogin} style={styles.secondaryBtn}>
-                    <Text style={styles.secondaryBtnText}>I already have an account</Text>
+                    <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>I already have an account</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -120,13 +124,10 @@ const styles = StyleSheet.create({
         width: 160,
         height: 160,
         borderRadius: 80,
-        backgroundColor: 'rgba(255,255,255,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 40,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        shadowColor: "#fff",
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.2,
         shadowRadius: 20,
@@ -134,16 +135,16 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 32,
         fontWeight: '800',
-        color: 'white',
         marginBottom: 16,
         textAlign: 'center',
         letterSpacing: 1,
+        fontFamily: 'Lexend',
     },
     desc: {
         fontSize: 16,
-        color: 'rgba(255,255,255,0.6)',
         textAlign: 'center',
         lineHeight: 24,
+        fontFamily: 'Lexend_400Regular',
     },
     pagination: {
         flexDirection: 'row',
@@ -166,21 +167,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
-        backgroundColor: 'rgba(255,255,255,0.1)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
     },
     primaryBtnText: {
-        color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
         letterSpacing: 2,
+        fontFamily: 'Lexend',
     },
     secondaryBtn: {
         alignItems: 'center',
     },
     secondaryBtnText: {
-        color: 'rgba(255,255,255,0.5)',
         fontSize: 14,
+        fontFamily: 'Lexend_400Regular',
     }
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Image } from 'react-native';
 import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -63,10 +63,11 @@ export const GenesisIntro: React.FC<GenesisIntroProps> = ({ onComplete }) => {
                     exiting={FadeOut.duration(800)}
                     style={styles.center}
                 >
-                    {/* Simplified geometric logo representation for the intro */}
-                    <View style={styles.logoBox}>
-                        <View style={styles.logoInner} />
-                    </View>
+                    <Image
+                        source={require('@/assets/images/Habyss Logo.png')}
+                        style={{ width: 120, height: 120, marginBottom: 24 }}
+                        resizeMode="contain"
+                    />
                     <Text style={styles.brandText}>HABYSS</Text>
                 </Animated.View>
             )}

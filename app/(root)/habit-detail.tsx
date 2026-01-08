@@ -13,6 +13,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { PomodoroTimer } from '@/components/Habit/PomodoroTimer';
 import { SpotifyPage } from '@/components/Habit/SpotifyPage';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
+import { SpinningLogo } from '@/components/SpinningLogo';
 
 const { width } = Dimensions.get('window');
 
@@ -138,7 +139,7 @@ export default function HabitDetailScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <SpinningLogo />
       </View>
     );
   }

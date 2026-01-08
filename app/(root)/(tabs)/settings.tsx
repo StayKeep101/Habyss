@@ -359,11 +359,7 @@ export default function ProfileScreen() {
                                 >
                                     <Text style={{ color: 'white', fontSize: 8, fontWeight: '900', fontFamily: 'Lexend' }}>PRO</Text>
                                 </LinearGradient>
-                            ) : (
-                                <View style={[styles.verifiedBadge, { backgroundColor: colors.primary }]}>
-                                    <Ionicons name="star" size={12} color="black" />
-                                </View>
-                            )}
+                            ) : null}
                         </TouchableOpacity>
 
                         {/* Upgrade Button (only for non-premium) */}

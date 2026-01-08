@@ -11,13 +11,14 @@ import { useAppSettings, RoadMapCardSize } from '@/constants/AppSettingsContext'
 import { useAccent, ACCENT_GRADIENTS, AccentGradientId } from '@/constants/AccentContext';
 
 const Appearance = () => {
-    const { theme, setTheme } = useTheme();
+    const { theme, mode, setTheme } = useTheme();
     const colors = Colors[theme];
     const { cardSize, setCardSize } = useAppSettings();
     const { accentGradient, setAccentGradientId } = useAccent();
     const { lightFeedback, mediumFeedback } = useHaptics();
 
     const themes: { id: ThemeMode; name: string; icon: string; desc: string }[] = [
+        { id: 'system', name: 'System', icon: 'settings-outline', desc: 'Follows device settings' },
         { id: 'light', name: 'Light', icon: 'sunny-outline', desc: 'Bright and clean' },
         { id: 'abyss', name: 'Habyss', icon: 'moon-outline', desc: 'Signature dark mode' },
         { id: 'trueDark', name: 'True Dark', icon: 'contrast-outline', desc: 'OLED black' },
@@ -55,13 +56,13 @@ const Appearance = () => {
                                     <Ionicons
                                         name={t.icon as any}
                                         size={22}
-                                        color={theme === t.id ? accentGradient.colors[0] : colors.textSecondary}
+                                        color={mode === t.id ? accentGradient.colors[0] : colors.textSecondary}
                                     />
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.themeName, { color: colors.textPrimary }]}>{t.name}</Text>
                                         <Text style={[styles.themeDesc, { color: colors.textTertiary }]}>{t.desc}</Text>
                                     </View>
-                                    {theme === t.id && (
+                                    {mode === t.id && (
                                         <Ionicons name="checkmark-circle" size={22} color={colors.success} />
                                     )}
                                 </TouchableOpacity>
