@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, ActivityIndicator, TouchableOpacity } fr
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
-import { getHabits, getCompletions, Habit, getUserId } from '@/lib/habits';
+import { getHabits, getCompletions, Habit, getUserId } from '@/lib/habitsSQLite';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';

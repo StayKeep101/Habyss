@@ -522,32 +522,70 @@ export const FriendsService = {
 
     /**
      * Get leaderboard with real friend stats
+     * @param period - 'week' | 'month' | 'year' | 'all'
      */
-    async getLeaderboard(): Promise<{ rank: number; friend: Friend }[]> {
+    async getLeaderboard(period: 'week' | 'month' | 'year' | 'all' = 'week'): Promise<{ rank: number; friend: Friend }[]> {
         try {
-            // Use getFriendsWithProgress to get real stats including Erwin
-            const friends = await this.getFriendsWithProgress();
+            const friends = await this.getFriends();
             const currentUser = await this.getCurrentUser();
 
             if (!currentUser) return [];
 
-            // Get current user's stats
-            const { data: userHabits } = await supabase
+            // Calculate date range based on period
+            const now = new Date();
+            let startDate: string;
+
+            if (period === 'week') {
+                const weekAgo = new Date(now);
+                weekAgo.setDate(now.getDate() - 7);
+                startDate = weekAgo.toISOString().split('T')[0];
+            } else if (period === 'month') {
+                const monthAgo = new Date(now);
+                monthAgo.setMonth(now.getMonth() - 1);
+                startDate = monthAgo.toISOString().split('T')[0];
+            } else if (period === 'year') {
+                const yearAgo = new Date(now);
+                yearAgo.setFullYear(now.getFullYear() - 1);
+                startDate = yearAgo.toISOString().split('T')[0];
+            } else {
+                startDate = '2000-01-01'; // All time
+            }
+
+            // Get all friend user IDs including current user
+            const allUserIds = [...friends.map(f => f.id), currentUser.id];
+
+            // Batch query: Get all habits for all users
+            const { data: allHabits } = await supabase
                 .from('habits')
-                .select('id')
-                .eq('user_id', currentUser.id)
+                .select('id, user_id')
+                .in('user_id', allUserIds)
                 .eq('is_archived', false);
 
-            const today = new Date().toISOString().split('T')[0];
-            const { data: userCompletions } = await supabase
-                .from('habit_completions')
-                .select('habit_id')
-                .eq('date', today)
-                .in('habit_id', userHabits?.map(h => h.id) || []);
+            const habitIds = allHabits?.map(h => h.id) || [];
+            const userHabitMap: Record<string, string[]> = {};
+            allHabits?.forEach(h => {
+                if (!userHabitMap[h.user_id]) userHabitMap[h.user_id] = [];
+                userHabitMap[h.user_id].push(h.id);
+            });
 
-            const userTotalHabits = userHabits?.length || 0;
-            const userCompletedToday = userCompletions?.length || 0;
-            const userTodayCompletion = userTotalHabits > 0 ? Math.round((userCompletedToday / userTotalHabits) * 100) : 0;
+            // Batch query: Get all completions in the period for all habits
+            const { data: allCompletions } = await supabase
+                .from('habit_completions')
+                .select('habit_id, date')
+                .in('habit_id', habitIds)
+                .gte('date', startDate);
+
+            // Calculate completions per user
+            const habitToUser: Record<string, string> = {};
+            allHabits?.forEach(h => { habitToUser[h.id] = h.user_id; });
+
+            const userCompletionCount: Record<string, number> = {};
+            allCompletions?.forEach(c => {
+                const userId = habitToUser[c.habit_id];
+                if (userId) {
+                    userCompletionCount[userId] = (userCompletionCount[userId] || 0) + 1;
+                }
+            });
 
             // Get current user's profile info
             const { data: userProfile } = await supabase
@@ -556,33 +594,32 @@ export const FriendsService = {
                 .eq('id', currentUser.id)
                 .single();
 
-            // Add current user to list with actual username
-            const allUsers = [
-                ...friends,
+            // Build all users list with completion counts
+            const allUsers: Friend[] = [
+                ...friends.map(f => ({
+                    ...f,
+                    currentStreak: userCompletionCount[f.id] || 0,
+                })),
                 {
                     id: currentUser.id,
                     username: userProfile?.username || currentUser.email?.split('@')[0] || 'Me',
                     email: currentUser.email || '',
-                    currentStreak: 0,
-                    todayCompletion: userTodayCompletion,
+                    currentStreak: userCompletionCount[currentUser.id] || 0,
+                    todayCompletion: 0,
                     avatarUrl: userProfile?.avatar_url,
-                    isCurrentUser: true, // Flag to show "(You)" in UI
+                    isCurrentUser: true,
                 }
             ];
 
-            // Sort by streak then completion
-            allUsers.sort((a, b) => {
-                if (b.currentStreak !== a.currentStreak) {
-                    return b.currentStreak - a.currentStreak;
-                }
-                return b.todayCompletion - a.todayCompletion;
-            });
+            // Sort by completion count
+            allUsers.sort((a, b) => b.currentStreak - a.currentStreak);
 
             return allUsers.map((friend, index) => ({
                 rank: index + 1,
                 friend,
             }));
         } catch (e) {
+            console.error('Leaderboard error:', e);
             return [];
         }
     },
@@ -679,6 +716,84 @@ export const FriendsService = {
                         username: owner?.username || 'Unknown Friend',
                     },
                     todayCompleted: false,
+                };
+            }).filter(item => item !== null);
+        } catch (e) {
+            return [];
+        }
+    },
+
+    /**
+     * Share a goal with a friend
+     */
+    async shareGoalWithFriend(goalId: string, friendId: string): Promise<boolean> {
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
+
+            const { error } = await supabase
+                .from('shared_goals')
+                .insert({
+                    goal_id: goalId,
+                    owner_id: currentUser.id,
+                    shared_with_id: friendId,
+                });
+
+            if (error) {
+                if (isTableMissing(error)) return false;
+                console.error('Error sharing goal:', error);
+                return false;
+            }
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+     * Get goals shared with me
+     */
+    async getGoalsSharedWithMe(): Promise<any[]> {
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return [];
+
+            const { data: shares, error } = await supabase
+                .from('shared_goals')
+                .select('goal_id, owner_id')
+                .eq('shared_with_id', currentUser.id);
+
+            if (error || !shares || shares.length === 0) return [];
+
+            const goalIds = Array.from(new Set(shares.map(s => s.goal_id)));
+            const ownerIds = Array.from(new Set(shares.map(s => s.owner_id)));
+
+            const [goalsResult, profilesResult] = await Promise.all([
+                supabase.from('goals').select('id, name, icon, category, deadline').in('id', goalIds),
+                supabase.from('profiles').select('id, username').in('id', ownerIds)
+            ]);
+
+            const goalsMap = new Map(goalsResult.data?.map(g => [g.id, g]));
+            const ownersMap = new Map(profilesResult.data?.map(p => [p.id, p]));
+
+            return shares.map(share => {
+                const goal = goalsMap.get(share.goal_id);
+                const owner = ownersMap.get(share.owner_id);
+
+                if (!goal) return null;
+
+                return {
+                    goal: {
+                        id: goal.id,
+                        name: goal.name,
+                        icon: goal.icon,
+                        category: goal.category,
+                        deadline: goal.deadline,
+                    },
+                    owner: {
+                        id: share.owner_id,
+                        username: owner?.username || 'Unknown Friend',
+                    },
                 };
             }).filter(item => item !== null);
         } catch (e) {

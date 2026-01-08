@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, Dimensions, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -196,7 +196,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 throw error;
             }
 
-            if (avatarUri) await AsyncStorage.setItem('profile_avatar', avatarUri);
+            if (avatarUri) {
+                await AsyncStorage.setItem('profile_avatar', avatarUri);
+                DeviceEventEmitter.emit('profile_avatar_changed', avatarUri);
+            }
             if (description) await AsyncStorage.setItem('profile_bio', description);
             if (age) await AsyncStorage.setItem('profile_age', age);
             if (gender) await AsyncStorage.setItem('profile_gender', gender);

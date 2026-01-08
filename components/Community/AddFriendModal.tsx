@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Dimensions } from 'react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Dimensions, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -154,53 +154,57 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                                 <View style={[styles.handle, { backgroundColor: isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)' }]} />
                             </View>
 
-                            <Animated.View style={[styles.content, contentStyle]}>
-                                {/* Header */}
-                                <Text style={[styles.title, { color: colors.textPrimary }]}>ADD CREW MEMBER</Text>
+                            <ScrollView bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={100}>
+                                    <Animated.View style={[styles.content, contentStyle]}>
+                                        {/* Header */}
+                                        <Text style={[styles.title, { color: colors.textPrimary }]}>ADD CREW MEMBER</Text>
 
-                                {/* Your Code Section */}
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>YOUR IDENTIFIER</Text>
-                                <VoidCard style={styles.codeCard}>
-                                    <Text style={[styles.code, { color: colors.primary }]}>{userCode || 'LOADING...'}</Text>
-                                    <TouchableOpacity onPress={handleShare} style={[styles.copyBtn, { backgroundColor: colors.surfaceSecondary }]}>
-                                        <Ionicons name="share-outline" size={16} color={colors.textPrimary} />
-                                        <Text style={[styles.copyText, { color: colors.textPrimary }]}>SHARE</Text>
-                                    </TouchableOpacity>
-                                </VoidCard>
+                                        {/* Your Code Section */}
+                                        <Text style={[styles.label, { color: colors.textSecondary }]}>YOUR IDENTIFIER</Text>
+                                        <VoidCard style={styles.codeCard}>
+                                            <Text style={[styles.code, { color: colors.primary }]}>{userCode || 'LOADING...'}</Text>
+                                            <TouchableOpacity onPress={handleShare} style={[styles.copyBtn, { backgroundColor: colors.surfaceSecondary }]}>
+                                                <Ionicons name="share-outline" size={16} color={colors.textPrimary} />
+                                                <Text style={[styles.copyText, { color: colors.textPrimary }]}>SHARE</Text>
+                                            </TouchableOpacity>
+                                        </VoidCard>
 
-                                <View style={{ height: 20 }} />
+                                        <View style={{ height: 20 }} />
 
-                                {/* Enter Friend Code */}
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>ENTER FRIEND CODE</Text>
-                                <TextInput
-                                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                                    placeholder="e.g. A1B2C3D4"
-                                    placeholderTextColor={colors.textTertiary}
-                                    value={code}
-                                    onChangeText={text => setCode(text.toUpperCase())}
-                                    autoCapitalize="characters"
-                                    maxLength={36}
-                                />
+                                        {/* Enter Friend Code */}
+                                        <Text style={[styles.label, { color: colors.textSecondary }]}>ENTER FRIEND CODE</Text>
+                                        <TextInput
+                                            style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
+                                            placeholder="e.g. A1B2C3D4"
+                                            placeholderTextColor={colors.textTertiary}
+                                            value={code}
+                                            onChangeText={text => setCode(text.toUpperCase())}
+                                            autoCapitalize="characters"
+                                            maxLength={36}
+                                        />
 
-                                {/* Action Button */}
-                                <TouchableOpacity
-                                    onPress={handleAddFriend}
-                                    disabled={loading || code.length < 3}
-                                    style={[
-                                        styles.addBtn,
-                                        {
-                                            backgroundColor: loading || code.length < 3 ? colors.surfaceTertiary : colors.primary,
-                                            opacity: loading || code.length < 3 ? 0.5 : 1
-                                        }
-                                    ]}
-                                >
-                                    {loading ? (
-                                        <ActivityIndicator color="#fff" />
-                                    ) : (
-                                        <Text style={styles.addBtnText}>ADD FRIEND</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </Animated.View>
+                                        {/* Action Button */}
+                                        <TouchableOpacity
+                                            onPress={handleAddFriend}
+                                            disabled={loading || code.length < 3}
+                                            style={[
+                                                styles.addBtn,
+                                                {
+                                                    backgroundColor: loading || code.length < 3 ? colors.surfaceTertiary : colors.primary,
+                                                    opacity: loading || code.length < 3 ? 0.5 : 1
+                                                }
+                                            ]}
+                                        >
+                                            {loading ? (
+                                                <ActivityIndicator color="#fff" />
+                                            ) : (
+                                                <Text style={styles.addBtnText}>ADD FRIEND</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                </KeyboardAvoidingView>
+                            </ScrollView>
                         </LinearGradient>
                     </Animated.View>
                 </GestureDetector>

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { RoadmapView } from '@/components/Home/RoadmapView';
-import { getHabits as loadHabits, getCompletions, Habit as StoreHabit } from '@/lib/habits';
+import { getHabits as loadHabits, getCompletions, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 

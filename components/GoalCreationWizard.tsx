@@ -31,7 +31,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-import { addHabit, HabitCategory } from '@/lib/habits';
+import { addHabit, HabitCategory } from '@/lib/habitsSQLite';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';

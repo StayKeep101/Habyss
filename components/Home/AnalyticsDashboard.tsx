@@ -4,7 +4,7 @@ import { Svg, Path, Polygon, Line, Circle, Text as SvgText, G, Defs, LinearGradi
 import Animated, { useSharedValue, useAnimatedProps, withTiming, withDelay, Easing, withSpring } from 'react-native-reanimated';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Habit } from '@/lib/habits';
+import { Habit } from '@/lib/habitsSQLite';
 import { VoidCard } from '../Layout/VoidCard';
 import { BlurView } from 'expo-blur';
 import { Colors } from '@/constants/Colors';

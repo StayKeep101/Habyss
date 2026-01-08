@@ -15,7 +15,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
-import { Habit } from '@/lib/habits';
+import { Habit } from '@/lib/habitsSQLite';
 
 const { width, height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.50;

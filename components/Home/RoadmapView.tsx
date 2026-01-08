@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Dimensions, Animated, Image }
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { Habit } from '@/lib/habits';
+import { Habit } from '@/lib/habitsSQLite';
 
 const { width } = Dimensions.get('window');
 

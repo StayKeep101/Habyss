@@ -6,7 +6,7 @@ import { useTheme } from '@/constants/themeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { MasonryGrid } from '@/components/Vision/MasonryGrid';
-import { getHabits } from '@/lib/habits';
+import { getHabits } from '@/lib/habitsSQLite';
 
 export default function VisionBoard() {
     const { theme } = useTheme();

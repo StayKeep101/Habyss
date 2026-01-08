@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useRouter, useGlobalSearchParams } from 'expo-router';
-import { getHabits, getCompletions, getStreakData, getHeatmapData, getLastNDaysCompletions, Habit, HabitCategory } from '@/lib/habits';
+import { getHabits, getCompletions, getStreakData, getHeatmapData, getLastNDaysCompletions, Habit, HabitCategory } from '@/lib/habitsSQLite';
 import { LifeAreaChart } from '@/components/Statistics/LifeAreaChart';
 import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { DashboardView } from '@/components/Dashboard/DashboardView';

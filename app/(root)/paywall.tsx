@@ -20,44 +20,47 @@ const { width } = Dimensions.get('window');
 export default function PaywallScreen() {
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
     const [loading, setLoading] = useState(false);
+    const [selectedPlanId, setSelectedPlanId] = useState<'monthly' | 'yearly' | '2year' | 'lifetime'>('yearly');
     const { restorePurchases } = usePremiumStatus();
     const { primary: accentColor } = useAccentGradient();
+
+    const PLANS = [
+        { id: 'monthly', title: 'Monthly', price: '$1.99', period: '/mo', save: null },
+        { id: 'yearly', title: 'Yearly', price: '$6.99', originalPrice: '$12.99', period: '/yr', save: '50% OFF' },
+        { id: '2year', title: '2 Years', price: '$19.99', period: '/2yr', save: null },
+        { id: 'lifetime', title: 'Lifetime', price: '$29.99', period: 'one-time', save: 'BEST VALUE' }
+    ] as const;
+
+    const selectedPlan = PLANS.find(p => p.id === selectedPlanId) || PLANS[1];
 
     const BENEFITS = [
         {
             id: 'ai',
             icon: 'sparkles',
-            title: 'Cosmic Wisdom',
-            desc: 'Unlock specific AI personalities (Friendly, Dad Mode, Bully) and unlimited coaching chats.',
+            title: 'AI Agent',
+            desc: 'Unlock your personal AI coach with unlimited conversations and personalized insights.',
             color: accentColor // Dynamic Accent
         },
         {
-            id: 'analytics',
-            icon: 'analytics',
-            title: 'Quantified Self',
-            desc: 'Access advanced heatmaps, trend predictions, and consistency scores.',
-            color: '#3B82F6'
-        },
-        {
-            id: 'void',
+            id: 'unlimited',
             icon: 'infinite',
-            title: 'No Limits',
-            desc: 'Create infinite habits, goals, and customize your Void with unlimited categories.',
+            title: 'Unlimited Goals & Habits',
+            desc: 'Create as many goals and habits as you need. No restrictions, no limits.',
             color: '#10B981'
         },
         {
-            id: 'sync',
-            icon: 'cloud-upload',
-            title: 'Universal Sync',
-            desc: 'Your data flows seamlessly across all your devices in real-time.',
-            color: '#F59E0B'
+            id: 'automation',
+            icon: 'flash',
+            title: 'Unlimited Automation',
+            desc: 'Automate your habit tracking with smart triggers, schedules, and workflows.',
+            color: '#3B82F6'
         },
         {
-            id: 'export',
-            icon: 'download',
-            title: 'Total Ownership',
-            desc: 'Export your entire history to CSV/JSON anytime. Your data is yours.',
-            color: '#EC4899'
+            id: 'siri',
+            icon: 'mic',
+            title: 'Shortcuts & Siri',
+            desc: 'Use Siri voice commands and iOS Shortcuts to complete habits hands-free.',
+            color: '#F59E0B'
         }
     ];
 
@@ -203,6 +206,47 @@ export default function PaywallScreen() {
                     ))}
                 </View>
 
+                {/* Plan Selection */}
+                <View style={styles.plansContainer}>
+                    <Text style={styles.sectionHeader}>CHOOSE YOUR PATH</Text>
+                    <View style={styles.plansGrid}>
+                        {PLANS.map((plan) => {
+                            const isSelected = selectedPlanId === plan.id;
+                            return (
+                                <TouchableOpacity
+                                    key={plan.id}
+                                    onPress={() => {
+                                        import('expo-haptics').then(H => H.selectionAsync());
+                                        setSelectedPlanId(plan.id);
+                                    }}
+                                    activeOpacity={0.8}
+                                >
+                                    <Animated.View
+                                        style={[
+                                            styles.planCard,
+                                            isSelected && { borderColor: accentColor, backgroundColor: accentColor + '10' }
+                                        ]}
+                                    >
+                                        {plan.save && (
+                                            <View style={[styles.saveBadge, { backgroundColor: accentColor }]}>
+                                                <Text style={styles.saveText}>{plan.save}</Text>
+                                            </View>
+                                        )}
+                                        <Text style={[styles.planTitle, isSelected && { color: accentColor }]}>{plan.title}</Text>
+                                        <View style={styles.priceRow}>
+                                            {(plan as any).originalPrice && (
+                                                <Text style={styles.originalPrice}>{(plan as any).originalPrice}</Text>
+                                            )}
+                                            <Text style={styles.planPrice}>{plan.price}</Text>
+                                            <Text style={styles.planPeriod}>{plan.period}</Text>
+                                        </View>
+                                    </Animated.View>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </View>
+
                 {/* Social Proof / Trust */}
                 <View style={styles.trustSection}>
                     <View style={styles.stars}>
@@ -221,7 +265,7 @@ export default function PaywallScreen() {
                 <StargateButton
                     onPress={handleSubscribe}
                     loading={loading}
-                    price="$9.99"
+                    price={selectedPlan.price}
                 />
                 <TouchableOpacity onPress={handleRestore} disabled={loading} style={styles.restoreBtn}>
                     <Text style={styles.restoreText}>Restore Purchase</Text>
@@ -349,6 +393,74 @@ const styles = StyleSheet.create({
     restoreBtn: {
         alignItems: 'center',
         marginTop: 4,
+    },
+    plansContainer: {
+        marginTop: 40,
+        paddingHorizontal: 20,
+    },
+    sectionHeader: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: 'rgba(255,255,255,0.4)',
+        letterSpacing: 2,
+        marginBottom: 16,
+        textAlign: 'center',
+        fontFamily: 'Lexend',
+    },
+    plansGrid: {
+        gap: 12,
+    },
+    planCard: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 2,
+        borderColor: 'transparent',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        height: 70,
+    },
+    saveBadge: {
+        position: 'absolute',
+        top: -10,
+        right: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    saveText: {
+        color: '#000',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    planTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: 'white',
+        fontFamily: 'Lexend',
+    },
+    priceRow: {
+        alignItems: 'flex-end',
+    },
+    originalPrice: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.4)',
+        textDecorationLine: 'line-through',
+        marginRight: 6,
+        marginBottom: 4,
+        fontFamily: 'Lexend_400Regular',
+    },
+    planPrice: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: 'white',
+        fontFamily: 'Lexend',
+    },
+    planPeriod: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.5)',
+        fontFamily: 'Lexend_400Regular',
     },
     restoreText: {
         color: 'rgba(255,255,255,0.4)',

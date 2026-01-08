@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Habit } from '@/lib/habits';
+import { Habit } from '@/lib/habitsSQLite';
 import { Ionicons } from '@expo/vector-icons';
 import { useAccentGradient } from '@/constants/AccentContext';
 

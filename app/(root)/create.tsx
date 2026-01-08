@@ -9,7 +9,7 @@ import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 import { useHaptics } from '@/hooks/useHaptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-import { addHabit, getHabits, updateHabit } from '@/lib/habits';
+import { addHabit, getHabits, updateHabit } from '@/lib/habitsSQLite';
 
 // Simple 2-step Goal Creation/Edit Wizard
 // Step 1: Name + Description

@@ -18,7 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { clearHabitsCache } from '@/lib/habits';
+import { clearHabitsCache } from '@/lib/habitsSQLite';
+import { AIConfigModal } from '@/components/AIConfigModal';
 
 
 // Settings configuration
@@ -51,6 +52,7 @@ export default function ProfileScreen() {
     const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
     const [saving, setSaving] = useState(false);
     const [showEditProfile, setShowEditProfile] = useState(false);
+    const [showAIConfig, setShowAIConfig] = useState(false);
 
     // Settings state - use global context
     const {
@@ -180,6 +182,7 @@ export default function ProfileScreen() {
                                 const uri = result.assets[0].uri;
                                 setAvatarUri(uri);
                                 await AsyncStorage.setItem('profile_avatar', uri);
+                                DeviceEventEmitter.emit('profile_avatar_changed', uri);
                                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             }
                         } catch (error: any) {
@@ -212,6 +215,7 @@ export default function ProfileScreen() {
                                 const uri = result.assets[0].uri;
                                 setAvatarUri(uri);
                                 await AsyncStorage.setItem('profile_avatar', uri);
+                                DeviceEventEmitter.emit('profile_avatar_changed', uri);
                                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             }
                         } catch (error: any) {
@@ -226,7 +230,7 @@ export default function ProfileScreen() {
     };
 
     const toggleGlobalSetting = (setter: (val: boolean) => void, currentValue: boolean) => {
-        if (hapticsEnabled) Haptics.selectionAsync();
+        if (hapticsEnabled) selectionFeedback();
         setter(!currentValue);
     };
 
@@ -366,7 +370,7 @@ export default function ProfileScreen() {
                         {!isPremium && (
                             <TouchableOpacity
                                 onPress={() => {
-                                    Haptics.selectionAsync();
+                                    selectionFeedback();
                                     router.push('/(root)/paywall');
                                 }}
                                 style={styles.upgradeBtnContainer}
@@ -392,7 +396,7 @@ export default function ProfileScreen() {
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>APP PREFERENCES</Text>
                         <VoidCard style={styles.sectionCard}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/ai-config'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); setShowAIConfig(true); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="sparkles-outline" size={20} color={accentColor} />
                                 </View>
@@ -403,7 +407,7 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/notifications'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/notifications'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="notifications-outline" size={20} color={accentColor} />
                                 </View>
@@ -414,7 +418,7 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/appearance'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/appearance'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="color-palette-outline" size={20} color={accentColor} />
                                 </View>
@@ -436,7 +440,7 @@ export default function ProfileScreen() {
 
                                     <View style={{ flexDirection: 'row', marginTop: 12, gap: 16 }}>
                                         <TouchableOpacity
-                                            onPress={() => { setSoundsEnabled(!soundsEnabled); Haptics.selectionAsync(); }}
+                                            onPress={() => { setSoundsEnabled(!soundsEnabled); selectionFeedback(); }}
                                             style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
                                         >
                                             <Ionicons name={soundsEnabled ? "volume-medium" : "volume-mute"} size={14} color={soundsEnabled ? colors.primary : colors.textTertiary} />
@@ -444,7 +448,7 @@ export default function ProfileScreen() {
                                         </TouchableOpacity>
 
                                         <TouchableOpacity
-                                            onPress={() => { setHapticsEnabled(!hapticsEnabled); Haptics.selectionAsync(); }}
+                                            onPress={() => { setHapticsEnabled(!hapticsEnabled); selectionFeedback(); }}
                                             style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
                                         >
                                             <Ionicons name={hapticsEnabled ? "phone-portrait" : "tablet-landscape"} size={14} color={hapticsEnabled ? colors.primary : colors.textTertiary} />
@@ -468,7 +472,7 @@ export default function ProfileScreen() {
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>DATA & SYNC</Text>
                         <VoidCard style={styles.sectionCard}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/data-storage'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/data-storage'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="cloud-upload-outline" size={20} color={accentColor} />
                                 </View>
@@ -479,7 +483,7 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/integrations'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/integrations'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="link-outline" size={20} color={accentColor} />
                                 </View>
@@ -496,7 +500,7 @@ export default function ProfileScreen() {
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ACCOUNT</Text>
                         <VoidCard style={styles.sectionCard}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/paywall'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/paywall'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="star-outline" size={20} color={accentColor} />
                                 </View>
@@ -507,7 +511,7 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/privacy'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/privacy'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="shield-checkmark-outline" size={20} color={accentColor} />
                                 </View>
@@ -524,7 +528,7 @@ export default function ProfileScreen() {
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>SUPPORT</Text>
                         <VoidCard style={styles.sectionCard}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/help'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/help'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="help-buoy-outline" size={20} color={accentColor} />
                                 </View>
@@ -535,7 +539,7 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/contact'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/contact'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="mail-outline" size={20} color={accentColor} />
                                 </View>
@@ -546,7 +550,7 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/about'); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/about'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="information-circle-outline" size={20} color={accentColor} />
                                 </View>
@@ -594,6 +598,10 @@ export default function ProfileScreen() {
                     });
                     if (newAvatarUri) setAvatarUri(newAvatarUri);
                 }}
+            />
+            <AIConfigModal
+                visible={showAIConfig}
+                onClose={() => setShowAIConfig(false)}
             />
         </VoidShell>
     );

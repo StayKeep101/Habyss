@@ -38,7 +38,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { addHabit, updateHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit, getGoals } from '@/lib/habits'; // Static import including getGoals
+import { addHabit, updateHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit, getGoals } from '@/lib/habitsSQLite'; // Static import including getGoals
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { TopDragHandle } from './TopDragHandle';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1209,7 +1209,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
     sheet: { height: SHEET_HEIGHT, overflow: 'hidden', borderTopLeftRadius: 30, borderTopRightRadius: 30 },
-    sheetLayout: { flex: 1, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderBottomWidth: 0 },
+    sheetLayout: { flex: 1, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderBottomWidth: 0 },
     handleContainer: { alignItems: 'center', paddingTop: 10, paddingBottom: 5 },
     handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 10, marginBottom: 10 },

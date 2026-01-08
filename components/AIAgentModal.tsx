@@ -53,7 +53,7 @@ import {
     AgentAction,
     AVAILABLE_ACTIONS,
 } from '@/lib/aiAgentService';
-import { getHabits, addHabit, updateHabit, removeHabitEverywhere } from '@/lib/habits'; // Static import to avoid async-require issues
+import { getHabits, addHabit, updateHabit, removeHabitEverywhere } from '@/lib/habitsSQLite'; // Static import to avoid async-require issues
 
 const { width, height } = Dimensions.get('window');
 
@@ -248,10 +248,16 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         }
     }, [visible]);
 
-    // Clear chat and start fresh
+    // Clear chat and start fresh with intro message
     const handleNewChat = () => {
         mediumFeedback();
-        setMessages(INITIAL_MESSAGES);
+        const greeting = getPersonalityGreeting(appSettings.aiPersonality || 'mentor');
+        setMessages([{
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: greeting,
+            timestamp: new Date(),
+        }]);
         setInputText('');
     };
 

@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import Svg, { Path, G, Circle } from 'react-native-svg';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { HabitCategory } from '@/lib/habits';
+import { HabitCategory } from '@/lib/habitsSQLite';
 
 interface LifeAreaChartProps {
   data: { category: HabitCategory; count: number; color: string; label: string }[];

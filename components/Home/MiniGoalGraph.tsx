@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Line, Circle } from 'react-native-svg';
-import { Habit, getCompletions } from '@/lib/habits';
+import { Habit, getCompletions } from '@/lib/habitsSQLite';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import Animated, { useSharedValue, useAnimatedProps, withTiming } from 'react-native-reanimated';

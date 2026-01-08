@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { Habit } from '@/lib/habits';
+import { Habit } from '@/lib/habitsSQLite';
 import { useRouter } from 'expo-router';
 import { RoadMapCardSize } from '@/constants/AppSettingsContext';
 import { VoidCard } from '../Layout/VoidCard';

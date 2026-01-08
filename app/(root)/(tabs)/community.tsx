@@ -8,6 +8,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { FriendsService, Friend, FriendRequest, FriendActivity, ReactionType } from '@/lib/friendsService';
+import { addHabit } from '@/lib/habitsSQLite';
 import { FriendStatsModal } from '@/components/FriendStatsModal';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence } from 'react-native-reanimated';
@@ -29,11 +30,13 @@ export default function CommunityScreen() {
     const [searching, setSearching] = useState(false);
     const [friendsFeed, setFriendsFeed] = useState<FriendActivity[]>([]);
     const [sharedHabits, setSharedHabits] = useState<any[]>([]);
+    const [sharedGoals, setSharedGoals] = useState<any[]>([]);
     const [sentReactions, setSentReactions] = useState<Record<string, ReactionType>>({});
     const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
     const [showFriendStats, setShowFriendStats] = useState(false);
     const [showAddFriendModal, setShowAddFriendModal] = useState(false);
     const [userCode, setUserCode] = useState('');
+    const [leaderboardPeriod, setLeaderboardPeriod] = useState<'week' | 'month' | 'year' | 'all'>('week');
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -47,18 +50,20 @@ export default function CommunityScreen() {
             // Auto-repair: sync accepted requests to friendships table
             await FriendsService.repairFriendshipsFromAcceptedRequests();
 
-            const [friendsList, requests, rankings, feed, shared] = await Promise.all([
+            const [friendsList, requests, rankings, feed, shared, sharedGoalsData] = await Promise.all([
                 FriendsService.getFriendsWithProgress(),
                 FriendsService.getFriendRequests(),
-                FriendsService.getLeaderboard(),
+                FriendsService.getLeaderboard(leaderboardPeriod),
                 FriendsService.getFriendsFeed(),
                 FriendsService.getHabitsSharedWithMe(),
+                FriendsService.getGoalsSharedWithMe(),
             ]);
             setFriends(friendsList);
             setFriendRequests(requests);
             setLeaderboard(rankings);
             setFriendsFeed(feed);
             setSharedHabits(shared);
+            setSharedGoals(sharedGoalsData);
         } catch (error) {
             console.error('Error loading community data:', error);
         } finally {
@@ -69,6 +74,15 @@ export default function CommunityScreen() {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    // Reload leaderboard when period changes
+    useEffect(() => {
+        const loadLeaderboard = async () => {
+            const rankings = await FriendsService.getLeaderboard(leaderboardPeriod);
+            setLeaderboard(rankings);
+        };
+        loadLeaderboard();
+    }, [leaderboardPeriod]);
 
     const onRefresh = async () => {
         thud();
@@ -230,9 +244,69 @@ export default function CommunityScreen() {
                                         <Text style={[styles.username, { color: colors.textPrimary }]}>{item.habit.name}</Text>
                                         <Text style={[styles.email, { color: colors.textTertiary }]}>Shared by {item.owner.username}</Text>
                                     </View>
-                                    {/* Action Button (e.g. Accept/Clone - For now just visual) */}
-                                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: accentColor }]}>
+                                    {/* Clone Habit Button */}
+                                    <TouchableOpacity
+                                        style={[styles.actionBtn, { backgroundColor: accentColor }]}
+                                        onPress={() => {
+                                            mediumFeedback();
+                                            Alert.alert(
+                                                'Add Habit',
+                                                `Add "${item.habit.name}" to your habits?`,
+                                                [
+                                                    { text: 'Cancel', style: 'cancel' },
+                                                    {
+                                                        text: 'Add',
+                                                        onPress: async () => {
+                                                            const newHabit = await addHabit({
+                                                                name: item.habit.name,
+                                                                icon: item.habit.icon,
+                                                                category: item.habit.category,
+                                                                taskDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                                                            });
+                                                            if (newHabit) {
+                                                                Alert.alert('Success', 'Habit added!');
+                                                                loadData(); // Refresh
+                                                            }
+                                                        }
+                                                    }
+                                                ]
+                                            );
+                                        }}
+                                    >
                                         <Ionicons name="add" size={18} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </VoidCard>
+                    </View>
+                )}
+
+                {/* Shared Goals */}
+                {sharedGoals.length > 0 && (
+                    <View style={{ marginBottom: 24 }}>
+                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SHARED GOALS</Text>
+                        <VoidCard style={{ padding: 16 }}>
+                            {sharedGoals.map((item, index) => (
+                                <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index < sharedGoals.length - 1 ? 12 : 0 }}>
+                                    <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
+                                        <Text>{item.goal.icon ? item.goal.icon : '🎯'}</Text>
+                                    </View>
+                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                        <Text style={[styles.username, { color: colors.textPrimary }]}>{item.goal.name}</Text>
+                                        <Text style={[styles.email, { color: colors.textTertiary }]}>
+                                            Shared by {item.owner.username}
+                                            {item.goal.deadline && ` • Due ${new Date(item.goal.deadline).toLocaleDateString()}`}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.actionBtn, { backgroundColor: accentColor }]}
+                                        onPress={() => {
+                                            mediumFeedback();
+                                            // Navigate to view goal details or add similar goal
+                                            Alert.alert('Goal', `"${item.goal.name}" shared by ${item.owner.username}`);
+                                        }}
+                                    >
+                                        <Ionicons name="eye" size={18} color="#fff" />
                                     </TouchableOpacity>
                                 </View>
                             ))}
@@ -427,7 +501,34 @@ export default function CommunityScreen() {
 
                 {/* Leaderboard */}
                 <View style={{ marginBottom: 24 }}>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>FRIEND LEADERBOARD</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: 0 }]}>LEADERBOARD</Text>
+                    </View>
+                    {/* Time Period Filter */}
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                        {[
+                            { id: 'week', label: 'Week' },
+                            { id: 'month', label: 'Month' },
+                            { id: 'year', label: 'Year' },
+                            { id: 'all', label: 'All Time' },
+                        ].map(period => (
+                            <TouchableOpacity
+                                key={period.id}
+                                onPress={() => { lightFeedback(); setLeaderboardPeriod(period.id as any); }}
+                                style={{
+                                    flex: 1,
+                                    paddingVertical: 8,
+                                    borderRadius: 8,
+                                    backgroundColor: leaderboardPeriod === period.id ? accentColor : 'rgba(255,255,255,0.05)',
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <Text style={{ color: leaderboardPeriod === period.id ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600' }}>
+                                    {period.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                     <VoidCard glass style={{ padding: 16 }}>
                         {leaderboard.length === 0 ? (
                             <Text style={[styles.emptyText, { color: colors.textSecondary, textAlign: 'center', paddingVertical: 24 }]}>
@@ -451,7 +552,7 @@ export default function CommunityScreen() {
                                             {friend.username}{friend.isCurrentUser ? ' (You)' : ''}
                                         </Text>
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <Ionicons name="flame" size={14} color="#FFD93D" />
+                                            <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
                                             <Text style={[styles.leaderStreak, { color: colors.textSecondary }]}>
                                                 {friend.currentStreak}
                                             </Text>

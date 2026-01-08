@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Sty
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Habit, getHabits, toggleCompletion, getCompletions, getLastNDaysCompletions } from '@/lib/habits';
+import { Habit, getHabits, toggleCompletion, getCompletions, getLastNDaysCompletions } from '@/lib/habitsSQLite';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -113,7 +113,7 @@ export default function HabitDetailScreen() {
     setShowShareModal(true);
   };
 
-  const handleToggle = async () => {
+  const handleToggle = () => {
     if (!habit) return;
 
     // Only allow completion for today
@@ -126,7 +126,8 @@ export default function HabitDetailScreen() {
     mediumFeedback();
 
     setCompleted(prev => !prev);
-    await toggleCompletion(habit.id, dateStr);
+    // Fire and forget for instant response
+    toggleCompletion(habit.id, dateStr).catch(console.error);
   };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {

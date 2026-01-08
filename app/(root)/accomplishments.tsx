@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity, ImageBackground } from 'react-native';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
-import { Habit, calculateGoalProgress, getHabits } from '@/lib/habits';
+import { Habit, calculateGoalProgress, getHabits } from '@/lib/habitsSQLite';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';

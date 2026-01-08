@@ -68,7 +68,8 @@
           "calendarPermission": "The app needs to access your calendar to sync habits.",
           "remindersPermission": "The app needs to access your reminders to sync habits."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

@@ -13,7 +13,7 @@ import Animated, {
     Extrapolation,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { Habit } from '@/lib/habits';
+import { Habit } from '@/lib/habitsSQLite';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -38,7 +38,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
     const { primary: accentColor } = useAccentGradient();
     const [isOpen, setIsOpen] = useState(false);
     const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
-    const [filter, setFilter] = useState<'week' | 'month' | 'year'>('month');
+    const [filter, setFilter] = useState<'month'>('month');
     const [monthOffset, setMonthOffset] = useState(0); // 0 = current
     const [showShare, setShowShare] = useState(false);
 
@@ -77,7 +77,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
             now.setDate(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()); // End of month
         }
 
-        let dayCount = filter === 'week' ? 7 : filter === 'month' ? new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() : 365;
+        let dayCount = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         // For month view, we want to align to calendar grid if simple, or just list. User asked for "Day of Week info".
         // Let's generate days for the calendar view.
 
@@ -192,26 +192,16 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                                     </View>
                                 </ScrollView>
 
-                                <View style={styles.filterRow}>
-                                    {(['week', 'month', 'year'] as const).map(f => (
-                                        <TouchableOpacity key={f} onPress={() => { setFilter(f); setMonthOffset(0); }} style={[styles.filterBtn, filter === f && { backgroundColor: accentColor + '20' }]}>
-                                            <Text style={[styles.filterText, { color: filter === f ? accentColor : 'rgba(255,255,255,0.5)' }]}>{f.charAt(0).toUpperCase() + f.slice(1)}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
                                 {/* Month Navigation */}
-                                {filter === 'month' && (
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingHorizontal: 12 }}>
-                                        <TouchableOpacity onPress={() => setMonthOffset(prev => prev - 1)} style={styles.navBtn}>
-                                            <Ionicons name="chevron-back" size={16} color="white" />
-                                        </TouchableOpacity>
-                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>{currentMonthLabel}</Text>
-                                        <TouchableOpacity onPress={() => setMonthOffset(prev => prev + 1)} style={styles.navBtn}>
-                                            <Ionicons name="chevron-forward" size={16} color="white" />
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
+                                <View style={styles.filterRow}>
+                                    <TouchableOpacity onPress={() => setMonthOffset(monthOffset - 1)} style={[styles.filterBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                                        <Ionicons name="chevron-back" size={18} color="rgba(255,255,255,0.6)" />
+                                    </TouchableOpacity>
+                                    <Text style={[styles.filterText, { color: accentColor, flex: 1, textAlign: 'center' }]}>{currentMonthLabel}</Text>
+                                    <TouchableOpacity onPress={() => setMonthOffset(Math.min(0, monthOffset + 1))} style={[styles.filterBtn, { backgroundColor: monthOffset === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)' }]} disabled={monthOffset === 0}>
+                                        <Ionicons name="chevron-forward" size={18} color={monthOffset === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)'} />
+                                    </TouchableOpacity>
+                                </View>
 
                                 <Text style={styles.sectionTitle}>PERFORMANCE</Text>
                                 <View style={styles.statsRow}>

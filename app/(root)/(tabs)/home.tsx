@@ -8,12 +8,13 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions, isHabitScheduledForDate } from '@/lib/habits';
+import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions, isHabitScheduledForDate } from '@/lib/habitsSQLite';
 import { NotificationService } from '@/lib/notificationService';
 import { NotificationsModal } from '@/components/NotificationsModal';
 import { AIAgentModal } from '@/components/AIAgentModal';
 import { CelebrationAnimation } from '@/components/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useSounds } from '@/hooks/useSounds';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useFocusEffect } from 'expo-router';
@@ -85,6 +86,7 @@ const Home = () => {
   const isLight = theme === 'light';
   const { colors: accentColors, primary: accentColor } = useAccentGradient();
   const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
+  const { playComplete, playTap } = useSounds();
   const { width } = Dimensions.get('window');
 
   // Pro Hooks
@@ -272,6 +274,14 @@ const Home = () => {
       }
     }, [isPremium, aiPersonality, greetingStyle])
   );
+
+  // Listen for profile avatar changes (syncs instantly when changed in settings)
+  useEffect(() => {
+    const avatarListener = DeviceEventEmitter.addListener('profile_avatar_changed', (uri: string) => {
+      setProfileAvatar(uri);
+    });
+    return () => avatarListener.remove();
+  }, []);
 
   // Subscribe to habits
   useEffect(() => {
@@ -500,11 +510,14 @@ const Home = () => {
   }, [habits]);
 
   // Handlers
-  const handleHabitToggle = async (habitId: string) => {
+  const handleHabitToggle = (habitId: string) => {
     selectionFeedback();
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
+    const wasCompleted = completions[habitId];
+
+    // Optimistic UI update - instant!
     setCompletions(prev => {
       const updated = { ...prev };
       if (updated[habitId]) delete updated[habitId];
@@ -512,7 +525,15 @@ const Home = () => {
       return updated;
     });
 
-    await toggleCompletion(habitId, today);
+    // Play sound effect on completion
+    if (!wasCompleted) {
+      playComplete();
+    } else {
+      playTap();
+    }
+
+    // Fire and forget - don't await, let it run in background
+    toggleCompletion(habitId, today).catch(console.error);
   };
 
   const handleProfilePress = () => {

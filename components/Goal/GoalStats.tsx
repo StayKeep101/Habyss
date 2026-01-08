@@ -3,12 +3,12 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
-import { Habit, calculateGoalProgress, getCompletions } from '@/lib/habits';
+import { Habit, calculateGoalProgress, getCompletions } from '@/lib/habitsSQLite';
 import Svg, { Circle, G, Path, Rect, Defs, LinearGradient as SvgGradient, Stop, Line, Text as SvgText } from 'react-native-svg';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import Animated, { useSharedValue, useAnimatedProps, withTiming, withDelay, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const { width } = Dimensions.get('window');
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -24,6 +24,7 @@ interface GoalStatsProps {
 export const GoalStats: React.FC<GoalStatsProps> = ({ goal, habits }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { selectionFeedback } = useHaptics();
 
     // Data State
     const [stats, setStats] = useState({
@@ -124,7 +125,7 @@ export const GoalStats: React.FC<GoalStatsProps> = ({ goal, habits }) => {
                 date: new Date(stats.dailyActivity[index].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                 value: stats.dailyActivity[index].count
             });
-            Haptics.selectionAsync();
+            selectionFeedback();
         } else {
             setTooltipData(null);
         }

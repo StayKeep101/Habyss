@@ -10,11 +10,11 @@ import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
-import { subscribeToHabits, Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, calculateGoalProgressInstant, getLastNDaysCompletions } from '@/lib/habits';
+import { subscribeToHabits, Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, calculateGoalProgressInstant, getLastNDaysCompletions } from '@/lib/habitsSQLite';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter, LayoutAnimation } from 'react-native';
 import { GoalStats } from '@/components/Goal/GoalStats';
-import { getCompletions, toggleCompletion } from '@/lib/habits';
+import { getCompletions, toggleCompletion } from '@/lib/habitsSQLite';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import Animated, {
@@ -180,7 +180,7 @@ const GoalDetail = () => {
     ]);
   };
 
-  const handleHabitPress = async (habit: Habit) => {
+  const handleHabitPress = (habit: Habit) => {
     const isCompleted = !completions[habit.id];
     if (isCompleted) {
       playComplete();
@@ -191,7 +191,8 @@ const GoalDetail = () => {
     setCompletions(prev => ({ ...prev, [habit.id]: isCompleted }));
     const now = new Date();
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    await toggleCompletion(habit.id, dateStr);
+    // Fire and forget for instant response
+    toggleCompletion(habit.id, dateStr).catch(console.error);
   };
 
   const handleAddHabit = () => {
