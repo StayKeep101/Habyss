@@ -84,7 +84,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
           >
             <Text
               className="text-sm font-inter-bold"
-              style={{ color: selected ? 'white' : colors.textSecondary }}
+              style={{ color: selected ? 'white' : (isLight ? 'black' : colors.textSecondary) }}
             >
               {item.dayNumber}
             </Text>
@@ -94,7 +94,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
         {/* Day Name */}
         <Text
           className="text-xs font-inter-medium"
-          style={{ color: selected ? 'white' : colors.textTertiary }}
+          style={{ color: selected ? (isLight ? 'black' : 'white') : (isLight ? 'rgba(0,0,0,0.6)' : colors.textTertiary) }}
         >
           {item.dayName}
         </Text>

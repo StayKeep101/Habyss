@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, Alert, SafeAreaView, StyleSheet, StatusBar, ScrollView, Dimensions } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import { supabase } from '@/lib/supabase';
@@ -23,6 +23,7 @@ export default function PaywallScreen() {
     const [selectedPlanId, setSelectedPlanId] = useState<'monthly' | 'yearly' | '2year' | 'lifetime'>('yearly');
     const { restorePurchases } = usePremiumStatus();
     const { primary: accentColor } = useAccentGradient();
+    const isProcessingPayment = useRef(false); // Prevent double payment sheet calls
 
     const PLANS = [
         { id: 'monthly', title: 'Monthly', price: '$1.99', period: '/mo', save: null },
@@ -121,11 +122,16 @@ export default function PaywallScreen() {
     };
 
     const handleSubscribe = async () => {
+        // Prevent multiple calls - Stripe SDK throws "resolve promise more than once" if called twice
+        if (isProcessingPayment.current || loading) return;
+        isProcessingPayment.current = true;
         setLoading(true);
+
         try {
             const isInitialized = await initializePaymentSheet();
             if (!isInitialized) {
                 setLoading(false);
+                isProcessingPayment.current = false;
                 return;
             }
 
@@ -144,6 +150,7 @@ export default function PaywallScreen() {
             Alert.alert('Error', e.message);
         } finally {
             setLoading(false);
+            isProcessingPayment.current = false;
         }
     };
 

@@ -45,6 +45,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CalendarService } from '@/lib/calendarService';
 
 const OverlayHeader = ({ title, onClose }: { title: string, onClose: () => void }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
     const dragGesture = Gesture.Pan().onUpdate((e) => {
         if (e.translationY > 50) runOnJS(onClose)();
     });
@@ -53,7 +55,7 @@ const OverlayHeader = ({ title, onClose }: { title: string, onClose: () => void 
         <GestureDetector gesture={dragGesture}>
             <View style={{ width: '100%', alignItems: 'center', backgroundColor: 'transparent' }}>
                 <TopDragHandle />
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 24, fontFamily: 'Lexend' }}>{title}</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, textAlign: 'center', marginBottom: 24, fontFamily: 'Lexend' }}>{title}</Text>
             </View>
         </GestureDetector>
     );
@@ -319,8 +321,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     useEffect(() => {
         if (initialHabit) {
             setTitle(initialHabit.name);
-            setSelectedIcon(initialHabit.icon);
-            setSelectedColor(initialHabit.color);
+            setSelectedIcon(initialHabit.icon || 'fitness');
+            setSelectedColor(initialHabit.color || '#10B981');
             setLifePillar(initialHabit.category);
             if (initialHabit.goalId) setGoalId(initialHabit.goalId!);
             setFrequency(initialHabit.frequency || 'daily');
@@ -563,7 +565,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 <GestureDetector gesture={activeOverlay === 'none' ? panGesture : Gesture.Native()}>
                     <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
                         <LinearGradient
-                            colors={['#050510', '#0a0a1a']}
+                            colors={theme === 'light' ? [colors.background, colors.surface] : ['#050510', '#0a0a1a']}
                             style={StyleSheet.absoluteFill}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
@@ -580,7 +582,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
                                 </TouchableOpacity>
                                 <View style={{ flex: 1, alignItems: 'center' }}>
-                                    <Text style={styles.headerTitle}>{initialHabit ? 'EDIT HABIT' : 'NEW HABIT'}</Text>
+                                    <Text style={[styles.headerTitle, { color: colors.text }]}>{initialHabit ? 'EDIT HABIT' : 'NEW HABIT'}</Text>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, opacity: 0.7 }}>
                                         <Text style={{ color: linkedGoal?.color || '#fff', fontSize: 10, fontFamily: 'Lexend', marginRight: 4 }}>
                                             {linkedGoal ? linkedGoal.name.toUpperCase() : 'NO GOAL'}
@@ -610,9 +612,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             </TouchableOpacity>
 
                                             <TextInput
-                                                style={styles.mainInput}
+                                                style={[styles.mainInput, { color: colors.text }]}
                                                 placeholder="What's the habit?"
-                                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                                placeholderTextColor={colors.textTertiary}
                                                 value={title}
                                                 onChangeText={setTitle}
                                                 autoFocus={false}
@@ -630,15 +632,15 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     {/* Quick Templates Button */}
                                     <TouchableOpacity
                                         onPress={() => { selectionFeedback(); setActiveOverlay('templates'); }}
-                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', gap: 8 }}
+                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, marginBottom: 16, backgroundColor: colors.surfaceSecondary, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}
                                     >
                                         <Ionicons name="flash" size={16} color={colors.primary} />
                                         <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>Quick Templates</Text>
-                                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>Choose from 30 preset habits</Text>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 10 }}>Choose from 30 preset habits</Text>
                                     </TouchableOpacity>
 
                                     {/* Settings Grid */}
-                                    <Text style={styles.sectionTitle}>CONFIGURATION</Text>
+                                    <Text style={[styles.sectionTitle, { color: colors.text }]}>CONFIGURATION</Text>
                                     <View style={styles.grid}>
 
                                         {/* Goal Link */}
@@ -661,12 +663,12 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                         onPress={() => { selectionFeedback(); setGoalId(g.id); }}
                                                         style={[styles.goalChip, goalId === g.id && { backgroundColor: g.color + '20', borderColor: g.color }]}
                                                     >
-                                                        <Ionicons name={g.icon as any} size={12} color={goalId === g.id ? g.color : 'rgba(255,255,255,0.4)'} />
-                                                        <Text style={[styles.goalChipText, goalId === g.id && { color: g.color }]}>{g.name}</Text>
+                                                        <Ionicons name={g.icon as any} size={12} color={goalId === g.id ? g.color : colors.textSecondary} />
+                                                        <Text style={[styles.goalChipText, goalId === g.id ? { color: g.color } : { color: colors.textSecondary }]}>{g.name}</Text>
                                                     </TouchableOpacity>
                                                 ))}
                                                 {availableGoals.length === 0 && (
-                                                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontStyle: 'italic' }}>No goals found. Create one first.</Text>
+                                                    <Text style={{ color: colors.textTertiary, fontSize: 12, fontStyle: 'italic' }}>No goals found. Create one first.</Text>
                                                 )}
                                             </ScrollView>
                                         </TouchableOpacity>
@@ -679,20 +681,20 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                     onPress={() => { selectionFeedback(); setShowPillarInfo(!showPillarInfo); }}
                                                     style={{ padding: 4 }}
                                                 >
-                                                    <Ionicons name="information-circle-outline" size={18} color="rgba(255,255,255,0.5)" />
+                                                    <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
                                                 </TouchableOpacity>
                                             </View>
 
                                             {/* Info Tooltip */}
                                             {showPillarInfo && (
-                                                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                                                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, marginBottom: 8, fontWeight: '600' }}>6 Pillars of Life Balance:</Text>
+                                                <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 8, borderWidth: 1, borderColor: colors.border }}>
+                                                    <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8, fontWeight: '600' }}>6 Pillars of Life Balance:</Text>
                                                     {LIFE_PILLARS.map(p => (
                                                         <View key={p.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
                                                             <Ionicons name={p.icon as any} size={12} color={p.color} style={{ marginRight: 8, marginTop: 2 }} />
                                                             <View style={{ flex: 1 }}>
                                                                 <Text style={{ color: p.color, fontSize: 10, fontWeight: '700' }}>{p.fullName}</Text>
-                                                                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9 }}>{p.description}</Text>
+                                                                <Text style={{ color: colors.textTertiary, fontSize: 9 }}>{p.description}</Text>
                                                             </View>
                                                         </View>
                                                     ))}
@@ -711,15 +713,15 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                                 paddingHorizontal: 12,
                                                                 paddingVertical: 8,
                                                                 borderRadius: 12,
-                                                                backgroundColor: lifePillar === pillar.id ? pillar.color + '20' : 'rgba(255,255,255,0.05)',
+                                                                backgroundColor: lifePillar === pillar.id ? pillar.color + '20' : colors.surfaceSecondary,
                                                                 borderWidth: 1,
-                                                                borderColor: lifePillar === pillar.id ? pillar.color : 'rgba(255,255,255,0.1)',
+                                                                borderColor: lifePillar === pillar.id ? pillar.color : colors.border,
                                                                 gap: 6,
                                                             }
                                                         ]}
                                                     >
-                                                        <Ionicons name={pillar.icon as any} size={14} color={lifePillar === pillar.id ? pillar.color : 'rgba(255,255,255,0.5)'} />
-                                                        <Text style={{ color: lifePillar === pillar.id ? pillar.color : 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600' }}>
+                                                        <Ionicons name={pillar.icon as any} size={14} color={lifePillar === pillar.id ? pillar.color : colors.textSecondary} />
+                                                        <Text style={{ color: lifePillar === pillar.id ? pillar.color : colors.textSecondary, fontSize: 11, fontWeight: '600' }}>
                                                             {pillar.label}
                                                         </Text>
                                                     </TouchableOpacity>
@@ -735,7 +737,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             style={styles.gridItem}
                                         >
                                             <Ionicons name="time-outline" size={20} color={useFreeTime ? '#8B5CF6' : selectedColor} />
-                                            <Text style={styles.gridValue}>{useFreeTime ? 'Anytime' : `${formatTime(startTime)}`}</Text>
+                                            <Text style={[styles.gridValue, { color: colors.text }]}>{useFreeTime ? 'Anytime' : `${formatTime(startTime)}`}</Text>
                                             <Text style={styles.gridLabel}>SCHEDULE</Text>
                                         </TouchableOpacity>
 
@@ -744,8 +746,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             onPress={() => { selectionFeedback(); setActiveOverlay('reminder'); }}
                                             style={styles.gridItem}
                                         >
-                                            <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={20} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.3)'} />
-                                            <Text style={styles.gridValue}>{reminderEnabled ? formatTime(reminderTime) : 'Off'}</Text>
+                                            <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={20} color={reminderEnabled ? selectedColor : colors.textTertiary} />
+                                            <Text style={[styles.gridValue, { color: colors.text }]}>{reminderEnabled ? formatTime(reminderTime) : 'Off'}</Text>
                                             <Text style={styles.gridLabel}>REMINDERS</Text>
                                         </TouchableOpacity>
 
@@ -755,7 +757,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             style={styles.gridItem}
                                         >
                                             <Ionicons name={GRAPH_STYLES.find(g => g.id === graphStyle)?.icon as any} size={20} color={selectedColor} />
-                                            <Text style={styles.gridValue} numberOfLines={1}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
+                                            <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={1}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
                                             <Text style={styles.gridLabel}>VISUALIZATION</Text>
                                         </TouchableOpacity>
 
@@ -765,7 +767,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             style={styles.gridItem}
                                         >
                                             <Ionicons name="scale-outline" size={20} color={selectedColor} />
-                                            <Text style={styles.gridValue}>{measurementValue} {UNITS.find(u => u.id === measurementUnit)?.label}</Text>
+                                            <Text style={[styles.gridValue, { color: colors.text }]}>{measurementValue} {UNITS.find(u => u.id === measurementUnit)?.label}</Text>
                                             <Text style={styles.gridLabel}>TARGET</Text>
                                         </TouchableOpacity>
 
@@ -797,7 +799,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, marginBottom: 16 }}>
                                         <Ionicons name="search" size={18} color="rgba(255,255,255,0.4)" />
                                         <TextInput
-                                            style={{ flex: 1, color: '#fff', paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }}
+                                            style={{ flex: 1, color: colors.text, paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }}
                                             placeholder="Search icons..."
                                             placeholderTextColor="rgba(255,255,255,0.3)"
                                             value={iconSearch}
@@ -843,7 +845,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             shadowOpacity: 0.4,
                                             shadowRadius: 12,
                                         }} />
-                                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600', marginTop: 12 }}>{selectedColor.toUpperCase()}</Text>
+                                        <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600', marginTop: 12 }}>{selectedColor.toUpperCase()}</Text>
                                     </View>
 
                                     {/* Scrollable content for presets + custom */}
@@ -1187,7 +1189,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                         >
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                                                 <Ionicons name={habit.icon as any} size={18} color={pillar.color} />
-                                                                <Text style={{ color: '#fff', fontSize: 13 }}>{habit.name}</Text>
+                                                                <Text style={{ color: colors.text, fontSize: 13 }}>{habit.name}</Text>
                                                             </View>
                                                             <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{habit.goalValue} {habit.unit}</Text>
                                                         </TouchableOpacity>
@@ -1220,7 +1222,7 @@ const styles = StyleSheet.create({
     bigIconBtn: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
     mainInput: { flex: 1, fontSize: 18, fontWeight: '600', color: '#fff', fontFamily: 'Lexend' },
     colorDotBtn: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)' },
-    sectionTitle: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 16, fontFamily: 'Lexend' },
+    sectionTitle: { fontSize: 14, fontWeight: '700', color: '#fff', marginBottom: 16, letterSpacing: 1, opacity: 0.8, fontFamily: 'Lexend' },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     gridItem: { width: '48%', backgroundColor: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', minHeight: 100, justifyContent: 'space-between' },
     gridLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.3)', letterSpacing: 1, marginTop: 8 },

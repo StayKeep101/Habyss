@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useIsFocused } from '@react-navigation/native';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import Animated, { useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing, cancelAnimation } from 'react-native-reanimated';
@@ -13,20 +14,27 @@ export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
 
+    const isFocused = useIsFocused();
+
     // Subtle breathing animation for the background
     const opacity = useSharedValue(0.3);
 
     React.useEffect(() => {
+        if (!isFocused) {
+            cancelAnimation(opacity);
+            return;
+        }
+
         opacity.value = withRepeat(
             withTiming(0.5, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
             -1,
             true
         );
-        // CRITICAL: Cancel animation on unmount to prevent memory leak
+
         return () => {
             cancelAnimation(opacity);
         };
-    }, []);
+    }, [isFocused]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         opacity: opacity.value

@@ -100,15 +100,19 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({ visible, onClose }
 
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, sheetStyle]}>
-                        <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
+                        {isLight ? (
+                            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
+                        ) : (
+                            <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
+                        )}
+                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder, { borderColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }]} />
 
-                        <View style={styles.header}>
+                        <View style={[styles.header, { borderBottomColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
                             <TouchableOpacity onPress={closeModal} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}>
                                 <Ionicons name="close" size={22} color={colors.textPrimary} />
                             </TouchableOpacity>
                             <View style={{ flex: 1, marginLeft: 16 }}>
-                                <Text style={styles.title}>AI SETTINGS</Text>
+                                <Text style={[styles.title, { color: colors.text }]}>AI SETTINGS</Text>
                                 <Text style={[styles.subtitle, { color: accentColor }]}>PERSONALITY & GREETING</Text>
                             </View>
                         </View>
@@ -133,21 +137,26 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({ visible, onClose }
                                         <TouchableOpacity
                                             key={style.id}
                                             onPress={() => { lightFeedback(); setGreetingStyle(style.id as any); }}
-                                            style={[
-                                                styles.greetingChip,
-                                                {
-                                                    backgroundColor: greetingStyle === style.id
-                                                        ? (isLight ? accentColor + '15' : accentColor + '20')
-                                                        : (colors.surface),
-                                                    borderColor: greetingStyle === style.id ? accentColor : colors.border,
-                                                    borderWidth: 1
-                                                }
-                                            ]}
+                                            activeOpacity={0.7}
+                                            style={{ flex: 1 }}
                                         >
-                                            <Ionicons name={style.icon as any} size={14} color={greetingStyle === style.id ? accentColor : colors.textSecondary} />
-                                            <Text style={[styles.greetingLabel, { color: greetingStyle === style.id ? accentColor : colors.textSecondary }]}>
-                                                {style.label}
-                                            </Text>
+                                            <VoidCard
+                                                glass
+                                                style={[
+                                                    styles.greetingChip,
+                                                    {
+                                                        backgroundColor: greetingStyle === style.id ? accentColor + '20' : (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)'),
+                                                        borderColor: greetingStyle === style.id ? accentColor : 'transparent',
+                                                        borderWidth: 1,
+                                                        padding: 0
+                                                    }
+                                                ]}
+                                            >
+                                                <Ionicons name={style.icon as any} size={14} color={greetingStyle === style.id ? accentColor : colors.textSecondary} />
+                                                <Text style={[styles.greetingLabel, { color: greetingStyle === style.id ? accentColor : colors.textSecondary }]}>
+                                                    {style.label}
+                                                </Text>
+                                            </VoidCard>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
@@ -176,28 +185,32 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({ visible, onClose }
                                                     handleSelectPersonality(mode.id as PersonalityModeId);
                                                 }}
                                                 activeOpacity={0.8}
-                                                style={[
-                                                    styles.card,
-                                                    {
-                                                        backgroundColor: isActive
-                                                            ? (isLight ? accentColor + '15' : accentColor + '20')
-                                                            : (colors.surface),
-                                                        borderColor: isActive ? accentColor : colors.border,
-                                                        borderWidth: 1
-                                                    }
-                                                ]}
+                                                style={{ width: '48%', marginBottom: 12 }}
                                             >
-                                                <View style={styles.cardHeader}>
-                                                    <View style={[styles.iconBox, { backgroundColor: isActive ? accentColor : (isLight ? '#fff' : 'rgba(255,255,255,0.05)') }]}>
-                                                        <Ionicons name={mode.icon as any} size={18} color={isActive ? '#fff' : colors.textPrimary} />
+                                                <VoidCard
+                                                    glass
+                                                    style={[
+                                                        styles.card,
+                                                        {
+                                                            backgroundColor: isActive ? accentColor + '20' : (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)'),
+                                                            borderColor: isActive ? accentColor : 'transparent',
+                                                            borderWidth: 1,
+                                                            padding: 16
+                                                        }
+                                                    ]}
+                                                >
+                                                    <View style={styles.cardHeader}>
+                                                        <View style={[styles.iconBox, { backgroundColor: isActive ? accentColor : (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.05)') }]}>
+                                                            <Ionicons name={mode.icon as any} size={18} color={isActive ? '#fff' : colors.textPrimary} />
+                                                        </View>
+                                                        {isLocked && <Ionicons name="lock-closed" size={12} color={colors.textTertiary} />}
                                                     </View>
-                                                    {isLocked && <Ionicons name="lock-closed" size={12} color={colors.textTertiary} />}
-                                                </View>
 
-                                                <Text style={[styles.modeName, { color: colors.textPrimary }]}>{mode.name}</Text>
-                                                <Text style={[styles.modeDesc, { color: colors.textSecondary }]} numberOfLines={3}>
-                                                    {mode.description}
-                                                </Text>
+                                                    <Text style={[styles.modeName, { color: colors.textPrimary }]}>{mode.name}</Text>
+                                                    <Text style={[styles.modeDesc, { color: colors.textSecondary }]} numberOfLines={3}>
+                                                        {mode.description}
+                                                    </Text>
+                                                </VoidCard>
                                             </TouchableOpacity>
                                         );
                                     })}
@@ -225,11 +238,11 @@ const styles = StyleSheet.create({
     sectionIcon: { width: 24, height: 24, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
     sectionTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, fontFamily: 'Lexend' },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    card: { width: '48%', padding: 16, borderRadius: 20, marginBottom: 0 },
+    card: { borderRadius: 20 },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
     iconBox: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     modeName: { fontSize: 15, fontWeight: '700', fontFamily: 'Lexend', marginBottom: 6 },
     modeDesc: { fontSize: 12, fontFamily: 'Lexend_400Regular', opacity: 0.7, lineHeight: 18 },
-    greetingChip: { flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8, borderRadius: 16 },
+    greetingChip: { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8, borderRadius: 16 },
     greetingLabel: { fontSize: 12, fontWeight: '600', fontFamily: 'Lexend', textAlign: 'center' },
 });

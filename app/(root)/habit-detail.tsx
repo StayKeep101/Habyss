@@ -429,7 +429,7 @@ const HabitVisualization = ({ habit, history, colors }: { habit: Habit, history:
             width: 20,
             height: 20,
             borderRadius: 4,
-            backgroundColor: d.completed ? colors.success : 'rgba(255,255,255,0.1)'
+            backgroundColor: d.completed ? colors.success : colors.surfaceSecondary
           }}
         />
       ))}

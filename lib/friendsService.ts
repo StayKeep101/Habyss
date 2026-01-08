@@ -769,7 +769,7 @@ export const FriendsService = {
             const ownerIds = Array.from(new Set(shares.map(s => s.owner_id)));
 
             const [goalsResult, profilesResult] = await Promise.all([
-                supabase.from('goals').select('id, name, icon, category, deadline').in('id', goalIds),
+                supabase.from('habits').select('id, name, icon, category, target_date').in('id', goalIds),
                 supabase.from('profiles').select('id, username').in('id', ownerIds)
             ]);
 
@@ -788,7 +788,7 @@ export const FriendsService = {
                         name: goal.name,
                         icon: goal.icon,
                         category: goal.category,
-                        deadline: goal.deadline,
+                        deadline: goal.target_date,
                     },
                     owner: {
                         id: share.owner_id,

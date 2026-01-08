@@ -649,15 +649,15 @@ const CalendarScreen = () => {
                                                                 alignItems: 'center',
                                                                 padding: 16,
                                                                 borderBottomWidth: i < arr.length - 1 ? 1 : 0,
-                                                                borderBottomColor: 'rgba(255,255,255,0.05)',
+                                                                borderBottomColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
                                                             }}
                                                         >
-                                                            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: activeFilter === item.id ? accentColor + '20' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                                                                <Ionicons name={item.icon as any} size={18} color={activeFilter === item.id ? accentColor : 'rgba(255,255,255,0.5)'} />
+                                                            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: activeFilter === item.id ? accentColor + '20' : (isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'), alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                                                                <Ionicons name={item.icon as any} size={18} color={activeFilter === item.id ? accentColor : colors.textSecondary} />
                                                             </View>
                                                             <View style={{ flex: 1 }}>
-                                                                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>{item.label}</Text>
-                                                                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>{item.desc}</Text>
+                                                                <Text style={{ color: colors.text, fontSize: 15, fontWeight: '500' }}>{item.label}</Text>
+                                                                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>{item.desc}</Text>
                                                             </View>
                                                             {activeFilter === item.id && <Ionicons name="checkmark-circle" size={22} color={accentColor} />}
                                                         </TouchableOpacity>
@@ -668,7 +668,7 @@ const CalendarScreen = () => {
                                             {/* Section 2: Sort & Quick Actions */}
                                             <View style={{ marginBottom: 24 }}>
                                                 <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 12, marginLeft: 4 }}>SORT & ACTIONS</Text>
-                                                <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, overflow: 'hidden' }}>
+                                                <View style={{ backgroundColor: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.03)', borderRadius: 16, overflow: 'hidden' }}>
                                                     {[
                                                         { id: 'default', label: 'Default Order', icon: 'list-outline' },
                                                         { id: 'name', label: 'Alphabetical', icon: 'text-outline' },
@@ -682,36 +682,37 @@ const CalendarScreen = () => {
                                                                 alignItems: 'center',
                                                                 padding: 16,
                                                                 borderBottomWidth: i < arr.length - 1 ? 1 : 0,
-                                                                borderBottomColor: 'rgba(255,255,255,0.05)',
+                                                                borderBottomColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
                                                             }}
                                                         >
-                                                            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: activeSort === item.id ? accentColor + '20' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                                                                <Ionicons name={item.icon as any} size={18} color={activeSort === item.id ? accentColor : 'rgba(255,255,255,0.5)'} />
+                                                            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: activeSort === item.id ? accentColor + '20' : (isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'), alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                                                                <Ionicons name={item.icon as any} size={18} color={activeSort === item.id ? accentColor : colors.textSecondary} />
                                                             </View>
-                                                            <Text style={{ flex: 1, color: '#fff', fontSize: 15, fontWeight: '500' }}>{item.label}</Text>
+                                                            <Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: '500' }}>{item.label}</Text>
                                                             {activeSort === item.id && <Ionicons name="checkmark-circle" size={22} color={accentColor} />}
                                                         </TouchableOpacity>
                                                     ))}
                                                     {/* Divider */}
                                                     <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 4 }} />
                                                     {/* Expand/Collapse */}
+                                                    {/* Expand/Collapse */}
                                                     <TouchableOpacity
                                                         onPress={() => { selectionFeedback(); const all: Record<string, boolean> = {}; goals.forEach(g => all[g.id] = true); setExpandedGoals(all); }}
-                                                        style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                                                        style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }}
                                                     >
-                                                        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                                                            <Ionicons name="chevron-down-circle-outline" size={18} color="rgba(255,255,255,0.5)" />
+                                                        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                                                            <Ionicons name="chevron-down-circle-outline" size={18} color={colors.textSecondary} />
                                                         </View>
-                                                        <Text style={{ flex: 1, color: '#fff', fontSize: 15, fontWeight: '500' }}>Expand All Goals</Text>
+                                                        <Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: '500' }}>Expand All Goals</Text>
                                                     </TouchableOpacity>
                                                     <TouchableOpacity
                                                         onPress={() => { selectionFeedback(); setExpandedGoals({}); }}
                                                         style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}
                                                     >
-                                                        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                                                            <Ionicons name="chevron-up-circle-outline" size={18} color="rgba(255,255,255,0.5)" />
+                                                        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                                                            <Ionicons name="chevron-up-circle-outline" size={18} color={colors.textSecondary} />
                                                         </View>
-                                                        <Text style={{ flex: 1, color: '#fff', fontSize: 15, fontWeight: '500' }}>Collapse All Goals</Text>
+                                                        <Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: '500' }}>Collapse All Goals</Text>
                                                     </TouchableOpacity>
                                                 </View>
                                             </View>

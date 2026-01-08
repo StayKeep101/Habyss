@@ -653,7 +653,7 @@ REMEMBER:
                                     <Ionicons name="sparkles" size={18} color="#fff" />
                                 </LinearGradient>
                                 <View>
-                                    <Text style={styles.headerTitle}>Echo</Text>
+                                    <Text style={[styles.headerTitle, { color: colors.text }]}>Echo</Text>
                                     <Text style={styles.headerSubtitle}>
                                         {(appSettings.aiPersonality || 'MENTOR').replace(/_/g, ' ').toUpperCase()}
                                     </Text>
@@ -661,7 +661,7 @@ REMEMBER:
                             </View>
                             {/* New Chat Button */}
                             <TouchableOpacity onPress={handleNewChat} style={styles.newChatButton}>
-                                <Ionicons name="create-outline" size={20} color="white" />
+                                <Ionicons name="create-outline" size={20} color={colors.textPrimary} />
                             </TouchableOpacity>
                         </View>
 
@@ -680,23 +680,23 @@ REMEMBER:
                                     <Ionicons name="lock-closed" size={48} color="#fff" />
                                 </LinearGradient>
 
-                                <Text style={styles.paywallTitle}>Unlock Echo</Text>
-                                <Text style={styles.paywallSubtitle}>
+                                <Text style={[styles.paywallTitle, { color: colors.text }]}>Unlock Echo</Text>
+                                <Text style={[styles.paywallSubtitle, { color: colors.textSecondary }]}>
                                     Get unlimited access to your personal Habyss AI to help you build habits faster
                                 </Text>
 
                                 <View style={styles.paywallFeatures}>
                                     <View style={styles.paywallFeature}>
                                         <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                        <Text style={styles.paywallFeatureText}>Create habits with natural language</Text>
+                                        <Text style={[styles.paywallFeatureText, { color: colors.textSecondary }]}>Create habits with natural language</Text>
                                     </View>
                                     <View style={styles.paywallFeature}>
                                         <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                        <Text style={styles.paywallFeatureText}>Smart progress tracking & insights</Text>
+                                        <Text style={[styles.paywallFeatureText, { color: colors.textSecondary }]}>Smart progress tracking & insights</Text>
                                     </View>
                                     <View style={styles.paywallFeature}>
                                         <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                        <Text style={styles.paywallFeatureText}>Personalized recommendations</Text>
+                                        <Text style={[styles.paywallFeatureText, { color: colors.textSecondary }]}>Personalized recommendations</Text>
                                     </View>
                                 </View>
 
@@ -765,7 +765,7 @@ REMEMBER:
                                                 }}
                                                 style={styles.suggestionChip}
                                             >
-                                                <Text style={styles.suggestionText}>{item}</Text>
+                                                <Text style={[styles.suggestionText, { color: colors.textSecondary }]}>{item}</Text>
                                             </TouchableOpacity>
                                         )}
                                         keyExtractor={item => item}
@@ -776,9 +776,9 @@ REMEMBER:
                                 <View style={styles.inputContainer}>
                                     <View style={styles.inputWrapper}>
                                         <TextInput
-                                            style={styles.input}
+                                            style={[styles.input, { color: colors.text }]}
                                             placeholder="Ask me anything..."
-                                            placeholderTextColor="rgba(255,255,255,0.4)"
+                                            placeholderTextColor={colors.textTertiary}
                                             value={inputText}
                                             onChangeText={setInputText}
                                             onSubmitEditing={handleSend}

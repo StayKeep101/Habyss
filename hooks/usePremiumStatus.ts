@@ -20,15 +20,7 @@ export const usePremiumStatus = () => {
   const refreshStatus = useCallback(async () => {
     setLoading(true);
     try {
-      // Check for Dev Override
-      if (__DEV__) {
-        const override = await AsyncStorage.getItem('HABYSS_DEV_PREMIUM_OVERRIDE');
-        if (override === 'true') {
-          setStatus({ premium: true, status: 'dev_active', expires: null });
-          setLoading(false);
-          return;
-        }
-      }
+
 
       const currentStatus = await StripeService.getSubscriptionStatus();
       setStatus(currentStatus);

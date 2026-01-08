@@ -16,6 +16,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence } 
 export default function CommunityScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const isLight = theme === 'light';
     const { primary: accentColor } = useAccentGradient();
     const { thud, lightFeedback, mediumFeedback } = useHaptics();
     const [refreshing, setRefreshing] = useState(false);
@@ -364,7 +365,7 @@ export default function CommunityScreen() {
                                                     paddingHorizontal: 12,
                                                     paddingVertical: 6,
                                                     borderRadius: 16,
-                                                    backgroundColor: isSelected ? accentColor + '30' : 'rgba(255,255,255,0.05)',
+                                                    backgroundColor: isSelected ? accentColor + '30' : colors.surfaceSecondary,
                                                     borderWidth: 1,
                                                     borderColor: isSelected ? accentColor : 'transparent',
                                                     flexDirection: 'row',
@@ -441,7 +442,7 @@ export default function CommunityScreen() {
                                     style={{
                                         padding: 16,
                                         borderBottomWidth: index < friends.length - 1 ? 1 : 0,
-                                        borderBottomColor: 'rgba(255,255,255,0.05)'
+                                        borderBottomColor: colors.border
                                     }}
                                 >
                                     <View style={styles.friendRow}>
@@ -474,7 +475,7 @@ export default function CommunityScreen() {
                                                     <Text style={{ color: colors.textTertiary, fontSize: 10 }}>Today's Progress</Text>
                                                     <Text style={{ color: colors.success, fontSize: 10, fontWeight: '600' }}>{friend.todayCompletion}%</Text>
                                                 </View>
-                                                <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+                                                <View style={{ height: 6, backgroundColor: colors.surfaceTertiary, borderRadius: 3, overflow: 'hidden' }}>
                                                     <View style={{
                                                         height: '100%',
                                                         width: `${Math.min(friend.todayCompletion, 100)}%`,
@@ -519,11 +520,11 @@ export default function CommunityScreen() {
                                     flex: 1,
                                     paddingVertical: 8,
                                     borderRadius: 8,
-                                    backgroundColor: leaderboardPeriod === period.id ? accentColor : 'rgba(255,255,255,0.05)',
+                                    backgroundColor: leaderboardPeriod === period.id ? accentColor : colors.surfaceSecondary,
                                     alignItems: 'center',
                                 }}
                             >
-                                <Text style={{ color: leaderboardPeriod === period.id ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600' }}>
+                                <Text style={{ color: leaderboardPeriod === period.id ? '#fff' : colors.textSecondary, fontSize: 12, fontWeight: '600' }}>
                                     {period.label}
                                 </Text>
                             </TouchableOpacity>

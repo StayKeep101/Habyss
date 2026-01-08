@@ -1,18 +1,13 @@
+import { supabase } from './supabase';
+
 /**
  * DeepSeek AI Service for Habyss
  * 
- * Uses DeepSeek's direct API with automatic prefix caching for maximum cost efficiency.
- * Cache hits are ~10x cheaper than cache misses ($0.014 vs $0.14 per 1M tokens).
+ * Uses Supabase Edge Functions to securely call DeepSeek API.
+ * Automatic prefix caching is preserved by keeping system prompts static.
  * 
- * CACHE OPTIMIZATION STRATEGY:
- * - Keep system prompt identical and at the start (automatic prefix caching)
- * - System prompt > 64 tokens enables caching
- * - Subsequent requests with same prefix = cache hit
- * 
- * SETUP: Add your DeepSeek API key to .env:
- * EXPO_PUBLIC_DEEPSEEK_API_KEY=your_api_key_here
- * 
- * Get your API key at: https://platform.deepseek.com/
+ * SETUP: Ensure DEEPSEEK_API_KEY is set in Supabase secrets:
+ * npx supabase secrets set DEEPSEEK_API_KEY=...
  */
 
 export interface ChatMessage {
@@ -20,9 +15,8 @@ export interface ChatMessage {
     content: string;
 }
 
-// DeepSeek API Configuration
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-const MODEL = 'deepseek-chat'; // Use deepseek-chat for cost efficiency, deepseek-reasoner for complex reasoning
+// Model configuration
+const MODEL = 'deepseek-chat';
 
 /**
  * COMPACT System Prompt (~150 tokens) for cache efficiency
@@ -38,8 +32,7 @@ DELETE: {"action":"delete","id":"ID","response":"..."}
 Otherwise respond with helpful text.`;
 
 /**
- * Cache-optimized chat completion using DeepSeek's direct API
- * The system prompt is kept static to maximize prefix cache hits
+ * Cache-optimized chat completion using Supabase Edge Function
  */
 export const streamChatCompletion = async (
     history: ChatMessage[],
@@ -49,14 +42,6 @@ export const streamChatCompletion = async (
     onError: (error: Error) => void
 ) => {
     try {
-        const apiKey = process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
-
-        if (!apiKey) {
-            console.warn('DeepSeek API Key is missing. Please add EXPO_PUBLIC_DEEPSEEK_API_KEY to your .env file.');
-            onError(new Error('DeepSeek API Key is missing. Please configure in settings.'));
-            return;
-        }
-
         // CACHE OPTIMIZATION: Keep messages minimal for 500 token input limit
         // Only send system prompt + last 4 messages to stay under limit
         const recentHistory = history.slice(-4);
@@ -73,26 +58,24 @@ export const streamChatCompletion = async (
             }))
         ];
 
-        const response = await fetch(DEEPSEEK_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
+        const { data, error } = await supabase.functions.invoke('ai-chat', {
+            body: {
                 model: MODEL,
                 messages,
                 temperature: 0.7,
-                max_tokens: 1000, // Allow longer responses for complex JSON actions
-            }),
+                max_tokens: 1000,
+            }
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'Failed to fetch from DeepSeek');
+        if (error) {
+            console.error('Edge Function Error:', error);
+            throw new Error(error.message || 'Failed to connect to AI service');
         }
 
-        const data = await response.json();
+        if (data?.error) {
+            throw new Error(data.error);
+        }
+
         const reply = data.choices?.[0]?.message?.content || '';
 
         // Log cache statistics for monitoring
@@ -146,20 +129,12 @@ RULES:
 Personality styles: Supportive (warm/encouraging), Drill Sergeant (intense/pushing), Stoic (calm/philosophical), Playful (fun/light), Mindful (peaceful/zen).`;
 
 /**
- * Generate a motivational greeting with cache optimization
+ * Generate a motivational greeting using Supabase Edge Function
  */
 export const generateGreeting = async (personality: string): Promise<string> => {
     try {
-        const apiKey = process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
-        if (!apiKey) return "Welcome back, warrior of habits.";
-
-        const response = await fetch(DEEPSEEK_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
+        const { data, error } = await supabase.functions.invoke('ai-chat', {
+            body: {
                 model: MODEL,
                 messages: [
                     { role: 'system', content: GREETING_SYSTEM_PROMPT },
@@ -167,12 +142,13 @@ export const generateGreeting = async (personality: string): Promise<string> => 
                 ],
                 temperature: 0.9,
                 max_tokens: 50,
-            }),
+            }
         });
 
-        if (!response.ok) return "Welcome back.";
-
-        const data = await response.json();
+        if (error || data?.error) {
+            console.error("Greeting Gen Error", error || data?.error);
+            return "Welcome back.";
+        }
 
         // Log cache stats
         if (data.usage) {
@@ -236,18 +212,6 @@ export const generateSmartGreeting = async (
     userData: UserGreetingData
 ): Promise<string> => {
     try {
-        const apiKey = process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
-        if (!apiKey) {
-            // Fallback to data-driven static greeting
-            if (userData.currentStreak > 7) {
-                return `${userData.currentStreak}-day streak. Keep the momentum.`;
-            }
-            if (userData.todayCompleted === userData.todayTotal && userData.todayTotal > 0) {
-                return "All habits done. Tomorrow awaits.";
-            }
-            return `${userData.todayCompleted}/${userData.todayTotal} habits. Let's go.`;
-        }
-
         const personalityGuidelines = getPersonalityGuidelines(personality);
 
         // User context as a structured message for consistent caching
@@ -258,13 +222,8 @@ ${userData.strugglingHabit ? `Struggling with: ${userData.strugglingHabit}` : ''
 ${userData.topHabit && !userData.bestHabit ? `Top habit: ${userData.topHabit}` : ''}
 Generate a personalized greeting.`;
 
-        const response = await fetch(DEEPSEEK_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
+        const { data, error } = await supabase.functions.invoke('ai-chat', {
+            body: {
                 model: MODEL,
                 messages: [
                     { role: 'system', content: SMART_GREETING_SYSTEM_PROMPT },
@@ -272,16 +231,15 @@ Generate a personalized greeting.`;
                 ],
                 temperature: 0.8,
                 max_tokens: 60,
-            }),
+            }
         });
 
-        if (!response.ok) {
+        if (error || data?.error) {
+            // Fallback to data-driven static greeting if AI fails
             return userData.currentStreak > 0
                 ? `${userData.currentStreak}-day streak. Keep going.`
                 : "Ready to build today.";
         }
-
-        const data = await response.json();
 
         // Log cache statistics
         if (data.usage) {

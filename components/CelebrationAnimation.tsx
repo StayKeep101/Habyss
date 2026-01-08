@@ -8,6 +8,7 @@ import Animated, {
     withDelay,
     Easing,
     runOnJS,
+    cancelAnimation,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -70,6 +71,13 @@ const CelebrationParticle: React.FC<{ particle: Particle }> = ({ particle }) => 
             particle.delay,
             withTiming(particle.rotation, { duration: 1500 })
         );
+        return () => {
+            cancelAnimation(translateY);
+            cancelAnimation(translateX);
+            cancelAnimation(scale);
+            cancelAnimation(opacity);
+            cancelAnimation(rotate);
+        };
     }, []);
 
     const style = useAnimatedStyle(() => ({

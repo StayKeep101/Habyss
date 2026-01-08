@@ -153,30 +153,27 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, sheetStyle]}>
                         <LinearGradient
-                            colors={['#1a1f2e', '#0f1218']}
+                            colors={theme === 'light' ? [colors.background, colors.surface] : ['#1a1f2e', '#0f1218']}
                             style={styles.sheetGradient}
                         >
                             {/* Drag Handle */}
                             <View style={styles.handleContainer}>
-                                <View style={styles.handle} />
+                                <View style={[styles.handle, { backgroundColor: colors.surfaceSecondary }]} />
                             </View>
 
                             <Animated.View style={[styles.content, contentStyle]}>
                                 {/* Header with Avatar */}
                                 <View style={styles.header}>
-                                    <View style={[styles.avatarLarge, { borderColor: colors.primary }]}>
+                                    <View style={[styles.avatarLarge, { borderColor: colors.primary, backgroundColor: colors.surfaceSecondary }]}>
                                         {friend.avatarUrl ? (
                                             <Image source={{ uri: friend.avatarUrl }} style={styles.avatarImage} />
                                         ) : (
-                                            <Text style={styles.avatarText}>
+                                            <Text style={[styles.avatarText, { color: colors.textSecondary }]}>
                                                 {friend.username[0]?.toUpperCase()}
                                             </Text>
                                         )}
                                     </View>
-                                    <Text style={styles.username}>{friend.username}</Text>
-                                    {friend.bio && (
-                                        <Text style={styles.bio}>{friend.bio}</Text>
-                                    )}
+                                    <Text style={[styles.username, { color: colors.text }]}>{friend.username}</Text>
                                 </View>
 
                                 {/* Stats Grid */}
@@ -186,7 +183,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                         <Svg width={size} height={size}>
                                             {/* Background Circle */}
                                             <Circle
-                                                stroke="rgba(255,255,255,0.1)"
+                                                stroke={colors.surfaceSecondary}
                                                 fill="none"
                                                 cx={size / 2}
                                                 cy={size / 2}
@@ -209,8 +206,8 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                             />
                                         </Svg>
                                         <View style={styles.progressCenter}>
-                                            <Text style={styles.progressValue}>{progressPercent}%</Text>
-                                            <Text style={styles.progressLabel}>TODAY</Text>
+                                            <Text style={[styles.progressValue, { color: colors.text }]}>{progressPercent}%</Text>
+                                            <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>TODAY</Text>
                                         </View>
                                     </VoidCard>
 
@@ -218,20 +215,20 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                     <View style={styles.quickStats}>
                                         <VoidCard glass style={styles.statCard}>
                                             <Ionicons name="flame" size={28} color="#FFD93D" />
-                                            <Text style={styles.statValue}>{streak}</Text>
-                                            <Text style={styles.statLabel}>DAY STREAK</Text>
+                                            <Text style={[styles.statValue, { color: colors.text }]}>{streak}</Text>
+                                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DAY STREAK</Text>
                                         </VoidCard>
                                         <VoidCard glass style={styles.statCard}>
                                             <Ionicons name="trophy" size={28} color="#F97316" />
-                                            <Text style={styles.statValue}>{detailedStats?.longestStreak || streak}</Text>
-                                            <Text style={styles.statLabel}>BEST STREAK</Text>
+                                            <Text style={[styles.statValue, { color: colors.text }]}>{detailedStats?.longestStreak || streak}</Text>
+                                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BEST STREAK</Text>
                                         </VoidCard>
                                     </View>
                                 </View>
 
                                 {/* Weekly Activity */}
                                 <VoidCard glass style={styles.weeklyCard}>
-                                    <Text style={styles.sectionTitle}>THIS WEEK'S ACTIVITY</Text>
+                                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>THIS WEEK'S ACTIVITY</Text>
                                     <View style={styles.weekDays}>
                                         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
                                             const isActive = detailedStats?.weeklyActivity[i] ?? Math.random() > 0.3;
@@ -244,7 +241,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                                             {
                                                                 backgroundColor: isActive
                                                                     ? isToday ? colors.primary : '#22C55E'
-                                                                    : 'rgba(255,255,255,0.1)',
+                                                                    : colors.surfaceSecondary,
                                                                 borderWidth: isToday ? 2 : 0,
                                                                 borderColor: colors.primary,
                                                             },
@@ -252,7 +249,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                                     >
                                                         {isActive && <Ionicons name="checkmark" size={16} color="#fff" />}
                                                     </View>
-                                                    <Text style={[styles.dayLabel, isToday && { color: colors.primary }]}>
+                                                    <Text style={[styles.dayLabel, { color: isToday ? colors.primary : colors.textSecondary }]}>
                                                         {day}
                                                     </Text>
                                                 </View>
@@ -264,10 +261,10 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                 {/* Actions */}
                                 <View style={styles.actions}>
                                     {friend.username === 'You' ? (
-                                        <Text style={styles.previewText}>This is how your profile appears to friends</Text>
+                                        <Text style={[styles.previewText, { color: colors.textTertiary }]}>This is how your profile appears to friends</Text>
                                     ) : (
                                         <TouchableOpacity
-                                            style={[styles.nudgeButton, { backgroundColor: colors.primary }]}
+                                            style={[styles.nudgeButton, { backgroundColor: colors.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
                                             onPress={() => {
                                                 onNudge(friend);
                                                 closeModal();
@@ -351,18 +348,15 @@ const styles = StyleSheet.create({
     username: {
         fontSize: 28,
         fontWeight: '800',
-        color: '#fff',
         fontFamily: 'Lexend',
     },
     email: {
         fontSize: 14,
-        color: 'rgba(255,255,255,0.5)',
         marginTop: 4,
         fontFamily: 'Lexend_400Regular',
     },
     bio: {
         fontSize: 13,
-        color: 'rgba(255,255,255,0.7)',
         marginTop: 8,
         textAlign: 'center',
         fontStyle: 'italic',
@@ -376,7 +370,6 @@ const styles = StyleSheet.create({
     },
     infoText: {
         fontSize: 12,
-        color: 'rgba(255,255,255,0.4)',
         fontFamily: 'Lexend_400Regular',
     },
     statsRow: {
@@ -398,12 +391,10 @@ const styles = StyleSheet.create({
     progressValue: {
         fontSize: 32,
         fontWeight: '900',
-        color: '#fff',
         fontFamily: 'Lexend',
     },
     progressLabel: {
         fontSize: 10,
-        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
     },
@@ -420,13 +411,11 @@ const styles = StyleSheet.create({
     statValue: {
         fontSize: 24,
         fontWeight: '800',
-        color: '#fff',
         marginTop: 4,
         fontFamily: 'Lexend',
     },
     statLabel: {
         fontSize: 9,
-        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 0.5,
         marginTop: 2,
         fontFamily: 'Lexend_400Regular',
@@ -437,7 +426,6 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 11,
-        color: 'rgba(255,255,255,0.5)',
         letterSpacing: 1,
         marginBottom: 16,
         fontFamily: 'Lexend_400Regular',
@@ -459,7 +447,6 @@ const styles = StyleSheet.create({
     },
     dayLabel: {
         fontSize: 11,
-        color: 'rgba(255,255,255,0.5)',
         fontFamily: 'Lexend_400Regular',
     },
     actions: {
@@ -478,7 +465,6 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend',
     },
     previewText: {
-        color: 'rgba(255,255,255,0.5)',
         fontSize: 13,
         fontStyle: 'italic',
         textAlign: 'center',

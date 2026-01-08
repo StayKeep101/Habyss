@@ -275,7 +275,9 @@ const GoalDetail = () => {
           imageStyle={{ opacity: 0.4 }}
         >
           <LinearGradient
-            colors={['rgba(0,0,0,0.1)', '#000']}
+            colors={theme === 'light'
+              ? ['rgba(255,255,255,0.8)', colors.background]
+              : ['rgba(0,0,0,0.1)', '#000']}
             style={StyleSheet.absoluteFill}
             locations={[0, 0.9]}
           />
@@ -301,18 +303,18 @@ const GoalDetail = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Main Content Area */}
-        <Animated.View entering={FadeIn.duration(500)} style={styles.contentContainer}>
+        <Animated.View entering={FadeIn.duration(500)} style={[styles.contentContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
 
           {/* Floating Progress Badge */}
           <View style={styles.progressBadgeContainer}>
-            <VoidCard glass intensity={40} style={styles.progressBadge}>
+            <VoidCard glass intensity={40} style={[styles.progressBadge, { backgroundColor: theme === 'light' ? colors.surface : 'rgba(0,0,0,0.6)', borderColor: colors.border }]}>
               <HalfCircleProgress
                 progress={progress}
                 size={120}
                 strokeWidth={12}
                 color={goal.color || accentColor}
-                backgroundColor="rgba(255,255,255,0.05)"
-                textColor="white"
+                backgroundColor={colors.surfaceSecondary}
+                textColor={colors.text}
                 fontSize={28}
                 showPercentage={true}
               />
@@ -349,13 +351,13 @@ const GoalDetail = () => {
           {/* Void Tabs */}
           <View style={styles.tabContainer}>
             <TouchableOpacity onPress={() => { mediumFeedback(); setActiveTab('habits'); }} style={{ flex: 1 }}>
-              <VoidCard glass intensity={activeTab === 'habits' ? 50 : 10} style={[styles.tab, activeTab === 'habits' && { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                <Text style={[styles.tabText, activeTab === 'habits' && { color: 'white' }]}>Habits</Text>
+              <VoidCard glass intensity={activeTab === 'habits' ? 50 : 10} style={[styles.tab, activeTab === 'habits' && { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.tabText, activeTab === 'habits' ? { color: colors.text } : { color: colors.textTertiary }]}>Habits</Text>
               </VoidCard>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { mediumFeedback(); setActiveTab('stats'); }} style={{ flex: 1 }}>
-              <VoidCard glass intensity={activeTab === 'stats' ? 50 : 10} style={[styles.tab, activeTab === 'stats' && { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                <Text style={[styles.tabText, activeTab === 'stats' && { color: 'white' }]}>Stats</Text>
+              <VoidCard glass intensity={activeTab === 'stats' ? 50 : 10} style={[styles.tab, activeTab === 'stats' && { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.tabText, activeTab === 'stats' ? { color: colors.text } : { color: colors.textTertiary }]}>Stats</Text>
               </VoidCard>
             </TouchableOpacity>
           </View>
@@ -428,14 +430,14 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     minHeight: height,
-    backgroundColor: '#050510', // Deep void background
+    // backgroundColor set inline
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     marginTop: 20,
     paddingTop: 40,
     // Add a top border for glass Separation
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    // borderTopColor set inline
   },
   progressBadgeContainer: {
     alignItems: 'center',
@@ -453,13 +455,11 @@ const styles = StyleSheet.create({
   goalTitle: {
     fontSize: 28,
     fontWeight: '900',
-    color: 'white',
     fontFamily: 'Lexend',
     letterSpacing: -0.5,
   },
   goalTarget: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.6)',
     fontFamily: 'Lexend_400Regular',
   },
   daysTag: {
@@ -476,7 +476,6 @@ const styles = StyleSheet.create({
   goalDescription: {
     marginTop: 12,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
     lineHeight: 20,
     fontFamily: 'Lexend_400Regular',
   },
@@ -506,7 +505,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: 'white',
     fontFamily: 'Lexend',
   },
   addBtn: {

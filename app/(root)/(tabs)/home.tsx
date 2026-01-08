@@ -558,8 +558,8 @@ const Home = () => {
 
           {/* Header Row */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 20 }}>
-            {/* Left: Profile + AI Greeting */}
-            <View style={{ flex: 1, marginRight: 12 }}>
+            {/* Left: Profile */}
+            <View style={{ flex: 1 }}>
               {/* Profile Avatar */}
               <TouchableOpacity onPress={() => router.push('/(root)/(tabs)/settings')} activeOpacity={0.8}>
                 <LinearGradient
@@ -585,32 +585,13 @@ const Home = () => {
                     {profileAvatar ? (
                       <Image source={{ uri: profileAvatar }} style={{ width: '100%', height: '100%' }} />
                     ) : (
-                      <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="person" size={22} color="rgba(255,255,255,0.6)" />
+                      <View style={{ flex: 1, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person" size={22} color={colors.textSecondary} />
                       </View>
                     )}
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
-
-              {/* AI Greeting - Right below profile */}
-              {motivationalQuote ? (
-                <Animated.View entering={FadeInDown.duration(400)}>
-                  <Text style={{
-                    fontSize: 15,
-                    fontWeight: '600',
-                    color: isPremium ? '#fff' : colors.textSecondary,
-                    fontFamily: 'Lexend',
-                    textAlign: 'left',
-                    lineHeight: 22,
-                  }}>
-                    {displayedQuote}
-                    {displayedQuote.length < motivationalQuote.length && (
-                      <Text style={{ color: colors.primary }}>|</Text>
-                    )}
-                  </Text>
-                </Animated.View>
-              ) : null}
             </View>
 
             {/* Right: Action Buttons */}
@@ -625,12 +606,31 @@ const Home = () => {
                   <Ionicons name="sparkles" size={18} color="#fff" />
                 </LinearGradient>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { lightFeedback(); setShowNotifications(true); }} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="notifications" size={20} color="#fff" />
+              <TouchableOpacity onPress={() => { lightFeedback(); setShowNotifications(true); }} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="notifications" size={20} color={colors.textPrimary} />
                 {unreadCount > 0 && <View style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' }} />}
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* AI Greeting - Full Width Below Header */}
+          {motivationalQuote ? (
+            <Animated.View entering={FadeInDown.duration(400)} style={{ marginTop: 16 }}>
+              <Text style={{
+                fontSize: 15,
+                fontWeight: '600',
+                color: isPremium ? colors.text : colors.textSecondary,
+                fontFamily: 'Lexend',
+                textAlign: 'left',
+                lineHeight: 22,
+              }}>
+                {displayedQuote}
+                {displayedQuote.length < motivationalQuote.length && (
+                  <Text style={{ color: colors.primary }}>|</Text>
+                )}
+              </Text>
+            </Animated.View>
+          ) : null}
 
           {/* Spacer after header */}
           <View style={{ height: 16 }} />
@@ -666,9 +666,9 @@ const Home = () => {
           <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
             <VoidCard style={{ padding: 20 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 16, color: '#fff', fontWeight: '700' }}>Today's Habits</Text>
+                <Text style={{ fontSize: 16, color: colors.text, fontWeight: '700' }}>Today's Habits</Text>
                 <TouchableOpacity onPress={() => router.push('/(root)/(tabs)/roadmap')}>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>See All</Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>See All</Text>
                 </TouchableOpacity>
               </View>
 
@@ -677,29 +677,29 @@ const Home = () => {
                   key={habit.id}
                   onPress={() => handleHabitToggle(habit.id)}
                   activeOpacity={0.7}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < topHabits.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < topHabits.length - 1 ? 1 : 0, borderBottomColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }}
                 >
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: completions[habit.id] ? accentColor + '30' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Ionicons name={completions[habit.id] ? 'checkmark' : (habit.icon as any) || 'ellipse'} size={18} color={completions[habit.id] ? accentColor : 'rgba(255,255,255,0.5)'} />
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: completions[habit.id] ? accentColor + '30' : (isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    <Ionicons name={completions[habit.id] ? 'checkmark' : (habit.icon as any) || 'ellipse'} size={18} color={completions[habit.id] ? accentColor : colors.textSecondary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: completions[habit.id] ? 'rgba(255,255,255,0.5)' : '#fff', fontSize: 14, fontWeight: '500', textDecorationLine: completions[habit.id] ? 'line-through' : 'none' }}>{habit.name}</Text>
+                    <Text style={{ color: completions[habit.id] ? colors.textTertiary : colors.text, fontSize: 14, fontWeight: '500', textDecorationLine: completions[habit.id] ? 'line-through' : 'none' }}>{habit.name}</Text>
                     {habit.goalId && (
-                      <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 2 }}>
+                      <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 2 }}>
                         {goals.find(g => g.id === habit.goalId)?.name || 'Goal'}
                       </Text>
                     )}
                   </View>
-                  <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: completions[habit.id] ? accentColor : 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', backgroundColor: completions[habit.id] ? accentColor : 'transparent' }}>
+                  <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: completions[habit.id] ? accentColor : (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'), alignItems: 'center', justifyContent: 'center', backgroundColor: completions[habit.id] ? accentColor : 'transparent' }}>
                     {completions[habit.id] && <Ionicons name="checkmark" size={14} color="#fff" />}
                   </View>
                 </TouchableOpacity>
               )) : (
                 <View style={{ paddingVertical: 30, alignItems: 'center' }}>
-                  <Ionicons name="add-circle-outline" size={40} color="rgba(255,255,255,0.2)" />
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', marginTop: 12 }}>No habits yet</Text>
-                  <TouchableOpacity onPress={() => DeviceEventEmitter.emit('show_habit_modal')} style={{ marginTop: 12, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 }}>
-                    <Text style={{ color: 'white', fontSize: 13 }}>Create First Habit</Text>
+                  <Ionicons name="add-circle-outline" size={40} color={colors.textTertiary} />
+                  <Text style={{ color: colors.textSecondary, marginTop: 12 }}>No habits yet</Text>
+                  <TouchableOpacity onPress={() => DeviceEventEmitter.emit('show_habit_modal')} style={{ marginTop: 12, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 }}>
+                    <Text style={{ color: colors.textPrimary, fontSize: 13 }}>Create First Habit</Text>
                   </TouchableOpacity>
                 </View>
               )}
