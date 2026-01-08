@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, SafeAreaView } from 'react-native';
-import { BlurView } from 'expo-blur';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -8,10 +7,24 @@ import { supabase } from '@/lib/supabase';
 import { ScrollPickerModal } from './ScrollPickerModal';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withTiming,
+    withDelay,
+    Easing,
+    runOnJS,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
 try { ImagePicker = require('expo-image-picker'); } catch (e) { }
+
+const { height } = Dimensions.get('window');
+const SHEET_HEIGHT = height * 0.85;
+const DRAG_THRESHOLD = 120;
 
 interface EditProfileModalProps {
     visible: boolean;
@@ -24,6 +37,7 @@ interface EditProfileModalProps {
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onClose, currentUsername, currentAvatarUri, onProfileUpdate }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const isLight = theme === 'light';
 
     // Form State
     const [nickname, setNickname] = useState(currentUsername);
@@ -34,15 +48,41 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 
     const [showAgePicker, setShowAgePicker] = useState(false);
     const [showGenderPicker, setShowGenderPicker] = useState(false);
-    const [deleteEmail, setDeleteEmail] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
 
     const ages = Array.from({ length: 100 }, (_, i) => String(i + 1));
     const genders = ['Male', 'Female', 'Other'];
 
-    // Load initial data and avatar
+    const translateY = useSharedValue(SHEET_HEIGHT);
+    const backdropOpacity = useSharedValue(0);
+    const contentOpacity = useSharedValue(0);
+
+    const openModal = useCallback(() => {
+        setIsOpen(true);
+        translateY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
+        backdropOpacity.value = withTiming(1, { duration: 300 });
+        contentOpacity.value = withDelay(200, withTiming(1, { duration: 400 }));
+    }, []);
+
+    const closeModal = useCallback(() => {
+        contentOpacity.value = withTiming(0, { duration: 150 });
+        translateY.value = withTiming(SHEET_HEIGHT, { duration: 300, easing: Easing.in(Easing.cubic) });
+        backdropOpacity.value = withTiming(0, { duration: 250 });
+        setTimeout(() => { setIsOpen(false); onClose(); }, 300);
+    }, [onClose]);
+
+    useEffect(() => {
+        if (visible && !isOpen) {
+            openModal();
+        } else if (!visible && isOpen) {
+            closeModal();
+        }
+    }, [visible]);
+
+    // Load initial data
     useEffect(() => {
         const loadDetails = async () => {
             if (!visible) return;
@@ -50,17 +90,23 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
-                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('username, avatar_url')
+                        .eq('id', user.id)
+                        .single();
                     if (profile) {
                         setNickname(profile.username || '');
-                        setGender(profile.gender || '');
-                        setDescription(profile.bio || '');
-                        setAge(profile.age ? String(profile.age) : '');
                     }
                 }
-                // Load saved avatar from AsyncStorage
                 const savedAvatar = await AsyncStorage.getItem('profile_avatar');
+                const savedBio = await AsyncStorage.getItem('profile_bio');
+                const savedAge = await AsyncStorage.getItem('profile_age');
+                const savedGender = await AsyncStorage.getItem('profile_gender');
                 if (savedAvatar) setAvatarUri(savedAvatar);
+                if (savedBio) setDescription(savedBio);
+                if (savedAge) setAge(savedAge);
+                if (savedGender) setGender(savedGender);
             } catch (e) {
                 console.error(e);
             } finally {
@@ -70,7 +116,32 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
         loadDetails();
     }, [visible]);
 
-    // Handle avatar change
+    const backdropStyle = useAnimatedStyle(() => ({
+        opacity: backdropOpacity.value,
+    }));
+
+    const sheetStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: translateY.value }],
+    }));
+
+    const contentStyle = useAnimatedStyle(() => ({
+        opacity: contentOpacity.value,
+    }));
+
+    const panGesture = Gesture.Pan()
+        .onUpdate((e) => {
+            if (e.translationY > 0) {
+                translateY.value = e.translationY;
+            }
+        })
+        .onEnd((e) => {
+            if (e.translationY > DRAG_THRESHOLD) {
+                runOnJS(closeModal)();
+            } else {
+                translateY.value = withTiming(0, { duration: 200 });
+            }
+        });
+
     const handleChangeAvatar = async () => {
         if (!ImagePicker) {
             Alert.alert("Feature Unavailable", "Run expo run:ios/android for this feature.");
@@ -113,32 +184,26 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('No user');
 
-            // Only update fields that exist in the database schema
-            // Note: 'age', 'gender', 'bio' may not exist - save only username for now
-            const updates = {
+            const updates: any = {
                 id: user.id,
                 username: nickname,
-                gender: gender,
-                age: age ? parseInt(age) : null,
-                bio: description,
                 updated_at: new Date().toISOString(),
             };
 
             const { error } = await supabase.from('profiles').upsert(updates);
-
             if (error) {
                 console.error('Update error', error);
                 throw error;
             }
 
-            // Save avatar locally
-            if (avatarUri) {
-                await AsyncStorage.setItem('profile_avatar', avatarUri);
-            }
+            if (avatarUri) await AsyncStorage.setItem('profile_avatar', avatarUri);
+            if (description) await AsyncStorage.setItem('profile_bio', description);
+            if (age) await AsyncStorage.setItem('profile_age', age);
+            if (gender) await AsyncStorage.setItem('profile_gender', gender);
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             onProfileUpdate(avatarUri || undefined);
-            onClose();
+            closeModal();
         } catch (e) {
             Alert.alert('Error', 'Failed to save profile.');
         } finally {
@@ -160,12 +225,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                             const { data: { user } } = await supabase.auth.getUser();
                             if (email?.toLowerCase() === user?.email?.toLowerCase()) {
                                 setLoading(true);
-                                // IMPORTANT: In a real app, use an Edge Function for this.
-                                // Client-side deletion is restricted for security.
-                                // We will sign out for now as a mock of deletion success if strict mode is on.
                                 await supabase.auth.signOut();
                                 Alert.alert("Account Deleted", "Your account has been scheduled for deletion.");
-                                onClose();
+                                closeModal();
                             } else {
                                 Alert.alert("Error", "Email does not match.");
                             }
@@ -182,114 +244,126 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     };
 
     return (
-        <Modal
-            animationType="slide"
-            transparent={false}
-            visible={visible}
-            onRequestClose={onClose}
-            presentationStyle="pageSheet"
-        >
-            <View style={{ flex: 1, backgroundColor: colors.background }}>
-                <SafeAreaView style={{ flex: 1 }}>
-                    {/* Header */}
-                    <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
-                        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                            <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend' }}>Cancel</Text>
-                        </TouchableOpacity>
-                        <Text style={[styles.title, { color: colors.textPrimary }]}>Edit Profile</Text>
-                        <TouchableOpacity
-                            onPress={handleSave}
-                            disabled={saving}
-                            style={styles.closeBtn}
+        <Modal visible={isOpen || visible} transparent animationType="none" onRequestClose={closeModal}>
+            <KeyboardAvoidingView
+                style={styles.container}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                {/* Backdrop */}
+                <Animated.View style={[styles.backdrop, backdropStyle]}>
+                    <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeModal} activeOpacity={1} />
+                </Animated.View>
+
+                {/* Sheet */}
+                <GestureDetector gesture={panGesture}>
+                    <Animated.View style={[styles.sheet, sheetStyle]}>
+                        <LinearGradient
+                            colors={isLight ? ['#ffffff', '#f5f5f5'] : ['#1a1f2e', '#0f1218']}
+                            style={styles.sheetGradient}
                         >
-                            {saving ? (
-                                <ActivityIndicator size="small" color={colors.primary} />
-                            ) : (
-                                <Text style={{ color: colors.primary, fontFamily: 'Lexend', fontWeight: 'bold' }}>Save</Text>
-                            )}
-                        </TouchableOpacity>
-                    </View>
+                            {/* Drag Handle */}
+                            <View style={styles.handleContainer}>
+                                <View style={[styles.handle, { backgroundColor: isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)' }]} />
+                            </View>
 
-                    <ScrollView contentContainerStyle={{ padding: 20 }}>
-                        {loading && <ActivityIndicator style={{ marginBottom: 20 }} />}
-
-                        {/* Profile Photo */}
-                        <TouchableOpacity onPress={handleChangeAvatar} style={styles.avatarSection}>
-                            <View style={[styles.avatarContainer, { borderColor: colors.border }]}>
-                                {avatarUri ? (
-                                    <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-                                ) : (
-                                    <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceTertiary }]}>
-                                        <Ionicons name="person" size={40} color={colors.textTertiary} />
-                                    </View>
-                                )}
-                                <View style={[styles.cameraIcon, { backgroundColor: colors.primary }]}>
-                                    <Ionicons name="camera" size={14} color="black" />
+                            <Animated.View style={[{ flex: 1 }, contentStyle]}>
+                                {/* Header */}
+                                <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
+                                    <TouchableOpacity onPress={closeModal} style={styles.headerBtn}>
+                                        <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend' }}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <Text style={[styles.title, { color: colors.textPrimary }]}>Edit Profile</Text>
+                                    <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerBtn}>
+                                        {saving ? (
+                                            <ActivityIndicator size="small" color={colors.primary} />
+                                        ) : (
+                                            <Text style={{ color: colors.primary, fontFamily: 'Lexend', fontWeight: 'bold' }}>Save</Text>
+                                        )}
+                                    </TouchableOpacity>
                                 </View>
-                            </View>
-                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>Tap to change photo</Text>
-                        </TouchableOpacity>
 
-                        <View style={styles.fieldGroup}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>NICKNAME</Text>
-                            <TextInput
-                                style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.05)' }]}
-                                value={nickname}
-                                onChangeText={setNickname}
-                                placeholder="Your codename"
-                                placeholderTextColor={colors.textTertiary}
-                            />
-                        </View>
+                                <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+                                    {loading && <ActivityIndicator style={{ marginBottom: 20 }} />}
 
-                        <View style={styles.row}>
-                            <View style={[styles.fieldGroup, { flex: 1, marginRight: 10 }]}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>AGE</Text>
-                                <TouchableOpacity
-                                    style={[styles.input, { borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
-                                    onPress={() => setShowAgePicker(true)}
-                                >
-                                    <Text style={{ color: age ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
-                                        {age || "Years"}
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                            <View style={[styles.fieldGroup, { flex: 1, marginLeft: 10 }]}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>GENDER</Text>
-                                <TouchableOpacity
-                                    style={[styles.input, { borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
-                                    onPress={() => setShowGenderPicker(true)}
-                                >
-                                    <Text style={{ color: gender ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
-                                        {gender || "Identity"}
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
+                                    {/* Profile Photo */}
+                                    <TouchableOpacity onPress={handleChangeAvatar} style={styles.avatarSection}>
+                                        <View style={[styles.avatarContainer, { borderColor: colors.border }]}>
+                                            {avatarUri ? (
+                                                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                                            ) : (
+                                                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceTertiary }]}>
+                                                    <Ionicons name="person" size={40} color={colors.textTertiary} />
+                                                </View>
+                                            )}
+                                            <View style={[styles.cameraIcon, { backgroundColor: colors.primary }]}>
+                                                <Ionicons name="camera" size={14} color="black" />
+                                            </View>
+                                        </View>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>Tap to change photo</Text>
+                                    </TouchableOpacity>
 
-                        <View style={styles.fieldGroup}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>DESCRIPTION</Text>
-                            <TextInput
-                                style={[styles.inputTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: 'rgba(255,255,255,0.05)' }]}
-                                value={description}
-                                onChangeText={setDescription}
-                                placeholder="Your mission briefing..."
-                                placeholderTextColor={colors.textTertiary}
-                                multiline
-                                numberOfLines={4}
-                                textAlignVertical="top"
-                            />
-                        </View>
+                                    <View style={styles.fieldGroup}>
+                                        <Text style={[styles.label, { color: colors.textSecondary }]}>NICKNAME</Text>
+                                        <TextInput
+                                            style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
+                                            value={nickname}
+                                            onChangeText={setNickname}
+                                            placeholder="Your codename"
+                                            placeholderTextColor={colors.textTertiary}
+                                        />
+                                    </View>
 
-                        <TouchableOpacity
-                            onPress={handleDeleteAccount}
-                            style={[styles.deleteBtn, { borderColor: colors.error }]}
-                        >
-                            <Text style={{ color: colors.error, fontFamily: 'Lexend_600SemiBold' }}>Delete Account</Text>
-                        </TouchableOpacity>
+                                    <View style={styles.row}>
+                                        <View style={[styles.fieldGroup, { flex: 1, marginRight: 10, marginBottom: 0 }]}>
+                                            <Text style={[styles.label, { color: colors.textSecondary }]}>AGE</Text>
+                                            <TouchableOpacity
+                                                style={[styles.input, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
+                                                onPress={() => setShowAgePicker(true)}
+                                            >
+                                                <Text style={{ color: age ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
+                                                    {age || "Years"}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                        <View style={[styles.fieldGroup, { flex: 1, marginLeft: 10, marginBottom: 0 }]}>
+                                            <Text style={[styles.label, { color: colors.textSecondary }]}>GENDER</Text>
+                                            <TouchableOpacity
+                                                style={[styles.input, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
+                                                onPress={() => setShowGenderPicker(true)}
+                                            >
+                                                <Text style={{ color: gender ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
+                                                    {gender || "Identity"}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
 
-                    </ScrollView>
-                </SafeAreaView>
-            </View>
+                                    <View style={[styles.fieldGroup, { marginTop: 16 }]}>
+                                        <Text style={[styles.label, { color: colors.textSecondary }]}>DESCRIPTION</Text>
+                                        <TextInput
+                                            style={[styles.inputTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
+                                            value={description}
+                                            onChangeText={setDescription}
+                                            placeholder="Your mission briefing..."
+                                            placeholderTextColor={colors.textTertiary}
+                                            multiline
+                                            numberOfLines={4}
+                                            textAlignVertical="top"
+                                        />
+                                    </View>
+
+                                    <TouchableOpacity
+                                        onPress={handleDeleteAccount}
+                                        style={[styles.deleteBtn, { borderColor: colors.error }]}
+                                    >
+                                        <Text style={{ color: colors.error, fontFamily: 'Lexend_600SemiBold' }}>Delete Account</Text>
+                                    </TouchableOpacity>
+                                </ScrollView>
+                            </Animated.View>
+                        </LinearGradient>
+                    </Animated.View>
+                </GestureDetector>
+            </KeyboardAvoidingView>
 
             <ScrollPickerModal
                 visible={showAgePicker}
@@ -316,13 +390,46 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+    },
+    sheet: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: SHEET_HEIGHT,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        overflow: 'hidden',
+    },
+    sheetGradient: {
+        flex: 1,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+    },
+    handleContainer: {
+        alignItems: 'center',
+        paddingVertical: 12,
+    },
+    handle: {
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingBottom: 12,
         borderBottomWidth: 1,
+    },
+    headerBtn: {
+        padding: 4,
+        minWidth: 60,
+        alignItems: 'center',
     },
     title: {
         fontSize: 16,
@@ -330,17 +437,11 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
         fontFamily: 'Lexend',
     },
-    closeBtn: {
-        padding: 4,
-        minWidth: 60,
-        alignItems: 'center',
-    },
     fieldGroup: {
-        marginBottom: 20,
+        marginBottom: 16,
     },
     row: {
         flexDirection: 'row',
-        marginBottom: 20,
     },
     label: {
         fontSize: 10,
@@ -368,12 +469,12 @@ const styles = StyleSheet.create({
     },
     avatarSection: {
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 20,
     },
     avatarContainer: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
+        width: 90,
+        height: 90,
+        borderRadius: 45,
         borderWidth: 2,
         overflow: 'hidden',
         position: 'relative',
@@ -390,17 +491,16 @@ const styles = StyleSheet.create({
     },
     cameraIcon: {
         position: 'absolute',
-        bottom: 4,
-        right: 4,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        bottom: 2,
+        right: 2,
+        width: 26,
+        height: 26,
+        borderRadius: 13,
         alignItems: 'center',
         justifyContent: 'center',
     },
     deleteBtn: {
-        marginTop: 40,
-        marginBottom: 40,
+        marginTop: 24,
         padding: 16,
         borderRadius: 12,
         borderWidth: 1,

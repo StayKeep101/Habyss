@@ -12,6 +12,7 @@ import { ShareHabitModal } from '@/components/ShareHabitModal';
 import { useHaptics } from '@/hooks/useHaptics';
 import { PomodoroTimer } from '@/components/Habit/PomodoroTimer';
 import { SpotifyPage } from '@/components/Habit/SpotifyPage';
+import { HabitCreationModal } from '@/components/HabitCreationModal';
 
 const { width } = Dimensions.get('window');
 
@@ -55,6 +56,7 @@ export default function HabitDetailScreen() {
 
   // Sharing state
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     loadHabitDetails();
@@ -171,12 +173,7 @@ export default function HabitDetailScreen() {
           <TouchableOpacity
             onPress={() => {
               selectionFeedback();
-              if (habit) {
-                router.push({
-                  pathname: '/create',
-                  params: { id: habit.id, goalId: habit.goalId }
-                });
-              }
+              setShowEditModal(true);
             }}
             style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
           >
@@ -199,7 +196,7 @@ export default function HabitDetailScreen() {
 
           {/* Pomodoro Timer - HERO POSITION */}
           <View style={{ marginBottom: 24 }}>
-            <PomodoroTimer defaultMinutes={habit.durationMinutes} />
+            <PomodoroTimer defaultMinutes={habit.durationMinutes} noCard />
           </View>
 
           {/* Main Info Card */}
@@ -277,18 +274,22 @@ export default function HabitDetailScreen() {
 
       </ScrollView>
 
-      {/* Page Indicator */}
-      <View style={styles.paginationContainer}>
-        <View style={[styles.dot, { backgroundColor: currentPage === 0 ? colors.primary : 'rgba(255,255,255,0.2)' }]} />
-        <View style={[styles.dot, { backgroundColor: currentPage === 1 ? '#1DB954' : 'rgba(255,255,255,0.2)' }]} />
-      </View>
-
       {/* Share Modal */}
       <ShareHabitModal
         visible={showShareModal}
         habitId={habitId}
         habitName={habit?.name || ''}
         onClose={() => setShowShareModal(false)}
+      />
+      <HabitCreationModal
+        visible={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSuccess={() => {
+          loadHabitDetails();
+          setShowEditModal(false);
+        }}
+        goalId={habit.goalId}
+        initialHabit={habit}
       />
     </VoidShell>
   );
@@ -299,7 +300,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 10,
-    marginTop: 60,
+    marginTop: 40,
     paddingHorizontal: 20,
     zIndex: 10,
   },

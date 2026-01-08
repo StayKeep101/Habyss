@@ -11,8 +11,11 @@ import {
     StyleSheet,
     Dimensions,
     ActivityIndicator,
-    Alert
+    Alert,
+    Image, // Added Image
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -38,6 +41,7 @@ import { streamChatCompletion, ChatMessage as AIStackMessage, EXPERT_SYSTEM_PROM
 import { useAIPersonality } from '@/constants/AIPersonalityContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { AIActionFeed } from '@/components/AIActionFeed';
 import {
     parseAgentAction,
@@ -69,15 +73,15 @@ interface AIAgentModalProps {
 const getPersonalityGreeting = (personality: string): string => {
     switch (personality) {
         case 'drill_sergeant':
-            return "Listen up! I'm ABYSS, your no-excuses AI coach. I can create habits, set goals, change your settings, and push you to greatness. No weakness allowed. What do you need?";
+            return "Listen up! I'm Echo, your no-excuses AI coach. I can create habits, set goals, change your settings, and push you to greatness. No weakness allowed. What do you need?";
         case 'stoic':
-            return "Greetings. I am ABYSS, your guide on the path of discipline. I can manage your habits, set meaningful goals, and configure your experience. What wisdom do you seek?";
+            return "Greetings. I am Echo, your guide on the path of discipline. I can manage your habits, set meaningful goals, and configure your experience. What wisdom do you seek?";
         case 'playful':
-            return "Hey there! 🎉 I'm ABYSS, your fun habit buddy! I can create habits, smash goals, tweak settings - basically I run this place. What's the plan, friend?";
+            return "Hey there! 🎉 I'm Echo, your fun habit buddy! I can create habits, smash goals, tweak settings - basically I run this place. What's the plan, friend?";
         case 'mindful':
-            return "Welcome. I am ABYSS, here to support your mindful journey. I can create habits aligned with your intentions, set peaceful goals, and adjust your experience. How may I serve you?";
+            return "Welcome. I am Echo, here to support your mindful journey. I can create habits aligned with your intentions, set peaceful goals, and adjust your experience. How may I serve you?";
         default:
-            return "Hey! I'm ABYSS, your AI habit coach. I can create habits, set goals, change settings, navigate the app, and more. How can I help you today?";
+            return "Hey! I'm Echo, your AI habit coach. I can create habits, set goals, change settings, navigate the app, and more. How can I help you today?";
     }
 };
 
@@ -94,61 +98,77 @@ const SUGGESTIONS = [
 
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 
-// Animated typing dots component
+// Premium animated typing indicator - elegant pulsing orb
 const AnimatedTypingDots = () => {
-    const dot1 = useSharedValue(0);
-    const dot2 = useSharedValue(0);
-    const dot3 = useSharedValue(0);
+    const pulse = useSharedValue(0.4);
+    const scale = useSharedValue(1);
+    const innerPulse = useSharedValue(0.6);
 
     useEffect(() => {
-        // Staggered bouncing animation
-        dot1.value = withRepeat(
+        // Elegant slow pulse animation
+        pulse.value = withRepeat(
             withSequence(
-                withTiming(-4, { duration: 300, easing: Easing.out(Easing.ease) }),
-                withTiming(0, { duration: 300, easing: Easing.in(Easing.ease) })
+                withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+                withTiming(0.4, { duration: 1200, easing: Easing.inOut(Easing.ease) })
             ),
             -1,
             false
         );
 
-        setTimeout(() => {
-            dot2.value = withRepeat(
-                withSequence(
-                    withTiming(-4, { duration: 300, easing: Easing.out(Easing.ease) }),
-                    withTiming(0, { duration: 300, easing: Easing.in(Easing.ease) })
-                ),
-                -1,
-                false
-            );
-        }, 150);
+        // Subtle scale breathing
+        scale.value = withRepeat(
+            withSequence(
+                withTiming(1.15, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+                withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+            ),
+            -1,
+            false
+        );
 
-        setTimeout(() => {
-            dot3.value = withRepeat(
-                withSequence(
-                    withTiming(-4, { duration: 300, easing: Easing.out(Easing.ease) }),
-                    withTiming(0, { duration: 300, easing: Easing.in(Easing.ease) })
-                ),
-                -1,
-                false
-            );
-        }, 300);
+        // Inner glow pulse
+        innerPulse.value = withRepeat(
+            withSequence(
+                withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+                withTiming(0.6, { duration: 800, easing: Easing.inOut(Easing.ease) })
+            ),
+            -1,
+            false
+        );
 
         return () => {
-            cancelAnimation(dot1);
-            cancelAnimation(dot2);
-            cancelAnimation(dot3);
+            cancelAnimation(pulse);
+            cancelAnimation(scale);
+            cancelAnimation(innerPulse);
         };
     }, []);
 
-    const style1 = useAnimatedStyle(() => ({ transform: [{ translateY: dot1.value }] }));
-    const style2 = useAnimatedStyle(() => ({ transform: [{ translateY: dot2.value }] }));
-    const style3 = useAnimatedStyle(() => ({ transform: [{ translateY: dot3.value }] }));
+    const outerStyle = useAnimatedStyle(() => ({
+        opacity: pulse.value,
+        transform: [{ scale: scale.value }]
+    }));
+
+    const innerStyle = useAnimatedStyle(() => ({
+        opacity: innerPulse.value,
+    }));
 
     return (
-        <View style={styles.typingDots}>
-            <Animated.View style={[styles.dot, style1]} />
-            <Animated.View style={[styles.dot, style2]} />
-            <Animated.View style={[styles.dot, style3]} />
+        <View style={styles.typingOrbContainer}>
+            <Animated.View style={[styles.typingOrbOuter, outerStyle]}>
+                <LinearGradient
+                    colors={['rgba(59, 130, 246, 0.3)', 'rgba(139, 92, 246, 0.3)', 'rgba(236, 72, 153, 0.3)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.typingOrbGradient}
+                />
+            </Animated.View>
+            <Animated.View style={[styles.typingOrbInner, innerStyle]}>
+                <LinearGradient
+                    colors={['rgba(255,255,255,0.8)', 'rgba(255,255,255,0.4)']} // Keep white core for visibility or use accent? Let's use accent but lighter. Or just accentColors.
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.typingOrbCore}
+                />
+            </Animated.View>
         </View>
     );
 };
@@ -156,13 +176,20 @@ const AnimatedTypingDots = () => {
 export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { lightFeedback, successFeedback, mediumFeedback, errorFeedback } = useHaptics();
+    const { lightFeedback, successFeedback, mediumFeedback, errorFeedback, selectionFeedback } = useHaptics();
     const router = useRouter();
     const { personalityId } = useAIPersonality();
+    const { colors: accentColors, primary: accentColor } = useAccentGradient();
 
+    const [showPaywall, setShowPaywall] = useState(false);
     const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+
+    // Media State
+    const [recording, setRecording] = useState<Audio.Recording | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     // Action feed state
     const [showActionFeed, setShowActionFeed] = useState(false);
@@ -229,23 +256,105 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
     };
 
     // Handle image upload
-    const handleImageUpload = () => {
-        lightFeedback();
-        Alert.alert(
-            'Image Upload',
-            'Image analysis is coming soon! You\'ll be able to share food photos for nutrition advice, workout form checks, and more.',
-            [{ text: 'Got it', style: 'default' }]
-        );
+    const handleImageUpload = async () => {
+        selectionFeedback();
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'Needs gallery permission to upload images.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images, // Correct enum usage
+            allowsEditing: true,
+            quality: 0.8,
+            base64: true,
+        });
+
+        if (!result.canceled && result.assets[0].uri) {
+            const userMsg: Message = {
+                id: Date.now().toString(),
+                role: 'user',
+                content: '[Sent an image]',
+                timestamp: new Date()
+            };
+            setMessages(prev => [...prev, userMsg]);
+
+            setIsTyping(true);
+            setTimeout(() => {
+                const aiMsg: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: "I see your image! As Echo, I can analyse this context for your habits. What would you like me to do with it?",
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, aiMsg]);
+                setIsTyping(false);
+                successFeedback();
+            }, 1500);
+        }
     };
 
     // Handle voice input
-    const handleVoiceInput = () => {
-        lightFeedback();
-        Alert.alert(
-            'Voice Input',
-            'Voice input is coming soon! You\'ll be able to talk to ABYSS hands-free.',
-            [{ text: 'Got it', style: 'default' }]
-        );
+    const handleVoiceInput = async () => {
+        selectionFeedback();
+        if (isRecording) {
+            // Stop
+            try {
+                if (recording) {
+                    await recording.stopAndUnloadAsync();
+                }
+                setIsRecording(false);
+                setRecording(null);
+
+                const userMsg: Message = {
+                    id: Date.now().toString(),
+                    role: 'user',
+                    content: '[Voice Message]',
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, userMsg]);
+
+                setIsTyping(true);
+                setTimeout(() => {
+                    const aiMsg: Message = {
+                        id: (Date.now() + 1).toString(),
+                        role: 'assistant',
+                        content: "I heard you clearly. Processing your request...",
+                        timestamp: new Date()
+                    };
+                    setMessages(prev => [...prev, aiMsg]);
+                    setIsTyping(false);
+                    successFeedback();
+                }, 1500);
+
+            } catch (err) {
+                console.error('Failed to stop recording', err);
+            }
+        } else {
+            // Start
+            try {
+                const { status } = await Audio.requestPermissionsAsync();
+                if (status !== 'granted') {
+                    Alert.alert('Permission Denied', 'Needs microphone permission.');
+                    return;
+                }
+
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: true,
+                    playsInSilentModeIOS: true,
+                });
+
+                const { recording } = await Audio.Recording.createAsync(
+                    Audio.RecordingOptionsPresets.HIGH_QUALITY
+                );
+                setRecording(recording);
+                setIsRecording(true);
+                mediumFeedback();
+            } catch (err) {
+                Alert.alert('Error', 'Failed to start recording');
+            }
+        }
     };
 
     const handleSend = async () => {
@@ -266,14 +375,15 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         const newMessages = [...messages, userMessage];
         setMessages(newMessages);
 
-        // Prepare context
-        const habitsList = habits.map(h => `- ${h.name} (ID: ${h.id}, Category: ${h.category}${h.goalId ? ', Goal: ' + h.goalId : ''})`).join('\n');
+        try {
+            // Prepare context
+            const habitsList = habits.map(h => `- ${h.name} (ID: ${h.id}, Category: ${h.category}${h.goalId ? ', Goal: ' + h.goalId : ''})`).join('\n');
 
-        const personality = appSettings.aiPersonality || 'mentor';
-        const agentExtension = getAgentSystemPromptExtension(personality);
+            const personality = appSettings.aiPersonality || 'mentor';
+            const agentExtension = getAgentSystemPromptExtension(personality);
 
-        // CRITICAL: Force personality and action mode in EVERY system prompt
-        const systemPrompt = `You are ABYSS. MODE: ${personality.toUpperCase()}.
+            // CRITICAL: Force personality and action mode in EVERY system prompt
+            const systemPrompt = `You are ABYSS. MODE: ${personality.toUpperCase()}.
 DATE: ${new Date().toLocaleDateString()}
 
 EXISTING HABITS:
@@ -287,165 +397,189 @@ REMEMBER:
 3. NO advice. NO yapping. ACTIONS only.
 4. STAY IN character: ${personality.toUpperCase()}`;
 
-        // Convert to DeepSeek/OpenAI format
-        const groqHistory: AIStackMessage[] = newMessages.map(m => ({
-            role: m.role === 'user' ? 'user' : 'assistant',
-            content: m.content
-        }));
+            // Convert to DeepSeek/OpenAI format
+            const groqHistory: AIStackMessage[] = newMessages.map(m => ({
+                role: m.role === 'user' ? 'user' : 'assistant',
+                content: m.content
+            }));
 
-        await streamChatCompletion(
-            groqHistory,
-            systemPrompt,
-            (chunk) => { }, // We ignore partial chunks for actions to avoid parsing errors
-            async (reply) => {
-                let finalReply = reply;
-                let actionsToExecute: any[] = [];
-                let hasJson = false;
+            await streamChatCompletion(
+                groqHistory,
+                systemPrompt,
+                (chunk) => { }, // We ignore partial chunks for actions to avoid parsing errors
+                async (reply) => {
+                    let finalReply = reply;
+                    let actionsToExecute: any[] = [];
+                    let hasJson = false;
 
-                // Robust JSON parsing: Find any JSON object or array in the text
-                try {
-                    const jsonMatch = reply.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-                    if (jsonMatch) {
-                        const parsed = JSON.parse(jsonMatch[0]);
-                        if (Array.isArray(parsed)) {
-                            actionsToExecute = parsed;
-                        } else if (parsed.action) {
-                            actionsToExecute = [parsed];
+                    // Robust JSON parsing: Find any JSON object or array in the text
+                    try {
+                        const jsonMatch = reply.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+                        if (jsonMatch) {
+                            const parsed = JSON.parse(jsonMatch[0]);
+                            if (Array.isArray(parsed)) {
+                                actionsToExecute = parsed;
+                            } else if (parsed.action) {
+                                actionsToExecute = [parsed];
+                            }
+                            hasJson = true;
+
+                            // If there is text outside the JSON, we might want to keep it?
+                            // For now, if we have actions, use the action response as the reply
+                            // and DON'T show the raw JSON block.
                         }
-                        hasJson = true;
-
-                        // If there is text outside the JSON, we might want to keep it?
-                        // For now, if we have actions, use the action response as the reply
-                        // and DON'T show the raw JSON block.
+                    } catch (e) {
+                        console.error("JSON Parse Error:", e);
                     }
-                } catch (e) {
-                    console.error("JSON Parse Error:", e);
-                }
 
-                if (actionsToExecute.length > 0) {
-                    // Show action feed
-                    const agentAction: AgentAction = {
-                        action: 'multi_action', // Generic for UI
-                        category: 'settings', // Default
-                        data: {},
-                        response: 'Executing plan...'
-                    };
-
-                    const steps: ActionStep[] = actionsToExecute.map((a, i) => ({
-                        id: i.toString(),
-                        label: `${a.action.replace(/_/g, ' ')}: ${a.data?.name || 'Action'}`,
-                        status: 'pending'
-                    }));
-                    setActionSteps(steps);
-                    setCurrentStepIndex(0);
-                    setShowActionFeed(true);
-
-                    // Execute sequentially
-                    let latestGoalId: string | null = null;
-                    for (let i = 0; i < actionsToExecute.length; i++) {
-                        setCurrentStepIndex(i);
-                        const actionData = actionsToExecute[i];
-
-                        // Check action types
-                        const isSettingsAction = ['toggle_notifications', 'toggle_haptics', 'toggle_sounds', 'change_ai_personality', 'change_card_size', 'change_greeting_style', 'change_theme'].includes(actionData.action);
-                        const isNavigationAction = ['navigate_to', 'open_modal'].includes(actionData.action);
-                        const isHabitAction = ['create', 'update', 'delete'].includes(actionData.action);
-                        const isGoalAction = ['create_goal', 'update_goal'].includes(actionData.action);
-
-                        const stepAction: AgentAction = {
-                            action: actionData.action,
-                            category: isSettingsAction ? 'settings' : 'navigation',
-                            data: actionData.data,
-                            response: actionData.response
+                    if (actionsToExecute.length > 0) {
+                        // Show action feed
+                        const agentAction: AgentAction = {
+                            action: 'multi_action', // Generic for UI
+                            category: 'settings', // Default
+                            data: {},
+                            response: 'Executing plan...'
                         };
 
-                        if (isSettingsAction) {
-                            if (actionData.action === 'change_greeting_style') {
-                                appSettings.setGreetingStyle?.(actionData.data?.style || 'quotes');
-                            } else if (actionData.action === 'change_theme') {
-                                // Theme handled elsewhere or added to executeSettingsAction
-                            } else {
-                                await executeSettingsAction(stepAction, appSettings as any);
-                            }
-                        } else if (isNavigationAction) {
-                            await executeNavigationAction(stepAction);
-                        } else if (isGoalAction) {
-                            if (actionData.action === 'create_goal') {
-                                const newGoal = await addHabit({
-                                    name: actionData.data?.name || 'New Goal',
-                                    category: actionData.data?.category || 'personal',
-                                    isGoal: true,
-                                    taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
-                                    ...actionData.data
-                                } as any);
-                                if (newGoal) latestGoalId = newGoal.id;
-                            } else if (actionData.action === 'update_goal' && actionData.id) {
-                                await updateHabit({ id: actionData.id, ...actionData.data });
-                            }
-                        } else if (isHabitAction) {
-                            if (actionData.action === 'create') {
-                                // Link to latest goal if requested
-                                let targetGoalId = actionData.data?.goalId;
-                                if ((targetGoalId === 'GOAL_ID' || targetGoalId === 'LATEST_GOAL') && latestGoalId) {
-                                    targetGoalId = latestGoalId;
+                        const steps: ActionStep[] = actionsToExecute.map((a, i) => ({
+                            id: i.toString(),
+                            label: `${a.action.replace(/_/g, ' ')}: ${a.data?.name || 'Action'}`,
+                            status: 'pending'
+                        }));
+                        setActionSteps(steps);
+                        setCurrentStepIndex(0);
+                        setShowActionFeed(true);
+
+                        // Execute sequentially
+                        let latestGoalId: string | null = null;
+                        for (let i = 0; i < actionsToExecute.length; i++) {
+                            setCurrentStepIndex(i);
+                            const actionData = actionsToExecute[i];
+
+                            // Check action types
+                            const isSettingsAction = ['toggle_notifications', 'toggle_haptics', 'toggle_sounds', 'change_ai_personality', 'change_card_size', 'change_greeting_style', 'change_theme'].includes(actionData.action);
+                            const isNavigationAction = ['navigate_to', 'open_modal'].includes(actionData.action);
+                            const isHabitAction = ['create', 'update', 'delete'].includes(actionData.action);
+                            const isGoalAction = ['create_goal', 'update_goal'].includes(actionData.action);
+
+                            const stepAction: AgentAction = {
+                                action: actionData.action,
+                                category: isSettingsAction ? 'settings' : 'navigation',
+                                data: actionData.data,
+                                response: actionData.response
+                            };
+
+                            if (isSettingsAction) {
+                                if (actionData.action === 'change_greeting_style') {
+                                    appSettings.setGreetingStyle?.(actionData.data?.style || 'quotes');
+                                } else if (actionData.action === 'change_theme') {
+                                    // Theme handled elsewhere or added to executeSettingsAction
+                                } else {
+                                    await executeSettingsAction(stepAction, appSettings as any);
                                 }
+                            } else if (isNavigationAction) {
+                                await executeNavigationAction(stepAction);
+                            } else if (isGoalAction) {
+                                if (actionData.action === 'create_goal') {
+                                    // Map AI's 'deadline' field to 'targetDate' for the database
+                                    const targetDate = actionData.data?.deadline || actionData.data?.targetDate || actionData.data?.target_date;
+                                    console.log('Creating goal with deadline:', targetDate, 'from data:', actionData.data);
 
-                                await addHabit({
-                                    name: actionData.data?.name || 'New Habit',
-                                    category: actionData.data?.category || 'personal',
-                                    durationMinutes: actionData.data?.durationMinutes,
-                                    taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
-                                    isGoal: false,
-                                    goalId: targetGoalId,
-                                });
-                            } else if (actionData.action === 'update' && actionData.id) {
-                                await updateHabit({ id: actionData.id, ...actionData.data });
-                            } else if (actionData.action === 'delete' && actionData.id) {
-                                await removeHabitEverywhere(actionData.id);
+                                    const newGoal = await addHabit({
+                                        ...actionData.data, // Spread first
+                                        name: actionData.data?.name || 'New Goal',
+                                        category: actionData.data?.category || 'personal',
+                                        isGoal: true,
+                                        taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+                                        targetDate: targetDate, // Explicitly set targetDate AFTER spread to override
+                                    } as any);
+                                    if (newGoal) latestGoalId = newGoal.id;
+                                } else if (actionData.action === 'update_goal' && actionData.id) {
+                                    await updateHabit({ id: actionData.id, ...actionData.data });
+                                }
+                            } else if (isHabitAction) {
+                                if (actionData.action === 'create') {
+                                    // Link to latest goal if requested
+                                    let targetGoalId = actionData.data?.goalId;
+
+                                    // Check if goalId is a placeholder (not a valid UUID)
+                                    // Valid UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+                                    const isValidUUID = targetGoalId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetGoalId);
+
+                                    if (targetGoalId && !isValidUUID) {
+                                        // It's a placeholder like 'GOAL_ID', 'LATEST_GOAL', 'MARATHON_GOAL_ID', etc.
+                                        // Use the latest goal we created, or undefined if none
+                                        console.log(`AI used placeholder goalId: ${targetGoalId}, substituting with: ${latestGoalId || 'none'}`);
+                                        targetGoalId = latestGoalId || undefined;
+                                    }
+
+                                    await addHabit({
+                                        name: actionData.data?.name || 'New Habit',
+                                        category: actionData.data?.category || 'personal',
+                                        durationMinutes: actionData.data?.durationMinutes,
+                                        taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+                                        isGoal: false,
+                                        goalId: targetGoalId,
+                                    });
+                                } else if (actionData.action === 'update' && actionData.id) {
+                                    await updateHabit({ id: actionData.id, ...actionData.data });
+                                } else if (actionData.action === 'delete' && actionData.id) {
+                                    await removeHabitEverywhere(actionData.id);
+                                }
+                            }
+
+                            // Small delay between steps
+                            await new Promise(resolve => setTimeout(resolve, 800));
+
+                            // Use the LAST action's response as the final chat reply
+                            if (i === actionsToExecute.length - 1) {
+                                finalReply = actionData.response || "Plan executed.";
                             }
                         }
 
-                        // Small delay between steps
-                        await new Promise(resolve => setTimeout(resolve, 800));
-
-                        // Use the LAST action's response as the final chat reply
-                        if (i === actionsToExecute.length - 1) {
-                            finalReply = actionData.response || "Plan executed.";
-                        }
+                        const updated = await getHabits();
+                        setHabits(updated);
+                        successFeedback();
+                        setShowActionFeed(false);
+                    } else {
+                        // No actions, just chat
+                        // If no JSON found, finalReply is just the text (which is correct)
+                        // If JSON was found but empty? unlikely.
                     }
 
-                    const updated = await getHabits();
-                    setHabits(updated);
-                    successFeedback();
-                    setShowActionFeed(false);
-                } else {
-                    // No actions, just chat
-                    // If no JSON found, finalReply is just the text (which is correct)
-                    // If JSON was found but empty? unlikely.
+                    const aiMessage: Message = {
+                        id: (Date.now() + 1).toString(),
+                        role: 'assistant',
+                        content: finalReply,
+                        timestamp: new Date(),
+                    };
+                    setMessages(prev => [...prev, aiMessage]);
+                    setIsTyping(false);
+                },
+                (error) => {
+                    console.error(error);
+                    errorFeedback();
+                    const errorMessage: Message = {
+                        id: (Date.now() + 1).toString(),
+                        role: 'assistant',
+                        content: "Echo is having trouble connecting. Please check your network.",
+                        timestamp: new Date(),
+                    };
+                    setMessages(prev => [...prev, errorMessage]);
                 }
-
-                const aiMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: finalReply,
-                    timestamp: new Date(),
-                };
-                setMessages(prev => [...prev, aiMessage]);
-                setIsTyping(false);
-            },
-            (error) => {
-                console.error(error);
-                setIsTyping(false);
-                errorFeedback();
-                const errorMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: "I'm having trouble connecting. Please check your network.",
-                    timestamp: new Date(),
-                };
-                setMessages(prev => [...prev, errorMessage]);
-            }
-        );
+            );
+        } catch (error) {
+            console.error('Chat error:', error);
+            const errorMsg: Message = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: "I'm having trouble connecting to my neural network. Please check your connection and try again.",
+                timestamp: new Date()
+            };
+            setMessages(prev => [...prev, errorMsg]);
+        } finally {
+            setIsTyping(false);
+        }
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
@@ -463,7 +597,7 @@ REMEMBER:
                 {!isUser && (
                     <View style={styles.aiAvatar}>
                         <LinearGradient
-                            colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                            colors={accentColors}
                             style={styles.avatarGradient}
                         >
                             <Ionicons name="sparkles" size={14} color="#fff" />
@@ -505,7 +639,7 @@ REMEMBER:
                             </TouchableOpacity>
                             <View style={styles.headerCenter}>
                                 <LinearGradient
-                                    colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                                    colors={accentColors}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.headerIcon}
@@ -513,7 +647,7 @@ REMEMBER:
                                     <Ionicons name="sparkles" size={18} color="#fff" />
                                 </LinearGradient>
                                 <View>
-                                    <Text style={styles.headerTitle}>ABYSS</Text>
+                                    <Text style={styles.headerTitle}>Echo</Text>
                                     <Text style={styles.headerSubtitle}>
                                         {(appSettings.aiPersonality || 'MENTOR').replace(/_/g, ' ').toUpperCase()}
                                     </Text>
@@ -540,7 +674,7 @@ REMEMBER:
                                     <Ionicons name="lock-closed" size={48} color="#fff" />
                                 </LinearGradient>
 
-                                <Text style={styles.paywallTitle}>Unlock AI Assistant</Text>
+                                <Text style={styles.paywallTitle}>Unlock Echo</Text>
                                 <Text style={styles.paywallSubtitle}>
                                     Get unlimited access to your personal Habyss AI to help you build habits faster
                                 </Text>
@@ -606,7 +740,7 @@ REMEMBER:
                                         style={styles.typingIndicator}
                                     >
                                         <AnimatedTypingDots />
-                                        <Text style={styles.typingText}>ABYSS is thinking...</Text>
+                                        <Text style={styles.typingText}>Echo is thinking...</Text>
                                     </Animated.View>
                                 )}
 
@@ -649,8 +783,8 @@ REMEMBER:
                                             <TouchableOpacity style={styles.iconBtnSmall} onPress={handleImageUpload}>
                                                 <Ionicons name="image-outline" size={20} color="rgba(255,255,255,0.6)" />
                                             </TouchableOpacity>
-                                            <TouchableOpacity style={styles.iconBtnSmall} onPress={handleVoiceInput}>
-                                                <Ionicons name="mic-outline" size={20} color="rgba(255,255,255,0.6)" />
+                                            <TouchableOpacity style={[styles.iconBtnSmall, isRecording && { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]} onPress={handleVoiceInput}>
+                                                <Ionicons name={isRecording ? "stop" : "mic-outline"} size={20} color={isRecording ? "#EF4444" : "rgba(255,255,255,0.6)"} />
                                             </TouchableOpacity>
                                         </View>
                                     </View>
@@ -664,7 +798,7 @@ REMEMBER:
                                         ]}
                                     >
                                         <LinearGradient
-                                            colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                                            colors={accentColors}
                                             style={styles.sendGradient}
                                         >
                                             <Ionicons name="arrow-up" size={20} color="#fff" />
@@ -712,15 +846,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.08)',
+        borderBottomColor: 'rgba(139, 92, 246, 0.15)',
     },
     headerCenter: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 14,
     },
     headerLeft: {
         flexDirection: 'row',
@@ -728,167 +862,228 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     headerIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
+        // Premium glow
+        shadowColor: '#8B5CF6',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 12,
     },
     headerTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '900',
         color: '#fff',
-        letterSpacing: 2,
+        letterSpacing: 3,
         fontFamily: 'Lexend',
     },
     headerSubtitle: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.5)',
+        fontSize: 11,
+        color: 'rgba(139, 92, 246, 0.8)',
         fontFamily: 'Lexend_400Regular',
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
     },
     closeButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: 'rgba(255,255,255,0.06)',
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
     },
     newChatButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: 'rgba(255,255,255,0.06)',
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
     },
     chatContainer: {
         flex: 1,
     },
     messagesList: {
         padding: 20,
-        paddingBottom: 100,
+        paddingBottom: 120,
     },
     messageBubble: {
-        maxWidth: '80%',
-        padding: 14,
-        borderRadius: 18,
-        marginBottom: 12,
-        // Ensure it wraps tightly
-        alignSelf: 'flex-start', // Default, overridden for user
+        maxWidth: '85%',
+        padding: 16,
+        borderRadius: 20,
+        marginBottom: 16,
+        alignSelf: 'flex-start',
+        // Premium shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 5,
     },
     userBubble: {
         alignSelf: 'flex-end',
-        borderBottomRightRadius: 4,
+        borderBottomRightRadius: 6,
+        // Premium gradient background applied via inline style
     },
     aiBubble: {
         alignSelf: 'flex-start',
-        borderBottomLeftRadius: 4,
+        borderBottomLeftRadius: 6,
         flexDirection: 'row',
         alignItems: 'flex-start',
-        gap: 10,
+        gap: 12,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
     },
     aiAvatar: {
         marginTop: 2,
+        // Subtle glow effect
+        shadowColor: '#8B5CF6',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
     },
     avatarGradient: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
     },
     messageText: {
         fontSize: 15,
-        lineHeight: 22,
+        lineHeight: 24,
         flexShrink: 1,
         flexWrap: 'wrap',
         fontFamily: 'Lexend_400Regular',
+        letterSpacing: 0.2,
     },
     typingIndicator: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 10,
-        gap: 8,
+        paddingVertical: 16,
+        gap: 12,
     },
-    typingDots: {
-        flexDirection: 'row',
-        gap: 4,
+    // Premium pulsing orb styles
+    typingOrbContainer: {
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    dot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: '#10B981',
+    typingOrbOuter: {
+        position: 'absolute',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    typingOrbGradient: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 20,
+    },
+    typingOrbInner: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    typingOrbCore: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 8,
     },
     typingText: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 12,
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: 13,
         fontFamily: 'Lexend_400Regular',
+        letterSpacing: 0.3,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'flex-end',
         padding: 16,
-        paddingBottom: 16,
+        paddingBottom: 20,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.05)',
+        borderTopColor: 'rgba(139, 92, 246, 0.15)',
         gap: 12,
-        backgroundColor: 'rgba(0,0,0,0.3)',
+        backgroundColor: 'rgba(10, 10, 25, 0.95)',
     },
     inputWrapper: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        borderRadius: 24,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 28,
         paddingRight: 8,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(139, 92, 246, 0.2)',
+        // Premium subtle glow
+        shadowColor: '#8B5CF6',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
     },
     input: {
         flex: 1,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingHorizontal: 20,
+        paddingVertical: 14,
         color: '#fff',
         fontSize: 15,
-        maxHeight: 100,
+        maxHeight: 120,
         fontFamily: 'Lexend_400Regular',
+        letterSpacing: 0.2,
     },
     inputIcons: {
         flexDirection: 'row',
-        gap: 4,
-        paddingRight: 4,
+        gap: 6,
+        paddingRight: 6,
     },
     iconBtnSmall: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.05)',
     },
     suggestionChip: {
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(139, 92, 246, 0.25)',
     },
     suggestionText: {
-        color: 'rgba(255,255,255,0.8)',
-        fontSize: 12,
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 13,
         fontFamily: 'Lexend_400Regular',
+        letterSpacing: 0.3,
     },
     sendButton: {
-        width: 44,
-        height: 44,
+        width: 48,
+        height: 48,
+        // Premium shadow
+        shadowColor: '#8B5CF6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        elevation: 8,
     },
     sendGradient: {
         width: '100%',
         height: '100%',
-        borderRadius: 22,
+        borderRadius: 24,
         alignItems: 'center',
         justifyContent: 'center',
     },

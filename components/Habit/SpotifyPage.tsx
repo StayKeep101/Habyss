@@ -17,7 +17,7 @@ export const SpotifyPage: React.FC<SpotifyPageProps> = ({ habitId }) => {
     return (
         <View style={styles.container}>
             <View style={styles.content}>
-                <Text style={[styles.title, { color: colors.textPrimary }]}>AUDIO PROTOCOL</Text>
+                <Text style={[styles.title, { color: colors.textPrimary }]}>AUDIO PROTOCOL (COMING SOON)</Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                     Link specific playlists to this habit for improved focus and conditioning.
                 </Text>

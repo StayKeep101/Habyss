@@ -9,6 +9,8 @@ import { VoidCard } from '../Layout/VoidCard';
 import { BlurView } from 'expo-blur';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 const { width } = Dimensions.get('window');
 
@@ -32,17 +34,20 @@ const CATEGORIES = [
 interface AnalyticProps {
     habits: Habit[];
     completions: Record<string, boolean>; // Todays completions
+    history: { date: string; completedIds: string[] }[];
 }
 
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completions }) => {
+export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completions, history }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const { selectionFeedback } = useHaptics();
+    const { colors: accentColors, primary } = useAccentGradient();
 
-    const [viewMode, setViewMode] = useState<'radar' | 'stats'>('radar');
+    const [chartPeriod, setChartPeriod] = useState<'today' | '30d'>('today');
 
     // ------------------------------------------------------------------
     // 1. CALCULATE RADAR DATA
@@ -52,13 +57,40 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
             const catHabits = habits.filter(h => h.category === cat.key);
             if (catHabits.length === 0) return { ...cat, value: 0.2 };
 
-            const total = catHabits.length;
-            const completed = catHabits.filter(h => completions[h.id]).length;
-            const score = total > 0 ? (completed / total) : 0;
+            let score = 0;
+
+            if (chartPeriod === 'today') {
+                // Option 1: Daily Completion Rate
+                const total = catHabits.length;
+                const completed = catHabits.filter(h => completions[h.id]).length;
+                score = total > 0 ? (completed / total) : 0;
+            } else {
+                // Option 3: Consistency (Last 30 Days)
+                // We use the last 30 entries from history. 
+                // Assuming history is sorted, we might need to sort it or assume it is.
+                // In home.tsx it is sorted desc (b.date.localeCompare(a.date)) for streak, but historyData itself is from `getLastNDays` which usually returns desc or asc.
+                // Re-sorting to be safe: newest first.
+                const sortedHistory = [...history].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+
+                const daysCount = sortedHistory.length || 1;
+                let totalCompletions = 0;
+
+                sortedHistory.forEach(day => {
+                    day.completedIds.forEach(id => {
+                        if (catHabits.some(h => h.id === id)) {
+                            totalCompletions++;
+                        }
+                    });
+                });
+
+                const maxPossible = daysCount * catHabits.length;
+                score = maxPossible > 0 ? (totalCompletions / maxPossible) : 0;
+            }
+
             const value = 0.3 + (score * 0.7);
             return { ...cat, value };
         });
-    }, [habits, completions]);
+    }, [habits, completions, history, chartPeriod]);
 
     // ------------------------------------------------------------------
     // 2. RADAR CHART HELPERS
@@ -97,13 +129,29 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
         <View style={styles.container}>
             {/* Life Balance Matrix Card */}
             <VoidCard glass style={[styles.chartCard, isLight && { backgroundColor: colors.surfaceSecondary }]} intensity={isLight ? 20 : 90}>
-                <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>LIFE BALANCE MATRIX</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 12, paddingHorizontal: 8, alignItems: 'center' }}>
+                    <Text style={[styles.cardTitle, { color: colors.textSecondary, marginBottom: 0 }]}>LIFE MATRIX</Text>
+                    <View style={{ flexDirection: 'row', backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)', borderRadius: 8, padding: 2 }}>
+                        <TouchableOpacity
+                            style={[styles.periodBtn, chartPeriod === 'today' && { backgroundColor: isLight ? '#fff' : colors.surface, shadowOpacity: 0.1 }]}
+                            onPress={() => { selectionFeedback(); setChartPeriod('today'); }}
+                        >
+                            <Text style={[styles.periodBtnText, { color: chartPeriod === 'today' ? colors.textPrimary : colors.textTertiary }]}>Today</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.periodBtn, chartPeriod === '30d' && { backgroundColor: isLight ? '#fff' : colors.surface, shadowOpacity: 0.1 }]}
+                            onPress={() => { selectionFeedback(); setChartPeriod('30d'); }}
+                        >
+                            <Text style={[styles.periodBtnText, { color: chartPeriod === '30d' ? colors.textPrimary : colors.textTertiary }]}>30D</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
                 <View style={{ alignItems: 'center', justifyContent: 'center', height: CHART_SIZE }}>
                     <Svg width={CHART_SIZE} height={CHART_SIZE}>
                         <Defs>
                             <LinearGradient id="radarGrad" x1="0" y1="0" x2="0" y2="1">
-                                <Stop offset="0" stopColor="#3B82F6" stopOpacity="0.8" />
-                                <Stop offset="1" stopColor="#EC4899" stopOpacity="0.6" />
+                                <Stop offset="0" stopColor={accentColors[0]} stopOpacity="0.8" />
+                                <Stop offset="1" stopColor={accentColors[1]} stopOpacity="0.6" />
                             </LinearGradient>
                         </Defs>
 
@@ -165,7 +213,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                             points={radarPoints}
                             fill="url(#radarGrad)"
                             fillOpacity="0.4"
-                            stroke="#8B5CF6"
+                            stroke={primary}
                             strokeWidth="2"
                         />
 
@@ -177,7 +225,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                                 cy={p.y}
                                 r="3"
                                 fill={isLight ? colors.background : '#fff'}
-                                stroke="#8B5CF6"
+                                stroke={primary}
                                 strokeWidth="2"
                             />
                         ))}
@@ -189,7 +237,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
             <VoidCard glass style={[styles.completionCard, isLight && { backgroundColor: colors.surfaceSecondary }]} intensity={isLight ? 20 : 90}>
                 <View style={styles.completionRow}>
                     <View style={styles.completionLeft}>
-                        <ExpoLinearGradient colors={['#3B82F6', '#8B5CF6']} style={styles.completionIcon}>
+                        <ExpoLinearGradient colors={accentColors} style={styles.completionIcon}>
                             <Ionicons name="pie-chart" size={20} color="#fff" />
                         </ExpoLinearGradient>
                         <View>
@@ -206,7 +254,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
 
 const styles = StyleSheet.create({
     container: {
-        marginBottom: 16,
+        // marginBottom: 16, // Removed to avoid double margin with Home screen
     },
     header: {
         flexDirection: 'row',
@@ -301,7 +349,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     completionCard: {
-        marginTop: 12,
+        marginTop: 16,
         padding: 16,
     },
     completionRow: {
@@ -334,6 +382,16 @@ const styles = StyleSheet.create({
     completionValue: {
         fontSize: 28,
         fontWeight: '900',
+        fontFamily: 'Lexend',
+    },
+    periodBtn: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    periodBtnText: {
+        fontSize: 10,
+        fontWeight: '600',
         fontFamily: 'Lexend',
     },
 });

@@ -81,16 +81,21 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
     const loadDetailedStats = async (friendId: string) => {
         setLoading(true);
         try {
-            // For now, generate reasonable stats based on friend data
-            // In production, this would query the friend's actual data
-            const stats: FriendDetailedStats = {
-                totalHabits: Math.floor(Math.random() * 10) + 3,
-                completedToday: Math.floor((friend?.todayCompletion || 0) / 20),
-                totalGoals: Math.floor(Math.random() * 5) + 1,
-                weeklyActivity: Array.from({ length: 7 }, () => Math.random() > 0.3),
-                longestStreak: Math.max(friend?.currentStreak || 0, Math.floor(Math.random() * 30) + (friend?.currentStreak || 0)),
-            };
-            setDetailedStats(stats);
+            // Fetch real stats from the database
+            const realStats = await FriendsService.getFriendDetailedStats(friendId);
+
+            if (realStats) {
+                setDetailedStats(realStats);
+            } else {
+                // Fallback to friend's basic data if detailed stats unavailable
+                setDetailedStats({
+                    totalHabits: 0,
+                    completedToday: Math.floor((friend?.todayCompletion || 0) / 100 * 5),
+                    totalGoals: 0,
+                    weeklyActivity: friend?.weeklyActivity?.map(p => p >= 50) || Array(7).fill(false),
+                    longestStreak: friend?.bestStreak || friend?.currentStreak || 0,
+                });
+            }
         } catch (e) {
             console.error('Error loading friend stats:', e);
         } finally {
@@ -172,17 +177,6 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                     {friend.bio && (
                                         <Text style={styles.bio}>{friend.bio}</Text>
                                     )}
-                                    <View style={styles.profileInfo}>
-                                        {friend.age && (
-                                            <Text style={styles.infoText}>{friend.age} years</Text>
-                                        )}
-                                        {friend.age && friend.gender && (
-                                            <Text style={styles.infoText}>•</Text>
-                                        )}
-                                        {friend.gender && (
-                                            <Text style={styles.infoText}>{friend.gender}</Text>
-                                        )}
-                                    </View>
                                 </View>
 
                                 {/* Stats Grid */}

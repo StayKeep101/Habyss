@@ -38,7 +38,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { addHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit, getGoals } from '@/lib/habits'; // Static import including getGoals
+import { addHabit, updateHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit, getGoals } from '@/lib/habits'; // Static import including getGoals
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { TopDragHandle } from './TopDragHandle';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -240,6 +240,7 @@ interface HabitCreationModalProps {
     onClose?: () => void;
     onSuccess?: () => void;
     goalId?: string;
+    initialHabit?: Habit;
 }
 
 export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
@@ -247,6 +248,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     onClose: propOnClose,
     onSuccess: propOnSuccess,
     goalId: propGoalId,
+    initialHabit,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -312,6 +314,45 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         };
         loadCustomColors();
     }, []);
+
+    // Load initial habit data
+    useEffect(() => {
+        if (initialHabit) {
+            setTitle(initialHabit.name);
+            setSelectedIcon(initialHabit.icon);
+            setSelectedColor(initialHabit.color);
+            setLifePillar(initialHabit.category);
+            if (initialHabit.goalId) setGoalId(initialHabit.goalId!);
+            setFrequency(initialHabit.frequency || 'daily');
+            if (initialHabit.taskDays) setSelectedDays(initialHabit.taskDays);
+
+            if (initialHabit.startTime) {
+                const [h, m] = initialHabit.startTime.split(':').map(Number);
+                const d = new Date(); d.setHours(h); d.setMinutes(m);
+                setStartTime(d);
+                setUseFreeTime(false);
+            } else {
+                setUseFreeTime(true);
+            }
+
+            if (initialHabit.endTime) {
+                const [h, m] = initialHabit.endTime.split(':').map(Number);
+                const d = new Date(); d.setHours(h); d.setMinutes(m);
+                setEndTime(d);
+            }
+
+            setReminderEnabled(!!(initialHabit.reminders && initialHabit.reminders.length > 0));
+            if (initialHabit.reminders && initialHabit.reminders.length > 0) {
+                const [h, m] = initialHabit.reminders[0].split(':').map(Number);
+                const d = new Date(); d.setHours(h); d.setMinutes(m);
+                setReminderTime(d);
+            }
+
+            setMeasurementValue(initialHabit.goalValue || 1);
+            setMeasurementUnit(initialHabit.unit || 'times');
+            setGraphStyle((initialHabit.graphStyle as any) || 'progress');
+        }
+    }, [initialHabit]);
 
     // Save custom colors helper
     const saveCustomColor = async (color: string) => {
@@ -422,11 +463,11 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             const fmtTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
             const fmtDate = (d: Date) => d.toISOString().split('T')[0];
 
-            await addHabit({
+            const habitData = {
                 name: title.trim(),
                 icon: selectedIcon,
                 color: selectedColor,
-                category: lifePillar as any, // 6 Pillars: body, wealth, heart, mind, soul, play
+                category: lifePillar as any,
                 goalId,
                 startTime: useFreeTime ? undefined : fmtTime(startTime),
                 endTime: useFreeTime ? undefined : fmtTime(endTime),
@@ -441,17 +482,20 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                     })()
                     : fmtDate(habitStartDate),
                 isArchived: false,
-                // Reminder settings
                 reminders: reminderEnabled ? [fmtTime(reminderTime)] : [],
                 ringtone: ringtone,
-                // Measurement settings
                 goalValue: measurementValue,
                 unit: measurementUnit,
-                // Graph/tracking settings
-                chartType: graphStyle === 'bar' ? 'bar' : 'line',
+                chartType: (graphStyle === 'bar' ? 'bar' : 'line') as any,
                 graphStyle: graphStyle,
-                trackingMethod: measurementUnit === 'times' ? 'boolean' : 'numeric',
-            });
+                trackingMethod: (measurementUnit === 'times' ? 'boolean' : 'numeric') as any,
+            };
+
+            if (initialHabit) {
+                await updateHabit({ id: initialHabit.id, ...habitData });
+            } else {
+                await addHabit(habitData);
+            }
 
             successFeedback();
             if (propOnSuccess) propOnSuccess();
@@ -536,7 +580,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
                                 </TouchableOpacity>
                                 <View style={{ flex: 1, alignItems: 'center' }}>
-                                    <Text style={styles.headerTitle}>NEW HABIT</Text>
+                                    <Text style={styles.headerTitle}>{initialHabit ? 'EDIT HABIT' : 'NEW HABIT'}</Text>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, opacity: 0.7 }}>
                                         <Text style={{ color: linkedGoal?.color || '#fff', fontSize: 10, fontFamily: 'Lexend', marginRight: 4 }}>
                                             {linkedGoal ? linkedGoal.name.toUpperCase() : 'NO GOAL'}

@@ -42,6 +42,9 @@ export default function CommunityScreen() {
                 setUserCode(user.id.substring(0, 8).toUpperCase());
             }
 
+            // Auto-repair: sync accepted requests to friendships table
+            await FriendsService.repairFriendshipsFromAcceptedRequests();
+
             const [friendsList, requests, rankings, feed, shared] = await Promise.all([
                 FriendsService.getFriendsWithProgress(),
                 FriendsService.getFriendRequests(),
@@ -161,6 +164,27 @@ export default function CommunityScreen() {
 
     return (
         <VoidShell>
+            {/* Loading Overlay */}
+            {loading && (
+                <View style={{
+                    ...StyleSheet.absoluteFillObject,
+                    backgroundColor: colors.background,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 100,
+                }}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={{
+                        color: colors.textSecondary,
+                        marginTop: 16,
+                        fontSize: 14,
+                        fontFamily: 'Lexend_400Regular'
+                    }}>
+                        Loading crew data...
+                    </Text>
+                </View>
+            )}
+
             <ScrollView
                 contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 20, paddingBottom: 140 }}
                 showsVerticalScrollIndicator={false}
@@ -421,8 +445,8 @@ export default function CommunityScreen() {
                                         <View style={[styles.avatarSmall, { backgroundColor: colors.surfaceTertiary, marginLeft: 12 }]}>
                                             <Text style={{ fontSize: 12 }}>{friend.username[0]?.toUpperCase()}</Text>
                                         </View>
-                                        <Text style={[styles.leaderName, { color: friend.username === 'You' ? colors.primary : colors.textPrimary }]}>
-                                            {friend.username}
+                                        <Text style={[styles.leaderName, { color: friend.isCurrentUser ? colors.primary : colors.textPrimary }]}>
+                                            {friend.username}{friend.isCurrentUser ? ' (You)' : ''}
                                         </Text>
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                             <Ionicons name="flame" size={14} color="#FFD93D" />

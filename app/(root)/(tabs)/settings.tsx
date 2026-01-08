@@ -17,8 +17,10 @@ import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { clearHabitsCache } from '@/lib/habits';
 import { AIConfigModal } from '@/components/AIConfigModal';
+
 
 // Settings configuration
 interface SettingOption {
@@ -37,8 +39,11 @@ try { ImagePicker = require('expo-image-picker'); } catch (e) { }
 export default function ProfileScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const { colors: accentColors, primary: accentColor } = useAccentGradient();
 
     // User state
+    const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [isEditingUsername, setIsEditingUsername] = useState(false);
@@ -320,7 +325,7 @@ export default function ProfileScreen() {
                             {/* Premium gradient border */}
                             {isPremium && (
                                 <LinearGradient
-                                    colors={['#3B82F6', '#8B5CF6', '#EC4899']} // Standardized PRO_GRADIENT
+                                    colors={accentColors}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.premiumAvatarBorder}
@@ -345,7 +350,7 @@ export default function ProfileScreen() {
                             {/* Badge: PRO for premium users, star for non-premium */}
                             {isPremium ? (
                                 <LinearGradient
-                                    colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                                    colors={accentColors}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={styles.verifiedBadge}
@@ -369,7 +374,7 @@ export default function ProfileScreen() {
                                 style={styles.upgradeBtnContainer}
                             >
                                 <LinearGradient
-                                    colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                                    colors={accentColors}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 0 }}
                                     style={styles.upgradeBtn}
@@ -390,8 +395,8 @@ export default function ProfileScreen() {
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>APP PREFERENCES</Text>
                         <VoidCard style={styles.sectionCard}>
                             <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); setShowAIConfig(true); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
-                                    <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="sparkles-outline" size={20} color={accentColor} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>AI Configuration</Text>
@@ -401,8 +406,8 @@ export default function ProfileScreen() {
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/notifications'); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
-                                    <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="notifications-outline" size={20} color={accentColor} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Notifications</Text>
@@ -412,8 +417,8 @@ export default function ProfileScreen() {
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/appearance'); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
-                                    <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="color-palette-outline" size={20} color={accentColor} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Appearance</Text>
@@ -421,6 +426,43 @@ export default function ProfileScreen() {
                                 </View>
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+
+                            {/* Sounds & Haptics */}
+                            <View style={[styles.settingItem, { paddingVertical: 12 }]}>
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="volume-high-outline" size={20} color={accentColor} />
+                                </View>
+                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Sounds & Haptics</Text>
+
+                                    <View style={{ flexDirection: 'row', marginTop: 12, gap: 16 }}>
+                                        <TouchableOpacity
+                                            onPress={() => { setSoundsEnabled(!soundsEnabled); Haptics.selectionAsync(); }}
+                                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                                        >
+                                            <Ionicons name={soundsEnabled ? "volume-medium" : "volume-mute"} size={14} color={soundsEnabled ? colors.primary : colors.textTertiary} />
+                                            <Text style={{ fontSize: 12, fontWeight: '600', color: soundsEnabled ? colors.primary : colors.textTertiary }}>Sounds</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            onPress={() => { setHapticsEnabled(!hapticsEnabled); Haptics.selectionAsync(); }}
+                                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                                        >
+                                            <Ionicons name={hapticsEnabled ? "phone-portrait" : "tablet-landscape"} size={14} color={hapticsEnabled ? colors.primary : colors.textTertiary} />
+                                            <Text style={{ fontSize: 12, fontWeight: '600', color: hapticsEnabled ? colors.primary : colors.textTertiary }}>Haptics</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        onPress={() => Alert.alert('Coming Soon', 'Custom sound packs (Void, Modern, Classic) coming in next update.')}
+                                        style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                                    >
+                                        <Text style={{ fontSize: 11, color: colors.textSecondary }}>Sound Pack: Void (Default)</Text>
+                                        <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '600' }}>Change</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
                         </VoidCard>
                     </View>
 
@@ -440,12 +482,12 @@ export default function ProfileScreen() {
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/integrations'); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: colors.primary + '20' }]}>
-                                    <Ionicons name="link-outline" size={20} color={colors.primary} />
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="link-outline" size={20} color={accentColor} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Integrations</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Calendar, Reminders, Health</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Calendar, Health (Coming Soon)</Text>
                                 </View>
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
@@ -457,8 +499,8 @@ export default function ProfileScreen() {
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ACCOUNT</Text>
                         <VoidCard style={styles.sectionCard}>
                             <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/paywall'); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: '#8B5CF6' + '20' }]}>
-                                    <Ionicons name="star-outline" size={20} color="#8B5CF6" />
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="star-outline" size={20} color={accentColor} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Subscription</Text>
@@ -468,8 +510,8 @@ export default function ProfileScreen() {
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/privacy'); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: colors.warning + '20' }]}>
-                                    <Ionicons name="shield-checkmark-outline" size={20} color={colors.warning} />
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="shield-checkmark-outline" size={20} color={accentColor} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Privacy & Security</Text>
@@ -485,8 +527,8 @@ export default function ProfileScreen() {
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>SUPPORT</Text>
                         <VoidCard style={styles.sectionCard}>
                             <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/help'); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: colors.secondary + '20' }]}>
-                                    <Ionicons name="help-buoy-outline" size={20} color={colors.secondary} />
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="help-buoy-outline" size={20} color={accentColor} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Help Center</Text>
@@ -496,8 +538,8 @@ export default function ProfileScreen() {
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/contact'); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: colors.secondary + '20' }]}>
-                                    <Ionicons name="mail-outline" size={20} color={colors.secondary} />
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="mail-outline" size={20} color={accentColor} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Contact Support</Text>
@@ -507,8 +549,8 @@ export default function ProfileScreen() {
                             </TouchableOpacity>
                             <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.settingItem} onPress={() => { Haptics.selectionAsync(); router.push('/(root)/about'); }}>
-                                <View style={[styles.settingIcon, { backgroundColor: colors.secondary + '20' }]}>
-                                    <Ionicons name="information-circle-outline" size={20} color={colors.secondary} />
+                                <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="information-circle-outline" size={20} color={accentColor} />
                                 </View>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>About Habyss</Text>

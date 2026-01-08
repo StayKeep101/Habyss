@@ -22,28 +22,28 @@ interface IntegrationItem {
 const INTEGRATIONS: IntegrationItem[] = [
     {
         id: 'spotify',
-        name: 'Spotify',
+        name: 'Spotify (Coming Soon)',
         description: 'Play music while building habits',
         icon: 'musical-notes',
         service: 'spotify',
     },
     {
         id: 'calendar',
-        name: 'Calendar',
+        name: 'Calendar (Coming Soon)',
         description: 'Sync habits with your calendar events',
         icon: 'calendar-outline',
         service: 'apple_calendar',
     },
     {
         id: 'reminders',
-        name: 'Reminders',
+        name: 'Reminders (Coming Soon)',
         description: 'Create reminders for your habits',
         icon: 'notifications-outline',
         service: 'apple_reminders',
     },
     {
         id: 'health',
-        name: 'Apple Health',
+        name: 'Apple Health (Coming Soon)',
         description: 'Auto-complete fitness habits from Health data',
         icon: 'heart-outline',
         service: 'apple_health',

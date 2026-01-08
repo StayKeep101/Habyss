@@ -19,6 +19,7 @@ export interface PersonalityMode {
         toughness: number;
         empathy: number;
     };
+    premiumOnly?: boolean;
 }
 
 export const PERSONALITY_MODES: PersonalityMode[] = [

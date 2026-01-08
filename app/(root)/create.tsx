@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useGlobalSearchParams } from 'expo-router';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
+import { useAccentGradient } from '@/constants/AccentContext';
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 import { useHaptics } from '@/hooks/useHaptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -19,6 +20,7 @@ export default function GoalCreationWizard() {
     const params = useGlobalSearchParams();
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
     // Check if editing existing goal
@@ -34,7 +36,7 @@ export default function GoalCreationWizard() {
     const [description, setDescription] = useState((params.description as string) || '');
     const [targetDate, setTargetDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // +30 days
     const [icon, setIcon] = useState((params.icon as string) || 'flag');
-    const [color, setColor] = useState('#8B5CF6');
+    const [color, setColor] = useState(accentColor);
     const [category, setCategory] = useState((params.category as string) || 'personal');
 
     const totalSteps = 2;
@@ -50,7 +52,7 @@ export default function GoalCreationWizard() {
                         setName(goal.name || '');
                         setDescription(goal.description || '');
                         setIcon(goal.icon || 'flag');
-                        setColor(goal.color || '#8B5CF6');
+                        setColor(goal.color || accentColor);
                         setCategory(goal.category || 'personal');
                         if (goal.targetDate) {
                             setTargetDate(new Date(goal.targetDate));

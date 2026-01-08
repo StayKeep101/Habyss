@@ -4,6 +4,7 @@ import { Swipeable, RectButton } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { Habit } from '@/lib/habits';
 import { useRouter } from 'expo-router';
 import { RoadMapCardSize } from '@/constants/AppSettingsContext';
@@ -37,6 +38,7 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
   const swipeableRef = useRef<Swipeable>(null);
   const router = useRouter();
   const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
+  const { primary: accentColor } = useAccentGradient();
 
   const close = () => swipeableRef.current?.close();
 
@@ -168,13 +170,13 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
           ]}
         >
           {/* Checkbox / Hit Area */}
-          <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, isCompleted && { backgroundColor: colors.success, borderColor: colors.success }]}>
-            {isCompleted && <Ionicons name="checkmark" size={checkboxSize * 0.7} color="black" />}
+          <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, isCompleted && { backgroundColor: accentColor + '30', borderColor: accentColor }]}>
+            {isCompleted && <Ionicons name="checkmark" size={checkboxSize * 0.7} color={accentColor} />}
           </View>
 
           {/* Icon */}
-          <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: isCompleted ? 'rgba(34, 197, 94, 0.1)' : (habit.color || '#8B5CF6') + '15' }]}>
-            <Ionicons name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={isCompleted ? colors.success : habit.color || colors.textSecondary} />
+          <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: isCompleted ? accentColor + '15' : (habit.color || accentColor) + '15' }]}>
+            <Ionicons name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={isCompleted ? accentColor : habit.color || colors.textSecondary} />
           </View>
 
           {/* Text Info */}

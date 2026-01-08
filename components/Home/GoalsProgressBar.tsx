@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { VoidCard } from '../Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 interface GoalsProgressBarProps {
     progress: number; // 0-100
@@ -17,6 +18,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const { colors: accentColors, primary } = useAccentGradient();
 
     const animatedWidth = useSharedValue(0);
 
@@ -33,7 +35,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
             <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.header}>
                     <View style={styles.titleRow}>
-                        <Ionicons name="flag" size={16} color="#A78BFA" />
+                        <Ionicons name="flag" size={16} color={primary} />
                         <Text style={[styles.title, { color: colors.textPrimary }]}>GOALS PROGRESS</Text>
                     </View>
                     <View style={[styles.badge, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
@@ -46,7 +48,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
                     <View style={[styles.progressBg, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }]}>
                         <Animated.View style={[styles.progressFill, progressStyle]}>
                             <LinearGradient
-                                colors={['#8B5CF6', '#A78BFA']}
+                                colors={accentColors}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={StyleSheet.absoluteFill}

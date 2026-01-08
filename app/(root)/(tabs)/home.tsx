@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { generateGreeting, generateSmartGreeting, UserGreetingData } from '@/lib/deepseek';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -82,6 +83,7 @@ const Home = () => {
   const { theme } = useTheme();
   const colors = Colors[theme];
   const isLight = theme === 'light';
+  const { colors: accentColors, primary: accentColor } = useAccentGradient();
   const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
   const { width } = Dimensions.get('window');
 
@@ -538,25 +540,36 @@ const Home = () => {
             {/* Left: Profile + AI Greeting */}
             <View style={{ flex: 1, marginRight: 12 }}>
               {/* Profile Avatar */}
-              <TouchableOpacity onPress={handleProfilePress} style={{ marginBottom: 12 }}>
-                <View style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 26,
-                  borderWidth: isPremium ? 2 : 1,
-                  borderColor: isPremium ? '#8B5CF6' : 'rgba(255,255,255,0.2)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                }}>
-                  {profileAvatar ? (
-                    <Image source={{ uri: profileAvatar }} style={{ width: 48, height: 48, borderRadius: 24 }} />
-                  ) : (
-                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="person" size={22} color="rgba(255,255,255,0.6)" />
-                    </View>
-                  )}
-                </View>
+              <TouchableOpacity onPress={() => router.push('/(root)/(tabs)/settings')} activeOpacity={0.8}>
+                <LinearGradient
+                  colors={accentColors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 26,
+                    padding: 2,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <View style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    overflow: 'hidden',
+                    backgroundColor: colors.background
+                  }}>
+                    {profileAvatar ? (
+                      <Image source={{ uri: profileAvatar }} style={{ width: '100%', height: '100%' }} />
+                    ) : (
+                      <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person" size={22} color="rgba(255,255,255,0.6)" />
+                      </View>
+                    )}
+                  </View>
+                </LinearGradient>
               </TouchableOpacity>
 
               {/* AI Greeting - Right below profile */}
@@ -583,7 +596,7 @@ const Home = () => {
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
               <TouchableOpacity onPress={() => { mediumFeedback(); setShowAIAgent(true); }} style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }}>
                 <LinearGradient
-                  colors={['#3B82F6', '#8B5CF6', '#EC4899']}
+                  colors={accentColors}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
@@ -625,7 +638,7 @@ const Home = () => {
 
           {/* Analytics Dashboard (Life Balance Matrix) */}
           <View style={{ marginTop: 16 }}>
-            <AnalyticsDashboard habits={habits} completions={completions} />
+            <AnalyticsDashboard habits={habits} completions={completions} history={historyData} />
           </View>
 
           {/* Quick Habits */}
@@ -645,8 +658,8 @@ const Home = () => {
                   activeOpacity={0.7}
                   style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < topHabits.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }}
                 >
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: completions[habit.id] ? habit.color + '30' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Ionicons name={completions[habit.id] ? 'checkmark' : (habit.icon as any) || 'ellipse'} size={18} color={completions[habit.id] ? habit.color || '#22C55E' : 'rgba(255,255,255,0.5)'} />
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: completions[habit.id] ? accentColor + '30' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    <Ionicons name={completions[habit.id] ? 'checkmark' : (habit.icon as any) || 'ellipse'} size={18} color={completions[habit.id] ? accentColor : 'rgba(255,255,255,0.5)'} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: completions[habit.id] ? 'rgba(255,255,255,0.5)' : '#fff', fontSize: 14, fontWeight: '500', textDecorationLine: completions[habit.id] ? 'line-through' : 'none' }}>{habit.name}</Text>
@@ -656,8 +669,8 @@ const Home = () => {
                       </Text>
                     )}
                   </View>
-                  <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: completions[habit.id] ? habit.color || '#22C55E' : 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', backgroundColor: completions[habit.id] ? habit.color || '#22C55E' : 'transparent' }}>
-                    {completions[habit.id] && <Ionicons name="checkmark" size={14} color="white" />}
+                  <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: completions[habit.id] ? accentColor : 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', backgroundColor: completions[habit.id] ? accentColor : 'transparent' }}>
+                    {completions[habit.id] && <Ionicons name="checkmark" size={14} color="#fff" />}
                   </View>
                 </TouchableOpacity>
               )) : (

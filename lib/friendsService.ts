@@ -7,10 +7,11 @@ export interface Friend {
     avatarUrl?: string;
     currentStreak: number;
     todayCompletion: number;
+    bestStreak?: number; // Longest streak ever
+    weeklyActivity?: number[]; // 7 days of completion %
     // Profile info for display
-    bio?: string;
-    age?: number;
-    gender?: string;
+    // bio is stored locally, not in DB
+    isCurrentUser?: boolean; // Flag to show "(You)" indicator
 }
 
 export interface FriendRequest {
@@ -52,34 +53,120 @@ export const FriendsService = {
     },
 
     /**
-     * Search users by email or username
+     * REPAIR: Sync accepted friend requests to friendships table
+     * Call this to fix "connected but not visible" friends
+     */
+    async repairFriendshipsFromAcceptedRequests(): Promise<number> {
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return 0;
+
+            console.log('Repairing friendships for user:', currentUser.id);
+
+            // Get all accepted requests involving current user
+            const { data: acceptedRequests } = await supabase
+                .from('friend_requests')
+                .select('id, from_user_id, to_user_id')
+                .eq('status', 'accepted')
+                .or(`from_user_id.eq.${currentUser.id},to_user_id.eq.${currentUser.id}`);
+
+            if (!acceptedRequests || acceptedRequests.length === 0) {
+                console.log('No accepted requests to repair');
+                return 0;
+            }
+
+            console.log(`Found ${acceptedRequests.length} accepted requests to repair`);
+
+            let repaired = 0;
+            for (const req of acceptedRequests) {
+                const friendId = req.from_user_id === currentUser.id ? req.to_user_id : req.from_user_id;
+
+                // Insert friendship (current user -> friend)
+                const { error: err1 } = await supabase.from('friendships').insert({
+                    user_id: currentUser.id,
+                    friend_id: friendId
+                });
+
+                if (!err1 || err1.code === '23505') { // Success or duplicate
+                    repaired++;
+                }
+            }
+
+            console.log(`Repaired ${repaired} friendships`);
+            return repaired;
+        } catch (e) {
+            console.error('Error repairing friendships:', e);
+            return 0;
+        }
+    },
+
+    /**
+     * Search users by email, username, or friend code (ID prefix)
      */
     async searchUsers(query: string): Promise<Friend[]> {
-        if (!query || query.length < 1) return []; // Changed from 3 to 1 char minimum
+        if (!query || query.length < 1) return [];
 
         try {
             const currentUser = await this.getCurrentUser();
             if (!currentUser) return [];
 
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, username, email, avatar_url')
-                // Search by Username, Email OR Friend Code (ID prefix)
-                // Use cast for ID search: id::text
-                .or(`email.ilike.%${query}%,username.ilike.%${query}%,id.ilike.${query}%`)
-                .neq('id', currentUser.id)
-                .limit(20);
+            // Normalize query - friend codes are uppercase but UUIDs are lowercase
+            const normalizedQuery = query.toLowerCase().trim();
 
-            if (error) {
-                if (isTableMissing(error)) {
-                    console.log('Profiles table not set up yet');
-                    return [];
+            const allMatches = new Map<string, any>();
+
+            // Method 1: Try RPC function for proper UUID text search (if RPC exists)
+            try {
+                const { data: rpcResults, error: rpcError } = await supabase
+                    .rpc('search_profiles_by_code', {
+                        search_code: normalizedQuery,
+                        current_user_id: currentUser.id
+                    });
+
+                if (!rpcError && rpcResults && rpcResults.length > 0) {
+                    rpcResults.forEach((u: any) => allMatches.set(u.id, u));
+                    console.log(`RPC search found ${rpcResults.length} results`);
                 }
-                console.error('Error searching users:', error);
-                return [];
+            } catch (rpcErr) {
+                // RPC not available, continue to fallback
             }
 
-            return (data || []).map(u => ({
+            // Method 2: Fallback - fetch profiles and filter client-side by ID prefix
+            if (allMatches.size === 0 && normalizedQuery.length >= 8) {
+                // Only do this expensive operation for friend codes (8+ chars)
+                const { data: allProfiles } = await supabase
+                    .from('profiles')
+                    .select('id, username, email, avatar_url')
+                    .neq('id', currentUser.id)
+                    .limit(200);
+
+                // Filter by ID prefix (friend code) on client side
+                (allProfiles || []).forEach(u => {
+                    if (u.id.toLowerCase().startsWith(normalizedQuery)) {
+                        allMatches.set(u.id, u);
+                    }
+                });
+
+                if (allMatches.size > 0) {
+                    console.log(`Client-side ID search found ${allMatches.size} results`);
+                }
+            }
+
+            // Method 3: Also search by username/email (case insensitive)
+            const { data: textMatches } = await supabase
+                .from('profiles')
+                .select('id, username, email, avatar_url')
+                .or(`email.ilike.%${query}%,username.ilike.%${query}%`)
+                .neq('id', currentUser.id)
+                .limit(10);
+
+            (textMatches || []).forEach(u => {
+                if (!allMatches.has(u.id)) allMatches.set(u.id, u);
+            });
+
+            console.log(`Total search results: ${allMatches.size}`);
+
+            return Array.from(allMatches.values()).map(u => ({
                 id: u.id,
                 username: u.username || u.email?.split('@')[0] || 'User',
                 email: u.email || '',
@@ -88,7 +175,7 @@ export const FriendsService = {
                 todayCompletion: 0,
             }));
         } catch (e) {
-            console.log('Friend search not available');
+            console.log('Friend search error:', e);
             return [];
         }
     },
@@ -185,6 +272,11 @@ export const FriendsService = {
                 return false;
             }
 
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
+
+            console.log(`acceptFriendRequest: Current user = ${currentUser.id}, From = ${request.from_user_id}`);
+
             // Update request status
             const { error: updateError } = await supabase
                 .from('friend_requests')
@@ -195,21 +287,41 @@ export const FriendsService = {
                 console.error('Error updating friend request status:', updateError);
             }
 
-            // Create both friendship directions
-            const currentUser = await this.getCurrentUser();
-            if (!currentUser) return false;
+            // Try RPC function first (bypasses RLS for bidirectional insert)
+            let friendshipCreated = false;
+            try {
+                const { data: rpcResult, error: rpcError } = await supabase
+                    .rpc('create_friendship', {
+                        user1_id: currentUser.id,
+                        user2_id: request.from_user_id
+                    });
 
-            const { error: insertError } = await supabase.from('friendships').insert([
-                { user_id: currentUser.id, friend_id: request.from_user_id },
-                { user_id: request.from_user_id, friend_id: currentUser.id }
-            ]);
-
-            if (insertError) {
-                console.error('Error creating friendships:', insertError);
-                return false;
+                if (!rpcError && rpcResult) {
+                    console.log('Friendship created via RPC!');
+                    friendshipCreated = true;
+                } else if (rpcError) {
+                    console.log('RPC not available, using fallback:', rpcError.message);
+                }
+            } catch (rpcErr) {
+                console.log('RPC function not found, using direct insert fallback');
             }
 
-            console.log('Friend request accepted successfully!');
+            // Fallback: Direct inserts (may only create one direction due to RLS)
+            if (!friendshipCreated) {
+                // Insert where current user is user_id (will succeed with RLS)
+                const { error: insertError1 } = await supabase.from('friendships').insert({
+                    user_id: currentUser.id,
+                    friend_id: request.from_user_id
+                });
+
+                if (insertError1 && insertError1.code !== '23505') { // Ignore duplicate
+                    console.error('Error creating friendship:', insertError1);
+                } else {
+                    console.log('Friendship created (single direction)');
+                }
+            }
+
+            console.log('Friend request accepted!');
             return true;
         } catch (e) {
             console.error('Exception in acceptFriendRequest:', e);
@@ -240,7 +352,12 @@ export const FriendsService = {
     async getFriends(): Promise<Friend[]> {
         try {
             const currentUser = await this.getCurrentUser();
-            if (!currentUser) return [];
+            if (!currentUser) {
+                console.log('getFriends: No current user');
+                return [];
+            }
+
+            console.log(`getFriends: Current user ID = ${currentUser.id}`);
 
             // 1. Get Friendship IDs (Raw, no joins)
             const [outgoing, incoming] = await Promise.all([
@@ -254,6 +371,9 @@ export const FriendsService = {
                     .eq('friend_id', currentUser.id)
             ]);
 
+            console.log(`getFriends: Outgoing query result:`, outgoing.data, outgoing.error);
+            console.log(`getFriends: Incoming query result:`, incoming.data, incoming.error);
+
             const friendIds = new Set<string>();
             (outgoing.data || []).forEach((row: any) => {
                 if (row.friend_id) friendIds.add(row.friend_id);
@@ -262,34 +382,45 @@ export const FriendsService = {
                 if (row.user_id) friendIds.add(row.user_id);
             });
 
+            console.log(`getFriends: Found ${friendIds.size} friend IDs:`, Array.from(friendIds));
+
             if (friendIds.size === 0) return [];
 
             // 2. Fetch Profiles separately
-            // If profiles are missing (RLS or deleted), we still want to show the friend with fallback
             const idArray = Array.from(friendIds);
-            const { data: profiles } = await supabase
+            const { data: profiles, error: profileError } = await supabase
                 .from('profiles')
-                .select('id, username, email, avatar_url, bio, age, gender')
+                .select('id, username, email, avatar_url')
                 .in('id', idArray);
+
+            console.log(`getFriends: Profiles result:`, JSON.stringify(profiles), profileError);
 
             const profilesMap = new Map();
             (profiles || []).forEach((p: any) => profilesMap.set(p.id, p));
 
             // 3. Construct Result
-            return idArray.map(id => {
+            const result = idArray.map(id => {
                 const profile = profilesMap.get(id);
+                // Better username extraction: prefer username, then email prefix, then ID prefix
+                const extractedUsername = profile?.username
+                    || (profile?.email ? profile.email.split('@')[0] : null)
+                    || `user_${id.substring(0, 6)}`;
+
+                console.log(`getFriends: Friend ${id} -> username: ${profile?.username}, email: ${profile?.email}, extracted: ${extractedUsername}`);
+
                 return {
                     id: id,
-                    username: profile?.username || profile?.email?.split('@')[0] || 'User',
+                    username: extractedUsername,
                     email: profile?.email || '',
                     avatarUrl: profile?.avatar_url,
                     currentStreak: 0,
                     todayCompletion: 0,
-                    bio: profile?.bio,
-                    age: profile?.age,
-                    gender: profile?.gender,
+                    // bio stored locally, not in DB
                 };
             });
+
+            console.log(`getFriends: Returning ${result.length} friends`);
+            return result;
         } catch (e) {
             console.log('Friends list not available:', e);
             return [];
@@ -421,23 +552,21 @@ export const FriendsService = {
             // Get current user's profile info
             const { data: userProfile } = await supabase
                 .from('profiles')
-                .select('username, bio, age, gender, avatar_url')
+                .select('username, avatar_url')
                 .eq('id', currentUser.id)
                 .single();
 
-            // Add current user to list
+            // Add current user to list with actual username
             const allUsers = [
                 ...friends,
                 {
                     id: currentUser.id,
-                    username: 'You',
+                    username: userProfile?.username || currentUser.email?.split('@')[0] || 'Me',
                     email: currentUser.email || '',
-                    currentStreak: 0, // Would need full streak calc
+                    currentStreak: 0,
                     todayCompletion: userTodayCompletion,
-                    bio: userProfile?.bio,
-                    age: userProfile?.age,
-                    gender: userProfile?.gender,
                     avatarUrl: userProfile?.avatar_url,
+                    isCurrentUser: true, // Flag to show "(You)" in UI
                 }
             ];
 
@@ -640,8 +769,17 @@ export const FriendsService = {
         const friends = await this.getFriends();
         if (friends.length === 0) return [];
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
         const friendIds = friends.map(f => f.id);
+
+        // Get last 7 days for streak calculation
+        const last7Days: string[] = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            last7Days.push(d.toISOString().split('T')[0]);
+        }
 
         try {
             // Batch query: Get all friends' habits in ONE query
@@ -651,15 +789,16 @@ export const FriendsService = {
                 .in('user_id', friendIds)
                 .eq('is_archived', false);
 
-            // Batch query: Get today's completions for all habits in ONE query
             const allHabitIds = allHabits?.map(h => h.id) || [];
-            const { data: todayCompletions } = await supabase
-                .from('habit_completions')
-                .select('habit_id')
-                .eq('date', today)
-                .in('habit_id', allHabitIds);
 
-            // Build lookup maps for fast access
+            // Batch query: Get last 7 days completions for streak calc
+            const { data: recentCompletions } = await supabase
+                .from('habit_completions')
+                .select('habit_id, date')
+                .in('habit_id', allHabitIds)
+                .in('date', last7Days);
+
+            // Build lookup maps
             const habitsByUser = new Map<string, string[]>();
             for (const habit of allHabits || []) {
                 if (!habitsByUser.has(habit.user_id)) {
@@ -668,22 +807,55 @@ export const FriendsService = {
                 habitsByUser.get(habit.user_id)!.push(habit.id);
             }
 
-            const completedHabitsToday = new Set(todayCompletions?.map(c => c.habit_id) || []);
+            // Group completions by date and habit
+            const completionsByDateHabit = new Map<string, Set<string>>();
+            for (const comp of recentCompletions || []) {
+                const key = comp.date;
+                if (!completionsByDateHabit.has(key)) {
+                    completionsByDateHabit.set(key, new Set());
+                }
+                completionsByDateHabit.get(key)!.add(comp.habit_id);
+            }
 
-            // Calculate stats for each friend using the cached data
+            // Calculate stats for each friend
             const friendsWithStats = friends.map(friend => {
                 const userHabits = habitsByUser.get(friend.id) || [];
                 const totalHabits = userHabits.length;
-                const completedToday = userHabits.filter(hId => completedHabitsToday.has(hId)).length;
+
+                // Today's completion
+                const todayCompletedSet = completionsByDateHabit.get(todayStr) || new Set();
+                const completedToday = userHabits.filter(hId => todayCompletedSet.has(hId)).length;
                 const todayCompletion = totalHabits > 0 ? Math.round((completedToday / totalHabits) * 100) : 0;
 
-                // Quick streak estimate based on today's completion (full streak would need more queries)
-                const estimatedStreak = todayCompletion >= 80 ? 7 : todayCompletion >= 50 ? 3 : todayCompletion > 0 ? 1 : 0;
+                // Calculate weekly activity (7 days of completion percentages)
+                const weeklyActivity: number[] = last7Days.map(day => {
+                    const dayCompletions = completionsByDateHabit.get(day) || new Set();
+                    const dayCompleted = userHabits.filter(hId => dayCompletions.has(hId)).length;
+                    return totalHabits > 0 ? Math.round((dayCompleted / totalHabits) * 100) : 0;
+                });
+
+                // Calculate real streak (consecutive days with >50% completion)
+                let streak = 0;
+                for (let i = 0; i < last7Days.length; i++) {
+                    const dayRate = weeklyActivity[i];
+
+                    if (dayRate >= 50) {
+                        streak++;
+                    } else if (i > 0) {
+                        // Break if not consecutive (except today which might be in progress)
+                        break;
+                    }
+                }
+
+                // Best streak is at least the current streak (we'd need historical data for true best)
+                const bestStreak = Math.max(streak, friend.currentStreak || 0);
 
                 return {
                     ...friend,
                     todayCompletion,
-                    currentStreak: estimatedStreak,
+                    currentStreak: streak,
+                    bestStreak,
+                    weeklyActivity,
                 };
             });
 
@@ -691,6 +863,90 @@ export const FriendsService = {
         } catch (e) {
             console.error('Error fetching friend stats:', e);
             return friends;
+        }
+    },
+
+    /**
+     * Get detailed stats for a single friend
+     */
+    async getFriendDetailedStats(friendId: string): Promise<{
+        totalHabits: number;
+        completedToday: number;
+        totalGoals: number;
+        weeklyActivity: boolean[];
+        longestStreak: number;
+    } | null> {
+        try {
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            // Get last 7 days
+            const last7Days: string[] = [];
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                last7Days.push(d.toISOString().split('T')[0]);
+            }
+
+            // Get friend's habits
+            const { data: habits } = await supabase
+                .from('habits')
+                .select('id, is_goal')
+                .eq('user_id', friendId)
+                .eq('is_archived', false);
+
+            const habitIds = habits?.filter(h => !h.is_goal).map(h => h.id) || [];
+            const totalHabits = habitIds.length;
+            const totalGoals = habits?.filter(h => h.is_goal).length || 0;
+
+            // Get last 7 days completions
+            const { data: completions } = await supabase
+                .from('habit_completions')
+                .select('habit_id, date')
+                .in('habit_id', habitIds)
+                .in('date', last7Days);
+
+            // Group by date
+            const completionsByDate = new Map<string, Set<string>>();
+            for (const comp of completions || []) {
+                if (!completionsByDate.has(comp.date)) {
+                    completionsByDate.set(comp.date, new Set());
+                }
+                completionsByDate.get(comp.date)!.add(comp.habit_id);
+            }
+
+            // Calculate today's completions
+            const todaySet = completionsByDate.get(todayStr) || new Set();
+            const completedToday = habitIds.filter(hId => todaySet.has(hId)).length;
+
+            // Calculate weekly activity (true if >50% completed that day)
+            const weeklyActivity = last7Days.map(day => {
+                const daySet = completionsByDate.get(day) || new Set();
+                const dayCompleted = habitIds.filter(hId => daySet.has(hId)).length;
+                const rate = totalHabits > 0 ? dayCompleted / totalHabits : 0;
+                return rate >= 0.5;
+            });
+
+            // Calculate streak
+            let streak = 0;
+            for (let i = 0; i < last7Days.length; i++) {
+                if (weeklyActivity[i]) {
+                    streak++;
+                } else if (i > 0) {
+                    break;
+                }
+            }
+
+            return {
+                totalHabits,
+                completedToday,
+                totalGoals,
+                weeklyActivity,
+                longestStreak: streak, // We'd need historical data for true longest
+            };
+        } catch (e) {
+            console.error('Error getting friend detailed stats:', e);
+            return null;
         }
     },
 };

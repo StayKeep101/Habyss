@@ -4,6 +4,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { Habit } from '@/lib/habits';
 import { Ionicons } from '@expo/vector-icons';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 import { RoadMapCardSize } from '@/constants/AppSettingsContext';
 
@@ -25,6 +26,8 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   const { theme } = useTheme();
   const colors = Colors[theme];
   const isLight = theme === 'light';
+  const { primary } = useAccentGradient();
+  const defaultColor = primary;
 
   const daysLeft = goal.targetDate
     ? Math.max(0, Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
@@ -57,10 +60,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({
           activeOpacity={0.6}
           style={[styles.iconBox, {
             width: iconBoxSize, height: iconBoxSize,
-            backgroundColor: (goal.color || '#8B5CF6') + '20'
+            backgroundColor: (goal.color || defaultColor) + '20'
           }]}
         >
-          <Ionicons name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || '#8B5CF6'} />
+          <Ionicons name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || defaultColor} />
           {/* Subtle indicator that this is clickable for details */}
           <View style={{ position: 'absolute', bottom: -4, right: -4, backgroundColor: colors.surface, borderRadius: 6, padding: 1 }}>
             <Ionicons name="open-outline" size={8} color={colors.textTertiary} />
@@ -80,9 +83,9 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={[styles.progressBg, { height: barHeight, backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }]}>
-              <View style={[styles.progressFill, { backgroundColor: goal.color || '#8B5CF6', width: `${Math.max(progress, 3)}%` }]} />
+              <View style={[styles.progressFill, { backgroundColor: goal.color || defaultColor, width: `${progress}%` }]} />
             </View>
-            <Text style={[styles.progressText, { color: goal.color || '#8B5CF6', fontSize: isSmall ? 9 : 11 }]}>{Math.round(progress)}%</Text>
+            <Text style={[styles.progressText, { color: goal.color || defaultColor, fontSize: isSmall ? 9 : 11 }]}>{Math.round(progress)}%</Text>
           </View>
         </View>
 

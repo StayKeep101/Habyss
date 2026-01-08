@@ -11,51 +11,55 @@ import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { AscensionBackground } from '@/components/Paywall/AscensionBackground';
 import { StargateButton } from '@/components/Paywall/StargateButton';
 import { VoidCard } from '@/components/Layout/VoidCard';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 const { width } = Dimensions.get('window');
 
-const BENEFITS = [
-    {
-        id: 'ai',
-        icon: 'sparkles',
-        title: 'Cosmic Wisdom',
-        desc: 'Unlock specific AI personalities (Friendly, Dad Mode, Bully) and unlimited coaching chats.',
-        color: '#8B5CF6'
-    },
-    {
-        id: 'analytics',
-        icon: 'analytics',
-        title: 'Quantified Self',
-        desc: 'Access advanced heatmaps, trend predictions, and consistency scores.',
-        color: '#3B82F6'
-    },
-    {
-        id: 'void',
-        icon: 'infinite',
-        title: 'No Limits',
-        desc: 'Create infinite habits, goals, and customize your Void with unlimited categories.',
-        color: '#10B981'
-    },
-    {
-        id: 'sync',
-        icon: 'cloud-upload',
-        title: 'Universal Sync',
-        desc: 'Your data flows seamlessly across all your devices in real-time.',
-        color: '#F59E0B'
-    },
-    {
-        id: 'export',
-        icon: 'download',
-        title: 'Total Ownership',
-        desc: 'Export your entire history to CSV/JSON anytime. Your data is yours.',
-        color: '#EC4899'
-    }
-];
+
 
 export default function PaywallScreen() {
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
     const [loading, setLoading] = useState(false);
     const { restorePurchases } = usePremiumStatus();
+    const { primary: accentColor } = useAccentGradient();
+
+    const BENEFITS = [
+        {
+            id: 'ai',
+            icon: 'sparkles',
+            title: 'Cosmic Wisdom',
+            desc: 'Unlock specific AI personalities (Friendly, Dad Mode, Bully) and unlimited coaching chats.',
+            color: accentColor // Dynamic Accent
+        },
+        {
+            id: 'analytics',
+            icon: 'analytics',
+            title: 'Quantified Self',
+            desc: 'Access advanced heatmaps, trend predictions, and consistency scores.',
+            color: '#3B82F6'
+        },
+        {
+            id: 'void',
+            icon: 'infinite',
+            title: 'No Limits',
+            desc: 'Create infinite habits, goals, and customize your Void with unlimited categories.',
+            color: '#10B981'
+        },
+        {
+            id: 'sync',
+            icon: 'cloud-upload',
+            title: 'Universal Sync',
+            desc: 'Your data flows seamlessly across all your devices in real-time.',
+            color: '#F59E0B'
+        },
+        {
+            id: 'export',
+            icon: 'download',
+            title: 'Total Ownership',
+            desc: 'Export your entire history to CSV/JSON anytime. Your data is yours.',
+            color: '#EC4899'
+        }
+    ];
 
     // --- Stripe Logic ---
     const fetchPaymentSheetParams = async () => {
@@ -89,7 +93,7 @@ export default function PaywallScreen() {
             returnURL: 'habyss://stripe-redirect',
             appearance: {
                 colors: {
-                    primary: '#8B5CF6',
+                    primary: accentColor,
                     background: '#0a0a0a',
                     componentBackground: '#1a1a1a',
                     componentBorder: '#333333',
@@ -99,7 +103,7 @@ export default function PaywallScreen() {
                 },
                 primaryButton: {
                     colors: {
-                        background: '#8B5CF6',
+                        background: accentColor,
                         text: '#ffffff',
                     }
                 }
@@ -173,8 +177,8 @@ export default function PaywallScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 <Animated.View entering={FadeIn.duration(800)} style={styles.heroSection}>
-                    <View style={styles.iconRing}>
-                        <Ionicons name="planet" size={64} color="#8B5CF6" />
+                    <View style={[styles.iconRing, { backgroundColor: accentColor + '15', borderColor: accentColor + '40' }]}>
+                        <Ionicons name="planet" size={64} color={accentColor} />
                     </View>
                     <Text style={styles.title}>Ascend to Pro</Text>
                     <Text style={styles.subtitle}>Unlock the full universe of features and destroy your limits.</Text>
@@ -263,12 +267,11 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        // backgroundColor/borderColor set dynamically
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 24,
         borderWidth: 1,
-        borderColor: 'rgba(139, 92, 246, 0.3)',
     },
     title: {
         fontSize: 36,

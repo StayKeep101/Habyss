@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, LayoutAnimation, Platform, UIManager, InteractionManager, DeviceEventEmitter } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, LayoutAnimation, Platform, UIManager, InteractionManager, DeviceEventEmitter, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
     useAnimatedScrollHandler,
@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
@@ -58,6 +59,7 @@ const CalendarScreen = () => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, selectionFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
 
@@ -75,6 +77,8 @@ const CalendarScreen = () => {
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
     const [activeSort, setActiveSort] = useState<SortType>('default');
     const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>('all');
+    const [selectedGoalFilter, setSelectedGoalFilter] = useState<string | null>(null); // Filter by specific goal ID
+    const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null); // Filter by life pillar
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
     const [shareModalVisible, setShareModalVisible] = useState(false);
@@ -345,10 +349,22 @@ const CalendarScreen = () => {
 
     // --- Grouping Logic ---
     const goals = useMemo(() => habitsStore.filter(h => h.isGoal), [habitsStore]);
+
     // Only show habits scheduled for the selected date
-    // Memoized Data derivation
+    // Memoized Data derivation with additional filters
     const { allHabits, habitsByGoal } = useMemo(() => {
-        const filtered = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate));
+        let filtered = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate));
+
+        // Apply goal filter - show only habits linked to specific goal
+        if (selectedGoalFilter) {
+            filtered = filtered.filter(h => h.goalId === selectedGoalFilter);
+        }
+
+        // Apply category (life pillar) filter
+        if (selectedCategoryFilter) {
+            filtered = filtered.filter(h => h.category === selectedCategoryFilter);
+        }
+
         const byGoal: Record<string, Habit[]> = {};
 
         filtered.forEach(h => {
@@ -359,7 +375,7 @@ const CalendarScreen = () => {
         });
 
         return { allHabits: filtered, habitsByGoal: byGoal };
-    }, [habitsStore, selectedDate]);
+    }, [habitsStore, selectedDate, selectedGoalFilter, selectedCategoryFilter]);
 
     // Loose habits are those not linked to any goal, or linked to a non-existent goal
     const looseHabits = useMemo(() => {
@@ -368,6 +384,7 @@ const CalendarScreen = () => {
 
     const isGoalFilter = activeFilter === 'goals_only';
     const isHabitFilter = activeFilter === 'habits_only';
+    const hasActiveFilters = selectedGoalFilter !== null || selectedCategoryFilter !== null;
 
     // Sorting Logic
     const sortedGoals = useMemo(() => {
@@ -409,31 +426,49 @@ const CalendarScreen = () => {
                                 {/* Pull hint removed for cleaner UI */}
                             </View>
 
-                            {/* Filter Indicator - Explicitly spaced below pull hint area */}
-                            {activeFilter !== 'all' && (
-                                <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 10 }}>
+                            {/* Filter Indicator - Subtle compact pill */}
+                            {(activeFilter !== 'all' || hasActiveFilters || activeTimeFilter !== 'all') && (
+                                <View style={{
+                                    alignSelf: 'flex-start',
+                                    backgroundColor: accentColor + '25',
+                                    paddingLeft: 10,
+                                    paddingRight: 4,
+                                    paddingVertical: 4,
+                                    borderRadius: 12,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    marginBottom: 8,
+                                }}>
                                     <TouchableOpacity
                                         onPress={() => {
                                             lightFeedback();
                                             setShowFilter(true);
                                         }}
-                                        style={{
-                                            backgroundColor: colors.primary,
-                                            paddingHorizontal: 16,
-                                            paddingVertical: 8,
-                                            borderRadius: 20,
-                                            shadowColor: colors.primary,
-                                            shadowOffset: { width: 0, height: 4 },
-                                            shadowOpacity: 0.3,
-                                            shadowRadius: 8,
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            gap: 6
-                                        }}>
-                                        <Ionicons name="filter" size={12} color="white" />
-                                        <Text style={{ color: 'white', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>
-                                            GOALS FILTER ACTIVE
+                                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                                    >
+                                        <Ionicons name="filter" size={10} color={accentColor} />
+                                        <Text style={{ color: accentColor, fontSize: 9, fontWeight: '600', letterSpacing: 0.5 }}>
+                                            {[
+                                                activeFilter !== 'all' && (activeFilter === 'goals_only' ? 'Goals' : 'Habits'),
+                                                selectedGoalFilter && goals.find(g => g.id === selectedGoalFilter)?.name?.slice(0, 12),
+                                                selectedCategoryFilter && selectedCategoryFilter.charAt(0).toUpperCase() + selectedCategoryFilter.slice(1),
+                                                activeTimeFilter !== 'all' && activeTimeFilter.charAt(0).toUpperCase() + activeTimeFilter.slice(1),
+                                            ].filter(Boolean).join(' • ') || 'Filtered'}
                                         </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            lightFeedback();
+                                            // Clear all filters
+                                            setActiveFilter('all');
+                                            setSelectedGoalFilter(null);
+                                            setSelectedCategoryFilter(null);
+                                            setActiveTimeFilter('all');
+                                        }}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    >
+                                        <Ionicons name="close-circle" size={14} color={accentColor} />
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -462,7 +497,7 @@ const CalendarScreen = () => {
                                                     {/* Goal Header / Card */}
                                                     <View style={{ position: 'relative' }}>
                                                         <GoalCard
-                                                            goal={goal}
+                                                            goal={{ ...goal, color: accentColor }}
                                                             progress={progress}
                                                             size={cardSize}
                                                             isExpanded={!!isExpanded}
@@ -593,92 +628,211 @@ const CalendarScreen = () => {
                                         <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)' }} />
                                     </View>
 
-                                    <View style={{ padding: 24, paddingBottom: 40 }}>
-                                        <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary, letterSpacing: 0.5, fontFamily: 'Lexend', textAlign: 'center', marginBottom: 24 }}>
-                                            Filter & Sort
-                                        </Text>
+                                    <ScrollView style={{ maxHeight: '100%' }} showsVerticalScrollIndicator={false}>
+                                        <View style={{ padding: 20, paddingBottom: 40 }}>
+                                            <Text style={{ fontSize: 14, fontWeight: '800', color: colors.textPrimary, letterSpacing: 0.5, fontFamily: 'Lexend', textAlign: 'center', marginBottom: 16 }}>
+                                                Filter & Sort
+                                            </Text>
 
-                                        <View style={{ gap: 20 }}>
-                                            <View>
-                                                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 12, letterSpacing: 1 }}>FILTER ORGANIZE</Text>
-                                                <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                    {[
-                                                        { id: 'all', label: 'All', icon: 'layers' },
-                                                        { id: 'goals_only', label: 'Goals', icon: 'flag' },
-                                                        { id: 'habits_only', label: 'Habits', icon: 'checkbox' },
-                                                    ].map((filter) => (
-                                                        <TouchableOpacity
-                                                            key={filter.id}
-                                                            onPress={() => { selectionFeedback(); setActiveFilter(filter.id as FilterType); }}
-                                                            style={[
-                                                                styles.sortChip,
-                                                                { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-                                                                activeFilter === filter.id && { backgroundColor: colors.primary, borderColor: colors.primary }
-                                                            ]}
-                                                        >
-                                                            <Ionicons name={filter.icon as any} size={14} color={activeFilter === filter.id ? 'white' : 'rgba(255,255,255,0.5)'} />
-                                                            <Text style={[styles.sortText, activeFilter === filter.id && { color: 'white' }]}>
-                                                                {filter.label}
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                    ))}
+                                            <View style={{ gap: 14 }}>
+                                                <View>
+                                                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 8, letterSpacing: 1 }}>FILTER ORGANIZE</Text>
+                                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                        {[
+                                                            { id: 'all', label: 'All', icon: 'layers' },
+                                                            { id: 'goals_only', label: 'Goals', icon: 'flag' },
+                                                            { id: 'habits_only', label: 'Habits', icon: 'checkbox' },
+                                                        ].map((filter) => (
+                                                            <TouchableOpacity
+                                                                key={filter.id}
+                                                                onPress={() => { selectionFeedback(); setActiveFilter(filter.id as FilterType); }}
+                                                                style={[
+                                                                    styles.sortChip,
+                                                                    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+                                                                    activeFilter === filter.id && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                                                ]}
+                                                            >
+                                                                <Ionicons name={filter.icon as any} size={14} color={activeFilter === filter.id ? 'white' : 'rgba(255,255,255,0.5)'} />
+                                                                <Text style={[styles.sortText, activeFilter === filter.id && { color: 'white' }]}>
+                                                                    {filter.label}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
                                                 </View>
-                                            </View>
 
-                                            <View>
-                                                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 12, letterSpacing: 1 }}>SORT ORDER</Text>
-                                                <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                    {['default', 'name', 'progress'].map((sort) => (
-                                                        <TouchableOpacity
-                                                            key={sort}
-                                                            onPress={() => { selectionFeedback(); setActiveSort(sort as any); }}
-                                                            style={[
-                                                                styles.sortChip,
-                                                                activeSort === sort && { backgroundColor: colors.primary, borderColor: colors.primary }
-                                                            ]}
-                                                        >
-                                                            <Text style={[styles.sortText, activeSort === sort && { color: 'white' }]}>
-                                                                {sort.charAt(0).toUpperCase() + sort.slice(1)}
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                    ))}
+                                                <View>
+                                                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 12, letterSpacing: 1 }}>SORT ORDER</Text>
+                                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                        {['default', 'name', 'progress'].map((sort) => (
+                                                            <TouchableOpacity
+                                                                key={sort}
+                                                                onPress={() => { selectionFeedback(); setActiveSort(sort as any); }}
+                                                                style={[
+                                                                    styles.sortChip,
+                                                                    activeSort === sort && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                                                ]}
+                                                            >
+                                                                <Text style={[styles.sortText, activeSort === sort && { color: 'white' }]}>
+                                                                    {sort.charAt(0).toUpperCase() + sort.slice(1)}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
                                                 </View>
-                                            </View>
 
-                                            {/* Time of Day Filter */}
-                                            <View>
-                                                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 12, letterSpacing: 1 }}>TIME OF DAY</Text>
-                                                <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                    {[
-                                                        { id: 'all', label: 'All', icon: 'time' },
-                                                        { id: 'morning', label: 'Morning', icon: 'sunny' },
-                                                        { id: 'afternoon', label: 'Afternoon', icon: 'partly-sunny' },
-                                                        { id: 'evening', label: 'Evening', icon: 'moon' },
-                                                    ].map((time) => (
+                                                {/* Expand/Collapse All Goals */}
+                                                <View>
+                                                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 12, letterSpacing: 1 }}>GOAL EXPANSION</Text>
+                                                    <View style={{ flexDirection: 'row', gap: 8 }}>
                                                         <TouchableOpacity
-                                                            key={time.id}
-                                                            onPress={() => { selectionFeedback(); setActiveTimeFilter(time.id as TimeFilter); }}
+                                                            onPress={() => {
+                                                                selectionFeedback();
+                                                                const allExpanded: Record<string, boolean> = {};
+                                                                goals.forEach(g => { allExpanded[g.id] = true; });
+                                                                setExpandedGoals(allExpanded);
+                                                            }}
                                                             style={[
                                                                 styles.sortChip,
-                                                                { flex: 1 },
-                                                                activeTimeFilter === time.id && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                                                { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }
                                                             ]}
                                                         >
-                                                            <Ionicons
-                                                                name={time.icon as any}
-                                                                size={12}
-                                                                color={activeTimeFilter === time.id ? 'white' : 'rgba(255,255,255,0.5)'}
-                                                                style={{ marginBottom: 2 }}
-                                                            />
-                                                            <Text style={[styles.sortText, { fontSize: 9 }, activeTimeFilter === time.id && { color: 'white' }]}>
-                                                                {time.label}
-                                                            </Text>
+                                                            <Ionicons name="chevron-down-circle" size={14} color="rgba(255,255,255,0.5)" />
+                                                            <Text style={styles.sortText}>Expand All</Text>
                                                         </TouchableOpacity>
-                                                    ))}
+                                                        <TouchableOpacity
+                                                            onPress={() => {
+                                                                selectionFeedback();
+                                                                setExpandedGoals({});
+                                                            }}
+                                                            style={[
+                                                                styles.sortChip,
+                                                                { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }
+                                                            ]}
+                                                        >
+                                                            <Ionicons name="chevron-up-circle" size={14} color="rgba(255,255,255,0.5)" />
+                                                            <Text style={styles.sortText}>Collapse All</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+
+                                                {/* Time of Day Filter */}
+                                                <View>
+                                                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', marginBottom: 12, letterSpacing: 1 }}>TIME OF DAY</Text>
+                                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                        {[
+                                                            { id: 'all', label: 'All', icon: 'time' },
+                                                            { id: 'morning', label: 'Morning', icon: 'sunny' },
+                                                            { id: 'afternoon', label: 'Afternoon', icon: 'partly-sunny' },
+                                                            { id: 'evening', label: 'Evening', icon: 'moon' },
+                                                        ].map((time) => (
+                                                            <TouchableOpacity
+                                                                key={time.id}
+                                                                onPress={() => { selectionFeedback(); setActiveTimeFilter(time.id as TimeFilter); }}
+                                                                style={[
+                                                                    styles.sortChip,
+                                                                    { flex: 1 },
+                                                                    activeTimeFilter === time.id && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                                                ]}
+                                                            >
+                                                                <Ionicons
+                                                                    name={time.icon as any}
+                                                                    size={12}
+                                                                    color={activeTimeFilter === time.id ? 'white' : 'rgba(255,255,255,0.5)'}
+                                                                    style={{ marginBottom: 2 }}
+                                                                />
+                                                                <Text style={[styles.sortText, { fontSize: 9 }, activeTimeFilter === time.id && { color: 'white' }]}>
+                                                                    {time.label}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
+                                                </View>
+
+                                                {/* Filter by Goal */}
+                                                <View>
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                                        <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', letterSpacing: 1 }}>FILTER BY GOAL</Text>
+                                                        {selectedGoalFilter && (
+                                                            <TouchableOpacity onPress={() => { selectionFeedback(); setSelectedGoalFilter(null); }}>
+                                                                <Text style={{ color: colors.error, fontSize: 10 }}>CLEAR</Text>
+                                                            </TouchableOpacity>
+                                                        )}
+                                                    </View>
+                                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                                        <TouchableOpacity
+                                                            onPress={() => { selectionFeedback(); setSelectedGoalFilter(null); }}
+                                                            style={[
+                                                                styles.sortChip,
+                                                                selectedGoalFilter === null && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                                            ]}
+                                                        >
+                                                            <Text style={[styles.sortText, selectedGoalFilter === null && { color: 'white' }]}>All</Text>
+                                                        </TouchableOpacity>
+                                                        {goals.map((goal) => (
+                                                            <TouchableOpacity
+                                                                key={goal.id}
+                                                                onPress={() => { selectionFeedback(); setSelectedGoalFilter(goal.id); }}
+                                                                style={[
+                                                                    styles.sortChip,
+                                                                    selectedGoalFilter === goal.id && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                                                ]}
+                                                            >
+                                                                <Text
+                                                                    style={[styles.sortText, selectedGoalFilter === goal.id && { color: 'white' }]}
+                                                                    numberOfLines={1}
+                                                                >
+                                                                    {goal.name}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
+                                                </View>
+
+                                                {/* Life Pillars Filter */}
+                                                <View>
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                                        <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', letterSpacing: 1 }}>LIFE PILLARS</Text>
+                                                        {selectedCategoryFilter && (
+                                                            <TouchableOpacity onPress={() => { selectionFeedback(); setSelectedCategoryFilter(null); }}>
+                                                                <Text style={{ color: colors.error, fontSize: 10 }}>CLEAR</Text>
+                                                            </TouchableOpacity>
+                                                        )}
+                                                    </View>
+                                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                                        {[
+                                                            { id: null, label: 'All', icon: 'apps' },
+                                                            { id: 'body', label: 'Body', icon: 'body' },
+                                                            { id: 'wealth', label: 'Wealth', icon: 'wallet' },
+                                                            { id: 'heart', label: 'Heart', icon: 'heart' },
+                                                            { id: 'mind', label: 'Mind', icon: 'bulb' },
+                                                            { id: 'soul', label: 'Soul', icon: 'sparkles' },
+                                                            { id: 'play', label: 'Play', icon: 'game-controller' },
+                                                        ].map((pillar) => (
+                                                            <TouchableOpacity
+                                                                key={pillar.id || 'all'}
+                                                                onPress={() => { selectionFeedback(); setSelectedCategoryFilter(pillar.id); }}
+                                                                style={[
+                                                                    styles.sortChip,
+                                                                    { flexDirection: 'row', alignItems: 'center', gap: 6 },
+                                                                    selectedCategoryFilter === pillar.id && { backgroundColor: colors.primary, borderColor: colors.primary }
+                                                                ]}
+                                                            >
+                                                                <Ionicons
+                                                                    name={pillar.icon as any}
+                                                                    size={12}
+                                                                    color={selectedCategoryFilter === pillar.id ? 'white' : 'rgba(255,255,255,0.5)'}
+                                                                />
+                                                                <Text style={[styles.sortText, selectedCategoryFilter === pillar.id && { color: 'white' }]}>
+                                                                    {pillar.label}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
                                                 </View>
                                             </View>
                                         </View>
-                                    </View>
+                                    </ScrollView>
                                 </Animated.View>
                             </View>
                         </Modal>

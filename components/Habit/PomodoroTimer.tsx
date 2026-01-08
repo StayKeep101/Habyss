@@ -22,6 +22,7 @@ interface PomodoroTimerProps {
     defaultMinutes?: number;
     onComplete?: () => void;
     habitName?: string;
+    noCard?: boolean;
 }
 
 type TimerState = 'idle' | 'running' | 'paused' | 'break' | 'longBreak';
@@ -38,7 +39,8 @@ const WORK_PRESETS = [15, 25, 30, 45, 60];
 export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     defaultMinutes,
     onComplete,
-    habitName
+    habitName,
+    noCard
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -243,51 +245,74 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         }
     };
 
+    const Wrapper = noCard ? View : VoidCard;
+    const wrapperProps = noCard ? { style: { alignItems: 'center', width: '100%' } } : { style: styles.container };
+
     return (
-        <VoidCard style={[styles.container, isLight && { backgroundColor: colors.surface }]}>
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <Ionicons name="timer-outline" size={18} color={primaryColor} />
-                    <Text style={[styles.title, { color: colors.textSecondary }]}>
-                        {habitName ? `FOCUS: ${habitName.toUpperCase()}` : 'POMODORO'}
-                    </Text>
+        <Wrapper {...wrapperProps}>
+            {/* Header - Hidden if noCard to simplify UI or keep it? User says remove card. */}
+            {!noCard && (
+                <View style={styles.header}>
+                    <View style={styles.headerLeft}>
+                        <Ionicons name="timer-outline" size={18} color={primaryColor} />
+                        <Text style={[styles.title, { color: colors.textSecondary }]}>
+                            {habitName ? `FOCUS: ${habitName.toUpperCase()}` : 'POMODORO'}
+                        </Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => setShowSettings(!showSettings)}
+                        style={styles.settingsBtn}
+                    >
+                        <Ionicons
+                            name={showSettings ? "close" : "settings-outline"}
+                            size={18}
+                            color={colors.textTertiary}
+                        />
+                    </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                    onPress={() => setShowSettings(!showSettings)}
-                    style={styles.settingsBtn}
-                >
-                    <Ionicons
-                        name={showSettings ? "close" : "settings-outline"}
-                        size={18}
-                        color={colors.textTertiary}
-                    />
-                </TouchableOpacity>
-            </View>
+            )}
+
+            {noCard && (
+                <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="timer-outline" size={18} color={colors.textSecondary} />
+                        <Text style={[styles.title, { color: colors.textSecondary }]}>POMODORO</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setShowSettings(!showSettings)}>
+                        <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Settings Panel */}
             {showSettings && (
-                <View style={[styles.settingsPanel, { backgroundColor: isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.05)' }]}>
-                    <Text style={[styles.settingsLabel, { color: colors.textSecondary }]}>Session Length</Text>
+                <View style={[styles.settingsPanel, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
+                    <Text style={[styles.settingsLabel, { color: colors.textSecondary }]}>WORK DURATION (MIN)</Text>
                     <View style={styles.presets}>
                         {WORK_PRESETS.map(mins => (
                             <TouchableOpacity
                                 key={mins}
-                                onPress={() => handleSelectPreset(mins)}
+                                onPress={() => {
+                                    setWorkDuration(mins * 60);
+                                    setTimeLeft(mins * 60);
+                                    setShowSettings(false);
+                                }}
                                 style={[
                                     styles.presetBtn,
                                     {
                                         backgroundColor: workDuration === mins * 60
                                             ? primaryColor
                                             : (isLight ? colors.surfaceTertiary : 'rgba(255,255,255,0.1)'),
+                                        borderWidth: 1,
+                                        borderColor: workDuration === mins * 60 ? primaryColor : colors.border
                                     }
                                 ]}
                             >
                                 <Text style={[
                                     styles.presetText,
-                                    { color: workDuration === mins * 60 ? '#fff' : colors.textSecondary }
+                                    { color: workDuration === mins * 60 ? '#fff' : colors.textPrimary }
                                 ]}>
-                                    {mins}m
+                                    {mins}
                                 </Text>
                             </TouchableOpacity>
                         ))}
@@ -296,30 +321,30 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             )}
 
             {/* Timer Display */}
-            <Animated.View style={[styles.timerContainer, pulseStyle]}>
-                <Svg width={140} height={140} style={styles.progressRing}>
+            <View style={[styles.timerContainer, pulseStyle]}>
+                <Svg width={160} height={160} style={styles.progressRing}>
                     {/* Background Circle */}
                     <Circle
-                        cx={70}
-                        cy={70}
-                        r={52}
-                        stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'}
-                        strokeWidth={10}
-                        fill="none"
+                        cx={80}
+                        cy={80}
+                        r={70}
+                        stroke={isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}
+                        strokeWidth="8"
+                        fill="transparent"
                     />
                     {/* Progress Circle */}
                     <Circle
-                        cx={70}
-                        cy={70}
-                        r={52}
+                        cx={80}
+                        cy={80}
+                        r={70}
                         stroke={primaryColor}
-                        strokeWidth={10}
-                        fill="none"
+                        strokeWidth="8"
+                        fill="transparent"
                         strokeDasharray={circumference}
                         strokeDashoffset={strokeDashoffset}
                         strokeLinecap="round"
                         rotation="-90"
-                        origin="70, 70"
+                        origin="80, 80"
                     />
                 </Svg>
 
@@ -327,28 +352,9 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                     <Text style={[styles.timeText, { color: colors.textPrimary }]}>
                         {formatTime(timeLeft)}
                     </Text>
-                    <Text style={[styles.stateText, { color: primaryColor }]}>
+                    <Text style={[styles.stateText, { color: state === 'running' ? primaryColor : colors.textTertiary }]}>
                         {getStateLabel()}
                     </Text>
-                </View>
-            </Animated.View>
-
-            {/* Session Stats */}
-            <View style={styles.stats}>
-                <View style={styles.statItem}>
-                    <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>{completedSessions}</Text>
-                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>sessions</Text>
-                </View>
-                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.statItem}>
-                    <Ionicons name="time" size={14} color={colors.primary} />
-                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                        {formatFocusTime(totalFocusTime + (state === 'running' && focusStartRef.current
-                            ? Math.floor((Date.now() - focusStartRef.current) / 1000)
-                            : 0))}
-                    </Text>
-                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>focused</Text>
                 </View>
             </View>
 
@@ -357,7 +363,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 {state === 'idle' && (
                     <TouchableOpacity onPress={handleStart} activeOpacity={0.8}>
                         <LinearGradient colors={gradientColors} style={styles.mainButton}>
-                            <Ionicons name="play" size={28} color="white" />
+                            <Ionicons name="play" size={32} color="white" style={{ marginLeft: 4 }} />
                         </LinearGradient>
                     </TouchableOpacity>
                 )}
@@ -365,7 +371,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 {state === 'running' && (
                     <View style={styles.runningControls}>
                         <TouchableOpacity onPress={handleReset} style={[styles.secondaryButton, { borderColor: colors.border }]}>
-                            <Ionicons name="refresh" size={20} color={colors.textSecondary} />
+                            <Ionicons name="stop" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handlePause} activeOpacity={0.8}>
                             <LinearGradient colors={gradientColors} style={styles.mainButton}>
@@ -379,11 +385,11 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 {state === 'paused' && (
                     <View style={styles.runningControls}>
                         <TouchableOpacity onPress={handleReset} style={[styles.secondaryButton, { borderColor: colors.border }]}>
-                            <Ionicons name="refresh" size={20} color={colors.textSecondary} />
+                            <Ionicons name="stop" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleResume} activeOpacity={0.8}>
                             <LinearGradient colors={gradientColors} style={styles.mainButton}>
-                                <Ionicons name="play" size={28} color="white" />
+                                <Ionicons name="play" size={32} color="white" style={{ marginLeft: 4 }} />
                             </LinearGradient>
                         </TouchableOpacity>
                         <View style={styles.placeholderBtn} />
@@ -403,30 +409,32 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 )}
             </View>
 
-            {/* Progress Dots */}
-            <View style={styles.progressDots}>
-                {Array.from({ length: SESSIONS_BEFORE_LONG_BREAK }).map((_, i) => (
-                    <View
-                        key={i}
-                        style={[
-                            styles.dot,
-                            {
-                                backgroundColor: i < (completedSessions % SESSIONS_BEFORE_LONG_BREAK) ||
-                                    (i === 0 && completedSessions > 0 && completedSessions % SESSIONS_BEFORE_LONG_BREAK === 0)
-                                    ? colors.success
-                                    : (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'),
-                            }
-                        ]}
-                    />
-                ))}
+            {/* Session Stats */}
+            <View style={styles.stats}>
+                <View style={styles.statItem}>
+                    <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>{completedSessions}</Text>
+                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>sessions</Text>
+                </View>
+                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.statItem}>
+                    <Ionicons name="time" size={14} color={colors.primary} />
+                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                        {formatFocusTime(totalFocusTime + (state === 'running' && focusStartRef.current
+                            ? Math.floor((Date.now() - focusStartRef.current) / 1000)
+                            : 0))}
+                    </Text>
+                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>focused</Text>
+                </View>
             </View>
-        </VoidCard>
+            {/* Removed Progress Dots as requested */}
+        </Wrapper>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        padding: 20,
+        padding: 24,
         alignItems: 'center',
     },
     header: {
@@ -434,7 +442,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         width: '100%',
-        marginBottom: 16,
+        marginBottom: 20,
     },
     headerLeft: {
         flexDirection: 'row',
@@ -482,10 +490,11 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend',
     },
     timerContainer: {
-        width: 140,
-        height: 140,
+        width: 160,
+        height: 160,
         justifyContent: 'center',
         alignItems: 'center',
+        marginTop: 4,
     },
     progressRing: {
         position: 'absolute',
@@ -494,7 +503,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     timeText: {
-        fontSize: 36,
+        fontSize: 42,
         fontWeight: '900',
         fontFamily: 'Lexend',
         letterSpacing: -1,
@@ -503,14 +512,15 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '700',
         letterSpacing: 1.5,
-        marginTop: 2,
+        marginTop: 4,
         fontFamily: 'Lexend',
     },
     stats: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 20,
-        gap: 16,
+        marginTop: 16,
+        gap: 20,
+        opacity: 0.8,
     },
     statItem: {
         flexDirection: 'row',
@@ -528,23 +538,32 @@ const styles = StyleSheet.create({
     },
     statDivider: {
         width: 1,
-        height: 16,
+        height: 12,
     },
     controls: {
-        marginTop: 20,
+        marginTop: 24,
         alignItems: 'center',
+        zIndex: 10,
     },
     mainButton: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
+        width: 72,
+        height: 72,
+        borderRadius: 36,
         alignItems: 'center',
         justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.30,
+        shadowRadius: 4.65,
+        elevation: 8,
     },
     runningControls: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
+        gap: 24,
     },
     secondaryButton: {
         width: 44,
@@ -576,12 +595,12 @@ const styles = StyleSheet.create({
     },
     progressDots: {
         flexDirection: 'row',
-        gap: 8,
-        marginTop: 20,
+        gap: 6,
+        marginTop: 16,
     },
     dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
     },
 });
