@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { FriendsService, Friend, FriendRequest, FriendActivity, ReactionType } from '@/lib/friendsService';
 import { FriendStatsModal } from '@/components/FriendStatsModal';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
@@ -14,6 +15,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence } 
 export default function CommunityScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: accentColor } = useAccentGradient();
     const { thud, lightFeedback, mediumFeedback } = useHaptics();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -196,7 +198,7 @@ export default function CommunityScreen() {
                 <View style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View>
                         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COMMUNITY</Text>
-                        <Text style={[styles.headerSubtitle, { color: colors.primary }]}>CREW STATUS</Text>
+                        <Text style={[styles.headerSubtitle, { color: accentColor }]}>CREW STATUS</Text>
                     </View>
                     <TouchableOpacity
                         onPress={() => {
@@ -210,7 +212,7 @@ export default function CommunityScreen() {
                             borderWidth: 1, borderColor: colors.border
                         }}
                     >
-                        <Ionicons name="person-add" size={20} color={colors.primary} />
+                        <Ionicons name="person-add" size={20} color={accentColor} />
                     </TouchableOpacity>
                 </View>
 
@@ -229,7 +231,7 @@ export default function CommunityScreen() {
                                         <Text style={[styles.email, { color: colors.textTertiary }]}>Shared by {item.owner.username}</Text>
                                     </View>
                                     {/* Action Button (e.g. Accept/Clone - For now just visual) */}
-                                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.primary }]}>
+                                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: accentColor }]}>
                                         <Ionicons name="add" size={18} color="#fff" />
                                     </TouchableOpacity>
                                 </View>
@@ -288,9 +290,9 @@ export default function CommunityScreen() {
                                                     paddingHorizontal: 12,
                                                     paddingVertical: 6,
                                                     borderRadius: 16,
-                                                    backgroundColor: isSelected ? colors.primary + '30' : 'rgba(255,255,255,0.05)',
+                                                    backgroundColor: isSelected ? accentColor + '30' : 'rgba(255,255,255,0.05)',
                                                     borderWidth: 1,
-                                                    borderColor: isSelected ? colors.primary : 'transparent',
+                                                    borderColor: isSelected ? accentColor : 'transparent',
                                                     flexDirection: 'row',
                                                     alignItems: 'center',
                                                     gap: 4,
@@ -402,7 +404,7 @@ export default function CommunityScreen() {
                                                     <View style={{
                                                         height: '100%',
                                                         width: `${Math.min(friend.todayCompletion, 100)}%`,
-                                                        backgroundColor: friend.todayCompletion >= 100 ? colors.success : colors.primary,
+                                                        backgroundColor: friend.todayCompletion >= 100 ? accentColor : accentColor + '80',
                                                         borderRadius: 3,
                                                     }} />
                                                 </View>
@@ -445,7 +447,7 @@ export default function CommunityScreen() {
                                         <View style={[styles.avatarSmall, { backgroundColor: colors.surfaceTertiary, marginLeft: 12 }]}>
                                             <Text style={{ fontSize: 12 }}>{friend.username[0]?.toUpperCase()}</Text>
                                         </View>
-                                        <Text style={[styles.leaderName, { color: friend.isCurrentUser ? colors.primary : colors.textPrimary }]}>
+                                        <Text style={[styles.leaderName, { color: friend.isCurrentUser ? accentColor : colors.textPrimary }]}>
                                             {friend.username}{friend.isCurrentUser ? ' (You)' : ''}
                                         </Text>
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>

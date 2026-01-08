@@ -19,6 +19,7 @@ import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { MiniGoalGraph } from '@/components/Home/MiniGoalGraph';
 import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 const { height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.75;
@@ -36,6 +37,7 @@ interface ConsistencyModalProps {
 export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onClose, goals, habits, goalConsistency, avgConsistency }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: accentColor } = useAccentGradient();
     const [isOpen, setIsOpen] = useState(false);
     const [showShare, setShowShare] = useState(false);
 
@@ -104,10 +106,10 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onC
                             </TouchableOpacity>
                             <View style={{ flex: 1, marginLeft: 16 }}>
                                 <Text style={styles.title}>CONSISTENCY</Text>
-                                <Text style={[styles.subtitle, { color: '#22C55E' }]}>PERFORMANCE REPORT</Text>
+                                <Text style={[styles.subtitle, { color: accentColor }]}>PERFORMANCE REPORT</Text>
                             </View>
-                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}>
-                                <Ionicons name="share-social" size={20} color="#22C55E" />
+                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
+                                <Ionicons name="share-social" size={20} color={accentColor} />
                             </TouchableOpacity>
                         </View>
 
@@ -143,7 +145,7 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onC
                                                 <Text style={styles.gridGoalName} numberOfLines={1}>{goal.name}</Text>
 
                                                 <View style={{ marginTop: 12 }}>
-                                                    <MiniGoalGraph goal={goal} habits={habits} color={goal.color || colors.primary} />
+                                                    <MiniGoalGraph goal={goal} habits={habits} color={goal.color || accentColor} />
                                                 </View>
                                             </VoidCard>
                                         );

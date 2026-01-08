@@ -7,6 +7,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { subscribeToHabits, Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, calculateGoalProgressInstant, getLastNDaysCompletions } from '@/lib/habits';
@@ -41,6 +42,7 @@ const GoalDetail = () => {
   const { goalId } = useGlobalSearchParams();
   const { theme } = useTheme();
   const colors = Colors[theme];
+  const { primary: accentColor } = useAccentGradient();
 
   const [habits, setHabits] = useState<Habit[]>([]);
   const [goal, setGoal] = useState<Habit | null>(null);
@@ -307,7 +309,7 @@ const GoalDetail = () => {
                 progress={progress}
                 size={120}
                 strokeWidth={12}
-                color={goal.color || colors.primary}
+                color={goal.color || accentColor}
                 backgroundColor="rgba(255,255,255,0.05)"
                 textColor="white"
                 fontSize={28}
@@ -323,8 +325,8 @@ const GoalDetail = () => {
                 <Text style={styles.goalTitle}>{goal.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} style={{ marginRight: 4 }} />
-                  <Text style={styles.goalTarget}>Target: {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString() : 'Ongoing'}</Text>
-                  {daysLeft > 0 && <View style={[styles.daysTag, { backgroundColor: goal.color + '20' }]}><Text style={[styles.daysTagText, { color: goal.color }]}>{daysLeft} days left</Text></View>}
+                  <Text style={styles.goalTarget}>Target: {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Ongoing'}</Text>
+                  {daysLeft > 0 && <View style={[styles.daysTag, { backgroundColor: (goal.color || accentColor) + '20' }]}><Text style={[styles.daysTagText, { color: goal.color || accentColor }]}>{daysLeft} days left</Text></View>}
                 </View>
               </View>
               {/* Edit/Delete Actions */}

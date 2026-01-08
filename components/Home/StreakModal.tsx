@@ -18,6 +18,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 const { height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.75;
@@ -34,6 +35,7 @@ interface StreakModalProps {
 export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goals, completedDays, streak }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: accentColor } = useAccentGradient();
     const [isOpen, setIsOpen] = useState(false);
     const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
     const [filter, setFilter] = useState<'week' | 'month' | 'year'>('month');
@@ -150,29 +152,29 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                             </TouchableOpacity>
                             <View style={{ flex: 1, marginLeft: 16 }}>
                                 <Text style={styles.title}>STREAK</Text>
-                                <Text style={[styles.subtitle, { color: '#F97316' }]}>HISTORY & METRICS</Text>
+                                <Text style={[styles.subtitle, { color: accentColor }]}>HISTORY & METRICS</Text>
                             </View>
-                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: 'rgba(249, 115, 22, 0.2)' }]}>
-                                <Ionicons name="share-social" size={20} color="#F97316" />
+                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
+                                <Ionicons name="share-social" size={20} color={accentColor} />
                             </TouchableOpacity>
                         </View>
 
                         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                             <Animated.View style={contentStyle}>
                                 <VoidCard glass style={styles.mainCard}>
-                                    <View style={[styles.streakIcon, { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
-                                        <Ionicons name="flame" size={36} color="#F97316" />
+                                    <View style={[styles.streakIcon, { backgroundColor: accentColor + '15' }]}>
+                                        <Ionicons name="flame" size={36} color={accentColor} />
                                     </View>
-                                    <Text style={styles.streakValue}>{streak}</Text>
+                                    <Text style={[styles.streakValue, { color: accentColor }]}>{streak}</Text>
                                     <Text style={styles.streakLabel}>DAY STREAK</Text>
 
                                     {/* Deadline Display */}
                                     {selectedGoal?.targetDate && (
                                         <View style={{ marginTop: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
                                             <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600' }}>
-                                                EXTINGUISH DEADLINE: <Text style={{ color: '#fff' }}>{new Date(selectedGoal.targetDate).toLocaleDateString()}</Text>
+                                                EXTINGUISH DEADLINE: <Text style={{ color: '#fff' }}>{new Date(selectedGoal.targetDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
                                                 {new Date(selectedGoal.targetDate) > new Date() && (
-                                                    <Text style={{ color: '#F97316' }}> ({Math.ceil((new Date(selectedGoal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} Days left)</Text>
+                                                    <Text style={{ color: accentColor }}> ({Math.ceil((new Date(selectedGoal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} Days left)</Text>
                                                 )}
                                             </Text>
                                         </View>
@@ -182,9 +184,9 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
                                     <View style={{ flexDirection: 'row', gap: 8 }}>
                                         {goals.map(goal => (
-                                            <TouchableOpacity key={goal.id} onPress={() => setSelectedGoalId(goal.id)} style={[styles.goalChip, selectedGoal?.id === goal.id && { backgroundColor: (goal.color || '#F97316') + '20', borderColor: goal.color || '#F97316' }]}>
-                                                <Ionicons name={(goal.icon as any) || 'flag'} size={14} color={selectedGoal?.id === goal.id ? (goal.color || '#F97316') : 'rgba(255,255,255,0.5)'} />
-                                                <Text style={[styles.goalChipText, { color: selectedGoal?.id === goal.id ? (goal.color || '#F97316') : 'rgba(255,255,255,0.5)' }]} numberOfLines={1}>{goal.name}</Text>
+                                            <TouchableOpacity key={goal.id} onPress={() => setSelectedGoalId(goal.id)} style={[styles.goalChip, selectedGoal?.id === goal.id && { backgroundColor: accentColor + '20', borderColor: accentColor }]}>
+                                                <Ionicons name={(goal.icon as any) || 'flag'} size={14} color={selectedGoal?.id === goal.id ? accentColor : 'rgba(255,255,255,0.5)'} />
+                                                <Text style={[styles.goalChipText, { color: selectedGoal?.id === goal.id ? accentColor : 'rgba(255,255,255,0.5)' }]} numberOfLines={1}>{goal.name}</Text>
                                             </TouchableOpacity>
                                         ))}
                                     </View>
@@ -192,8 +194,8 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
 
                                 <View style={styles.filterRow}>
                                     {(['week', 'month', 'year'] as const).map(f => (
-                                        <TouchableOpacity key={f} onPress={() => { setFilter(f); setMonthOffset(0); }} style={[styles.filterBtn, filter === f && { backgroundColor: 'rgba(249, 115, 22, 0.2)' }]}>
-                                            <Text style={[styles.filterText, { color: filter === f ? '#F97316' : 'rgba(255,255,255,0.5)' }]}>{f.charAt(0).toUpperCase() + f.slice(1)}</Text>
+                                        <TouchableOpacity key={f} onPress={() => { setFilter(f); setMonthOffset(0); }} style={[styles.filterBtn, filter === f && { backgroundColor: accentColor + '20' }]}>
+                                            <Text style={[styles.filterText, { color: filter === f ? accentColor : 'rgba(255,255,255,0.5)' }]}>{f.charAt(0).toUpperCase() + f.slice(1)}</Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
@@ -234,7 +236,7 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                                         ))}
 
                                         {calendarData.map((day, i) => (
-                                            <View key={i} style={[styles.heatCell, day.completed ? { backgroundColor: selectedGoal?.color || '#F97316' } : { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
+                                            <View key={i} style={[styles.heatCell, day.completed ? { backgroundColor: accentColor } : { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
                                                 <Text style={{ fontSize: 8, color: day.completed ? 'white' : 'rgba(255,255,255,0.3)' }}>{day.date.getDate()}</Text>
                                             </View>
                                         ))}

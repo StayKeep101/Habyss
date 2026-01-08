@@ -19,6 +19,8 @@ import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
+import { useAccentGradient } from '@/constants/AccentContext';
+import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 
 const { width, height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.75;
@@ -35,6 +37,7 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
     const router = useRouter();
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: accentColor } = useAccentGradient();
     const [isOpen, setIsOpen] = useState(false);
     const [showShare, setShowShare] = useState(false);
 
@@ -102,11 +105,11 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
                                 <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
                             </TouchableOpacity>
                             <View style={{ flex: 1, marginLeft: 16 }}>
-                                <Text style={styles.title}>MISSION CONTROL</Text>
-                                <Text style={[styles.subtitle, { color: colors.primary }]}>GOALS OVERVIEW</Text>
+                                <Text style={styles.title}>GOAL PROGRESS</Text>
+                                <Text style={[styles.subtitle, { color: accentColor }]}>OVERVIEW</Text>
                             </View>
-                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: colors.primary + '20' }]}>
-                                <Ionicons name="share-social" size={20} color={colors.primary} />
+                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
+                                <Ionicons name="share-social" size={20} color={accentColor} />
                             </TouchableOpacity>
                         </View>
 
@@ -115,8 +118,8 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
                                 {/* Stats Row */}
                                 <View style={styles.statsRow}>
                                     <VoidCard glass style={styles.statCard}>
-                                        <View style={[styles.statIcon, { backgroundColor: colors.primary + '20' }]}>
-                                            <Ionicons name="planet" size={22} color={colors.primary} />
+                                        <View style={[styles.statIcon, { backgroundColor: accentColor + '20' }]}>
+                                            <Ionicons name="planet" size={22} color={accentColor} />
                                         </View>
                                         <Text style={styles.statValue}>{goals.length}</Text>
                                         <Text style={styles.statLabel}>GOALS</Text>
@@ -137,14 +140,22 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
                                         return (
                                             <TouchableOpacity key={goal.id} onPress={() => handleGoalPress(goal.id)} activeOpacity={0.7}>
                                                 <VoidCard glass style={styles.goalCard}>
-                                                    <View style={[styles.goalIcon, { backgroundColor: (goal.color || '#8B5CF6') + '20' }]}>
-                                                        <Ionicons name={(goal.icon as any) || 'flag'} size={24} color={goal.color || '#8B5CF6'} />
+                                                    <View style={[styles.goalIcon, { backgroundColor: accentColor + '20' }]}>
+                                                        <Ionicons name={(goal.icon as any) || 'flag'} size={24} color={accentColor} />
                                                     </View>
                                                     <Text style={styles.goalName} numberOfLines={2}>{goal.name}</Text>
-                                                    <View style={styles.progressBar}>
-                                                        <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: goal.color || '#8B5CF6' }]} />
+                                                    <View style={{ marginVertical: 8 }}>
+                                                        <HalfCircleProgress
+                                                            progress={progress}
+                                                            size={80}
+                                                            strokeWidth={6}
+                                                            color={accentColor}
+                                                            backgroundColor={'rgba(255,255,255,0.1)'}
+                                                            textColor={'#fff'}
+                                                            fontSize={14}
+                                                            showPercentage={true}
+                                                        />
                                                     </View>
-                                                    <Text style={[styles.progressText, { color: goal.color || '#8B5CF6' }]}>{progress}%</Text>
                                                 </VoidCard>
                                             </TouchableOpacity>
                                         );
@@ -164,7 +175,7 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
                 visible={showShare}
                 onClose={() => setShowShare(false)}
                 stats={{
-                    title: "MISSION CONTROL",
+                    title: "GOAL PROGRESS",
                     value: `${avgProgress}%`,
                     subtitle: `${goals.length} Active Goals`,
                     type: 'growth'

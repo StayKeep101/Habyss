@@ -7,10 +7,12 @@ import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 const DataStorage = () => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
+  const { primary: accentColor, colors: accentColors } = useAccentGradient();
   const { lightFeedback, successFeedback } = useHaptics();
 
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -75,14 +77,14 @@ const DataStorage = () => {
                 <Text style={[styles.label, { color: colors.textPrimary }]}>Last Backup</Text>
                 <Text style={[styles.value, { color: colors.textSecondary }]}>{lastBackup}</Text>
               </View>
-              <Ionicons name="cloud-done-outline" size={28} color={colors.success} />
+              <Ionicons name="cloud-done-outline" size={28} color={accentColor} />
             </View>
           </View>
 
           {/* Actions */}
           <TouchableOpacity onPress={handleBackup} disabled={isBackingUp}>
             <LinearGradient
-              colors={['#3B82F6', '#8B5CF6']}
+              colors={accentColors}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.primaryBtn}
@@ -101,7 +103,7 @@ const DataStorage = () => {
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TouchableOpacity style={styles.actionRow} onPress={handleRestore}>
               <View style={styles.rowContent}>
-                <Ionicons name="cloud-download-outline" size={22} color={colors.textSecondary} />
+                <Ionicons name="cloud-download-outline" size={22} color={accentColor} />
                 <Text style={[styles.label, { color: colors.textPrimary }]}>Restore from Backup</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />

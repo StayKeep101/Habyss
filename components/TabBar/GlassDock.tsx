@@ -53,9 +53,7 @@ const TabIcon = ({ routeName, focused, colors, isDark }: TabIconProps) => {
     return (
         <Animated.View style={[animatedStyle, styles.iconContainer]}>
             <Ionicons name={getIconName()} size={24} color={iconColor} />
-            {focused && (
-                <View style={[styles.focusDot, { backgroundColor: colors[0] }]} />
-            )}
+            {/* Dot removed per request */}
         </Animated.View>
     );
 };

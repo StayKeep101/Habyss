@@ -35,7 +35,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   };
 
   // Dynamic Styles based on Size
