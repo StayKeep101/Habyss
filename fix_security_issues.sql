@@ -32,6 +32,19 @@ BEGIN
         FOR UPDATE 
         USING ((select auth.uid()) = user_id);
     END IF;
+
+    -- INSERT policy: Allow authenticated users to create notifications for anyone
+    -- This is needed for features like nudges, habit sharing, etc.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'notifications' 
+        AND policyname = 'Authenticated users can create notifications'
+    ) THEN
+        CREATE POLICY "Authenticated users can create notifications" 
+        ON public.notifications 
+        FOR INSERT 
+        WITH CHECK (auth.uid() IS NOT NULL);
+    END IF;
 END $$;
 
 

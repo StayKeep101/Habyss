@@ -79,6 +79,7 @@ import { StreakModal } from '@/components/Home/StreakModal';
 import { AnalyticsDashboard } from '@/components/Home/AnalyticsDashboard';
 import { ConsistencyModal } from '@/components/Home/ConsistencyModal';
 import { FocusTimeCard } from '@/components/Home/FocusTimeCard';
+import { TodaysCompletionCard } from '@/components/Home/TodaysCompletionCard';
 
 const Home = () => {
   const router = useRouter();
@@ -645,6 +646,11 @@ const Home = () => {
             />
           </Animated.View>
 
+          {/* Today's Focus Card - Right below Goals Progress */}
+          <Animated.View entering={FadeInDown.delay(150).duration(500)} style={{ marginTop: 16 }}>
+            <FocusTimeCard />
+          </Animated.View>
+
           {/* Streak & Consistency Cards */}
           <Animated.View entering={FadeInDown.delay(200).duration(500)} style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
             <StreakCard
@@ -658,15 +664,19 @@ const Home = () => {
             />
           </Animated.View>
 
+          {/* Today's Completion Card - Right below Streak/Consistency */}
+          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: 16 }}>
+            <TodaysCompletionCard
+              completedCount={Object.keys(completions).length}
+              totalCount={habits.filter(h => isHabitScheduledForDate(h, new Date())).length}
+              onPress={() => router.push('/(root)/(tabs)/roadmap')}
+            />
+          </Animated.View>
+
           {/* Analytics Dashboard (Life Balance Matrix) */}
           <View style={{ marginTop: 16 }}>
             <AnalyticsDashboard habits={habits} completions={completions} history={historyData} />
           </View>
-
-          {/* Focus Time Card (replaces Today's Habits) */}
-          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
-            <FocusTimeCard />
-          </Animated.View>
 
         </ScrollView>
 

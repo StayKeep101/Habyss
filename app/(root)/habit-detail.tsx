@@ -136,12 +136,10 @@ export default function HabitDetailScreen() {
     setCurrentPage(page);
   };
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        <SpinningLogo />
-      </View>
-    );
+  // Only show loading if habit truly isn't available yet (fallback case)
+  // In most cases, habit is initialized from params so this won't show
+  if (loading && !habit) {
+    return null; // Return nothing briefly while loading, prevents jarring spinner
   }
 
   if (!habit) {

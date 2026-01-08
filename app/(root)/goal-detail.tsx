@@ -325,10 +325,10 @@ const GoalDetail = () => {
           <View style={{ marginTop: 50, paddingHorizontal: 20 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.goalTitle}>{goal.name}</Text>
+                <Text style={[styles.goalTitle, { color: colors.text }]}>{goal.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} style={{ marginRight: 4 }} />
-                  <Text style={styles.goalTarget}>Target: {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Ongoing'}</Text>
+                  <Text style={[styles.goalTarget, { color: colors.textTertiary }]}>Target: {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Ongoing'}</Text>
                   {daysLeft > 0 && <View style={[styles.daysTag, { backgroundColor: (goal.color || accentColor) + '20' }]}><Text style={[styles.daysTagText, { color: goal.color || accentColor }]}>{daysLeft} days left</Text></View>}
                 </View>
               </View>
@@ -344,7 +344,7 @@ const GoalDetail = () => {
             </View>
 
             {goal.description && (
-              <Text style={styles.goalDescription}>{goal.description}</Text>
+              <Text style={[styles.goalDescription, { color: colors.textSecondary }]}>{goal.description}</Text>
             )}
           </View>
 

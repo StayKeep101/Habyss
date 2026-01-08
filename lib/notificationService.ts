@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { ThemeMode } from '@/constants/themeContext';
+import { supabase } from './supabase';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -16,16 +17,13 @@ export interface InAppNotification {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'habit' | 'streak' | 'achievement';
+  type: 'info' | 'success' | 'warning' | 'error' | 'habit' | 'streak' | 'achievement' | 'nudge' | 'friend_request' | 'shared_habit';
   timestamp: number;
   read: boolean;
   icon?: string;
   data?: any;
+  fromUserId?: string;
 }
-
-// Mock In-Memory Store for Inbox
-// Welcome notification is now handled separately to avoid showing on every restart
-let inbox: InAppNotification[] = [];
 
 export class NotificationService {
   static async init() {
@@ -99,35 +97,119 @@ export class NotificationService {
     // Optional local notification
   }
 
-  // --- Inbox Methods ---
+  // --- Inbox Methods (Supabase-backed) ---
 
   static async getUnreadCount(): Promise<number> {
-    return inbox.filter(n => !n.read).length;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return 0;
+
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+
+      return error ? 0 : (count || 0);
+    } catch (e) {
+      console.error('Error getting unread count:', e);
+      return 0;
+    }
   }
 
   static async getInboxNotifications(): Promise<InAppNotification[]> {
-    return [...inbox].sort((a, b) => b.timestamp - a.timestamp);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        return [];
+      }
+
+      return (data || []).map(n => ({
+        id: n.id,
+        title: n.title || 'Notification',
+        message: n.body || '',
+        type: n.type || 'info',
+        timestamp: new Date(n.created_at).getTime(),
+        read: n.read || false,
+        icon: n.icon,
+        data: n.data,
+        fromUserId: n.from_user_id,
+      }));
+    } catch (e) {
+      console.error('Error in getInboxNotifications:', e);
+      return [];
+    }
   }
 
   static async markAllNotificationsRead() {
-    inbox = inbox.map(n => ({ ...n, read: true }));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+    } catch (e) {
+      console.error('Error marking all as read:', e);
+    }
   }
 
   static async clearAllNotifications() {
-    inbox = [];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.id);
+    } catch (e) {
+      console.error('Error clearing notifications:', e);
+    }
   }
 
   static async markNotificationRead(id: string) {
-    inbox = inbox.map(n => n.id === id ? { ...n, read: true } : n);
+    try {
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', id);
+    } catch (e) {
+      console.error('Error marking notification as read:', e);
+    }
   }
 
-  // Helper to add fake notification for testing
-  static async addTestNotification(notification: Omit<InAppNotification, 'id' | 'timestamp' | 'read'>) {
-    inbox.push({
-      ...notification,
-      id: Math.random().toString(),
-      timestamp: Date.now(),
-      read: false
-    });
+  // Helper to add notification (for local testing or system notifications)
+  static async addNotification(notification: { title: string; body: string; type: string; data?: any }) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: user.id,
+          title: notification.title,
+          body: notification.body,
+          type: notification.type,
+          data: notification.data,
+          read: false,
+          created_at: new Date().toISOString(),
+        });
+    } catch (e) {
+      console.error('Error adding notification:', e);
+    }
   }
 }

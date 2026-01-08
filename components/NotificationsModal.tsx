@@ -81,6 +81,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
             case 'habit': return '#2DD4BF';
             case 'streak': return '#F97316';
             case 'achievement': return '#A855F7';
+            case 'nudge': return '#3B82F6'; // Blue for nudges
+            case 'friend_request': return '#EC4899'; // Pink for friend requests
+            case 'shared_habit': return '#10B981'; // Green for shared habits
             case 'info':
             default: return colors.primary;
         }

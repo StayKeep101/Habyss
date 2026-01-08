@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, RefreshControl, StyleSheet, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Share } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -21,6 +21,7 @@ export default function CommunityScreen() {
     const { thud, lightFeedback, mediumFeedback } = useHaptics();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
+    const hasLoadedOnce = useRef(false);
 
     // State
     const [friends, setFriends] = useState<Friend[]>([]);
@@ -39,7 +40,12 @@ export default function CommunityScreen() {
     const [userCode, setUserCode] = useState('');
     const [leaderboardPeriod, setLeaderboardPeriod] = useState<'week' | 'month' | 'year' | 'all'>('week');
 
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (forceRefresh = false) => {
+        // Skip if already loaded and not forcing refresh
+        if (!forceRefresh && hasLoadedOnce.current && !loading) {
+            return;
+        }
+
         setLoading(true);
         try {
             const user = await FriendsService.getCurrentUser();
@@ -65,16 +71,20 @@ export default function CommunityScreen() {
             setFriendsFeed(feed);
             setSharedHabits(shared);
             setSharedGoals(sharedGoalsData);
+            hasLoadedOnce.current = true;
         } catch (error) {
             console.error('Error loading community data:', error);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [leaderboardPeriod]);
 
+    // Only load data once on initial mount
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        if (!hasLoadedOnce.current) {
+            loadData();
+        }
+    }, []);
 
     // Reload leaderboard when period changes
     useEffect(() => {
@@ -88,7 +98,7 @@ export default function CommunityScreen() {
     const onRefresh = async () => {
         thud();
         setRefreshing(true);
-        await loadData();
+        await loadData(true); // Force refresh bypasses cache
         setRefreshing(false);
     };
 
@@ -181,6 +191,27 @@ export default function CommunityScreen() {
 
     return (
         <VoidShell>
+            {/* Full-Page Loading Overlay (Initial Load Only) */}
+            {loading && !refreshing && (
+                <View style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: colors.background,
+                    zIndex: 100,
+                }}>
+                    {(() => {
+                        const { SpinningLogo } = require('@/components/SpinningLogo');
+                        return <SpinningLogo />;
+                    })()}
+                    <Text style={{ color: colors.textSecondary, marginTop: 16, fontFamily: 'Lexend_400Regular' }}>Getting crew data...</Text>
+                </View>
+            )}
+
             <ScrollView
                 contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 20, paddingBottom: 140 }}
                 showsVerticalScrollIndicator={false}
@@ -201,17 +232,6 @@ export default function CommunityScreen() {
                             const { SpinningLogo } = require('@/components/SpinningLogo');
                             return <SpinningLogo />;
                         })()}
-                    </View>
-                )}
-
-                {/* Initial Loading State - Inline, non-blocking */}
-                {loading && !refreshing && (
-                    <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                        {(() => {
-                            const { SpinningLogo } = require('@/components/SpinningLogo');
-                            return <SpinningLogo />;
-                        })()}
-                        <Text style={{ color: colors.textSecondary, marginTop: 12, fontFamily: 'Lexend_400Regular' }}>Getting crew data...</Text>
                     </View>
                 )}
                 {/* Header */}
