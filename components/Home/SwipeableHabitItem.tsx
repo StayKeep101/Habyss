@@ -25,13 +25,14 @@ interface SwipeableHabitItemProps {
   onShare?: (habit: ExtendedHabit) => void;
   size: RoadMapCardSize;
   completed?: boolean; // New prop for performance (avoids object recreation)
+  goalName?: string; // Optional goal name to display as subtitle
 }
 
 const { width } = Dimensions.get('window');
 const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 
 export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
-  habit, onPress, onEdit, onDelete, onShare, size, completed
+  habit, onPress, onEdit, onDelete, onShare, size, completed, goalName
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -182,7 +183,9 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
           {/* Text Info */}
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }]} numberOfLines={1}>{habit.name}</Text>
-            {(habit.streak && habit.streak > 0 && !isSmall) ? ( // Hide streak on small if crowded, or just keep it small
+            {goalName && !isSmall ? (
+              <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
+            ) : (habit.streak && habit.streak > 0 && !isSmall) ? (
               <Text style={[styles.streakText, { color: '#F59E0B' }]}>🔥 {habit.streak}</Text>
             ) : null}
           </View>

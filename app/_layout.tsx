@@ -18,6 +18,7 @@ import { NotificationService } from '@/lib/notificationService';
 import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 import { AppSettingsProvider } from '@/constants/AppSettingsContext';
 import { AccentProvider } from '@/constants/AccentContext';
+import { FocusTimeProvider } from '@/constants/FocusTimeContext';
 import { CreationModal } from '@/components/CreationModal';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
 import { TutorialProvider } from '@/context/TutorialContext';
@@ -71,11 +72,13 @@ export default function MobileLayout() {
       <AppSettingsProvider>
         <AIPersonalityProvider>
           <AccentProvider>
-            <TutorialProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <InnerLayout />
-              </GestureHandlerRootView>
-            </TutorialProvider>
+            <FocusTimeProvider>
+              <TutorialProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <InnerLayout />
+                </GestureHandlerRootView>
+              </TutorialProvider>
+            </FocusTimeProvider>
           </AccentProvider>
         </AIPersonalityProvider>
       </AppSettingsProvider>

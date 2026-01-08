@@ -398,7 +398,44 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
 
 // --- Statistics ---
 
+export async function getLastNDaysCompletions(days: number): Promise<{ date: string; completedIds: string[] }[]> {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (days - 1));
 
+    const startStr = todayString(startDate);
+    const endStr = todayString(endDate);
+
+    const { data, error } = await supabase
+        .from('habit_completions')
+        .select('date, habit_id')
+        .gte('date', startStr)
+        .lte('date', endStr);
+
+    if (error) {
+        console.error(error);
+        return [];
+    }
+
+    const map = new Map<string, string[]>();
+    (data || []).forEach((row: any) => {
+        if (!map.has(row.date)) map.set(row.date, []);
+        map.get(row.date)!.push(row.habit_id);
+    });
+
+    const result: { date: string; completedIds: string[] }[] = [];
+    for (let i = 0; i < days; i++) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        const dateStr = todayString(d);
+        result.push({
+            date: dateStr,
+            completedIds: map.get(dateStr) || []
+        });
+    }
+
+    return result;
+}
 
 export async function getStreakData(): Promise<{ currentStreak: number; bestStreak: number; perfectDays: number; totalCompleted: number }> {
     const history = await getLastNDaysCompletions(90);
@@ -544,51 +581,11 @@ export function calculateGoalProgressInstant(
             }
         });
 
+        current.setDate(current.getDate() + 1);
     }
 
     if (totalExpected === 0) return 0;
     return Math.round((totalCompleted / totalExpected) * 100);
-}
-
-// NEW: Efficient Range Query for Pagination/Lazy Loading
-export async function getHistoryRange(startDate: string, endDate: string): Promise<{ date: string; completedIds: string[] }[]> {
-    const uid = await getUserId();
-    if (!uid) return [];
-
-    try {
-        const { data, error } = await supabase
-            .from('habit_completions')
-            .select('date, habit_id')
-            .eq('user_id', uid)
-            .gte('date', startDate)
-            .lte('date', endDate)
-            .order('date', { ascending: false });
-
-        if (error) throw error;
-
-        // Group by date
-        const grouped: Record<string, string[]> = {};
-        data.forEach((row: any) => {
-            if (!grouped[row.date]) grouped[row.date] = [];
-            grouped[row.date].push(row.habit_id);
-        });
-
-        return Object.entries(grouped).map(([date, completedIds]) => ({ date, completedIds }));
-    } catch (err) {
-        console.warn('Error fetching history range:', err);
-        return [];
-    }
-}
-
-export async function getLastNDaysCompletions(n: number): Promise<{ date: string; completedIds: string[] }[]> {
-    const today = new Date();
-    const start = new Date();
-    start.setDate(today.getDate() - n);
-
-    const startStr = todayString(start);
-    const endStr = todayString(today);
-
-    return getHistoryRange(startStr, endStr);
 }
 
 export async function getHeatmapData(): Promise<{ date: string; count: number }[]> {
@@ -623,84 +620,4 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
 
 export async function syncHealthKitData() {
     console.log('[Habits] HealthKit sync placeholder');
-}
-
-// --- Focus Time Accumulation ---
-
-export async function addFocusMinutes(habitId: string, minutes: number, dateISO?: string): Promise<void> {
-    const uid = await getUserId();
-    if (!uid) return;
-
-    const dateStr = dateISO ?? todayString();
-
-    // 1. Check if record exists
-    const { data: existing, error: fetchError } = await supabase
-        .from('habit_completions')
-        .select('*')
-        .eq('user_id', uid)
-        .eq('habit_id', habitId)
-        .eq('date', dateStr)
-        .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows found"
-        console.error('Error fetching completion for focus time:', fetchError);
-        return;
-    }
-
-    if (existing) {
-        // 2. Update existing
-        const newValue = (existing.value || 0) + minutes;
-        const { error: updateError } = await supabase
-            .from('habit_completions')
-            .update({ value: newValue })
-            .eq('id', existing.id);
-
-        if (updateError) console.error('Error updating focus time:', updateError);
-    } else {
-        // 3. Insert new with value (and mark completed? Maybe optional, but usually if you focus you did it)
-        // Let's assume focusing counts as completion if it exceeds a threshold? 
-        // For now, just insert.
-        const { error: insertError } = await supabase
-            .from('habit_completions')
-            .insert({
-                user_id: uid,
-                habit_id: habitId,
-                date: dateStr,
-                completed: true, // Auto-complete if they track time? User didn't specify, but implies "Activity".
-                value: minutes
-            });
-
-        if (insertError) console.error('Error inserting focus time:', insertError);
-        else {
-            // Optimistic update cache logic would go here if needed
-            if (!completionsCache[dateStr]) completionsCache[dateStr] = {};
-            completionsCache[dateStr][habitId] = true;
-            DeviceEventEmitter.emit('habit_completion_updated', { habitId, date: dateStr, completed: true });
-        }
-    }
-
-    // Emit event for UI updates (e.g. daily focus card)
-    DeviceEventEmitter.emit('focus_time_updated');
-}
-
-export async function getTodayFocusTime(): Promise<number> {
-    const uid = await getUserId();
-    if (!uid) return 0;
-
-    const today = todayString();
-
-    const { data, error } = await supabase
-        .from('habit_completions')
-        .select('value')
-        .eq('user_id', uid)
-        .eq('date', today);
-
-    if (error) {
-        console.error('Error fetching today focus time:', error);
-        return 0;
-    }
-
-    // Sum up all 'value' fields
-    const total = (data || []).reduce((sum: number, row: any) => sum + (Number(row.value) || 0), 0);
-    return total;
 }

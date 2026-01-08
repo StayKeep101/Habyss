@@ -198,7 +198,12 @@ export default function HabitDetailScreen() {
 
           {/* Pomodoro Timer - HERO POSITION */}
           <View style={{ marginBottom: 24 }}>
-            <PomodoroTimer defaultMinutes={habit.durationMinutes} noCard />
+            <PomodoroTimer
+              defaultMinutes={habit.durationMinutes}
+              habitId={habit.id}
+              habitName={habit.name}
+              noCard
+            />
           </View>
 
           {/* Main Info Card */}

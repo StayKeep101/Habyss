@@ -413,16 +413,12 @@ const CalendarScreen = () => {
                         <Animated.ScrollView
                             onScroll={scrollHandler}
                             scrollEventThrottle={16}
-                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 150, paddingTop: 40 }}
+                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 150, paddingTop: 8 }}
                             showsVerticalScrollIndicator={false}
                             bounces={true}
                             alwaysBounceVertical={true}
                             style={{ backgroundColor: 'transparent' }}
                         >
-                            {/* Pull-to-Filter Hint */}
-                            <View style={{ alignItems: 'center', marginTop: -20, marginBottom: 16 }}>
-                                {/* Pull hint removed for cleaner UI */}
-                            </View>
 
                             {/* Filter Indicator - Subtle compact pill */}
                             {(activeFilter !== 'all' || hasActiveFilters || activeTimeFilter !== 'all') && (
@@ -552,32 +548,37 @@ const CalendarScreen = () => {
                                         {activeFilter === 'all' ? 'OTHER HABITS' : 'ALL HABITS'}
                                     </Text>
 
-                                    {(activeFilter === 'all' ? looseHabits : allHabits).map(habit => (
-                                        <SwipeableHabitItem
-                                            key={habit.id}
-                                            habit={habit}
-                                            completed={!!completions[habit.id]}
-                                            onPress={(h) => {
-                                                // Use local date format, not UTC
-                                                const today = new Date();
-                                                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                                                const selectedStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+                                    {(activeFilter === 'all' ? looseHabits : allHabits).map(habit => {
+                                        // Find associated goal name for habit
+                                        const associatedGoal = goals.find(g => g.id === habit.goalId);
+                                        return (
+                                            <SwipeableHabitItem
+                                                key={habit.id}
+                                                habit={habit}
+                                                completed={!!completions[habit.id]}
+                                                goalName={activeFilter === 'habits_only' && associatedGoal ? associatedGoal.name : undefined}
+                                                onPress={(h) => {
+                                                    // Use local date format, not UTC
+                                                    const today = new Date();
+                                                    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                                    const selectedStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
-                                                if (selectedStr !== todayStr) {
-                                                    Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
-                                                    return;
-                                                }
+                                                    if (selectedStr !== todayStr) {
+                                                        Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
+                                                        return;
+                                                    }
 
-                                                selectionFeedback();
-                                                toggleCompletion(h.id, todayStr);
-                                                setCompletions(prev => ({ ...prev, [h.id]: !prev[h.id] }));
-                                            }}
-                                            onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id } })}
-                                            onDelete={(h) => { handleDelete(h); }}
-                                            onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
-                                            size={cardSize}
-                                        />
-                                    ))
+                                                    selectionFeedback();
+                                                    toggleCompletion(h.id, todayStr);
+                                                    setCompletions(prev => ({ ...prev, [h.id]: !prev[h.id] }));
+                                                }}
+                                                onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id } })}
+                                                onDelete={(h) => { handleDelete(h); }}
+                                                onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
+                                                size={cardSize}
+                                            />
+                                        );
+                                    })
                                     }
                                 </View>
                             )}

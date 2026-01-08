@@ -78,6 +78,7 @@ import { GoalsGridModal } from '@/components/Home/GoalsGridModal';
 import { StreakModal } from '@/components/Home/StreakModal';
 import { AnalyticsDashboard } from '@/components/Home/AnalyticsDashboard';
 import { ConsistencyModal } from '@/components/Home/ConsistencyModal';
+import { FocusTimeCard } from '@/components/Home/FocusTimeCard';
 
 const Home = () => {
   const router = useRouter();
@@ -319,15 +320,11 @@ const Home = () => {
   // Load history data
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(async () => {
-      // Lazy load history - default 90 days for stats
-      const { getLastNDaysCompletions } = await import('@/lib/habitsSQLite');
       const data = await getLastNDaysCompletions(90);
       setHistoryData(data);
     });
     return () => task.cancel();
   }, []);
-
-
 
   // INSTANT: Calculate goal progress synchronously using local state (completions + historyData)
   // This avoids the network delay of 'calculateGoalProgress' after every toggle
@@ -513,30 +510,6 @@ const Home = () => {
     return habits.filter(h => isHabitScheduledForDate(h, new Date())).slice(0, 5);
   }, [habits]);
 
-  // Focus Time State
-  const [todayFocusTime, setTodayFocusTime] = useState(0);
-
-  // Load focus time
-  useEffect(() => {
-    const loadFocus = async () => {
-      const { getTodayFocusTime } = await import('@/lib/habitsSQLite');
-      const minutes = await getTodayFocusTime();
-      setTodayFocusTime(minutes);
-    };
-    loadFocus();
-
-    const sub = DeviceEventEmitter.addListener('focus_time_updated', loadFocus);
-    return () => sub.remove();
-  }, [refreshing]); // Reload on pull-to-refresh too
-
-  // Format focus time (minutes to H hours M min)
-  const formattedFocusTime = useMemo(() => {
-    const hours = Math.floor(todayFocusTime / 60);
-    const mins = todayFocusTime % 60;
-    if (hours > 0) return `${hours}h ${mins}m`;
-    return `${mins}m`;
-  }, [todayFocusTime]);
-
   // Handlers
   const handleHabitToggle = (habitId: string) => {
     selectionFeedback();
@@ -578,21 +551,11 @@ const Home = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={'transparent'} // Hide native spinner
-              colors={['transparent']}
-              progressBackgroundColor={'transparent'}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
             />
           }
         >
-          {/* Custom Refresh Spinner */}
-          {refreshing && (
-            <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-              {(() => {
-                const { SpinningLogo } = require('@/components/SpinningLogo');
-                return <SpinningLogo />;
-              })()}
-            </View>
-          )}
 
           {/* Header Row */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 20 }}>
@@ -651,7 +614,7 @@ const Home = () => {
             </View>
           </View>
 
-          {/* AI Greeting */}
+          {/* AI Greeting - Full Width Below Header */}
           {motivationalQuote ? (
             <Animated.View entering={FadeInDown.duration(400)} style={{ marginTop: 16 }}>
               <Text style={{
@@ -670,6 +633,7 @@ const Home = () => {
             </Animated.View>
           ) : null}
 
+          {/* Spacer after header */}
           <View style={{ height: 16 }} />
 
           {/* Goals Progress Bar */}
@@ -699,58 +663,14 @@ const Home = () => {
             <AnalyticsDashboard habits={habits} completions={completions} history={historyData} />
           </View>
 
-          {/* Daily Focus & Habits - Replaces Quick Habits */}
-          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 8 }}>
-            <VoidCard style={{ padding: 20 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <View>
-                  <Text style={{ fontSize: 16, color: colors.text, fontWeight: '700' }}>Daily Focus</Text>
-                  <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                    Total Time: <Text style={{ color: colors.primary, fontWeight: '700' }}>{formattedFocusTime}</Text>
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => router.push('/(root)/(tabs)/roadmap')}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>See All</Text>
-                </TouchableOpacity>
-              </View>
-
-              {topHabits.length > 0 ? topHabits.map((habit, i) => (
-                <TouchableOpacity
-                  key={habit.id}
-                  onPress={() => handleHabitToggle(habit.id)}
-                  activeOpacity={0.7}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: i < topHabits.length - 1 ? 1 : 0, borderBottomColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }}
-                >
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: completions[habit.id] ? accentColor + '30' : (isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'), alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                    <Ionicons name={completions[habit.id] ? 'checkmark' : (habit.icon as any) || 'ellipse'} size={18} color={completions[habit.id] ? accentColor : colors.textSecondary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    {/* Goal Title ABOVE Habit Name */}
-                    {habit.goalId && (
-                      <Text style={{ color: colors.textTertiary, fontSize: 10, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                        {goals.find(g => g.id === habit.goalId)?.name || 'Goal'}
-                      </Text>
-                    )}
-                    <Text style={{ color: completions[habit.id] ? colors.textTertiary : colors.text, fontSize: 14, fontWeight: '500', textDecorationLine: completions[habit.id] ? 'line-through' : 'none' }}>{habit.name}</Text>
-                  </View>
-                  <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: completions[habit.id] ? accentColor : (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'), alignItems: 'center', justifyContent: 'center', backgroundColor: completions[habit.id] ? accentColor : 'transparent' }}>
-                    {completions[habit.id] && <Ionicons name="checkmark" size={14} color="#fff" />}
-                  </View>
-                </TouchableOpacity>
-              )) : (
-                <View style={{ paddingVertical: 30, alignItems: 'center' }}>
-                  <Ionicons name="add-circle-outline" size={40} color={colors.textTertiary} />
-                  <Text style={{ color: colors.textSecondary, marginTop: 12 }}>No habits yet</Text>
-                  <TouchableOpacity onPress={() => DeviceEventEmitter.emit('show_habit_modal')} style={{ marginTop: 12, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 }}>
-                    <Text style={{ color: colors.textPrimary, fontSize: 13 }}>Create First Habit</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </VoidCard>
+          {/* Focus Time Card (replaces Today's Habits) */}
+          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
+            <FocusTimeCard />
           </Animated.View>
 
         </ScrollView>
-        {/* Modals... */}
+
+        {/* Modals */}
         <GoalsGridModal
           visible={showGoalsModal}
           onClose={() => setShowGoalsModal(false)}
