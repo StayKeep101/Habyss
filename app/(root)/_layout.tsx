@@ -67,11 +67,11 @@ export default function RootLayout() {
             presentation: 'modal'
           }}
         />
-        {/* create removed */}
         <Stack.Screen
-          name="roadmap"
+          name="create"
           options={{
             headerShown: false,
+            presentation: 'modal',
           }}
         />
         <Stack.Screen
