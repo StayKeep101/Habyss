@@ -646,11 +646,6 @@ const Home = () => {
             />
           </Animated.View>
 
-          {/* Today's Focus Card - Right below Goals Progress */}
-          <Animated.View entering={FadeInDown.delay(150).duration(500)} style={{ marginTop: 16 }}>
-            <FocusTimeCard />
-          </Animated.View>
-
           {/* Streak & Consistency Cards */}
           <Animated.View entering={FadeInDown.delay(200).duration(500)} style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
             <StreakCard
@@ -664,19 +659,19 @@ const Home = () => {
             />
           </Animated.View>
 
-          {/* Today's Completion Card - Right below Streak/Consistency */}
+          {/* Today's Focus Card - Below Streak & Consistency */}
           <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: 16 }}>
+            <FocusTimeCard />
+          </Animated.View>
+
+          {/* Today's Completion Card - Below Focus Card */}
+          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
             <TodaysCompletionCard
               completedCount={Object.keys(completions).length}
               totalCount={habits.filter(h => isHabitScheduledForDate(h, new Date())).length}
               onPress={() => router.push('/(root)/(tabs)/roadmap')}
             />
           </Animated.View>
-
-          {/* Analytics Dashboard (Life Balance Matrix) */}
-          <View style={{ marginTop: 16 }}>
-            <AnalyticsDashboard habits={habits} completions={completions} history={historyData} />
-          </View>
 
         </ScrollView>
 
@@ -702,7 +697,15 @@ const Home = () => {
           goalConsistency={goalConsistency}
           avgConsistency={avgConsistency}
         />
-        <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
+        <NotificationsModal
+          visible={showNotifications}
+          onClose={async () => {
+            setShowNotifications(false);
+            // Refresh unread count to update badge
+            const count = await NotificationService.getUnreadCount();
+            setUnreadCount(count);
+          }}
+        />
         <AIAgentModal visible={showAIAgent} onClose={() => setShowAIAgent(false)} />
         <CelebrationAnimation visible={showCelebration} onComplete={() => setShowCelebration(false)} />
       </SafeAreaView>

@@ -59,7 +59,7 @@ export const FocusTimeCard: React.FC = () => {
     const hasActiveTimer = isRunning || isPaused;
 
     return (
-        <VoidCard style={styles.container}>
+        <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerLeft}>

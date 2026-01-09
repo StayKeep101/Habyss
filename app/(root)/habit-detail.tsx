@@ -192,19 +192,9 @@ export default function HabitDetailScreen() {
         {/* PAGE 1: Focus & Stats */}
         <ScrollView style={{ width: width }} contentContainerStyle={styles.pageContent}>
 
-          <ScreenHeader title="PROTOCOL" subtitle="DETAILS & METRICS" />
+          <ScreenHeader title="PROTOCOL" subtitle="FOCUS SESSION" />
 
-          {/* Pomodoro Timer - HERO POSITION */}
-          <View style={{ marginBottom: 24 }}>
-            <PomodoroTimer
-              defaultMinutes={habit.durationMinutes}
-              habitId={habit.id}
-              habitName={habit.name}
-              noCard
-            />
-          </View>
-
-          {/* Main Info Card */}
+          {/* Main Hero Card - Habit Info + Toggle */}
           <VoidCard glass style={styles.mainCard}>
             <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : colors.surfaceTertiary }]}>
               <Ionicons
@@ -217,7 +207,7 @@ export default function HabitDetailScreen() {
               {habit.name}
             </Text>
             <Text style={[styles.habitMeta, { color: colors.textSecondary }]}>
-              {habit.category.toUpperCase()} • {habit.durationMinutes ? `${habit.durationMinutes} MIN` : 'NO DURATION'}
+              {habit.category.toUpperCase()} • {streak} DAY STREAK
             </Text>
 
             <TouchableOpacity
@@ -227,46 +217,42 @@ export default function HabitDetailScreen() {
             >
               <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={20} color="white" style={{ marginRight: 8 }} />
               <Text style={styles.actionButtonText}>
-                {completed ? 'PROTOCOL COMPLETE' : 'EXECUTE PROTOCOL'}
+                {completed ? 'COMPLETED TODAY' : 'MARK COMPLETE'}
               </Text>
             </TouchableOpacity>
           </VoidCard>
 
-          {/* Performance Stats */}
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>PERFORMANCE</Text>
-          <View style={styles.statsGrid}>
-            {[
-              { label: 'STREAK', value: `${streak} DAYS`, icon: 'flame', color: '#FFD93D' },
-              { label: 'BEST', value: `${streak} DAYS`, icon: 'trophy', color: '#4ECDC4' },
-              { label: 'VOLUME', value: habit.durationMinutes ? `${habit.durationMinutes * streak} MIN` : '0 MIN', icon: 'time', color: '#8BADD6' },
-              { label: 'CYCLE', value: 'DAILY', icon: 'repeat', color: '#8B5CF6' }
-            ].map((stat, i) => (
-              <VoidCard key={i} style={styles.statCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Ionicons name={stat.icon as any} size={16} color={stat.color} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
-                </View>
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
-              </VoidCard>
-            ))}
-          </View>
-
-          {/* Visualization Card */}
+          {/* Pomodoro Timer */}
           <View style={{ marginBottom: 24 }}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
-            <VoidCard glass style={{ padding: 16, alignItems: 'center' }}>
-              <HabitVisualization habit={habit} history={history} colors={colors} />
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>FOCUS TIMER</Text>
+            <VoidCard glass style={{ padding: 20 }}>
+              <PomodoroTimer
+                defaultMinutes={habit.durationMinutes}
+                habitId={habit.id}
+                habitName={habit.name}
+                noCard
+              />
             </VoidCard>
           </View>
 
-          {/* Description */}
-          <VoidCard style={styles.descCard}>
-            <Text style={[styles.descTitle, { color: colors.textPrimary }]}>DIRECTIVE</Text>
-            <Text style={[styles.descText, { color: colors.textSecondary }]}>
-              Consistency is key. You've set this protocol to improve your {habit.category}.
-              Maintain your streak to achieve optimal results.
-            </Text>
-          </VoidCard>
+          {/* Quick Stats Row */}
+          <View style={styles.quickStatsRow}>
+            <VoidCard style={styles.quickStatCard}>
+              <Ionicons name="flame" size={20} color="#FFD93D" />
+              <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>{streak}</Text>
+              <Text style={[styles.quickStatLabel, { color: colors.textTertiary }]}>Streak</Text>
+            </VoidCard>
+            <VoidCard style={styles.quickStatCard}>
+              <Ionicons name="time" size={20} color="#8BADD6" />
+              <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>{habit.durationMinutes || 0}m</Text>
+              <Text style={[styles.quickStatLabel, { color: colors.textTertiary }]}>Duration</Text>
+            </VoidCard>
+            <VoidCard style={styles.quickStatCard}>
+              <Ionicons name="repeat" size={20} color="#8B5CF6" />
+              <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>Daily</Text>
+              <Text style={[styles.quickStatLabel, { color: colors.textTertiary }]}>Cycle</Text>
+            </VoidCard>
+          </View>
 
           {/* Bottom Padding for scroll */}
           <View style={{ height: 100 }} />
@@ -418,6 +404,28 @@ const styles = StyleSheet.create({
   descText: {
     fontSize: 14,
     lineHeight: 22,
+  },
+  quickStatsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  quickStatCard: {
+    flex: 1,
+    padding: 16,
+    alignItems: 'center',
+  },
+  quickStatValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    fontFamily: 'Lexend',
+    marginTop: 8,
+  },
+  quickStatLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: 'Lexend_400Regular',
+    marginTop: 4,
   },
 });
 
