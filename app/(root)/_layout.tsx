@@ -52,13 +52,7 @@ export default function RootLayout() {
           }}
         />
 
-        <Stack.Screen
-          name="app-settings"
-          options={{
-            headerShown: false,
-            presentation: 'modal'
-          }}
-        />
+        {/* app-settings removed */}
         <Stack.Screen
           name="privacy"
           options={{
@@ -73,13 +67,7 @@ export default function RootLayout() {
             presentation: 'modal'
           }}
         />
-        <Stack.Screen
-          name="create"
-          options={{
-            headerShown: false,
-            presentation: 'modal'
-          }}
-        />
+        {/* create removed */}
         <Stack.Screen
           name="roadmap"
           options={{
@@ -93,13 +81,7 @@ export default function RootLayout() {
             presentation: 'modal'
           }}
         />
-        <Stack.Screen
-          name="statistics"
-          options={{
-            headerShown: false,
-            presentation: 'modal'
-          }}
-        />
+        {/* statistics removed */}
         <Stack.Screen
           name="goal-detail"
           options={{

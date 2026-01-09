@@ -21,8 +21,7 @@ import { AccentProvider } from '@/constants/AccentContext';
 import { FocusTimeProvider } from '@/constants/FocusTimeContext';
 import { CreationModal } from '@/components/CreationModal';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
-import { TutorialProvider } from '@/context/TutorialContext';
-import { TutorialOverlay } from '@/components/Tutorial/TutorialOverlay';
+// Tutorial removed
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -73,11 +72,11 @@ export default function MobileLayout() {
         <AIPersonalityProvider>
           <AccentProvider>
             <FocusTimeProvider>
-              <TutorialProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <InnerLayout />
-                </GestureHandlerRootView>
-              </TutorialProvider>
+              {/* TutorialProvider removed */}
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <InnerLayout />
+              </GestureHandlerRootView>
+              {/* TutorialProvider removed */}
             </FocusTimeProvider>
           </AccentProvider>
         </AIPersonalityProvider>
@@ -101,7 +100,7 @@ function InnerLayout() {
         </Stack>
         <CreationModal />
         <HabitCreationModal />
-        <TutorialOverlay />
+        {/* TutorialOverlay removed */}
         <StatusBar style={isDark ? "light" : "dark"} />
       </VoidShell>
     </View>
