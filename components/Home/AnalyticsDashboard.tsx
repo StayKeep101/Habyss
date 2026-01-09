@@ -233,21 +233,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                 </View>
             </VoidCard>
 
-            {/* Today's Completion Card */}
-            <VoidCard glass style={[styles.completionCard, isLight && { backgroundColor: colors.surfaceSecondary }]} intensity={isLight ? 20 : 90}>
-                <View style={styles.completionRow}>
-                    <View style={styles.completionLeft}>
-                        <ExpoLinearGradient colors={accentColors} style={styles.completionIcon}>
-                            <Ionicons name="pie-chart" size={20} color="#fff" />
-                        </ExpoLinearGradient>
-                        <View>
-                            <Text style={[styles.completionLabel, { color: colors.textSecondary }]}>TODAY'S COMPLETION</Text>
-                            <Text style={[styles.completionSubtext, { color: colors.textPrimary }]}>{completedHabits}/{totalHabits} habits done</Text>
-                        </View>
-                    </View>
-                    <Text style={[styles.completionValue, { color: colors.textPrimary }]}>{dayProgress}%</Text>
-                </View>
-            </VoidCard>
+            
         </View>
     );
 };

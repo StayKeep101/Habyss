@@ -113,16 +113,6 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
 
     return (
       <View style={styles.rightActionsContainer}>
-        {onShare && (
-          <RectButton
-            style={[styles.rightAction, { backgroundColor: '#3B82F6' }]}
-            onPress={() => { selectionFeedback(); close(); onShare(habit); }}
-          >
-            <Animated.View style={[styles.actionContent, { transform: [{ scale }, { translateX: Animated.multiply(trans, 0.1) }] }]}>
-              <Ionicons name="share-outline" size={20} color="white" />
-            </Animated.View>
-          </RectButton>
-        )}
         <RectButton
           style={[styles.rightAction, { backgroundColor: '#F59E0B' }]}
           onPress={() => { selectionFeedback(); close(); onEdit(habit); }}

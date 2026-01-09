@@ -153,7 +153,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, sheetStyle]}>
                         <LinearGradient
-                            colors={theme === 'light' ? [colors.background, colors.surface] : ['#1a1f2e', '#0f1218']}
+                            colors={['#0f1218', '#080a0e']}
                             style={styles.sheetGradient}
                         >
                             {/* Drag Handle */}
@@ -168,12 +168,12 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                         {friend.avatarUrl ? (
                                             <Image source={{ uri: friend.avatarUrl }} style={styles.avatarImage} />
                                         ) : (
-                                            <Text style={[styles.avatarText, { color: colors.textSecondary }]}>
+                                            <Text style={[styles.avatarText, { color: 'rgba(255,255,255,0.5)' }]}>
                                                 {friend.username[0]?.toUpperCase()}
                                             </Text>
                                         )}
                                     </View>
-                                    <Text style={[styles.username, { color: colors.text }]}>{friend.username}</Text>
+                                    <Text style={[styles.username, { color: '#fff' }]}>{friend.username}</Text>
                                 </View>
 
                                 {/* Stats Grid */}
@@ -215,20 +215,20 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                     <View style={styles.quickStats}>
                                         <VoidCard glass style={styles.statCard}>
                                             <Ionicons name="flame" size={28} color="#FFD93D" />
-                                            <Text style={[styles.statValue, { color: colors.text }]}>{streak}</Text>
-                                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DAY STREAK</Text>
+                                            <Text style={[styles.statValue, { color: '#fff' }]}>{streak}</Text>
+                                            <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.7)' }]}>DAY STREAK</Text>
                                         </VoidCard>
                                         <VoidCard glass style={styles.statCard}>
                                             <Ionicons name="trophy" size={28} color="#F97316" />
-                                            <Text style={[styles.statValue, { color: colors.text }]}>{detailedStats?.longestStreak || streak}</Text>
-                                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BEST STREAK</Text>
+                                            <Text style={[styles.statValue, { color: '#fff' }]}>{detailedStats?.longestStreak || streak}</Text>
+                                            <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.7)' }]}>BEST STREAK</Text>
                                         </VoidCard>
                                     </View>
                                 </View>
 
                                 {/* Weekly Activity */}
                                 <VoidCard glass style={styles.weeklyCard}>
-                                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>THIS WEEK'S ACTIVITY</Text>
+                                    <Text style={[styles.sectionTitle, { color: 'rgba(255,255,255,0.7)' }]}>THIS WEEK'S ACTIVITY</Text>
                                     <View style={styles.weekDays}>
                                         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
                                             const isActive = detailedStats?.weeklyActivity[i] ?? Math.random() > 0.3;
@@ -249,7 +249,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                                     >
                                                         {isActive && <Ionicons name="checkmark" size={16} color="#fff" />}
                                                     </View>
-                                                    <Text style={[styles.dayLabel, { color: isToday ? colors.primary : colors.textSecondary }]}>
+                                                    <Text style={[styles.dayLabel, { color: isToday ? colors.primary : 'rgba(255,255,255,0.5)' }]}>
                                                         {day}
                                                     </Text>
                                                 </View>

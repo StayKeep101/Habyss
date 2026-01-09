@@ -13,7 +13,7 @@ interface ShareStatsModalProps {
         title: string;
         value: string;
         subtitle: string;
-        type: 'growth' | 'streak' | 'consistency';
+        type: 'growth' | 'streak' | 'consistency' | 'goal';
     };
 }
 
@@ -71,7 +71,12 @@ export const ShareStatsModal: React.FC<ShareStatsModalProps> = ({ visible, onClo
 
                     <VoidCard glass style={styles.card}>
                         <LinearGradient
-                            colors={stats.type === 'streak' ? ['#F97316', '#EF4444'] : stats.type === 'consistency' ? ['#10B981', '#059669'] : ['#3B82F6', '#8B5CF6']}
+                            colors={
+                                stats.type === 'streak' ? ['#F97316', '#EF4444'] :
+                                    stats.type === 'consistency' ? ['#10B981', '#059669'] :
+                                        stats.type === 'goal' ? ['#EC4899', '#DB2777'] :
+                                            ['#3B82F6', '#8B5CF6']
+                            }
                             style={styles.gradientBg}
                         />
 

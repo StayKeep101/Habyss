@@ -14,6 +14,7 @@ import { subscribeToHabits, Habit, removeHabitEverywhere, removeGoalWithLinkedHa
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter, LayoutAnimation } from 'react-native';
 import { GoalStats } from '@/components/Goal/GoalStats';
+import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 import { getCompletions, toggleCompletion } from '@/lib/habitsSQLite';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
@@ -50,6 +51,7 @@ const GoalDetail = () => {
   const [activeTab, setActiveTab] = useState<'habits' | 'stats'>('habits');
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const { selectionFeedback, lightFeedback, mediumFeedback } = useHaptics();
   const { playComplete } = useSoundEffects();
@@ -334,6 +336,9 @@ const GoalDetail = () => {
               </View>
               {/* Edit/Delete Actions */}
               <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity onPress={() => setShowShareModal(true)} style={[styles.miniActionBtn, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                  <Ionicons name="share-social" size={16} color="#3B82F6" />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={handleEditGoal} style={[styles.miniActionBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
                   <Ionicons name="pencil" size={16} color="white" />
                 </TouchableOpacity>
@@ -347,6 +352,7 @@ const GoalDetail = () => {
               <Text style={[styles.goalDescription, { color: colors.textSecondary }]}>{goal.description}</Text>
             )}
           </View>
+
 
           {/* Void Tabs */}
           <View style={styles.tabContainer}>
@@ -409,6 +415,16 @@ const GoalDetail = () => {
 
         </Animated.View>
       </Animated.ScrollView>
+      <ShareStatsModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        stats={{
+          title: goal.name,
+          value: `${progress}%`,
+          subtitle: "Goal Completed",
+          type: 'goal'
+        }}
+      />
     </View>
   );
 };

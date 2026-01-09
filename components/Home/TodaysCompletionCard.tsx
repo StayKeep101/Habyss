@@ -32,7 +32,7 @@ export const TodaysCompletionCard: React.FC<TodaysCompletionCardProps> = ({
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={{ flex: 1 }}>
-            <VoidCard style={styles.container}>
+            <VoidCard glass intensity={20} style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
                     <Ionicons

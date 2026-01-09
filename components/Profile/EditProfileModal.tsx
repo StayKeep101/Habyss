@@ -261,7 +261,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, sheetStyle]}>
                         <LinearGradient
-                            colors={isLight ? ['#ffffff', '#f5f5f5'] : ['#1a1f2e', '#0f1218']}
+                            colors={['#0f1218', '#080a0e']}
                             style={styles.sheetGradient}
                         >
                             {/* Drag Handle */}
@@ -273,9 +273,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                                 {/* Header */}
                                 <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
                                     <TouchableOpacity onPress={closeModal} style={styles.headerBtn}>
-                                        <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend' }}>Cancel</Text>
+                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontFamily: 'Lexend' }}>Cancel</Text>
                                     </TouchableOpacity>
-                                    <Text style={[styles.title, { color: colors.textPrimary }]}>Edit Profile</Text>
+                                    <Text style={[styles.title, { color: '#fff' }]}>Edit Profile</Text>
                                     <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerBtn}>
                                         {saving ? (
                                             <ActivityIndicator size="small" color={colors.primary} />

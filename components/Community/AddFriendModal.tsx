@@ -146,7 +146,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, sheetStyle]}>
                         <LinearGradient
-                            colors={isLight ? ['#ffffff', '#f5f5f5'] : ['#1a1f2e', '#0f1218']}
+                            colors={['#0f1218', '#080a0e']}
                             style={styles.sheetGradient}
                         >
                             {/* Drag Handle */}
@@ -158,10 +158,10 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={100}>
                                     <Animated.View style={[styles.content, contentStyle]}>
                                         {/* Header */}
-                                        <Text style={[styles.title, { color: colors.textPrimary }]}>ADD CREW MEMBER</Text>
+                                        <Text style={[styles.title, { color: '#fff' }]}>ADD CREW MEMBER</Text>
 
                                         {/* Your Code Section */}
-                                        <Text style={[styles.label, { color: colors.textSecondary }]}>YOUR IDENTIFIER</Text>
+                                        <Text style={[styles.label, { color: 'rgba(255,255,255,0.7)' }]}>YOUR IDENTIFIER</Text>
                                         <VoidCard style={styles.codeCard}>
                                             <Text style={[styles.code, { color: colors.primary }]}>{userCode || 'LOADING...'}</Text>
                                             <TouchableOpacity onPress={handleShare} style={[styles.copyBtn, { backgroundColor: colors.surfaceSecondary }]}>
@@ -173,7 +173,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                                         <View style={{ height: 20 }} />
 
                                         {/* Enter Friend Code */}
-                                        <Text style={[styles.label, { color: colors.textSecondary }]}>ENTER FRIEND CODE</Text>
+                                        <Text style={[styles.label, { color: 'rgba(255,255,255,0.7)' }]}>ENTER FRIEND CODE</Text>
                                         <TextInput
                                             style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
                                             placeholder="e.g. A1B2C3D4"
