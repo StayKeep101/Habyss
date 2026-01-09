@@ -272,7 +272,6 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [weekInterval, setWeekInterval] = useState(1); // New: every N weeks
     const [startTime, setStartTime] = useState(new Date());
     const [endTime, setEndTime] = useState(new Date(Date.now() + 30 * 60 * 1000));
-    const [habitDuration, setHabitDuration] = useState(25); // Duration in minutes for timer
     const [useFreeTime, setUseFreeTime] = useState(false);
     const [habitStartDate, setHabitStartDate] = useState(new Date());
     const [saving, setSaving] = useState(false);
@@ -354,7 +353,6 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             setMeasurementValue(initialHabit.goalValue || 1);
             setMeasurementUnit(initialHabit.unit || 'times');
             setGraphStyle((initialHabit.graphStyle as any) || 'progress');
-            if (initialHabit.durationMinutes) setHabitDuration(initialHabit.durationMinutes);
         }
     }, [initialHabit]);
 
@@ -493,7 +491,6 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 chartType: (graphStyle === 'bar' ? 'bar' : 'line') as any,
                 graphStyle: graphStyle,
                 trackingMethod: (measurementUnit === 'times' ? 'boolean' : 'numeric') as any,
-                durationMinutes: habitDuration,
             };
 
             if (initialHabit) {
@@ -922,37 +919,6 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                         </View>
                                     </View>
 
-                                    {/* Duration Presets */}
-                                    <View style={{ marginBottom: 20 }}>
-                                        <Text style={styles.pickerLabel}>SESSION DURATION</Text>
-                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                                            {[5, 10, 15, 20, 25, 30, 45, 60].map((mins) => (
-                                                <TouchableOpacity
-                                                    key={mins}
-                                                    onPress={() => {
-                                                        selectionFeedback();
-                                                        setHabitDuration(mins);
-                                                        // Update end time based on start time + duration
-                                                        const newEnd = new Date(startTime.getTime() + mins * 60 * 1000);
-                                                        setEndTime(newEnd);
-                                                    }}
-                                                    style={[
-                                                        styles.durationChip,
-                                                        habitDuration === mins && { backgroundColor: selectedColor, borderColor: selectedColor }
-                                                    ]}
-                                                >
-                                                    <Text style={[
-                                                        styles.durationChipText,
-                                                        habitDuration === mins && { color: '#fff' }
-                                                    ]}>{mins}m</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>
-                                            Timer will be set to {habitDuration} minutes for focus sessions
-                                        </Text>
-                                    </View>
-
                                     {/* Anytime Toggle */}
                                     <TouchableOpacity
                                         onPress={() => { selectionFeedback(); setUseFreeTime(!useFreeTime); }}
@@ -1290,6 +1256,4 @@ const styles = StyleSheet.create({
     listItemText: { flex: 1, fontSize: 15, fontWeight: '500' },
     counterBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
     unitChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    durationChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
-    durationChipText: { color: 'rgba(255,255,255,0.7)', fontWeight: '600', fontSize: 14, fontFamily: 'Lexend' },
 });

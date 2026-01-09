@@ -32,7 +32,7 @@ export const TodaysCompletionCard: React.FC<TodaysCompletionCardProps> = ({
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={{ flex: 1 }}>
-            <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+            <VoidCard style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
                     <Ionicons
@@ -40,16 +40,16 @@ export const TodaysCompletionCard: React.FC<TodaysCompletionCardProps> = ({
                         size={16}
                         color={allComplete ? '#10B981' : accentColor}
                     />
-                    <Text style={[styles.title, { color: colors.textSecondary }]}>TODAY'S COMPLETION</Text>
+                    <Text style={[styles.title, { color: colors.textSecondary }]}>COMPLETION</Text>
                 </View>
 
-                {/* Main Stat - Big Percentage */}
+                {/* Main Stat */}
                 <View style={styles.content}>
-                    <Text style={[styles.percentage, { color: allComplete ? '#10B981' : colors.textPrimary }]}>
-                        {percentage}%
+                    <Text style={[styles.count, { color: allComplete ? '#10B981' : colors.textPrimary }]}>
+                        {completedCount}/{totalCount}
                     </Text>
-                    <Text style={[styles.count, { color: colors.textTertiary }]}>
-                        {completedCount} of {totalCount} habits
+                    <Text style={[styles.percentage, { color: colors.textTertiary }]}>
+                        {percentage}%
                     </Text>
                 </View>
 
@@ -87,20 +87,21 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend',
     },
     content: {
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    percentage: {
-        fontSize: 36,
-        fontWeight: '800',
-        fontFamily: 'Lexend',
-        letterSpacing: -1,
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        marginBottom: 8,
     },
     count: {
-        fontSize: 12,
-        fontWeight: '500',
+        fontSize: 24,
+        fontWeight: '800',
+        fontFamily: 'Lexend',
+        letterSpacing: -0.5,
+    },
+    percentage: {
+        fontSize: 14,
+        fontWeight: '600',
         fontFamily: 'Lexend_400Regular',
-        marginTop: 4,
     },
     progressBg: {
         height: 4,

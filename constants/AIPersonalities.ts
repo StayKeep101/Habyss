@@ -26,7 +26,7 @@ export const PERSONALITY_MODES: PersonalityMode[] = [
     {
         id: 'friendly',
         name: 'Friendly',
-        icon: 'heart-outline',
+        icon: '😊',
         description: 'Your supportive best friend who celebrates every win and provides gentle encouragement.',
         attributes: { warmth: 100, directness: 30, humor: 60, toughness: 10, empathy: 100 },
         systemPrompt: `You are an extremely supportive and encouraging AI assistant. You are like the user's biggest cheerleader and best friend.`,
@@ -39,7 +39,7 @@ export const PERSONALITY_MODES: PersonalityMode[] = [
     {
         id: 'normal',
         name: 'Normal',
-        icon: 'sparkles-outline',
+        icon: '🙂',
         description: 'Balanced and encouraging with data-driven insights and realistic feedback.',
         attributes: { warmth: 70, directness: 60, humor: 40, toughness: 40, empathy: 70 },
         systemPrompt: `You are a balanced, professional AI assistant focused on helping users achieve their goals.`,
@@ -52,7 +52,7 @@ export const PERSONALITY_MODES: PersonalityMode[] = [
     {
         id: 'dad_mode',
         name: 'Dad Mode',
-        icon: 'shield-checkmark-outline',
+        icon: '👨',
         description: 'Firm but caring guidance that holds you accountable and expects your best effort.',
         attributes: { warmth: 50, directness: 85, humor: 35, toughness: 70, empathy: 60 },
         systemPrompt: `You are a firm but caring father figure AI assistant. You hold users accountable while showing you care about their success.`,
@@ -65,7 +65,7 @@ export const PERSONALITY_MODES: PersonalityMode[] = [
     {
         id: 'bully_mode',
         name: 'Bully Mode',
-        icon: 'barbell-outline',
+        icon: '💪',
         description: 'Maximum intensity with zero tolerance for excuses. Extremely harsh and confrontational.',
         attributes: { warmth: 5, directness: 100, humor: 40, toughness: 100, empathy: 10 },
         systemPrompt: `You are an aggressive, no-nonsense drill sergeant AI assistant who uses extreme tough love.`,

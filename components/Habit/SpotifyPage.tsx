@@ -1,9 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { SpotifyPlayer } from './SpotifyPlayer';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Ionicons } from '@expo/vector-icons';
-import { VoidCard } from '@/components/Layout/VoidCard';
 
 const { width } = Dimensions.get('window');
 
@@ -14,31 +13,17 @@ interface SpotifyPageProps {
 export const SpotifyPage: React.FC<SpotifyPageProps> = ({ habitId }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
 
     return (
         <View style={styles.container}>
             <View style={styles.content}>
-                <Text style={[styles.title, { color: colors.textPrimary }]}>AUDIO PROTOCOL</Text>
+                <Text style={[styles.title, { color: colors.textPrimary }]}>AUDIO PROTOCOL (COMING SOON)</Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    Link specific playlists to this habit for improved focus.
+                    Link specific playlists to this habit for improved focus and conditioning.
                 </Text>
-
-                {/* Coming Soon Placeholder */}
-                <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.comingSoonCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                    <View style={[styles.iconContainer, { backgroundColor: colors.primaryDark + '20' }]}>
-                        <Ionicons name="musical-notes" size={40} color={colors.primary} />
-                    </View>
-                    <Text style={[styles.comingSoonTitle, { color: colors.textPrimary }]}>
-                        Spotify Integration
-                    </Text>
-                    <Text style={[styles.comingSoonText, { color: colors.textSecondary }]}>
-                        Coming Soon
-                    </Text>
-                    <Text style={[styles.comingSoonDesc, { color: colors.textTertiary }]}>
-                        Connect your Spotify account to play focus playlists during your habit sessions.
-                    </Text>
-                </VoidCard>
+                <View style={styles.playerContainer}>
+                    <SpotifyPlayer habitId={habitId} />
+                </View>
             </View>
         </View>
     );
@@ -50,7 +35,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         alignItems: 'center',
         paddingTop: 20,
-        flex: 1,
     },
     content: {
         width: '100%',
@@ -71,36 +55,7 @@ const styles = StyleSheet.create({
         lineHeight: 18,
         maxWidth: '80%',
     },
-    comingSoonCard: {
+    playerContainer: {
         width: '100%',
-        padding: 32,
-        alignItems: 'center',
-    },
-    iconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 20,
-    },
-    comingSoonTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-        marginBottom: 8,
-    },
-    comingSoonText: {
-        fontSize: 14,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
-        marginBottom: 16,
-    },
-    comingSoonDesc: {
-        fontSize: 12,
-        textAlign: 'center',
-        fontFamily: 'Lexend_400Regular',
-        lineHeight: 18,
-        maxWidth: '85%',
-    },
+    }
 });

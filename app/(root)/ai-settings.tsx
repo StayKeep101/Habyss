@@ -36,7 +36,7 @@ const AISettings = () => {
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                         <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>AI Personality</Text>
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>AI Configuration</Text>
                     <View style={{ width: 40 }} />
                 </View>
 

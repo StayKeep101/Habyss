@@ -659,18 +659,23 @@ const Home = () => {
             />
           </Animated.View>
 
-          {/* Today's Focus Card - Below Streak & Consistency */}
+          {/* Today's Completion Card - Right above Analytics */}
           <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: 16 }}>
-            <FocusTimeCard />
-          </Animated.View>
-
-          {/* Today's Completion Card - Below Focus Card */}
-          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
             <TodaysCompletionCard
               completedCount={Object.keys(completions).length}
               totalCount={habits.filter(h => isHabitScheduledForDate(h, new Date())).length}
               onPress={() => router.push('/(root)/(tabs)/roadmap')}
             />
+          </Animated.View>
+
+          {/* Analytics Dashboard (Life Balance Matrix) */}
+          <View style={{ marginTop: 16 }}>
+            <AnalyticsDashboard habits={habits} completions={completions} history={historyData} />
+          </View>
+
+          {/* Today's Focus Card - At the bottom */}
+          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
+            <FocusTimeCard />
           </Animated.View>
 
         </ScrollView>

@@ -19,7 +19,6 @@ import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { clearHabitsCache } from '@/lib/habitsSQLite';
-import { AIConfigModal } from '@/components/AIConfigModal';
 
 
 // Settings configuration
@@ -52,7 +51,6 @@ export default function ProfileScreen() {
     const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
     const [saving, setSaving] = useState(false);
     const [showEditProfile, setShowEditProfile] = useState(false);
-    const [showAIConfig, setShowAIConfig] = useState(false);
 
     // Settings state - use global context
     const {
@@ -392,7 +390,7 @@ export default function ProfileScreen() {
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>APP PREFERENCES</Text>
                         <VoidCard style={styles.sectionCard}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); setShowAIConfig(true); }}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/ai-settings'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="sparkles-outline" size={20} color={accentColor} />
                                 </View>
@@ -594,10 +592,6 @@ export default function ProfileScreen() {
                     });
                     if (newAvatarUri) setAvatarUri(newAvatarUri);
                 }}
-            />
-            <AIConfigModal
-                visible={showAIConfig}
-                onClose={() => setShowAIConfig(false)}
             />
         </VoidShell>
     );
