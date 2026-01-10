@@ -37,16 +37,26 @@ export default function MobileLayout() {
   });
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-
-      // Initialize notifications sequence
-      const setupNotifications = async () => {
-        await NotificationService.init();
-        await NotificationService.registerForPushNotificationsAsync();
-      };
-      setupNotifications();
+    async function prepare() {
+      try {
+        if (loaded) {
+          // Initialize notifications sequence safely
+          try {
+            await NotificationService.init();
+            await NotificationService.registerForPushNotificationsAsync();
+          } catch (e) {
+            console.warn("Notification initialization failed", e);
+          }
+        }
+      } catch (e) {
+        console.warn("Preparation failed", e);
+      } finally {
+        if (loaded) {
+          await SplashScreen.hideAsync();
+        }
+      }
     }
+    prepare();
   }, [loaded]);
 
   useEffect(() => {
