@@ -3,15 +3,8 @@ import { Platform } from 'react-native';
 import { ThemeMode } from '@/constants/themeContext';
 import { supabase } from './supabase';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// IMPORTANT: Do NOT call Notifications APIs at module scope - it crashes iOS!
+// setNotificationHandler is now called inside init()
 
 export interface InAppNotification {
   id: string;
@@ -25,8 +18,28 @@ export interface InAppNotification {
   fromUserId?: string;
 }
 
+let isHandlerSet = false;
+
 export class NotificationService {
   static async init() {
+    // Set notification handler ONLY inside init, never at module scope
+    if (!isHandlerSet) {
+      try {
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          }),
+        });
+        isHandlerSet = true;
+      } catch (e) {
+        console.warn('Failed to set notification handler:', e);
+      }
+    }
+
     // Setup channels for Android
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
