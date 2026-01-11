@@ -2,6 +2,10 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, AppStateStatus, Vibration } from 'react-native';
 
+import { NotificationService } from './Notifications';
+import { IntegrationService } from '@/lib/integrationService';
+import { HealthKitService } from '@/lib/healthKit';
+
 // ============================================
 // Focus Time Context
 // Provides global state for Pomodoro timer.
@@ -71,6 +75,17 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const focusStartRef = useRef<number | null>(null);
     const currentSessionElapsed = useRef<number>(0); // Track current session duration
     const appState = useRef(AppState.currentState);
+    const [isHealthConnected, setIsHealthConnected] = useState(false);
+
+    // Check integrations
+    useEffect(() => {
+        const checkIntegrations = async () => {
+            const data = await IntegrationService.getIntegrations();
+            const health = data.find(i => i.service_name === 'apple_health' && i.is_connected);
+            setIsHealthConnected(!!health);
+        };
+        checkIntegrations();
+    }, []);
 
     // Load persisted data on mount
     useEffect(() => {
@@ -229,11 +244,13 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
         if (appState.current.match(/active/) && nextAppState === 'background') {
             // App is going to background
-            if (isRunning && activeHabitName) {
-                // TODO: Schedule local notification here using expo-notifications
-                // For now, we'll handle this once expo-notifications is integrated
-                console.log('App backgrounded with active timer:', activeHabitName);
+            if (isRunning && activeHabitName && timeLeft > 0) {
+                console.log('App backgrounded. Scheduling notification for:', activeHabitName, 'in', timeLeft, 'seconds');
+                NotificationService.scheduleTimerCompletion(timeLeft, activeHabitName);
             }
+        } else if (appState.current.match(/background/) && nextAppState === 'active') {
+            // App coming to foreground - cancel pending notification since user is back
+            NotificationService.cancelTimerNotifications();
         }
         appState.current = nextAppState;
     };
@@ -256,7 +273,16 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Update weekly, monthly, and yearly totals
         setWeeklyFocusTotal(prev => prev + sessionDuration);
         setMonthlyFocusTotal(prev => prev + sessionDuration);
+        // Update yearly totals
         setYearlyFocusTotal(prev => prev + sessionDuration);
+
+        // Sync with Apple Health
+        if (isHealthConnected && focusStartRef.current) {
+            const endDate = Date.now();
+            HealthKitService.saveMindfulMinutes(focusStartRef.current, endDate).catch(err => {
+                console.error('Failed to sync health minutes', err);
+            });
+        }
 
         // Update best session today if this was longer
         setBestSessionToday(prev => Math.max(prev, sessionDuration));
@@ -274,6 +300,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setActiveHabitName(null);
         setTimeLeft(0);
         setTotalDuration(0);
+        NotificationService.cancelTimerNotifications();
     }, []);
 
     const startTimer = useCallback((habitId: string, habitName: string, durationSeconds: number): boolean => {

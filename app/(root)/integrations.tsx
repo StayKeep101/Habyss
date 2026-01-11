@@ -11,6 +11,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { IntegrationService, Integration } from '@/lib/integrationService';
 import { SpotifyService } from '@/lib/spotifyService';
+import { HealthKitService } from '@/lib/healthKit';
 // import * as Calendar from 'expo-calendar'; // Removed static import
 
 interface IntegrationItem {
@@ -45,7 +46,7 @@ const INTEGRATIONS: IntegrationItem[] = [
     },
     {
         id: 'health',
-        name: 'Apple Health (Coming Soon)',
+        name: 'Apple Health',
         description: 'Auto-complete fitness habits from Health data',
         icon: 'heart-outline',
         service: 'apple_health',
@@ -148,20 +149,37 @@ export default function IntegrationsScreen() {
     };
 
     const handleHealthToggle = async (enabled: boolean) => {
-        // Apple Health requires react-native-health which needs native build
-        if (enabled) {
-            Alert.alert(
-                'Apple Health',
-                'Apple Health integration is coming soon!\n\n' +
-                'This feature requires a native module (react-native-health) which needs:\n\n' +
-                '• Development build (npx expo run:ios)\n' +
-                '• HealthKit entitlement in Apple Developer Portal\n' +
-                '• iOS device (not available in Expo Go)',
-                [
-                    { text: 'OK', style: 'cancel' }
-                ]
-            );
-        }
+        const handleHealthToggle = async (enabled: boolean) => {
+            setLoading(prev => ({ ...prev, apple_health: true }));
+            try {
+                if (enabled) {
+                    const available = await HealthKitService.isAvailable();
+                    if (!available) {
+                        Alert.alert('Not Available', 'Apple Health is not available on this device.');
+                        setLoading(prev => ({ ...prev, apple_health: false }));
+                        return;
+                    }
+
+                    const granted = await HealthKitService.requestPermissions();
+                    if (granted) {
+                        await IntegrationService.connectService('apple_health', { accessToken: 'local' });
+                        setIntegrations(prev => ({ ...prev, apple_health: true }));
+                        successFeedback();
+                        Alert.alert('Connected', 'Apple Health integration enabled. Focus sessions will now count as Mindful Minutes.');
+                    } else {
+                        Alert.alert('Permission Denied', 'Health access is required to sync minutes.');
+                    }
+                } else {
+                    await IntegrationService.disconnectService('apple_health');
+                    setIntegrations(prev => ({ ...prev, apple_health: false }));
+                    lightFeedback();
+                }
+            } catch (e) {
+                console.error('Health toggle error:', e);
+                Alert.alert('Error', 'Failed to toggle Health integration');
+            }
+            setLoading(prev => ({ ...prev, apple_health: false }));
+        };
     };
 
     const handleSpotifyToggle = async (enabled: boolean) => {

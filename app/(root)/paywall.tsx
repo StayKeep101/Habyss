@@ -20,13 +20,13 @@ const { width } = Dimensions.get('window');
 export default function PaywallScreen() {
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
     const [loading, setLoading] = useState(false);
-    const [selectedPlanId, setSelectedPlanId] = useState<'monthly' | 'yearly' | '2year' | 'lifetime'>('yearly');
+    const [selectedPlanId, setSelectedPlanId] = useState<'yearly' | '2year' | 'lifetime'>('yearly');
     const { restorePurchases } = usePremiumStatus();
     const { primary: accentColor } = useAccentGradient();
     const isProcessingPayment = useRef(false); // Prevent double payment sheet calls
 
     const PLANS = [
-        { id: 'monthly', title: 'Monthly', price: '$1.99', period: '/mo', save: null },
+        // { id: 'monthly', title: 'Monthly', price: '$1.99', period: '/mo', save: null },
         { id: 'yearly', title: 'Yearly', price: '$6.99', originalPrice: '$12.99', period: '/yr', save: '50% OFF' },
         { id: '2year', title: '2 Years', price: '$19.99', period: '/2yr', save: null },
         { id: 'lifetime', title: 'Lifetime', price: '$29.99', period: 'one-time', save: 'BEST VALUE' }
