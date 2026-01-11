@@ -18,6 +18,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
     const { colors: accentColors, primary } = useAccentGradient();
 
     const animatedWidth = useSharedValue(0);
@@ -32,7 +33,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-            <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.header}>
                     <View style={styles.titleRow}>
                         <Ionicons name="flag" size={16} color={primary} />

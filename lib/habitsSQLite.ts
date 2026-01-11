@@ -547,7 +547,11 @@ export function calculateGoalProgressInstant(
     const linked = habits.filter(h => h.goalId === goal.id && !h.isArchived);
     if (linked.length === 0) return 0;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const toLocalISO = (d: Date) => {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const todayStr = toLocalISO(new Date());
     const startDate = new Date(goal.startDate || goal.createdAt);
     const targetDate = goal.targetDate ? new Date(goal.targetDate) : new Date();
 
@@ -555,15 +559,19 @@ export function calculateGoalProgressInstant(
     let totalCompleted = 0;
 
     const current = new Date(startDate);
-    if (current > targetDate) return 0;
+    current.setHours(0, 0, 0, 0); // Normalize time
+    const target = new Date(targetDate);
+    target.setHours(0, 0, 0, 0);
 
-    while (current <= targetDate) {
-        const dateStr = current.toISOString().split('T')[0];
+    if (current > target) return 0;
+
+    while (current <= target) {
+        const dateStr = toLocalISO(current);
         const dayName = current.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
 
         linked.forEach(habit => {
             const hCreated = new Date(habit.createdAt);
-            const createdStr = hCreated.toISOString().split('T')[0];
+            const createdStr = toLocalISO(hCreated);
 
             if (dateStr >= createdStr) {
                 if (habit.taskDays?.includes(dayName)) {

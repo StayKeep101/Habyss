@@ -1,18 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withTiming,
-    withDelay,
-    Easing,
-    runOnJS,
-    interpolate,
-    Extrapolation,
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Habit } from '@/lib/habitsSQLite';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -20,10 +8,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { MiniGoalGraph } from '@/components/Home/MiniGoalGraph';
 import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 import { useAccentGradient } from '@/constants/AccentContext';
-
-const { height } = Dimensions.get('window');
-const SHEET_HEIGHT = height * 0.75;
-const DRAG_THRESHOLD = 100;
+import { VoidModal } from '@/components/Layout/VoidModal';
 
 interface ConsistencyModalProps {
     visible: boolean;
@@ -38,31 +23,7 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onC
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary: accentColor } = useAccentGradient();
-    const [isOpen, setIsOpen] = useState(false);
     const [showShare, setShowShare] = useState(false);
-
-    const translateY = useSharedValue(SHEET_HEIGHT);
-    const backdropOpacity = useSharedValue(0);
-    const contentOpacity = useSharedValue(0);
-
-    const openModal = useCallback(() => {
-        setIsOpen(true);
-        translateY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
-        backdropOpacity.value = withTiming(1, { duration: 300 });
-        contentOpacity.value = withDelay(200, withTiming(1, { duration: 400 }));
-    }, []);
-
-    const closeModal = useCallback(() => {
-        contentOpacity.value = withTiming(0, { duration: 150 });
-        translateY.value = withTiming(SHEET_HEIGHT, { duration: 300, easing: Easing.in(Easing.cubic) });
-        backdropOpacity.value = withTiming(0, { duration: 250 });
-        setTimeout(() => { setIsOpen(false); onClose(); }, 300);
-    }, [onClose]);
-
-    useEffect(() => {
-        if (visible && !isOpen) openModal();
-        else if (!visible && isOpen) closeModal();
-    }, [visible]);
 
     const getColor = (score: number) => {
         if (score >= 80) return '#22C55E';
@@ -75,99 +36,72 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onC
     const avgColor = getColor(avgConsistency);
     const rating = avgConsistency >= 80 ? 'Excellent' : avgConsistency >= 60 ? 'Good' : avgConsistency >= 40 ? 'Fair' : 'Needs Work';
 
-    const panGesture = Gesture.Pan()
-        .onUpdate((event) => { if (event.translationY > 0) translateY.value = event.translationY; })
-        .onEnd((event) => {
-            if (event.translationY > DRAG_THRESHOLD || event.velocityY > 500) runOnJS(closeModal)();
-            else translateY.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
-        });
-
-    const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
-    const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(translateY.value, [0, SHEET_HEIGHT], [1, 0], Extrapolation.CLAMP) }));
-    const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
-
-    if (!isOpen && !visible) return null;
-
     return (
-        <Modal visible={isOpen || visible} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
-            <View style={styles.container}>
-                <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
-                    <TouchableOpacity style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }]} activeOpacity={1} onPress={closeModal} />
-                </Animated.View>
-
-                <GestureDetector gesture={panGesture}>
-                    <Animated.View style={[styles.sheet, sheetStyle]}>
-                        <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
-
-                        <View style={styles.header}>
-                            <TouchableOpacity onPress={closeModal} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}>
-                                <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-                            </TouchableOpacity>
-                            <View style={{ flex: 1, marginLeft: 16 }}>
-                                <Text style={styles.title}>CONSISTENCY</Text>
-                                <Text style={[styles.subtitle, { color: accentColor }]}>PERFORMANCE REPORT</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
-                                <Ionicons name="share-social" size={20} color={accentColor} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                            <Animated.View style={contentStyle}>
-                                <VoidCard glass style={styles.mainCard}>
-                                    <View style={[styles.scoreCircle, { borderColor: avgColor }]}>
-                                        <Text style={[styles.scoreValue, { color: avgColor }]}>{Math.round(avgConsistency)}%</Text>
-                                    </View>
-                                    <Text style={styles.scoreName}>Overall Consistency</Text>
-                                    <View style={[styles.ratingBadge, { backgroundColor: avgColor + '20' }]}>
-                                        <Text style={[styles.ratingText, { color: avgColor }]}>{rating}</Text>
-                                    </View>
-                                </VoidCard>
-
-                                <Text style={styles.sectionTitle}>PER GOAL ACTIVITY</Text>
-
-                                <View style={styles.gridContainer}>
-                                    {goals.length > 0 ? goals.map(goal => {
-                                        const score = goalConsistency[goal.id] || 0;
-                                        const color = getColor(score);
-                                        return (
-                                            <VoidCard key={goal.id} glass style={styles.gridCard}>
-                                                <View style={styles.cardHeader}>
-                                                    <View style={[styles.goalIcon, { backgroundColor: (goal.color || '#8B5CF6') + '15' }]}>
-                                                        <Ionicons name={(goal.icon as any) || 'flag'} size={14} color={goal.color || '#8B5CF6'} />
-                                                    </View>
-                                                    <View style={[styles.miniScoreBadge, { backgroundColor: color + '15' }]}>
-                                                        <Text style={[styles.miniScoreText, { color }]}>{Math.round(score)}%</Text>
-                                                    </View>
-                                                </View>
-
-                                                <Text style={styles.gridGoalName} numberOfLines={1}>{goal.name}</Text>
-
-                                                <View style={{ marginTop: 12 }}>
-                                                    <MiniGoalGraph goal={goal} habits={habits} color={goal.color || accentColor} />
-                                                </View>
-                                            </VoidCard>
-                                        );
-                                    }) : (
-                                        <View style={{ width: '100%' }}>
-                                            <VoidCard glass style={styles.emptyCard}>
-                                                <Ionicons name="analytics-outline" size={36} color="rgba(255,255,255,0.2)" />
-                                                <Text style={styles.emptyText}>No data</Text>
-                                            </VoidCard>
-                                        </View>
-                                    )}
-                                </View>
-
-                                <View style={styles.infoBox}>
-                                    <Ionicons name="information-circle" size={14} color="rgba(255,255,255,0.5)" />
-                                    <Text style={styles.infoText}>Score = days completed ÷ total days</Text>
-                                </View>
-                            </Animated.View>
-                        </ScrollView>
-                    </Animated.View>
-                </GestureDetector>
+        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.75}>
+            <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
+                <TouchableOpacity onPress={onClose} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+                </TouchableOpacity>
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                    <Text style={[styles.title, { color: colors.text }]}>CONSISTENCY</Text>
+                    <Text style={[styles.subtitle, { color: accentColor }]}>PERFORMANCE REPORT</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
+                    <Ionicons name="share-social" size={20} color={accentColor} />
+                </TouchableOpacity>
             </View>
+
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                <VoidCard glass style={styles.mainCard}>
+                    <View style={[styles.scoreCircle, { borderColor: avgColor }]}>
+                        <Text style={[styles.scoreValue, { color: avgColor }]}>{Math.round(avgConsistency)}%</Text>
+                    </View>
+                    <Text style={[styles.scoreName, { color: colors.textSecondary }]}>Overall Consistency</Text>
+                    <View style={[styles.ratingBadge, { backgroundColor: avgColor + '20' }]}>
+                        <Text style={[styles.ratingText, { color: avgColor }]}>{rating}</Text>
+                    </View>
+                </VoidCard>
+
+                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PER GOAL ACTIVITY</Text>
+
+                <View style={styles.gridContainer}>
+                    {goals.length > 0 ? goals.map(goal => {
+                        const score = goalConsistency[goal.id] || 0;
+                        const color = getColor(score);
+                        return (
+                            <VoidCard key={goal.id} glass style={styles.gridCard}>
+                                <View style={styles.cardHeader}>
+                                    <View style={[styles.goalIcon, { backgroundColor: (goal.color || '#8B5CF6') + '15' }]}>
+                                        <Ionicons name={(goal.icon as any) || 'flag'} size={14} color={goal.color || '#8B5CF6'} />
+                                    </View>
+                                    <View style={[styles.miniScoreBadge, { backgroundColor: color + '15' }]}>
+                                        <Text style={[styles.miniScoreText, { color }]}>{Math.round(score)}%</Text>
+                                    </View>
+                                </View>
+
+                                <Text style={[styles.gridGoalName, { color: colors.text }]} numberOfLines={1}>{goal.name}</Text>
+
+                                <View style={{ marginTop: 12 }}>
+                                    <MiniGoalGraph goal={goal} habits={habits} color={goal.color || accentColor} />
+                                </View>
+                            </VoidCard>
+                        );
+                    }) : (
+                        <View style={{ width: '100%' }}>
+                            <VoidCard glass style={styles.emptyCard}>
+                                <Ionicons name="analytics-outline" size={36} color={colors.textTertiary} />
+                                <Text style={[styles.emptyText, { color: colors.textTertiary }]}>No data</Text>
+                            </VoidCard>
+                        </View>
+                    )}
+                </View>
+
+                <View style={[styles.infoBox, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Ionicons name="information-circle" size={14} color={colors.textTertiary} />
+                    <Text style={[styles.infoText, { color: colors.textSecondary }]}>Score = days completed ÷ total days</Text>
+                </View>
+            </ScrollView>
+
             <ShareStatsModal
                 visible={showShare}
                 onClose={() => setShowShare(false)}
@@ -178,14 +112,14 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({ visible, onC
                     type: 'consistency'
                 }}
             />
-        </Modal>
+        </VoidModal>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, justifyContent: 'flex-end' },
-    sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-    sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0, borderBottomWidth: 0, borderColor: 'rgba(34, 197, 94, 0.15)', pointerEvents: 'none' }, // Removed border
+    // container: { flex: 1, justifyContent: 'flex-end' }, // Removed
+    // sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' }, // Removed (handled by VoidModal)
+    // sheetBorder: ... // Removed
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     title: { fontSize: 18, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },

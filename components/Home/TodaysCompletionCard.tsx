@@ -25,6 +25,7 @@ export const TodaysCompletionCard: React.FC<TodaysCompletionCardProps> = ({
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
     const { primary: accentColor } = useAccentGradient();
 
     const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -32,7 +33,7 @@ export const TodaysCompletionCard: React.FC<TodaysCompletionCardProps> = ({
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={{ flex: 1 }}>
-            <VoidCard glass intensity={20} style={styles.container}>
+            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                 {/* Header */}
                 <View style={styles.header}>
                     <Ionicons

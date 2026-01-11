@@ -667,15 +667,28 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                 <Text style={styles.gridLabel}>LINKED GOAL</Text>
                                                 <Text style={{ fontSize: 10, color: '#EF4444' }}>* Required</Text>
                                             </View>
-                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -12, paddingHorizontal: 12 }}>
+                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} style={{ paddingHorizontal: 4 }}>
                                                 {availableGoals.map(g => (
                                                     <TouchableOpacity
                                                         key={g.id}
                                                         onPress={() => { selectionFeedback(); setGoalId(g.id); }}
-                                                        style={[styles.goalChip, goalId === g.id && { backgroundColor: g.color + '20', borderColor: g.color }]}
+                                                        style={[
+                                                            styles.goalChip,
+                                                            {
+                                                                flexDirection: 'row',
+                                                                alignItems: 'center',
+                                                                paddingHorizontal: 12,
+                                                                paddingVertical: 8,
+                                                                borderRadius: 12,
+                                                                backgroundColor: goalId === g.id ? g.color + '20' : colors.surfaceSecondary,
+                                                                borderWidth: 1,
+                                                                borderColor: goalId === g.id ? g.color : colors.border,
+                                                                gap: 6
+                                                            }
+                                                        ]}
                                                     >
-                                                        <Ionicons name={g.icon as any} size={12} color={goalId === g.id ? g.color : colors.textSecondary} />
-                                                        <Text style={[styles.goalChipText, goalId === g.id ? { color: g.color } : { color: colors.textSecondary }]}>{g.name}</Text>
+                                                        <Ionicons name={g.icon as any} size={14} color={goalId === g.id ? g.color : colors.textSecondary} />
+                                                        <Text style={{ color: goalId === g.id ? g.color : colors.textSecondary, fontSize: 11, fontWeight: '600', fontFamily: 'Lexend_400Regular' }}>{g.name}</Text>
                                                     </TouchableOpacity>
                                                 ))}
                                                 {availableGoals.length === 0 && (

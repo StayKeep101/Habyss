@@ -75,8 +75,24 @@ export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
 
                 {theme === 'abyss' && (
                     <>
-                        {/* Deep Void Base - Uniform color */}
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0A0F14' }]} />
+                        {/* Deep Void Base */}
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#050505' }]} />
+
+                        {/* Top Gradient */}
+                        <LinearGradient
+                            colors={['#0F1A24', '#0A1219', '#050505']}
+                            style={[StyleSheet.absoluteFill]}
+                            start={{ x: 0.5, y: 0 }}
+                            end={{ x: 0.5, y: 0.5 }}
+                        />
+
+                        {/* Subtle radial glow at top */}
+                        <LinearGradient
+                            colors={['rgba(58, 90, 140, 0.15)', 'transparent']}
+                            style={[StyleSheet.absoluteFill, { height: '40%' }]}
+                            start={{ x: 0.5, y: 0 }}
+                            end={{ x: 0.5, y: 1 }}
+                        />
 
                         {/* Bottom Mist (Subtle glow) */}
                         <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>

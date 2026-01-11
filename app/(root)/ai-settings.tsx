@@ -97,8 +97,8 @@ const AISettings = () => {
                                     <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{mode.name}</Text>
 
                                     {/* Short description */}
-                                    <Text style={[styles.cardDesc, { color: colors.textTertiary }]} numberOfLines={2}>
-                                        {mode.description.split('.')[0]}
+                                    <Text style={[styles.cardDesc, { color: colors.textTertiary }]} numberOfLines={3}>
+                                        {mode.description}
                                     </Text>
 
                                     {/* Warning indicator */}

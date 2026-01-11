@@ -39,6 +39,7 @@ export default function ProfileScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
     const { colors: accentColors, primary: accentColor } = useAccentGradient();
 
     // User state
@@ -389,7 +390,7 @@ export default function ProfileScreen() {
                     {/* APP PREFERENCES */}
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>APP PREFERENCES</Text>
-                        <VoidCard style={styles.sectionCard}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/ai-settings'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="sparkles-outline" size={20} color={accentColor} />
@@ -465,7 +466,7 @@ export default function ProfileScreen() {
                     {/* DATA & SYNC */}
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>DATA & SYNC</Text>
-                        <VoidCard style={styles.sectionCard}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/data-storage'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="cloud-upload-outline" size={20} color={accentColor} />
@@ -493,7 +494,7 @@ export default function ProfileScreen() {
                     {/* ACCOUNT */}
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ACCOUNT</Text>
-                        <VoidCard style={styles.sectionCard}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/paywall'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="star-outline" size={20} color={accentColor} />
@@ -521,7 +522,7 @@ export default function ProfileScreen() {
                     {/* SUPPORT */}
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>SUPPORT</Text>
-                        <VoidCard style={styles.sectionCard}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/help'); }}>
                                 <View style={[styles.settingIcon, { backgroundColor: accentColor + '20' }]}>
                                     <Ionicons name="help-buoy-outline" size={20} color={accentColor} />

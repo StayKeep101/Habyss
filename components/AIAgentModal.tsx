@@ -624,10 +624,8 @@ REMEMBER:
         <Modal
             visible={visible}
             animationType="slide"
-            presentationStyle="fullScreen"
-            onRequestClose={onClose}
         >
-            <BlurView intensity={90} tint="dark" style={styles.blurContainer}>
+            <BlurView intensity={90} tint={theme === 'light' ? "light" : "dark"} style={styles.blurContainer}>
                 <View style={styles.contentOverlay}>
                     <SafeAreaView style={{ flex: 1 }}>
                         {/* Animated background glow */}
@@ -641,7 +639,7 @@ REMEMBER:
                         {/* Header */}
                         <View style={styles.header}>
                             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                                <Ionicons name="close" size={24} color="white" />
+                                <Ionicons name="close" size={24} color={colors.text} />
                             </TouchableOpacity>
                             <View style={styles.headerCenter}>
                                 <LinearGradient
@@ -746,7 +744,7 @@ REMEMBER:
                                         style={styles.typingIndicator}
                                     >
                                         <AnimatedTypingDots />
-                                        <Text style={styles.typingText}>Echo is thinking...</Text>
+                                        <Text style={[styles.typingText, { color: colors.textSecondary }]}>Echo is thinking...</Text>
                                     </Animated.View>
                                 )}
 
@@ -787,10 +785,10 @@ REMEMBER:
                                         />
                                         <View style={styles.inputIcons}>
                                             <TouchableOpacity style={styles.iconBtnSmall} onPress={handleImageUpload}>
-                                                <Ionicons name="image-outline" size={20} color="rgba(255,255,255,0.6)" />
+                                                <Ionicons name="image-outline" size={20} color={colors.textSecondary} />
                                             </TouchableOpacity>
                                             <TouchableOpacity style={[styles.iconBtnSmall, isRecording && { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]} onPress={handleVoiceInput}>
-                                                <Ionicons name={isRecording ? "stop" : "mic-outline"} size={20} color={isRecording ? "#EF4444" : "rgba(255,255,255,0.6)"} />
+                                                <Ionicons name={isRecording ? "stop" : "mic-outline"} size={20} color={isRecording ? "#EF4444" : colors.textSecondary} />
                                             </TouchableOpacity>
                                         </View>
                                     </View>

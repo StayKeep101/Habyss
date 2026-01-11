@@ -17,6 +17,7 @@ export default function CommunityScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
     const { primary: accentColor } = useAccentGradient();
     const { thud, lightFeedback, mediumFeedback } = useHaptics();
     const [refreshing, setRefreshing] = useState(false);
@@ -260,7 +261,7 @@ export default function CommunityScreen() {
                 {sharedHabits.length > 0 && (
                     <View style={{ marginBottom: 24 }}>
                         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SHARED WITH YOU</Text>
-                        <VoidCard style={{ padding: 16 }}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             {sharedHabits.map((item, index) => (
                                 <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index < sharedHabits.length - 1 ? 12 : 0 }}>
                                     <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
@@ -311,7 +312,7 @@ export default function CommunityScreen() {
                 {sharedGoals.length > 0 && (
                     <View style={{ marginBottom: 24 }}>
                         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SHARED GOALS</Text>
-                        <VoidCard style={{ padding: 16 }}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             {sharedGoals.map((item, index) => (
                                 <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index < sharedGoals.length - 1 ? 12 : 0 }}>
                                     <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
@@ -345,7 +346,7 @@ export default function CommunityScreen() {
                     <View style={{ marginBottom: 24 }}>
                         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>RECENT ACTIVITY</Text>
                         {friendsFeed.map(activity => (
-                            <VoidCard key={activity.id} style={{ padding: 16, marginBottom: 12 }}>
+                            <VoidCard key={activity.id} glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16, marginBottom: 12 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     {/* Avatar */}
                                     <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
@@ -419,7 +420,7 @@ export default function CommunityScreen() {
                 {friendRequests.length > 0 && (
                     <View style={{ marginBottom: 24 }}>
                         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PENDING REQUESTS</Text>
-                        <VoidCard style={{ padding: 16 }}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             {friendRequests.map(request => (
                                 <View key={request.id} style={styles.requestRow}>
                                     <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
@@ -450,7 +451,7 @@ export default function CommunityScreen() {
                 <View style={{ marginBottom: 24 }}>
                     <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>YOUR CREW ({friends.length})</Text>
                     {friends.length === 0 ? (
-                        <VoidCard style={{ padding: 32, alignItems: 'center' }}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 32, alignItems: 'center' }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             <Ionicons name="people-outline" size={48} color={colors.textTertiary} />
                             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No friends yet</Text>
                             <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
@@ -458,7 +459,7 @@ export default function CommunityScreen() {
                             </Text>
                         </VoidCard>
                     ) : (
-                        <VoidCard style={{ padding: 0 }}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 0 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             {friends.map((friend, index) => (
                                 <TouchableOpacity
                                     key={`crew_${friend.id}`}
@@ -555,7 +556,7 @@ export default function CommunityScreen() {
                             </TouchableOpacity>
                         ))}
                     </View>
-                    <VoidCard glass style={{ padding: 16 }}>
+                    <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                         {leaderboard.length === 0 ? (
                             <Text style={[styles.emptyText, { color: colors.textSecondary, textAlign: 'center', paddingVertical: 24 }]}>
                                 Add friends to see rankings!

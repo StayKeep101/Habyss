@@ -24,13 +24,14 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
 
     const flameColors = FLAME_COLORS[completionTier] || FLAME_COLORS[0];
     const isRainbow = completionTier === 4;
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
-            <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.iconContainer}>
                     {isRainbow ? (
                         <LinearGradient

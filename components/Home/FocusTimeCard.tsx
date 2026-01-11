@@ -83,6 +83,9 @@ export const FocusTimeCard: React.FC = () => {
     const circumference = 2 * Math.PI * 38; // radius = 38
     const strokeDashoffset = circumference - (progress / 100) * circumference;
 
+    // Calculate daily average based on weekly total / 7
+    const dailyAverage = Math.floor(weeklyFocusTotal / 7);
+
     return (
         <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
             {/* Header */}
@@ -173,6 +176,13 @@ export const FocusTimeCard: React.FC = () => {
                         <View style={styles.statsColumn}>
                             <View style={styles.statItemVertical}>
                                 <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
+                                    {formatTime(dailyAverage)}
+                                </Text>
+                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Daily Avg</Text>
+                            </View>
+                            <View style={[styles.statDividerH, { backgroundColor: colors.border }]} />
+                            <View style={styles.statItemVertical}>
+                                <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
                                     {formatTime(weeklyFocusTotal)}
                                 </Text>
                                 <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Week</Text>
@@ -183,13 +193,6 @@ export const FocusTimeCard: React.FC = () => {
                                     {formatTime(monthlyFocusTotal)}
                                 </Text>
                                 <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Month</Text>
-                            </View>
-                            <View style={[styles.statDividerH, { backgroundColor: colors.border }]} />
-                            <View style={styles.statItemVertical}>
-                                <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
-                                    {formatTime(yearlyFocusTotal)}
-                                </Text>
-                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Year</Text>
                             </View>
                         </View>
                     </View>

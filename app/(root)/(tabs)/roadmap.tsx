@@ -6,6 +6,7 @@ import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withTiming,
+    withSpring,
     Easing,
     interpolate,
     Extrapolation,
@@ -97,13 +98,14 @@ const CalendarScreen = () => {
     const filterTranslateY = useSharedValue(FILTER_SHEET_HEIGHT);
 
     const closeFilterModal = useCallback(() => {
-        filterTranslateY.value = withTiming(FILTER_SHEET_HEIGHT, { duration: 250, easing: Easing.in(Easing.cubic) });
-        setTimeout(() => setShowFilter(false), 250);
+        filterTranslateY.value = withTiming(FILTER_SHEET_HEIGHT, { duration: 280, easing: Easing.in(Easing.cubic) });
+        setTimeout(() => setShowFilter(false), 280);
     }, [FILTER_SHEET_HEIGHT]);
 
     const openFilterModal = useCallback(() => {
         setShowFilter(true);
-        filterTranslateY.value = withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) });
+        // Use spring for smoother, more natural entrance
+        filterTranslateY.value = withSpring(0, { damping: 20, stiffness: 90 });
     }, []);
 
     const filterPanGesture = Gesture.Pan()

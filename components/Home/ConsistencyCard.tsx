@@ -15,6 +15,7 @@ export const ConsistencyCard: React.FC<ConsistencyCardProps> = ({ score, onPress
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
 
     const size = 38;
     const strokeWidth = 4;
@@ -35,7 +36,7 @@ export const ConsistencyCard: React.FC<ConsistencyCardProps> = ({ score, onPress
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
-            <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.circleContainer}>
                     <Svg width={size} height={size}>
                         <G rotation="-90" origin={`${center}, ${center}`}>

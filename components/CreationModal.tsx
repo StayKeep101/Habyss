@@ -91,28 +91,31 @@ export const CreationModal: React.FC<CreationModalProps> = () => {
 
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, sheetStyle]}>
-                        <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
+                        <LinearGradient
+                            colors={theme === 'light' ? ['#FFFFFF', '#F5F5F7'] : ['#0f1218', '#080a0e']}
+                            style={StyleSheet.absoluteFill}
+                        />
+                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder, { borderColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(139, 92, 246, 0.15)' }]} />
 
                         <Animated.View style={[styles.content, contentStyle]}>
-                            <Text style={styles.title}>CREATE</Text>
+                            <Text style={[styles.title, { color: colors.text }]}>CREATE</Text>
                             <Text style={[styles.subtitle, { color: colors.primary }]}>NEW ITEM</Text>
 
                             <View style={styles.optionsContainer}>
-                                <TouchableOpacity onPress={handleHabit} activeOpacity={0.8} style={styles.optionCard}>
+                                <TouchableOpacity onPress={handleHabit} activeOpacity={0.8} style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
                                     <View style={[styles.optionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
                                         <Ionicons name="repeat" size={28} color="#10B981" />
                                     </View>
-                                    <Text style={styles.optionTitle}>Habit</Text>
-                                    <Text style={styles.optionDesc}>Daily routine</Text>
+                                    <Text style={[styles.optionTitle, { color: colors.text }]}>Habit</Text>
+                                    <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>Daily routine</Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity onPress={handleGoal} activeOpacity={0.8} style={styles.optionCard}>
+                                <TouchableOpacity onPress={handleGoal} activeOpacity={0.8} style={[styles.optionCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
                                     <View style={[styles.optionIcon, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
                                         <Ionicons name="flag" size={28} color="#8B5CF6" />
                                     </View>
-                                    <Text style={styles.optionTitle}>Goal</Text>
-                                    <Text style={styles.optionDesc}>Big objective</Text>
+                                    <Text style={[styles.optionTitle, { color: colors.text }]}>Goal</Text>
+                                    <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>Big objective</Text>
                                 </TouchableOpacity>
                             </View>
                         </Animated.View>
