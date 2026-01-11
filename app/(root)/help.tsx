@@ -7,9 +7,16 @@ import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { useTheme } from '@/constants/themeContext';
+
 const Help = () => {
-    const colorScheme = useColorScheme();
-    const colors = Colors[colorScheme ?? 'dark'];
+    // const colorScheme = useColorScheme();
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
     const { lightFeedback } = useHaptics();
 
     const faqs = [
@@ -26,7 +33,7 @@ const Help = () => {
 
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -42,7 +49,17 @@ const Help = () => {
 
 
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>FAQ</Text>
-                    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <VoidCard
+                        glass={!isTrueDark}
+                        intensity={isLight ? 20 : 80}
+                        style={[
+                            styles.card,
+                            {
+                                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                                borderColor: colors.border
+                            }
+                        ]}
+                    >
                         {faqs.map((item, index) => (
                             <View key={index}>
                                 {index > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
@@ -52,21 +69,30 @@ const Help = () => {
                                 </View>
                             </View>
                         ))}
-                    </View>
+                    </VoidCard>
 
                     {/* Contact */}
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>NEED MORE HELP?</Text>
-                    <TouchableOpacity
-                        style={[styles.contactBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                        onPress={openEmail}
-                    >
-                        <Ionicons name="mail-outline" size={22} color={colors.primary} />
-                        <Text style={[styles.contactText, { color: colors.textPrimary }]}>Email Support</Text>
-                        <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                    <TouchableOpacity onPress={openEmail} activeOpacity={0.7}>
+                        <VoidCard
+                            glass={!isTrueDark}
+                            intensity={isLight ? 20 : 80}
+                            style={[
+                                styles.contactBtn,
+                                {
+                                    backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                                    borderColor: colors.border
+                                }
+                            ]}
+                        >
+                            <Ionicons name="mail-outline" size={22} color={colors.primary} />
+                            <Text style={[styles.contactText, { color: colors.textPrimary }]}>Email Support</Text>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+                        </VoidCard>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
-        </View>
+        </VoidShell>
     );
 };
 

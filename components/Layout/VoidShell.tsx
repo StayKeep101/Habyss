@@ -56,20 +56,34 @@ export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
             <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]}>
                 {theme === 'light' && (
                     <>
-                        {/* Light Mode Gradient Base */}
+                        {/* Light Mode Base - Pure White */}
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FFFFFF' }]} />
+
+                        {/* Top Gradient - Blue to White (Matches Abyss structure) */}
                         <LinearGradient
-                            colors={['#FFFFFF', '#F5F7FA', '#E8EEF5']}
+                            colors={['#E0F2FE', '#F0F9FF', '#FFFFFF']}
                             style={[StyleSheet.absoluteFill]}
                             start={{ x: 0.5, y: 0 }}
-                            end={{ x: 0.5, y: 1 }}
+                            end={{ x: 0.5, y: 0.6 }}
                         />
-                        {/* Subtle top glow */}
+
+                        {/* Top Glow - Blue tint */}
                         <LinearGradient
-                            colors={['rgba(59, 130, 246, 0.05)', 'transparent']}
-                            style={[StyleSheet.absoluteFill, { height: '30%' }]}
+                            colors={['rgba(59, 130, 246, 0.1)', 'transparent']}
+                            style={[StyleSheet.absoluteFill, { height: '40%' }]}
                             start={{ x: 0.5, y: 0 }}
                             end={{ x: 0.5, y: 1 }}
                         />
+
+                        {/* Breathing Bottom Mist */}
+                        <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
+                            <LinearGradient
+                                colors={['transparent', 'rgba(59, 130, 246, 0.12)']}
+                                style={[StyleSheet.absoluteFill, { top: '50%' }]}
+                                start={{ x: 0.5, y: 0 }}
+                                end={{ x: 0.5, y: 1 }}
+                            />
+                        </Animated.View>
                     </>
                 )}
 
@@ -111,7 +125,7 @@ export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
             <View style={{ flex: 1, zIndex: 1 }}>
                 {children}
             </View>
-        </View>
+        </View >
     );
 };
 

@@ -7,9 +7,16 @@ import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { useTheme } from '@/constants/themeContext';
+
 const Privacy = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  // const colorScheme = useColorScheme();
+  const { theme } = useTheme();
+  const colors = Colors[theme];
+  const isLight = theme === 'light';
+  const isTrueDark = theme === 'trueDark';
   const { lightFeedback } = useHaptics();
 
   const [analytics, setAnalytics] = useState(true);
@@ -31,7 +38,7 @@ const Privacy = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <VoidShell>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
@@ -46,7 +53,17 @@ const Privacy = () => {
         <View style={styles.content}>
           {/* Data Collection */}
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>DATA COLLECTION</Text>
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <VoidCard
+            glass={!isTrueDark}
+            intensity={isLight ? 20 : 80}
+            style={[
+              styles.card,
+              {
+                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                borderColor: colors.border
+              }
+            ]}
+          >
             <View style={styles.row}>
               <View style={styles.rowContent}>
                 <Ionicons name="analytics-outline" size={22} color={colors.textSecondary} />
@@ -78,7 +95,7 @@ const Privacy = () => {
                 trackColor={{ false: colors.border, true: colors.success }}
               />
             </View>
-          </View>
+          </VoidCard>
 
           {/* Danger Zone */}
           <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>DANGER ZONE</Text>
@@ -91,7 +108,7 @@ const Privacy = () => {
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    </View>
+    </VoidShell>
   );
 };
 

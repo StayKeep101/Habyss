@@ -9,9 +9,16 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAccentGradient } from '@/constants/AccentContext';
 
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { useTheme } from '@/constants/themeContext';
+
 const Contact = () => {
-    const colorScheme = useColorScheme();
-    const colors = Colors[colorScheme ?? 'dark'];
+    // const colorScheme = useColorScheme();
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
     const { colors: accentColors } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
@@ -33,7 +40,7 @@ const Contact = () => {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -47,7 +54,17 @@ const Contact = () => {
                 {/* Content */}
                 <View style={styles.content}>
                     {/* Quick Links */}
-                    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <VoidCard
+                        glass={!isTrueDark}
+                        intensity={isLight ? 20 : 80}
+                        style={[
+                            styles.card,
+                            {
+                                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                                borderColor: colors.border
+                            }
+                        ]}
+                    >
                         <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL('mailto:support@habyss.app')}>
                             <Ionicons name="mail-outline" size={22} color={colors.primary} />
                             <Text style={[styles.linkText, { color: colors.textPrimary }]}>support@habyss.app</Text>
@@ -57,7 +74,7 @@ const Contact = () => {
                             <Ionicons name="logo-twitter" size={22} color="#1DA1F2" />
                             <Text style={[styles.linkText, { color: colors.textPrimary }]}>@habyss</Text>
                         </TouchableOpacity>
-                    </View>
+                    </VoidCard>
 
                     {/* Message Form */}
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>SEND A MESSAGE</Text>
@@ -85,7 +102,7 @@ const Contact = () => {
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
-        </View>
+        </VoidShell>
     );
 };
 

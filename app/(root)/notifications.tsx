@@ -9,9 +9,16 @@ import { router } from 'expo-router';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { useTheme } from '@/constants/themeContext';
+
 const Notifications = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  // const colorScheme = useColorScheme();
+  const { theme } = useTheme();
+  const colors = Colors[theme];
+  const isLight = theme === 'light';
+  const isTrueDark = theme === 'trueDark';
   const { lightFeedback } = useHaptics();
   const { notificationsEnabled, setNotificationsEnabled } = useAppSettings();
 
@@ -39,7 +46,7 @@ const Notifications = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <VoidShell>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
@@ -53,7 +60,17 @@ const Notifications = () => {
         {/* Settings */}
         <View style={styles.content}>
           {/* Master Toggle */}
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <VoidCard
+            glass={!isTrueDark}
+            intensity={isLight ? 20 : 80}
+            style={[
+              styles.card,
+              {
+                borderColor: colors.border,
+                backgroundColor: isLight ? colors.surfaceSecondary : undefined
+              }
+            ]}
+          >
             <View style={styles.row}>
               <View style={styles.rowContent}>
                 <Ionicons name="notifications" size={22} color={colors.primary} />
@@ -71,10 +88,21 @@ const Notifications = () => {
                 trackColor={{ false: colors.border, true: colors.primary }}
               />
             </View>
-          </View>
+          </VoidCard>
 
           {/* Individual Settings */}
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, opacity: notificationsEnabled ? 1 : 0.5 }]}>
+          <VoidCard
+            glass={!isTrueDark}
+            intensity={isLight ? 20 : 80}
+            style={[
+              styles.card,
+              {
+                borderColor: colors.border,
+                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                opacity: notificationsEnabled ? 1 : 0.5
+              }
+            ]}
+          >
             <View style={styles.row}>
               <View style={styles.rowContent}>
                 <Ionicons name="alarm-outline" size={22} color={colors.textSecondary} />
@@ -117,10 +145,10 @@ const Notifications = () => {
                 trackColor={{ false: colors.border, true: colors.success }}
               />
             </View>
-          </View>
+          </VoidCard>
         </View>
       </SafeAreaView>
-    </View>
+    </VoidShell>
   );
 };
 

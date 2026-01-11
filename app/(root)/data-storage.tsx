@@ -9,9 +9,16 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAccentGradient } from '@/constants/AccentContext';
 
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { useTheme } from '@/constants/themeContext';
+
 const DataStorage = () => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'dark'];
+  // const colorScheme = useColorScheme();
+  const { theme } = useTheme();
+  const colors = Colors[theme];
+  const isLight = theme === 'light';
+  const isTrueDark = theme === 'trueDark';
   const { primary: accentColor, colors: accentColors } = useAccentGradient();
   const { lightFeedback, successFeedback } = useHaptics();
 
@@ -57,7 +64,7 @@ const DataStorage = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <VoidShell>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
@@ -71,7 +78,17 @@ const DataStorage = () => {
         {/* Content */}
         <View style={styles.content}>
           {/* Backup Status */}
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <VoidCard
+            glass={!isTrueDark}
+            intensity={isLight ? 20 : 80}
+            style={[
+              styles.card,
+              {
+                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                borderColor: colors.border
+              }
+            ]}
+          >
             <View style={styles.statusRow}>
               <View>
                 <Text style={[styles.label, { color: colors.textPrimary }]}>Last Backup</Text>
@@ -79,7 +96,7 @@ const DataStorage = () => {
               </View>
               <Ionicons name="cloud-done-outline" size={28} color={accentColor} />
             </View>
-          </View>
+          </VoidCard>
 
           {/* Actions */}
           <TouchableOpacity onPress={handleBackup} disabled={isBackingUp}>
@@ -100,7 +117,17 @@ const DataStorage = () => {
             </LinearGradient>
           </TouchableOpacity>
 
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <VoidCard
+            glass={!isTrueDark}
+            intensity={isLight ? 20 : 80}
+            style={[
+              styles.card,
+              {
+                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                borderColor: colors.border
+              }
+            ]}
+          >
             <TouchableOpacity style={styles.actionRow} onPress={handleRestore}>
               <View style={styles.rowContent}>
                 <Ionicons name="cloud-download-outline" size={22} color={accentColor} />
@@ -118,10 +145,10 @@ const DataStorage = () => {
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
             </TouchableOpacity>
-          </View>
+          </VoidCard>
         </View>
       </SafeAreaView>
-    </View>
+    </VoidShell>
   );
 };
 

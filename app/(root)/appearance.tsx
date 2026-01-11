@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,8 +32,28 @@ const Appearance = () => {
         { id: 'big', name: 'Large' },
     ];
 
+    const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
+
+    const renderCard = (children: React.ReactNode, key?: string) => (
+        <VoidCard
+            key={key}
+            glass={!isTrueDark}
+            intensity={isLight ? 20 : 80}
+            style={[
+                styles.card,
+                {
+                    backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                    borderColor: colors.border
+                }
+            ]}
+        >
+            {children}
+        </VoidCard>
+    );
+
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -45,8 +67,8 @@ const Appearance = () => {
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     {/* Theme Section */}
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>THEME</Text>
-                    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                        {themes.map((t, index) => (
+                    {renderCard(
+                        themes.map((t, index) => (
                             <View key={t.id}>
                                 {index > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
                                 <TouchableOpacity
@@ -67,8 +89,8 @@ const Appearance = () => {
                                     )}
                                 </TouchableOpacity>
                             </View>
-                        ))}
-                    </View>
+                        ))
+                    )}
 
                     {/* Accent Gradient Section */}
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>ACCENT COLOR</Text>
@@ -120,7 +142,7 @@ const Appearance = () => {
                                 style={[
                                     styles.sizeBtn,
                                     {
-                                        backgroundColor: cardSize === s.id ? accentGradient.colors[0] : colors.surface,
+                                        backgroundColor: cardSize === s.id ? accentGradient.colors[0] : (isLight ? colors.surfaceSecondary : colors.surface),
                                         borderColor: cardSize === s.id ? accentGradient.colors[0] : colors.border,
                                     }
                                 ]}
@@ -140,7 +162,7 @@ const Appearance = () => {
                     </View>
                 </ScrollView>
             </SafeAreaView>
-        </View>
+        </VoidShell>
     );
 };
 

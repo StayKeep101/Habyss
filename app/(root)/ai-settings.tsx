@@ -8,6 +8,9 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings, GreetingStyle } from '@/constants/AppSettingsContext';
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { useTheme } from '@/constants/themeContext';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2; // 2 columns with padding
@@ -21,8 +24,11 @@ const GREETING_STYLES: { id: GreetingStyle; label: string; icon: string; descrip
 ];
 
 const AISettings = () => {
-    const colorScheme = useColorScheme();
-    const colors = Colors[colorScheme ?? 'dark'];
+    // const colorScheme = useColorScheme(); // Using global theme hook instead
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
     const { mediumFeedback, selectionFeedback } = useHaptics();
     const { aiPersonality, setAIPersonality, greetingStyle, setGreetingStyle } = useAppSettings();
 
@@ -45,7 +51,7 @@ const AISettings = () => {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -71,42 +77,51 @@ const AISettings = () => {
                             return (
                                 <TouchableOpacity
                                     key={mode.id}
-                                    style={[
-                                        styles.personalityCard,
-                                        {
-                                            backgroundColor: colors.surface,
-                                            borderColor: isSelected ? colors.success : colors.border,
-                                            borderWidth: isSelected ? 2 : 1,
-                                            width: CARD_WIDTH,
-                                        }
-                                    ]}
+                                    style={{ width: CARD_WIDTH }}
                                     onPress={() => handleSelectPersonality(mode.id)}
                                     activeOpacity={0.7}
                                 >
-                                    {/* Icon and check */}
-                                    <View style={styles.cardTopRow}>
-                                        <Text style={styles.emoji}>{mode.icon}</Text>
-                                        {isSelected && (
-                                            <View style={[styles.checkBadge, { backgroundColor: colors.success }]}>
-                                                <Ionicons name="checkmark" size={10} color="#fff" />
+                                    <VoidCard
+                                        glass={!isTrueDark}
+                                        intensity={isLight ? 20 : 80}
+                                        style={[
+                                            styles.personalityCard,
+                                            {
+                                                borderColor: isSelected ? colors.success : 'transparent',
+                                                borderWidth: isSelected ? 2 : 0,
+                                                backgroundColor: isLight ? colors.surfaceSecondary : undefined
+                                                // If trueDark, VoidCard handles opaque. If glass, it handles it. 
+                                                // We just need to ensure styling override is minimal.
+                                            },
+                                            // Ensure selected state visibility on top of glass
+                                            isSelected && !isLight && { backgroundColor: colors.success + '15' }
+                                        ]}
+                                    >
+                                        {/* Icon and check */}
+                                        <View style={styles.cardTopRow}>
+                                            <Text style={styles.emoji}>{mode.icon}</Text>
+                                            {isSelected && (
+                                                <View style={[styles.checkBadge, { backgroundColor: colors.success }]}>
+                                                    <Ionicons name="checkmark" size={10} color="#fff" />
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        {/* Name */}
+                                        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{mode.name}</Text>
+
+                                        {/* Short description */}
+                                        <Text style={[styles.cardDesc, { color: colors.textTertiary }]} numberOfLines={3}>
+                                            {mode.description}
+                                        </Text>
+
+                                        {/* Warning indicator */}
+                                        {mode.warning && (
+                                            <View style={styles.warningDot}>
+                                                <Ionicons name="warning" size={10} color="#F59E0B" />
                                             </View>
                                         )}
-                                    </View>
-
-                                    {/* Name */}
-                                    <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{mode.name}</Text>
-
-                                    {/* Short description */}
-                                    <Text style={[styles.cardDesc, { color: colors.textTertiary }]} numberOfLines={3}>
-                                        {mode.description}
-                                    </Text>
-
-                                    {/* Warning indicator */}
-                                    {mode.warning && (
-                                        <View style={styles.warningDot}>
-                                            <Ionicons name="warning" size={10} color="#F59E0B" />
-                                        </View>
-                                    )}
+                                    </VoidCard>
                                 </TouchableOpacity>
                             );
                         })}
@@ -128,33 +143,40 @@ const AISettings = () => {
                             return (
                                 <TouchableOpacity
                                     key={style.id}
-                                    style={[
-                                        styles.greetingCard,
-                                        {
-                                            backgroundColor: colors.surface,
-                                            borderColor: isSelected ? colors.primary : colors.border,
-                                            borderWidth: isSelected ? 2 : 1,
-                                        }
-                                    ]}
+                                    style={{ width: (width - 48) / 2 - 5 }}
                                     onPress={() => handleSelectGreeting(style.id)}
                                     activeOpacity={0.7}
                                 >
-                                    <View style={[styles.greetingIcon, { backgroundColor: isSelected ? colors.primary + '20' : colors.surfaceSecondary }]}>
-                                        <Ionicons name={style.icon as any} size={16} color={isSelected ? colors.primary : colors.textSecondary} />
-                                    </View>
-                                    <Text style={[styles.greetingLabel, { color: isSelected ? colors.primary : colors.textPrimary }]}>
-                                        {style.label}
-                                    </Text>
-                                    <Text style={[styles.greetingDesc, { color: colors.textTertiary }]} numberOfLines={1}>
-                                        {style.description}
-                                    </Text>
+                                    <VoidCard
+                                        glass={!isTrueDark}
+                                        intensity={isLight ? 20 : 80}
+                                        style={[
+                                            styles.greetingCard,
+                                            {
+                                                borderColor: isSelected ? colors.primary : 'transparent',
+                                                borderWidth: isSelected ? 2 : 0,
+                                                backgroundColor: isLight ? colors.surfaceSecondary : undefined
+                                            },
+                                            isSelected && !isLight && { backgroundColor: colors.primary + '15' }
+                                        ]}
+                                    >
+                                        <View style={[styles.greetingIcon, { backgroundColor: isSelected ? colors.primary + '20' : (isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)') }]}>
+                                            <Ionicons name={style.icon as any} size={16} color={isSelected ? colors.primary : colors.textSecondary} />
+                                        </View>
+                                        <Text style={[styles.greetingLabel, { color: isSelected ? colors.primary : colors.textPrimary }]}>
+                                            {style.label}
+                                        </Text>
+                                        <Text style={[styles.greetingDesc, { color: colors.textTertiary }]} numberOfLines={1}>
+                                            {style.description}
+                                        </Text>
+                                    </VoidCard>
                                 </TouchableOpacity>
                             );
                         })}
                     </View>
                 </ScrollView>
             </SafeAreaView>
-        </View>
+        </VoidShell>
     );
 };
 

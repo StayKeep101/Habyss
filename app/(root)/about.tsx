@@ -9,15 +9,22 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { useTheme } from '@/constants/themeContext';
+
 const About = () => {
-    const colorScheme = useColorScheme();
-    const colors = Colors[colorScheme ?? 'dark'];
+    // const colorScheme = useColorScheme();
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
     const { lightFeedback } = useHaptics();
 
     const version = Constants.expoConfig?.version || '1.0.0';
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -48,7 +55,17 @@ const About = () => {
                     </Text>
 
                     {/* Links */}
-                    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <VoidCard
+                        glass={!isTrueDark}
+                        intensity={isLight ? 20 : 80}
+                        style={[
+                            styles.card,
+                            {
+                                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                                borderColor: colors.border
+                            }
+                        ]}
+                    >
                         <TouchableOpacity
                             style={styles.linkRow}
                             onPress={() => { lightFeedback(); Linking.openURL('https://habyss.app/privacy'); }}
@@ -68,7 +85,7 @@ const About = () => {
                             <Text style={[styles.linkText, { color: colors.textPrimary }]}>Terms of Service</Text>
                             <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                         </TouchableOpacity>
-                    </View>
+                    </VoidCard>
 
                     {/* Footer */}
                     <Text style={[styles.footer, { color: colors.textTertiary }]}>
@@ -76,7 +93,7 @@ const About = () => {
                     </Text>
                 </View>
             </SafeAreaView>
-        </View>
+        </VoidShell>
     );
 };
 

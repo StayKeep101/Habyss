@@ -7,6 +7,8 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
+import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidCard } from '@/components/Layout/VoidCard';
 import { IntegrationService, Integration } from '@/lib/integrationService';
 import { SpotifyService } from '@/lib/spotifyService';
 // import * as Calendar from 'expo-calendar'; // Removed static import
@@ -53,6 +55,8 @@ const INTEGRATIONS: IntegrationItem[] = [
 export default function IntegrationsScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
     const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
@@ -200,7 +204,7 @@ export default function IntegrationsScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
@@ -219,7 +223,17 @@ export default function IntegrationsScreen() {
                         Sync your habits with other apps
                     </Text>
 
-                    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <VoidCard
+                        glass={!isTrueDark}
+                        intensity={isLight ? 20 : 80}
+                        style={[
+                            styles.card,
+                            {
+                                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                                borderColor: colors.border
+                            }
+                        ]}
+                    >
                         {INTEGRATIONS.map((item, index) => (
                             <View key={item.id}>
                                 {index > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
@@ -244,7 +258,7 @@ export default function IntegrationsScreen() {
                                 </View>
                             </View>
                         ))}
-                    </View>
+                    </VoidCard>
 
                     {Platform.OS === 'ios' && (
                         <Text style={[styles.footnote, { color: colors.textTertiary }]}>
@@ -253,7 +267,7 @@ export default function IntegrationsScreen() {
                     )}
                 </View>
             </SafeAreaView>
-        </View>
+        </VoidShell>
     );
 }
 
