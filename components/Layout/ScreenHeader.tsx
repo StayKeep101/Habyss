@@ -15,14 +15,6 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, subtitle }) =
 
     return (
         <View style={styles.container}>
-            {/* Ambient Background Glow */}
-            <LinearGradient
-                colors={[colors.primary, 'transparent']}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={styles.ambientGlow}
-            />
-
             <View style={styles.content}>
                 <Text style={[styles.title, { color: colors.textPrimary }]}>
                     {title}

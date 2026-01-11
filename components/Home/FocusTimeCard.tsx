@@ -8,10 +8,11 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { useFocusTime } from '@/constants/FocusTimeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import Svg, { Circle } from 'react-native-svg';
 
 // ============================================
 // Focus Time Card
-// Displays today's total focus time and active timer status.
+// Displays today's total focus time with embedded timer controls.
 // ============================================
 
 export const FocusTimeCard: React.FC = () => {
@@ -27,12 +28,15 @@ export const FocusTimeCard: React.FC = () => {
         activeHabitId,
         activeHabitName,
         timeLeft,
+        totalDuration,
         totalFocusToday,
         sessionsToday,
-        bestSessionToday,
         weeklyFocusTotal,
         monthlyFocusTotal,
-        allTimeBest,
+        yearlyFocusTotal,
+        pauseTimer,
+        resumeTimer,
+        stopTimer,
     } = useFocusTime();
 
     const formatTime = (seconds: number): string => {
@@ -60,7 +64,24 @@ export const FocusTimeCard: React.FC = () => {
         }
     };
 
+    const handlePlayPause = () => {
+        if (isRunning) {
+            pauseTimer();
+        } else if (isPaused) {
+            resumeTimer();
+        }
+    };
+
+    const handleStop = () => {
+        stopTimer();
+    };
+
     const hasActiveTimer = isRunning || isPaused;
+
+    // Timer progress calculation - starts at 12 o'clock
+    const progress = totalDuration > 0 ? ((totalDuration - timeLeft) / totalDuration) * 100 : 0;
+    const circumference = 2 * Math.PI * 38; // radius = 38
+    const strokeDashoffset = circumference - (progress / 100) * circumference;
 
     return (
         <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
@@ -70,95 +91,152 @@ export const FocusTimeCard: React.FC = () => {
                     <Ionicons name="timer-outline" size={16} color={accentColor} />
                     <Text style={[styles.title, { color: colors.textSecondary }]}>TODAY'S FOCUS</Text>
                 </View>
-                <View style={styles.sessionBadge}>
-                    <Text style={[styles.sessionCount, { color: colors.textTertiary }]}>
-                        {sessionsToday} {sessionsToday === 1 ? 'session' : 'sessions'}
-                    </Text>
-                </View>
             </View>
 
             {/* Main Content */}
             <View style={styles.content}>
-                {/* Total Focus Time */}
-                <View style={styles.focusTimeContainer}>
-                    <Text style={[styles.focusTime, { color: colors.textPrimary }]}>
-                        {formatTime(totalFocusToday)}
-                    </Text>
-                    <Text style={[styles.focusLabel, { color: colors.textTertiary }]}>focused today</Text>
-                </View>
-
-                {/* Active Timer (if running/paused) */}
-                {hasActiveTimer && (
-                    <TouchableOpacity
-                        onPress={handleActiveTimerPress}
-                        activeOpacity={0.8}
-                        style={styles.activeTimerContainer}
-                    >
-                        <LinearGradient
-                            colors={accentColors}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.activeTimerGradient}
-                        >
-                            <View style={styles.activeTimerContent}>
-                                <Ionicons
-                                    name={isPaused ? 'pause' : 'play'}
-                                    size={14}
-                                    color="#fff"
+                {/* Active Timer with Controls */}
+                {hasActiveTimer ? (
+                    <View style={styles.activeTimerSection}>
+                        {/* Circular Timer */}
+                        <View style={styles.timerRingContainer}>
+                            <Svg width={100} height={100} style={styles.timerRing}>
+                                {/* Background Circle */}
+                                <Circle
+                                    cx={50}
+                                    cy={50}
+                                    r={38}
+                                    stroke={isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}
+                                    strokeWidth="6"
+                                    fill="transparent"
                                 />
-                                <Text style={styles.activeTimerName} numberOfLines={1}>
-                                    {activeHabitName || 'Focus'}
-                                </Text>
-                                <Text style={styles.activeTimerTime}>
+                                {/* Progress Circle - starts at 12 o'clock with rotation="-90" */}
+                                <Circle
+                                    cx={50}
+                                    cy={50}
+                                    r={38}
+                                    stroke={accentColor}
+                                    strokeWidth="6"
+                                    fill="transparent"
+                                    strokeDasharray={circumference}
+                                    strokeDashoffset={strokeDashoffset}
+                                    strokeLinecap="round"
+                                    rotation="-90"
+                                    origin="50, 50"
+                                />
+                            </Svg>
+                            <View style={styles.timerContent}>
+                                <Text style={[styles.countdownText, { color: colors.textPrimary }]}>
                                     {formatCountdown(timeLeft)}
                                 </Text>
                             </View>
-                        </LinearGradient>
-                    </TouchableOpacity>
+                        </View>
+
+                        {/* Timer Info & Controls */}
+                        <View style={styles.timerInfo}>
+                            <TouchableOpacity onPress={handleActiveTimerPress} activeOpacity={0.7}>
+                                <Text style={[styles.habitName, { color: colors.textPrimary }]} numberOfLines={1}>
+                                    {activeHabitName || 'Focus'}
+                                </Text>
+                                <Text style={[styles.statusText, { color: isPaused ? colors.textTertiary : accentColor }]}>
+                                    {isPaused ? 'PAUSED' : 'FOCUSING'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* Control Buttons */}
+                            <View style={styles.controlButtons}>
+                                <TouchableOpacity
+                                    onPress={handleStop}
+                                    style={[styles.controlBtn, { borderColor: colors.border }]}
+                                >
+                                    <Ionicons name="stop" size={18} color={colors.textSecondary} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={handlePlayPause} activeOpacity={0.8}>
+                                    <LinearGradient
+                                        colors={accentColors}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.playPauseBtn}
+                                    >
+                                        <Ionicons
+                                            name={isRunning ? 'pause' : 'play'}
+                                            size={20}
+                                            color="#fff"
+                                            style={isRunning ? {} : { marginLeft: 2 }}
+                                        />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {/* Stats Column - beside controls */}
+                        <View style={styles.statsColumn}>
+                            <View style={styles.statItemVertical}>
+                                <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
+                                    {formatTime(weeklyFocusTotal)}
+                                </Text>
+                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Week</Text>
+                            </View>
+                            <View style={[styles.statDividerH, { backgroundColor: colors.border }]} />
+                            <View style={styles.statItemVertical}>
+                                <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
+                                    {formatTime(monthlyFocusTotal)}
+                                </Text>
+                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Month</Text>
+                            </View>
+                            <View style={[styles.statDividerH, { backgroundColor: colors.border }]} />
+                            <View style={styles.statItemVertical}>
+                                <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
+                                    {formatTime(yearlyFocusTotal)}
+                                </Text>
+                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Year</Text>
+                            </View>
+                        </View>
+                    </View>
+                ) : (
+                    /* Idle State - Show Total Focus Time + Stats */
+                    <View style={styles.idleContainer}>
+                        <View style={styles.focusTimeContainer}>
+                            <Text style={[styles.focusTime, { color: colors.textPrimary }]}>
+                                {formatTime(totalFocusToday)}
+                            </Text>
+                            <Text style={[styles.focusLabel, { color: colors.textTertiary }]}>focused today</Text>
+                        </View>
+
+                        {/* Stats Row - only when idle and has data */}
+                        {(weeklyFocusTotal > 0 || monthlyFocusTotal > 0 || yearlyFocusTotal > 0) && (
+                            <View style={styles.statsRow}>
+                                <View style={styles.statItem}>
+                                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                                        {formatTime(weeklyFocusTotal)}
+                                    </Text>
+                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Week</Text>
+                                </View>
+                                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                                <View style={styles.statItem}>
+                                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                                        {formatTime(monthlyFocusTotal)}
+                                    </Text>
+                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Month</Text>
+                                </View>
+                                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                                <View style={styles.statItem}>
+                                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                                        {formatTime(yearlyFocusTotal)}
+                                    </Text>
+                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Year</Text>
+                                </View>
+                            </View>
+                        )}
+                    </View>
                 )}
 
                 {/* Empty State when no activity */}
-                {!hasActiveTimer && totalFocusToday === 0 && (
+                {!hasActiveTimer && totalFocusToday === 0 && weeklyFocusTotal === 0 && (
                     <View style={styles.emptyState}>
                         <Ionicons name="hourglass-outline" size={24} color={colors.textTertiary} />
                         <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
                             Start a timer on any habit to track focus time
-                        </Text>
-                    </View>
-                )}
-
-                {/* Stats Row - Shows when there's any focus data */}
-                {(totalFocusToday > 0 || weeklyFocusTotal > 0 || monthlyFocusTotal > 0) && (
-                    <View style={styles.statsRow}>
-                        <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                {formatTime(bestSessionToday)}
-                            </Text>
-                            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Best Today</Text>
-                        </View>
-                        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-                        <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                {formatTime(weeklyFocusTotal)}
-                            </Text>
-                            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Week</Text>
-                        </View>
-                        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-                        <View style={styles.statItem}>
-                            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                {formatTime(monthlyFocusTotal)}
-                            </Text>
-                            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Month</Text>
-                        </View>
-                    </View>
-                )}
-
-                {/* All-time best badge - only when significant */}
-                {allTimeBest > 0 && allTimeBest >= 300 && (
-                    <View style={[styles.allTimeBest, { backgroundColor: accentColor + '15' }]}>
-                        <Ionicons name="trophy" size={12} color={accentColor} />
-                        <Text style={[styles.allTimeBestText, { color: accentColor }]}>
-                            All-time best: {formatTime(allTimeBest)}
                         </Text>
                     </View>
                 )}
@@ -217,33 +295,66 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend_400Regular',
         marginTop: 4,
     },
-    activeTimerContainer: {
-        width: '100%',
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    activeTimerGradient: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-    },
-    activeTimerContent: {
+    activeTimerSection: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: 20,
+        width: '100%',
     },
-    activeTimerName: {
-        flex: 1,
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#fff',
-        fontFamily: 'Lexend',
+    timerRingContainer: {
+        width: 100,
+        height: 100,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    activeTimerTime: {
-        fontSize: 16,
+    timerRing: {
+        position: 'absolute',
+    },
+    timerContent: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    countdownText: {
+        fontSize: 18,
         fontWeight: '800',
-        color: '#fff',
         fontFamily: 'Lexend',
         letterSpacing: -0.5,
+    },
+    timerInfo: {
+        flex: 1,
+        gap: 12,
+    },
+    habitName: {
+        fontSize: 16,
+        fontWeight: '700',
+        fontFamily: 'Lexend',
+    },
+    statusText: {
+        fontSize: 10,
+        fontWeight: '600',
+        letterSpacing: 1,
+        fontFamily: 'Lexend_400Regular',
+        marginTop: 2,
+    },
+    controlButtons: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center',
+    },
+    controlBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    playPauseBtn: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     emptyState: {
         alignItems: 'center',
@@ -286,18 +397,38 @@ const styles = StyleSheet.create({
         width: 1,
         height: 24,
     },
-    allTimeBest: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        marginTop: 12,
+    // New styles for column layout
+    statsColumn: {
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        gap: 4,
+        paddingLeft: 16,
+        borderLeftWidth: 1,
+        borderLeftColor: 'rgba(128,128,128,0.1)',
     },
-    allTimeBestText: {
-        fontSize: 10,
-        fontWeight: '600',
+    statItemVertical: {
+        alignItems: 'flex-end',
+    },
+    statValueSmall: {
+        fontSize: 12,
+        fontWeight: '700',
         fontFamily: 'Lexend',
+    },
+    statLabelSmall: {
+        fontSize: 8,
+        fontFamily: 'Lexend_400Regular',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        opacity: 0.7,
+    },
+    statDividerH: {
+        width: 32,
+        height: 1,
+        marginVertical: 2,
+        opacity: 0.3,
+    },
+    idleContainer: {
+        alignItems: 'center',
+        width: '100%',
     },
 });

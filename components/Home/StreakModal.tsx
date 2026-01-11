@@ -32,6 +32,12 @@ interface StreakModalProps {
     streak: number;
 }
 
+// Helper to get goal deadline date string
+const getDeadlineDateStr = (goal: Habit | undefined): string | null => {
+    if (!goal?.targetDate) return null;
+    return new Date(goal.targetDate).toISOString().split('T')[0];
+};
+
 export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goals, completedDays, streak }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -168,15 +174,25 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                                     <Text style={[styles.streakValue, { color: accentColor }]}>{streak}</Text>
                                     <Text style={styles.streakLabel}>DAY STREAK</Text>
 
-                                    {/* Deadline Display */}
+                                    {/* Deadline Display - Cleaner Design */}
                                     {selectedGoal?.targetDate && (
-                                        <View style={{ marginTop: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600' }}>
-                                                EXTINGUISH DEADLINE: <Text style={{ color: '#fff' }}>{new Date(selectedGoal.targetDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
-                                                {new Date(selectedGoal.targetDate) > new Date() && (
-                                                    <Text style={{ color: accentColor }}> ({Math.ceil((new Date(selectedGoal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} Days left)</Text>
-                                                )}
-                                            </Text>
+                                        <View style={styles.deadlineBadge}>
+                                            <View style={styles.deadlineIconContainer}>
+                                                <Ionicons name="flag" size={14} color={accentColor} />
+                                            </View>
+                                            <View style={styles.deadlineTextContainer}>
+                                                <Text style={styles.deadlineLabel}>DEADLINE</Text>
+                                                <Text style={styles.deadlineDate}>
+                                                    {new Date(selectedGoal.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </Text>
+                                            </View>
+                                            {new Date(selectedGoal.targetDate) > new Date() && (
+                                                <View style={[styles.daysLeftBadge, { backgroundColor: accentColor + '20' }]}>
+                                                    <Text style={[styles.daysLeftText, { color: accentColor }]}>
+                                                        {Math.ceil((new Date(selectedGoal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}d
+                                                    </Text>
+                                                </View>
+                                            )}
                                         </View>
                                     )}
                                 </VoidCard>
@@ -192,14 +208,28 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                                     </View>
                                 </ScrollView>
 
-                                {/* Month Navigation */}
-                                <View style={styles.filterRow}>
-                                    <TouchableOpacity onPress={() => setMonthOffset(monthOffset - 1)} style={[styles.filterBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                                        <Ionicons name="chevron-back" size={18} color="rgba(255,255,255,0.6)" />
+                                {/* Month Navigation - Cleaner Design */}
+                                <View style={styles.monthNavContainer}>
+                                    <TouchableOpacity
+                                        onPress={() => setMonthOffset(monthOffset - 1)}
+                                        style={styles.monthNavBtn}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.8)" />
                                     </TouchableOpacity>
-                                    <Text style={[styles.filterText, { color: accentColor, flex: 1, textAlign: 'center' }]}>{currentMonthLabel}</Text>
-                                    <TouchableOpacity onPress={() => setMonthOffset(Math.min(0, monthOffset + 1))} style={[styles.filterBtn, { backgroundColor: monthOffset === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)' }]} disabled={monthOffset === 0}>
-                                        <Ionicons name="chevron-forward" size={18} color={monthOffset === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)'} />
+
+                                    <View style={styles.monthLabelContainer}>
+                                        <Ionicons name="calendar-outline" size={14} color={accentColor} style={{ marginRight: 8 }} />
+                                        <Text style={[styles.monthLabel, { color: '#fff' }]}>{currentMonthLabel}</Text>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        onPress={() => setMonthOffset(Math.min(0, monthOffset + 1))}
+                                        style={[styles.monthNavBtn, monthOffset === 0 && styles.monthNavBtnDisabled]}
+                                        disabled={monthOffset === 0}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Ionicons name="chevron-forward" size={20} color={monthOffset === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.8)'} />
                                     </TouchableOpacity>
                                 </View>
 
@@ -225,11 +255,25 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                                             <View key={`empty-${i}`} style={[styles.heatCell, { backgroundColor: 'transparent' }]} />
                                         ))}
 
-                                        {calendarData.map((day, i) => (
-                                            <View key={i} style={[styles.heatCell, day.completed ? { backgroundColor: accentColor } : { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
-                                                <Text style={{ fontSize: 8, color: day.completed ? 'white' : 'rgba(255,255,255,0.3)' }}>{day.date.getDate()}</Text>
-                                            </View>
-                                        ))}
+                                        {calendarData.map((day, i) => {
+                                            const deadlineStr = getDeadlineDateStr(selectedGoal);
+                                            const isDeadline = deadlineStr === day.dateStr;
+                                            return (
+                                                <View
+                                                    key={i}
+                                                    style={[
+                                                        styles.heatCell,
+                                                        day.completed ? { backgroundColor: accentColor } : { backgroundColor: 'rgba(255,255,255,0.06)' },
+                                                        isDeadline && styles.deadlineCell
+                                                    ]}
+                                                >
+                                                    <Text style={{ fontSize: 8, color: day.completed ? 'white' : 'rgba(255,255,255,0.3)' }}>{day.date.getDate()}</Text>
+                                                    {isDeadline && (
+                                                        <View style={[styles.deadlineDot, { backgroundColor: '#EF4444' }]} />
+                                                    )}
+                                                </View>
+                                            );
+                                        })}
                                     </View>
                                 </VoidCard>
                             </Animated.View>
@@ -277,5 +321,21 @@ const styles = StyleSheet.create({
     heatmapCard: { padding: 14 },
     heatmap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-start' }, // Changed gap for better grid
     heatCell: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+    deadlineCell: { borderWidth: 2, borderColor: '#EF4444' },
+    deadlineDot: { position: 'absolute', bottom: 2, width: 4, height: 4, borderRadius: 2 },
     navBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8 },
+    // Cleaner deadline badge styles
+    deadlineBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, gap: 12 },
+    deadlineIconContainer: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+    deadlineTextContainer: { flex: 1 },
+    deadlineLabel: { fontSize: 9, fontWeight: '600', color: 'rgba(255,255,255,0.4)', letterSpacing: 1, fontFamily: 'Lexend_400Regular' },
+    deadlineDate: { fontSize: 14, fontWeight: '700', color: '#fff', fontFamily: 'Lexend', marginTop: 2 },
+    daysLeftBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+    daysLeftText: { fontSize: 12, fontWeight: '700', fontFamily: 'Lexend' },
+    // Cleaner month navigation styles
+    monthNavContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingHorizontal: 4 },
+    monthNavBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+    monthNavBtnDisabled: { backgroundColor: 'rgba(255,255,255,0.02)' },
+    monthLabelContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flex: 1 },
+    monthLabel: { fontSize: 15, fontWeight: '700', fontFamily: 'Lexend' },
 });

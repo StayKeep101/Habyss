@@ -23,6 +23,7 @@ interface FocusTimeContextType {
     bestSessionToday: number; // Longest session today in seconds
     weeklyFocusTotal: number; // Total seconds this week
     monthlyFocusTotal: number; // Total seconds this month
+    yearlyFocusTotal: number; // Total seconds this year
     allTimeBest: number; // All-time longest session
 
     // Actions
@@ -43,6 +44,8 @@ const STORAGE_KEY_WEEKLY_TOTAL = 'focus_weekly_total';
 const STORAGE_KEY_MONTHLY_TOTAL = 'focus_monthly_total';
 const STORAGE_KEY_WEEK_START = 'focus_week_start';
 const STORAGE_KEY_MONTH_START = 'focus_month_start';
+const STORAGE_KEY_YEARLY_TOTAL = 'focus_yearly_total';
+const STORAGE_KEY_YEAR_START = 'focus_year_start';
 const STORAGE_KEY_ALL_TIME_BEST = 'focus_all_time_best';
 
 export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -60,6 +63,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [bestSessionToday, setBestSessionToday] = useState(0);
     const [weeklyFocusTotal, setWeeklyFocusTotal] = useState(0);
     const [monthlyFocusTotal, setMonthlyFocusTotal] = useState(0);
+    const [yearlyFocusTotal, setYearlyFocusTotal] = useState(0);
     const [allTimeBest, setAllTimeBest] = useState(0);
 
     // Refs for interval and tracking
@@ -75,7 +79,8 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 const [
                     focusStr, sessionsStr, lastDateStr,
                     bestSessionStr, weeklyStr, monthlyStr,
-                    weekStartStr, monthStartStr, allTimeBestStr
+                    yearlyStr, weekStartStr, monthStartStr,
+                    yearStartStr, allTimeBestStr
                 ] = await Promise.all([
                     AsyncStorage.getItem(STORAGE_KEY_FOCUS_TODAY),
                     AsyncStorage.getItem(STORAGE_KEY_SESSIONS_TODAY),
@@ -83,8 +88,10 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     AsyncStorage.getItem(STORAGE_KEY_BEST_SESSION_TODAY),
                     AsyncStorage.getItem(STORAGE_KEY_WEEKLY_TOTAL),
                     AsyncStorage.getItem(STORAGE_KEY_MONTHLY_TOTAL),
+                    AsyncStorage.getItem(STORAGE_KEY_YEARLY_TOTAL),
                     AsyncStorage.getItem(STORAGE_KEY_WEEK_START),
                     AsyncStorage.getItem(STORAGE_KEY_MONTH_START),
+                    AsyncStorage.getItem(STORAGE_KEY_YEAR_START),
                     AsyncStorage.getItem(STORAGE_KEY_ALL_TIME_BEST),
                 ]);
 
@@ -92,6 +99,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 const todayStr = today.toISOString().split('T')[0];
                 const currentWeek = getWeekNumber(today);
                 const currentMonth = `${today.getFullYear()}-${today.getMonth()}`;
+                const currentYear = `${today.getFullYear()}`;
 
                 // Reset daily stats if new day
                 if (lastDateStr !== todayStr) {
@@ -124,6 +132,15 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     await AsyncStorage.setItem(STORAGE_KEY_MONTHLY_TOTAL, '0');
                 } else {
                     setMonthlyFocusTotal(monthlyStr ? parseInt(monthlyStr, 10) : 0);
+                }
+
+                // Reset yearly stats if new year
+                if (yearStartStr !== currentYear) {
+                    setYearlyFocusTotal(0);
+                    await AsyncStorage.setItem(STORAGE_KEY_YEAR_START, currentYear);
+                    await AsyncStorage.setItem(STORAGE_KEY_YEARLY_TOTAL, '0');
+                } else {
+                    setYearlyFocusTotal(yearlyStr ? parseInt(yearlyStr, 10) : 0);
                 }
 
                 // Load all-time best (never resets)
@@ -165,6 +182,10 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     useEffect(() => {
         AsyncStorage.setItem(STORAGE_KEY_MONTHLY_TOTAL, monthlyFocusTotal.toString());
     }, [monthlyFocusTotal]);
+
+    useEffect(() => {
+        AsyncStorage.setItem(STORAGE_KEY_YEARLY_TOTAL, yearlyFocusTotal.toString());
+    }, [yearlyFocusTotal]);
 
     useEffect(() => {
         AsyncStorage.setItem(STORAGE_KEY_ALL_TIME_BEST, allTimeBest.toString());
@@ -232,9 +253,10 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Update daily total
         setTotalFocusToday(prev => prev + sessionDuration);
 
-        // Update weekly and monthly totals
+        // Update weekly, monthly, and yearly totals
         setWeeklyFocusTotal(prev => prev + sessionDuration);
         setMonthlyFocusTotal(prev => prev + sessionDuration);
+        setYearlyFocusTotal(prev => prev + sessionDuration);
 
         // Update best session today if this was longer
         setBestSessionToday(prev => Math.max(prev, sessionDuration));
@@ -284,6 +306,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setTotalFocusToday(prev => prev + elapsed);
             setWeeklyFocusTotal(prev => prev + elapsed);
             setMonthlyFocusTotal(prev => prev + elapsed);
+            setYearlyFocusTotal(prev => prev + elapsed);
             focusStartRef.current = null;
         }
     }, [isRunning, isPaused]);
@@ -308,6 +331,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setTotalFocusToday(prev => prev + elapsed);
             setWeeklyFocusTotal(prev => prev + elapsed);
             setMonthlyFocusTotal(prev => prev + elapsed);
+            setYearlyFocusTotal(prev => prev + elapsed);
             focusStartRef.current = null;
         }
 
@@ -341,6 +365,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 bestSessionToday,
                 weeklyFocusTotal,
                 monthlyFocusTotal,
+                yearlyFocusTotal,
                 allTimeBest,
                 startTimer,
                 pauseTimer,

@@ -16,6 +16,7 @@ import {
     Keyboard,
     ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -581,7 +582,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                             end={{ x: 1, y: 1 }}
                         />
                         {/* Glass Border */}
-                        <View style={styles.sheetLayout}>
+                        <SafeAreaView style={styles.sheetLayout} edges={['top']}>
                             <View style={styles.handleContainer}>
                                 <View style={styles.handle} />
                             </View>
@@ -784,7 +785,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     </View>
                                 </ScrollView>
                             </KeyboardAvoidingView>
-                        </View>
+                        </SafeAreaView>
 
                         {/* --- OVERLAYS (Simulated Modals) --- */}
                         {/* Dimmer for overlays */}

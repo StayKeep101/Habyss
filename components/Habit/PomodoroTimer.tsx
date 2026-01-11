@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Vibration, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -7,7 +7,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusTime } from '@/constants/FocusTimeContext';
-import Svg, { Circle, G } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -16,24 +16,18 @@ import Animated, {
     withSequence,
     Easing,
     cancelAnimation,
-    interpolate,
 } from 'react-native-reanimated';
 
 interface PomodoroTimerProps {
     defaultMinutes?: number;
     onComplete?: () => void;
     habitName?: string;
-    habitId?: string; // Required for global context
+    habitId?: string;
     noCard?: boolean;
 }
 
-type TimerState = 'idle' | 'running' | 'paused' | 'break' | 'longBreak';
-
 // Default intervals (in minutes)
 const DEFAULT_WORK = 25;
-const DEFAULT_SHORT_BREAK = 5;
-const DEFAULT_LONG_BREAK = 15;
-const SESSIONS_BEFORE_LONG_BREAK = 4;
 
 // Preset durations for quick selection
 const WORK_PRESETS = [15, 25, 30, 45, 60];
@@ -49,54 +43,41 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     const colors = Colors[theme];
     const isLight = theme === 'light';
 
-    // Global focus time context
+    // Global focus time context - THIS IS THE SINGLE SOURCE OF TRUTH
     const {
         isRunning: globalIsRunning,
         isPaused: globalIsPaused,
         activeHabitId,
         activeHabitName,
+        timeLeft: globalTimeLeft,
+        totalDuration: globalTotalDuration,
         startTimer: globalStartTimer,
         pauseTimer: globalPauseTimer,
         resumeTimer: globalResumeTimer,
         stopTimer: globalStopTimer,
-        addFocusTime,
         totalFocusToday,
         sessionsToday,
     } = useFocusTime();
 
-    // Timer settings
+    // Local UI state only
     const [workDuration, setWorkDuration] = useState((defaultMinutes || DEFAULT_WORK) * 60);
-    const [shortBreakDuration] = useState(DEFAULT_SHORT_BREAK * 60);
-    const [longBreakDuration] = useState(DEFAULT_LONG_BREAK * 60);
-
-    // Timer state
-    const [state, setState] = useState<TimerState>('idle');
-    const [timeLeft, setTimeLeft] = useState(workDuration);
-    const [totalTime, setTotalTime] = useState(workDuration);
-    const [completedSessions, setCompletedSessions] = useState(0);
-    const [totalFocusTime, setTotalFocusTime] = useState(0);
     const [showSettings, setShowSettings] = useState(false);
-
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const focusStartRef = useRef<number | null>(null);
 
     const { successFeedback, mediumFeedback, lightFeedback } = useHaptics();
 
-    // Animated pulse for running state
-    const pulseAnim = useSharedValue(1);
-    const progressAnim = useSharedValue(0);
+    // Determine if THIS timer is the active one
+    const isThisTimerActive = activeHabitId === habitId;
+    const isRunning = isThisTimerActive && globalIsRunning;
+    const isPaused = isThisTimerActive && globalIsPaused;
+    const timeLeft = isThisTimerActive ? globalTimeLeft : workDuration;
+    const totalTime = isThisTimerActive ? globalTotalDuration : workDuration;
 
-    // Update work duration when defaultMinutes changes
-    useEffect(() => {
-        if (defaultMinutes && state === 'idle') {
-            const newDuration = defaultMinutes * 60;
-            setWorkDuration(newDuration);
-            setTimeLeft(newDuration);
-            setTotalTime(newDuration);
-        }
-    }, [defaultMinutes]);
+    // Timer state for display
+    const state = isRunning ? 'running' : isPaused ? 'paused' : 'idle';
 
     // Pulse animation
+    const pulseAnim = useSharedValue(1);
+
     useEffect(() => {
         if (state === 'running') {
             pulseAnim.value = withRepeat(
@@ -114,79 +95,23 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         return () => cancelAnimation(pulseAnim);
     }, [state]);
 
-    // Progress animation
-    useEffect(() => {
-        const progress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) : 0;
-        progressAnim.value = withTiming(progress, { duration: 300 });
-    }, [timeLeft, totalTime]);
-
     const pulseStyle = useAnimatedStyle(() => ({
         transform: [{ scale: pulseAnim.value }],
     }));
 
-    // Timer logic
+    // Update work duration when defaultMinutes changes (only if idle)
     useEffect(() => {
-        if (state === 'running' || state === 'break' || state === 'longBreak') {
-            if (state === 'running' && !focusStartRef.current) {
-                focusStartRef.current = Date.now();
-            }
-
-            intervalRef.current = setInterval(() => {
-                setTimeLeft(prev => {
-                    if (prev <= 1) {
-                        clearInterval(intervalRef.current!);
-                        handleTimerComplete();
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
+        if (defaultMinutes && state === 'idle') {
+            setWorkDuration(defaultMinutes * 60);
         }
-
-        return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-        };
-    }, [state]);
-
-    const handleTimerComplete = useCallback(() => {
-        successFeedback();
-        Vibration.vibrate([0, 200, 100, 200]);
-
-        if (state === 'running') {
-            // Track focus time
-            if (focusStartRef.current) {
-                const elapsed = Math.floor((Date.now() - focusStartRef.current) / 1000);
-                setTotalFocusTime(prev => prev + elapsed);
-                focusStartRef.current = null;
-            }
-
-            const newSessionCount = completedSessions + 1;
-            setCompletedSessions(newSessionCount);
-
-            // Determine break type
-            if (newSessionCount % SESSIONS_BEFORE_LONG_BREAK === 0) {
-                setState('longBreak');
-                setTimeLeft(longBreakDuration);
-                setTotalTime(longBreakDuration);
-            } else {
-                setState('break');
-                setTimeLeft(shortBreakDuration);
-                setTotalTime(shortBreakDuration);
-            }
-        } else if (state === 'break' || state === 'longBreak') {
-            setState('idle');
-            setTimeLeft(workDuration);
-            setTotalTime(workDuration);
-            onComplete?.();
-        }
-    }, [state, completedSessions, workDuration, shortBreakDuration, longBreakDuration, onComplete, successFeedback]);
+    }, [defaultMinutes, state]);
 
     const handleStart = () => {
         // Check if another timer is running globally
         if ((globalIsRunning || globalIsPaused) && activeHabitId !== habitId) {
             Alert.alert(
                 'Timer Already Active',
-                `A timer is already running for "${activeHabitName || 'another habit'}". Please stop it first before starting a new one.`,
+                `A timer is already running for "${activeHabitName || 'another habit'}". Please stop it first.`,
                 [{ text: 'OK' }]
             );
             return;
@@ -194,7 +119,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
         mediumFeedback();
 
-        // Start global timer tracking
+        // Start global timer
         if (habitId && habitName) {
             const success = globalStartTimer(habitId, habitName, workDuration);
             if (!success) {
@@ -202,56 +127,27 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 return;
             }
         }
-
-        setState('running');
     };
 
     const handlePause = () => {
         lightFeedback();
-        setState('paused');
-        if (intervalRef.current) clearInterval(intervalRef.current);
-
-        // Track partial focus time
-        if (focusStartRef.current) {
-            const elapsed = Math.floor((Date.now() - focusStartRef.current) / 1000);
-            setTotalFocusTime(prev => prev + elapsed);
-            addFocusTime(elapsed); // Add to global context
-            focusStartRef.current = null;
-        }
-
         globalPauseTimer();
     };
 
     const handleResume = () => {
         lightFeedback();
-        setState('running');
         globalResumeTimer();
     };
 
-    const handleReset = () => {
+    const handleStop = () => {
         lightFeedback();
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        setState('idle');
-        setTimeLeft(workDuration);
-        setTotalTime(workDuration);
-        focusStartRef.current = null;
-        globalStopTimer(); // Stop global tracking
-    };
-
-    const handleSkipBreak = () => {
-        lightFeedback();
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        setState('idle');
-        setTimeLeft(workDuration);
-        setTotalTime(workDuration);
+        globalStopTimer();
+        onComplete?.();
     };
 
     const handleSelectPreset = (minutes: number) => {
         lightFeedback();
-        const newDuration = minutes * 60;
-        setWorkDuration(newDuration);
-        setTimeLeft(newDuration);
-        setTotalTime(newDuration);
+        setWorkDuration(minutes * 60);
         setShowSettings(false);
     };
 
@@ -272,19 +168,14 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     const circumference = 2 * Math.PI * 52;
     const strokeDashoffset = circumference - (progress / 100) * circumference;
 
-    const isBreak = state === 'break' || state === 'longBreak';
-    const primaryColor = isBreak ? '#10B981' : colors.primary;
-    const gradientColors: readonly [string, string] = isBreak
-        ? ['#10B981', '#059669']
-        : [colors.primary, colors.secondary || colors.primary];
+    const primaryColor = colors.primary;
+    const gradientColors: readonly [string, string] = [colors.primary, colors.secondary || colors.primary];
 
     const getStateLabel = () => {
         switch (state) {
             case 'idle': return 'READY';
             case 'running': return 'FOCUSING';
             case 'paused': return 'PAUSED';
-            case 'break': return 'SHORT BREAK';
-            case 'longBreak': return 'LONG BREAK';
         }
     };
 
@@ -294,7 +185,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
     return (
         <Wrapper {...wrapperProps}>
-            {/* Header - Hidden if noCard to simplify UI or keep it? User says remove card. */}
+            {/* Header */}
             {!noCard && (
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
@@ -306,11 +197,12 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                     <TouchableOpacity
                         onPress={() => setShowSettings(!showSettings)}
                         style={styles.settingsBtn}
+                        disabled={state !== 'idle'}
                     >
                         <Ionicons
                             name={showSettings ? "close" : "settings-outline"}
                             size={18}
-                            color={colors.textTertiary}
+                            color={state === 'idle' ? colors.textTertiary : colors.border}
                         />
                     </TouchableOpacity>
                 </View>
@@ -322,25 +214,21 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                         <Ionicons name="timer-outline" size={18} color={colors.textSecondary} />
                         <Text style={[styles.title, { color: colors.textSecondary }]}>POMODORO</Text>
                     </View>
-                    <TouchableOpacity onPress={() => setShowSettings(!showSettings)}>
-                        <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
+                    <TouchableOpacity onPress={() => setShowSettings(!showSettings)} disabled={state !== 'idle'}>
+                        <Ionicons name="settings-outline" size={20} color={state === 'idle' ? colors.textSecondary : colors.border} />
                     </TouchableOpacity>
                 </View>
             )}
 
-            {/* Settings Panel */}
-            {showSettings && (
+            {/* Settings Panel - Only in idle state */}
+            {showSettings && state === 'idle' && (
                 <View style={[styles.settingsPanel, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
                     <Text style={[styles.settingsLabel, { color: colors.textSecondary }]}>WORK DURATION (MIN)</Text>
                     <View style={styles.presets}>
                         {WORK_PRESETS.map(mins => (
                             <TouchableOpacity
                                 key={mins}
-                                onPress={() => {
-                                    setWorkDuration(mins * 60);
-                                    setTimeLeft(mins * 60);
-                                    setShowSettings(false);
-                                }}
+                                onPress={() => handleSelectPreset(mins)}
                                 style={[
                                     styles.presetBtn,
                                     {
@@ -365,7 +253,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             )}
 
             {/* Timer Display */}
-            <View style={[styles.timerContainer, pulseStyle]}>
+            <Animated.View style={[styles.timerContainer, pulseStyle]}>
                 <Svg width={160} height={160} style={styles.progressRing}>
                     {/* Background Circle */}
                     <Circle
@@ -400,7 +288,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                         {getStateLabel()}
                     </Text>
                 </View>
-            </View>
+            </Animated.View>
 
             {/* Controls */}
             <View style={styles.controls}>
@@ -414,7 +302,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
                 {state === 'running' && (
                     <View style={styles.runningControls}>
-                        <TouchableOpacity onPress={handleReset} style={[styles.secondaryButton, { borderColor: colors.border }]}>
+                        <TouchableOpacity onPress={handleStop} style={[styles.secondaryButton, { borderColor: colors.border }]}>
                             <Ionicons name="stop" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handlePause} activeOpacity={0.8}>
@@ -428,7 +316,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
                 {state === 'paused' && (
                     <View style={styles.runningControls}>
-                        <TouchableOpacity onPress={handleReset} style={[styles.secondaryButton, { borderColor: colors.border }]}>
+                        <TouchableOpacity onPress={handleStop} style={[styles.secondaryButton, { borderColor: colors.border }]}>
                             <Ionicons name="stop" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleResume} activeOpacity={0.8}>
@@ -439,39 +327,24 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                         <View style={styles.placeholderBtn} />
                     </View>
                 )}
-
-                {(state === 'break' || state === 'longBreak') && (
-                    <View style={styles.breakControls}>
-                        <TouchableOpacity
-                            onPress={handleSkipBreak}
-                            style={[styles.skipButton, { borderColor: colors.border }]}
-                        >
-                            <Ionicons name="play-skip-forward" size={16} color={colors.textSecondary} />
-                            <Text style={[styles.skipText, { color: colors.textSecondary }]}>Skip Break</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
             </View>
 
             {/* Session Stats */}
             <View style={styles.stats}>
                 <View style={styles.statItem}>
                     <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>{completedSessions}</Text>
+                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>{sessionsToday}</Text>
                     <Text style={[styles.statLabel, { color: colors.textTertiary }]}>sessions</Text>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
                 <View style={styles.statItem}>
                     <Ionicons name="time" size={14} color={colors.primary} />
                     <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                        {formatFocusTime(totalFocusTime + (state === 'running' && focusStartRef.current
-                            ? Math.floor((Date.now() - focusStartRef.current) / 1000)
-                            : 0))}
+                        {formatFocusTime(totalFocusToday)}
                     </Text>
                     <Text style={[styles.statLabel, { color: colors.textTertiary }]}>focused</Text>
                 </View>
             </View>
-            {/* Removed Progress Dots as requested */}
         </Wrapper>
     );
 };
@@ -619,32 +492,5 @@ const styles = StyleSheet.create({
     },
     placeholderBtn: {
         width: 44,
-    },
-    breakControls: {
-        alignItems: 'center',
-    },
-    skipButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 24,
-        borderWidth: 1,
-    },
-    skipText: {
-        fontSize: 13,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
-    },
-    progressDots: {
-        flexDirection: 'row',
-        gap: 6,
-        marginTop: 16,
-    },
-    dot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
     },
 });

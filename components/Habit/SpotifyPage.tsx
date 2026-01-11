@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { SpotifyPlayer } from './SpotifyPlayer';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface SpotifyPageProps {
     habitId: string;
@@ -17,12 +17,32 @@ export const SpotifyPage: React.FC<SpotifyPageProps> = ({ habitId }) => {
     return (
         <View style={styles.container}>
             <View style={styles.content}>
-                <Text style={[styles.title, { color: colors.textPrimary }]}>AUDIO PROTOCOL (COMING SOON)</Text>
+                {/* Large Icon */}
+                <View style={[styles.iconContainer, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Ionicons name="musical-notes" size={60} color={colors.textSecondary} />
+                </View>
+
+                {/* Big Coming Soon Text */}
+                <Text style={[styles.comingSoonText, { color: colors.textPrimary }]}>
+                    COMING SOON
+                </Text>
+
+                {/* Feature Name */}
+                <Text style={[styles.featureName, { color: colors.primary }]}>
+                    AUDIO PROTOCOL
+                </Text>
+
+                {/* Description */}
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                     Link specific playlists to this habit for improved focus and conditioning.
                 </Text>
-                <View style={styles.playerContainer}>
-                    <SpotifyPlayer habitId={habitId} />
+
+                {/* Hint to swipe back */}
+                <View style={styles.swipeHint}>
+                    <Ionicons name="chevron-back" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.swipeHintText, { color: colors.textSecondary }]}>
+                        Swipe to go back
+                    </Text>
                 </View>
             </View>
         </View>
@@ -32,30 +52,53 @@ export const SpotifyPage: React.FC<SpotifyPageProps> = ({ habitId }) => {
 const styles = StyleSheet.create({
     container: {
         width: width,
-        paddingHorizontal: 20,
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingTop: 20,
+        paddingHorizontal: 40,
     },
     content: {
-        width: '100%',
         alignItems: 'center',
     },
-    title: {
-        fontSize: 16,
+    iconContainer: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 32,
+    },
+    comingSoonText: {
+        fontSize: 36,
         fontWeight: '900',
-        marginBottom: 8,
-        letterSpacing: 2,
+        letterSpacing: 4,
         fontFamily: 'Lexend',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    featureName: {
+        fontSize: 14,
+        fontWeight: '700',
+        letterSpacing: 3,
+        fontFamily: 'Lexend',
+        marginBottom: 24,
+        opacity: 0.8,
     },
     subtitle: {
-        fontSize: 12,
+        fontSize: 14,
         textAlign: 'center',
-        marginBottom: 32,
         fontFamily: 'Lexend_400Regular',
-        lineHeight: 18,
-        maxWidth: '80%',
+        lineHeight: 22,
+        maxWidth: '90%',
+        marginBottom: 48,
     },
-    playerContainer: {
-        width: '100%',
-    }
+    swipeHint: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    swipeHintText: {
+        fontSize: 12,
+        fontFamily: 'Lexend_400Regular',
+    },
 });
