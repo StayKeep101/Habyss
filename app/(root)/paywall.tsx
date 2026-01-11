@@ -27,9 +27,9 @@ export default function PaywallScreen() {
 
     const PLANS = [
         // { id: 'monthly', title: 'Monthly', price: '$1.99', period: '/mo', save: null },
-        { id: 'yearly', title: 'Yearly', price: '$6.99', originalPrice: '$12.99', period: '/yr', save: '50% OFF' },
-        { id: '2year', title: '2 Years', price: '$19.99', period: '/2yr', save: null },
-        { id: 'lifetime', title: 'Lifetime', price: '$29.99', period: 'one-time', save: 'BEST VALUE' }
+        { id: 'yearly', title: 'Yearly', price: '$6.99', originalPrice: '$12.99', period: '/yr', save: '50% OFF', priceId: 'price_1SoRgGAzxf3pzNzAHlzJd5GF' },
+        { id: '2year', title: '2 Years', price: '$19.99', period: '/2yr', save: null, priceId: 'price_1SoRgyAzxf3pzNzAyKcBMIvq' },
+        { id: 'lifetime', title: 'Lifetime', price: '$29.99', period: 'one-time', save: 'BEST VALUE', priceId: 'price_1SoRiYAzxf3pzNzA28oOqFTw' }
     ] as const;
 
     const selectedPlan = PLANS.find(p => p.id === selectedPlanId) || PLANS[1];
@@ -69,7 +69,11 @@ export default function PaywallScreen() {
     const fetchPaymentSheetParams = async () => {
         const { data: { user } } = await supabase.auth.getUser();
         const { data, error } = await supabase.functions.invoke('payment-sheet', {
-            body: { email: user?.email }
+            body: {
+                email: user?.email,
+                priceId: selectedPlan.priceId,
+                planId: selectedPlanId
+            }
         });
 
         if (error || !data) {

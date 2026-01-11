@@ -275,8 +275,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                         strokeDasharray={circumference}
                         strokeDashoffset={strokeDashoffset}
                         strokeLinecap="round"
-                        rotation="-90"
-                        origin="80, 80"
+                        transform="rotate(-90 80 80)"
                     />
                 </Svg>
 

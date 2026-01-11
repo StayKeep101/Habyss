@@ -113,7 +113,7 @@ export const FocusTimeCard: React.FC = () => {
                                     strokeWidth="6"
                                     fill="transparent"
                                 />
-                                {/* Progress Circle - starts at 12 o'clock with rotation="-90" */}
+                                {/* Progress Circle - starts at 12 o'clock (rotated -90deg) */}
                                 <Circle
                                     cx={50}
                                     cy={50}
@@ -124,8 +124,7 @@ export const FocusTimeCard: React.FC = () => {
                                     strokeDasharray={circumference}
                                     strokeDashoffset={strokeDashoffset}
                                     strokeLinecap="round"
-                                    rotation="-90"
-                                    origin="50, 50"
+                                    transform="rotate(-90 50 50)"
                                 />
                             </Svg>
                             <View style={styles.timerContent}>
@@ -211,16 +210,16 @@ export const FocusTimeCard: React.FC = () => {
                             <View style={styles.statsRow}>
                                 <View style={styles.statItem}>
                                     <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                        {formatTime(Math.floor(weeklyFocusTotal / 7))}
+                                        {formatTime(weeklyFocusTotal)}
                                     </Text>
-                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Weekly Avg</Text>
+                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Week</Text>
                                 </View>
                                 <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
                                 <View style={styles.statItem}>
                                     <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                        {formatTime(Math.floor(monthlyFocusTotal / 30))}
+                                        {formatTime(monthlyFocusTotal)}
                                     </Text>
-                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Monthly Avg</Text>
+                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Month</Text>
                                 </View>
                                 <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
                                 <View style={styles.statItem}>
