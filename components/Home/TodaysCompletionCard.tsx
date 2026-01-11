@@ -34,37 +34,21 @@ export const TodaysCompletionCard: React.FC<TodaysCompletionCardProps> = ({
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={{ flex: 1 }}>
             <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Ionicons
-                        name={allComplete ? "checkmark-done-circle" : "checkbox-outline"}
-                        size={16}
-                        color={allComplete ? '#10B981' : accentColor}
-                    />
-                    <Text style={[styles.title, { color: colors.textSecondary }]}>COMPLETION</Text>
+                <View style={styles.iconContainer}>
+                    <View style={[styles.iconGradient, { backgroundColor: (allComplete ? '#10B981' : accentColor) + '30' }]}>
+                        <Ionicons
+                            name={allComplete ? "checkmark-done" : "checkbox-outline"}
+                            size={20}
+                            color={allComplete ? '#10B981' : accentColor}
+                        />
+                    </View>
                 </View>
 
-                {/* Main Stat */}
-                <View style={styles.content}>
-                    <Text style={[styles.count, { color: allComplete ? '#10B981' : colors.textPrimary }]}>
-                        {completedCount}/{totalCount}
-                    </Text>
-                    <Text style={[styles.percentage, { color: colors.textTertiary }]}>
+                <View>
+                    <Text style={[styles.value, { color: allComplete ? '#10B981' : colors.textPrimary }]}>
                         {percentage}%
                     </Text>
-                </View>
-
-                {/* Progress Bar */}
-                <View style={[styles.progressBg, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }]}>
-                    <View
-                        style={[
-                            styles.progressFill,
-                            {
-                                width: `${percentage}%`,
-                                backgroundColor: allComplete ? '#10B981' : accentColor,
-                            }
-                        ]}
-                    />
+                    <Text style={[styles.label, { color: colors.textTertiary }]}>COMPLETION</Text>
                 </View>
             </VoidCard>
         </TouchableOpacity>
@@ -73,44 +57,36 @@ export const TodaysCompletionCard: React.FC<TodaysCompletionCardProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        padding: 16,
-    },
-    header: {
-        flexDirection: 'row',
+        flex: 1,
+        padding: 10,
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 6,
-        marginBottom: 8,
+        minHeight: 100, // Ensure same height as others
     },
-    title: {
-        fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 1,
-        fontFamily: 'Lexend',
+    iconContainer: {
+        marginBottom: 2,
     },
-    content: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        justifyContent: 'space-between',
-        marginBottom: 8,
+    iconGradient: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    count: {
+    value: {
         fontSize: 24,
-        fontWeight: '800',
+        fontWeight: '900',
         fontFamily: 'Lexend',
-        letterSpacing: -0.5,
+        textAlign: 'center',
+        lineHeight: 24,
     },
-    percentage: {
-        fontSize: 14,
-        fontWeight: '600',
+    label: {
+        fontSize: 8,
+        fontWeight: 'bold',
+        letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
-    },
-    progressBg: {
-        height: 4,
-        borderRadius: 2,
-        overflow: 'hidden',
-    },
-    progressFill: {
-        height: '100%',
-        borderRadius: 2,
+        textAlign: 'center',
+        marginTop: 2,
     },
 });

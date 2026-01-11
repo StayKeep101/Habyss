@@ -183,16 +183,16 @@ export const FocusTimeCard: React.FC = () => {
                             <View style={[styles.statDividerH, { backgroundColor: colors.border }]} />
                             <View style={styles.statItemVertical}>
                                 <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
-                                    {formatTime(weeklyFocusTotal)}
+                                    {formatTime(Math.floor(monthlyFocusTotal / 30))}
                                 </Text>
-                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Week</Text>
+                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Monthly Avg</Text>
                             </View>
                             <View style={[styles.statDividerH, { backgroundColor: colors.border }]} />
                             <View style={styles.statItemVertical}>
                                 <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
-                                    {formatTime(monthlyFocusTotal)}
+                                    {formatTime(Math.floor(yearlyFocusTotal / 365))}
                                 </Text>
-                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Month</Text>
+                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Yearly Avg</Text>
                             </View>
                         </View>
                     </View>
@@ -211,16 +211,16 @@ export const FocusTimeCard: React.FC = () => {
                             <View style={styles.statsRow}>
                                 <View style={styles.statItem}>
                                     <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                        {formatTime(weeklyFocusTotal)}
+                                        {formatTime(Math.floor(weeklyFocusTotal / 7))}
                                     </Text>
-                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Week</Text>
+                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Weekly Avg</Text>
                                 </View>
                                 <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
                                 <View style={styles.statItem}>
                                     <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                        {formatTime(monthlyFocusTotal)}
+                                        {formatTime(Math.floor(monthlyFocusTotal / 30))}
                                     </Text>
-                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Month</Text>
+                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Monthly Avg</Text>
                                 </View>
                                 <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
                                 <View style={styles.statItem}>

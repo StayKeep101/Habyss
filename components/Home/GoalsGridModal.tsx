@@ -121,7 +121,7 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
 };
 
 const styles = StyleSheet.create({
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1 },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
     iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
     title: { fontSize: 18, fontWeight: '900', letterSpacing: 1, fontFamily: 'Lexend' },
     subtitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1.5, fontFamily: 'Lexend_400Regular', marginTop: 2 },

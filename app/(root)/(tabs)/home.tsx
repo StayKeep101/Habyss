@@ -646,7 +646,7 @@ const Home = () => {
             />
           </Animated.View>
 
-          {/* Streak & Consistency Cards */}
+          {/* 3-Column Stats Row: Streak | Consistency | Completion */}
           <Animated.View entering={FadeInDown.delay(200).duration(500)} style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
             <StreakCard
               streak={streak}
@@ -657,10 +657,6 @@ const Home = () => {
               score={avgConsistency}
               onPress={() => setShowConsistencyModal(true)}
             />
-          </Animated.View>
-
-          {/* Today's Completion Card - Right above Analytics */}
-          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: 16 }}>
             <TodaysCompletionCard
               completedCount={Object.keys(completions).length}
               totalCount={habits.filter(h => isHabitScheduledForDate(h, new Date())).length}
@@ -668,15 +664,15 @@ const Home = () => {
             />
           </Animated.View>
 
+          {/* Today's Focus Card - Moved Above Matrix */}
+          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: 16 }}>
+            <FocusTimeCard />
+          </Animated.View>
+
           {/* Analytics Dashboard (Life Balance Matrix) */}
           <View style={{ marginTop: 16 }}>
             <AnalyticsDashboard habits={habits} completions={completions} history={historyData} />
           </View>
-
-          {/* Today's Focus Card - At the bottom */}
-          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
-            <FocusTimeCard />
-          </Animated.View>
 
         </ScrollView>
 

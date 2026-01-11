@@ -95,8 +95,8 @@ export const VoidModal: React.FC<VoidModalProps> = ({
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, { height: SHEET_HEIGHT }, sheetStyle, style]}>
                         <LinearGradient colors={bgColors as [string, string, ...string[]]} style={StyleSheet.absoluteFill} />
-                        {/* Optional border overlay */}
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder, { borderColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(34, 197, 94, 0.15)' }]} />
+                        {/* Optional border overlay - Removed colored outline as requested */}
+                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder, { borderColor: 'transparent' }]} />
 
                         <Animated.View style={[{ flex: 1 }, contentStyle]}>
                             {children}
