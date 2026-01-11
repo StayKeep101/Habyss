@@ -8,11 +8,10 @@ import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
-import { ShareHabitModal } from '@/components/ShareHabitModal';
+
 import { useHaptics } from '@/hooks/useHaptics';
 import { PomodoroTimer } from '@/components/Habit/PomodoroTimer';
 import { SpotifyPage } from '@/components/Habit/SpotifyPage';
-import { HabitCreationModal } from '@/components/HabitCreationModal';
 import { SpinningLogo } from '@/components/SpinningLogo';
 
 const { width } = Dimensions.get('window');
@@ -54,10 +53,6 @@ export default function HabitDetailScreen() {
   const [streak, setStreak] = useState(0);
   const [history, setHistory] = useState<{ date: string; completed: boolean }[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
-
-  // Sharing state
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     loadHabitDetails();
@@ -110,9 +105,7 @@ export default function HabitDetailScreen() {
     }
   };
 
-  const openShareModal = async () => {
-    setShowShareModal(true);
-  };
+
 
   const handleToggle = () => {
     if (!habit) return;
@@ -165,15 +158,14 @@ export default function HabitDetailScreen() {
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <TouchableOpacity
-            onPress={openShareModal}
-            style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
-          >
-            <Ionicons name="share-social" size={20} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity
             onPress={() => {
               selectionFeedback();
-              setShowEditModal(true);
+              // Emit event to show global HabitCreationModal with this habit data
+              DeviceEventEmitter.emit('show_habit_modal', {
+                habitId: habit.id,
+                goalId: habit.goalId,
+                initialHabit: habit
+              });
             }}
             style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
           >
@@ -278,24 +270,6 @@ export default function HabitDetailScreen() {
         </View>
 
       </ScrollView>
-
-      {/* Share Modal */}
-      <ShareHabitModal
-        visible={showShareModal}
-        habitId={habitId}
-        habitName={habit?.name || ''}
-        onClose={() => setShowShareModal(false)}
-      />
-      <HabitCreationModal
-        visible={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        onSuccess={() => {
-          loadHabitDetails();
-          setShowEditModal(false);
-        }}
-        goalId={habit.goalId}
-        initialHabit={habit}
-      />
     </VoidShell>
   );
 }

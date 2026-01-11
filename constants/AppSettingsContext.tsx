@@ -4,7 +4,7 @@ import { PersonalityModeId } from '@/constants/AIPersonalities';
 
 
 export type RoadMapCardSize = 'small' | 'standard' | 'big';
-export type GreetingStyle = 'ai' | 'quotes';
+export type GreetingStyle = 'ai' | 'quotes' | 'data' | 'all';  // ai=personality, quotes=motivational, data=insights, all=random mix
 
 interface AppSettings {
     hapticsEnabled: boolean;

@@ -260,6 +260,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [isVisible, setIsVisible] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const [availableGoals, setAvailableGoals] = useState<Habit[]>([]);
+    const [eventHabit, setEventHabit] = useState<Habit | undefined>(undefined); // Habit passed via DeviceEvent
 
     // Form state
     const [title, setTitle] = useState('');
@@ -317,19 +318,21 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         loadCustomColors();
     }, []);
 
-    // Load initial habit data
-    useEffect(() => {
-        if (initialHabit) {
-            setTitle(initialHabit.name);
-            setSelectedIcon(initialHabit.icon || 'fitness');
-            setSelectedColor(initialHabit.color || '#10B981');
-            setLifePillar(initialHabit.category);
-            if (initialHabit.goalId) setGoalId(initialHabit.goalId!);
-            setFrequency(initialHabit.frequency || 'daily');
-            if (initialHabit.taskDays) setSelectedDays(initialHabit.taskDays);
+    // Load initial habit data (from prop or event)
+    const habitToEdit = initialHabit || eventHabit;
 
-            if (initialHabit.startTime) {
-                const [h, m] = initialHabit.startTime.split(':').map(Number);
+    useEffect(() => {
+        if (habitToEdit) {
+            setTitle(habitToEdit.name);
+            setSelectedIcon(habitToEdit.icon || 'fitness');
+            setSelectedColor(habitToEdit.color || '#10B981');
+            setLifePillar(habitToEdit.category);
+            if (habitToEdit.goalId) setGoalId(habitToEdit.goalId!);
+            setFrequency(habitToEdit.frequency || 'daily');
+            if (habitToEdit.taskDays) setSelectedDays(habitToEdit.taskDays);
+
+            if (habitToEdit.startTime) {
+                const [h, m] = habitToEdit.startTime.split(':').map(Number);
                 const d = new Date(); d.setHours(h); d.setMinutes(m);
                 setStartTime(d);
                 setUseFreeTime(false);
@@ -337,24 +340,24 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 setUseFreeTime(true);
             }
 
-            if (initialHabit.endTime) {
-                const [h, m] = initialHabit.endTime.split(':').map(Number);
+            if (habitToEdit.endTime) {
+                const [h, m] = habitToEdit.endTime.split(':').map(Number);
                 const d = new Date(); d.setHours(h); d.setMinutes(m);
                 setEndTime(d);
             }
 
-            setReminderEnabled(!!(initialHabit.reminders && initialHabit.reminders.length > 0));
-            if (initialHabit.reminders && initialHabit.reminders.length > 0) {
-                const [h, m] = initialHabit.reminders[0].split(':').map(Number);
+            setReminderEnabled(!!(habitToEdit.reminders && habitToEdit.reminders.length > 0));
+            if (habitToEdit.reminders && habitToEdit.reminders.length > 0) {
+                const [h, m] = habitToEdit.reminders[0].split(':').map(Number);
                 const d = new Date(); d.setHours(h); d.setMinutes(m);
                 setReminderTime(d);
             }
 
-            setMeasurementValue(initialHabit.goalValue || 1);
-            setMeasurementUnit(initialHabit.unit || 'times');
-            setGraphStyle((initialHabit.graphStyle as any) || 'progress');
+            setMeasurementValue(habitToEdit.goalValue || 1);
+            setMeasurementUnit(habitToEdit.unit || 'times');
+            setGraphStyle((habitToEdit.graphStyle as any) || 'progress');
         }
-    }, [initialHabit]);
+    }, [habitToEdit]);
 
     // Save custom colors helper
     const saveCustomColor = async (color: string) => {
@@ -387,6 +390,12 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         const subscription = DeviceEventEmitter.addListener('show_habit_modal', (data) => {
             selectionFeedback();
             setGoalId(data?.goalId || undefined);
+            // If habit data is passed, set it for editing
+            if (data?.initialHabit) {
+                setEventHabit(data.initialHabit);
+            } else {
+                setEventHabit(undefined);
+            }
             setIsVisible(true);
         });
         return () => subscription.remove();
@@ -413,6 +422,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             setIsOpen(false);
             setIsVisible(false);
             if (propOnClose) propOnClose();
+            setEventHabit(undefined); // Clear event habit on close
             resetForm();
         }, 350);
     }, [propOnClose]);
@@ -493,8 +503,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 trackingMethod: (measurementUnit === 'times' ? 'boolean' : 'numeric') as any,
             };
 
-            if (initialHabit) {
-                await updateHabit({ id: initialHabit.id, ...habitData });
+            if (habitToEdit) {
+                await updateHabit({ id: habitToEdit.id, ...habitData });
             } else {
                 await addHabit(habitData);
             }
@@ -582,7 +592,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
                                 </TouchableOpacity>
                                 <View style={{ flex: 1, alignItems: 'center' }}>
-                                    <Text style={[styles.headerTitle, { color: colors.text }]}>{initialHabit ? 'EDIT HABIT' : 'NEW HABIT'}</Text>
+                                    <Text style={[styles.headerTitle, { color: colors.text }]}>{habitToEdit ? 'EDIT HABIT' : 'NEW HABIT'}</Text>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, opacity: 0.7 }}>
                                         <Text style={{ color: linkedGoal?.color || '#fff', fontSize: 10, fontFamily: 'Lexend', marginRight: 4 }}>
                                             {linkedGoal ? linkedGoal.name.toUpperCase() : 'NO GOAL'}

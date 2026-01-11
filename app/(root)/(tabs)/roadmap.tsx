@@ -18,7 +18,7 @@ import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { GoalCreationWizard } from '@/components/GoalCreationWizard';
-import { ShareHabitModal } from '@/components/ShareHabitModal';
+
 import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, isHabitScheduledForDate, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -29,6 +29,7 @@ import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
+import { HabitCreationModal } from '@/components/HabitCreationModal';
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -81,9 +82,9 @@ const CalendarScreen = () => {
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null); // Filter by life pillar
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
-    const [shareModalVisible, setShareModalVisible] = useState(false);
-    const [habitToShare, setHabitToShare] = useState<Habit | null>(null);
     const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [habitToEdit, setHabitToEdit] = useState<Habit | null>(null);
 
     // Pull-to-Filter Logic
     const scrollY = useSharedValue(0);
@@ -320,20 +321,8 @@ const CalendarScreen = () => {
     };
 
     const handleEdit = (habit: Habit) => {
-        router.push({
-            pathname: '/create',
-            params: {
-                id: habit.id,
-                name: habit.name,
-                category: habit.category,
-                icon: habit.icon,
-                duration: habit.durationMinutes ? String(habit.durationMinutes) : '',
-                startAt: habit.startTime,
-                endAt: habit.endTime,
-                isGoal: habit.isGoal ? 'true' : 'false',
-                targetDate: habit.targetDate
-            }
-        });
+        setHabitToEdit(habit);
+        setEditModalVisible(true);
     };
 
     const toggleGoalExpansion = (goalId: string) => {
@@ -520,7 +509,6 @@ const CalendarScreen = () => {
                                                                         onPress={() => handleHabitPress(habit)}
                                                                         onEdit={handleEdit}
                                                                         onDelete={handleDelete}
-                                                                        onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
                                                                     />
                                                                 ))
                                                             ) : (
@@ -572,9 +560,8 @@ const CalendarScreen = () => {
                                                     toggleCompletion(h.id, todayStr);
                                                     setCompletions(prev => ({ ...prev, [h.id]: !prev[h.id] }));
                                                 }}
-                                                onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id } })}
+                                                onEdit={handleEdit}
                                                 onDelete={(h) => { handleDelete(h); }}
-                                                onShare={(h) => { setHabitToShare(h); setShareModalVisible(true); }}
                                                 size={cardSize}
                                             />
                                         );
@@ -592,6 +579,21 @@ const CalendarScreen = () => {
                         visible={isWizardVisible}
                         onClose={() => setIsWizardVisible(false)}
                         onSuccess={() => {/* refresh */ }}
+                    />
+
+                    {/* Habit Edit Modal - same modal as used in habit-detail */}
+                    <HabitCreationModal
+                        visible={editModalVisible}
+                        onClose={() => {
+                            setEditModalVisible(false);
+                            setHabitToEdit(null);
+                        }}
+                        onSuccess={() => {
+                            setEditModalVisible(false);
+                            setHabitToEdit(null);
+                        }}
+                        goalId={habitToEdit?.goalId}
+                        initialHabit={habitToEdit || undefined}
                     />
 
                     {/* Filter Modal - Redesigned */}
@@ -842,15 +844,7 @@ const CalendarScreen = () => {
                 </View>
             </SafeAreaView>
 
-            {/* Share Habit Modal */}
-            {habitToShare && (
-                <ShareHabitModal
-                    visible={shareModalVisible}
-                    habitId={habitToShare.id}
-                    habitName={habitToShare.name}
-                    onClose={() => { setShareModalVisible(false); setHabitToShare(null); }}
-                />
-            )}
+
         </VoidShell>
     );
 };

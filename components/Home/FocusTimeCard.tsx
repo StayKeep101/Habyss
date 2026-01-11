@@ -29,6 +29,10 @@ export const FocusTimeCard: React.FC = () => {
         timeLeft,
         totalFocusToday,
         sessionsToday,
+        bestSessionToday,
+        weeklyFocusTotal,
+        monthlyFocusTotal,
+        allTimeBest,
     } = useFocusTime();
 
     const formatTime = (seconds: number): string => {
@@ -119,6 +123,42 @@ export const FocusTimeCard: React.FC = () => {
                         <Ionicons name="hourglass-outline" size={24} color={colors.textTertiary} />
                         <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
                             Start a timer on any habit to track focus time
+                        </Text>
+                    </View>
+                )}
+
+                {/* Stats Row - Shows when there's any focus data */}
+                {(totalFocusToday > 0 || weeklyFocusTotal > 0 || monthlyFocusTotal > 0) && (
+                    <View style={styles.statsRow}>
+                        <View style={styles.statItem}>
+                            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                                {formatTime(bestSessionToday)}
+                            </Text>
+                            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Best Today</Text>
+                        </View>
+                        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                        <View style={styles.statItem}>
+                            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                                {formatTime(weeklyFocusTotal)}
+                            </Text>
+                            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Week</Text>
+                        </View>
+                        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                        <View style={styles.statItem}>
+                            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                                {formatTime(monthlyFocusTotal)}
+                            </Text>
+                            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Month</Text>
+                        </View>
+                    </View>
+                )}
+
+                {/* All-time best badge - only when significant */}
+                {allTimeBest > 0 && allTimeBest >= 300 && (
+                    <View style={[styles.allTimeBest, { backgroundColor: accentColor + '15' }]}>
+                        <Ionicons name="trophy" size={12} color={accentColor} />
+                        <Text style={[styles.allTimeBestText, { color: accentColor }]}>
+                            All-time best: {formatTime(allTimeBest)}
                         </Text>
                     </View>
                 )}
@@ -215,5 +255,49 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend_400Regular',
         textAlign: 'center',
         maxWidth: 200,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        width: '100%',
+        paddingTop: 16,
+        marginTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(128,128,128,0.1)',
+    },
+    statItem: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    statValue: {
+        fontSize: 14,
+        fontWeight: '700',
+        fontFamily: 'Lexend',
+    },
+    statLabel: {
+        fontSize: 9,
+        fontFamily: 'Lexend_400Regular',
+        marginTop: 2,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    statDivider: {
+        width: 1,
+        height: 24,
+    },
+    allTimeBest: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        marginTop: 12,
+    },
+    allTimeBestText: {
+        fontSize: 10,
+        fontWeight: '600',
+        fontFamily: 'Lexend',
     },
 });

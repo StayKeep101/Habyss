@@ -17,8 +17,10 @@
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized content and improve your experience.",
         "NSFaceIDUsageDescription": "Habyss uses FaceID to securely authenticate your access.",
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "aps-environment": "development"
@@ -34,8 +36,8 @@
       "permissions": [
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR",
-        "android.permission.READ_CALENDAR",
-        "android.permission.WRITE_CALENDAR"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "runtimeVersion": {
         "policy": "appVersion"
