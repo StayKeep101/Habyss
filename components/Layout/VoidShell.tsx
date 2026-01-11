@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { View, StyleSheet, StatusBar, AppState } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useIsFocused } from '@react-navigation/native';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import Animated, { useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing, cancelAnimation } from 'react-native-reanimated';
@@ -14,27 +13,35 @@ export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
 
-    const isFocused = useIsFocused();
-
     // Subtle breathing animation for the background
     const opacity = useSharedValue(0.3);
 
     React.useEffect(() => {
-        if (!isFocused) {
-            cancelAnimation(opacity);
-            return;
-        }
-
+        // Start animation
         opacity.value = withRepeat(
             withTiming(0.5, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
             -1,
             true
         );
 
+        // Pause animation when app goes to background to save resources
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'active') {
+                opacity.value = withRepeat(
+                    withTiming(0.5, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
+                    -1,
+                    true
+                );
+            } else {
+                cancelAnimation(opacity);
+            }
+        });
+
         return () => {
             cancelAnimation(opacity);
+            subscription.remove();
         };
-    }, [isFocused]);
+    }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({
         opacity: opacity.value
