@@ -5,6 +5,7 @@ import { AppState, AppStateStatus, Vibration } from 'react-native';
 import { NotificationService } from './Notifications';
 import { IntegrationService } from '@/lib/integrationService';
 import { HealthKitService } from '@/lib/healthKit';
+import { startActivity, stopActivity } from 'expo-live-activity';
 
 // ============================================
 // Focus Time Context
@@ -75,6 +76,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const focusStartRef = useRef<number | null>(null);
     const currentSessionElapsed = useRef<number>(0); // Track current session duration
     const appState = useRef(AppState.currentState);
+    const activityIdRef = useRef<string | null>(null);
     const [isHealthConnected, setIsHealthConnected] = useState(false);
 
     // Check integrations
@@ -301,6 +303,16 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setTimeLeft(0);
         setTotalDuration(0);
         NotificationService.cancelTimerNotifications();
+
+        // End Live Activity
+        if (activityIdRef.current) {
+            try {
+                stopActivity(activityIdRef.current, { title: 'Focus Complete' });
+            } catch (e: any) {
+                console.log('End Activity Failed', e);
+            }
+            activityIdRef.current = null;
+        }
     }, []);
 
     const startTimer = useCallback((habitId: string, habitName: string, durationSeconds: number): boolean => {
@@ -315,7 +327,28 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setTotalDuration(durationSeconds);
         setIsRunning(true);
         setIsPaused(false);
-        focusStartRef.current = Date.now();
+        const now = Date.now();
+        focusStartRef.current = now;
+
+        // Start Live Activity
+        try {
+            const endTime = now + durationSeconds * 1000;
+            const activity = startActivity({
+                title: habitName,
+                subtitle: 'Focus Session',
+                progressBar: {
+                    date: endTime
+                }
+            }, {
+                // Config
+                timerType: 'digital'
+            });
+            if (activity) {
+                activityIdRef.current = activity;
+            }
+        } catch (e: any) {
+            console.log('Live Activity Start Failed', e);
+        }
 
         return true;
     }, [isRunning, isPaused]);
@@ -334,7 +367,18 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setWeeklyFocusTotal(prev => prev + elapsed);
             setMonthlyFocusTotal(prev => prev + elapsed);
             setYearlyFocusTotal(prev => prev + elapsed);
+            setYearlyFocusTotal(prev => prev + elapsed);
             focusStartRef.current = null;
+        }
+
+        // End Live Activity on Pause
+        if (activityIdRef.current) {
+            try {
+                stopActivity(activityIdRef.current, { title: 'Paused' });
+            } catch (e: any) {
+                console.log('End Activity (Pause) Failed', e);
+            }
+            activityIdRef.current = null;
         }
     }, [isRunning, isPaused]);
 
@@ -343,8 +387,30 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         setIsPaused(false);
         setIsRunning(true);
-        focusStartRef.current = Date.now();
-    }, [isPaused]);
+        const now = Date.now();
+        focusStartRef.current = now;
+
+        // Restart Live Activity for remaining time
+        if (activeHabitName) {
+            try {
+                const endTime = now + timeLeft * 1000;
+                const activity = startActivity({
+                    title: activeHabitName,
+                    subtitle: 'Focus Session',
+                    progressBar: {
+                        date: endTime
+                    }
+                }, {
+                    timerType: 'digital'
+                });
+                if (activity) {
+                    activityIdRef.current = activity;
+                }
+            } catch (e: any) {
+                console.log('Live Activity Resume Failed', e);
+            }
+        }
+    }, [isPaused, timeLeft, activeHabitName]);
 
     const stopTimer = useCallback(() => {
         // Clear interval
@@ -370,6 +436,16 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsPaused(false);
         setActiveHabitId(null);
         setActiveHabitName(null);
+        // End Live Activity
+        if (activityIdRef.current) {
+            try {
+                stopActivity(activityIdRef.current, { title: 'Stopped' });
+            } catch (e: any) {
+                console.log('End Activity (Stop) Failed', e);
+            }
+            activityIdRef.current = null;
+        }
+
         setTimeLeft(0);
         setTotalDuration(0);
     }, []);

@@ -42,6 +42,7 @@
     "expo-image-picker": "~16.1.4",
     "expo-linear-gradient": "~14.1.5",
     "expo-linking": "~7.1.7",
+    "expo-live-activity": "^0.4.2",
     "expo-notifications": "~0.31.4",
     "expo-router": "~5.1.10",
     "expo-secure-store": "~14.2.4",
@@ -67,6 +68,7 @@
     "react-native-svg": "15.11.2",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "^0.20.0",
+    "react-native-widget-extension": "^0.2.0",
     "stripe": "^20.1.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^3.4.17"
