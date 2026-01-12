@@ -85,7 +85,7 @@ const Appearance = () => {
                                         <Text style={[styles.themeDesc, { color: colors.textTertiary }]}>{t.desc}</Text>
                                     </View>
                                     {mode === t.id && (
-                                        <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+                                        <Ionicons name="checkmark-circle" size={22} color={accentGradient.colors[0]} />
                                     )}
                                 </TouchableOpacity>
                             </View>

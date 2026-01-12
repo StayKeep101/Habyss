@@ -12,15 +12,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 const Notifications = () => {
-  // const colorScheme = useColorScheme();
   const { theme } = useTheme();
   const colors = Colors[theme];
   const isLight = theme === 'light';
   const isTrueDark = theme === 'trueDark';
   const { lightFeedback } = useHaptics();
   const { notificationsEnabled, setNotificationsEnabled } = useAppSettings();
+  const { primary: accentColor } = useAccentGradient();
 
   const [habitReminders, setHabitReminders] = useState(true);
   const [streakAlerts, setStreakAlerts] = useState(true);
@@ -73,7 +74,7 @@ const Notifications = () => {
           >
             <View style={styles.row}>
               <View style={styles.rowContent}>
-                <Ionicons name="notifications" size={22} color={colors.primary} />
+                <Ionicons name="notifications" size={22} color={accentColor} />
                 <View style={styles.textContent}>
                   <Text style={[styles.label, { color: colors.textPrimary }]}>Push Notifications</Text>
                   <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enable all notifications</Text>
@@ -85,7 +86,7 @@ const Notifications = () => {
                   lightFeedback();
                   setNotificationsEnabled(v);
                 }}
-                trackColor={{ false: colors.border, true: colors.primary }}
+                trackColor={{ false: colors.border, true: accentColor }}
               />
             </View>
           </VoidCard>
@@ -112,7 +113,7 @@ const Notifications = () => {
                 value={habitReminders && notificationsEnabled}
                 onValueChange={(v) => toggleSetting('notif_habits', v, setHabitReminders)}
                 disabled={!notificationsEnabled}
-                trackColor={{ false: colors.border, true: colors.success }}
+                trackColor={{ false: colors.border, true: accentColor }}
               />
             </View>
 
@@ -127,7 +128,7 @@ const Notifications = () => {
                 value={streakAlerts && notificationsEnabled}
                 onValueChange={(v) => toggleSetting('notif_streaks', v, setStreakAlerts)}
                 disabled={!notificationsEnabled}
-                trackColor={{ false: colors.border, true: colors.success }}
+                trackColor={{ false: colors.border, true: accentColor }}
               />
             </View>
 
@@ -142,7 +143,7 @@ const Notifications = () => {
                 value={weeklyReport && notificationsEnabled}
                 onValueChange={(v) => toggleSetting('notif_weekly', v, setWeeklyReport)}
                 disabled={!notificationsEnabled}
-                trackColor={{ false: colors.border, true: colors.success }}
+                trackColor={{ false: colors.border, true: accentColor }}
               />
             </View>
           </VoidCard>

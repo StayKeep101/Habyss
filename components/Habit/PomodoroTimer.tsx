@@ -7,6 +7,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusTime } from '@/constants/FocusTimeContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { ActiveSessionDisplay } from '@/components/Timer/ActiveSessionDisplay';
 import Animated, {
@@ -45,6 +46,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const { colors: accentColors, primary: accentColor } = useAccentGradient();
 
     // Global focus time context - THIS IS THE SINGLE SOURCE OF TRUTH
     const {
@@ -174,8 +176,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     const circumference = 2 * Math.PI * 52;
     const strokeDashoffset = circumference - (progress / 100) * circumference;
 
-    const primaryColor = colors.primary;
-    const gradientColors: readonly [string, string] = [colors.primary, colors.secondary || colors.primary];
+    const primaryColor = accentColor;
+    const gradientColors: readonly [string, string] = accentColors;
 
     const getStateLabel = () => {
         switch (state) {
@@ -294,8 +296,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                         <Svg width="100%" height="100%" viewBox="0 0 200 200" style={styles.progressRing}>
                             <Defs>
                                 <SvgGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <Stop offset="0%" stopColor={colors.primary} />
-                                    <Stop offset="100%" stopColor={colors.secondary || '#9D5BD2'} />
+                                    <Stop offset="0%" stopColor={accentColors[0]} />
+                                    <Stop offset="100%" stopColor={accentColors[1]} />
                                 </SvgGradient>
                             </Defs>
 
@@ -329,7 +331,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                                     cx="100"
                                     cy="10"
                                     r={fullSizeRunning ? 8 : 6}
-                                    fill={colors.secondary || colors.primary}
+                                    fill={accentColors[1]}
                                     transform={`rotate(${(progress / 100) * 360} 100 100)`}
                                     stroke={isLight ? '#fff' : '#000'}
                                     strokeWidth="2"

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { useAccentGradient } from '@/constants/AccentContext';
 
 interface ActiveSessionDisplayProps {
@@ -63,6 +63,12 @@ export const ActiveSessionDisplay: React.FC<ActiveSessionDisplayProps> = ({
             {/* Circular Timer */}
             <View style={styles.timerRingContainer}>
                 <Svg width={100} height={100} style={styles.timerRing}>
+                    <Defs>
+                        <SvgGradient id="gradSmall" x1="0" y1="0" x2="1" y2="1">
+                            <Stop offset="0" stopColor={accentColors[0]} stopOpacity="1" />
+                            <Stop offset="1" stopColor={accentColors[1]} stopOpacity="1" />
+                        </SvgGradient>
+                    </Defs>
                     {/* Background Circle */}
                     <Circle
                         cx={50}
@@ -77,7 +83,7 @@ export const ActiveSessionDisplay: React.FC<ActiveSessionDisplayProps> = ({
                         cx={50}
                         cy={50}
                         r={38}
-                        stroke={accentColor}
+                        stroke="url(#gradSmall)"
                         strokeWidth="6"
                         fill="transparent"
                         strokeDasharray={circumference}
