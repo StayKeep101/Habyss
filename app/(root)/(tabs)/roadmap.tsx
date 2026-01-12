@@ -28,6 +28,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { useAccentGradient } from '@/constants/AccentContext';
+import { useFocusTime } from '@/constants/FocusTimeContext';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
@@ -65,6 +66,7 @@ const CalendarScreen = () => {
     const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, selectionFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
+    const { activeHabitId, timeLeft, totalDuration } = useFocusTime();
 
     // Data State
     const [habitsStore, setHabitsStore] = useState<StoreHabit[]>([]);
@@ -555,6 +557,9 @@ const CalendarScreen = () => {
                                                                         habit={habit}
                                                                         size={cardSize}
                                                                         completed={!!completions[habit.id]}
+                                                                        isActive={habit.id === activeHabitId}
+                                                                        timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
+                                                                        totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
                                                                         onPress={() => handleHabitPress(habit)}
                                                                         onEdit={handleEdit}
                                                                         onDelete={handleDelete}
@@ -593,6 +598,9 @@ const CalendarScreen = () => {
                                                 key={habit.id}
                                                 habit={habit}
                                                 completed={!!completions[habit.id]}
+                                                isActive={habit.id === activeHabitId}
+                                                timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
+                                                totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
                                                 goalName={activeFilter === 'habits_only' && associatedGoal ? associatedGoal.name : undefined}
                                                 onPress={(h) => {
                                                     // Use local date format, not UTC

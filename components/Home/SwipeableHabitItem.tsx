@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { RoadMapCardSize } from '@/constants/AppSettingsContext';
 import { VoidCard } from '../Layout/VoidCard';
 import { useHaptics } from '@/hooks/useHaptics';
+import Svg, { Rect, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 
 // Extended habit type with runtime properties
 interface ExtendedHabit extends Habit {
@@ -26,20 +27,26 @@ interface SwipeableHabitItemProps {
   size: RoadMapCardSize;
   completed?: boolean; // New prop for performance (avoids object recreation)
   goalName?: string; // Optional goal name to display as subtitle
+  isActive?: boolean;
+  timeLeft?: number; // In seconds
+  totalDuration?: number; // In minutes
 }
 
 const { width } = Dimensions.get('window');
 const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 
 export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
-  habit, onPress, onEdit, onDelete, onShare, size, completed, goalName
+  habit, onPress, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
   const swipeableRef = useRef<Swipeable>(null);
   const router = useRouter();
   const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
-  const { primary: accentColor } = useAccentGradient();
+  const { colors: accentColors, primary: accentColor } = useAccentGradient();
+
+  // Measure card for SVG Border
+  const [layout, setLayout] = React.useState({ width: 0, height: 0 });
 
   const close = () => swipeableRef.current?.close();
 
@@ -133,7 +140,31 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
     );
   };
 
+  // Timer Progress Logic
+  const formattedTime = React.useMemo(() => {
+    if (!timeLeft) return null;
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  }, [timeLeft]);
+
+  const progress = React.useMemo(() => {
+    if (!timeLeft || !totalDuration) return 0;
+    const totalSeconds = totalDuration * 60;
+    const elapsed = totalSeconds - timeLeft;
+    return Math.min(elapsed / totalSeconds, 1);
+  }, [timeLeft, totalDuration]);
+
+  // SVG Calculations
+  const strokeWidth = 3;
+  const radius = 10;
+  // Perimeter of rect with rx/ry: 2*(w+h) - 8r + 2PI*r
+  const perimeter = 2 * (layout.width + layout.height) - 8 * radius + (2 * Math.PI * radius);
+  const strokeDashoffset = perimeter * (1 - progress);
+
   return (
+
+
     <Swipeable
       ref={swipeableRef}
       renderLeftActions={renderLeftActions}
@@ -151,41 +182,93 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
         activeOpacity={0.8}
         onPress={() => onPress(habit)}
         style={styles.cardWrapper}
+        onLayout={(e) => setLayout(e.nativeEvent.layout)}
       >
-        <VoidCard
-          intensity={40} // Lighter glass for items
-          style={[
-            styles.card,
-            isCompleted && { opacity: 0.7 },
-            { paddingVertical: paddingV }
-          ]}
-        >
-          {/* Checkbox / Hit Area */}
-          <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, isCompleted && { backgroundColor: accentColor + '30', borderColor: accentColor }]}>
-            {isCompleted && <Ionicons name="checkmark" size={checkboxSize * 0.7} color={accentColor} />}
+        {/* Active Gradient Border Wrapper (NOW SVG) */}
+        {isActive && layout.width > 0 && (
+          <View style={StyleSheet.absoluteFill}>
+            <Svg width={layout.width} height={layout.height} style={StyleSheet.absoluteFill}>
+              <Defs>
+                <SvgGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+                  <Stop offset="0" stopColor={accentColors[0]} stopOpacity="1" />
+                  <Stop offset="1" stopColor={accentColors[1]} stopOpacity="1" />
+                </SvgGradient>
+              </Defs>
+              {/* Background Track */}
+              <Rect
+                x={strokeWidth / 2}
+                y={strokeWidth / 2}
+                width={layout.width - strokeWidth}
+                height={layout.height - strokeWidth}
+                rx={radius}
+                stroke={accentColors[0] + '30'}
+                strokeWidth={strokeWidth}
+                fill="none"
+              />
+              {/* Progress Stroke */}
+              <Rect
+                x={strokeWidth / 2}
+                y={strokeWidth / 2}
+                width={layout.width - strokeWidth}
+                height={layout.height - strokeWidth}
+                rx={radius}
+                stroke="url(#grad)" // Use gradient
+                strokeWidth={strokeWidth}
+                fill="none"
+                strokeDasharray={perimeter}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+              />
+            </Svg>
           </View>
+        )}
 
-          {/* Icon */}
-          <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: isCompleted ? accentColor + '15' : (habit.color || accentColor) + '15' }]}>
-            <Ionicons name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={isCompleted ? accentColor : habit.color || colors.textSecondary} />
-          </View>
+        <View>
+          {/* Main Card Content */}
+          <VoidCard
+            intensity={40} // Lighter glass for items
+            style={[
+              styles.card,
+              isCompleted && { opacity: 0.7 },
+              { paddingVertical: paddingV },
+              isActive && { margin: 4 } // Inset to not cover border
+            ]}
+          >
+            {/* Checkbox / Hit Area */}
+            <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, isCompleted && { backgroundColor: accentColor + '30', borderColor: accentColor }, isActive && { borderColor: accentColor, backgroundColor: accentColor + '20' }]}>
+              {(isCompleted || isActive) && <Ionicons name={isCompleted ? "checkmark" : "play"} size={checkboxSize * 0.7} color={accentColor} />}
+            </View>
 
-          {/* Text Info */}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }]} numberOfLines={1}>{habit.name}</Text>
-            {goalName && !isSmall ? (
-              <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
-            ) : (habit.streak && habit.streak > 0 && !isSmall) ? (
-              <Text style={[styles.streakText, { color: '#F59E0B' }]}>🔥 {habit.streak}</Text>
-            ) : null}
-          </View>
+            {/* Icon */}
+            <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: isCompleted ? accentColor + '15' : (habit.color || accentColor) + '15' }]}>
+              <Ionicons name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={isCompleted ? accentColor : habit.color || colors.textSecondary} />
+            </View>
 
-          {/* Time (Compact) */}
-          <View>
-            <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>{habit.startTime || '--:--'}</Text>
-          </View>
+            {/* Text Info */}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }, isActive && { fontWeight: '900', color: accentColor }]} numberOfLines={1}>
+                {habit.name}
+              </Text>
+              {goalName && !isSmall ? (
+                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
+              ) : ((habit.streak ?? 0) > 0 && !isSmall) ? (
+                <Text style={[styles.streakText, { color: '#F59E0B' }]}>🔥 {habit.streak}</Text>
+              ) : null}
+            </View>
 
-        </VoidCard>
+            {/* Time / Timer (Compact) */}
+            <View>
+              {isActive && formattedTime ? (
+                <Text style={{ fontSize: 13, fontWeight: '700', color: accentColor, fontFamily: 'Lexend', fontVariant: ['tabular-nums'] }}>
+                  {formattedTime}
+                </Text>
+              ) : (
+                <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>{habit.startTime || '--:--'}</Text>
+              )}
+            </View>
+
+          </VoidCard>
+        </View>
       </TouchableOpacity>
     </Swipeable>
   );

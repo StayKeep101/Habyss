@@ -7,7 +7,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusTime } from '@/constants/FocusTimeContext';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { ActiveSessionDisplay } from '@/components/Timer/ActiveSessionDisplay';
 import Animated, {
     useSharedValue,
@@ -25,6 +25,7 @@ interface PomodoroTimerProps {
     habitName?: string;
     habitId?: string;
     noCard?: boolean;
+    fullSizeRunning?: boolean;
 }
 
 // Default intervals (in minutes)
@@ -38,7 +39,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     onComplete,
     habitName,
     habitId,
-    noCard
+    noCard,
+    fullSizeRunning = false
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -58,6 +60,9 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         stopTimer: globalStopTimer,
         totalFocusToday,
         sessionsToday,
+        weeklyFocusTotal,
+        monthlyFocusTotal,
+        yearlyFocusTotal
     } = useFocusTime();
 
     // Local UI state only
@@ -187,11 +192,13 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     return (
         <Wrapper {...wrapperProps}>
             {/* Active Timer Display (Replaces Idle Settings & Big Timer) */}
-            {(state === 'running' || state === 'paused') ? (
+            {/* Active Timer Display (Replaces Idle Settings & Big Timer) */}
+            {/* Show ActiveSessionDisplay ONLY if NOT fullSizeRunning */}
+            {((state === 'running' || state === 'paused') && !fullSizeRunning) ? (
                 <View style={{ width: '100%', alignItems: 'center' }}>
                     <ActiveSessionDisplay
                         timeLeft={timeLeft}
-                        totalDuration={totalDuration}
+                        totalDuration={totalTime}
                         habitName={habitName || 'Focus'}
                         isPaused={state === 'paused'}
                         isRunning={state === 'running'}
@@ -200,8 +207,9 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                         onStop={handleStop}
                         colors={colors}
                         isLight={isLight}
-                        // Optional: Pass stats if you want them here too, or omit for cleaner look in detail view
-                        dailyAverage={Math.floor(totalFocusToday / (sessionsToday || 1))} // Just rough estimate or omit
+                        dailyAverage={Math.floor(weeklyFocusTotal / 7)}
+                        monthlyAverage={Math.floor(monthlyFocusTotal / 30)}
+                        yearlyAverage={Math.floor(yearlyFocusTotal / 365)}
                     />
                 </View>
             ) : (
@@ -273,52 +281,131 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                         </View>
                     )}
 
-                    {/* Idle Timer Display */}
-                    <Animated.View style={[styles.timerContainer, pulseStyle]}>
-                        <Svg width={160} height={160} style={styles.progressRing}>
-                            {/* Background Circle */}
+                    {/* "CRAZY" LARGE TIMER DISPLAY */}
+                    <Animated.View style={[
+                        styles.timerContainer,
+                        pulseStyle,
+                        {
+                            width: fullSizeRunning ? 260 : 180,
+                            height: fullSizeRunning ? 260 : 180,
+                            marginVertical: fullSizeRunning ? 40 : 0
+                        }
+                    ]}>
+                        <Svg width="100%" height="100%" viewBox="0 0 200 200" style={styles.progressRing}>
+                            <Defs>
+                                <SvgGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <Stop offset="0%" stopColor={colors.primary} />
+                                    <Stop offset="100%" stopColor={colors.secondary || '#9D5BD2'} />
+                                </SvgGradient>
+                            </Defs>
+
+                            {/* Outer Glow / Track */}
                             <Circle
-                                cx={80}
-                                cy={80}
-                                r={70}
-                                stroke={isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}
-                                strokeWidth="8"
+                                cx="100"
+                                cy="100"
+                                r="90"
+                                stroke={isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)'}
+                                strokeWidth={fullSizeRunning ? "15" : "10"}
                                 fill="transparent"
                             />
-                            {/* Progress Circle */}
+
+                            {/* Gradient Progress Arc */}
                             <Circle
-                                cx={80}
-                                cy={80}
-                                r={70}
-                                stroke={primaryColor}
-                                strokeWidth="8"
+                                cx="100"
+                                cy="100"
+                                r="90"
+                                stroke="url(#grad)" // Use gradient if SVG supports, otherwise primary
+                                strokeWidth={fullSizeRunning ? "15" : "10"}
                                 fill="transparent"
-                                strokeDasharray={circumference}
-                                strokeDashoffset={strokeDashoffset}
+                                strokeDasharray={2 * Math.PI * 90}
+                                strokeDashoffset={(2 * Math.PI * 90) - (progress / 100) * (2 * Math.PI * 90)}
                                 strokeLinecap="round"
-                                transform="rotate(-90 80 80)"
+                                transform="rotate(-90 100 100)"
                             />
+
+                            {/* Dot Indicator */}
+                            {state !== 'idle' && (
+                                <Circle
+                                    cx="100"
+                                    cy="10"
+                                    r={fullSizeRunning ? 8 : 6}
+                                    fill={colors.secondary || colors.primary}
+                                    transform={`rotate(${(progress / 100) * 360} 100 100)`}
+                                    stroke={isLight ? '#fff' : '#000'}
+                                    strokeWidth="2"
+                                />
+                            )}
                         </Svg>
 
                         <View style={styles.timeDisplay}>
-                            <Text style={[styles.timeText, { color: colors.textPrimary }]}>
+                            <Text style={[
+                                styles.timeText,
+                                {
+                                    color: colors.textPrimary,
+                                    fontSize: fullSizeRunning ? 64 : 48,
+                                    fontWeight: '900'
+                                }
+                            ]}>
                                 {formatTime(timeLeft)}
                             </Text>
-                            <Text style={[styles.stateText, { color: state === 'running' ? primaryColor : colors.textTertiary }]}>
+                            <Text style={[
+                                styles.stateText,
+                                {
+                                    color: state === 'running' ? primaryColor : colors.textTertiary,
+                                    fontSize: fullSizeRunning ? 14 : 10,
+                                    letterSpacing: 3
+                                }
+                            ]}>
                                 {getStateLabel()}
                             </Text>
                         </View>
                     </Animated.View>
 
-                    {/* Controls - Only Start for Idle */}
+                    {/* Controls */}
                     <View style={styles.controls}>
-                        {state === 'idle' && (
+                        {state === 'idle' ? (
                             <TouchableOpacity onPress={handleStart} activeOpacity={0.8}>
-                                <LinearGradient colors={gradientColors} style={styles.mainButton}>
-                                    <Ionicons name="play" size={32} color="white" style={{ marginLeft: 4 }} />
+                                <LinearGradient colors={gradientColors} style={[styles.mainButton, { transform: [{ scale: 1.1 }] }]}>
+                                    <Ionicons name="play" size={36} color="white" style={{ marginLeft: 6 }} />
                                 </LinearGradient>
                             </TouchableOpacity>
-                        )}
+                        ) : fullSizeRunning ? (
+                            <View style={{ flexDirection: 'row', gap: 40, alignItems: 'center', marginTop: 20 }}>
+                                <TouchableOpacity
+                                    onPress={handleStop}
+                                    style={[styles.secondaryButton, { width: 64, height: 64, borderRadius: 32 }]}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="stop" size={26} color={colors.textSecondary} />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={state === 'running' ? handlePause : handleResume}
+                                    activeOpacity={0.8}
+                                    style={{
+                                        shadowColor: primaryColor,
+                                        shadowOffset: { width: 0, height: 8 },
+                                        shadowOpacity: 0.4,
+                                        shadowRadius: 12,
+                                        elevation: 10
+                                    }}
+                                >
+                                    <LinearGradient
+                                        colors={gradientColors}
+                                        style={[styles.mainButton, { width: 88, height: 88, borderRadius: 44 }]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                    >
+                                        <Ionicons
+                                            name={state === 'running' ? "pause" : "play"}
+                                            size={42}
+                                            color="white"
+                                            style={state !== 'running' ? { marginLeft: 6 } : {}}
+                                        />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        ) : null}
                     </View>
                 </>
             )}
@@ -434,6 +521,14 @@ const styles = StyleSheet.create({
         marginTop: 16,
         gap: 20,
         opacity: 0.8,
+    },
+    secondaryButton: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
     },
     statItem: {
         flexDirection: 'row',

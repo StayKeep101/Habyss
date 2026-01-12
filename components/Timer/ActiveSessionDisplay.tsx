@@ -108,9 +108,9 @@ export const ActiveSessionDisplay: React.FC<ActiveSessionDisplayProps> = ({
                 <View style={styles.controlButtons}>
                     <TouchableOpacity
                         onPress={onStop}
-                        style={[styles.controlBtn, { borderColor: colors.border }]}
+                        style={[styles.controlBtn, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }]}
                     >
-                        <Ionicons name="stop" size={18} color={colors.textSecondary} />
+                        <Ionicons name="stop" size={18} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={isRunning ? onPause : onResume} activeOpacity={0.8}>
                         <LinearGradient

@@ -53,6 +53,7 @@ export default function HabitDetailScreen() {
   const [streak, setStreak] = useState(0);
   const [history, setHistory] = useState<{ date: string; completed: boolean }[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
+  const [showStats, setShowStats] = useState(false);
 
   useEffect(() => {
     loadHabitDetails();
@@ -184,81 +185,103 @@ export default function HabitDetailScreen() {
         {/* PAGE 1: Focus & Stats */}
         <ScrollView style={{ width: width }} contentContainerStyle={styles.pageContent}>
 
-          <ScreenHeader title="PROTOCOL" subtitle="DETAILS & METRICS" />
+          <ScreenHeader title={habit.name.toUpperCase()} subtitle="PROTOCOL DETAILS" />
 
           {/* Pomodoro Timer - HERO POSITION */}
-          <View style={{ marginBottom: 24 }}>
-            <PomodoroTimer
-              defaultMinutes={habit.durationMinutes}
-              habitId={habit.id}
-              habitName={habit.name}
-              noCard
-            />
-          </View>
-
-          {/* Main Info Card */}
-          <VoidCard style={styles.mainCard}>
-            <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : (habit.color ? habit.color + '15' : colors.primary + '15') }]}>
-              <Ionicons
-                name={(habit.icon as any) || 'star'}
-                size={40}
-                color={completed ? colors.success : (habit.color || colors.primary)}
+          {/* Pomodoro Timer - HERO POSITION (Hidden when stats are shown) */}
+          {!showStats && (
+            <View style={{ marginBottom: 24 }}>
+              <PomodoroTimer
+                defaultMinutes={habit.durationMinutes}
+                habitId={habit.id}
+                habitName={habit.name}
+                noCard
+                fullSizeRunning
               />
             </View>
-            <Text style={[styles.habitName, { color: colors.textPrimary }]}>
-              {habit.name}
-            </Text>
-            <Text style={[styles.habitMeta, { color: colors.textSecondary }]}>
-              {habit.category.toUpperCase()} • {habit.durationMinutes ? `${habit.durationMinutes} MIN` : 'NO DURATION'}
-            </Text>
+          )}
 
-            <TouchableOpacity
-              onPress={handleToggle}
-              style={[styles.actionButton, { backgroundColor: completed ? colors.success : colors.primaryDark }]}
-              activeOpacity={0.8}
-            >
-              <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={20} color="white" style={{ marginRight: 8 }} />
-              <Text style={styles.actionButtonText}>
-                {completed ? 'PROTOCOL COMPLETE' : 'EXECUTE PROTOCOL'}
+          {/* Main Info Card */}
+          {showStats && (
+            <VoidCard style={styles.mainCard}>
+              <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : (habit.color ? habit.color + '15' : colors.primary + '15') }]}>
+                <Ionicons
+                  name={(habit.icon as any) || 'star'}
+                  size={40}
+                  color={completed ? colors.success : (habit.color || colors.primary)}
+                />
+              </View>
+              <Text style={[styles.habitName, { color: colors.textPrimary }]}>
+                {habit.name}
               </Text>
-            </TouchableOpacity>
-          </VoidCard>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 }}>
+                <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                  <Text style={{ fontSize: 10, fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
+                    {habit.category.toUpperCase()}
+                  </Text>
+                </View>
+                {habit.durationMinutes && (
+                  <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 10, fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
+                      {habit.durationMinutes} MIN
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <TouchableOpacity
+                onPress={handleToggle}
+                style={[styles.actionButton, { backgroundColor: completed ? colors.success : colors.primaryDark }]}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={20} color="white" style={{ marginRight: 8 }} />
+                <Text style={styles.actionButtonText}>
+                  {completed ? 'PROTOCOL COMPLETE' : 'EXECUTE PROTOCOL'}
+                </Text>
+              </TouchableOpacity>
+            </VoidCard>
+          )}
 
           {/* Performance Stats */}
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>PERFORMANCE</Text>
-          <View style={styles.statsGrid}>
-            {[
-              { label: 'STREAK', value: `${streak} DAYS`, icon: 'flame', color: '#FFD93D' },
-              { label: 'BEST', value: `${streak} DAYS`, icon: 'trophy', color: '#4ECDC4' },
-              { label: 'VOLUME', value: habit.durationMinutes ? `${habit.durationMinutes * streak} MIN` : '0 MIN', icon: 'time', color: '#8BADD6' },
-              { label: 'CYCLE', value: 'DAILY', icon: 'repeat', color: '#8B5CF6' }
-            ].map((stat, i) => (
-              <VoidCard key={i} style={styles.statCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Ionicons name={stat.icon as any} size={16} color={stat.color} />
-                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
-                </View>
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
+          {showStats && (
+            <View style={{ marginTop: 20 }}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>PERFORMANCE</Text>
+              <View style={styles.statsGrid}>
+                {[
+                  { label: 'STREAK', value: `${streak} DAYS`, icon: 'flame', color: '#FFD93D' },
+                  { label: 'BEST', value: `${streak} DAYS`, icon: 'trophy', color: '#4ECDC4' },
+                  { label: 'VOLUME', value: habit.durationMinutes ? `${habit.durationMinutes * streak} MIN` : '0 MIN', icon: 'time', color: '#8BADD6' },
+                  { label: 'CYCLE', value: 'DAILY', icon: 'repeat', color: '#8B5CF6' }
+                ].map((stat, i) => (
+                  <VoidCard key={i} style={styles.statCard}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <Ionicons name={stat.icon as any} size={16} color={stat.color} />
+                      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                    </View>
+                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
+                  </VoidCard>
+                ))}
+              </View>
+
+              {/* Visualization Card */}
+              <View style={{ marginBottom: 24 }}>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
+                <VoidCard glass style={{ padding: 16, alignItems: 'center' }}>
+                  <HabitVisualization habit={habit} history={history} colors={colors} />
+                </VoidCard>
+              </View>
+
+              {/* Description */}
+              <VoidCard style={styles.descCard}>
+                <Text style={[styles.descTitle, { color: colors.textPrimary }]}>DIRECTIVE</Text>
+                <Text style={[styles.descText, { color: colors.textSecondary }]}>
+                  Consistency is key. You've set this protocol to improve your {habit.category}.
+                  Maintain your streak to achieve optimal results.
+                </Text>
               </VoidCard>
-            ))}
-          </View>
 
-          {/* Visualization Card */}
-          <View style={{ marginBottom: 24 }}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
-            <VoidCard glass style={{ padding: 16, alignItems: 'center' }}>
-              <HabitVisualization habit={habit} history={history} colors={colors} />
-            </VoidCard>
-          </View>
-
-          {/* Description */}
-          <VoidCard style={styles.descCard}>
-            <Text style={[styles.descTitle, { color: colors.textPrimary }]}>DIRECTIVE</Text>
-            <Text style={[styles.descText, { color: colors.textSecondary }]}>
-              Consistency is key. You've set this protocol to improve your {habit.category}.
-              Maintain your streak to achieve optimal results.
-            </Text>
-          </VoidCard>
+            </View>
+          )}
 
           {/* Bottom Padding for scroll */}
           <View style={{ height: 100 }} />
@@ -270,6 +293,29 @@ export default function HabitDetailScreen() {
         </View>
 
       </ScrollView>
+      {/* Floating Stats Toggle Button */}
+      <TouchableOpacity
+        onPress={() => {
+          selectionFeedback();
+          setShowStats(!showStats);
+        }}
+        style={{
+          position: 'absolute',
+          bottom: 40,
+          left: 20,
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: colors.surfaceSecondary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: colors.border,
+          zIndex: 100
+        }}
+      >
+        <Ionicons name={showStats ? "close" : "stats-chart"} size={20} color={colors.textPrimary} />
+      </TouchableOpacity>
     </VoidShell>
   );
 }

@@ -101,21 +101,26 @@ export const FocusTimeCard: React.FC = () => {
             <View style={styles.content}>
                 {/* Active Timer with Controls */}
                 {hasActiveTimer ? (
-                    <ActiveSessionDisplay
-                        timeLeft={timeLeft}
-                        totalDuration={totalDuration}
-                        habitName={activeHabitName}
-                        isPaused={isPaused}
-                        isRunning={isRunning}
-                        onPause={pauseTimer}
-                        onResume={resumeTimer}
-                        onStop={handleStop}
-                        colors={colors}
-                        isLight={isLight}
-                        dailyAverage={dailyAverage}
-                        monthlyAverage={Math.floor(monthlyFocusTotal / 30)}
-                        yearlyAverage={Math.floor(yearlyFocusTotal / 365)}
-                    />
+                    <TouchableOpacity
+                        onPress={handleActiveTimerPress}
+                        activeOpacity={0.9}
+                    >
+                        <ActiveSessionDisplay
+                            timeLeft={timeLeft}
+                            totalDuration={totalDuration}
+                            habitName={activeHabitName}
+                            isPaused={isPaused}
+                            isRunning={isRunning}
+                            onPause={pauseTimer}
+                            onResume={resumeTimer}
+                            onStop={handleStop}
+                            colors={colors}
+                            isLight={isLight}
+                            dailyAverage={dailyAverage}
+                            monthlyAverage={Math.floor(monthlyFocusTotal / 30)}
+                            yearlyAverage={Math.floor(yearlyFocusTotal / 365)}
+                        />
+                    </TouchableOpacity>
                 ) : (
                     /* Idle State - Show Total Focus Time + Stats */
                     <View style={styles.idleContainer}>
