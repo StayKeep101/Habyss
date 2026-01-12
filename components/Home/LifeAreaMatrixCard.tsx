@@ -73,9 +73,9 @@ export const LifeAreaMatrixCard: React.FC<LifeAreaMatrixCardProps> = ({ habits }
         <View style={{ marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textSecondary, fontFamily: 'Lexend', letterSpacing: 0.5 }}>LIFE AREA MATRIX</Text>
-                <TouchableOpacity onPress={() => router.push('/statistics')}>
+                {/* <TouchableOpacity onPress={() => router.push('/statistics')}>
                     <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '600', fontFamily: 'Lexend' }}>Full Stats</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
             </View>
 
             <VoidCard style={{ paddingVertical: 20, alignItems: 'center' }}>

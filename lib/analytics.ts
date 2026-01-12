@@ -1,4 +1,4 @@
-import { Habit } from './habits';
+import { Habit } from './habitsSQLite';
 
 export interface AdvancedStats {
     consistencyScore: number;

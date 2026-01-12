@@ -197,16 +197,17 @@ export class NotificationService {
       }
     }
 
-    // Cancel Location-based
+    // Cancel Location-based (FIXME: API mismatch for getGeofencedRegionsAsync)
     try {
       const hasStarted = await Location.hasStartedGeofencingAsync(LOCATION_TASK_NAME);
       if (hasStarted) {
-        const regions = await Location.getGeofencedRegionsAsync(LOCATION_TASK_NAME);
-        const regionsToRemove = regions.filter(r => r.identifier && r.identifier.startsWith(habitId + '::'));
-        if (regionsToRemove.length > 0) {
-          await Location.stopGeofencingAsync(LOCATION_TASK_NAME, regionsToRemove.map(r => r.identifier || ''));
-          console.log(`[Geofencing] Removed ${regionsToRemove.length} regions for ${habitId}`);
-        }
+        // const regions = await Location.getGeofencedRegionsAsync(LOCATION_TASK_NAME);
+        // const regionsToRemove = regions.filter(r => r.identifier && r.identifier.startsWith(habitId + '::'));
+        // if (regionsToRemove.length > 0) {
+        //   await Location.stopGeofencingAsync(LOCATION_TASK_NAME, regionsToRemove.map(r => r.identifier || ''));
+        //   console.log(`[Geofencing] Removed ${regionsToRemove.length} regions for ${habitId}`);
+        // }
+        console.warn('[Geofencing] Cancellation not fully implemented due to API mismatch');
       }
     } catch (e) {
       console.warn('[Geofencing] Error stopping regions:', e);
