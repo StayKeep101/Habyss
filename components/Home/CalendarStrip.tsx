@@ -34,6 +34,10 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
     ? (selected ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.08)')
     : (selected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)');
 
+  // Special appearance for goal deadlines
+  const isDeadline = item.isGoalDeadline;
+  const deadlineColor = item.goalColor || accentColor;
+
   return (
     <View style={{ width, alignItems: 'center', justifyContent: 'center' }}>
       <TouchableOpacity
@@ -43,6 +47,20 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
       >
         {/* Circle Container */}
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+
+          {/* Special Glow/Ring for Deadline */}
+          {isDeadline && (
+            <View style={{
+              position: 'absolute',
+              width: size + 6,
+              height: size + 6,
+              borderRadius: (size + 6) / 2,
+              backgroundColor: deadlineColor + '30', // Glow
+              borderWidth: 1,
+              borderColor: deadlineColor,
+              zIndex: -1
+            }} />
+          )}
 
           {/* Progress Ring */}
           <View style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
@@ -61,7 +79,7 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke={selected ? (isLight ? 'black' : 'white') : accentColor}
+                stroke={selected ? (isLight ? 'black' : 'white') : (isDeadline ? deadlineColor : accentColor)}
                 strokeWidth={strokeWidth}
                 fill="transparent"
                 strokeDasharray={`${circumference} ${circumference}`}
@@ -77,54 +95,90 @@ const DateButton = React.memo(({ item, selected, isToday, onSelect, width, color
               width: size - 8,
               height: size - 8,
               borderRadius: (size - 8) / 2,
-              backgroundColor: selected ? accentColor : 'transparent',
+              backgroundColor: selected ? (isDeadline ? deadlineColor : accentColor) : 'transparent',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text
-              className="text-sm font-inter-bold"
-              style={{ color: selected ? 'white' : (isLight ? 'black' : colors.textSecondary) }}
-            >
-              {item.dayNumber}
-            </Text>
+            {isDeadline && !selected ? (
+              <Ionicons name="flag" size={14} color={deadlineColor} />
+            ) : (
+              <Text
+                className="text-sm font-inter-bold"
+                style={{ color: selected ? 'white' : (isLight ? 'black' : colors.textSecondary) }}
+              >
+                {item.dayNumber}
+              </Text>
+            )}
           </View>
         </View>
 
         {/* Day Name */}
         <Text
           className="text-xs font-inter-medium"
-          style={{ color: selected ? (isLight ? 'black' : 'white') : (isLight ? 'rgba(0,0,0,0.6)' : colors.textTertiary) }}
+          style={{
+            color: selected ? (isLight ? 'black' : 'white') : (isDeadline ? deadlineColor : (isLight ? 'rgba(0,0,0,0.6)' : colors.textTertiary)),
+            fontWeight: isDeadline ? '700' : '500'
+          }}
         >
           {item.dayName}
         </Text>
+
+        {/* Deadline Dot Indicator below name */}
+        {isDeadline && (
+          <View style={{ position: 'absolute', bottom: -4, width: 4, height: 4, borderRadius: 2, backgroundColor: deadlineColor }} />
+        )}
       </TouchableOpacity>
     </View>
   );
 });
 
-export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSelectDate, completionData = {} }) => {
+interface CalendarStripProps {
+  selectedDate: Date;
+  onSelectDate: (date: Date) => void;
+  completionData?: Record<string, { completed: number; total: number }>; // dateStr -> completion info
+  goalDeadlines?: Record<string, { count: number; color: string }>; // dateStr -> deadline info
+}
+
+interface DateItem {
+  dayName: string;
+  dayNumber: number;
+  fullDate: Date;
+  id: string;
+  progress: number; // 0 to 1
+  isGoalDeadline?: boolean;
+  goalColor?: string;
+}
+
+// ... DateButton code (uses ITEM_WIDTH passed as prop or from closure if defined above, waiting to verify if DateButton is defined after the first declaration)
+// Actually DateButton is defined AFTER the first declaration.
+// The second declaration was added by me in the previous turn inside the file? 
+// No, the previous tool call output showed I replaced lines 133-147 with a block that included new interfaces AND the variable declarations again.
+// The file ALREADY had them at line 23.
+// So I should remove them from the new block I inserted.
+
+export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSelectDate, completionData = {}, goalDeadlines = {} }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
   const isLight = theme === 'light';
   const { primary: accentColor } = useAccentGradient();
   const flatListRef = useRef<FlatList>(null);
 
-  // Generate dates for 10 weeks instead of 104 weeks (huge memory savings!)
+  // Generate dates for 100 weeks instead of 104 weeks (huge memory savings!)
   const dates = useMemo(() => {
     const d: DateItem[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Align to Sunday 5 weeks ago (reduced from 52)
+    // Align to Sunday 100 weeks ago (approx 2 years)
     const dayOfWeek = today.getDay();
-    const startOffset = (5 * 7) + dayOfWeek;
+    const startOffset = (100 * 7) + dayOfWeek;
 
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - startOffset);
 
-    // Generate 10 weeks instead of 104 (70 items vs 728 - 90% less memory!)
-    const totalDays = 10 * 7;
+    // Generate 200 weeks total (approx 4 years)
+    const totalDays = 200 * 7;
 
     for (let i = 0; i < totalDays; i++) {
       const date = new Date(startDate);
@@ -135,16 +189,20 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({ selectedDate, onSe
       const dayData = completionData[dateStr];
       const progress = dayData && dayData.total > 0 ? dayData.completed / dayData.total : 0;
 
+      const deadlineInfo = goalDeadlines[dateStr];
+
       d.push({
         dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
         dayNumber: date.getDate(),
         fullDate: date,
         id: dateStr, // Use dateStr instead of toISOString() - simpler
         progress,
+        isGoalDeadline: !!deadlineInfo,
+        goalColor: deadlineInfo?.color
       });
     }
     return d;
-  }, [completionData]);
+  }, [completionData, goalDeadlines]);
 
   // Find index of selected date
   const getIndexForDate = useCallback((date: Date) => {

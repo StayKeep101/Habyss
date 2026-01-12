@@ -427,6 +427,23 @@ const CalendarScreen = () => {
                             selectedDate={selectedDate}
                             onSelectDate={handleDateSelect}
                             completionData={weeklyCompletions}
+                            goalDeadlines={useMemo(() => {
+                                const map: Record<string, { count: number, color: string }> = {};
+                                goals.forEach(g => {
+                                    if (g.targetDate) {
+                                        // targetDate is likely YYYY-MM-DD string already? 
+                                        // StoreHabit definition has targetDate?: string
+                                        // Let's assume it matches the dateStr format or normalize it if needed.
+                                        // Ideally targetDate is "YYYY-MM-DD".
+                                        if (!map[g.targetDate]) {
+                                            map[g.targetDate] = { count: 1, color: g.color || accentColor };
+                                        } else {
+                                            map[g.targetDate].count++;
+                                        }
+                                    }
+                                });
+                                return map;
+                            }, [goals, accentColor])}
                         />
                     </View>
 

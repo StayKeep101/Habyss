@@ -292,15 +292,17 @@ export class NotificationService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('notifications')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('user_id', user.id);
 
       if (error) {
         console.error('Error clearing notifications:', error);
         return false;
       }
+
+      console.log(`Cleared ${count} notifications`);
       return true;
     } catch (e) {
       console.error('Error clearing notifications:', e);
