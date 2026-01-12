@@ -60,13 +60,6 @@
           "microphonePermission": false
         }
       ],
-      [
-        "react-native-widget-extension",
-        {
-          "frequentUpdates": true,
-          "widgetsFolder": "widget"
-        }
-      ],
       "expo-notifications",
       "expo-router",
       [
