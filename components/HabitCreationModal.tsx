@@ -33,7 +33,7 @@ import Animated, {
     SlideInDown,
     SlideOutDown
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
@@ -571,334 +571,328 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     if (!isOpen && !isVisible) return null;
 
     return (
-        <View style={[StyleSheet.absoluteFill, { zIndex: 99999 }]}>
-            {/* MAIN CONTAINER */}
-            <View style={styles.container}>
-                {/* BACKDROP */}
-                <Animated.View style={[StyleSheet.absoluteFill, backdropAnimatedStyle]}>
-                    <TouchableOpacity style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5, 5, 16, 0.8)' }]} activeOpacity={1} onPress={closeModal} />
-                </Animated.View>
+        <Modal
+            transparent
+            visible={true} // Controlled by the null return above
+            animationType="none"
+            onRequestClose={closeModal}
+            statusBarTranslucent
+        >
+            <GestureHandlerRootView style={{ flex: 1 }}>
+                <View style={[StyleSheet.absoluteFill, { zIndex: 99999 }]}>
+                    {/* MAIN CONTAINER */}
+                    <View style={styles.container}>
+                        {/* BACKDROP */}
+                        <Animated.View style={[StyleSheet.absoluteFill, backdropAnimatedStyle]}>
+                            <TouchableOpacity style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5, 5, 16, 0.8)' }]} activeOpacity={1} onPress={closeModal} />
+                        </Animated.View>
 
-                {/* BOTTOM SHEET */}
-                <GestureDetector gesture={activeOverlay === 'none' ? panGesture : Gesture.Native()}>
-                    <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
-                        <LinearGradient
-                            colors={theme === 'light' ? [colors.background, colors.surface] : ['#050510', '#0a0a1a']}
-                            style={StyleSheet.absoluteFill}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                        />
-                        {/* Glass Border */}
-                        <SafeAreaView style={styles.sheetLayout} edges={['top']}>
-                            <View style={styles.handleContainer}>
-                                <View style={styles.handle} />
-                            </View>
-
-                            {/* Header */}
-                            <View style={styles.header}>
-                                <TouchableOpacity onPress={closeModal} style={styles.iconButton}>
-                                    <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
-                                </TouchableOpacity>
-                                <View style={{ flex: 1, alignItems: 'center' }}>
-                                    <Text style={[styles.headerTitle, { color: colors.text }]}>{habitToEdit ? 'EDIT HABIT' : 'NEW HABIT'}</Text>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, opacity: 0.7 }}>
-                                        <Text style={{ color: linkedGoal?.color || '#fff', fontSize: 10, fontFamily: 'Lexend', marginRight: 4 }}>
-                                            {linkedGoal ? linkedGoal.name.toUpperCase() : 'NO GOAL'}
-                                        </Text>
+                        {/* BOTTOM SHEET */}
+                        <GestureDetector gesture={activeOverlay === 'none' ? panGesture : Gesture.Native()}>
+                            <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
+                                <LinearGradient
+                                    colors={theme === 'light' ? [colors.background, colors.surface] : ['#050510', '#0a0a1a']}
+                                    style={StyleSheet.absoluteFill}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                />
+                                {/* Glass Border */}
+                                <SafeAreaView style={styles.sheetLayout} edges={['top']}>
+                                    <View style={styles.handleContainer}>
+                                        <View style={styles.handle} />
                                     </View>
-                                </View>
-                                <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.iconButton, { backgroundColor: selectedColor }]}>
-                                    <Ionicons name={saving ? "hourglass" : "checkmark"} size={20} color="#fff" />
-                                </TouchableOpacity>
-                            </View>
 
-                            {/* Content */}
-                            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-                                <ScrollView
-                                    style={{ flex: 1 }}
-                                    contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
-                                    showsVerticalScrollIndicator={false}
-                                >
-                                    {/* Main Input Card */}
-                                    <VoidCard glass intensity={20} style={styles.mainCard}>
-                                        <View style={styles.inputRow}>
-                                            <TouchableOpacity
-                                                onPress={() => { selectionFeedback(); setActiveOverlay('icon'); }}
-                                                style={[styles.bigIconBtn, { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
-                                            >
-                                                <Ionicons name={selectedIcon as any} size={24} color={selectedColor} />
-                                            </TouchableOpacity>
-
-                                            <TextInput
-                                                style={[styles.mainInput, { color: colors.text }]}
-                                                placeholder="What's the habit?"
-                                                placeholderTextColor={colors.textTertiary}
-                                                value={title}
-                                                onChangeText={setTitle}
-                                                autoFocus={false}
-                                            />
-
-                                            <TouchableOpacity
-                                                onPress={() => { selectionFeedback(); setActiveOverlay('color'); }}
-                                                style={[styles.colorDotBtn, { backgroundColor: selectedColor, position: 'relative' }]}
-                                            >
-                                                <Ionicons name="color-palette" size={14} color="#fff" style={{ opacity: 0.8 }} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </VoidCard>
-
-                                    {/* Quick Templates Button */}
-                                    <TouchableOpacity
-                                        onPress={() => { selectionFeedback(); setActiveOverlay('templates'); }}
-                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, marginBottom: 16, backgroundColor: colors.surfaceSecondary, borderRadius: 12, borderWidth: 1, borderColor: effectiveBorderColor, gap: 8 }}
-                                    >
-                                        <Ionicons name="flash" size={16} color={colors.primary} />
-                                        <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>Quick Templates</Text>
-                                        <Text style={{ color: colors.textSecondary, fontSize: 10 }}>Choose from 30 preset habits</Text>
-                                    </TouchableOpacity>
-
-                                    {/* Settings Grid */}
-                                    <Text style={[styles.sectionTitle, { color: colors.text }]}>CONFIGURATION</Text>
-                                    <View style={styles.grid}>
-
-                                        {/* Goal Link */}
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                // Just cycle through available goals if specific overlay not needed yet, or minimal picker
-                                                // For now, let's keep inline horizontal scroll in main view
-                                            }}
-                                            activeOpacity={1} // Just a label wrapper
-                                            style={[styles.gridItem, { width: '100%' }]}
-                                        >
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                                                <Text style={styles.gridLabel}>LINKED GOAL</Text>
-                                                <Text style={{ fontSize: 10, color: '#EF4444' }}>* Required</Text>
-                                            </View>
-                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} style={{ paddingHorizontal: 4 }}>
-                                                {availableGoals.map(g => (
-                                                    <TouchableOpacity
-                                                        key={g.id}
-                                                        onPress={() => { selectionFeedback(); setGoalId(g.id); }}
-                                                        style={[
-                                                            styles.goalChip,
-                                                            {
-                                                                flexDirection: 'row',
-                                                                alignItems: 'center',
-                                                                paddingHorizontal: 12,
-                                                                paddingVertical: 8,
-                                                                borderRadius: 12,
-                                                                backgroundColor: goalId === g.id ? g.color + '20' : colors.surfaceSecondary,
-                                                                borderWidth: 1,
-                                                                borderColor: goalId === g.id ? g.color : effectiveBorderColor,
-                                                                gap: 6
-                                                            }
-                                                        ]}
-                                                    >
-                                                        <Ionicons name={g.icon as any} size={14} color={goalId === g.id ? g.color : colors.textSecondary} />
-                                                        <Text style={{ color: goalId === g.id ? g.color : colors.textSecondary, fontSize: 11, fontWeight: '600', fontFamily: 'Lexend_400Regular' }}>{g.name}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                                {availableGoals.length === 0 && (
-                                                    <Text style={{ color: colors.textTertiary, fontSize: 12, fontStyle: 'italic' }}>No goals found. Create one first.</Text>
-                                                )}
-                                            </ScrollView>
+                                    {/* Header */}
+                                    <View style={styles.header}>
+                                        <TouchableOpacity onPress={closeModal} style={styles.iconButton}>
+                                            <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
                                         </TouchableOpacity>
-
-                                        {/* Life Pillar / Category Selection */}
-                                        <View style={[styles.gridItem, { width: '100%' }]}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <Text style={styles.gridLabel}>LIFE PILLAR</Text>
-                                                <TouchableOpacity
-                                                    onPress={() => { selectionFeedback(); setShowPillarInfo(!showPillarInfo); }}
-                                                    style={{ padding: 4 }}
-                                                >
-                                                    <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
-                                                </TouchableOpacity>
+                                        <View style={{ flex: 1, alignItems: 'center' }}>
+                                            <Text style={[styles.headerTitle, { color: colors.text }]}>{habitToEdit ? 'EDIT HABIT' : 'NEW HABIT'}</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, opacity: 0.7 }}>
+                                                <Text style={{ color: linkedGoal?.color || '#fff', fontSize: 10, fontFamily: 'Lexend', marginRight: 4 }}>
+                                                    {linkedGoal ? linkedGoal.name.toUpperCase() : 'NO GOAL'}
+                                                </Text>
                                             </View>
+                                        </View>
+                                        <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.iconButton, { backgroundColor: selectedColor }]}>
+                                            <Ionicons name={saving ? "hourglass" : "checkmark"} size={20} color="#fff" />
+                                        </TouchableOpacity>
+                                    </View>
 
-                                            {/* Info Tooltip */}
-                                            {showPillarInfo && (
-                                                <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 8, borderWidth: 1, borderColor: effectiveBorderColor }}>
-                                                    <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8, fontWeight: '600' }}>6 Pillars of Life Balance:</Text>
-                                                    {LIFE_PILLARS.map(p => (
-                                                        <View key={p.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
-                                                            <Ionicons name={p.icon as any} size={12} color={p.color} style={{ marginRight: 8, marginTop: 2 }} />
-                                                            <View style={{ flex: 1 }}>
-                                                                <Text style={{ color: p.color, fontSize: 10, fontWeight: '700' }}>{p.fullName}</Text>
-                                                                <Text style={{ color: colors.textTertiary, fontSize: 9 }}>{p.description}</Text>
-                                                            </View>
-                                                        </View>
-                                                    ))}
+                                    {/* Content */}
+                                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                                        <ScrollView
+                                            style={{ flex: 1 }}
+                                            contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+                                            showsVerticalScrollIndicator={false}
+                                        >
+                                            {/* Main Input Card */}
+                                            <VoidCard glass intensity={20} style={styles.mainCard}>
+                                                <View style={styles.inputRow}>
+                                                    <TouchableOpacity
+                                                        onPress={() => { selectionFeedback(); setActiveOverlay('icon'); }}
+                                                        style={[styles.bigIconBtn, { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                                    >
+                                                        <Ionicons name={selectedIcon as any} size={24} color={selectedColor} />
+                                                    </TouchableOpacity>
+
+                                                    <TextInput
+                                                        style={[styles.mainInput, { color: colors.text }]}
+                                                        placeholder="What's the habit?"
+                                                        placeholderTextColor={colors.textTertiary}
+                                                        value={title}
+                                                        onChangeText={setTitle}
+                                                        autoFocus={false}
+                                                    />
+
+                                                    <TouchableOpacity
+                                                        onPress={() => { selectionFeedback(); setActiveOverlay('color'); }}
+                                                        style={[styles.colorDotBtn, { backgroundColor: selectedColor, position: 'relative' }]}
+                                                    >
+                                                        <Ionicons name="color-palette" size={14} color="#fff" style={{ opacity: 0.8 }} />
+                                                    </TouchableOpacity>
                                                 </View>
-                                            )}
+                                            </VoidCard>
 
-                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                                                {LIFE_PILLARS.map(pillar => (
+                                            {/* Quick Templates Button */}
+                                            <TouchableOpacity
+                                                onPress={() => { selectionFeedback(); setActiveOverlay('templates'); }}
+                                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, marginBottom: 16, backgroundColor: colors.surfaceSecondary, borderRadius: 12, borderWidth: 1, borderColor: effectiveBorderColor, gap: 8 }}
+                                            >
+                                                <Ionicons name="flash" size={16} color={colors.primary} />
+                                                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>Quick Templates</Text>
+                                                <Text style={{ color: colors.textSecondary, fontSize: 10 }}>Choose from 30 preset habits</Text>
+                                            </TouchableOpacity>
+
+                                            {/* Settings Grid */}
+                                            <Text style={[styles.sectionTitle, { color: colors.text }]}>CONFIGURATION</Text>
+                                            <View style={styles.grid}>
+
+                                                {/* Goal Link */}
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        // Just cycle through available goals if specific overlay not needed yet, or minimal picker
+                                                        // For now, let's keep inline horizontal scroll in main view
+                                                    }}
+                                                    activeOpacity={1} // Just a label wrapper
+                                                    style={[styles.gridItem, { width: '100%' }]}
+                                                >
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                                                        <Text style={styles.gridLabel}>LINKED GOAL</Text>
+                                                        <Text style={{ fontSize: 10, color: '#EF4444' }}>* Required</Text>
+                                                    </View>
+                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} style={{ paddingHorizontal: 4 }}>
+                                                        {availableGoals.map(g => (
+                                                            <TouchableOpacity
+                                                                key={g.id}
+                                                                onPress={() => { selectionFeedback(); setGoalId(g.id); }}
+                                                                style={[
+                                                                    styles.goalChip,
+                                                                    {
+                                                                        flexDirection: 'row',
+                                                                        alignItems: 'center',
+                                                                        paddingHorizontal: 12,
+                                                                        paddingVertical: 8,
+                                                                        borderRadius: 12,
+                                                                        backgroundColor: goalId === g.id ? g.color + '20' : colors.surfaceSecondary,
+                                                                        borderWidth: 1,
+                                                                        borderColor: goalId === g.id ? g.color : effectiveBorderColor,
+                                                                        gap: 6
+                                                                    }
+                                                                ]}
+                                                            >
+                                                                <Ionicons name={g.icon as any} size={14} color={goalId === g.id ? g.color : colors.textSecondary} />
+                                                                <Text style={{ color: goalId === g.id ? g.color : colors.textSecondary, fontSize: 11, fontWeight: '600', fontFamily: 'Lexend_400Regular' }}>{g.name}</Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                        {availableGoals.length === 0 && (
+                                                            <Text style={{ color: colors.textTertiary, fontSize: 12, fontStyle: 'italic' }}>No goals found. Create one first.</Text>
+                                                        )}
+                                                    </ScrollView>
+                                                </TouchableOpacity>
+
+                                                {/* Life Pillar / Category Selection */}
+                                                <View style={[styles.gridItem, { width: '100%' }]}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <Text style={styles.gridLabel}>LIFE PILLAR</Text>
+                                                        <TouchableOpacity
+                                                            onPress={() => { selectionFeedback(); setShowPillarInfo(!showPillarInfo); }}
+                                                            style={{ padding: 4 }}
+                                                        >
+                                                            <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
+                                                        </TouchableOpacity>
+                                                    </View>
+
+                                                    {/* Info Tooltip */}
+                                                    {showPillarInfo && (
+                                                        <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 8, borderWidth: 1, borderColor: effectiveBorderColor }}>
+                                                            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8, fontWeight: '600' }}>6 Pillars of Life Balance:</Text>
+                                                            {LIFE_PILLARS.map(p => (
+                                                                <View key={p.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
+                                                                    <Ionicons name={p.icon as any} size={12} color={p.color} style={{ marginRight: 8, marginTop: 2 }} />
+                                                                    <View style={{ flex: 1 }}>
+                                                                        <Text style={{ color: p.color, fontSize: 10, fontWeight: '700' }}>{p.fullName}</Text>
+                                                                        <Text style={{ color: colors.textTertiary, fontSize: 9 }}>{p.description}</Text>
+                                                                    </View>
+                                                                </View>
+                                                            ))}
+                                                        </View>
+                                                    )}
+
+                                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                                                        {LIFE_PILLARS.map(pillar => (
+                                                            <TouchableOpacity
+                                                                key={pillar.id}
+                                                                onPress={() => { selectionFeedback(); setLifePillar(pillar.id); }}
+                                                                style={[
+                                                                    {
+                                                                        flexDirection: 'row',
+                                                                        alignItems: 'center',
+                                                                        paddingHorizontal: 12,
+                                                                        paddingVertical: 8,
+                                                                        borderRadius: 12,
+                                                                        backgroundColor: lifePillar === pillar.id ? pillar.color + '20' : colors.surfaceSecondary,
+                                                                        borderWidth: 1,
+                                                                        borderColor: lifePillar === pillar.id ? pillar.color : effectiveBorderColor,
+                                                                        gap: 6,
+                                                                    }
+                                                                ]}
+                                                            >
+                                                                <Ionicons name={pillar.icon as any} size={14} color={lifePillar === pillar.id ? pillar.color : colors.textSecondary} />
+                                                                <Text style={{ color: lifePillar === pillar.id ? pillar.color : colors.textSecondary, fontSize: 11, fontWeight: '600' }}>
+                                                                    {pillar.label}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
+                                                </View>
+
+                                                {/* Frequency Section REMOVED */}
+
+                                                {/* Time Picker Trigger */}
+                                                <TouchableOpacity
+                                                    onPress={() => { selectionFeedback(); setActiveOverlay('time'); }}
+                                                    style={styles.gridItem}
+                                                >
+                                                    <Ionicons name="time-outline" size={20} color={useFreeTime ? '#8B5CF6' : selectedColor} />
+                                                    <Text style={[styles.gridValue, { color: colors.text }]}>{useFreeTime ? 'Anytime' : `${formatTime(startTime)}`}</Text>
+                                                    <Text style={styles.gridLabel}>SCHEDULE</Text>
+                                                </TouchableOpacity>
+
+                                                {/* Reminder Trigger */}
+                                                <TouchableOpacity
+                                                    onPress={() => { selectionFeedback(); setActiveOverlay('reminder'); }}
+                                                    style={styles.gridItem}
+                                                >
+                                                    <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={20} color={reminderEnabled ? selectedColor : colors.textTertiary} />
+                                                    <Text style={[styles.gridValue, { color: colors.text }]}>{reminderEnabled ? formatTime(reminderTime) : 'Off'}</Text>
+                                                    <Text style={styles.gridLabel}>REMINDERS</Text>
+                                                </TouchableOpacity>
+
+                                                {/* Graph Style */}
+                                                <TouchableOpacity
+                                                    onPress={() => { selectionFeedback(); setActiveOverlay('graph'); }}
+                                                    style={styles.gridItem}
+                                                >
+                                                    <Ionicons name={GRAPH_STYLES.find(g => g.id === graphStyle)?.icon as any} size={20} color={selectedColor} />
+                                                    <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={1}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
+                                                    <Text style={styles.gridLabel}>VISUALIZATION</Text>
+                                                </TouchableOpacity>
+
+                                                {/* Measurement */}
+                                                <TouchableOpacity
+                                                    onPress={() => { selectionFeedback(); setActiveOverlay('measurement'); }}
+                                                    style={styles.gridItem}
+                                                >
+                                                    <Ionicons name="scale-outline" size={20} color={selectedColor} />
+                                                    <Text style={[styles.gridValue, { color: colors.text }]}>{measurementValue} {UNITS.find(u => u.id === measurementUnit)?.label}</Text>
+                                                    <Text style={styles.gridLabel}>TARGET</Text>
+                                                </TouchableOpacity>
+
+                                            </View>
+                                        </ScrollView>
+                                    </KeyboardAvoidingView>
+                                </SafeAreaView>
+
+                                {/* --- OVERLAYS (Simulated Modals) --- */}
+                                {/* Dimmer for overlays */}
+                                {activeOverlay !== 'none' && (
+                                    <Animated.View
+                                        entering={FadeIn.duration(200)}
+                                        exiting={FadeOut.duration(200)}
+                                        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 10 }]}
+                                    >
+                                        <Pressable style={StyleSheet.absoluteFill} onPress={() => setActiveOverlay('none')} />
+                                    </Animated.View>
+                                )}
+
+                                {/* Overlay Container with Separate Gesture */}
+                                <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+
+                                    {/* ICON OVERLAY */}
+                                    {activeOverlay === 'icon' && (
+                                        <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { height: height * 0.7 }]}>
+                                            <OverlayHeader title="Choose Icon" onClose={() => { setActiveOverlay('none'); setIconSearch(''); }} />
+                                            {/* Search Bar */}
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, marginBottom: 16 }}>
+                                                <Ionicons name="search" size={18} color="rgba(255,255,255,0.4)" />
+                                                <TextInput
+                                                    style={{ flex: 1, color: colors.text, paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }}
+                                                    placeholder="Search icons..."
+                                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                                    value={iconSearch}
+                                                    onChangeText={setIconSearch}
+                                                    autoCapitalize="none"
+                                                />
+                                                {iconSearch.length > 0 && (
+                                                    <TouchableOpacity onPress={() => setIconSearch('')}>
+                                                        <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                            <ScrollView contentContainerStyle={styles.iconGrid} showsVerticalScrollIndicator={false}>
+                                                {ICONS.filter(icon => icon.toLowerCase().includes(iconSearch.toLowerCase())).map(icon => (
                                                     <TouchableOpacity
-                                                        key={pillar.id}
-                                                        onPress={() => { selectionFeedback(); setLifePillar(pillar.id); }}
-                                                        style={[
-                                                            {
-                                                                flexDirection: 'row',
-                                                                alignItems: 'center',
-                                                                paddingHorizontal: 12,
-                                                                paddingVertical: 8,
-                                                                borderRadius: 12,
-                                                                backgroundColor: lifePillar === pillar.id ? pillar.color + '20' : colors.surfaceSecondary,
-                                                                borderWidth: 1,
-                                                                borderColor: lifePillar === pillar.id ? pillar.color : effectiveBorderColor,
-                                                                gap: 6,
-                                                            }
-                                                        ]}
+                                                        key={icon}
+                                                        onPress={() => { selectionFeedback(); setSelectedIcon(icon); setActiveOverlay('none'); setIconSearch(''); }}
+                                                        style={[styles.iconOption, selectedIcon === icon && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
                                                     >
-                                                        <Ionicons name={pillar.icon as any} size={14} color={lifePillar === pillar.id ? pillar.color : colors.textSecondary} />
-                                                        <Text style={{ color: lifePillar === pillar.id ? pillar.color : colors.textSecondary, fontSize: 11, fontWeight: '600' }}>
-                                                            {pillar.label}
-                                                        </Text>
+                                                        <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor : 'rgba(255,255,255,0.5)'} />
                                                     </TouchableOpacity>
                                                 ))}
+                                            </ScrollView>
+                                        </Animated.View>
+                                    )}
+
+                                    {/* COLOR OVERLAY */}
+                                    {activeOverlay === 'color' && (
+                                        <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8 }]}>
+                                            <OverlayHeader title="Choose Color" onClose={() => setActiveOverlay('none')} />
+
+                                            {/* Selected Color Preview */}
+                                            <View style={{ alignItems: 'center', marginBottom: 24 }}>
+                                                <View style={{
+                                                    width: 60,
+                                                    height: 60,
+                                                    borderRadius: 30,
+                                                    backgroundColor: selectedColor,
+                                                    borderWidth: 3,
+                                                    borderColor: 'rgba(255,255,255,0.3)',
+                                                    shadowColor: selectedColor,
+                                                    shadowOffset: { width: 0, height: 4 },
+                                                    shadowOpacity: 0.4,
+                                                    shadowRadius: 12,
+                                                }} />
+                                                <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600', marginTop: 12 }}>{selectedColor.toUpperCase()}</Text>
                                             </View>
-                                        </View>
 
-                                        {/* Frequency Section REMOVED */}
-
-                                        {/* Time Picker Trigger */}
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setActiveOverlay('time'); }}
-                                            style={styles.gridItem}
-                                        >
-                                            <Ionicons name="time-outline" size={20} color={useFreeTime ? '#8B5CF6' : selectedColor} />
-                                            <Text style={[styles.gridValue, { color: colors.text }]}>{useFreeTime ? 'Anytime' : `${formatTime(startTime)}`}</Text>
-                                            <Text style={styles.gridLabel}>SCHEDULE</Text>
-                                        </TouchableOpacity>
-
-                                        {/* Reminder Trigger */}
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setActiveOverlay('reminder'); }}
-                                            style={styles.gridItem}
-                                        >
-                                            <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={20} color={reminderEnabled ? selectedColor : colors.textTertiary} />
-                                            <Text style={[styles.gridValue, { color: colors.text }]}>{reminderEnabled ? formatTime(reminderTime) : 'Off'}</Text>
-                                            <Text style={styles.gridLabel}>REMINDERS</Text>
-                                        </TouchableOpacity>
-
-                                        {/* Graph Style */}
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setActiveOverlay('graph'); }}
-                                            style={styles.gridItem}
-                                        >
-                                            <Ionicons name={GRAPH_STYLES.find(g => g.id === graphStyle)?.icon as any} size={20} color={selectedColor} />
-                                            <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={1}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
-                                            <Text style={styles.gridLabel}>VISUALIZATION</Text>
-                                        </TouchableOpacity>
-
-                                        {/* Measurement */}
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setActiveOverlay('measurement'); }}
-                                            style={styles.gridItem}
-                                        >
-                                            <Ionicons name="scale-outline" size={20} color={selectedColor} />
-                                            <Text style={[styles.gridValue, { color: colors.text }]}>{measurementValue} {UNITS.find(u => u.id === measurementUnit)?.label}</Text>
-                                            <Text style={styles.gridLabel}>TARGET</Text>
-                                        </TouchableOpacity>
-
-                                    </View>
-                                </ScrollView>
-                            </KeyboardAvoidingView>
-                        </SafeAreaView>
-
-                        {/* --- OVERLAYS (Simulated Modals) --- */}
-                        {/* Dimmer for overlays */}
-                        {activeOverlay !== 'none' && (
-                            <Animated.View
-                                entering={FadeIn.duration(200)}
-                                exiting={FadeOut.duration(200)}
-                                style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 10 }]}
-                            >
-                                <Pressable style={StyleSheet.absoluteFill} onPress={() => setActiveOverlay('none')} />
-                            </Animated.View>
-                        )}
-
-                        {/* Overlay Container with Separate Gesture */}
-                        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-
-                            {/* ICON OVERLAY */}
-                            {activeOverlay === 'icon' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { height: height * 0.7 }]}>
-                                    <OverlayHeader title="Choose Icon" onClose={() => { setActiveOverlay('none'); setIconSearch(''); }} />
-                                    {/* Search Bar */}
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, marginBottom: 16 }}>
-                                        <Ionicons name="search" size={18} color="rgba(255,255,255,0.4)" />
-                                        <TextInput
-                                            style={{ flex: 1, color: colors.text, paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }}
-                                            placeholder="Search icons..."
-                                            placeholderTextColor="rgba(255,255,255,0.3)"
-                                            value={iconSearch}
-                                            onChangeText={setIconSearch}
-                                            autoCapitalize="none"
-                                        />
-                                        {iconSearch.length > 0 && (
-                                            <TouchableOpacity onPress={() => setIconSearch('')}>
-                                                <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                    <ScrollView contentContainerStyle={styles.iconGrid} showsVerticalScrollIndicator={false}>
-                                        {ICONS.filter(icon => icon.toLowerCase().includes(iconSearch.toLowerCase())).map(icon => (
-                                            <TouchableOpacity
-                                                key={icon}
-                                                onPress={() => { selectionFeedback(); setSelectedIcon(icon); setActiveOverlay('none'); setIconSearch(''); }}
-                                                style={[styles.iconOption, selectedIcon === icon && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
-                                            >
-                                                <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                            </TouchableOpacity>
-                                        ))}
-                                    </ScrollView>
-                                </Animated.View>
-                            )}
-
-                            {/* COLOR OVERLAY */}
-                            {activeOverlay === 'color' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8 }]}>
-                                    <OverlayHeader title="Choose Color" onClose={() => setActiveOverlay('none')} />
-
-                                    {/* Selected Color Preview */}
-                                    <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                                        <View style={{
-                                            width: 60,
-                                            height: 60,
-                                            borderRadius: 30,
-                                            backgroundColor: selectedColor,
-                                            borderWidth: 3,
-                                            borderColor: 'rgba(255,255,255,0.3)',
-                                            shadowColor: selectedColor,
-                                            shadowOffset: { width: 0, height: 4 },
-                                            shadowOpacity: 0.4,
-                                            shadowRadius: 12,
-                                        }} />
-                                        <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600', marginTop: 12 }}>{selectedColor.toUpperCase()}</Text>
-                                    </View>
-
-                                    {/* Scrollable content for presets + custom */}
-                                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-                                        {/* Preset Colors */}
-                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 16, letterSpacing: 1 }}>PRESETS</Text>
-                                        <View style={styles.colorGrid}>
-                                            {COLORS.map(c => (
-                                                <TouchableOpacity
-                                                    key={c}
-                                                    onPress={() => { selectionFeedback(); setSelectedColor(c); }}
-                                                    style={[styles.colorOption, { backgroundColor: c }, selectedColor === c && styles.colorSelected]}
-                                                />
-                                            ))}
-                                        </View>
-
-                                        {/* Custom Colors Section */}
-                                        {customColors.length > 0 && (
-                                            <View style={{ marginTop: 20 }}>
-                                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 1 }}>MY COLORS</Text>
+                                            {/* Scrollable content for presets + custom */}
+                                            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+                                                {/* Preset Colors */}
+                                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 16, letterSpacing: 1 }}>PRESETS</Text>
                                                 <View style={styles.colorGrid}>
-                                                    {customColors.map(c => (
+                                                    {COLORS.map(c => (
                                                         <TouchableOpacity
                                                             key={c}
                                                             onPress={() => { selectionFeedback(); setSelectedColor(c); }}
@@ -906,402 +900,419 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                         />
                                                     ))}
                                                 </View>
-                                            </View>
-                                        )}
-                                    </ScrollView>
 
-                                    {/* Done Button */}
-                                    <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 16 }]}>
-                                        <Text style={styles.doneButtonText}>Done</Text>
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            )}
+                                                {/* Custom Colors Section */}
+                                                {customColors.length > 0 && (
+                                                    <View style={{ marginTop: 20 }}>
+                                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 1 }}>MY COLORS</Text>
+                                                        <View style={styles.colorGrid}>
+                                                            {customColors.map(c => (
+                                                                <TouchableOpacity
+                                                                    key={c}
+                                                                    onPress={() => { selectionFeedback(); setSelectedColor(c); }}
+                                                                    style={[styles.colorOption, { backgroundColor: c }, selectedColor === c && styles.colorSelected]}
+                                                                />
+                                                            ))}
+                                                        </View>
+                                                    </View>
+                                                )}
+                                            </ScrollView>
 
-                            {/* TIME OVERLAY */}
-                            {activeOverlay === 'time' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
-                                    <OverlayHeader title="Set Schedule" onClose={() => setActiveOverlay('none')} />
-
-                                    {/* Time Pickers - Always Visible */}
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 20, marginBottom: 24 }}>
-                                        <View style={{ flex: 1, alignItems: 'center' }}>
-                                            <Text style={styles.pickerLabel}>START</Text>
-                                            <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
-                                                <DateTimePicker
-                                                    value={startTime}
-                                                    mode="time"
-                                                    display="spinner"
-                                                    onChange={(_, d) => d && setStartTime(d)}
-                                                    textColor="#fff"
-                                                    style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
-                                                />
-                                            </View>
-                                        </View>
-                                        <View style={{ flex: 1, alignItems: 'center' }}>
-                                            <Text style={styles.pickerLabel}>END</Text>
-                                            <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
-                                                <DateTimePicker
-                                                    value={endTime}
-                                                    mode="time"
-                                                    display="spinner"
-                                                    onChange={(_, d) => d && setEndTime(d)}
-                                                    textColor="#fff"
-                                                    style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
-                                                />
-                                            </View>
-                                        </View>
-                                    </View>
-
-                                    {/* Anytime Toggle Removed */}
-
-                                    {/* Automatic Scheduling Button */}
-                                    <TouchableOpacity
-                                        onPress={async () => {
-                                            selectionFeedback();
-                                            setIsLoadingSlots(true);
-                                            try {
-                                                const hasPermission = await CalendarService.hasPermission();
-                                                if (!hasPermission) {
-                                                    const granted = await CalendarService.requestPermission();
-                                                    if (!granted) {
-                                                        Alert.alert('Calendar Access', 'Calendar permission is required to find free time slots.');
-                                                        setIsLoadingSlots(false);
-                                                        return;
-                                                    }
-                                                }
-                                                const slots = await CalendarService.getSuggestedTimes(habitStartDate, 5);
-                                                if (slots.length === 0) {
-                                                    Alert.alert('No Free Time', 'Could not find any free slots in your calendar for this day.');
-                                                } else {
-                                                    setSuggestedSlots(slots);
-                                                }
-                                            } catch (e) {
-                                                console.error('Calendar error:', e);
-                                                Alert.alert('Error', 'Could not access calendar.');
-                                            } finally {
-                                                setIsLoadingSlots(false);
-                                            }
-                                        }}
-                                        style={[
-                                            styles.toggleRow,
-                                            { marginBottom: 16, backgroundColor: 'rgba(139, 92, 246, 0.15)', borderColor: 'rgba(139, 92, 246, 0.3)', borderWidth: 1 }
-                                        ]}
-                                        disabled={isLoadingSlots}
-                                    >
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                            <Ionicons name="calendar" size={18} color={selectedColor} />
-                                            <Text style={{ color: selectedColor, fontWeight: '600' }}>Find Free Time (Auto)</Text>
-                                        </View>
-                                        {isLoadingSlots && <ActivityIndicator size="small" color={selectedColor} />}
-                                    </TouchableOpacity>
-
-                                    {/* Suggested Slots */}
-                                    {suggestedSlots.length > 0 && (
-                                        <View style={{ marginBottom: 16 }}>
-                                            <Text style={styles.pickerLabel}>SUGGESTED TIMES</Text>
-                                            <View style={{ gap: 8 }}>
-                                                {suggestedSlots.map((slot, index) => {
-                                                    const formatTime = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                                                    const label = `${formatTime(slot.start)} - ${formatTime(slot.end)}`;
-                                                    return (
-                                                        <TouchableOpacity
-                                                            key={index}
-                                                            onPress={() => {
-                                                                selectionFeedback();
-                                                                setStartTime(slot.start);
-                                                                setEndTime(slot.end);
-                                                                setUseFreeTime(false);
-                                                                setSuggestedSlots([]);
-                                                            }}
-                                                            style={[
-                                                                styles.toggleRow,
-                                                                { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)', borderWidth: 1 }
-                                                            ]}
-                                                        >
-                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                                <Ionicons name="time" size={16} color="#10B981" />
-                                                                <Text style={{ color: '#10B981', fontWeight: '500' }}>{label}</Text>
-                                                            </View>
-                                                            <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
-                                                        </TouchableOpacity>
-                                                    );
-                                                })}
-                                            </View>
-                                        </View>
+                                            {/* Done Button */}
+                                            <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 16 }]}>
+                                                <Text style={styles.doneButtonText}>Done</Text>
+                                            </TouchableOpacity>
+                                        </Animated.View>
                                     )}
 
-                                    <TouchableOpacity onPress={() => { setActiveOverlay('none'); setSuggestedSlots([]); }} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
-                                        <Text style={styles.doneButtonText}>Done</Text>
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            )}
+                                    {/* TIME OVERLAY */}
+                                    {activeOverlay === 'time' && (
+                                        <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
+                                            <OverlayHeader title="Set Schedule" onClose={() => setActiveOverlay('none')} />
 
-                            {/* REMINDER OVERLAY */}
-                            {activeOverlay === 'reminder' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8 }]}>
-                                    <OverlayHeader title="Notifications" onClose={() => setActiveOverlay('none')} />
-
-                                    {/* Toggle */}
-                                    <TouchableOpacity
-                                        onPress={() => { selectionFeedback(); setReminderEnabled(!reminderEnabled); }}
-                                        style={[styles.toggleRow, { marginBottom: 24 }]}
-                                    >
-                                        <Text style={{ color: 'white', fontWeight: '600' }}>Enable Reminders</Text>
-                                        <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={24} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.3)'} />
-                                    </TouchableOpacity>
-
-                                    {reminderEnabled && (
-                                        <ScrollView showsVerticalScrollIndicator={false}>
-                                            {/* Time Picker */}
-                                            <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                                                <Text style={styles.pickerLabel}>REMINDER TIME</Text>
-                                                <DateTimePicker
-                                                    value={reminderTime}
-                                                    mode="time"
-                                                    display="spinner"
-                                                    onChange={(_, d) => d && setReminderTime(d)}
-                                                    textColor="#fff"
-                                                    style={{ height: 120 }}
-                                                />
-                                            </View>
-
-                                            {/* Relative Time Reminder */}
-                                            <View style={{ marginBottom: 24 }}>
-                                                <Text style={styles.pickerLabel}>REMIND ME BEFORE</Text>
-                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                                                    {[undefined, 5, 15, 30, 60].map((mins) => (
-                                                        <TouchableOpacity
-                                                            key={mins === undefined ? 'none' : mins}
-                                                            onPress={() => { selectionFeedback(); setReminderOffset(mins); }}
-                                                            style={[
-                                                                styles.unitChip,
-                                                                reminderOffset === mins && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
-                                                            ]}
-                                                        >
-                                                            <Text style={{ color: reminderOffset === mins ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>
-                                                                {mins === undefined ? 'At time' : `${mins} min before`}
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                    ))}
+                                            {/* Time Pickers - Always Visible */}
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 20, marginBottom: 24 }}>
+                                                <View style={{ flex: 1, alignItems: 'center' }}>
+                                                    <Text style={styles.pickerLabel}>START</Text>
+                                                    <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
+                                                        <DateTimePicker
+                                                            value={startTime}
+                                                            mode="time"
+                                                            display="spinner"
+                                                            onChange={(_, d) => d && setStartTime(d)}
+                                                            textColor="#fff"
+                                                            style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
+                                                        />
+                                                    </View>
+                                                </View>
+                                                <View style={{ flex: 1, alignItems: 'center' }}>
+                                                    <Text style={styles.pickerLabel}>END</Text>
+                                                    <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
+                                                        <DateTimePicker
+                                                            value={endTime}
+                                                            mode="time"
+                                                            display="spinner"
+                                                            onChange={(_, d) => d && setEndTime(d)}
+                                                            textColor="#fff"
+                                                            style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
+                                                        />
+                                                    </View>
                                                 </View>
                                             </View>
 
-                                            {/* Location Reminder (Placeholder Logic) */}
-                                            <View style={{ marginBottom: 24 }}>
-                                                <Text style={styles.pickerLabel}>LOCATION TRIGGER (Beta)</Text>
-                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                                                    <TouchableOpacity
-                                                        onPress={() => {
-                                                            selectionFeedback();
-                                                            if (locationReminders.some(l => l.name === 'Home')) {
-                                                                setLocationReminders(prev => prev.filter(l => l.name !== 'Home'));
-                                                            } else {
-                                                                // Mock Location for now
-                                                                setLocationReminders(prev => [...prev, { name: 'Home', latitude: 0, longitude: 0 }]);
+                                            {/* Anytime Toggle Removed */}
+
+                                            {/* Automatic Scheduling Button */}
+                                            <TouchableOpacity
+                                                onPress={async () => {
+                                                    selectionFeedback();
+                                                    setIsLoadingSlots(true);
+                                                    try {
+                                                        const hasPermission = await CalendarService.hasPermission();
+                                                        if (!hasPermission) {
+                                                            const granted = await CalendarService.requestPermission();
+                                                            if (!granted) {
+                                                                Alert.alert('Calendar Access', 'Calendar permission is required to find free time slots.');
+                                                                setIsLoadingSlots(false);
+                                                                return;
                                                             }
-                                                        }}
-                                                        style={[
-                                                            styles.unitChip,
-                                                            locationReminders.some(l => l.name === 'Home') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
-                                                        ]}
-                                                    >
-                                                        <Ionicons name="home" size={14} color={locationReminders.some(l => l.name === 'Home') ? selectedColor : 'rgba(255,255,255,0.5)'} style={{ marginRight: 6 }} />
-                                                        <Text style={{ color: locationReminders.some(l => l.name === 'Home') ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>Arriving Home</Text>
-                                                    </TouchableOpacity>
-
-                                                    <TouchableOpacity
-                                                        onPress={() => {
-                                                            selectionFeedback();
-                                                            if (locationReminders.some(l => l.name === 'Work')) {
-                                                                setLocationReminders(prev => prev.filter(l => l.name !== 'Work'));
-                                                            } else {
-                                                                setLocationReminders(prev => [...prev, { name: 'Work', latitude: 0, longitude: 0 }]);
-                                                            }
-                                                        }}
-                                                        style={[
-                                                            styles.unitChip,
-                                                            locationReminders.some(l => l.name === 'Work') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
-                                                        ]}
-                                                    >
-                                                        <Ionicons name="business" size={14} color={locationReminders.some(l => l.name === 'Work') ? selectedColor : 'rgba(255,255,255,0.5)'} style={{ marginRight: 6 }} />
-                                                        <Text style={{ color: locationReminders.some(l => l.name === 'Work') ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>Arriving Work</Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-                                        </ScrollView>
-                                    )}
-
-                                    <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 'auto' }]}>
-                                        <Text style={styles.doneButtonText}>Done</Text>
-                                    </TouchableOpacity>
-                                </Animated.View>
-                            )}
-
-                            {/* GRAPH OVERLAY */}
-                            {activeOverlay === 'graph' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
-                                    <OverlayHeader title="Graph Style" onClose={() => setActiveOverlay('none')} />
-                                    {GRAPH_STYLES.map(g => (
-                                        <TouchableOpacity
-                                            key={g.id}
-                                            onPress={() => { selectionFeedback(); setGraphStyle(g.id); setActiveOverlay('none'); }}
-                                            style={[styles.listItem, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}
-                                        >
-                                            <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                            <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : '#fff' }]}>{g.label}</Text>
-                                            {graphStyle === g.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
-                                        </TouchableOpacity>
-                                    ))}
-                                </Animated.View>
-                            )}
-
-                            {/* MEASUREMENT OVERLAY */}
-                            {activeOverlay === 'measurement' && (
-                                <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-                                    <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
-                                    <Animated.View
-                                        entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))}
-                                        exiting={SlideOutDown.duration(250)}
-                                        style={styles.overlayPanel}
-                                        onStartShouldSetResponder={() => true}
-                                    >
-                                        <OverlayHeader title="Target & Units" onClose={() => { Keyboard.dismiss(); setActiveOverlay('none'); }} />
-
-                                        {/* Number Input with Keyboard */}
-                                        <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                                            <Text style={styles.pickerLabel}>TARGET VALUE</Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                                <TouchableOpacity onPress={() => {
-                                                    const current = parseInt(targetInputValue, 10) || 1;
-                                                    const newVal = Math.max(1, current - 1);
-                                                    setTargetInputValue(newVal.toString());
-                                                    setMeasurementValue(newVal);
-                                                }} style={styles.counterBtn}>
-                                                    <Ionicons name="remove" size={24} color="#fff" />
-                                                </TouchableOpacity>
-                                                <TextInput
-                                                    value={targetInputValue}
-                                                    onChangeText={(text) => {
-                                                        // Allow empty string while typing
-                                                        const cleaned = text.replace(/[^0-9]/g, '');
-                                                        setTargetInputValue(cleaned);
-                                                        const num = parseInt(cleaned, 10);
-                                                        if (!isNaN(num) && num > 0) setMeasurementValue(num);
-                                                    }}
-                                                    onBlur={() => {
-                                                        // On blur, ensure valid value
-                                                        const num = parseInt(targetInputValue, 10);
-                                                        if (isNaN(num) || num < 1) {
-                                                            setTargetInputValue('1');
-                                                            setMeasurementValue(1);
                                                         }
-                                                    }}
-                                                    keyboardType="number-pad"
-                                                    style={{
-                                                        fontSize: 40,
-                                                        fontWeight: '900',
-                                                        color: '#fff',
-                                                        textAlign: 'center',
-                                                        minWidth: 80,
-                                                        backgroundColor: 'rgba(255,255,255,0.05)',
-                                                        borderRadius: 12,
-                                                        paddingHorizontal: 16,
-                                                        paddingVertical: 8,
-                                                    }}
-                                                />
-                                                <TouchableOpacity onPress={() => {
-                                                    const current = parseInt(targetInputValue, 10) || 0;
-                                                    const newVal = current + 1;
-                                                    setTargetInputValue(newVal.toString());
-                                                    setMeasurementValue(newVal);
-                                                }} style={styles.counterBtn}>
-                                                    <Ionicons name="add" size={24} color="#fff" />
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
+                                                        const slots = await CalendarService.getSuggestedTimes(habitStartDate, 5);
+                                                        if (slots.length === 0) {
+                                                            Alert.alert('No Free Time', 'Could not find any free slots in your calendar for this day.');
+                                                        } else {
+                                                            setSuggestedSlots(slots);
+                                                        }
+                                                    } catch (e) {
+                                                        console.error('Calendar error:', e);
+                                                        Alert.alert('Error', 'Could not access calendar.');
+                                                    } finally {
+                                                        setIsLoadingSlots(false);
+                                                    }
+                                                }}
+                                                style={[
+                                                    styles.toggleRow,
+                                                    { marginBottom: 16, backgroundColor: 'rgba(139, 92, 246, 0.15)', borderColor: 'rgba(139, 92, 246, 0.3)', borderWidth: 1 }
+                                                ]}
+                                                disabled={isLoadingSlots}
+                                            >
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                    <Ionicons name="calendar" size={18} color={selectedColor} />
+                                                    <Text style={{ color: selectedColor, fontWeight: '600' }}>Find Free Time (Auto)</Text>
+                                                </View>
+                                                {isLoadingSlots && <ActivityIndicator size="small" color={selectedColor} />}
+                                            </TouchableOpacity>
 
-                                        {/* Categorized Units */}
-                                        {/* Unit Selection */}
-                                        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-                                            {UNIT_CATEGORIES.map(cat => (
-                                                <View key={cat.category} style={{ marginBottom: 12 }}>
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                                                        <Ionicons name={cat.icon as any} size={14} color="rgba(255,255,255,0.4)" />
-                                                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700', letterSpacing: 1 }}>{cat.category.toUpperCase()}</Text>
+                                            {/* Suggested Slots */}
+                                            {suggestedSlots.length > 0 && (
+                                                <View style={{ marginBottom: 16 }}>
+                                                    <Text style={styles.pickerLabel}>SUGGESTED TIMES</Text>
+                                                    <View style={{ gap: 8 }}>
+                                                        {suggestedSlots.map((slot, index) => {
+                                                            const formatTime = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                                                            const label = `${formatTime(slot.start)} - ${formatTime(slot.end)}`;
+                                                            return (
+                                                                <TouchableOpacity
+                                                                    key={index}
+                                                                    onPress={() => {
+                                                                        selectionFeedback();
+                                                                        setStartTime(slot.start);
+                                                                        setEndTime(slot.end);
+                                                                        setUseFreeTime(false);
+                                                                        setSuggestedSlots([]);
+                                                                    }}
+                                                                    style={[
+                                                                        styles.toggleRow,
+                                                                        { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)', borderWidth: 1 }
+                                                                    ]}
+                                                                >
+                                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                                        <Ionicons name="time" size={16} color="#10B981" />
+                                                                        <Text style={{ color: '#10B981', fontWeight: '500' }}>{label}</Text>
+                                                                    </View>
+                                                                    <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
+                                                                </TouchableOpacity>
+                                                            );
+                                                        })}
                                                     </View>
-                                                    <ScrollView
-                                                        horizontal
-                                                        showsHorizontalScrollIndicator={false}
-                                                        contentContainerStyle={{ flexDirection: 'row', gap: 8, paddingRight: 20 }}
-                                                    >
-                                                        {cat.units.map(u => (
+                                                </View>
+                                            )}
+
+                                            <TouchableOpacity onPress={() => { setActiveOverlay('none'); setSuggestedSlots([]); }} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
+                                                <Text style={styles.doneButtonText}>Done</Text>
+                                            </TouchableOpacity>
+                                        </Animated.View>
+                                    )}
+
+                                    {/* REMINDER OVERLAY */}
+                                    {activeOverlay === 'reminder' && (
+                                        <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8 }]}>
+                                            <OverlayHeader title="Notifications" onClose={() => setActiveOverlay('none')} />
+
+                                            {/* Toggle */}
+                                            <TouchableOpacity
+                                                onPress={() => { selectionFeedback(); setReminderEnabled(!reminderEnabled); }}
+                                                style={[styles.toggleRow, { marginBottom: 24 }]}
+                                            >
+                                                <Text style={{ color: 'white', fontWeight: '600' }}>Enable Reminders</Text>
+                                                <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={24} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.3)'} />
+                                            </TouchableOpacity>
+
+                                            {reminderEnabled && (
+                                                <ScrollView showsVerticalScrollIndicator={false}>
+                                                    {/* Time Picker */}
+                                                    <View style={{ alignItems: 'center', marginBottom: 24 }}>
+                                                        <Text style={styles.pickerLabel}>REMINDER TIME</Text>
+                                                        <DateTimePicker
+                                                            value={reminderTime}
+                                                            mode="time"
+                                                            display="spinner"
+                                                            onChange={(_, d) => d && setReminderTime(d)}
+                                                            textColor="#fff"
+                                                            style={{ height: 120 }}
+                                                        />
+                                                    </View>
+
+                                                    {/* Relative Time Reminder */}
+                                                    <View style={{ marginBottom: 24 }}>
+                                                        <Text style={styles.pickerLabel}>REMIND ME BEFORE</Text>
+                                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                                                            {[undefined, 5, 15, 30, 60].map((mins) => (
+                                                                <TouchableOpacity
+                                                                    key={mins === undefined ? 'none' : mins}
+                                                                    onPress={() => { selectionFeedback(); setReminderOffset(mins); }}
+                                                                    style={[
+                                                                        styles.unitChip,
+                                                                        reminderOffset === mins && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
+                                                                    ]}
+                                                                >
+                                                                    <Text style={{ color: reminderOffset === mins ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>
+                                                                        {mins === undefined ? 'At time' : `${mins} min before`}
+                                                                    </Text>
+                                                                </TouchableOpacity>
+                                                            ))}
+                                                        </View>
+                                                    </View>
+
+                                                    {/* Location Reminder (Placeholder Logic) */}
+                                                    <View style={{ marginBottom: 24 }}>
+                                                        <Text style={styles.pickerLabel}>LOCATION TRIGGER (Beta)</Text>
+                                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
                                                             <TouchableOpacity
-                                                                key={u.id}
-                                                                onPress={() => { selectionFeedback(); setMeasurementUnit(u.id); }}
-                                                                style={[styles.unitChip, measurementUnit === u.id && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                                                onPress={() => {
+                                                                    selectionFeedback();
+                                                                    if (locationReminders.some(l => l.name === 'Home')) {
+                                                                        setLocationReminders(prev => prev.filter(l => l.name !== 'Home'));
+                                                                    } else {
+                                                                        // Mock Location for now
+                                                                        setLocationReminders(prev => [...prev, { name: 'Home', latitude: 0, longitude: 0 }]);
+                                                                    }
+                                                                }}
+                                                                style={[
+                                                                    styles.unitChip,
+                                                                    locationReminders.some(l => l.name === 'Home') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
+                                                                ]}
                                                             >
-                                                                <Text style={{ color: measurementUnit === u.id ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 12 }}>{u.label}</Text>
+                                                                <Ionicons name="home" size={14} color={locationReminders.some(l => l.name === 'Home') ? selectedColor : 'rgba(255,255,255,0.5)'} style={{ marginRight: 6 }} />
+                                                                <Text style={{ color: locationReminders.some(l => l.name === 'Home') ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>Arriving Home</Text>
                                                             </TouchableOpacity>
-                                                        ))}
-                                                    </ScrollView>
-                                                </View>
-                                            ))}
-                                        </ScrollView>
 
-                                        <TouchableOpacity onPress={() => { Keyboard.dismiss(); setActiveOverlay('none'); }} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
-                                            <Text style={styles.doneButtonText}>Done</Text>
-                                        </TouchableOpacity>
-                                    </Animated.View>
-                                </View>
-                            )}
-
-                            {/* TEMPLATES OVERLAY */}
-                            {activeOverlay === 'templates' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: '85%' }]}>
-                                    <OverlayHeader title="Quick Templates" onClose={() => setActiveOverlay('none')} />
-                                    <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-                                        {LIFE_PILLARS.map(pillar => (
-                                            <View key={pillar.id} style={{ marginBottom: 16 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: pillar.color + '20', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Ionicons name={pillar.icon as any} size={12} color={pillar.color} />
+                                                            <TouchableOpacity
+                                                                onPress={() => {
+                                                                    selectionFeedback();
+                                                                    if (locationReminders.some(l => l.name === 'Work')) {
+                                                                        setLocationReminders(prev => prev.filter(l => l.name !== 'Work'));
+                                                                    } else {
+                                                                        setLocationReminders(prev => [...prev, { name: 'Work', latitude: 0, longitude: 0 }]);
+                                                                    }
+                                                                }}
+                                                                style={[
+                                                                    styles.unitChip,
+                                                                    locationReminders.some(l => l.name === 'Work') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
+                                                                ]}
+                                                            >
+                                                                <Ionicons name="business" size={14} color={locationReminders.some(l => l.name === 'Work') ? selectedColor : 'rgba(255,255,255,0.5)'} style={{ marginRight: 6 }} />
+                                                                <Text style={{ color: locationReminders.some(l => l.name === 'Work') ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>Arriving Work</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
                                                     </View>
-                                                    <Text style={{ color: pillar.color, fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>{pillar.fullName.toUpperCase()}</Text>
-                                                </View>
-                                                <View style={{ gap: 6 }}>
-                                                    {PREMADE_HABITS.filter(h => h.pillar === pillar.id).map((habit, idx) => (
-                                                        <TouchableOpacity
-                                                            key={`${pillar.id}-${idx}`}
-                                                            onPress={() => {
-                                                                selectionFeedback();
-                                                                setTitle(habit.name);
-                                                                setSelectedIcon(habit.icon);
-                                                                setSelectedColor(pillar.color);
-                                                                setLifePillar(pillar.id);
-                                                                setMeasurementValue(habit.goalValue);
-                                                                setMeasurementUnit(habit.unit);
-                                                                setActiveOverlay('none');
-                                                            }}
-                                                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
-                                                        >
-                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                                                <Ionicons name={habit.icon as any} size={18} color={pillar.color} />
-                                                                <Text style={{ color: colors.text, fontSize: 13 }}>{habit.name}</Text>
-                                                            </View>
-                                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{habit.goalValue} {habit.unit}</Text>
+                                                </ScrollView>
+                                            )}
+
+                                            <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 'auto' }]}>
+                                                <Text style={styles.doneButtonText}>Done</Text>
+                                            </TouchableOpacity>
+                                        </Animated.View>
+                                    )}
+
+                                    {/* GRAPH OVERLAY */}
+                                    {activeOverlay === 'graph' && (
+                                        <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
+                                            <OverlayHeader title="Graph Style" onClose={() => setActiveOverlay('none')} />
+                                            {GRAPH_STYLES.map(g => (
+                                                <TouchableOpacity
+                                                    key={g.id}
+                                                    onPress={() => { selectionFeedback(); setGraphStyle(g.id); setActiveOverlay('none'); }}
+                                                    style={[styles.listItem, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}
+                                                >
+                                                    <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : 'rgba(255,255,255,0.5)'} />
+                                                    <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : '#fff' }]}>{g.label}</Text>
+                                                    {graphStyle === g.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
+                                                </TouchableOpacity>
+                                            ))}
+                                        </Animated.View>
+                                    )}
+
+                                    {/* MEASUREMENT OVERLAY */}
+                                    {activeOverlay === 'measurement' && (
+                                        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+                                            <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
+                                            <Animated.View
+                                                entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))}
+                                                exiting={SlideOutDown.duration(250)}
+                                                style={styles.overlayPanel}
+                                                onStartShouldSetResponder={() => true}
+                                            >
+                                                <OverlayHeader title="Target & Units" onClose={() => { Keyboard.dismiss(); setActiveOverlay('none'); }} />
+
+                                                {/* Number Input with Keyboard */}
+                                                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                                                    <Text style={styles.pickerLabel}>TARGET VALUE</Text>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                        <TouchableOpacity onPress={() => {
+                                                            const current = parseInt(targetInputValue, 10) || 1;
+                                                            const newVal = Math.max(1, current - 1);
+                                                            setTargetInputValue(newVal.toString());
+                                                            setMeasurementValue(newVal);
+                                                        }} style={styles.counterBtn}>
+                                                            <Ionicons name="remove" size={24} color="#fff" />
                                                         </TouchableOpacity>
-                                                    ))}
+                                                        <TextInput
+                                                            value={targetInputValue}
+                                                            onChangeText={(text) => {
+                                                                // Allow empty string while typing
+                                                                const cleaned = text.replace(/[^0-9]/g, '');
+                                                                setTargetInputValue(cleaned);
+                                                                const num = parseInt(cleaned, 10);
+                                                                if (!isNaN(num) && num > 0) setMeasurementValue(num);
+                                                            }}
+                                                            onBlur={() => {
+                                                                // On blur, ensure valid value
+                                                                const num = parseInt(targetInputValue, 10);
+                                                                if (isNaN(num) || num < 1) {
+                                                                    setTargetInputValue('1');
+                                                                    setMeasurementValue(1);
+                                                                }
+                                                            }}
+                                                            keyboardType="number-pad"
+                                                            style={{
+                                                                fontSize: 40,
+                                                                fontWeight: '900',
+                                                                color: '#fff',
+                                                                textAlign: 'center',
+                                                                minWidth: 80,
+                                                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                                                borderRadius: 12,
+                                                                paddingHorizontal: 16,
+                                                                paddingVertical: 8,
+                                                            }}
+                                                        />
+                                                        <TouchableOpacity onPress={() => {
+                                                            const current = parseInt(targetInputValue, 10) || 0;
+                                                            const newVal = current + 1;
+                                                            setTargetInputValue(newVal.toString());
+                                                            setMeasurementValue(newVal);
+                                                        }} style={styles.counterBtn}>
+                                                            <Ionicons name="add" size={24} color="#fff" />
+                                                        </TouchableOpacity>
+                                                    </View>
                                                 </View>
-                                            </View>
-                                        ))}
-                                    </ScrollView>
-                                </Animated.View>
-                            )}
-                        </View>
-                    </Animated.View>
-                </GestureDetector>
+
+                                                {/* Categorized Units */}
+                                                {/* Unit Selection */}
+                                                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+                                                    {UNIT_CATEGORIES.map(cat => (
+                                                        <View key={cat.category} style={{ marginBottom: 12 }}>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                                                <Ionicons name={cat.icon as any} size={14} color="rgba(255,255,255,0.4)" />
+                                                                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700', letterSpacing: 1 }}>{cat.category.toUpperCase()}</Text>
+                                                            </View>
+                                                            <ScrollView
+                                                                horizontal
+                                                                showsHorizontalScrollIndicator={false}
+                                                                contentContainerStyle={{ flexDirection: 'row', gap: 8, paddingRight: 20 }}
+                                                            >
+                                                                {cat.units.map(u => (
+                                                                    <TouchableOpacity
+                                                                        key={u.id}
+                                                                        onPress={() => { selectionFeedback(); setMeasurementUnit(u.id); }}
+                                                                        style={[styles.unitChip, measurementUnit === u.id && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                                                    >
+                                                                        <Text style={{ color: measurementUnit === u.id ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 12 }}>{u.label}</Text>
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                            </ScrollView>
+                                                        </View>
+                                                    ))}
+                                                </ScrollView>
+
+                                                <TouchableOpacity onPress={() => { Keyboard.dismiss(); setActiveOverlay('none'); }} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
+                                                    <Text style={styles.doneButtonText}>Done</Text>
+                                                </TouchableOpacity>
+                                            </Animated.View>
+                                        </View>
+                                    )}
+
+                                    {/* TEMPLATES OVERLAY */}
+                                    {activeOverlay === 'templates' && (
+                                        <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: '85%' }]}>
+                                            <OverlayHeader title="Quick Templates" onClose={() => setActiveOverlay('none')} />
+                                            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                                                {LIFE_PILLARS.map(pillar => (
+                                                    <View key={pillar.id} style={{ marginBottom: 16 }}>
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                                            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: pillar.color + '20', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <Ionicons name={pillar.icon as any} size={12} color={pillar.color} />
+                                                            </View>
+                                                            <Text style={{ color: pillar.color, fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>{pillar.fullName.toUpperCase()}</Text>
+                                                        </View>
+                                                        <View style={{ gap: 6 }}>
+                                                            {PREMADE_HABITS.filter(h => h.pillar === pillar.id).map((habit, idx) => (
+                                                                <TouchableOpacity
+                                                                    key={`${pillar.id}-${idx}`}
+                                                                    onPress={() => {
+                                                                        selectionFeedback();
+                                                                        setTitle(habit.name);
+                                                                        setSelectedIcon(habit.icon);
+                                                                        setSelectedColor(pillar.color);
+                                                                        setLifePillar(pillar.id);
+                                                                        setMeasurementValue(habit.goalValue);
+                                                                        setMeasurementUnit(habit.unit);
+                                                                        setActiveOverlay('none');
+                                                                    }}
+                                                                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
+                                                                >
+                                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                                        <Ionicons name={habit.icon as any} size={18} color={pillar.color} />
+                                                                        <Text style={{ color: colors.text, fontSize: 13 }}>{habit.name}</Text>
+                                                                    </View>
+                                                                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{habit.goalValue} {habit.unit}</Text>
+                                                                </TouchableOpacity>
+                                                            ))}
+                                                        </View>
+                                                    </View>
+                                                ))}
+                                            </ScrollView>
+                                        </Animated.View>
+                                    )}
+                                </View>
+                            </Animated.View>
+                        </GestureDetector>
+                    </View>
+                </View>
             </View>
-        </View>
+        </GestureHandlerRootView>
+        </Modal >
     );
 };
 

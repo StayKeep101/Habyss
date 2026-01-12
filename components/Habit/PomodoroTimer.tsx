@@ -8,6 +8,7 @@ import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusTime } from '@/constants/FocusTimeContext';
 import Svg, { Circle } from 'react-native-svg';
+import { ActiveSessionDisplay } from '@/components/Timer/ActiveSessionDisplay';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -185,150 +186,146 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
     return (
         <Wrapper {...wrapperProps}>
-            {/* Header */}
-            {!noCard && (
-                <View style={styles.header}>
-                    <View style={styles.headerLeft}>
-                        <Ionicons name="timer-outline" size={18} color={primaryColor} />
-                        <Text style={[styles.title, { color: colors.textSecondary }]}>
-                            {habitName ? `FOCUS: ${habitName.toUpperCase()}` : 'POMODORO'}
-                        </Text>
-                    </View>
-                    <TouchableOpacity
-                        onPress={() => setShowSettings(!showSettings)}
-                        style={styles.settingsBtn}
-                        disabled={state !== 'idle'}
-                    >
-                        <Ionicons
-                            name={showSettings ? "close" : "settings-outline"}
-                            size={18}
-                            color={state === 'idle' ? colors.textTertiary : colors.border}
-                        />
-                    </TouchableOpacity>
+            {/* Active Timer Display (Replaces Idle Settings & Big Timer) */}
+            {(state === 'running' || state === 'paused') ? (
+                <View style={{ width: '100%', alignItems: 'center' }}>
+                    <ActiveSessionDisplay
+                        timeLeft={timeLeft}
+                        totalDuration={totalDuration}
+                        habitName={habitName || 'Focus'}
+                        isPaused={state === 'paused'}
+                        isRunning={state === 'running'}
+                        onPause={handlePause}
+                        onResume={handleResume}
+                        onStop={handleStop}
+                        colors={colors}
+                        isLight={isLight}
+                        // Optional: Pass stats if you want them here too, or omit for cleaner look in detail view
+                        dailyAverage={Math.floor(totalFocusToday / (sessionsToday || 1))} // Just rough estimate or omit
+                    />
                 </View>
-            )}
-
-            {noCard && (
-                <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Ionicons name="timer-outline" size={18} color={colors.textSecondary} />
-                        <Text style={[styles.title, { color: colors.textSecondary }]}>POMODORO</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => setShowSettings(!showSettings)} disabled={state !== 'idle'}>
-                        <Ionicons name="settings-outline" size={20} color={state === 'idle' ? colors.textSecondary : colors.border} />
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {/* Settings Panel - Only in idle state */}
-            {showSettings && state === 'idle' && (
-                <View style={[styles.settingsPanel, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
-                    <Text style={[styles.settingsLabel, { color: colors.textSecondary }]}>WORK DURATION (MIN)</Text>
-                    <View style={styles.presets}>
-                        {WORK_PRESETS.map(mins => (
-                            <TouchableOpacity
-                                key={mins}
-                                onPress={() => handleSelectPreset(mins)}
-                                style={[
-                                    styles.presetBtn,
-                                    {
-                                        backgroundColor: workDuration === mins * 60
-                                            ? primaryColor
-                                            : (isLight ? colors.surfaceTertiary : 'rgba(255,255,255,0.1)'),
-                                        borderWidth: 1,
-                                        borderColor: workDuration === mins * 60 ? primaryColor : colors.border
-                                    }
-                                ]}
-                            >
-                                <Text style={[
-                                    styles.presetText,
-                                    { color: workDuration === mins * 60 ? '#fff' : colors.textPrimary }
-                                ]}>
-                                    {mins}
+            ) : (
+                <>
+                    {/* Header - Fixed */}
+                    {!noCard && (
+                        <View style={styles.header}>
+                            <View style={styles.headerLeft}>
+                                <Ionicons name="timer-outline" size={18} color={primaryColor} />
+                                <Text style={[styles.title, { color: colors.textSecondary }]}>
+                                    {habitName ? `FOCUS: ${habitName.toUpperCase()}` : 'POMODORO'}
                                 </Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={() => setShowSettings(!showSettings)}
+                                style={styles.settingsBtn}
+                                disabled={state !== 'idle'}
+                            >
+                                <Ionicons
+                                    name={showSettings ? "close" : "settings-outline"}
+                                    size={18}
+                                    color={state === 'idle' ? colors.textTertiary : colors.border}
+                                />
                             </TouchableOpacity>
-                        ))}
+                        </View>
+                    )}
+
+                    {noCard && (
+                        <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Ionicons name="timer-outline" size={18} color={colors.textSecondary} />
+                                <Text style={[styles.title, { color: colors.textSecondary }]}>POMODORO</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowSettings(!showSettings)} disabled={state !== 'idle'}>
+                                <Ionicons name="settings-outline" size={20} color={state === 'idle' ? colors.textSecondary : colors.border} />
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {/* Settings Panel - Only in idle state */}
+                    {showSettings && state === 'idle' && (
+                        <View style={[styles.settingsPanel, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
+                            <Text style={[styles.settingsLabel, { color: colors.textSecondary }]}>WORK DURATION (MIN)</Text>
+                            <View style={styles.presets}>
+                                {WORK_PRESETS.map(mins => (
+                                    <TouchableOpacity
+                                        key={mins}
+                                        onPress={() => handleSelectPreset(mins)}
+                                        style={[
+                                            styles.presetBtn,
+                                            {
+                                                backgroundColor: workDuration === mins * 60
+                                                    ? primaryColor
+                                                    : (isLight ? colors.surfaceTertiary : 'rgba(255,255,255,0.1)'),
+                                                borderWidth: 1,
+                                                borderColor: workDuration === mins * 60 ? primaryColor : colors.border
+                                            }
+                                        ]}
+                                    >
+                                        <Text style={[
+                                            styles.presetText,
+                                            { color: workDuration === mins * 60 ? '#fff' : colors.textPrimary }
+                                        ]}>
+                                            {mins}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Idle Timer Display */}
+                    <Animated.View style={[styles.timerContainer, pulseStyle]}>
+                        <Svg width={160} height={160} style={styles.progressRing}>
+                            {/* Background Circle */}
+                            <Circle
+                                cx={80}
+                                cy={80}
+                                r={70}
+                                stroke={isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}
+                                strokeWidth="8"
+                                fill="transparent"
+                            />
+                            {/* Progress Circle */}
+                            <Circle
+                                cx={80}
+                                cy={80}
+                                r={70}
+                                stroke={primaryColor}
+                                strokeWidth="8"
+                                fill="transparent"
+                                strokeDasharray={circumference}
+                                strokeDashoffset={strokeDashoffset}
+                                strokeLinecap="round"
+                                transform="rotate(-90 80 80)"
+                            />
+                        </Svg>
+
+                        <View style={styles.timeDisplay}>
+                            <Text style={[styles.timeText, { color: colors.textPrimary }]}>
+                                {formatTime(timeLeft)}
+                            </Text>
+                            <Text style={[styles.stateText, { color: state === 'running' ? primaryColor : colors.textTertiary }]}>
+                                {getStateLabel()}
+                            </Text>
+                        </View>
+                    </Animated.View>
+
+                    {/* Controls - Only Start for Idle */}
+                    <View style={styles.controls}>
+                        {state === 'idle' && (
+                            <TouchableOpacity onPress={handleStart} activeOpacity={0.8}>
+                                <LinearGradient colors={gradientColors} style={styles.mainButton}>
+                                    <Ionicons name="play" size={32} color="white" style={{ marginLeft: 4 }} />
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
                     </View>
-                </View>
+                </>
             )}
 
-            {/* Timer Display */}
-            <Animated.View style={[styles.timerContainer, pulseStyle]}>
-                <Svg width={160} height={160} style={styles.progressRing}>
-                    {/* Background Circle */}
-                    <Circle
-                        cx={80}
-                        cy={80}
-                        r={70}
-                        stroke={isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}
-                        strokeWidth="8"
-                        fill="transparent"
-                    />
-                    {/* Progress Circle */}
-                    <Circle
-                        cx={80}
-                        cy={80}
-                        r={70}
-                        stroke={primaryColor}
-                        strokeWidth="8"
-                        fill="transparent"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                        transform="rotate(-90 80 80)"
-                    />
-                </Svg>
-
-                <View style={styles.timeDisplay}>
-                    <Text style={[styles.timeText, { color: colors.textPrimary }]}>
-                        {formatTime(timeLeft)}
-                    </Text>
-                    <Text style={[styles.stateText, { color: state === 'running' ? primaryColor : colors.textTertiary }]}>
-                        {getStateLabel()}
-                    </Text>
-                </View>
-            </Animated.View>
-
-            {/* Controls */}
-            <View style={styles.controls}>
-                {state === 'idle' && (
-                    <TouchableOpacity onPress={handleStart} activeOpacity={0.8}>
-                        <LinearGradient colors={gradientColors} style={styles.mainButton}>
-                            <Ionicons name="play" size={32} color="white" style={{ marginLeft: 4 }} />
-                        </LinearGradient>
-                    </TouchableOpacity>
-                )}
-
-                {state === 'running' && (
-                    <View style={styles.runningControls}>
-                        <TouchableOpacity onPress={handleStop} style={[styles.secondaryButton, { borderColor: colors.border }]}>
-                            <Ionicons name="stop" size={20} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handlePause} activeOpacity={0.8}>
-                            <LinearGradient colors={gradientColors} style={styles.mainButton}>
-                                <Ionicons name="pause" size={28} color="white" />
-                            </LinearGradient>
-                        </TouchableOpacity>
-                        <View style={styles.placeholderBtn} />
-                    </View>
-                )}
-
-                {state === 'paused' && (
-                    <View style={styles.runningControls}>
-                        <TouchableOpacity onPress={handleStop} style={[styles.secondaryButton, { borderColor: colors.border }]}>
-                            <Ionicons name="stop" size={20} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleResume} activeOpacity={0.8}>
-                            <LinearGradient colors={gradientColors} style={styles.mainButton}>
-                                <Ionicons name="play" size={32} color="white" style={{ marginLeft: 4 }} />
-                            </LinearGradient>
-                        </TouchableOpacity>
-                        <View style={styles.placeholderBtn} />
-                    </View>
-                )}
-            </View>
-
-            {/* Session Stats */}
+            {/* Session Stats (Always Visible or maybe hide when running if ActiveSessionDisplay shows logic?) 
+                Actually keeping them below is fine for history context
+            */}
             <View style={styles.stats}>
                 <View style={styles.statItem}>
                     <Ionicons name="checkmark-circle" size={14} color={colors.success} />
@@ -475,21 +472,5 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.30,
         shadowRadius: 4.65,
         elevation: 8,
-    },
-    runningControls: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 24,
-    },
-    secondaryButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-    },
-    placeholderBtn: {
-        width: 44,
     },
 });

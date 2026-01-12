@@ -9,6 +9,7 @@ import { useFocusTime } from '@/constants/FocusTimeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
+import { ActiveSessionDisplay } from '@/components/Timer/ActiveSessionDisplay';
 
 // ============================================
 // Focus Time Card
@@ -100,101 +101,21 @@ export const FocusTimeCard: React.FC = () => {
             <View style={styles.content}>
                 {/* Active Timer with Controls */}
                 {hasActiveTimer ? (
-                    <View style={styles.activeTimerSection}>
-                        {/* Circular Timer */}
-                        <View style={styles.timerRingContainer}>
-                            <Svg width={100} height={100} style={styles.timerRing}>
-                                {/* Background Circle */}
-                                <Circle
-                                    cx={50}
-                                    cy={50}
-                                    r={38}
-                                    stroke={isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}
-                                    strokeWidth="6"
-                                    fill="transparent"
-                                />
-                                {/* Progress Circle - starts at 12 o'clock (rotated -90deg) */}
-                                <Circle
-                                    cx={50}
-                                    cy={50}
-                                    r={38}
-                                    stroke={accentColor}
-                                    strokeWidth="6"
-                                    fill="transparent"
-                                    strokeDasharray={circumference}
-                                    strokeDashoffset={strokeDashoffset}
-                                    strokeLinecap="round"
-                                    transform="rotate(-90 50 50)"
-                                />
-                            </Svg>
-                            <View style={styles.timerContent}>
-                                <Text style={[styles.countdownText, { color: colors.textPrimary }]}>
-                                    {formatCountdown(timeLeft)}
-                                </Text>
-                            </View>
-                        </View>
-
-                        {/* Timer Info & Controls */}
-                        <View style={styles.timerInfo}>
-                            <TouchableOpacity onPress={handleActiveTimerPress} activeOpacity={0.7}>
-                                <Text style={[styles.habitName, { color: colors.textPrimary }]} numberOfLines={1}>
-                                    {activeHabitName || 'Focus'}
-                                </Text>
-                                <Text style={[styles.statusText, { color: isPaused ? colors.textTertiary : accentColor }]}>
-                                    {isPaused ? 'PAUSED' : 'FOCUSING'}
-                                </Text>
-                            </TouchableOpacity>
-
-                            {/* Control Buttons */}
-                            <View style={styles.controlButtons}>
-                                <TouchableOpacity
-                                    onPress={handleStop}
-                                    style={[styles.controlBtn, { borderColor: colors.border }]}
-                                >
-                                    <Ionicons name="stop" size={18} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={handlePlayPause} activeOpacity={0.8}>
-                                    <LinearGradient
-                                        colors={accentColors}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.playPauseBtn}
-                                    >
-                                        <Ionicons
-                                            name={isRunning ? 'pause' : 'play'}
-                                            size={20}
-                                            color="#fff"
-                                            style={isRunning ? {} : { marginLeft: 2 }}
-                                        />
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        {/* Stats Column - beside controls */}
-                        <View style={styles.statsColumn}>
-                            <View style={styles.statItemVertical}>
-                                <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
-                                    {formatTime(dailyAverage)}
-                                </Text>
-                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Daily Avg</Text>
-                            </View>
-                            <View style={[styles.statDividerH, { backgroundColor: colors.border }]} />
-                            <View style={styles.statItemVertical}>
-                                <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
-                                    {formatTime(Math.floor(monthlyFocusTotal / 30))}
-                                </Text>
-                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Monthly Avg</Text>
-                            </View>
-                            <View style={[styles.statDividerH, { backgroundColor: colors.border }]} />
-                            <View style={styles.statItemVertical}>
-                                <Text style={[styles.statValueSmall, { color: colors.textPrimary }]}>
-                                    {formatTime(Math.floor(yearlyFocusTotal / 365))}
-                                </Text>
-                                <Text style={[styles.statLabelSmall, { color: colors.textTertiary }]}>Yearly Avg</Text>
-                            </View>
-                        </View>
-                    </View>
+                    <ActiveSessionDisplay
+                        timeLeft={timeLeft}
+                        totalDuration={totalDuration}
+                        habitName={activeHabitName}
+                        isPaused={isPaused}
+                        isRunning={isRunning}
+                        onPause={pauseTimer}
+                        onResume={resumeTimer}
+                        onStop={handleStop}
+                        colors={colors}
+                        isLight={isLight}
+                        dailyAverage={dailyAverage}
+                        monthlyAverage={Math.floor(monthlyFocusTotal / 30)}
+                        yearlyAverage={Math.floor(yearlyFocusTotal / 365)}
+                    />
                 ) : (
                     /* Idle State - Show Total Focus Time + Stats */
                     <View style={styles.idleContainer}>
