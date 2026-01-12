@@ -198,11 +198,11 @@ export default function HabitDetailScreen() {
 
           {/* Main Info Card */}
           <VoidCard style={styles.mainCard}>
-            <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : colors.surfaceTertiary }]}>
+            <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : (habit.color ? habit.color + '15' : colors.primary + '15') }]}>
               <Ionicons
                 name={(habit.icon as any) || 'star'}
                 size={40}
-                color={completed ? colors.success : colors.textSecondary}
+                color={completed ? colors.success : (habit.color || colors.primary)}
               />
             </View>
             <Text style={[styles.habitName, { color: colors.textPrimary }]}>

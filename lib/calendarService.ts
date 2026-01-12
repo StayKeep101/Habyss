@@ -86,7 +86,10 @@ export class CalendarService {
 
     static async getSuggestedTimes(date: Date, durationMinutes: number = 30): Promise<{ start: Date, end: Date }[]> {
         const hasPerm = await this.hasPermission();
-        if (!hasPerm) return [];
+        if (!hasPerm) {
+            const granted = await this.requestPermission();
+            if (!granted) return [];
+        }
 
         try {
             const Calendar = require('expo-calendar');
@@ -94,35 +97,49 @@ export class CalendarService {
             const calendarIds = calendars.map((c: any) => c.id);
 
             const startDate = new Date(date);
-            startDate.setHours(8, 0, 0, 0); // Start looking from 8 AM
+            startDate.setHours(6, 0, 0, 0); // Start from 6 AM
             const endDate = new Date(date);
-            endDate.setHours(20, 0, 0, 0); // Until 8 PM
-
-            // basic logic: this is complex, Expo Calendar doesn't give "free slots" directly easily without iterating events.
-            // Implementing a simple version: retrieve events for the day, find gaps.
+            endDate.setHours(22, 0, 0, 0); // Until 10 PM
 
             const events = await Calendar.getEventsAsync(calendarIds, startDate, endDate);
+            // Sort by start time
             events.sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+            // Merge overlapping events
+            const mergedEvents: { start: number, end: number }[] = [];
+            for (const event of events) {
+                const s = new Date(event.startDate).getTime();
+                const e = new Date(event.endDate).getTime();
+                if (mergedEvents.length > 0 && s < mergedEvents[mergedEvents.length - 1].end) {
+                    // Overlap or adjacent, extend previous
+                    mergedEvents[mergedEvents.length - 1].end = Math.max(mergedEvents[mergedEvents.length - 1].end, e);
+                } else {
+                    mergedEvents.push({ start: s, end: e });
+                }
+            }
 
             const slots: { start: Date, end: Date }[] = [];
             let currentTime = startDate.getTime();
             const endLimit = endDate.getTime();
             const durationMs = durationMinutes * 60 * 1000;
 
-            for (const event of events) {
-                const evtStart = new Date(event.startDate).getTime();
-                const evtEnd = new Date(event.endDate).getTime();
-
-                if (currentTime + durationMs <= evtStart) {
+            for (const event of mergedEvents) {
+                // Check gap before this event
+                if (currentTime + durationMs <= event.start) {
                     slots.push({
                         start: new Date(currentTime),
                         end: new Date(currentTime + durationMs)
                     });
-                    if (slots.length >= 3) return slots;
+                    if (slots.length >= 5) return slots;
+                    // Advance current time to end of this slot? No, we might fit multiple.
+                    // But for simplicity, let's just find the *next* available after this gap or after this event?
+                    // Let's just find one slot per gap to avoid clutter?
+                    // Or fill the gap. Let's simplistically take the first fit in the gap, and then move past the event.
                 }
-                currentTime = Math.max(currentTime, evtEnd);
+                currentTime = Math.max(currentTime, event.end);
             }
 
+            // Check gap after last event
             if (currentTime + durationMs <= endLimit) {
                 slots.push({
                     start: new Date(currentTime),

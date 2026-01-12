@@ -18,14 +18,9 @@ serve(async (req) => {
             httpClient: Stripe.createFetchHttpClient(),
         })
 
-        const { email } = await req.json()
+        const { email, priceId } = await req.json()
 
         // 1. Create or retrieve customer
-        // Simplification: In a real app, you'd look up the customer ID from your Supabase `users` table
-        // For now, we'll create a new one or use a dummy one if not provided.
-        // In production: const customer = await findOrCreateCustomer(email);
-
-        // For this implementation, we'll just create a new customer for every request request or search by email
         let customer;
         if (email) {
             const customers = await stripe.customers.list({ email, limit: 1 });
@@ -41,16 +36,12 @@ serve(async (req) => {
         // 2. Create an Ephemeral Key
         const ephemeralKey = await stripe.ephemeralKeys.create(
             { customer: customer.id },
-            { apiVersion: '2022-11-15' } // Stripe-React-Native typically needs a specific apiVersion match
+            { apiVersion: '2022-11-15' }
         );
 
         // 3. Create a PaymentIntent or Subscription
-        // The user guide creates a SUBSCRIPTION. 
-        // "items: [{ price: 'price_your_product_id' }]"
-        const priceId = Deno.env.get('STRIPE_PREMIUM_PRICE_ID');
-
         if (!priceId) {
-            throw new Error('STRIPE_PREMIUM_PRICE_ID is not configured on the server');
+            throw new Error('Price ID is required');
         }
 
         const subscription = await stripe.subscriptions.create({

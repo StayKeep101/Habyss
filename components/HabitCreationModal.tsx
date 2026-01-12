@@ -256,6 +256,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { mediumFeedback, selectionFeedback, successFeedback } = useHaptics();
+    const isLight = theme === 'light';
+    // Use darker border for light mode visibility
+    const effectiveBorderColor = isLight ? '#94A3B8' : colors.border;
 
     // Visibility management
     const [isVisible, setIsVisible] = useState(false);
@@ -281,6 +284,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     // Advanced fields
     const [reminderEnabled, setReminderEnabled] = useState(true);
     const [reminderTime, setReminderTime] = useState(new Date());
+    const [reminderOffset, setReminderOffset] = useState<number | undefined>(undefined);
+    const [locationReminders, setLocationReminders] = useState<{ name: string; latitude: number; longitude: number; radius?: number }[]>([]);
     const [ringtone, setRingtone] = useState('default');
     const [measurementValue, setMeasurementValue] = useState(1);
     const [measurementUnit, setMeasurementUnit] = useState('times');
@@ -442,6 +447,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setHabitStartDate(new Date());
         setReminderEnabled(true);
         setReminderTime(new Date());
+        setReminderOffset(undefined);
+        setLocationReminders([]);
         setRingtone('default');
         setMeasurementValue(1);
         setMeasurementUnit('times');
@@ -643,7 +650,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     {/* Quick Templates Button */}
                                     <TouchableOpacity
                                         onPress={() => { selectionFeedback(); setActiveOverlay('templates'); }}
-                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, marginBottom: 16, backgroundColor: colors.surfaceSecondary, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}
+                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, marginBottom: 16, backgroundColor: colors.surfaceSecondary, borderRadius: 12, borderWidth: 1, borderColor: effectiveBorderColor, gap: 8 }}
                                     >
                                         <Ionicons name="flash" size={16} color={colors.primary} />
                                         <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>Quick Templates</Text>
@@ -682,7 +689,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                                 borderRadius: 12,
                                                                 backgroundColor: goalId === g.id ? g.color + '20' : colors.surfaceSecondary,
                                                                 borderWidth: 1,
-                                                                borderColor: goalId === g.id ? g.color : colors.border,
+                                                                borderColor: goalId === g.id ? g.color : effectiveBorderColor,
                                                                 gap: 6
                                                             }
                                                         ]}
@@ -711,7 +718,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                                             {/* Info Tooltip */}
                                             {showPillarInfo && (
-                                                <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 8, borderWidth: 1, borderColor: colors.border }}>
+                                                <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 8, borderWidth: 1, borderColor: effectiveBorderColor }}>
                                                     <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8, fontWeight: '600' }}>6 Pillars of Life Balance:</Text>
                                                     {LIFE_PILLARS.map(p => (
                                                         <View key={p.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
@@ -739,7 +746,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                                 borderRadius: 12,
                                                                 backgroundColor: lifePillar === pillar.id ? pillar.color + '20' : colors.surfaceSecondary,
                                                                 borderWidth: 1,
-                                                                borderColor: lifePillar === pillar.id ? pillar.color : colors.border,
+                                                                borderColor: lifePillar === pillar.id ? pillar.color : effectiveBorderColor,
                                                                 gap: 6,
                                                             }
                                                         ]}
@@ -817,7 +824,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* ICON OVERLAY */}
                             {activeOverlay === 'icon' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.7 }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { height: height * 0.7 }]}>
                                     <OverlayHeader title="Choose Icon" onClose={() => { setActiveOverlay('none'); setIconSearch(''); }} />
                                     {/* Search Bar */}
                                     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, marginBottom: 16 }}>
@@ -919,38 +926,33 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 20, marginBottom: 24 }}>
                                         <View style={{ flex: 1, alignItems: 'center' }}>
                                             <Text style={styles.pickerLabel}>START</Text>
-                                            <DateTimePicker
-                                                value={startTime}
-                                                mode="time"
-                                                display="spinner"
-                                                onChange={(_, d) => d && setStartTime(d)}
-                                                textColor="#fff"
-                                                style={{ height: 120, width: '100%', opacity: useFreeTime ? 0.3 : 1 }}
-                                                disabled={useFreeTime}
-                                            />
+                                            <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
+                                                <DateTimePicker
+                                                    value={startTime}
+                                                    mode="time"
+                                                    display="spinner"
+                                                    onChange={(_, d) => d && setStartTime(d)}
+                                                    textColor="#fff"
+                                                    style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
+                                                />
+                                            </View>
                                         </View>
                                         <View style={{ flex: 1, alignItems: 'center' }}>
                                             <Text style={styles.pickerLabel}>END</Text>
-                                            <DateTimePicker
-                                                value={endTime}
-                                                mode="time"
-                                                display="spinner"
-                                                onChange={(_, d) => d && setEndTime(d)}
-                                                textColor="#fff"
-                                                style={{ height: 120, width: '100%', opacity: useFreeTime ? 0.3 : 1 }}
-                                                disabled={useFreeTime}
-                                            />
+                                            <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
+                                                <DateTimePicker
+                                                    value={endTime}
+                                                    mode="time"
+                                                    display="spinner"
+                                                    onChange={(_, d) => d && setEndTime(d)}
+                                                    textColor="#fff"
+                                                    style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
+                                                />
+                                            </View>
                                         </View>
                                     </View>
 
-                                    {/* Anytime Toggle */}
-                                    <TouchableOpacity
-                                        onPress={() => { selectionFeedback(); setUseFreeTime(!useFreeTime); }}
-                                        style={[styles.toggleRow, { marginBottom: 16 }]}
-                                    >
-                                        <Text style={{ color: 'white', fontWeight: '600' }}>Anytime / All Day</Text>
-                                        <Ionicons name={useFreeTime ? "checkbox" : "square-outline"} size={24} color={selectedColor} />
-                                    </TouchableOpacity>
+                                    {/* Anytime Toggle Removed */}
 
                                     {/* Automatic Scheduling Button */}
                                     <TouchableOpacity
@@ -1036,7 +1038,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* REMINDER OVERLAY */}
                             {activeOverlay === 'reminder' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8 }]}>
                                     <OverlayHeader title="Notifications" onClose={() => setActiveOverlay('none')} />
 
                                     {/* Toggle */}
@@ -1048,21 +1050,88 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                         <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={24} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.3)'} />
                                     </TouchableOpacity>
 
-                                    {/* Time Picker - Always visible but faded when disabled */}
-                                    <View style={{ alignItems: 'center', marginBottom: 24, opacity: reminderEnabled ? 1 : 0.3 }}>
-                                        <Text style={styles.pickerLabel}>REMINDER TIME</Text>
-                                        <DateTimePicker
-                                            value={reminderTime}
-                                            mode="time"
-                                            display="spinner"
-                                            onChange={(_, d) => d && setReminderTime(d)}
-                                            textColor="#fff"
-                                            style={{ height: 150 }}
-                                            disabled={!reminderEnabled}
-                                        />
-                                    </View>
+                                    {reminderEnabled && (
+                                        <ScrollView showsVerticalScrollIndicator={false}>
+                                            {/* Time Picker */}
+                                            <View style={{ alignItems: 'center', marginBottom: 24 }}>
+                                                <Text style={styles.pickerLabel}>REMINDER TIME</Text>
+                                                <DateTimePicker
+                                                    value={reminderTime}
+                                                    mode="time"
+                                                    display="spinner"
+                                                    onChange={(_, d) => d && setReminderTime(d)}
+                                                    textColor="#fff"
+                                                    style={{ height: 120 }}
+                                                />
+                                            </View>
 
-                                    <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor }]}>
+                                            {/* Relative Time Reminder */}
+                                            <View style={{ marginBottom: 24 }}>
+                                                <Text style={styles.pickerLabel}>REMIND ME BEFORE</Text>
+                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                                                    {[undefined, 5, 15, 30, 60].map((mins) => (
+                                                        <TouchableOpacity
+                                                            key={mins === undefined ? 'none' : mins}
+                                                            onPress={() => { selectionFeedback(); setReminderOffset(mins); }}
+                                                            style={[
+                                                                styles.unitChip,
+                                                                reminderOffset === mins && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
+                                                            ]}
+                                                        >
+                                                            <Text style={{ color: reminderOffset === mins ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>
+                                                                {mins === undefined ? 'At time' : `${mins} min before`}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                            </View>
+
+                                            {/* Location Reminder (Placeholder Logic) */}
+                                            <View style={{ marginBottom: 24 }}>
+                                                <Text style={styles.pickerLabel}>LOCATION TRIGGER (Beta)</Text>
+                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            selectionFeedback();
+                                                            if (locationReminders.some(l => l.name === 'Home')) {
+                                                                setLocationReminders(prev => prev.filter(l => l.name !== 'Home'));
+                                                            } else {
+                                                                // Mock Location for now
+                                                                setLocationReminders(prev => [...prev, { name: 'Home', latitude: 0, longitude: 0 }]);
+                                                            }
+                                                        }}
+                                                        style={[
+                                                            styles.unitChip,
+                                                            locationReminders.some(l => l.name === 'Home') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
+                                                        ]}
+                                                    >
+                                                        <Ionicons name="home" size={14} color={locationReminders.some(l => l.name === 'Home') ? selectedColor : 'rgba(255,255,255,0.5)'} style={{ marginRight: 6 }} />
+                                                        <Text style={{ color: locationReminders.some(l => l.name === 'Home') ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>Arriving Home</Text>
+                                                    </TouchableOpacity>
+
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            selectionFeedback();
+                                                            if (locationReminders.some(l => l.name === 'Work')) {
+                                                                setLocationReminders(prev => prev.filter(l => l.name !== 'Work'));
+                                                            } else {
+                                                                setLocationReminders(prev => [...prev, { name: 'Work', latitude: 0, longitude: 0 }]);
+                                                            }
+                                                        }}
+                                                        style={[
+                                                            styles.unitChip,
+                                                            locationReminders.some(l => l.name === 'Work') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
+                                                        ]}
+                                                    >
+                                                        <Ionicons name="business" size={14} color={locationReminders.some(l => l.name === 'Work') ? selectedColor : 'rgba(255,255,255,0.5)'} style={{ marginRight: 6 }} />
+                                                        <Text style={{ color: locationReminders.some(l => l.name === 'Work') ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>Arriving Work</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        </ScrollView>
+                                    )}
+
+                                    <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 'auto' }]}>
                                         <Text style={styles.doneButtonText}>Done</Text>
                                     </TouchableOpacity>
                                 </Animated.View>
@@ -1160,7 +1229,11 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                         <Ionicons name={cat.icon as any} size={14} color="rgba(255,255,255,0.4)" />
                                                         <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700', letterSpacing: 1 }}>{cat.category.toUpperCase()}</Text>
                                                     </View>
-                                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                                    <ScrollView
+                                                        horizontal
+                                                        showsHorizontalScrollIndicator={false}
+                                                        contentContainerStyle={{ flexDirection: 'row', gap: 8, paddingRight: 20 }}
+                                                    >
                                                         {cat.units.map(u => (
                                                             <TouchableOpacity
                                                                 key={u.id}
@@ -1170,7 +1243,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                                 <Text style={{ color: measurementUnit === u.id ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 12 }}>{u.label}</Text>
                                                             </TouchableOpacity>
                                                         ))}
-                                                    </View>
+                                                    </ScrollView>
                                                 </View>
                                             ))}
                                         </ScrollView>

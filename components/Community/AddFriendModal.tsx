@@ -69,7 +69,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     };
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.55}>
+        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.85}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}

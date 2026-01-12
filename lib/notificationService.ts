@@ -1,7 +1,44 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import * as TaskManager from 'expo-task-manager';
+import * as Location from 'expo-location';
 import { ThemeMode } from '@/constants/themeContext';
 import { supabase } from './supabase';
+
+const LOCATION_TASK_NAME = 'HABYSS_GEOFENCING_TASK';
+
+// Define the background task in the global scope
+try {
+  TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
+    if (error) {
+      console.error('[Geofencing] Task Error:', error);
+      return;
+    }
+    if (data) {
+      const { eventType, region } = data;
+      if (eventType === Location.GeofencingEventType.Enter) {
+        // Identifier format: "habitId::HabitName::LocationName"
+        const parts = region.identifier.split('::');
+        if (parts.length >= 3) {
+          const [habitId, habitName, locationName] = parts;
+          console.log('[Geofencing] Entered region:', region.identifier);
+
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "Arrived at " + locationName,
+              body: `Time to ${habitName}!`,
+              sound: 'default',
+              data: { habitId, url: `/home?habitId=${habitId}` }
+            },
+            trigger: null, // Immediate
+          });
+        }
+      }
+    }
+  });
+} catch (e) {
+  console.warn('Failed to define task (likely running in unsupported env):', e);
+}
 
 // IMPORTANT: Do NOT call Notifications APIs at module scope - it crashes iOS!
 // setNotificationHandler is now called inside init()
@@ -66,43 +103,113 @@ export class NotificationService {
     return finalStatus === 'granted';
   }
 
-  static async scheduleHabitReminder(habit: any) {
-    if (!habit.reminders || habit.reminders.length === 0) return;
+  static async requestLocationPermissions() {
+    try {
+      const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+      if (fgStatus !== 'granted') return false;
 
+      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+      return bgStatus === 'granted';
+    } catch (e) {
+      console.warn('Error requesting location permissions:', e);
+      return false;
+    }
+  }
+
+  static async scheduleHabitReminder(habit: any) {
     // Clear existing for this habit to avoid duplicates
     await this.cancelHabitReminder(habit.id);
 
-    const hasPermission = await this.requestPermissions();
-    if (!hasPermission) return;
+    // 1. Schedule Time-based Reminders
+    if (habit.reminders && habit.reminders.length > 0) {
+      const hasPermission = await this.requestPermissions();
+      if (hasPermission) {
+        for (const timeStr of habit.reminders) {
+          // timeStr is "HH:MM"
+          const [hours, minutes] = timeStr.split(':').map(Number);
 
-    for (const timeStr of habit.reminders) {
-      // timeStr is "HH:MM"
-      const [hours, minutes] = timeStr.split(':').map(Number);
+          let triggerHour = hours;
+          let triggerMinute = minutes;
+          let title = "Habyss Reminder";
+          let body = `Time to ${habit.name}!`;
 
-      // Fix trigger type error by using any or correct interface, but simpler is to rely on simple object
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "Habyss Reminder",
-          body: `Time to ${habit.name}!`,
-          sound: 'default',
-          data: { habitId: habit.id, url: `/home?habitId=${habit.id}` }
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-          hour: hours,
-          minute: minutes,
-          repeats: true,
-        },
-      });
+          if (habit.reminderOffset && habit.reminderOffset > 0) {
+            const totalMinutes = hours * 60 + minutes - habit.reminderOffset;
+            // Normalize for day wrap-around (00:00 - 30min -> 23:30)
+            const normalized = (totalMinutes + 24 * 60) % (24 * 60);
+            triggerHour = Math.floor(normalized / 60);
+            triggerMinute = normalized % 60;
+
+            title = `Upcoming: ${habit.name}`;
+            body = `${habit.name} starts in ${habit.reminderOffset} minutes.`;
+          }
+
+          // Fix trigger type error by using any or correct interface, but simpler is to rely on simple object
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title,
+              body,
+              sound: 'default',
+              data: { habitId: habit.id, url: `/home?habitId=${habit.id}` }
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+              hour: triggerHour,
+              minute: triggerMinute,
+              repeats: true,
+            },
+          });
+        }
+      }
+    }
+
+    // 2. Schedule Location-based Reminders
+    if (habit.locationReminders && habit.locationReminders.length > 0) {
+      const hasLocPermission = await this.requestLocationPermissions();
+      if (hasLocPermission) {
+        const regions = habit.locationReminders.map((loc: any) => ({
+          identifier: `${habit.id}::${habit.name}::${loc.name}`,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          radius: loc.radius || 100, // Default 100m
+          notifyOnEnter: true,
+          notifyOnExit: false,
+        }));
+
+        try {
+          await Location.startGeofencingAsync(LOCATION_TASK_NAME, regions);
+          console.log(`[Geofencing] Started monitoring ${regions.length} regions for ${habit.name}`);
+        } catch (e) {
+          console.warn('[Geofencing] Error starting geofencing:', e);
+        }
+      } else {
+        console.warn('[Geofencing] Missing permissions');
+      }
     }
   }
 
   static async cancelHabitReminder(habitId: string) {
+    // Cancel Time-based
     const pending = await Notifications.getAllScheduledNotificationsAsync();
     for (const n of pending) {
       if (n.content.data?.habitId === habitId) {
         await Notifications.cancelScheduledNotificationAsync(n.identifier);
       }
+    }
+
+    // Cancel Location-based
+    try {
+      const hasStarted = await Location.hasStartedGeofencingAsync(LOCATION_TASK_NAME);
+      if (hasStarted) {
+        const regions = await Location.getGeofencedRegionsAsync(LOCATION_TASK_NAME);
+        const regionsToRemove = regions.filter(r => r.identifier && r.identifier.startsWith(habitId + '::'));
+        if (regionsToRemove.length > 0) {
+          await Location.stopGeofencingAsync(LOCATION_TASK_NAME, regionsToRemove.map(r => r.identifier || ''));
+          console.log(`[Geofencing] Removed ${regionsToRemove.length} regions for ${habitId}`);
+        }
+      }
+    } catch (e) {
+      console.warn('[Geofencing] Error stopping regions:', e);
     }
   }
 
@@ -179,17 +286,24 @@ export class NotificationService {
     }
   }
 
-  static async clearAllNotifications() {
+  static async clearAllNotifications(): Promise<boolean> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return false;
 
-      await supabase
+      const { error } = await supabase
         .from('notifications')
         .delete()
         .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error clearing notifications:', error);
+        return false;
+      }
+      return true;
     } catch (e) {
       console.error('Error clearing notifications:', e);
+      return false;
     }
   }
 

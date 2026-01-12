@@ -49,7 +49,8 @@ export interface Habit {
     timeOfDay?: TimeOfDay;
     trackingMethod?: TrackingMethod;
     ringtone?: string;
-    locationReminders?: { name: string; latitude: number; longitude: number }[];
+    locationReminders?: { name: string; latitude: number; longitude: number; radius?: number }[];
+    reminderOffset?: number; // Minutes before start time
 }
 
 // Cache
@@ -167,7 +168,9 @@ export async function getHabits(): Promise<Habit[]> {
             endDate: row.end_date,
             isArchived: row.is_archived || false,
             showMemo: row.show_memo || false,
-            goalId: row.goal_id
+            goalId: row.goal_id,
+            reminderOffset: row.reminder_offset,
+            locationReminders: row.location_reminders || []
         }));
 
         cachedHabits = habits;
@@ -198,6 +201,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
         end_time: habitData.endTime,
         is_goal: habitData.isGoal,
         target_date: habitData.targetDate,
+        reminder_offset: habitData.reminderOffset,
+        location_reminders: habitData.locationReminders,
         ...(habitData.goalId ? { goal_id: habitData.goalId } : {}),
     };
 
@@ -236,7 +241,9 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
         endDate: data.end_date,
         isArchived: data.is_archived || false,
         showMemo: data.show_memo || false,
-        goalId: data.goal_id
+        goalId: data.goal_id,
+        reminderOffset: data.reminder_offset,
+        locationReminders: data.location_reminders || []
     };
 
     if (created.reminders && created.reminders.length > 0) {
@@ -266,6 +273,8 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
     if (updatedHabit.isGoal !== undefined) updateData.is_goal = updatedHabit.isGoal;
     if (updatedHabit.targetDate !== undefined) updateData.target_date = updatedHabit.targetDate;
     if (updatedHabit.goalId !== undefined) updateData.goal_id = updatedHabit.goalId;
+    if (updatedHabit.reminderOffset !== undefined) updateData.reminder_offset = updatedHabit.reminderOffset;
+    if (updatedHabit.locationReminders !== undefined) updateData.location_reminders = updatedHabit.locationReminders;
 
     const { error } = await supabase
         .from('habits')

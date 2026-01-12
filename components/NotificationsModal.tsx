@@ -74,7 +74,19 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
         mediumFeedback();
         Alert.alert('Clear All Notifications', 'Are you sure you want to remove all notifications?', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Clear All', style: 'destructive', onPress: async () => { await NotificationService.clearAllNotifications(); setNotifications([]); onClose(); } }
+            {
+                text: 'Clear All',
+                style: 'destructive',
+                onPress: async () => {
+                    const success = await NotificationService.clearAllNotifications();
+                    if (success) {
+                        setNotifications([]);
+                        onClose();
+                    } else {
+                        Alert.alert('Error', 'Failed to clear notifications. Please try again.');
+                    }
+                }
+            }
         ]);
     };
 
