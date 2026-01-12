@@ -1310,8 +1310,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                         </GestureDetector>
                     </View>
                 </View>
-            </View>
-        </GestureHandlerRootView>
+            </GestureHandlerRootView>
         </Modal >
     );
 };
