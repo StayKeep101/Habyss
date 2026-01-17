@@ -342,4 +342,49 @@ export class NotificationService {
       console.error('Error adding notification:', e);
     }
   }
+
+  // --- Realtime Subscription ---
+  static subscribeToRealtimeNotifications(onNotification: (notification: any) => void) {
+    // Get current user ID async - wrapping in IIFE or promise handling required by caller?
+    // Better to let caller ensure auth or handle inside
+
+    // We'll create a setup function that returns the channel subscription
+    const setup = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const channel = supabase
+        .channel('public:notifications:' + user.id)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Realtime notification received:', payload);
+            if (payload.new) {
+              onNotification(payload.new);
+            }
+          }
+        )
+        .subscribe();
+
+      return channel;
+    };
+
+    return setup();
+  }
+
+  static async unsubscribe(channel: any) {
+    if (channel) {
+      try {
+        await supabase.removeChannel(channel);
+      } catch (e) {
+        console.warn('Error unsubscribing channel:', e);
+      }
+    }
+  }
 }

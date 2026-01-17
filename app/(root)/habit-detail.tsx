@@ -59,13 +59,23 @@ export default function HabitDetailScreen() {
     loadHabitDetails();
 
     // Listen for completion updates from other screens for instant sync
-    const sub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId: updatedId, date, completed: isCompleted }) => {
+    const completionSub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId: updatedId, date, completed: isCompleted }) => {
       if (updatedId === habitId && date === dateStr) {
         setCompleted(isCompleted);
       }
     });
 
-    return () => sub.remove();
+    // Listen for habit updates (e.g., from the global edit modal)
+    const habitUpdateSub = DeviceEventEmitter.addListener('habit_updated', ({ habitId: updatedId }) => {
+      if (updatedId === habitId) {
+        loadHabitDetails(); // Reload all details for this habit
+      }
+    });
+
+    return () => {
+      completionSub.remove();
+      habitUpdateSub.remove();
+    };
   }, [habitId, dateStr]);
 
   const loadHabitDetails = async () => {
@@ -161,12 +171,7 @@ export default function HabitDetailScreen() {
           <TouchableOpacity
             onPress={() => {
               selectionFeedback();
-              // Emit event to show global HabitCreationModal with this habit data
-              DeviceEventEmitter.emit('show_habit_modal', {
-                habitId: habit.id,
-                goalId: habit.goalId,
-                initialHabit: habit
-              });
+              DeviceEventEmitter.emit('show_habit_creation_modal', { habit: habit, goalId: habit.goalId });
             }}
             style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
           >

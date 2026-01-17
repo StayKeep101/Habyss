@@ -244,6 +244,7 @@ interface HabitCreationModalProps {
     onSuccess?: () => void;
     goalId?: string;
     initialHabit?: Habit;
+    listenToGlobalEvents?: boolean;
 }
 
 export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
@@ -252,6 +253,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     onSuccess: propOnSuccess,
     goalId: propGoalId,
     initialHabit,
+    listenToGlobalEvents = true,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -393,6 +395,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     }, [propGoalId]);
 
     useEffect(() => {
+        if (!listenToGlobalEvents) return;
+
         const subscription = DeviceEventEmitter.addListener('show_habit_modal', (data) => {
             selectionFeedback();
             setGoalId(data?.goalId || undefined);
@@ -405,7 +409,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             setIsVisible(true);
         });
         return () => subscription.remove();
-    }, []);
+    }, [listenToGlobalEvents]);
 
     useEffect(() => {
         if (isVisible && !isOpen) {

@@ -2,6 +2,7 @@ import { ThemeProvider } from "../constants/themeContext";
 import { useFonts, Lexend_400Regular, Lexend_500Medium, Lexend_600SemiBold, Lexend_700Bold } from '@expo-google-fonts/lexend';
 import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -57,7 +58,34 @@ export default function MobileLayout() {
       }
     }
     prepare();
+    prepare();
   }, [loaded]);
+
+  // --- Realtime Notifications Listener ---
+  useEffect(() => {
+    let channel: any = null;
+    const setupListener = async () => {
+      // Subscribe to Supabase realtime notifications (for Nudges, etc.)
+      channel = await NotificationService.subscribeToRealtimeNotifications(async (notification) => {
+        // Show local notification immediately when received
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: notification.title,
+            body: notification.body,
+            sound: 'default',
+            data: notification.data
+          },
+          trigger: null // Immediate
+        });
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (channel) NotificationService.unsubscribe(channel);
+    };
+  }, []);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {

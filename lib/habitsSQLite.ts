@@ -288,6 +288,15 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
             cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? { ...h, ...updatedHabit } as Habit : h);
             habitsListeners.forEach(l => l(cachedHabits!));
         }
+
+        // --- NEW: Reschedule Reminder ---
+        // We need the full habit object to schedule correctly
+        const fullHabit = cachedHabits?.find(h => h.id === updatedHabit.id) ||
+            (await getHabits()).find(h => h.id === updatedHabit.id);
+
+        if (fullHabit) {
+            await NotificationService.scheduleHabitReminder(fullHabit);
+        }
     }
 }
 
