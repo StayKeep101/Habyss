@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { Habit } from '@/lib/habitsSQLite';
@@ -18,10 +18,11 @@ interface GoalCardProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   linkedHabitsCount: number;
+  sharedWith?: { id: string; avatarUrl?: string; username?: string }[];
 }
 
 export const GoalCard: React.FC<GoalCardProps> = ({
-  goal, progress, onPress, size, isExpanded, onToggleExpand, linkedHabitsCount
+  goal, progress, onPress, size, isExpanded, onToggleExpand, linkedHabitsCount, sharedWith
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -88,6 +89,47 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             <Text style={[styles.progressText, { color: goal.color || defaultColor, fontSize: isSmall ? 9 : 11 }]}>{Math.round(progress)}%</Text>
           </View>
         </View>
+
+        {/* Shared With Avatars */}
+        {sharedWith && sharedWith.length > 0 && (
+          <View style={{ flexDirection: 'row', marginRight: 8 }}>
+            {sharedWith.slice(0, 3).map((friend, idx) => (
+              <View
+                key={friend.id}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: colors.surfaceTertiary,
+                  borderWidth: 2,
+                  borderColor: colors.surface,
+                  marginLeft: idx > 0 ? -8 : 0,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                }}
+              >
+                {friend.avatarUrl ? (
+                  <Image source={{ uri: friend.avatarUrl }} style={{ width: 18, height: 18, borderRadius: 9 }} />
+                ) : (
+                  <Text style={{ fontSize: 9, color: colors.textSecondary }}>
+                    {friend.username?.[0]?.toUpperCase() || '?'}
+                  </Text>
+                )}
+              </View>
+            ))}
+            {sharedWith.length > 3 && (
+              <View style={{
+                width: 22, height: 22, borderRadius: 11,
+                backgroundColor: colors.surfaceTertiary, marginLeft: -8,
+                alignItems: 'center', justifyContent: 'center',
+                borderWidth: 2, borderColor: colors.surface,
+              }}>
+                <Text style={{ fontSize: 8, color: colors.textSecondary }}>+{sharedWith.length - 3}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Expansion Indicator (Visual only, transmits press to parent) */}
         <View style={[styles.toggleBtn, { borderLeftColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)' }]}>

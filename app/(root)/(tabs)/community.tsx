@@ -308,29 +308,45 @@ export default function CommunityScreen() {
                     </View>
                 )}
 
-                {/* Shared Goals */}
-                {sharedGoals.length > 0 && (
-                    <View style={{ marginBottom: 24 }}>
-                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SHARED GOALS</Text>
+                {/* Shared Goals - Primary Content */}
+                <View style={{ marginBottom: 24 }}>
+                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>GOALS SHARED WITH YOU</Text>
+                    {sharedGoals.length === 0 ? (
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 32, alignItems: 'center' }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                            <Ionicons name="flag-outline" size={48} color={colors.textTertiary} />
+                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No shared goals yet</Text>
+                            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                                When friends share goals with you, they'll appear here
+                            </Text>
+                        </VoidCard>
+                    ) : (
                         <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             {sharedGoals.map((item, index) => (
                                 <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index < sharedGoals.length - 1 ? 12 : 0 }}>
-                                    <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
-                                        <Text>{item.goal.icon ? item.goal.icon : '🎯'}</Text>
+                                    {/* Owner Avatar */}
+                                    <View style={[styles.avatarLarge, { backgroundColor: colors.surfaceTertiary }]}>
+                                        {item.owner?.avatarUrl ? (
+                                            <Image source={{ uri: item.owner.avatarUrl }} style={styles.avatarImage} />
+                                        ) : (
+                                            <Text style={{ fontSize: 16, color: colors.textSecondary }}>
+                                                {item.owner?.username?.[0]?.toUpperCase() || '?'}
+                                            </Text>
+                                        )}
                                     </View>
                                     <View style={{ flex: 1, marginLeft: 12 }}>
-                                        <Text style={[styles.username, { color: colors.textPrimary }]}>{item.goal.name}</Text>
-                                        <Text style={[styles.email, { color: colors.textTertiary }]}>
-                                            Shared by {item.owner.username}
-                                            {item.goal.deadline && ` • Due ${new Date(item.goal.deadline).toLocaleDateString()}`}
-                                        </Text>
+                                        <Text style={[styles.friendName, { color: colors.textPrimary }]}>{item.goal.name}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                                            <Text style={{ fontSize: 16 }}>{item.goal.icon || '🎯'}</Text>
+                                            <Text style={[styles.email, { color: colors.textTertiary }]}>
+                                                {item.owner?.username || 'Unknown'}
+                                            </Text>
+                                        </View>
                                     </View>
                                     <TouchableOpacity
                                         style={[styles.actionBtn, { backgroundColor: accentColor }]}
                                         onPress={() => {
                                             mediumFeedback();
-                                            // Navigate to view goal details or add similar goal
-                                            Alert.alert('Goal', `"${item.goal.name}" shared by ${item.owner.username}`);
+                                            Alert.alert('Goal', `"${item.goal.name}" shared by ${item.owner?.username || 'Unknown'}`);
                                         }}
                                     >
                                         <Ionicons name="eye" size={18} color="#fff" />
@@ -338,82 +354,8 @@ export default function CommunityScreen() {
                                 </View>
                             ))}
                         </VoidCard>
-                    </View>
-                )}
-
-                {/* Friends Feed */}
-                {friendsFeed.length > 0 && (
-                    <View style={{ marginBottom: 24 }}>
-                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>RECENT ACTIVITY</Text>
-                        {friendsFeed.map(activity => (
-                            <VoidCard key={activity.id} glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16, marginBottom: 12 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    {/* Avatar */}
-                                    <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
-                                        {activity.friendAvatarUrl ? (
-                                            <Image source={{ uri: activity.friendAvatarUrl }} style={{ width: 36, height: 36, borderRadius: 18 }} />
-                                        ) : (
-                                            <Text style={{ fontSize: 14, color: colors.textSecondary }}>
-                                                {activity.friendUsername[0]?.toUpperCase()}
-                                            </Text>
-                                        )}
-                                    </View>
-
-                                    {/* Info */}
-                                    <View style={{ flex: 1, marginLeft: 12 }}>
-                                        <Text style={[styles.username, { color: colors.textPrimary }]}>
-                                            {activity.friendUsername}
-                                        </Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                                            <Ionicons name={activity.habitIcon as any} size={12} color={colors.success} />
-                                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginLeft: 4 }}>
-                                                Completed {activity.habitName}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    {/* Time */}
-                                    <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
-                                        {getTimeAgo(activity.completedAt)}
-                                    </Text>
-                                </View>
-
-                                {/* Reaction Bar */}
-                                <View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
-                                    {(['🔥', '👏', '💪'] as ReactionType[]).map(reaction => {
-                                        const isSelected = sentReactions[activity.id] === reaction;
-                                        const existingCount = activity.reactions.find(r => r.type === reaction)?.count || 0;
-                                        return (
-                                            <TouchableOpacity
-                                                key={reaction}
-                                                onPress={() => handleReaction(activity.id, reaction)}
-                                                style={{
-                                                    paddingHorizontal: 12,
-                                                    paddingVertical: 6,
-                                                    borderRadius: 16,
-                                                    backgroundColor: isSelected ? accentColor + '30' : colors.surfaceSecondary,
-                                                    borderWidth: 1,
-                                                    borderColor: isSelected ? accentColor : 'transparent',
-                                                    flexDirection: 'row',
-                                                    alignItems: 'center',
-                                                    gap: 4,
-                                                }}
-                                            >
-                                                <Text style={{ fontSize: 16 }}>{reaction}</Text>
-                                                {(existingCount > 0 || isSelected) && (
-                                                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                                                        {isSelected ? existingCount + 1 : existingCount}
-                                                    </Text>
-                                                )}
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
-                            </VoidCard>
-                        ))}
-                    </View>
-                )}
-
+                    )}
+                </View>
 
 
                 {/* Friend Requests */}
@@ -446,85 +388,6 @@ export default function CommunityScreen() {
                         </VoidCard>
                     </View>
                 )}
-
-                {/* Friends List */}
-                <View style={{ marginBottom: 24 }}>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>YOUR CREW ({friends.length})</Text>
-                    {friends.length === 0 ? (
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 32, alignItems: 'center' }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            <Ionicons name="people-outline" size={48} color={colors.textTertiary} />
-                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No friends yet</Text>
-                            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-                                Search to add friends and compete!
-                            </Text>
-                        </VoidCard>
-                    ) : (
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 0 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            {friends.map((friend, index) => (
-                                <TouchableOpacity
-                                    key={`crew_${friend.id}`}
-                                    onPress={() => handleFriendPress(friend)}
-                                    activeOpacity={0.7}
-                                    style={{
-                                        padding: 16,
-                                        borderBottomWidth: index < friends.length - 1 ? 1 : 0,
-                                        borderBottomColor: colors.border
-                                    }}
-                                >
-                                    <View style={styles.friendRow}>
-                                        {/* Avatar */}
-                                        <View style={[styles.avatarLarge, { backgroundColor: colors.surfaceTertiary }]}>
-                                            {friend.avatarUrl ? (
-                                                <Image source={{ uri: friend.avatarUrl }} style={styles.avatarImage} />
-                                            ) : (
-                                                <Text style={{ fontSize: 20, color: colors.textSecondary }}>
-                                                    {friend.username[0]?.toUpperCase()}
-                                                </Text>
-                                            )}
-                                        </View>
-
-                                        {/* Info */}
-                                        <View style={{ flex: 1, marginLeft: 16 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <Text style={[styles.friendName, { color: colors.textPrimary }]}>{friend.username}</Text>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                    <Ionicons name="flame" size={14} color="#FFD93D" />
-                                                    <Text style={{ color: '#FFD93D', fontSize: 12, fontWeight: '700', marginLeft: 2 }}>
-                                                        {friend.currentStreak}
-                                                    </Text>
-                                                </View>
-                                            </View>
-
-                                            {/* Progress Bar */}
-                                            <View style={{ marginTop: 8 }}>
-                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                    <Text style={{ color: colors.textTertiary, fontSize: 10 }}>Today's Progress</Text>
-                                                    <Text style={{ color: colors.success, fontSize: 10, fontWeight: '600' }}>{friend.todayCompletion}%</Text>
-                                                </View>
-                                                <View style={{ height: 6, backgroundColor: colors.surfaceTertiary, borderRadius: 3, overflow: 'hidden' }}>
-                                                    <View style={{
-                                                        height: '100%',
-                                                        width: `${Math.min(friend.todayCompletion, 100)}%`,
-                                                        backgroundColor: friend.todayCompletion >= 100 ? accentColor : accentColor + '80',
-                                                        borderRadius: 3,
-                                                    }} />
-                                                </View>
-                                            </View>
-                                        </View>
-
-                                        {/* Nudge Button */}
-                                        <TouchableOpacity
-                                            onPress={(e) => { e.stopPropagation(); handleNudge(friend); }}
-                                            style={[styles.nudgeButton, { borderColor: colors.primary, marginLeft: 12 }]}
-                                        >
-                                            <Text style={[styles.nudgeText, { color: colors.primary }]}>👋</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </VoidCard>
-                    )}
-                </View>
 
                 {/* Leaderboard */}
                 <View style={{ marginBottom: 24 }}>

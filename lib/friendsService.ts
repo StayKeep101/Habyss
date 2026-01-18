@@ -820,6 +820,41 @@ export const FriendsService = {
     },
 
     /**
+     * Get friends a goal is shared with (for showing avatars on GoalCard)
+     */
+    async getGoalSharedWith(goalId: string): Promise<Friend[]> {
+        try {
+            const { data, error } = await supabase
+                .from('shared_goals')
+                .select(`
+                    shared_with_id,
+                    profiles:shared_with_id (id, username, email, avatar_url)
+                `)
+                .eq('goal_id', goalId);
+
+            if (error) {
+                if (isTableMissing(error)) return [];
+                return [];
+            }
+
+            return (data || []).map(row => {
+                const profile = (row as any).profiles;
+                if (!profile) return null;
+                return {
+                    id: profile.id,
+                    username: profile.username || 'Friend',
+                    email: profile.email || '',
+                    avatarUrl: profile.avatar_url,
+                    currentStreak: 0,
+                    todayCompletion: 0,
+                };
+            }).filter(Boolean) as Friend[];
+        } catch (e) {
+            return [];
+        }
+    },
+
+    /**
      * Get friends a habit is shared with
      */
     async getHabitSharedWith(habitId: string): Promise<Friend[]> {

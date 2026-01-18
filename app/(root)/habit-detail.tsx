@@ -171,7 +171,7 @@ export default function HabitDetailScreen() {
           <TouchableOpacity
             onPress={() => {
               selectionFeedback();
-              DeviceEventEmitter.emit('show_habit_creation_modal', { habit: habit, goalId: habit.goalId });
+              DeviceEventEmitter.emit('show_habit_modal', { initialHabit: habit, goalId: habit.goalId });
             }}
             style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
           >
