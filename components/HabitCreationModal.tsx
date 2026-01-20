@@ -595,18 +595,18 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                         {/* Glass Border */}
                         <SafeAreaView style={styles.sheetLayout} edges={['top']}>
                             <View style={styles.handleContainer}>
-                                <View style={styles.handle} />
+                                <View style={[styles.handle, { backgroundColor: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)' }]} />
                             </View>
 
                             {/* Header */}
                             <View style={styles.header}>
-                                <TouchableOpacity onPress={closeModal} style={styles.iconButton}>
-                                    <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
+                                <TouchableOpacity onPress={closeModal} style={[styles.iconButton, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
+                                    <Ionicons name="close" size={20} color={isLight ? colors.textSecondary : 'rgba(255,255,255,0.7)'} />
                                 </TouchableOpacity>
                                 <View style={{ flex: 1, alignItems: 'center' }}>
                                     <Text style={[styles.headerTitle, { color: colors.text }]}>{habitToEdit ? 'EDIT HABIT' : 'NEW HABIT'}</Text>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, opacity: 0.7 }}>
-                                        <Text style={{ color: linkedGoal?.color || '#fff', fontSize: 10, fontFamily: 'Lexend', marginRight: 4 }}>
+                                        <Text style={{ color: linkedGoal?.color || (isLight ? colors.textPrimary : '#fff'), fontSize: 10, fontFamily: 'Lexend', marginRight: 4 }}>
                                             {linkedGoal ? linkedGoal.name.toUpperCase() : 'NO GOAL'}
                                         </Text>
                                     </View>
@@ -672,7 +672,11 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                 // For now, let's keep inline horizontal scroll in main view
                                             }}
                                             activeOpacity={1} // Just a label wrapper
-                                            style={[styles.gridItem, { width: '100%' }]}
+                                            style={[styles.gridItem, {
+                                                width: '100%',
+                                                backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                                                borderColor: effectiveBorderColor
+                                            }]}
                                         >
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                                                 <Text style={styles.gridLabel}>LINKED GOAL</Text>
@@ -852,9 +856,12 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             <TouchableOpacity
                                                 key={icon}
                                                 onPress={() => { selectionFeedback(); setSelectedIcon(icon); setActiveOverlay('none'); setIconSearch(''); }}
-                                                style={[styles.iconOption, selectedIcon === icon && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                                style={[styles.iconOption, {
+                                                    backgroundColor: selectedIcon === icon ? selectedColor + '20' : (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)'),
+                                                    borderColor: selectedIcon === icon ? selectedColor : effectiveBorderColor
+                                                }]}
                                             >
-                                                <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor : 'rgba(255,255,255,0.5)'} />
+                                                <Ionicons name={icon as any} size={24} color={selectedIcon === icon ? selectedColor : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)')} />
                                             </TouchableOpacity>
                                         ))}
                                     </ScrollView>
@@ -1314,10 +1321,10 @@ const styles = StyleSheet.create({
     sheet: { height: SHEET_HEIGHT, overflow: 'hidden', borderTopLeftRadius: 30, borderTopRightRadius: 30 },
     sheetLayout: { flex: 1, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderBottomWidth: 0 },
     handleContainer: { alignItems: 'center', paddingTop: 10, paddingBottom: 5 },
-    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)' },
+    handle: { width: 40, height: 4, borderRadius: 2 },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 10, marginBottom: 10 },
     headerTitle: { fontSize: 16, textAlign: 'center', fontWeight: '900', color: '#fff', letterSpacing: 2, fontFamily: 'Lexend' },
-    iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+    iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
     mainCard: { padding: 16, borderRadius: 20, marginBottom: 30 },
     inputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     bigIconBtn: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
@@ -1325,7 +1332,7 @@ const styles = StyleSheet.create({
     colorDotBtn: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)' },
     sectionTitle: { fontSize: 14, fontWeight: '700', color: '#fff', marginBottom: 16, letterSpacing: 1, opacity: 0.8, fontFamily: 'Lexend' },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    gridItem: { width: '48%', backgroundColor: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', minHeight: 100, justifyContent: 'space-between' },
+    gridItem: { width: '48%', padding: 16, borderRadius: 16, borderWidth: 1, minHeight: 100, justifyContent: 'space-between' },
     gridLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.3)', letterSpacing: 1, marginTop: 8 },
     gridValue: { fontSize: 15, fontWeight: '600', color: '#fff', fontFamily: 'Lexend' },
     goalChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'transparent', marginRight: 8 },
@@ -1345,7 +1352,7 @@ const styles = StyleSheet.create({
     },
     overlayTitle: { fontSize: 18, fontWeight: '700', color: '#fff', textAlign: 'center', marginBottom: 24, fontFamily: 'Lexend' },
     iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
-    iconOption: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    iconOption: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
     colorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'center' },
     colorOption: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, borderColor: 'transparent' },
     colorSelected: { borderColor: '#fff' },
@@ -1356,5 +1363,5 @@ const styles = StyleSheet.create({
     listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, marginBottom: 8, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     listItemText: { flex: 1, fontSize: 15, fontWeight: '500' },
     counterBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    unitChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    unitChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
 });

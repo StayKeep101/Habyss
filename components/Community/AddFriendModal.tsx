@@ -72,7 +72,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
         <VoidModal visible={visible} onClose={onClose} heightPercentage={0.85}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
                 style={{ flex: 1 }}
             >
                 <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

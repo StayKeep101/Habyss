@@ -201,8 +201,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
         end_time: habitData.endTime,
         is_goal: habitData.isGoal,
         target_date: habitData.targetDate,
-        reminder_offset: habitData.reminderOffset,
-        location_reminders: habitData.locationReminders,
+        // Note: reminder_offset and location_reminders not in DB schema - handled via NotificationService
         ...(habitData.goalId ? { goal_id: habitData.goalId } : {}),
     };
 
