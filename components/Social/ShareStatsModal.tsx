@@ -13,7 +13,7 @@ interface ShareStatsModalProps {
         title: string;
         value: string;
         subtitle: string;
-        type: 'growth' | 'streak' | 'consistency' | 'goal';
+        type: 'growth' | 'streak' | 'consistency' | 'goal' | 'completion';
     };
 }
 

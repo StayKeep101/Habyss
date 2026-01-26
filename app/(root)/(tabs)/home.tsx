@@ -80,6 +80,7 @@ import { AnalyticsDashboard } from '@/components/Home/AnalyticsDashboard';
 import { ConsistencyModal } from '@/components/Home/ConsistencyModal';
 import { FocusTimeCard } from '@/components/Home/FocusTimeCard';
 import { TodaysCompletionCard } from '@/components/Home/TodaysCompletionCard';
+import { CompletionModal } from '@/components/Home/CompletionModal';
 
 const Home = () => {
   const router = useRouter();
@@ -110,6 +111,7 @@ const Home = () => {
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [showConsistencyModal, setShowConsistencyModal] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -658,9 +660,9 @@ const Home = () => {
               onPress={() => setShowConsistencyModal(true)}
             />
             <TodaysCompletionCard
-              completedCount={Object.keys(completions).length}
-              totalCount={habits.filter(h => isHabitScheduledForDate(h, new Date())).length}
-              onPress={() => router.push('/(root)/(tabs)/roadmap')}
+              completedCount={habits.filter(h => !h.isArchived && isHabitScheduledForDate(h, new Date()) && completions[h.id]).length}
+              totalCount={habits.filter(h => !h.isArchived && isHabitScheduledForDate(h, new Date())).length}
+              onPress={() => setShowCompletionModal(true)}
             />
           </Animated.View>
 
@@ -697,6 +699,13 @@ const Home = () => {
           habits={habits} // Pass habits for graph calculation
           goalConsistency={goalConsistency}
           avgConsistency={avgConsistency}
+        />
+        <CompletionModal
+          visible={showCompletionModal}
+          onClose={() => setShowCompletionModal(false)}
+          habits={allHabits}
+          completions={completions}
+          onToggle={handleHabitToggle}
         />
         <NotificationsModal
           visible={showNotifications}
