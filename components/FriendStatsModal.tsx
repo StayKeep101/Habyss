@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -78,8 +78,11 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
     const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.75}>
-            <View style={styles.content}>
+        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.90}>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Header with Avatar */}
                 <View style={styles.header}>
                     <View style={[styles.avatarLarge, { borderColor: colors.primary, backgroundColor: colors.surfaceSecondary }]}>
@@ -192,16 +195,16 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                         </TouchableOpacity>
                     )}
                 </View>
-            </View>
+            </ScrollView>
         </VoidModal>
     );
 };
 
 const styles = StyleSheet.create({
     content: {
-        flex: 1,
         paddingHorizontal: 24,
         paddingTop: 24, // Added top padding to compensate for missing handle
+        paddingBottom: 40,
     },
     header: {
         alignItems: 'center',
@@ -333,8 +336,8 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend_400Regular',
     },
     actions: {
-        marginTop: 'auto',
-        paddingBottom: 40,
+        marginTop: 24,
+        paddingBottom: 20,
     },
     nudgeButton: {
         paddingVertical: 16,

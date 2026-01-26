@@ -67,19 +67,38 @@ export default function PaywallScreen() {
 
     // --- Stripe Logic ---
     const fetchPaymentSheetParams = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data, error } = await supabase.functions.invoke('payment-sheet', {
-            body: {
+        const { data: { user, session } } = await supabase.auth.getUser();
+
+        // Get the Supabase URL from environment or client
+        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://bxfuopvlbmlblqkvsvnk.supabase.co';
+        const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
+        // Use fetch directly for better error handling
+        const response = await fetch(`${supabaseUrl}/functions/v1/payment-sheet`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session?.access_token || anonKey}`,
+                'apikey': anonKey,
+            },
+            body: JSON.stringify({
                 email: user?.email,
                 priceId: selectedPlan.priceId,
                 planId: selectedPlanId
-            }
+            })
         });
 
-        if (error || !data) {
-            console.error('Error:', error);
-            const message = error instanceof Error ? error.message : 'Server error';
-            throw new Error(message);
+        const data = await response.json();
+
+        if (!response.ok) {
+            // Extract error message from response
+            const errorMessage = data?.error || `Payment server error (${response.status})`;
+            console.error('Payment sheet error:', errorMessage);
+            throw new Error(errorMessage);
+        }
+
+        if (!data.paymentIntent) {
+            throw new Error('Invalid response from payment server');
         }
 
         return {

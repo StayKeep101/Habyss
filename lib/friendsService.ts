@@ -769,6 +769,23 @@ export const FriendsService = {
     },
 
     /**
+     * Unshare a goal with a friend
+     */
+    async unshareGoal(goalId: string, friendId: string): Promise<boolean> {
+        try {
+            const { error } = await supabase
+                .from('shared_goals')
+                .delete()
+                .eq('goal_id', goalId)
+                .eq('shared_with_id', friendId);
+
+            return !error;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
      * Get goals shared with me
      */
     async getGoalsSharedWithMe(): Promise<any[]> {

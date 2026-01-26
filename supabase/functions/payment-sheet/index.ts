@@ -13,12 +13,20 @@ serve(async (req) => {
     }
 
     try {
-        const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') as string, {
-            apiVersion: '2023-10-16', // Deno stripe version usually differs, but keeping as modern as possible or default
+        const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+        if (!stripeKey) {
+            throw new Error('Missing STRIPE_SECRET_KEY');
+        }
+
+        const stripe = new Stripe(stripeKey, {
+            apiVersion: '2023-10-16',
             httpClient: Stripe.createFetchHttpClient(),
         })
 
         const { email, priceId } = await req.json()
+        if (!priceId) {
+            throw new Error('Price ID is required');
+        }
 
         // 1. Create or retrieve customer
         let customer;
@@ -39,28 +47,41 @@ serve(async (req) => {
             { apiVersion: '2022-11-15' }
         );
 
-        // 3. Create a PaymentIntent or Subscription
-        if (!priceId) {
-            throw new Error('Price ID is required');
+        // 3. Determine if it's a subscription or one-time payment
+        const price = await stripe.prices.retrieve(priceId);
+        let paymentIntentClientSecret;
+
+        if (price.type === 'recurring') {
+            // Create Subscription
+            const subscription = await stripe.subscriptions.create({
+                customer: customer.id,
+                items: [{ price: priceId }],
+                payment_behavior: 'default_incomplete',
+                payment_settings: { save_default_payment_method: 'on_subscription' },
+                expand: ['latest_invoice.payment_intent'],
+            });
+            paymentIntentClientSecret = subscription.latest_invoice.payment_intent.client_secret;
+
+        } else if (price.type === 'one_time') {
+            // Create PaymentIntent
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: price.unit_amount,
+                currency: price.currency,
+                customer: customer.id,
+                automatic_payment_methods: { enabled: true },
+            });
+            paymentIntentClientSecret = paymentIntent.client_secret;
+        } else {
+            throw new Error(`Unsupported price type: ${price.type}`);
         }
-
-        const subscription = await stripe.subscriptions.create({
-            customer: customer.id,
-            items: [{ price: priceId }],
-            payment_behavior: 'default_incomplete',
-            payment_settings: { save_default_payment_method: 'on_subscription' },
-            expand: ['latest_invoice.payment_intent'],
-        });
-
-        const paymentIntent = subscription.latest_invoice.payment_intent;
 
         // 4. Return the parameters to the client
         return new Response(
             JSON.stringify({
-                paymentIntent: paymentIntent.client_secret,
+                paymentIntent: paymentIntentClientSecret,
                 ephemeralKey: ephemeralKey.secret,
                 customer: customer.id,
-                publishableKey: Deno.env.get('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY'), // Optional, client usually has it
+                publishableKey: Deno.env.get('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY'),
             }),
             {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },

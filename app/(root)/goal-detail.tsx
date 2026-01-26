@@ -14,8 +14,9 @@ import { subscribeToHabits, Habit, removeHabitEverywhere, removeGoalWithLinkedHa
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter, LayoutAnimation } from 'react-native';
 import { GoalStats } from '@/components/Goal/GoalStats';
-import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
+import { ShareGoalModal } from '@/components/ShareGoalModal';
 import { getCompletions, toggleCompletion } from '@/lib/habitsSQLite';
+import { supabase } from '@/lib/supabase';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import Animated, {
@@ -52,6 +53,7 @@ const GoalDetail = () => {
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [isSharedGoal, setIsSharedGoal] = useState(false);
 
   const { selectionFeedback, lightFeedback, mediumFeedback } = useHaptics();
   const { playComplete } = useSoundEffects();
@@ -76,8 +78,73 @@ const GoalDetail = () => {
     const unsubPromise = subscribeToHabits((allHabits) => {
       setHabits(allHabits);
       const foundGoal = allHabits.find(h => h.id === goalId);
-      if (foundGoal) setGoal(foundGoal);
+      if (foundGoal) {
+        setGoal(foundGoal);
+        setIsSharedGoal(false);
+      }
     });
+
+    // Fallback: If goal not found locally, try fetching from Supabase (shared goal)
+    const loadSharedGoal = async () => {
+      // Wait a bit for local data to load
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Check if goal was loaded locally
+      const localGoals = await new Promise<Habit[]>(resolve => {
+        subscribeToHabits((allHabits) => resolve(allHabits)).then(unsub => unsub());
+      });
+
+      const foundLocally = localGoals.find(h => h.id === goalId);
+      if (foundLocally) return; // Already loaded
+
+      // Fetch from Supabase
+      const { data: goalData, error } = await supabase
+        .from('habits')
+        .select('*')
+        .eq('id', goalId)
+        .single();
+
+      if (!error && goalData) {
+        // Get owner info
+        const { data: ownerProfile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', goalData.user_id)
+          .single();
+
+        setGoal({
+          id: goalData.id,
+          name: goalData.name,
+          description: goalData.description || `Shared by ${ownerProfile?.username || 'a friend'}`,
+          icon: goalData.icon || '🎯',
+          category: goalData.category || 'General',
+          color: goalData.color || null,
+          frequency: goalData.frequency || 'daily',
+          taskDays: goalData.task_days || [],
+          isGoal: true,
+          targetDate: goalData.target_date,
+          completed: false,
+          streak: 0,
+          createdAt: goalData.created_at || new Date().toISOString(),
+          type: 'build',
+          goalPeriod: goalData.goal_period || 'daily',
+          goalValue: goalData.goal_value || 1,
+          goalUnit: goalData.goal_unit || '',
+          isArchived: goalData.is_archived || false,
+          reminderEnabled: false,
+          reminderTime: null,
+          userId: goalData.user_id,
+          goalId: undefined,
+          unit: '',
+          reminders: [],
+          chartType: 'bar',
+          startDate: goalData.created_at || new Date().toISOString(),
+          showMemo: false,
+        } as Habit);
+        setIsSharedGoal(true);
+      }
+    };
+    loadSharedGoal();
 
     const loadCompletions = async () => {
       const now = new Date();
@@ -334,18 +401,25 @@ const GoalDetail = () => {
                   {daysLeft > 0 && <View style={[styles.daysTag, { backgroundColor: (goal.color || accentColor) + '20' }]}><Text style={[styles.daysTagText, { color: goal.color || accentColor }]}>{daysLeft} days left</Text></View>}
                 </View>
               </View>
-              {/* Edit/Delete Actions */}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity onPress={() => setShowShareModal(true)} style={[styles.miniActionBtn, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                  <Ionicons name="share-social" size={16} color="#3B82F6" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleEditGoal} style={[styles.miniActionBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                  <Ionicons name="pencil" size={16} color="white" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleDeleteGoal} style={[styles.miniActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                  <Ionicons name="trash" size={16} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
+              {/* Edit/Delete Actions - Only show for owned goals */}
+              {!isSharedGoal ? (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity onPress={() => setShowShareModal(true)} style={[styles.miniActionBtn, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                    <Ionicons name="share-social" size={16} color="#3B82F6" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleEditGoal} style={[styles.miniActionBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                    <Ionicons name="pencil" size={16} color="white" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleDeleteGoal} style={[styles.miniActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                    <Ionicons name="trash" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={[styles.sharedBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                  <Ionicons name="people" size={14} color="#10B981" />
+                  <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '600', marginLeft: 4, fontFamily: 'Lexend' }}>Shared</Text>
+                </View>
+              )}
             </View>
 
             {goal.description && (
@@ -415,15 +489,11 @@ const GoalDetail = () => {
 
         </Animated.View>
       </Animated.ScrollView>
-      <ShareStatsModal
+      <ShareGoalModal
         visible={showShareModal}
         onClose={() => setShowShareModal(false)}
-        stats={{
-          title: goal.name,
-          value: `${progress}%`,
-          subtitle: "Goal Completed",
-          type: 'goal'
-        }}
+        goalId={goal.id}
+        goalName={goal.name}
       />
     </View>
   );
@@ -539,6 +609,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
     backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  sharedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   }
 });
 

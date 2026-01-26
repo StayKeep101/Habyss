@@ -11,6 +11,7 @@ import { FriendsService, Friend, FriendRequest, FriendActivity, ReactionType } f
 import { addHabit } from '@/lib/habitsSQLite';
 import { FriendStatsModal } from '@/components/FriendStatsModal';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
+import { useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence } from 'react-native-reanimated';
 
 export default function CommunityScreen() {
@@ -20,6 +21,7 @@ export default function CommunityScreen() {
     const isTrueDark = theme === 'trueDark';
     const { primary: accentColor } = useAccentGradient();
     const { thud, lightFeedback, mediumFeedback } = useHaptics();
+    const router = useRouter();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const hasLoadedOnce = useRef(false);
@@ -346,7 +348,10 @@ export default function CommunityScreen() {
                                         style={[styles.actionBtn, { backgroundColor: accentColor }]}
                                         onPress={() => {
                                             mediumFeedback();
-                                            Alert.alert('Goal', `"${item.goal.name}" shared by ${item.owner?.username || 'Unknown'}`);
+                                            router.push({
+                                                pathname: '/goal-detail',
+                                                params: { goalId: item.goal.id }
+                                            });
                                         }}
                                     >
                                         <Ionicons name="eye" size={18} color="#fff" />
