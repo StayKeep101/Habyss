@@ -837,6 +837,71 @@ export const FriendsService = {
     },
 
     /**
+     * Get goals I have shared with friends
+     */
+    async getGoalsIShared(): Promise<any[]> {
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return [];
+
+            const { data: shares, error } = await supabase
+                .from('shared_goals')
+                .select('goal_id, shared_with_id')
+                .eq('owner_id', currentUser.id);
+
+            if (error || !shares || shares.length === 0) return [];
+
+            const goalIds = Array.from(new Set(shares.map(s => s.goal_id)));
+            const friendIds = Array.from(new Set(shares.map(s => s.shared_with_id)));
+
+            const [goalsResult, profilesResult] = await Promise.all([
+                supabase.from('habits').select('id, name, icon, category, target_date').in('id', goalIds),
+                supabase.from('profiles').select('id, username, avatar_url').in('id', friendIds)
+            ]);
+
+            const goalsMap = new Map(goalsResult.data?.map(g => [g.id, g]));
+            const friendsMap = new Map(profilesResult.data?.map(p => [p.id, p]));
+
+            // Group shares by goal to show all friends it's shared with
+            const goalSharesMap = new Map<string, string[]>();
+            shares.forEach(share => {
+                if (!goalSharesMap.has(share.goal_id)) {
+                    goalSharesMap.set(share.goal_id, []);
+                }
+                goalSharesMap.get(share.goal_id)!.push(share.shared_with_id);
+            });
+
+            return Array.from(goalSharesMap.entries()).map(([goalId, sharedWithIds]) => {
+                const goal = goalsMap.get(goalId);
+                if (!goal) return null;
+
+                const sharedWith = sharedWithIds.map(id => {
+                    const friend = friendsMap.get(id);
+                    return {
+                        id,
+                        username: friend?.username || 'Friend',
+                        avatarUrl: friend?.avatar_url,
+                    };
+                });
+
+                return {
+                    goal: {
+                        id: goal.id,
+                        name: goal.name,
+                        icon: goal.icon,
+                        category: goal.category,
+                        deadline: goal.target_date,
+                    },
+                    sharedWith,
+                    isOwner: true,
+                };
+            }).filter(item => item !== null);
+        } catch (e) {
+            return [];
+        }
+    },
+
+    /**
      * Get friends a goal is shared with (for showing avatars on GoalCard)
      */
     async getGoalSharedWith(goalId: string): Promise<Friend[]> {

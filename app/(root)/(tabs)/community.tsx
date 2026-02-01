@@ -36,6 +36,7 @@ export default function CommunityScreen() {
     const [friendsFeed, setFriendsFeed] = useState<FriendActivity[]>([]);
     const [sharedHabits, setSharedHabits] = useState<any[]>([]);
     const [sharedGoals, setSharedGoals] = useState<any[]>([]);
+    const [mySharedGoals, setMySharedGoals] = useState<any[]>([]);
     const [sentReactions, setSentReactions] = useState<Record<string, ReactionType>>({});
     const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
     const [showFriendStats, setShowFriendStats] = useState(false);
@@ -60,13 +61,14 @@ export default function CommunityScreen() {
             // Auto-repair: sync accepted requests to friendships table
             await FriendsService.repairFriendshipsFromAcceptedRequests();
 
-            const [friendsList, requests, rankings, feed, shared, sharedGoalsData] = await Promise.all([
+            const [friendsList, requests, rankings, feed, shared, sharedGoalsData, goalsIShared] = await Promise.all([
                 FriendsService.getFriendsWithProgress(),
                 FriendsService.getFriendRequests(),
                 FriendsService.getLeaderboard(leaderboardPeriod),
                 FriendsService.getFriendsFeed(),
                 FriendsService.getHabitsSharedWithMe(),
                 FriendsService.getGoalsSharedWithMe(),
+                FriendsService.getGoalsIShared(),
             ]);
             setFriends(friendsList);
             setFriendRequests(requests);
@@ -74,6 +76,7 @@ export default function CommunityScreen() {
             setFriendsFeed(feed);
             setSharedHabits(shared);
             setSharedGoals(sharedGoalsData);
+            setMySharedGoals(goalsIShared);
             hasLoadedOnce.current = true;
         } catch (error) {
             console.error('Error loading community data:', error);
@@ -310,37 +313,22 @@ export default function CommunityScreen() {
                     </View>
                 )}
 
-                {/* Shared Goals - Primary Content */}
-                <View style={{ marginBottom: 24 }}>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>GOALS SHARED WITH YOU</Text>
-                    {sharedGoals.length === 0 ? (
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 32, alignItems: 'center' }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            <Ionicons name="flag-outline" size={48} color={colors.textTertiary} />
-                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No shared goals yet</Text>
-                            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-                                When friends share goals with you, they'll appear here
-                            </Text>
-                        </VoidCard>
-                    ) : (
+                {/* Goals I've Shared */}
+                {mySharedGoals.length > 0 && (
+                    <View style={{ marginBottom: 24 }}>
+                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>GOALS YOU'VE SHARED</Text>
                         <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            {sharedGoals.map((item, index) => (
-                                <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index < sharedGoals.length - 1 ? 12 : 0 }}>
-                                    {/* Owner Avatar */}
-                                    <View style={[styles.avatarLarge, { backgroundColor: colors.surfaceTertiary }]}>
-                                        {item.owner?.avatarUrl ? (
-                                            <Image source={{ uri: item.owner.avatarUrl }} style={styles.avatarImage} />
-                                        ) : (
-                                            <Text style={{ fontSize: 16, color: colors.textSecondary }}>
-                                                {item.owner?.username?.[0]?.toUpperCase() || '?'}
-                                            </Text>
-                                        )}
+                            {mySharedGoals.map((item, index) => (
+                                <View key={`my-shared-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index < mySharedGoals.length - 1 ? 12 : 0 }}>
+                                    {/* Goal Icon */}
+                                    <View style={[styles.avatarLarge, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                                        <Text style={{ fontSize: 20 }}>{item.goal.icon || '🎯'}</Text>
                                     </View>
                                     <View style={{ flex: 1, marginLeft: 12 }}>
                                         <Text style={[styles.friendName, { color: colors.textPrimary }]}>{item.goal.name}</Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                                            <Text style={{ fontSize: 16 }}>{item.goal.icon || '🎯'}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
                                             <Text style={[styles.email, { color: colors.textTertiary }]}>
-                                                {item.owner?.username || 'Unknown'}
+                                                Shared with {item.sharedWith.map((f: any) => f.username).join(', ')}
                                             </Text>
                                         </View>
                                     </View>
@@ -359,8 +347,8 @@ export default function CommunityScreen() {
                                 </View>
                             ))}
                         </VoidCard>
-                    )}
-                </View>
+                    </View>
+                )}
 
 
                 {/* Friend Requests */}
