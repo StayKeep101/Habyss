@@ -384,11 +384,23 @@ export default function CommunityScreen() {
 
                 {/* Leaderboard */}
                 <View style={{ marginBottom: 24 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: 0 }]}>LEADERBOARD</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <View>
+                            <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: 2 }]}>LEADERBOARD</Text>
+                            <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>
+                                Based on streak consistency
+                            </Text>
+                        </View>
                     </View>
-                    {/* Time Period Filter */}
-                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+
+                    {/* Time Period Filter - Pill Style */}
+                    <View style={{
+                        flexDirection: 'row',
+                        backgroundColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
+                        borderRadius: 12,
+                        padding: 4,
+                        marginBottom: 16,
+                    }}>
                         {[
                             { id: 'week', label: 'Week' },
                             { id: 'month', label: 'Month' },
@@ -400,51 +412,199 @@ export default function CommunityScreen() {
                                 onPress={() => { lightFeedback(); setLeaderboardPeriod(period.id as any); }}
                                 style={{
                                     flex: 1,
-                                    paddingVertical: 8,
-                                    borderRadius: 8,
-                                    backgroundColor: leaderboardPeriod === period.id ? accentColor : colors.surfaceSecondary,
+                                    paddingVertical: 10,
+                                    borderRadius: 10,
+                                    backgroundColor: leaderboardPeriod === period.id ? accentColor : 'transparent',
                                     alignItems: 'center',
                                 }}
                             >
-                                <Text style={{ color: leaderboardPeriod === period.id ? '#fff' : colors.textSecondary, fontSize: 12, fontWeight: '600' }}>
+                                <Text style={{
+                                    color: leaderboardPeriod === period.id ? '#fff' : colors.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: leaderboardPeriod === period.id ? '700' : '500',
+                                    fontFamily: 'Lexend',
+                                }}>
                                     {period.label}
                                 </Text>
                             </TouchableOpacity>
                         ))}
                     </View>
-                    <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                        {leaderboard.length === 0 ? (
-                            <Text style={[styles.emptyText, { color: colors.textSecondary, textAlign: 'center', paddingVertical: 24 }]}>
-                                Add friends to see rankings!
-                            </Text>
-                        ) : (
-                            leaderboard.map(({ rank, friend }) => (
-                                <TouchableOpacity
-                                    key={`leaderboard_${friend.id}`}
-                                    onPress={() => handleFriendPress(friend)}
-                                    activeOpacity={0.7}
-                                >
-                                    <View style={[styles.leaderboardRow, rank <= 3 && { opacity: 1 }]}>
-                                        <Text style={[styles.rankText, { color: rank <= 3 ? '#FFD93D' : colors.textTertiary }]}>
-                                            {getRankIcon(rank)}
-                                        </Text>
-                                        <View style={[styles.avatarSmall, { backgroundColor: colors.surfaceTertiary, marginLeft: 12 }]}>
-                                            <Text style={{ fontSize: 12 }}>{friend.username[0]?.toUpperCase()}</Text>
-                                        </View>
-                                        <Text style={[styles.leaderName, { color: friend.isCurrentUser ? accentColor : colors.textPrimary }]}>
-                                            {friend.username}{friend.isCurrentUser ? ' (You)' : ''}
-                                        </Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
-                                            <Text style={[styles.leaderStreak, { color: colors.textSecondary }]}>
-                                                {friend.currentStreak}
+
+                    {leaderboard.length === 0 ? (
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 32, alignItems: 'center' }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                            <Ionicons name="trophy-outline" size={40} color={colors.textTertiary} />
+                            <Text style={[styles.emptyText, { color: colors.textSecondary, marginTop: 12 }]}>No rankings yet</Text>
+                            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>Add friends to compete!</Text>
+                        </VoidCard>
+                    ) : (
+                        <>
+                            {/* Top 3 Podium */}
+                            {leaderboard.length >= 1 && (
+                                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                                    {/* 2nd Place */}
+                                    {leaderboard.length >= 2 ? (
+                                        <TouchableOpacity
+                                            style={{ flex: 1 }}
+                                            onPress={() => handleFriendPress(leaderboard[1].friend)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{
+                                                padding: 16,
+                                                alignItems: 'center',
+                                                marginTop: 24,
+                                            }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                                                <Text style={{ fontSize: 24, marginBottom: 8 }}>🥈</Text>
+                                                <View style={[styles.avatarSmall, { backgroundColor: colors.surfaceTertiary, width: 40, height: 40, borderRadius: 20 }]}>
+                                                    <Text style={{ fontSize: 14, color: colors.textSecondary }}>{leaderboard[1].friend.username[0]?.toUpperCase()}</Text>
+                                                </View>
+                                                <Text style={{
+                                                    color: leaderboard[1].friend.isCurrentUser ? accentColor : colors.textPrimary,
+                                                    fontSize: 11,
+                                                    fontWeight: '600',
+                                                    marginTop: 8,
+                                                    textAlign: 'center',
+                                                    fontFamily: 'Lexend',
+                                                }} numberOfLines={1}>
+                                                    {leaderboard[1].friend.isCurrentUser ? 'You' : leaderboard[1].friend.username}
+                                                </Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                                    <Ionicons name="flame" size={12} color="#C0C0C0" />
+                                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginLeft: 4, fontFamily: 'Lexend' }}>
+                                                        {leaderboard[1].friend.currentStreak}
+                                                    </Text>
+                                                </View>
+                                            </VoidCard>
+                                        </TouchableOpacity>
+                                    ) : <View style={{ flex: 1 }} />}
+
+                                    {/* 1st Place - Slightly elevated */}
+                                    <TouchableOpacity
+                                        style={{ flex: 1 }}
+                                        onPress={() => handleFriendPress(leaderboard[0].friend)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{
+                                            padding: 16,
+                                            alignItems: 'center',
+                                            borderWidth: 1,
+                                            borderColor: accentColor + '40',
+                                        }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                                            <Text style={{ fontSize: 28, marginBottom: 8 }}>🥇</Text>
+                                            <View style={[styles.avatarSmall, {
+                                                backgroundColor: accentColor + '20',
+                                                width: 48,
+                                                height: 48,
+                                                borderRadius: 24,
+                                                borderWidth: 2,
+                                                borderColor: accentColor,
+                                            }]}>
+                                                <Text style={{ fontSize: 16, color: accentColor }}>{leaderboard[0].friend.username[0]?.toUpperCase()}</Text>
+                                            </View>
+                                            <Text style={{
+                                                color: leaderboard[0].friend.isCurrentUser ? accentColor : colors.textPrimary,
+                                                fontSize: 12,
+                                                fontWeight: '700',
+                                                marginTop: 8,
+                                                textAlign: 'center',
+                                                fontFamily: 'Lexend',
+                                            }} numberOfLines={1}>
+                                                {leaderboard[0].friend.isCurrentUser ? 'You' : leaderboard[0].friend.username}
                                             </Text>
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-                            ))
-                        )}
-                    </VoidCard>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                                <Ionicons name="flame" size={14} color="#FFD93D" />
+                                                <Text style={{ color: '#FFD93D', fontSize: 14, fontWeight: '800', marginLeft: 4, fontFamily: 'Lexend' }}>
+                                                    {leaderboard[0].friend.currentStreak}
+                                                </Text>
+                                            </View>
+                                        </VoidCard>
+                                    </TouchableOpacity>
+
+                                    {/* 3rd Place */}
+                                    {leaderboard.length >= 3 ? (
+                                        <TouchableOpacity
+                                            style={{ flex: 1 }}
+                                            onPress={() => handleFriendPress(leaderboard[2].friend)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{
+                                                padding: 16,
+                                                alignItems: 'center',
+                                                marginTop: 32,
+                                            }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                                                <Text style={{ fontSize: 22, marginBottom: 8 }}>🥉</Text>
+                                                <View style={[styles.avatarSmall, { backgroundColor: colors.surfaceTertiary, width: 36, height: 36, borderRadius: 18 }]}>
+                                                    <Text style={{ fontSize: 13, color: colors.textSecondary }}>{leaderboard[2].friend.username[0]?.toUpperCase()}</Text>
+                                                </View>
+                                                <Text style={{
+                                                    color: leaderboard[2].friend.isCurrentUser ? accentColor : colors.textPrimary,
+                                                    fontSize: 10,
+                                                    fontWeight: '600',
+                                                    marginTop: 8,
+                                                    textAlign: 'center',
+                                                    fontFamily: 'Lexend',
+                                                }} numberOfLines={1}>
+                                                    {leaderboard[2].friend.isCurrentUser ? 'You' : leaderboard[2].friend.username}
+                                                </Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                                                    <Ionicons name="flame" size={11} color="#CD7F32" />
+                                                    <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '700', marginLeft: 4, fontFamily: 'Lexend' }}>
+                                                        {leaderboard[2].friend.currentStreak}
+                                                    </Text>
+                                                </View>
+                                            </VoidCard>
+                                        </TouchableOpacity>
+                                    ) : <View style={{ flex: 1 }} />}
+                                </View>
+                            )}
+
+                            {/* Rest of rankings (4th onward) */}
+                            {leaderboard.length > 3 && (
+                                <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 12 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                                    {leaderboard.slice(3).map(({ rank, friend }) => (
+                                        <TouchableOpacity
+                                            key={`leaderboard_${friend.id}`}
+                                            onPress={() => handleFriendPress(friend)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View style={[styles.leaderboardRow]}>
+                                                <View style={{
+                                                    width: 28,
+                                                    height: 28,
+                                                    borderRadius: 8,
+                                                    backgroundColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}>
+                                                    <Text style={{ color: colors.textTertiary, fontSize: 12, fontWeight: '700', fontFamily: 'Lexend' }}>
+                                                        {rank}
+                                                    </Text>
+                                                </View>
+                                                <View style={[styles.avatarSmall, { backgroundColor: colors.surfaceTertiary, marginLeft: 12 }]}>
+                                                    <Text style={{ fontSize: 12, color: colors.textSecondary }}>{friend.username[0]?.toUpperCase()}</Text>
+                                                </View>
+                                                <Text style={[styles.leaderName, { color: friend.isCurrentUser ? accentColor : colors.textPrimary }]}>
+                                                    {friend.username}{friend.isCurrentUser ? ' (You)' : ''}
+                                                </Text>
+                                                <View style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    backgroundColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
+                                                    paddingHorizontal: 10,
+                                                    paddingVertical: 4,
+                                                    borderRadius: 12,
+                                                }}>
+                                                    <Ionicons name="flame" size={12} color={colors.textTertiary} />
+                                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600', marginLeft: 4, fontFamily: 'Lexend' }}>
+                                                        {friend.currentStreak}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
+                                </VoidCard>
+                            )}
+                        </>
+                    )}
                 </View>
 
             </ScrollView>
