@@ -79,131 +79,172 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
 
     return (
         <VoidModal visible={visible} onClose={onClose} heightPercentage={0.90}>
-            <ScrollView
-                contentContainerStyle={styles.content}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Header with Avatar */}
-                <View style={styles.header}>
-                    <View style={[styles.avatarLarge, { borderColor: colors.primary, backgroundColor: colors.surfaceSecondary }]}>
-                        {friend.avatarUrl ? (
-                            <Image source={{ uri: friend.avatarUrl }} style={styles.avatarImage} />
-                        ) : (
-                            <Text style={[styles.avatarText, { color: colors.textSecondary }]}>
-                                {friend.username[0]?.toUpperCase()}
-                            </Text>
-                        )}
+            <View style={{ flex: 1 }}>
+                {/* Header - styled like StreakModal */}
+                <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                    <TouchableOpacity onPress={onClose} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}>
+                        <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1, marginLeft: 16 }}>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>PROFILE</Text>
+                        <Text style={[styles.modalSubtitle, { color: colors.primary }]}>FRIEND STATS</Text>
                     </View>
-                    <Text style={[styles.username, { color: colors.text }]}>{friend.username}</Text>
                 </View>
 
-                {/* Stats Grid */}
-                <View style={styles.statsRow}>
-                    {/* Today's Progress Ring */}
-                    <VoidCard glass style={styles.progressCard}>
-                        <Svg width={size} height={size}>
-                            {/* Background Circle */}
-                            <Circle
-                                stroke={colors.surfaceSecondary}
-                                fill="none"
-                                cx={size / 2}
-                                cy={size / 2}
-                                r={radius}
-                                strokeWidth={strokeWidth}
-                            />
-                            {/* Progress Circle */}
-                            <Circle
-                                stroke={progressPercent >= 100 ? '#22C55E' : colors.primary}
-                                fill="none"
-                                cx={size / 2}
-                                cy={size / 2}
-                                r={radius}
-                                strokeWidth={strokeWidth}
-                                strokeDasharray={circumference}
-                                strokeDashoffset={strokeDashoffset}
-                                strokeLinecap="round"
-                                rotation="-90"
-                                origin={`${size / 2}, ${size / 2}`}
-                            />
-                        </Svg>
-                        <View style={styles.progressCenter}>
-                            <Text style={[styles.progressValue, { color: colors.text }]}>{progressPercent}%</Text>
-                            <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>TODAY</Text>
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Avatar Section */}
+                    <View style={styles.header}>
+                        <View style={[styles.avatarLarge, { borderColor: colors.primary, backgroundColor: colors.surfaceSecondary }]}>
+                            {friend.avatarUrl ? (
+                                <Image source={{ uri: friend.avatarUrl }} style={styles.avatarImage} />
+                            ) : (
+                                <Text style={[styles.avatarText, { color: colors.textSecondary }]}>
+                                    {friend.username[0]?.toUpperCase()}
+                                </Text>
+                            )}
+                        </View>
+                        <Text style={[styles.username, { color: colors.text }]}>{friend.username}</Text>
+                    </View>
+
+                    {/* Stats Grid */}
+                    <View style={styles.statsRow}>
+                        {/* Today's Progress Ring */}
+                        <VoidCard glass style={styles.progressCard}>
+                            <Svg width={size} height={size}>
+                                {/* Background Circle */}
+                                <Circle
+                                    stroke={colors.surfaceSecondary}
+                                    fill="none"
+                                    cx={size / 2}
+                                    cy={size / 2}
+                                    r={radius}
+                                    strokeWidth={strokeWidth}
+                                />
+                                {/* Progress Circle */}
+                                <Circle
+                                    stroke={progressPercent >= 100 ? '#22C55E' : colors.primary}
+                                    fill="none"
+                                    cx={size / 2}
+                                    cy={size / 2}
+                                    r={radius}
+                                    strokeWidth={strokeWidth}
+                                    strokeDasharray={circumference}
+                                    strokeDashoffset={strokeDashoffset}
+                                    strokeLinecap="round"
+                                    rotation="-90"
+                                    origin={`${size / 2}, ${size / 2}`}
+                                />
+                            </Svg>
+                            <View style={styles.progressCenter}>
+                                <Text style={[styles.progressValue, { color: colors.text }]}>{progressPercent}%</Text>
+                                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>TODAY</Text>
+                            </View>
+                        </VoidCard>
+
+                        {/* Quick Stats */}
+                        <View style={styles.quickStats}>
+                            <VoidCard glass style={styles.statCard}>
+                                <Ionicons name="flame" size={28} color="#FFD93D" />
+                                <Text style={[styles.statValue, { color: colors.text }]}>{streak}</Text>
+                                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DAY STREAK</Text>
+                            </VoidCard>
+                            <VoidCard glass style={styles.statCard}>
+                                <Ionicons name="trophy" size={28} color="#F97316" />
+                                <Text style={[styles.statValue, { color: colors.text }]}>{detailedStats?.longestStreak || streak}</Text>
+                                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BEST STREAK</Text>
+                            </VoidCard>
+                        </View>
+                    </View>
+
+                    {/* Weekly Activity */}
+                    <VoidCard glass style={styles.weeklyCard}>
+                        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>THIS WEEK'S ACTIVITY</Text>
+                        <View style={styles.weekDays}>
+                            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
+                                const isActive = detailedStats?.weeklyActivity?.[i] ?? false;
+                                const todayIndex = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1; // Convert to M=0, T=1, ... S=6
+                                const isToday = i === todayIndex;
+                                return (
+                                    <View key={i} style={styles.dayColumn}>
+                                        <View
+                                            style={[
+                                                styles.dayDot,
+                                                {
+                                                    backgroundColor: isActive
+                                                        ? isToday ? colors.primary : '#22C55E'
+                                                        : colors.surfaceSecondary,
+                                                    borderWidth: isToday ? 2 : 0,
+                                                    borderColor: colors.primary,
+                                                },
+                                            ]}
+                                        >
+                                            {isActive && <Ionicons name="checkmark" size={16} color="#fff" />}
+                                        </View>
+                                        <Text style={[styles.dayLabel, { color: isToday ? colors.primary : colors.textTertiary }]}>
+                                            {day}
+                                        </Text>
+                                    </View>
+                                );
+                            })}
                         </View>
                     </VoidCard>
 
-                    {/* Quick Stats */}
-                    <View style={styles.quickStats}>
-                        <VoidCard glass style={styles.statCard}>
-                            <Ionicons name="flame" size={28} color="#FFD93D" />
-                            <Text style={[styles.statValue, { color: colors.text }]}>{streak}</Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>DAY STREAK</Text>
-                        </VoidCard>
-                        <VoidCard glass style={styles.statCard}>
-                            <Ionicons name="trophy" size={28} color="#F97316" />
-                            <Text style={[styles.statValue, { color: colors.text }]}>{detailedStats?.longestStreak || streak}</Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>BEST STREAK</Text>
-                        </VoidCard>
+                    {/* Actions */}
+                    <View style={styles.actions}>
+                        {friend.username === 'You' ? (
+                            <Text style={[styles.previewText, { color: colors.textTertiary }]}>This is how your profile appears to friends</Text>
+                        ) : (
+                            <TouchableOpacity
+                                style={[styles.nudgeButton, { backgroundColor: colors.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
+                                onPress={() => {
+                                    onNudge(friend);
+                                    onClose();
+                                }}
+                            >
+                                <Text style={styles.nudgeText}>👋 Send Nudge</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
-                </View>
-
-                {/* Weekly Activity */}
-                <VoidCard glass style={styles.weeklyCard}>
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>THIS WEEK'S ACTIVITY</Text>
-                    <View style={styles.weekDays}>
-                        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
-                            const isActive = detailedStats?.weeklyActivity[i] ?? Math.random() > 0.3;
-                            const isToday = i === new Date().getDay() - 1 || (i === 6 && new Date().getDay() === 0);
-                            return (
-                                <View key={i} style={styles.dayColumn}>
-                                    <View
-                                        style={[
-                                            styles.dayDot,
-                                            {
-                                                backgroundColor: isActive
-                                                    ? isToday ? colors.primary : '#22C55E'
-                                                    : colors.surfaceSecondary,
-                                                borderWidth: isToday ? 2 : 0,
-                                                borderColor: colors.primary,
-                                            },
-                                        ]}
-                                    >
-                                        {isActive && <Ionicons name="checkmark" size={16} color="#fff" />}
-                                    </View>
-                                    <Text style={[styles.dayLabel, { color: isToday ? colors.primary : colors.textTertiary }]}>
-                                        {day}
-                                    </Text>
-                                </View>
-                            );
-                        })}
-                    </View>
-                </VoidCard>
-
-                {/* Actions */}
-                <View style={styles.actions}>
-                    {friend.username === 'You' ? (
-                        <Text style={[styles.previewText, { color: colors.textTertiary }]}>This is how your profile appears to friends</Text>
-                    ) : (
-                        <TouchableOpacity
-                            style={[styles.nudgeButton, { backgroundColor: colors.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
-                            onPress={() => {
-                                onNudge(friend);
-                                onClose();
-                            }}
-                        >
-                            <Text style={styles.nudgeText}>👋 Send Nudge</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </ScrollView>
+                </ScrollView>
+            </View>
         </VoidModal>
     );
 };
 
 const styles = StyleSheet.create({
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 16,
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: 1,
+        fontFamily: 'Lexend',
+    },
+    modalSubtitle: {
+        fontSize: 10,
+        fontWeight: '600',
+        letterSpacing: 1.5,
+        fontFamily: 'Lexend_400Regular',
+        marginTop: 2,
+    },
     content: {
         paddingHorizontal: 24,
-        paddingTop: 24, // Added top padding to compensate for missing handle
+        paddingTop: 16,
         paddingBottom: 40,
     },
     header: {

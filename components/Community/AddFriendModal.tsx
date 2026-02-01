@@ -70,77 +70,106 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
 
     return (
         <VoidModal visible={visible} onClose={onClose} heightPercentage={0.85}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-                style={{ flex: 1 }}
-            >
-                <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                    {/* Header */}
-                    <Text style={[styles.title, { color: colors.text }]}>ADD CREW MEMBER</Text>
-
-                    {/* Your Code Section */}
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>YOUR IDENTIFIER</Text>
-                    <VoidCard style={styles.codeCard}>
-                        <Text style={[styles.code, { color: colors.primary }]}>{userCode || 'LOADING...'}</Text>
-                        <TouchableOpacity onPress={handleShare} style={[styles.copyBtn, { backgroundColor: colors.surfaceSecondary }]}>
-                            <Ionicons name="share-outline" size={16} color={colors.textPrimary} />
-                            <Text style={[styles.copyText, { color: colors.textPrimary }]}>SHARE</Text>
-                        </TouchableOpacity>
-                    </VoidCard>
-
-                    <View style={{ height: 20 }} />
-
-                    {/* Enter Friend Code */}
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>ENTER FRIEND CODE</Text>
-                    <TextInput
-                        style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                        placeholder="e.g. A1B2C3D4"
-                        placeholderTextColor={colors.textTertiary}
-                        value={code}
-                        onChangeText={text => setCode(text.toUpperCase())}
-                        autoCapitalize="characters"
-                        maxLength={36}
-                    />
-
-                    {/* Action Button */}
-                    <TouchableOpacity
-                        onPress={handleAddFriend}
-                        disabled={loading || code.length < 3}
-                        style={[
-                            styles.addBtn,
-                            {
-                                backgroundColor: loading || code.length < 3 ? colors.surfaceTertiary : colors.primary,
-                                opacity: loading || code.length < 3 ? 0.5 : 1
-                            }
-                        ]}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.addBtnText}>ADD FRIEND</Text>
-                        )}
+            <View style={{ flex: 1 }}>
+                {/* Header - styled like StreakModal */}
+                <View style={styles.modalHeader}>
+                    <TouchableOpacity onPress={onClose} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}>
+                        <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
                     </TouchableOpacity>
-                </ScrollView>
-            </KeyboardAvoidingView>
+                    <View style={{ flex: 1, marginLeft: 16 }}>
+                        <Text style={[styles.title, { color: colors.text }]}>ADD CREW</Text>
+                        <Text style={[styles.subtitle, { color: colors.primary }]}>INVITE FRIENDS</Text>
+                    </View>
+                </View>
+
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+                    style={{ flex: 1 }}
+                >
+                    <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                        {/* Your Code Section */}
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>YOUR IDENTIFIER</Text>
+                        <VoidCard style={styles.codeCard}>
+                            <Text style={[styles.code, { color: colors.primary }]}>{userCode || 'LOADING...'}</Text>
+                            <TouchableOpacity onPress={handleShare} style={[styles.copyBtn, { backgroundColor: colors.surfaceSecondary }]}>
+                                <Ionicons name="share-outline" size={16} color={colors.textPrimary} />
+                                <Text style={[styles.copyText, { color: colors.textPrimary }]}>SHARE</Text>
+                            </TouchableOpacity>
+                        </VoidCard>
+
+                        <View style={{ height: 20 }} />
+
+                        {/* Enter Friend Code */}
+                        <Text style={[styles.label, { color: colors.textSecondary }]}>ENTER FRIEND CODE</Text>
+                        <TextInput
+                            style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
+                            placeholder="e.g. A1B2C3D4"
+                            placeholderTextColor={colors.textTertiary}
+                            value={code}
+                            onChangeText={text => setCode(text.toUpperCase())}
+                            autoCapitalize="characters"
+                            maxLength={36}
+                        />
+
+                        {/* Action Button */}
+                        <TouchableOpacity
+                            onPress={handleAddFriend}
+                            disabled={loading || code.length < 3}
+                            style={[
+                                styles.addBtn,
+                                {
+                                    backgroundColor: loading || code.length < 3 ? colors.surfaceTertiary : colors.primary,
+                                    opacity: loading || code.length < 3 ? 0.5 : 1
+                                }
+                            ]}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.addBtnText}>ADD FRIEND</Text>
+                            )}
+                        </TouchableOpacity>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </View>
         </VoidModal>
     );
 };
 
 const styles = StyleSheet.create({
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 16,
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     scrollContent: {
         flexGrow: 1,
         paddingHorizontal: 24,
-        paddingTop: 32, // Added spacing since handle is gone
+        paddingTop: 16,
         paddingBottom: 40,
     },
     title: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '900',
         letterSpacing: 1,
         fontFamily: 'Lexend',
-        textAlign: 'center',
-        marginBottom: 20,
+    },
+    subtitle: {
+        fontSize: 10,
+        fontWeight: '600',
+        letterSpacing: 1.5,
+        fontFamily: 'Lexend_400Regular',
+        marginTop: 2,
     },
     label: {
         fontSize: 10,

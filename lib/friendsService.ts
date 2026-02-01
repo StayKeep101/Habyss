@@ -1130,12 +1130,15 @@ export const FriendsService = {
             const today = new Date();
             const todayStr = today.toISOString().split('T')[0];
 
-            // Get last 7 days
-            const last7Days: string[] = [];
+            // Get the current week's dates (Monday to Sunday)
+            const currentDayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const mondayOffset = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+
+            const weekDates: string[] = [];
             for (let i = 0; i < 7; i++) {
                 const d = new Date(today);
-                d.setDate(d.getDate() - i);
-                last7Days.push(d.toISOString().split('T')[0]);
+                d.setDate(d.getDate() + mondayOffset + i);
+                weekDates.push(d.toISOString().split('T')[0]);
             }
 
             // Get friend's habits
@@ -1149,12 +1152,22 @@ export const FriendsService = {
             const totalHabits = habitIds.length;
             const totalGoals = habits?.filter(h => h.is_goal).length || 0;
 
-            // Get last 7 days completions
+            if (habitIds.length === 0) {
+                return {
+                    totalHabits: 0,
+                    completedToday: 0,
+                    totalGoals,
+                    weeklyActivity: Array(7).fill(false),
+                    longestStreak: 0,
+                };
+            }
+
+            // Get week's completions
             const { data: completions } = await supabase
                 .from('habit_completions')
                 .select('habit_id, date')
                 .in('habit_id', habitIds)
-                .in('date', last7Days);
+                .in('date', weekDates);
 
             // Group by date
             const completionsByDate = new Map<string, Set<string>>();
@@ -1170,19 +1183,46 @@ export const FriendsService = {
             const completedToday = habitIds.filter(hId => todaySet.has(hId)).length;
 
             // Calculate weekly activity (true if >50% completed that day)
-            const weeklyActivity = last7Days.map(day => {
+            // weekDates[0] = Monday, weekDates[6] = Sunday
+            const weeklyActivity = weekDates.map(day => {
                 const daySet = completionsByDate.get(day) || new Set();
                 const dayCompleted = habitIds.filter(hId => daySet.has(hId)).length;
                 const rate = totalHabits > 0 ? dayCompleted / totalHabits : 0;
                 return rate >= 0.5;
             });
 
-            // Calculate streak
+            // Calculate streak from today backwards looking at last 30 days
+            const last30Days: string[] = [];
+            for (let i = 0; i < 30; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                last30Days.push(d.toISOString().split('T')[0]);
+            }
+
+            const { data: streakCompletions } = await supabase
+                .from('habit_completions')
+                .select('habit_id, date')
+                .in('habit_id', habitIds)
+                .in('date', last30Days);
+
+            const streakCompletionsByDate = new Map<string, Set<string>>();
+            for (const comp of streakCompletions || []) {
+                if (!streakCompletionsByDate.has(comp.date)) {
+                    streakCompletionsByDate.set(comp.date, new Set());
+                }
+                streakCompletionsByDate.get(comp.date)!.add(comp.habit_id);
+            }
+
+            // Calculate streak: consecutive days with >=50% completion
             let streak = 0;
-            for (let i = 0; i < last7Days.length; i++) {
-                if (weeklyActivity[i]) {
+            for (let i = 0; i < last30Days.length; i++) {
+                const daySet = streakCompletionsByDate.get(last30Days[i]) || new Set();
+                const dayCompleted = habitIds.filter(hId => daySet.has(hId)).length;
+                const rate = totalHabits > 0 ? dayCompleted / totalHabits : 0;
+                if (rate >= 0.5) {
                     streak++;
                 } else if (i > 0) {
+                    // Only break if it's not today (give grace for today)
                     break;
                 }
             }
@@ -1192,7 +1232,7 @@ export const FriendsService = {
                 completedToday,
                 totalGoals,
                 weeklyActivity,
-                longestStreak: streak, // We'd need historical data for true longest
+                longestStreak: streak,
             };
         } catch (e) {
             console.error('Error getting friend detailed stats:', e);
