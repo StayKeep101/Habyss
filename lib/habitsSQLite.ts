@@ -129,12 +129,64 @@ export function clearHabitsCache() {
     habitsListeners.clear();
 }
 
-// --- CRUD Operations (Supabase fallback when SQLite unavailable) ---
+// --- CRUD Operations (SQLite-first when available, Supabase fallback) ---
 
 export async function getHabits(): Promise<Habit[]> {
     const uid = await getUserId();
-    if (!uid) return [];
+    if (!uid) return cachedHabits || [];
 
+    // Try SQLite first (offline-capable)
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase } = await import('./database');
+            const db = await getDatabase();
+            if (db) {
+                const rows = await db.getAllAsync<any>(
+                    'SELECT * FROM habits WHERE user_id = ? AND deleted = 0 ORDER BY created_at DESC',
+                    uid
+                );
+
+                const habits: Habit[] = rows.map((row: any) => ({
+                    id: row.id,
+                    name: row.name,
+                    description: row.description,
+                    category: row.category as HabitCategory,
+                    icon: row.icon,
+                    createdAt: row.created_at,
+                    durationMinutes: row.duration_minutes,
+                    startTime: row.start_time,
+                    endTime: row.end_time,
+                    isGoal: row.is_goal === 1,
+                    targetDate: row.target_date,
+                    type: row.type || 'build',
+                    color: row.color || '#6B46C1',
+                    goalPeriod: row.goal_period || 'daily',
+                    goalValue: row.goal_value || 1,
+                    unit: row.unit || 'count',
+                    taskDays: typeof row.task_days === 'string' ? JSON.parse(row.task_days) : (row.task_days || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
+                    reminders: typeof row.reminders === 'string' ? JSON.parse(row.reminders) : (row.reminders || []),
+                    chartType: row.chart_type || 'bar',
+                    startDate: row.start_date || row.created_at,
+                    endDate: row.end_date,
+                    isArchived: row.is_archived === 1,
+                    showMemo: row.show_memo === 1,
+                    goalId: row.goal_id,
+                    frequency: row.frequency,
+                    weekInterval: row.week_interval,
+                    timeOfDay: row.time_of_day,
+                    reminderOffset: row.reminder_offset,
+                    locationReminders: typeof row.location_reminders === 'string' ? JSON.parse(row.location_reminders || '[]') : (row.location_reminders || [])
+                }));
+
+                cachedHabits = habits;
+                return habits;
+            }
+        } catch (e) {
+            console.log('[Habits] SQLite read failed, falling back to Supabase:', e);
+        }
+    }
+
+    // Fallback to Supabase (online mode)
     try {
         const { data, error } = await supabase
             .from('habits')
@@ -177,6 +229,7 @@ export async function getHabits(): Promise<Habit[]> {
         return habits;
     } catch (e) {
         console.error('Error fetching habits:', e);
+        // Return cached data if available (offline fallback)
         return cachedHabits || [];
     }
 }
@@ -190,18 +243,119 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
     const uid = await getUserId();
     if (!uid) return null;
 
+    const now = new Date().toISOString();
+
+    // Try SQLite first (offline-capable)
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase, generateId } = await import('./database');
+            const db = await getDatabase();
+            if (db) {
+                const id = generateId();
+
+                await db.runAsync(`
+                    INSERT INTO habits (
+                        id, user_id, name, description, category, icon, is_goal, target_date, goal_id,
+                        task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
+                        type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
+                        frequency, week_interval, time_of_day, created_at, updated_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                `,
+                    id,
+                    uid,
+                    habitData.name || 'New Habit',
+                    habitData.description || null,
+                    habitData.category || 'misc',
+                    habitData.icon || null,
+                    habitData.isGoal ? 1 : 0,
+                    habitData.targetDate || null,
+                    habitData.goalId || null,
+                    JSON.stringify(habitData.taskDays || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
+                    JSON.stringify(habitData.reminders || []),
+                    habitData.startDate || now.split('T')[0],
+                    habitData.endDate || null,
+                    habitData.durationMinutes || null,
+                    habitData.startTime || null,
+                    habitData.endTime || null,
+                    habitData.type || 'build',
+                    habitData.color || '#6B46C1',
+                    habitData.goalPeriod || 'daily',
+                    habitData.goalValue || 1,
+                    habitData.unit || 'count',
+                    habitData.chartType || 'bar',
+                    habitData.isArchived ? 1 : 0,
+                    habitData.showMemo ? 1 : 0,
+                    habitData.frequency || null,
+                    habitData.weekInterval || 1,
+                    habitData.timeOfDay || null,
+                    now,
+                    now
+                );
+
+                // Queue for sync to cloud
+                await db.runAsync(
+                    'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+                    'habits', 'INSERT', id, JSON.stringify(habitData), now
+                );
+
+                const created: Habit = {
+                    id,
+                    name: habitData.name || 'New Habit',
+                    description: habitData.description,
+                    category: (habitData.category || 'misc') as HabitCategory,
+                    icon: habitData.icon,
+                    createdAt: now,
+                    durationMinutes: habitData.durationMinutes,
+                    startTime: habitData.startTime,
+                    endTime: habitData.endTime,
+                    isGoal: habitData.isGoal,
+                    targetDate: habitData.targetDate,
+                    type: habitData.type || 'build',
+                    color: habitData.color || '#6B46C1',
+                    goalPeriod: habitData.goalPeriod || 'daily',
+                    goalValue: habitData.goalValue || 1,
+                    unit: habitData.unit || 'count',
+                    taskDays: habitData.taskDays || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+                    reminders: habitData.reminders || [],
+                    chartType: habitData.chartType || 'bar',
+                    startDate: habitData.startDate || now.split('T')[0],
+                    endDate: habitData.endDate,
+                    isArchived: habitData.isArchived || false,
+                    showMemo: habitData.showMemo || false,
+                    goalId: habitData.goalId,
+                    reminderOffset: habitData.reminderOffset,
+                    locationReminders: habitData.locationReminders || []
+                };
+
+                if (created.reminders && created.reminders.length > 0) {
+                    await NotificationService.scheduleHabitReminder(created);
+                }
+
+                if (cachedHabits) {
+                    cachedHabits = [created, ...cachedHabits];
+                    habitsListeners.forEach(l => l(cachedHabits!));
+                }
+
+                DeviceEventEmitter.emit('habit_created', { habit: created });
+                return created;
+            }
+        } catch (e) {
+            console.log('[Habits] SQLite insert failed, falling back to Supabase:', e);
+        }
+    }
+
+    // Fallback to Supabase (online mode)
     const newHabit: any = {
         user_id: uid,
         name: habitData.name,
         category: habitData.category,
         icon: habitData.icon,
-        created_at: new Date().toISOString(),
+        created_at: now,
         duration_minutes: habitData.durationMinutes,
         start_time: habitData.startTime,
         end_time: habitData.endTime,
         is_goal: habitData.isGoal,
         target_date: habitData.targetDate,
-        // Note: reminder_offset and location_reminders not in DB schema - handled via NotificationService
         ...(habitData.goalId ? { goal_id: habitData.goalId } : {}),
     };
 
@@ -261,6 +415,64 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
     const uid = await getUserId();
     if (!uid) return;
 
+    const now = new Date().toISOString();
+
+    // Try SQLite first (offline-capable)
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase } = await import('./database');
+            const db = await getDatabase();
+            if (db) {
+                const setClauses: string[] = ['updated_at = ?', 'synced = 0'];
+                const params: any[] = [now];
+
+                if (updatedHabit.name !== undefined) { setClauses.push('name = ?'); params.push(updatedHabit.name); }
+                if (updatedHabit.description !== undefined) { setClauses.push('description = ?'); params.push(updatedHabit.description); }
+                if (updatedHabit.category !== undefined) { setClauses.push('category = ?'); params.push(updatedHabit.category); }
+                if (updatedHabit.icon !== undefined) { setClauses.push('icon = ?'); params.push(updatedHabit.icon); }
+                if (updatedHabit.isGoal !== undefined) { setClauses.push('is_goal = ?'); params.push(updatedHabit.isGoal ? 1 : 0); }
+                if (updatedHabit.targetDate !== undefined) { setClauses.push('target_date = ?'); params.push(updatedHabit.targetDate); }
+                if (updatedHabit.goalId !== undefined) { setClauses.push('goal_id = ?'); params.push(updatedHabit.goalId); }
+                if (updatedHabit.taskDays !== undefined) { setClauses.push('task_days = ?'); params.push(JSON.stringify(updatedHabit.taskDays)); }
+                if (updatedHabit.reminders !== undefined) { setClauses.push('reminders = ?'); params.push(JSON.stringify(updatedHabit.reminders)); }
+                if (updatedHabit.isArchived !== undefined) { setClauses.push('is_archived = ?'); params.push(updatedHabit.isArchived ? 1 : 0); }
+                if (updatedHabit.durationMinutes !== undefined) { setClauses.push('duration_minutes = ?'); params.push(updatedHabit.durationMinutes); }
+                if (updatedHabit.startTime !== undefined) { setClauses.push('start_time = ?'); params.push(updatedHabit.startTime); }
+                if (updatedHabit.endTime !== undefined) { setClauses.push('end_time = ?'); params.push(updatedHabit.endTime); }
+
+                params.push(updatedHabit.id, uid);
+
+                await db.runAsync(
+                    `UPDATE habits SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`,
+                    ...params
+                );
+
+                // Queue for sync
+                await db.runAsync(
+                    'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+                    'habits', 'UPDATE', updatedHabit.id, JSON.stringify(updatedHabit), now
+                );
+
+                // Update cache
+                if (cachedHabits) {
+                    cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? { ...h, ...updatedHabit } as Habit : h);
+                    habitsListeners.forEach(l => l(cachedHabits!));
+                }
+
+                const fullHabit = cachedHabits?.find(h => h.id === updatedHabit.id);
+                if (fullHabit) {
+                    await NotificationService.scheduleHabitReminder(fullHabit);
+                }
+
+                DeviceEventEmitter.emit('habit_updated', { habitId: updatedHabit.id });
+                return;
+            }
+        } catch (e) {
+            console.log('[Habits] SQLite update failed, falling back to Supabase:', e);
+        }
+    }
+
+    // Fallback to Supabase
     const updateData: Record<string, any> = {};
 
     if (updatedHabit.name !== undefined) updateData.name = updatedHabit.name;
@@ -288,8 +500,6 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
             habitsListeners.forEach(l => l(cachedHabits!));
         }
 
-        // --- NEW: Reschedule Reminder ---
-        // We need the full habit object to schedule correctly
         const fullHabit = cachedHabits?.find(h => h.id === updatedHabit.id) ||
             (await getHabits()).find(h => h.id === updatedHabit.id);
 
@@ -300,6 +510,43 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
 }
 
 export async function removeHabitEverywhere(habitId: string): Promise<void> {
+    const uid = await getUserId();
+    const now = new Date().toISOString();
+
+    // Try SQLite first (offline-capable)
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase } = await import('./database');
+            const db = await getDatabase();
+            if (db) {
+                // Soft delete in SQLite
+                await db.runAsync(
+                    'UPDATE habits SET deleted = 1, synced = 0, updated_at = ? WHERE id = ?',
+                    now, habitId
+                );
+
+                // Queue for sync
+                await db.runAsync(
+                    'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+                    'habits', 'DELETE', habitId, null, now
+                );
+
+                await NotificationService.cancelHabitReminder(habitId);
+
+                if (cachedHabits) {
+                    cachedHabits = cachedHabits.filter(h => h.id !== habitId);
+                    habitsListeners.forEach(l => l(cachedHabits!));
+                }
+
+                DeviceEventEmitter.emit('habit_deleted', { habitId });
+                return;
+            }
+        } catch (e) {
+            console.log('[Habits] SQLite delete failed, falling back to Supabase:', e);
+        }
+    }
+
+    // Fallback to Supabase
     const { error } = await supabase.from('habits').delete().eq('id', habitId);
     if (error) console.error("Error deleting habit:", error);
 
@@ -331,10 +578,33 @@ export async function getCompletions(dateISO?: string): Promise<Record<string, b
 
     const dateStr = dateISO ?? todayString();
 
+    // Check cache first
     if (completionsCache[dateStr]) {
         return completionsCache[dateStr];
     }
 
+    // Try SQLite first (offline-capable)
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase } = await import('./database');
+            const db = await getDatabase();
+            if (db) {
+                const rows = await db.getAllAsync<{ habit_id: string }>(
+                    'SELECT habit_id FROM completions WHERE user_id = ? AND date = ? AND deleted = 0',
+                    uid, dateStr
+                );
+
+                const result: Record<string, boolean> = {};
+                rows.forEach((row: any) => { result[row.habit_id] = true; });
+                completionsCache[dateStr] = result;
+                return result;
+            }
+        } catch (e) {
+            console.log('[Habits] SQLite completions read failed, falling back to Supabase:', e);
+        }
+    }
+
+    // Fallback to Supabase
     const { data, error } = await supabase
         .from('habit_completions')
         .select('habit_id')
@@ -343,7 +613,7 @@ export async function getCompletions(dateISO?: string): Promise<Record<string, b
 
     if (error) {
         console.error("Error getting completions:", error);
-        return {};
+        return completionsCache[dateStr] || {};
     }
 
     const result: Record<string, boolean> = {};
@@ -359,6 +629,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
     if (!uid) return {};
 
     const dateStr = dateISO ?? todayString();
+    const now = new Date().toISOString();
 
     if (!completionsCache[dateStr]) {
         completionsCache[dateStr] = {};
@@ -367,6 +638,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
     const wasCompleted = !!completionsCache[dateStr][habitId];
     const newCompleted = !wasCompleted;
 
+    // Optimistic update
     if (newCompleted) {
         completionsCache[dateStr][habitId] = true;
     } else {
@@ -375,6 +647,54 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
 
     const optimisticResult = { ...completionsCache[dateStr] };
 
+    // Try SQLite first (offline-capable)
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase, generateId } = await import('./database');
+            const db = await getDatabase();
+            if (db) {
+                if (wasCompleted) {
+                    // Mark as deleted in SQLite
+                    await db.runAsync(
+                        'UPDATE completions SET deleted = 1, synced = 0 WHERE habit_id = ? AND date = ? AND user_id = ?',
+                        habitId, dateStr, uid
+                    );
+
+                    // Queue for sync
+                    await db.runAsync(
+                        'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+                        'completions', 'DELETE', `${habitId}_${dateStr}`, JSON.stringify({ habitId, date: dateStr }), now
+                    );
+                } else {
+                    // Insert new completion
+                    const id = generateId();
+                    await db.runAsync(
+                        'INSERT INTO completions (id, user_id, habit_id, date, value, created_at, synced, deleted) VALUES (?, ?, ?, ?, 1, ?, 0, 0)',
+                        id, uid, habitId, dateStr, now
+                    );
+
+                    // Queue for sync
+                    await db.runAsync(
+                        'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+                        'completions', 'INSERT', id, JSON.stringify({ habitId, date: dateStr }), now
+                    );
+
+                    // Send notification
+                    const habit = cachedHabits?.find(h => h.id === habitId);
+                    if (habit) {
+                        await NotificationService.sendCompletionNotification(habit.name);
+                    }
+                }
+
+                DeviceEventEmitter.emit('habit_completion_updated', { habitId, date: dateStr, completed: newCompleted });
+                return optimisticResult;
+            }
+        } catch (e) {
+            console.log('[Habits] SQLite completion toggle failed, falling back to Supabase:', e);
+        }
+    }
+
+    // Fallback to Supabase (async, non-blocking)
     (async () => {
         try {
             if (wasCompleted) {
@@ -400,6 +720,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
             }
         } catch (error) {
             console.error('Error toggling completion:', error);
+            // Revert optimistic update on failure
             if (newCompleted) {
                 delete completionsCache[dateStr][habitId];
             } else {
@@ -416,6 +737,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
 // --- Statistics ---
 
 export async function getLastNDaysCompletions(days: number): Promise<{ date: string; completedIds: string[] }[]> {
+    const uid = await getUserId();
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - (days - 1));
@@ -423,6 +745,42 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
     const startStr = todayString(startDate);
     const endStr = todayString(endDate);
 
+    // Try SQLite first (offline-capable)
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase } = await import('./database');
+            const db = await getDatabase();
+            if (db && uid) {
+                const rows = await db.getAllAsync<{ date: string; habit_id: string }>(
+                    'SELECT date, habit_id FROM completions WHERE user_id = ? AND date >= ? AND date <= ? AND deleted = 0',
+                    uid, startStr, endStr
+                );
+
+                const map = new Map<string, string[]>();
+                rows.forEach((row: any) => {
+                    if (!map.has(row.date)) map.set(row.date, []);
+                    map.get(row.date)!.push(row.habit_id);
+                });
+
+                const result: { date: string; completedIds: string[] }[] = [];
+                for (let i = 0; i < days; i++) {
+                    const d = new Date(startDate);
+                    d.setDate(startDate.getDate() + i);
+                    const dateStr = todayString(d);
+                    result.push({
+                        date: dateStr,
+                        completedIds: map.get(dateStr) || []
+                    });
+                }
+
+                return result;
+            }
+        } catch (e) {
+            console.log('[Habits] SQLite completions range read failed, falling back to Supabase:', e);
+        }
+    }
+
+    // Fallback to Supabase
     const { data, error } = await supabase
         .from('habit_completions')
         .select('date, habit_id')
@@ -614,6 +972,7 @@ export function calculateGoalProgressInstant(
 }
 
 export async function getHeatmapData(): Promise<{ date: string; count: number }[]> {
+    const uid = await getUserId();
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - 365);
@@ -621,6 +980,33 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
     const startStr = todayString(startDate);
     const endStr = todayString(endDate);
 
+    // Try SQLite first (offline-capable)
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase } = await import('./database');
+            const db = await getDatabase();
+            if (db && uid) {
+                const rows = await db.getAllAsync<{ date: string }>(
+                    'SELECT date FROM completions WHERE user_id = ? AND date >= ? AND date <= ? AND deleted = 0',
+                    uid, startStr, endStr
+                );
+
+                const counts: Record<string, number> = {};
+                rows.forEach((row: any) => {
+                    counts[row.date] = (counts[row.date] || 0) + 1;
+                });
+
+                return Object.keys(counts).map(date => ({
+                    date,
+                    count: counts[date]
+                }));
+            }
+        } catch (e) {
+            console.log('[Habits] SQLite heatmap read failed, falling back to Supabase:', e);
+        }
+    }
+
+    // Fallback to Supabase
     const { data, error } = await supabase
         .from('habit_completions')
         .select('date')

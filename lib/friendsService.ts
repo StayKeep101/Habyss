@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getCached, forceRefresh, invalidateCache, invalidateCachePattern } from '@/lib/socialCache';
 
 export interface Friend {
     id: string;
@@ -275,8 +276,6 @@ export const FriendsService = {
             const currentUser = await this.getCurrentUser();
             if (!currentUser) return false;
 
-            console.log(`acceptFriendRequest: Current user = ${currentUser.id}, From = ${request.from_user_id}`);
-
             // Update request status
             const { error: updateError } = await supabase
                 .from('friend_requests')
@@ -297,10 +296,9 @@ export const FriendsService = {
                     });
 
                 if (!rpcError && rpcResult) {
-                    console.log('Friendship created via RPC!');
                     friendshipCreated = true;
                 } else if (rpcError) {
-                    console.log('RPC not available, using fallback:', rpcError.message);
+                    console.log('RPC not available, using fallback');
                 }
             } catch (rpcErr) {
                 console.log('RPC function not found, using direct insert fallback');
@@ -308,20 +306,23 @@ export const FriendsService = {
 
             // Fallback: Direct inserts (may only create one direction due to RLS)
             if (!friendshipCreated) {
-                // Insert where current user is user_id (will succeed with RLS)
                 const { error: insertError1 } = await supabase.from('friendships').insert({
                     user_id: currentUser.id,
                     friend_id: request.from_user_id
                 });
 
-                if (insertError1 && insertError1.code !== '23505') { // Ignore duplicate
+                if (insertError1 && insertError1.code !== '23505') {
                     console.error('Error creating friendship:', insertError1);
-                } else {
-                    console.log('Friendship created (single direction)');
                 }
             }
 
-            console.log('Friend request accepted!');
+            // Invalidate caches - friend list has changed
+            await Promise.all([
+                invalidateCache('friends_list'),
+                invalidateCache('friend_requests'),
+                invalidateCachePattern('leaderboard')
+            ]);
+
             return true;
         } catch (e) {
             console.error('Exception in acceptFriendRequest:', e);
@@ -339,6 +340,11 @@ export const FriendsService = {
                 .update({ status: 'declined' })
                 .eq('id', requestId);
 
+            if (!error) {
+                // Invalidate friend requests cache
+                await invalidateCache('friend_requests');
+            }
+
             return !error;
         } catch (e) {
             return false;
@@ -346,18 +352,38 @@ export const FriendsService = {
     },
 
     /**
-     * Get list of friends with their stats
-     * Queries both directions of the friendship relationship
+     * Get list of friends with their stats (CACHED)
+     * Uses SWR pattern: returns cached data instantly, refreshes in background
      */
     async getFriends(): Promise<Friend[]> {
+        return getCached<Friend[]>(
+            'friends_list',
+            () => this._fetchFriendsFromServer(),
+            'friends_list'
+        );
+    },
+
+    /**
+     * Force refresh friends list (bypasses cache)
+     */
+    async refreshFriends(): Promise<Friend[]> {
+        return forceRefresh<Friend[]>(
+            'friends_list',
+            () => this._fetchFriendsFromServer(),
+            'friends_list'
+        );
+    },
+
+    /**
+     * Internal: Fetch friends from server (no caching)
+     */
+    async _fetchFriendsFromServer(): Promise<Friend[]> {
         try {
             const currentUser = await this.getCurrentUser();
             if (!currentUser) {
                 console.log('getFriends: No current user');
                 return [];
             }
-
-            console.log(`getFriends: Current user ID = ${currentUser.id}`);
 
             // 1. Get Friendship IDs (Raw, no joins)
             const [outgoing, incoming] = await Promise.all([
@@ -371,9 +397,6 @@ export const FriendsService = {
                     .eq('friend_id', currentUser.id)
             ]);
 
-            console.log(`getFriends: Outgoing query result:`, outgoing.data, outgoing.error);
-            console.log(`getFriends: Incoming query result:`, incoming.data, incoming.error);
-
             const friendIds = new Set<string>();
             (outgoing.data || []).forEach((row: any) => {
                 if (row.friend_id) friendIds.add(row.friend_id);
@@ -382,31 +405,24 @@ export const FriendsService = {
                 if (row.user_id) friendIds.add(row.user_id);
             });
 
-            console.log(`getFriends: Found ${friendIds.size} friend IDs:`, Array.from(friendIds));
-
             if (friendIds.size === 0) return [];
 
             // 2. Fetch Profiles separately
             const idArray = Array.from(friendIds);
-            const { data: profiles, error: profileError } = await supabase
+            const { data: profiles } = await supabase
                 .from('profiles')
                 .select('id, username, email, avatar_url')
                 .in('id', idArray);
-
-            console.log(`getFriends: Profiles result:`, JSON.stringify(profiles), profileError);
 
             const profilesMap = new Map();
             (profiles || []).forEach((p: any) => profilesMap.set(p.id, p));
 
             // 3. Construct Result
-            const result = idArray.map(id => {
+            return idArray.map(id => {
                 const profile = profilesMap.get(id);
-                // Better username extraction: prefer username, then email prefix, then ID prefix
                 const extractedUsername = profile?.username
                     || (profile?.email ? profile.email.split('@')[0] : null)
                     || `user_${id.substring(0, 6)}`;
-
-                console.log(`getFriends: Friend ${id} -> username: ${profile?.username}, email: ${profile?.email}, extracted: ${extractedUsername}`);
 
                 return {
                     id: id,
@@ -415,12 +431,8 @@ export const FriendsService = {
                     avatarUrl: profile?.avatar_url,
                     currentStreak: 0,
                     todayCompletion: 0,
-                    // bio stored locally, not in DB
                 };
             });
-
-            console.log(`getFriends: Returning ${result.length} friends`);
-            return result;
         } catch (e) {
             console.log('Friends list not available:', e);
             return [];
@@ -428,9 +440,20 @@ export const FriendsService = {
     },
 
     /**
-     * Get pending friend requests
+     * Get pending friend requests (CACHED)
      */
     async getFriendRequests(): Promise<FriendRequest[]> {
+        return getCached<FriendRequest[]>(
+            'friend_requests',
+            () => this._fetchFriendRequestsFromServer(),
+            'friend_requests'
+        );
+    },
+
+    /**
+     * Internal: Fetch friend requests from server
+     */
+    async _fetchFriendRequestsFromServer(): Promise<FriendRequest[]> {
         try {
             const currentUser = await this.getCurrentUser();
             if (!currentUser) return [];
@@ -448,7 +471,6 @@ export const FriendsService = {
 
             if (error) {
                 if (isTableMissing(error)) return [];
-                console.error('Error fetching friend requests:', error);
                 return [];
             }
 
@@ -539,12 +561,23 @@ export const FriendsService = {
     },
 
     /**
-     * Get leaderboard with real friend stats
+     * Get leaderboard with real friend stats (CACHED)
      * @param period - 'week' | 'month' | 'year' | 'all'
      */
     async getLeaderboard(period: 'week' | 'month' | 'year' | 'all' = 'week'): Promise<{ rank: number; friend: Friend }[]> {
+        return getCached<{ rank: number; friend: Friend }[]>(
+            `leaderboard_${period}`,
+            () => this._fetchLeaderboardFromServer(period),
+            'leaderboard'
+        );
+    },
+
+    /**
+     * Internal: Fetch leaderboard from server
+     */
+    async _fetchLeaderboardFromServer(period: 'week' | 'month' | 'year' | 'all'): Promise<{ rank: number; friend: Friend }[]> {
         try {
-            const friends = await this.getFriends();
+            const friends = await this._fetchFriendsFromServer(); // Use direct fetch to avoid double caching
             const currentUser = await this.getCurrentUser();
 
             if (!currentUser) return [];
