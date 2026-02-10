@@ -562,11 +562,12 @@ export async function removeGoalWithLinkedHabits(goalId: string): Promise<void> 
     const habits = cachedHabits || await getHabits();
     const linkedHabits = habits.filter(h => h.goalId === goalId);
 
-    for (const habit of linkedHabits) {
-        await removeHabitEverywhere(habit.id);
-    }
+    // Delete all linked habits + the goal in parallel
+    await Promise.all([
+        ...linkedHabits.map(habit => removeHabitEverywhere(habit.id)),
+        removeHabitEverywhere(goalId),
+    ]);
 
-    await removeHabitEverywhere(goalId);
     DeviceEventEmitter.emit('goal_deleted', { goalId });
 }
 

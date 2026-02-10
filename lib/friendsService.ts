@@ -352,6 +352,42 @@ export const FriendsService = {
     },
 
     /**
+     * Remove a friend (soft-delete the friendship)
+     */
+    async removeFriend(friendId: string): Promise<boolean> {
+        try {
+            const user = await this.getCurrentUser();
+            if (!user) return false;
+
+            // Soft-delete both directions of the friendship
+            const now = new Date().toISOString();
+
+            const { error: error1 } = await supabase
+                .from('friendships')
+                .update({ deleted_at: now })
+                .eq('user_id', user.id)
+                .eq('friend_id', friendId);
+
+            const { error: error2 } = await supabase
+                .from('friendships')
+                .update({ deleted_at: now })
+                .eq('user_id', friendId)
+                .eq('friend_id', user.id);
+
+            if (!error1 && !error2) {
+                // Invalidate friends cache
+                await invalidateCache('friends_list');
+                await invalidateCachePattern('leaderboard');
+            }
+
+            return !error1 && !error2;
+        } catch (e) {
+            console.error('Remove friend error:', e);
+            return false;
+        }
+    },
+
+    /**
      * Get list of friends with their stats (CACHED)
      * Uses SWR pattern: returns cached data instantly, refreshes in background
      */
@@ -703,13 +739,13 @@ export const FriendsService = {
     },
 
     /**
-     * Unshare a habit
+     * Unshare a habit (soft-delete)
      */
     async unshareHabit(habitId: string, friendId: string): Promise<boolean> {
         try {
             const { error } = await supabase
                 .from('shared_habits')
-                .delete()
+                .update({ deleted_at: new Date().toISOString() })
                 .eq('habit_id', habitId)
                 .eq('shared_with_id', friendId);
 
@@ -775,8 +811,8 @@ export const FriendsService = {
     },
 
     /**
-     * Share a goal with a friend
-     */
+ * Share a goal with a friend (upsert — handles re-sharing after soft-delete)
+ */
     async shareGoalWithFriend(goalId: string, friendId: string): Promise<boolean> {
         try {
             const currentUser = await this.getCurrentUser();
@@ -784,17 +820,19 @@ export const FriendsService = {
 
             const { error } = await supabase
                 .from('shared_goals')
-                .insert({
+                .upsert({
                     goal_id: goalId,
                     owner_id: currentUser.id,
                     shared_with_id: friendId,
-                });
+                    deleted_at: null,
+                }, { onConflict: 'goal_id,shared_with_id' });
 
             if (error) {
                 if (isTableMissing(error)) return false;
                 console.error('Error sharing goal:', error);
                 return false;
             }
+            invalidateCachePattern('goal_shared');
             return true;
         } catch (e) {
             return false;
@@ -802,16 +840,72 @@ export const FriendsService = {
     },
 
     /**
-     * Unshare a goal with a friend
+     * Batch share a goal with multiple friends (single round-trip per friend, parallel)
      */
+    async batchShareGoal(goalId: string, friendIds: string[]): Promise<boolean> {
+        if (friendIds.length === 0) return true;
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
+
+            const rows = friendIds.map(friendId => ({
+                goal_id: goalId,
+                owner_id: currentUser.id,
+                shared_with_id: friendId,
+                deleted_at: null,
+            }));
+
+            const { error } = await supabase
+                .from('shared_goals')
+                .upsert(rows, { onConflict: 'goal_id,shared_with_id' });
+
+            if (error) {
+                if (isTableMissing(error)) return false;
+                console.error('Error batch sharing goal:', error);
+                return false;
+            }
+            invalidateCachePattern('goal_shared');
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+     * Batch unshare a goal from multiple friends (single query)
+     */
+    async batchUnshareGoal(goalId: string, friendIds: string[]): Promise<boolean> {
+        if (friendIds.length === 0) return true;
+        try {
+            const { error } = await supabase
+                .from('shared_goals')
+                .update({ deleted_at: new Date().toISOString() })
+                .eq('goal_id', goalId)
+                .in('shared_with_id', friendIds);
+
+            if (error) {
+                console.error('Error batch unsharing goal:', error);
+                return false;
+            }
+            invalidateCachePattern('goal_shared');
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+ * Unshare a goal with a friend (soft-delete)
+ */
     async unshareGoal(goalId: string, friendId: string): Promise<boolean> {
         try {
             const { error } = await supabase
                 .from('shared_goals')
-                .delete()
+                .update({ deleted_at: new Date().toISOString() })
                 .eq('goal_id', goalId)
                 .eq('shared_with_id', friendId);
 
+            if (!error) invalidateCachePattern('goal_shared');
             return !error;
         } catch (e) {
             return false;
@@ -819,8 +913,8 @@ export const FriendsService = {
     },
 
     /**
-     * Get goals shared with me
-     */
+ * Get goals shared with me (filters soft-deleted)
+ */
     async getGoalsSharedWithMe(): Promise<any[]> {
         try {
             const currentUser = await this.getCurrentUser();
@@ -829,7 +923,8 @@ export const FriendsService = {
             const { data: shares, error } = await supabase
                 .from('shared_goals')
                 .select('goal_id, owner_id')
-                .eq('shared_with_id', currentUser.id);
+                .eq('shared_with_id', currentUser.id)
+                .is('deleted_at', null);
 
             if (error || !shares || shares.length === 0) return [];
 
@@ -870,8 +965,8 @@ export const FriendsService = {
     },
 
     /**
-     * Get goals I have shared with friends
-     */
+ * Get goals I have shared with friends (filters soft-deleted)
+ */
     async getGoalsIShared(): Promise<any[]> {
         try {
             const currentUser = await this.getCurrentUser();
@@ -880,7 +975,8 @@ export const FriendsService = {
             const { data: shares, error } = await supabase
                 .from('shared_goals')
                 .select('goal_id, shared_with_id')
-                .eq('owner_id', currentUser.id);
+                .eq('owner_id', currentUser.id)
+                .is('deleted_at', null);
 
             if (error || !shares || shares.length === 0) return [];
 
@@ -935,17 +1031,28 @@ export const FriendsService = {
     },
 
     /**
-     * Get friends a goal is shared with (for showing avatars on GoalCard)
-     */
+ * Get friends a goal is shared with (for showing avatars on GoalCard)
+ * Cached with SWR pattern for instant reads; filters soft-deleted rows.
+ */
     async getGoalSharedWith(goalId: string): Promise<Friend[]> {
+        return getCached(
+            `goal_shared_with_${goalId}`,
+            () => this._fetchGoalSharedWith(goalId),
+            'goal_shared_with'
+        );
+    },
+
+    /** Internal: fetch goal shared-with from server */
+    async _fetchGoalSharedWith(goalId: string): Promise<Friend[]> {
         try {
             const { data, error } = await supabase
                 .from('shared_goals')
                 .select(`
-                    shared_with_id,
-                    profiles:shared_with_id (id, username, email, avatar_url)
-                `)
-                .eq('goal_id', goalId);
+                shared_with_id,
+                profiles:shared_with_id (id, username, email, avatar_url)
+            `)
+                .eq('goal_id', goalId)
+                .is('deleted_at', null);
 
             if (error) {
                 if (isTableMissing(error)) return [];

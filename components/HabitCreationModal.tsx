@@ -674,7 +674,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             activeOpacity={1} // Just a label wrapper
                                             style={[styles.gridItem, {
                                                 width: '100%',
-                                                backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                                                backgroundColor: colors.surfaceSecondary,
                                                 borderColor: effectiveBorderColor
                                             }]}
                                         >
@@ -773,41 +773,41 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                         {/* Time Picker Trigger */}
                                         <TouchableOpacity
                                             onPress={() => { selectionFeedback(); setActiveOverlay('time'); }}
-                                            style={styles.gridItem}
+                                            style={[styles.gridItem, { backgroundColor: colors.surfaceSecondary, borderColor: effectiveBorderColor }]}
                                         >
                                             <Ionicons name="time-outline" size={20} color={useFreeTime ? '#8B5CF6' : selectedColor} />
                                             <Text style={[styles.gridValue, { color: colors.text }]}>{useFreeTime ? 'Anytime' : `${formatTime(startTime)}`}</Text>
-                                            <Text style={styles.gridLabel}>SCHEDULE</Text>
+                                            <Text style={[styles.gridLabel, { color: colors.textTertiary }]}>SCHEDULE</Text>
                                         </TouchableOpacity>
 
                                         {/* Reminder Trigger */}
                                         <TouchableOpacity
                                             onPress={() => { selectionFeedback(); setActiveOverlay('reminder'); }}
-                                            style={styles.gridItem}
+                                            style={[styles.gridItem, { backgroundColor: colors.surfaceSecondary, borderColor: effectiveBorderColor }]}
                                         >
                                             <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={20} color={reminderEnabled ? selectedColor : colors.textTertiary} />
                                             <Text style={[styles.gridValue, { color: colors.text }]}>{reminderEnabled ? formatTime(reminderTime) : 'Off'}</Text>
-                                            <Text style={styles.gridLabel}>REMINDERS</Text>
+                                            <Text style={[styles.gridLabel, { color: colors.textTertiary }]}>REMINDERS</Text>
                                         </TouchableOpacity>
 
                                         {/* Graph Style */}
                                         <TouchableOpacity
                                             onPress={() => { selectionFeedback(); setActiveOverlay('graph'); }}
-                                            style={styles.gridItem}
+                                            style={[styles.gridItem, { backgroundColor: colors.surfaceSecondary, borderColor: effectiveBorderColor }]}
                                         >
                                             <Ionicons name={GRAPH_STYLES.find(g => g.id === graphStyle)?.icon as any} size={20} color={selectedColor} />
                                             <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={1}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
-                                            <Text style={styles.gridLabel}>VISUALIZATION</Text>
+                                            <Text style={[styles.gridLabel, { color: colors.textTertiary }]}>VISUALIZATION</Text>
                                         </TouchableOpacity>
 
                                         {/* Measurement */}
                                         <TouchableOpacity
                                             onPress={() => { selectionFeedback(); setActiveOverlay('measurement'); }}
-                                            style={styles.gridItem}
+                                            style={[styles.gridItem, { backgroundColor: colors.surfaceSecondary, borderColor: effectiveBorderColor }]}
                                         >
                                             <Ionicons name="scale-outline" size={20} color={selectedColor} />
                                             <Text style={[styles.gridValue, { color: colors.text }]}>{measurementValue} {UNITS.find(u => u.id === measurementUnit)?.label}</Text>
-                                            <Text style={styles.gridLabel}>TARGET</Text>
+                                            <Text style={[styles.gridLabel, { color: colors.textTertiary }]}>TARGET</Text>
                                         </TouchableOpacity>
 
                                     </View>
@@ -832,22 +832,22 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* ICON OVERLAY */}
                             {activeOverlay === 'icon' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { height: height * 0.7 }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { height: height * 0.7, backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
                                     <OverlayHeader title="Choose Icon" onClose={() => { setActiveOverlay('none'); setIconSearch(''); }} />
                                     {/* Search Bar */}
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, marginBottom: 16 }}>
-                                        <Ionicons name="search" size={18} color="rgba(255,255,255,0.4)" />
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, marginBottom: 16 }}>
+                                        <Ionicons name="search" size={18} color={colors.textTertiary} />
                                         <TextInput
                                             style={{ flex: 1, color: colors.text, paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }}
                                             placeholder="Search icons..."
-                                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                            placeholderTextColor={colors.textTertiary}
                                             value={iconSearch}
                                             onChangeText={setIconSearch}
                                             autoCapitalize="none"
                                         />
                                         {iconSearch.length > 0 && (
                                             <TouchableOpacity onPress={() => setIconSearch('')}>
-                                                <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
+                                                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
                                             </TouchableOpacity>
                                         )}
                                     </View>
@@ -870,7 +870,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* COLOR OVERLAY */}
                             {activeOverlay === 'color' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8 }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8, backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
                                     <OverlayHeader title="Choose Color" onClose={() => setActiveOverlay('none')} />
 
                                     {/* Selected Color Preview */}
@@ -881,7 +881,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             borderRadius: 30,
                                             backgroundColor: selectedColor,
                                             borderWidth: 3,
-                                            borderColor: 'rgba(255,255,255,0.3)',
+                                            borderColor: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.3)',
                                             shadowColor: selectedColor,
                                             shadowOffset: { width: 0, height: 4 },
                                             shadowOpacity: 0.4,
@@ -893,7 +893,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     {/* Scrollable content for presets + custom */}
                                     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
                                         {/* Preset Colors */}
-                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 16, letterSpacing: 1 }}>PRESETS</Text>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 16, letterSpacing: 1 }}>PRESETS</Text>
                                         <View style={styles.colorGrid}>
                                             {COLORS.map(c => (
                                                 <TouchableOpacity
@@ -907,7 +907,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                         {/* Custom Colors Section */}
                                         {customColors.length > 0 && (
                                             <View style={{ marginTop: 20 }}>
-                                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 1 }}>MY COLORS</Text>
+                                                <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginBottom: 12, letterSpacing: 1 }}>MY COLORS</Text>
                                                 <View style={styles.colorGrid}>
                                                     {customColors.map(c => (
                                                         <TouchableOpacity
@@ -930,33 +930,33 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* TIME OVERLAY */}
                             {activeOverlay === 'time' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
                                     <OverlayHeader title="Set Schedule" onClose={() => setActiveOverlay('none')} />
 
                                     {/* Time Pickers - Always Visible */}
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 20, marginBottom: 24 }}>
                                         <View style={{ flex: 1, alignItems: 'center' }}>
-                                            <Text style={styles.pickerLabel}>START</Text>
+                                            <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>START</Text>
                                             <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
                                                 <DateTimePicker
                                                     value={startTime}
                                                     mode="time"
                                                     display="spinner"
                                                     onChange={(_, d) => d && setStartTime(d)}
-                                                    textColor="#fff"
+                                                    textColor={isLight ? '#000' : '#fff'}
                                                     style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
                                                 />
                                             </View>
                                         </View>
                                         <View style={{ flex: 1, alignItems: 'center' }}>
-                                            <Text style={styles.pickerLabel}>END</Text>
+                                            <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>END</Text>
                                             <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
                                                 <DateTimePicker
                                                     value={endTime}
                                                     mode="time"
                                                     display="spinner"
                                                     onChange={(_, d) => d && setEndTime(d)}
-                                                    textColor="#fff"
+                                                    textColor={isLight ? '#000' : '#fff'}
                                                     style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
                                                 />
                                             </View>
@@ -1009,7 +1009,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     {/* Suggested Slots */}
                                     {suggestedSlots.length > 0 && (
                                         <View style={{ marginBottom: 16 }}>
-                                            <Text style={styles.pickerLabel}>SUGGESTED TIMES</Text>
+                                            <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>SUGGESTED TIMES</Text>
                                             <View style={{ gap: 8 }}>
                                                 {suggestedSlots.map((slot, index) => {
                                                     const formatTime = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -1049,23 +1049,23 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* REMINDER OVERLAY */}
                             {activeOverlay === 'reminder' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8 }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8, backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
                                     <OverlayHeader title="Notifications" onClose={() => setActiveOverlay('none')} />
 
                                     {/* Toggle */}
                                     <TouchableOpacity
                                         onPress={() => { selectionFeedback(); setReminderEnabled(!reminderEnabled); }}
-                                        style={[styles.toggleRow, { marginBottom: 24 }]}
+                                        style={[styles.toggleRow, { marginBottom: 24, backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.05)' }]}
                                     >
-                                        <Text style={{ color: 'white', fontWeight: '600' }}>Enable Reminders</Text>
-                                        <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={24} color={reminderEnabled ? selectedColor : 'rgba(255,255,255,0.3)'} />
+                                        <Text style={{ color: colors.text, fontWeight: '600' }}>Enable Reminders</Text>
+                                        <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={24} color={reminderEnabled ? selectedColor : colors.textTertiary} />
                                     </TouchableOpacity>
 
                                     {reminderEnabled && (
                                         <ScrollView showsVerticalScrollIndicator={false}>
                                             {/* Time Picker */}
                                             <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                                                <Text style={styles.pickerLabel}>REMINDER TIME</Text>
+                                                <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>REMINDER TIME</Text>
                                                 <DateTimePicker
                                                     value={reminderTime}
                                                     mode="time"
@@ -1078,7 +1078,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                                             {/* Relative Time Reminder */}
                                             <View style={{ marginBottom: 24 }}>
-                                                <Text style={styles.pickerLabel}>REMIND ME BEFORE</Text>
+                                                <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>REMIND ME BEFORE</Text>
                                                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
                                                     {[undefined, 5, 15, 30, 60].map((mins) => (
                                                         <TouchableOpacity
@@ -1089,7 +1089,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                                 reminderOffset === mins && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
                                                             ]}
                                                         >
-                                                            <Text style={{ color: reminderOffset === mins ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>
+                                                            <Text style={{ color: reminderOffset === mins ? selectedColor : colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
                                                                 {mins === undefined ? 'At time' : `${mins} min before`}
                                                             </Text>
                                                         </TouchableOpacity>
@@ -1099,7 +1099,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                                             {/* Location Reminder (Placeholder Logic) */}
                                             <View style={{ marginBottom: 24 }}>
-                                                <Text style={styles.pickerLabel}>LOCATION TRIGGER (Beta)</Text>
+                                                <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>LOCATION TRIGGER (Beta)</Text>
                                                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
                                                     <TouchableOpacity
                                                         onPress={() => {
@@ -1116,8 +1116,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                             locationReminders.some(l => l.name === 'Home') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
                                                         ]}
                                                     >
-                                                        <Ionicons name="home" size={14} color={locationReminders.some(l => l.name === 'Home') ? selectedColor : 'rgba(255,255,255,0.5)'} style={{ marginRight: 6 }} />
-                                                        <Text style={{ color: locationReminders.some(l => l.name === 'Home') ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>Arriving Home</Text>
+                                                        <Ionicons name="home" size={14} color={locationReminders.some(l => l.name === 'Home') ? selectedColor : colors.textSecondary} style={{ marginRight: 6 }} />
+                                                        <Text style={{ color: locationReminders.some(l => l.name === 'Home') ? selectedColor : colors.textSecondary, fontSize: 13, fontWeight: '600' }}>Arriving Home</Text>
                                                     </TouchableOpacity>
 
                                                     <TouchableOpacity
@@ -1134,8 +1134,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                             locationReminders.some(l => l.name === 'Work') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
                                                         ]}
                                                     >
-                                                        <Ionicons name="business" size={14} color={locationReminders.some(l => l.name === 'Work') ? selectedColor : 'rgba(255,255,255,0.5)'} style={{ marginRight: 6 }} />
-                                                        <Text style={{ color: locationReminders.some(l => l.name === 'Work') ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' }}>Arriving Work</Text>
+                                                        <Ionicons name="business" size={14} color={locationReminders.some(l => l.name === 'Work') ? selectedColor : colors.textSecondary} style={{ marginRight: 6 }} />
+                                                        <Text style={{ color: locationReminders.some(l => l.name === 'Work') ? selectedColor : colors.textSecondary, fontSize: 13, fontWeight: '600' }}>Arriving Work</Text>
                                                     </TouchableOpacity>
                                                 </View>
                                             </View>
@@ -1150,16 +1150,16 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* GRAPH OVERLAY */}
                             {activeOverlay === 'graph' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={styles.overlayPanel}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
                                     <OverlayHeader title="Graph Style" onClose={() => setActiveOverlay('none')} />
                                     {GRAPH_STYLES.map(g => (
                                         <TouchableOpacity
                                             key={g.id}
                                             onPress={() => { selectionFeedback(); setGraphStyle(g.id); setActiveOverlay('none'); }}
-                                            style={[styles.listItem, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}
+                                            style={[styles.listItem, { backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}
                                         >
-                                            <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : 'rgba(255,255,255,0.5)'} />
-                                            <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : '#fff' }]}>{g.label}</Text>
+                                            <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : colors.textSecondary} />
+                                            <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : colors.text }]}>{g.label}</Text>
                                             {graphStyle === g.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
                                         </TouchableOpacity>
                                     ))}
@@ -1173,22 +1173,22 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     <Animated.View
                                         entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))}
                                         exiting={SlideOutDown.duration(250)}
-                                        style={styles.overlayPanel}
+                                        style={[styles.overlayPanel, { backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}
                                         onStartShouldSetResponder={() => true}
                                     >
                                         <OverlayHeader title="Target & Units" onClose={() => { Keyboard.dismiss(); setActiveOverlay('none'); }} />
 
                                         {/* Number Input with Keyboard */}
                                         <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                                            <Text style={styles.pickerLabel}>TARGET VALUE</Text>
+                                            <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>TARGET VALUE</Text>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                                 <TouchableOpacity onPress={() => {
                                                     const current = parseInt(targetInputValue, 10) || 1;
                                                     const newVal = Math.max(1, current - 1);
                                                     setTargetInputValue(newVal.toString());
                                                     setMeasurementValue(newVal);
-                                                }} style={styles.counterBtn}>
-                                                    <Ionicons name="remove" size={24} color="#fff" />
+                                                }} style={[styles.counterBtn, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)' }]}>
+                                                    <Ionicons name="remove" size={24} color={colors.text} />
                                                 </TouchableOpacity>
                                                 <TextInput
                                                     value={targetInputValue}
@@ -1211,10 +1211,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                     style={{
                                                         fontSize: 40,
                                                         fontWeight: '900',
-                                                        color: '#fff',
+                                                        color: colors.text,
                                                         textAlign: 'center',
                                                         minWidth: 80,
-                                                        backgroundColor: 'rgba(255,255,255,0.05)',
+                                                        backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
                                                         borderRadius: 12,
                                                         paddingHorizontal: 16,
                                                         paddingVertical: 8,
@@ -1225,8 +1225,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                     const newVal = current + 1;
                                                     setTargetInputValue(newVal.toString());
                                                     setMeasurementValue(newVal);
-                                                }} style={styles.counterBtn}>
-                                                    <Ionicons name="add" size={24} color="#fff" />
+                                                }} style={[styles.counterBtn, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)' }]}>
+                                                    <Ionicons name="add" size={24} color={colors.text} />
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
@@ -1237,8 +1237,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             {UNIT_CATEGORIES.map(cat => (
                                                 <View key={cat.category} style={{ marginBottom: 12 }}>
                                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                                                        <Ionicons name={cat.icon as any} size={14} color="rgba(255,255,255,0.4)" />
-                                                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700', letterSpacing: 1 }}>{cat.category.toUpperCase()}</Text>
+                                                        <Ionicons name={cat.icon as any} size={14} color={colors.textTertiary} />
+                                                        <Text style={{ color: colors.textTertiary, fontSize: 10, fontWeight: '700', letterSpacing: 1 }}>{cat.category.toUpperCase()}</Text>
                                                     </View>
                                                     <ScrollView
                                                         horizontal
@@ -1251,7 +1251,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                                 onPress={() => { selectionFeedback(); setMeasurementUnit(u.id); }}
                                                                 style={[styles.unitChip, measurementUnit === u.id && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
                                                             >
-                                                                <Text style={{ color: measurementUnit === u.id ? selectedColor : 'rgba(255,255,255,0.5)', fontSize: 12 }}>{u.label}</Text>
+                                                                <Text style={{ color: measurementUnit === u.id ? selectedColor : colors.textSecondary, fontSize: 12 }}>{u.label}</Text>
                                                             </TouchableOpacity>
                                                         ))}
                                                     </ScrollView>
@@ -1268,7 +1268,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* TEMPLATES OVERLAY */}
                             {activeOverlay === 'templates' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: '85%' }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: '85%', backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
                                     <OverlayHeader title="Quick Templates" onClose={() => setActiveOverlay('none')} />
                                     <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
                                         {LIFE_PILLARS.map(pillar => (
@@ -1293,13 +1293,13 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                                 setMeasurementUnit(habit.unit);
                                                                 setActiveOverlay('none');
                                                             }}
-                                                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
+                                                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderRadius: 10, borderWidth: 1, borderColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }}
                                                         >
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                                                 <Ionicons name={habit.icon as any} size={18} color={pillar.color} />
                                                                 <Text style={{ color: colors.text, fontSize: 13 }}>{habit.name}</Text>
                                                             </View>
-                                                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{habit.goalValue} {habit.unit}</Text>
+                                                            <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{habit.goalValue} {habit.unit}</Text>
                                                         </TouchableOpacity>
                                                     ))}
                                                 </View>

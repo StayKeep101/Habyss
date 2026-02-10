@@ -8,6 +8,7 @@ import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
+import { ShareHabitModal } from '@/components/ShareHabitModal';
 
 import { useHaptics } from '@/hooks/useHaptics';
 import { PomodoroTimer } from '@/components/Habit/PomodoroTimer';
@@ -54,6 +55,7 @@ export default function HabitDetailScreen() {
   const [history, setHistory] = useState<{ date: string; completed: boolean }[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [showStats, setShowStats] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     loadHabitDetails();
@@ -168,6 +170,15 @@ export default function HabitDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity
+            onPress={() => {
+              selectionFeedback();
+              setShowShareModal(true);
+            }}
+            style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
+          >
+            <Ionicons name="share-outline" size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
               selectionFeedback();
@@ -321,6 +332,14 @@ export default function HabitDetailScreen() {
       >
         <Ionicons name={showStats ? "close" : "stats-chart"} size={20} color={colors.textPrimary} />
       </TouchableOpacity>
+
+      {/* Share Modal */}
+      <ShareHabitModal
+        visible={showShareModal}
+        habitId={habitId}
+        habitName={habit.name}
+        onClose={() => setShowShareModal(false)}
+      />
     </VoidShell>
   );
 }

@@ -36,6 +36,7 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
 
     const [friends, setFriends] = useState<Friend[]>([]);
     const [sharedWith, setSharedWith] = useState<string[]>([]);
+    const [initialSharedWith, setInitialSharedWith] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
@@ -74,7 +75,9 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
             FriendsService.getGoalSharedWith(goalId),
         ]);
         setFriends(friendsList);
-        setSharedWith(alreadyShared.map(f => f.id));
+        const sharedIds = alreadyShared.map(f => f.id);
+        setSharedWith(sharedIds);
+        setInitialSharedWith(sharedIds);
         setLoading(false);
     };
 
@@ -85,22 +88,22 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
 
     const handleSave = async () => {
         setSaving(true);
-        const currentShared = await FriendsService.getGoalSharedWith(goalId);
-        const currentIds = currentShared.map(f => f.id);
-
-        // Unshare with friends who were removed
-        for (const id of currentIds) {
-            if (!sharedWith.includes(id)) await FriendsService.unshareGoal(goalId, id);
-        }
-
-        // Share with newly selected friends
-        for (const id of sharedWith) {
-            if (!currentIds.includes(id)) await FriendsService.shareGoalWithFriend(goalId, id);
-        }
-
         successFeedback();
-        setSaving(false);
+
+        // Compute diffs from the initial state (no re-fetch needed)
+        const toShare = sharedWith.filter(id => !initialSharedWith.includes(id));
+        const toUnshare = initialSharedWith.filter(id => !sharedWith.includes(id));
+
+        // Close immediately (optimistic) — operations fire in background
         closeModal();
+
+        // Batch operations in parallel
+        await Promise.all([
+            FriendsService.batchShareGoal(goalId, toShare),
+            FriendsService.batchUnshareGoal(goalId, toUnshare),
+        ]);
+
+        setSaving(false);
     };
 
     const panGesture = Gesture.Pan()

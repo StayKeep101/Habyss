@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -197,15 +197,42 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                         {friend.username === 'You' ? (
                             <Text style={[styles.previewText, { color: colors.textTertiary }]}>This is how your profile appears to friends</Text>
                         ) : (
-                            <TouchableOpacity
-                                style={[styles.nudgeButton, { backgroundColor: colors.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
-                                onPress={() => {
-                                    onNudge(friend);
-                                    onClose();
-                                }}
-                            >
-                                <Text style={styles.nudgeText}>👋 Send Nudge</Text>
-                            </TouchableOpacity>
+                            <>
+                                <TouchableOpacity
+                                    style={[styles.nudgeButton, { backgroundColor: colors.primary, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
+                                    onPress={() => {
+                                        onNudge(friend);
+                                        onClose();
+                                    }}
+                                >
+                                    <Text style={styles.nudgeText}>👋 Send Nudge</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.nudgeButton, { backgroundColor: colors.surfaceSecondary, flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 }]}
+                                    onPress={() => {
+                                        Alert.alert(
+                                            'Remove Friend',
+                                            `Are you sure you want to remove ${friend.username} from your friends?`,
+                                            [
+                                                { text: 'Cancel', style: 'cancel' },
+                                                {
+                                                    text: 'Remove',
+                                                    style: 'destructive',
+                                                    onPress: async () => {
+                                                        const success = await FriendsService.removeFriend(friend.id);
+                                                        if (success) {
+                                                            onClose();
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        );
+                                    }}
+                                >
+                                    <Ionicons name="person-remove-outline" size={18} color={colors.textSecondary} />
+                                    <Text style={[styles.nudgeText, { color: colors.textSecondary }]}>Remove Friend</Text>
+                                </TouchableOpacity>
+                            </>
                         )}
                     </View>
                 </ScrollView>

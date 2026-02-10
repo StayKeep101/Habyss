@@ -35,6 +35,10 @@ export const FocusTimeCard: React.FC = () => {
         weeklyFocusTotal,
         monthlyFocusTotal,
         yearlyFocusTotal,
+        // Industry-standard metrics
+        dailyAverageAccurate,
+        productivityEfficiency,
+        activeDaysThisWeek,
         pauseTimer,
         resumeTimer,
         stopTimer,
@@ -84,8 +88,8 @@ export const FocusTimeCard: React.FC = () => {
     const circumference = 2 * Math.PI * 38; // radius = 38
     const strokeDashoffset = circumference - (progress / 100) * circumference;
 
-    // Calculate daily average based on weekly total / 7
-    const dailyAverage = Math.floor(weeklyFocusTotal / 7);
+    // Use industry-standard daily average (based on actual active days, not fixed 7)
+    const dailyAverage = dailyAverageAccurate;
 
     return (
         <VoidCard glass intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
@@ -129,6 +133,15 @@ export const FocusTimeCard: React.FC = () => {
                                 {formatTime(totalFocusToday)}
                             </Text>
                             <Text style={[styles.focusLabel, { color: colors.textTertiary }]}>focused today</Text>
+                            {/* Productivity Efficiency Badge */}
+                            {productivityEfficiency > 0 && (
+                                <View style={[styles.efficiencyBadge, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)' }]}>
+                                    <Ionicons name="checkmark-circle" size={12} color={productivityEfficiency >= 80 ? '#22C55E' : productivityEfficiency >= 50 ? '#F59E0B' : colors.textTertiary} />
+                                    <Text style={[styles.efficiencyText, { color: productivityEfficiency >= 80 ? '#22C55E' : productivityEfficiency >= 50 ? '#F59E0B' : colors.textTertiary }]}>
+                                        {productivityEfficiency}% efficiency
+                                    </Text>
+                                </View>
+                            )}
                         </View>
 
                         {/* Stats Row - only when idle and has data */}
@@ -358,5 +371,19 @@ const styles = StyleSheet.create({
     idleContainer: {
         alignItems: 'center',
         width: '100%',
+    },
+    efficiencyBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        marginTop: 8,
+    },
+    efficiencyText: {
+        fontSize: 10,
+        fontWeight: '600',
+        fontFamily: 'Lexend_400Regular',
     },
 });

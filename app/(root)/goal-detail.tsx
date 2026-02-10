@@ -239,10 +239,11 @@ const GoalDetail = () => {
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete All", style: "destructive",
-        onPress: async () => {
+        onPress: () => {
           if (goal) {
-            await removeGoalWithLinkedHabits(goal.id);
+            // Navigate back instantly — delete fires in background
             router.back();
+            removeGoalWithLinkedHabits(goal.id).catch(console.error);
           }
         }
       }

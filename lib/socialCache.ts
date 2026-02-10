@@ -31,6 +31,7 @@ const CACHE_CONFIGS: Record<string, CacheConfig> = {
     friend_requests: { ttlMs: 1 * 60 * 1000, persist: false, staleWhileRevalidate: true },  // 1 min
     leaderboard: { ttlMs: 2 * 60 * 1000, persist: false, staleWhileRevalidate: true },      // 2 min
     friend_stats: { ttlMs: 5 * 60 * 1000, persist: true, staleWhileRevalidate: true },      // 5 min
+    goal_shared_with: { ttlMs: 2 * 60 * 1000, persist: false, staleWhileRevalidate: true }, // 2 min
 };
 
 const CACHE_PREFIX = '@social_cache:';
