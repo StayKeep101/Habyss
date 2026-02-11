@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Dimensions, Animated as RNAnimated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp, SlideOutRight } from 'react-native-reanimated';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -238,7 +238,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                                                 });
                                                 return (
                                                     <View style={{ width: 80, height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-                                                        <Animated.View style={{ transform: [{ translateX: trans }], width: '100%', height: '100%' }}>
+                                                        <RNAnimated.View style={{ transform: [{ translateX: trans }], width: '100%', height: '100%' }}>
                                                             <TouchableOpacity
                                                                 onPress={() => handleDismiss(notification.id)}
                                                                 style={{
@@ -254,7 +254,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                                                                 }}>
                                                                 <Ionicons name="trash" size={24} color="white" />
                                                             </TouchableOpacity>
-                                                        </Animated.View>
+                                                        </RNAnimated.View>
                                                     </View>
                                                 );
                                             }}

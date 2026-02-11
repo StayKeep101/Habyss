@@ -817,7 +817,7 @@ export const FriendsService = {
             // 3. Fetch Data Separately
             const [habitsResult, profilesResult] = await Promise.all([
                 supabase.from('habits').select('id, name, icon, category').in('id', habitIds),
-                supabase.from('profiles').select('id, username').in('id', ownerIds)
+                supabase.from('profiles').select('id, username, avatar_url').in('id', ownerIds)
             ]);
 
             const habitsMap = new Map(habitsResult.data?.map(h => [h.id, h]));
@@ -840,6 +840,7 @@ export const FriendsService = {
                     owner: {
                         id: share.owner_id,
                         username: owner?.username || 'Unknown Friend',
+                        avatarUrl: owner?.avatar_url,
                     },
                     todayCompleted: false,
                 };
@@ -1012,7 +1013,7 @@ export const FriendsService = {
 
             const [goalsResult, profilesResult] = await Promise.all([
                 supabase.from('habits').select('id, name, icon, category, target_date').in('id', goalIds),
-                supabase.from('profiles').select('id, username').in('id', ownerIds)
+                supabase.from('profiles').select('id, username, avatar_url').in('id', ownerIds)
             ]);
 
             const goalsMap = new Map(goalsResult.data?.map(g => [g.id, g]));
@@ -1035,6 +1036,7 @@ export const FriendsService = {
                     owner: {
                         id: share.owner_id,
                         username: owner?.username || 'Unknown Friend',
+                        avatarUrl: owner?.avatar_url,
                     },
                 };
             }).filter(item => item !== null);

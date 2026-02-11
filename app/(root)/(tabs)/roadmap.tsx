@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, LayoutAnimation, Platform, UIManager, InteractionManager, DeviceEventEmitter, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, LayoutAnimation, Platform, UIManager, InteractionManager, DeviceEventEmitter, ScrollView, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
     useAnimatedScrollHandler,
@@ -22,7 +22,8 @@ import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { GoalCreationWizard } from '@/components/GoalCreationWizard';
 
-import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, isHabitScheduledForDate, Habit as StoreHabit } from '@/lib/habitsSQLite';
+import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, isHabitScheduledForDate, addHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
+import { FriendsService } from '@/lib/friendsService';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
@@ -75,6 +76,8 @@ const CalendarScreen = () => {
     const [todayCompletions, setTodayCompletions] = useState<Record<string, boolean>>({});
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [goalProgress, setGoalProgress] = useState<Record<string, number>>({});
+    const [sharedHabits, setSharedHabits] = useState<any[]>([]);
+    const [sharedGoals, setSharedGoals] = useState<any[]>([]);
 
     // UI State
     const [isWizardVisible, setIsWizardVisible] = useState(false);
@@ -212,6 +215,23 @@ const CalendarScreen = () => {
         };
         loadHistory();
     }, []); // Empty deps - only run once on mount
+
+    // Load shared items
+    useEffect(() => {
+        const loadShared = async () => {
+            try {
+                const [habits, goals] = await Promise.all([
+                    FriendsService.getHabitsSharedWithMe(),
+                    FriendsService.getGoalsSharedWithMe()
+                ]);
+                setSharedHabits(habits);
+                setSharedGoals(goals);
+            } catch (e) {
+                console.log('Error loading shared items:', e);
+            }
+        };
+        loadShared();
+    }, []);
 
     // Optimized History Lookup Maps
     const historyMap = useMemo(() => {
@@ -504,6 +524,113 @@ const CalendarScreen = () => {
                                     >
                                         <Ionicons name="close-circle" size={14} color={accentColor} />
                                     </TouchableOpacity>
+                                </View>
+                            )}
+
+                            {/* SHARED ITEMS SECTION */}
+                            {(sharedHabits.length > 0 || sharedGoals.length > 0) && !hasActiveFilters && activeFilter === 'all' && (
+                                <View style={{ marginBottom: 24 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                        <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2 }}>
+                                            SHARED WITH YOU
+                                        </Text>
+                                    </View>
+
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            {/* Shared Habits */}
+                                            {sharedHabits.map((item, index) => (
+                                                <VoidCard key={`sh-${index}`} glass={!theme.includes('trueDark')} intensity={30} style={{ width: 220, padding: 12, marginRight: 0 }}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                                        <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.surfaceTertiary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                                                            <Text style={{ fontSize: 16 }}>{item.habit.icon || '📝'}</Text>
+                                                        </View>
+                                                        <View style={{ flex: 1 }}>
+                                                            <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', fontFamily: 'Lexend' }} numberOfLines={1}>{item.habit.name}</Text>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                                                {item.owner.avatarUrl ? (
+                                                                    <Image source={{ uri: item.owner.avatarUrl }} style={{ width: 14, height: 14, borderRadius: 7, marginRight: 4 }} />
+                                                                ) : (
+                                                                    <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: colors.primary, marginRight: 4, alignItems: 'center', justifyContent: 'center' }}>
+                                                                        <Text style={{ color: '#fff', fontSize: 8, fontWeight: 'bold' }}>{item.owner.username.charAt(0).toUpperCase()}</Text>
+                                                                    </View>
+                                                                )}
+                                                                <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{item.owner.username}</Text>
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                    <TouchableOpacity
+                                                        style={{ backgroundColor: accentColor, borderRadius: 8, paddingVertical: 6, alignItems: 'center', marginTop: 4 }}
+                                                        onPress={() => {
+                                                            lightFeedback();
+                                                            Alert.alert(
+                                                                'Add Habit',
+                                                                `Add "${item.habit.name}" to your habits?`,
+                                                                [
+                                                                    { text: 'Cancel', style: 'cancel' },
+                                                                    {
+                                                                        text: 'Add',
+                                                                        onPress: async () => {
+                                                                            const newHabit = await addHabit({
+                                                                                name: item.habit.name,
+                                                                                icon: item.habit.icon,
+                                                                                category: item.habit.category,
+                                                                                taskDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                                                                            });
+                                                                            if (newHabit) {
+                                                                                Alert.alert('Success', 'Habit added!');
+                                                                                // Refresh shared list to remove added one? Or just keep it?
+                                                                                // Ideally we should call API to accept/remove from pending view.
+                                                                                setSharedHabits(prev => prev.filter(h => h.habit.id !== item.habit.id));
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                ]
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Add to list</Text>
+                                                    </TouchableOpacity>
+                                                </VoidCard>
+                                            ))}
+
+                                            {/* Shared Goals */}
+                                            {sharedGoals.map((item, index) => (
+                                                <VoidCard key={`sg-${index}`} glass={!theme.includes('trueDark')} intensity={30} style={{ width: 220, padding: 12, marginRight: 0 }}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                                        <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(16, 185, 129, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                                                            <Text style={{ fontSize: 16 }}>{item.goal.icon || '🎯'}</Text>
+                                                        </View>
+                                                        <View style={{ flex: 1 }}>
+                                                            <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', fontFamily: 'Lexend' }} numberOfLines={1}>{item.goal.name}</Text>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                                                {item.owner.avatarUrl ? (
+                                                                    <Image source={{ uri: item.owner.avatarUrl }} style={{ width: 14, height: 14, borderRadius: 7, marginRight: 4 }} />
+                                                                ) : (
+                                                                    <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: colors.primary, marginRight: 4, alignItems: 'center', justifyContent: 'center' }}>
+                                                                        <Text style={{ color: '#fff', fontSize: 8, fontWeight: 'bold' }}>{item.owner.username.charAt(0).toUpperCase()}</Text>
+                                                                    </View>
+                                                                )}
+                                                                <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{item.owner.username}</Text>
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                    <TouchableOpacity
+                                                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 6, alignItems: 'center', marginTop: 4 }}
+                                                        onPress={() => {
+                                                            lightFeedback();
+                                                            router.push({
+                                                                pathname: '/goal-detail',
+                                                                params: { goalId: item.goal.id }
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>View Goal</Text>
+                                                    </TouchableOpacity>
+                                                </VoidCard>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
                                 </View>
                             )}
 

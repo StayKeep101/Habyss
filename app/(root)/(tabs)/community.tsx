@@ -34,9 +34,7 @@ export default function CommunityScreen() {
     const [searchResults, setSearchResults] = useState<Friend[]>([]);
     const [searching, setSearching] = useState(false);
     const [friendsFeed, setFriendsFeed] = useState<FriendActivity[]>([]);
-    const [sharedHabits, setSharedHabits] = useState<any[]>([]);
-    const [sharedGoals, setSharedGoals] = useState<any[]>([]);
-    const [mySharedGoals, setMySharedGoals] = useState<any[]>([]);
+
     const [sentReactions, setSentReactions] = useState<Record<string, ReactionType>>({});
     const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
     const [showFriendStats, setShowFriendStats] = useState(false);
@@ -61,22 +59,17 @@ export default function CommunityScreen() {
             // Auto-repair: sync accepted requests to friendships table
             await FriendsService.repairFriendshipsFromAcceptedRequests();
 
-            const [friendsList, requests, rankings, feed, shared, sharedGoalsData, goalsIShared] = await Promise.all([
+            const [friendsList, requests, rankings, feed] = await Promise.all([
                 FriendsService.getFriendsWithProgress(),
                 FriendsService.getFriendRequests(),
                 FriendsService.getLeaderboard(leaderboardPeriod),
                 FriendsService.getFriendsFeed(),
-                FriendsService.getHabitsSharedWithMe(),
-                FriendsService.getGoalsSharedWithMe(),
-                FriendsService.getGoalsIShared(),
             ]);
             setFriends(friendsList);
             setFriendRequests(requests);
             setLeaderboard(rankings);
             setFriendsFeed(feed);
-            setSharedHabits(shared);
-            setSharedGoals(sharedGoalsData);
-            setMySharedGoals(goalsIShared);
+
             hasLoadedOnce.current = true;
         } catch (error) {
             console.error('Error loading community data:', error);
@@ -262,93 +255,7 @@ export default function CommunityScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Shared Habits */}
-                {sharedHabits.length > 0 && (
-                    <View style={{ marginBottom: 24 }}>
-                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SHARED WITH YOU</Text>
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            {sharedHabits.map((item, index) => (
-                                <View key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index < sharedHabits.length - 1 ? 12 : 0 }}>
-                                    <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
-                                        <Text>{item.habit.icon ? item.habit.icon : '📝'}</Text>
-                                    </View>
-                                    <View style={{ flex: 1, marginLeft: 12 }}>
-                                        <Text style={[styles.username, { color: colors.textPrimary }]}>{item.habit.name}</Text>
-                                        <Text style={[styles.email, { color: colors.textTertiary }]}>Shared by {item.owner.username}</Text>
-                                    </View>
-                                    {/* Clone Habit Button */}
-                                    <TouchableOpacity
-                                        style={[styles.actionBtn, { backgroundColor: accentColor }]}
-                                        onPress={() => {
-                                            mediumFeedback();
-                                            Alert.alert(
-                                                'Add Habit',
-                                                `Add "${item.habit.name}" to your habits?`,
-                                                [
-                                                    { text: 'Cancel', style: 'cancel' },
-                                                    {
-                                                        text: 'Add',
-                                                        onPress: async () => {
-                                                            const newHabit = await addHabit({
-                                                                name: item.habit.name,
-                                                                icon: item.habit.icon,
-                                                                category: item.habit.category,
-                                                                taskDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                                                            });
-                                                            if (newHabit) {
-                                                                Alert.alert('Success', 'Habit added!');
-                                                                loadData(); // Refresh
-                                                            }
-                                                        }
-                                                    }
-                                                ]
-                                            );
-                                        }}
-                                    >
-                                        <Ionicons name="add" size={18} color="#fff" />
-                                    </TouchableOpacity>
-                                </View>
-                            ))}
-                        </VoidCard>
-                    </View>
-                )}
 
-                {/* Goals I've Shared */}
-                {mySharedGoals.length > 0 && (
-                    <View style={{ marginBottom: 24 }}>
-                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>GOALS YOU'VE SHARED</Text>
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            {mySharedGoals.map((item, index) => (
-                                <View key={`my-shared-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: index < mySharedGoals.length - 1 ? 12 : 0 }}>
-                                    {/* Goal Icon */}
-                                    <View style={[styles.avatarLarge, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                                        <Text style={{ fontSize: 20 }}>{item.goal.icon || '🎯'}</Text>
-                                    </View>
-                                    <View style={{ flex: 1, marginLeft: 12 }}>
-                                        <Text style={[styles.friendName, { color: colors.textPrimary }]}>{item.goal.name}</Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                                            <Text style={[styles.email, { color: colors.textTertiary }]}>
-                                                Shared with {item.sharedWith.map((f: any) => f.username).join(', ')}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={[styles.actionBtn, { backgroundColor: accentColor }]}
-                                        onPress={() => {
-                                            mediumFeedback();
-                                            router.push({
-                                                pathname: '/goal-detail',
-                                                params: { goalId: item.goal.id }
-                                            });
-                                        }}
-                                    >
-                                        <Ionicons name="eye" size={18} color="#fff" />
-                                    </TouchableOpacity>
-                                </View>
-                            ))}
-                        </VoidCard>
-                    </View>
-                )}
 
 
                 {/* Friend Requests */}
