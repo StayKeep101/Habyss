@@ -87,15 +87,70 @@ export default function MobileLayout() {
     };
   }, []);
 
+  // --- Notification Deep Linking ---
   useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const url = response.notification.request.content.data?.url;
+      if (url && typeof url === 'string') {
+        // Use setTimeout to ensure navigation is ready
+        setTimeout(() => {
+          try {
+            const { router } = require('expo-router');
+            router.push(url);
+          } catch (e) {
+            console.warn('Deep link navigation failed:', e);
+          }
+        }, 500);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  // --- Live Activity & App State ---
+  useEffect(() => {
+    const updateLiveActivity = async () => {
+      try {
+        const { getHabits, getLastNDaysCompletions } = require('@/lib/habitsSQLite');
+        const { LiveActivityService } = require('@/lib/liveActivityService');
+
+        const habits = await getHabits();
+        const activeHabits = habits.filter((h: any) => !h.isGoal && !h.isArchived);
+        const todayCompletions = await getLastNDaysCompletions(1);
+        const completedToday = todayCompletions[0]?.completedIds?.length || 0;
+
+        // Find next uncompleted habit
+        const completedSet = new Set(todayCompletions[0]?.completedIds || []);
+        const nextHabit = activeHabits.find((h: any) => !completedSet.has(h.id));
+
+        await LiveActivityService.startDailyProgress({
+          completed: completedToday,
+          total: activeHabits.length,
+          topHabitName: nextHabit?.name,
+        });
+      } catch (e) {
+        // Live Activity is optional — don't break the app
+      }
+    };
+
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (nextAppState === 'active') {
-        // App became active
+        updateLiveActivity();
       }
+    });
+
+    // Also start on mount
+    updateLiveActivity();
+
+    // Listen for habit completions to update Live Activity
+    const { DeviceEventEmitter } = require('react-native');
+    const completionListener = DeviceEventEmitter.addListener('habit_completion_updated', () => {
+      updateLiveActivity();
     });
 
     return () => {
       subscription.remove();
+      completionListener.remove();
     };
   }, []);
 

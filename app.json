@@ -61,6 +61,12 @@
         }
       ],
       "expo-notifications",
+      [
+        "expo-live-activity",
+        {
+          "enablePushNotifications": true
+        }
+      ],
       "expo-router",
       [
         "@stripe/stripe-react-native",

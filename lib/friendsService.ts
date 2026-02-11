@@ -541,53 +541,29 @@ export const FriendsService = {
                 .single();
 
             const senderName = userProfile?.username || currentUser.email?.split('@')[0] || 'A friend';
+            const title = `${senderName} nudged you! 👋`;
+            const body = `${senderName} is checking in on your progress. Keep up the good work!`;
 
-            // Store nudge notification in Supabase for the friend
-            const { error: insertError } = await supabase
-                .from('notifications')
-                .insert({
+            // Store in-app notification AND send push in parallel
+            await Promise.all([
+                supabase.from('notifications').insert({
                     user_id: friendId,
                     type: 'nudge',
-                    title: `${senderName} nudged you! 👋`,
-                    body: `${senderName} is checking in on your progress. Keep up the good work!`,
+                    title,
+                    body,
                     from_user_id: currentUser.id,
                     read: false,
                     created_at: new Date().toISOString(),
-                });
-
-            if (insertError) {
-                // If notifications table doesn't exist, create it or fall back
-                console.log('Nudge notification insert error:', insertError);
-                // Fallback: try to send push notification
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('push_token')
-                    .eq('id', friendId)
-                    .single();
-
-                if (profile?.push_token) {
-                    console.log(`Sending push nudge to ${friendName}`);
-
-                    try {
-                        await fetch('https://exp.host/--/api/v2/push/send', {
-                            method: 'POST',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                to: profile.push_token,
-                                sound: 'default',
-                                title: `${senderName} nudged you! 👋`,
-                                body: "Time to check in on your habits!",
-                                data: { type: 'nudge', fromUserId: currentUser.id },
-                            }),
-                        });
-                    } catch (pushError) {
-                        console.error('Error sending push notification:', pushError);
-                    }
-                }
-            }
+                }),
+                supabase.functions.invoke('send-push-notification', {
+                    body: {
+                        userId: friendId,
+                        title,
+                        body,
+                        data: { type: 'nudge', fromUserId: currentUser.id, url: '/social' },
+                    },
+                }).catch(e => console.warn('Push send failed (non-critical):', e)),
+            ]);
 
             return true;
         } catch (e) {

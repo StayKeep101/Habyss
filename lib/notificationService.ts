@@ -2,6 +2,8 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { ThemeMode } from '@/constants/themeContext';
 import { supabase } from './supabase';
 
@@ -88,9 +90,41 @@ export class NotificationService {
     }
   }
 
-  static async registerForPushNotificationsAsync() {
-    // Just request permissions for now
-    return await this.requestPermissions();
+  static async registerForPushNotificationsAsync(): Promise<string | null> {
+    try {
+      if (!Device.isDevice) {
+        console.log('Push notifications require a physical device');
+        return null;
+      }
+
+      const hasPermission = await this.requestPermissions();
+      if (!hasPermission) return null;
+
+      // Get Expo push token
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      if (!projectId) {
+        console.warn('Missing EAS projectId — cannot register for push');
+        return null;
+      }
+
+      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+      const pushToken = tokenData.data;
+      console.log('Expo push token:', pushToken);
+
+      // Store to Supabase profiles
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ push_token: pushToken })
+          .eq('id', user.id);
+      }
+
+      return pushToken;
+    } catch (e) {
+      console.warn('Failed to register for push notifications:', e);
+      return null;
+    }
   }
 
   static async requestPermissions() {
