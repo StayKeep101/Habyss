@@ -61,12 +61,21 @@ export const GoalCard: React.FC<GoalCardProps> = ({
           activeOpacity={0.6}
           style={[styles.iconBox, {
             width: iconBoxSize, height: iconBoxSize,
-            backgroundColor: (goal.color || defaultColor) + '20'
+            backgroundColor: (goal.color || defaultColor) + '20',
+            overflow: 'hidden'
           }]}
         >
-          <Ionicons name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || defaultColor} />
+          {(goal.icon && (goal.icon.includes('/') || goal.icon.startsWith('file:'))) ? (
+            <Image
+              source={{ uri: goal.icon }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || defaultColor} />
+          )}
           {/* Subtle indicator that this is clickable for details */}
-          <View style={{ position: 'absolute', bottom: -4, right: -4, backgroundColor: colors.surface, borderRadius: 6, padding: 1 }}>
+          <View style={{ position: 'absolute', bottom: -4, right: -4, backgroundColor: colors.surface, borderRadius: 6, padding: 1, zIndex: 10 }}>
             <Ionicons name="open-outline" size={8} color={colors.textTertiary} />
           </View>
         </TouchableOpacity>

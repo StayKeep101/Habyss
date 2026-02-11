@@ -297,6 +297,13 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [suggestedSlots, setSuggestedSlots] = useState<{ start: Date; end: Date }[]>([]);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
+    // Wizard step state
+    const [currentStep, setCurrentStep] = useState(1);
+    const stepDirection = useSharedValue(0); // -1 = back, 1 = forward
+    const stepProgress = useSharedValue(0);
+    const STEP_LABELS = ['Basics', 'Schedule', 'Track'];
+    const TOTAL_STEPS = 3;
+
     // Active Overlay (Replacing nested modals)
     type OverlayType = 'none' | 'icon' | 'color' | 'time' | 'reminder' | 'ringtone' | 'measurement' | 'graph' | 'startDate' | 'templates';
     const [activeOverlay, setActiveOverlay] = useState<OverlayType>('none');
@@ -462,6 +469,31 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setShowPillarInfo(false);
         setTargetInputValue('1');
         setActiveOverlay('none');
+        setCurrentStep(1);
+    };
+
+    // --- WIZARD NAVIGATION ---
+    const goToStep = (step: number) => {
+        if (step < 1 || step > TOTAL_STEPS) return;
+        selectionFeedback();
+        stepDirection.value = step > currentStep ? 1 : -1;
+        setCurrentStep(step);
+    };
+
+    const handleNext = () => {
+        if (currentStep === 1 && !title.trim()) {
+            Alert.alert('Missing Title', 'Please enter a name for your habit.');
+            return;
+        }
+        if (currentStep < TOTAL_STEPS) {
+            goToStep(currentStep + 1);
+        } else {
+            handleSave();
+        }
+    };
+
+    const handleBack = () => {
+        if (currentStep > 1) goToStep(currentStep - 1);
     };
 
     // --- ACTIONS ---
@@ -470,10 +502,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             Alert.alert('Missing Title', 'Please enter a title for your habit.');
             return;
         }
-        if (!goalId) {
-            Alert.alert('Goal Required', 'Every habit must be linked to a goal.');
-            return;
-        }
+        // Goal is now optional
+
         // Validate weekly frequency has at least one day selected
         if (frequency === 'weekly' && selectedDays.length === 0) {
             Alert.alert('Select Days', 'Please select at least one day for your weekly habit.');
@@ -614,9 +644,24 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                         </View>
                                     )}
                                 </View>
-                                <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.iconButton, { backgroundColor: selectedColor, shadowColor: selectedColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 }]}>
-                                    <Ionicons name={saving ? "hourglass" : "checkmark"} size={20} color="#fff" />
-                                </TouchableOpacity>
+                                {/* Step Indicator */}
+                                <View style={{ alignItems: 'center' }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        {STEP_LABELS.map((label, idx) => (
+                                            <TouchableOpacity key={idx} onPress={() => goToStep(idx + 1)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                <View style={{
+                                                    width: currentStep === idx + 1 ? 24 : 8,
+                                                    height: 8,
+                                                    borderRadius: 4,
+                                                    backgroundColor: currentStep >= idx + 1 ? selectedColor : (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'),
+                                                }} />
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                    <Text style={{ fontSize: 10, color: isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)', marginTop: 4, fontFamily: 'Lexend_400Regular', letterSpacing: 0.5 }}>
+                                        Step {currentStep} of {TOTAL_STEPS} — {STEP_LABELS[currentStep - 1]}
+                                    </Text>
+                                </View>
                             </View>
 
                             {/* Accent Line */}
@@ -631,234 +676,313 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                                 <ScrollView
                                     style={{ flex: 1 }}
-                                    contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+                                    contentContainerStyle={{ padding: 20, paddingBottom: 180 }}
                                     showsVerticalScrollIndicator={false}
+                                    key={`step-${currentStep}`}
                                 >
-                                    {/* Main Input Card */}
-                                    <VoidCard glass intensity={25} style={{ padding: 20, borderRadius: 24, marginBottom: 16, borderColor: selectedColor + '20' }}>
-                                        <View style={styles.inputRow}>
-                                            <TouchableOpacity
-                                                onPress={() => { selectionFeedback(); setActiveOverlay('icon'); }}
-                                                style={{
-                                                    width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
-                                                    backgroundColor: selectedColor + '18', borderWidth: 1.5, borderColor: selectedColor + '40',
-                                                    shadowColor: selectedColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10,
-                                                }}
-                                            >
-                                                <Ionicons name={selectedIcon as any} size={26} color={selectedColor} />
-                                            </TouchableOpacity>
 
-                                            <TextInput
-                                                style={[styles.mainInput, { color: colors.text }]}
-                                                placeholder="What's the habit?"
-                                                placeholderTextColor={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'}
-                                                value={title}
-                                                onChangeText={setTitle}
-                                                autoFocus={false}
-                                            />
-
-                                            <TouchableOpacity
-                                                onPress={() => { selectionFeedback(); setActiveOverlay('color'); }}
-                                                style={{
-                                                    width: 30, height: 30, borderRadius: 15, backgroundColor: selectedColor,
-                                                    alignItems: 'center', justifyContent: 'center',
-                                                    borderWidth: 2, borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.15)',
-                                                    shadowColor: selectedColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6,
-                                                }}
-                                            >
-                                                <Ionicons name="color-palette" size={14} color="#fff" style={{ opacity: 0.9 }} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </VoidCard>
-
-                                    {/* Quick Templates Button */}
-                                    <TouchableOpacity
-                                        onPress={() => { selectionFeedback(); setActiveOverlay('templates'); }}
-                                        style={{
-                                            flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                                            paddingVertical: 12, paddingHorizontal: 16, marginBottom: 24,
-                                            backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.04)',
-                                            borderRadius: 14, borderWidth: 1,
-                                            borderColor: isLight ? 'rgba(0,0,0,0.06)' : selectedColor + '20',
-                                            gap: 8,
-                                        }}
-                                    >
-                                        <Ionicons name="sparkles" size={14} color={selectedColor} />
-                                        <Text style={{ color: selectedColor, fontSize: 12, fontWeight: '700', fontFamily: 'Lexend_600SemiBold', letterSpacing: 0.3 }}>Templates</Text>
-                                        <View style={{ width: 1, height: 12, backgroundColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)' }} />
-                                        <Text style={{ color: isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)', fontSize: 10, fontFamily: 'Lexend_400Regular' }}>30 preset habits</Text>
-                                    </TouchableOpacity>
-
-                                    {/* Settings Grid */}
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 }}>
-                                        <View style={{ flex: 1, height: 1, backgroundColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)' }} />
-                                        <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.3)', letterSpacing: 1.5, fontFamily: 'Lexend_600SemiBold' }}>SETUP</Text>
-                                        <View style={{ flex: 1, height: 1, backgroundColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)' }} />
-                                    </View>
-                                    <View style={styles.grid}>
-
-                                        {/* Goal Link */}
-                                        <View
-                                            style={[styles.gridItem, {
-                                                width: '100%',
-                                                backgroundColor: isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.03)',
-                                                borderColor: goalId ? (linkedGoal?.color || selectedColor) + '25' : effectiveBorderColor,
-                                            }]}
-                                        >
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                                    <Ionicons name="flag" size={12} color={linkedGoal?.color || selectedColor} />
-                                                    <Text style={[styles.gridLabel, { marginTop: 0, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>LINKED GOAL</Text>
-                                                </View>
-                                                <View style={{ backgroundColor: '#EF444420', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                                                    <Text style={{ fontSize: 9, color: '#EF4444', fontWeight: '700' }}>REQUIRED</Text>
-                                                </View>
-                                            </View>
-                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                                                {availableGoals.map(g => (
-                                                    <TouchableOpacity
-                                                        key={g.id}
-                                                        onPress={() => { selectionFeedback(); setGoalId(g.id); }}
-                                                        style={[
-                                                            {
-                                                                flexDirection: 'row',
-                                                                alignItems: 'center',
-                                                                paddingHorizontal: 14,
-                                                                paddingVertical: 9,
-                                                                borderRadius: 14,
-                                                                backgroundColor: goalId === g.id ? g.color + '18' : (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.04)'),
-                                                                borderWidth: 1.5,
-                                                                borderColor: goalId === g.id ? g.color + '50' : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'),
-                                                                gap: 7,
-                                                            }
-                                                        ]}
-                                                    >
-                                                        <Ionicons name={g.icon as any} size={14} color={goalId === g.id ? g.color : (isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)')} />
-                                                        <Text style={{ color: goalId === g.id ? g.color : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)'), fontSize: 12, fontWeight: '600', fontFamily: 'Lexend_500Medium' }}>{g.name}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                                {availableGoals.length === 0 && (
-                                                    <Text style={{ color: colors.textTertiary, fontSize: 12, fontStyle: 'italic' }}>No goals yet — create one first</Text>
-                                                )}
-                                            </ScrollView>
-                                        </View>
-
-                                        {/* Life Pillar / Category Selection */}
-                                        <View style={[styles.gridItem, { width: '100%', backgroundColor: isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.03)', borderColor: effectiveBorderColor }]}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                                    <Ionicons name="compass" size={12} color={LIFE_PILLARS.find(p => p.id === lifePillar)?.color || selectedColor} />
-                                                    <Text style={[styles.gridLabel, { marginTop: 0, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>LIFE PILLAR</Text>
-                                                </View>
+                                    {/* ═══════════════ STEP 1: BASICS ═══════════════ */}
+                                    {currentStep === 1 && (<>
+                                        {/* Main Input Card */}
+                                        <VoidCard glass intensity={25} style={{ padding: 20, borderRadius: 24, marginBottom: 16, borderColor: selectedColor + '20' }}>
+                                            <View style={styles.inputRow}>
                                                 <TouchableOpacity
-                                                    onPress={() => { selectionFeedback(); setShowPillarInfo(!showPillarInfo); }}
-                                                    style={{ padding: 4 }}
+                                                    onPress={() => { selectionFeedback(); setActiveOverlay('icon'); }}
+                                                    style={{
+                                                        width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+                                                        backgroundColor: selectedColor + '18', borderWidth: 1.5, borderColor: selectedColor + '40',
+                                                        shadowColor: selectedColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10,
+                                                    }}
                                                 >
-                                                    <Ionicons name="information-circle-outline" size={16} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
+                                                    <Ionicons name={selectedIcon as any} size={26} color={selectedColor} />
+                                                </TouchableOpacity>
+
+                                                <TextInput
+                                                    style={[styles.mainInput, { color: colors.text }]}
+                                                    placeholder="What's the habit?"
+                                                    placeholderTextColor={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'}
+                                                    value={title}
+                                                    onChangeText={setTitle}
+                                                    autoFocus={false}
+                                                />
+
+                                                <TouchableOpacity
+                                                    onPress={() => { selectionFeedback(); setActiveOverlay('color'); }}
+                                                    style={{
+                                                        width: 30, height: 30, borderRadius: 15, backgroundColor: selectedColor,
+                                                        alignItems: 'center', justifyContent: 'center',
+                                                        borderWidth: 2, borderColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.15)',
+                                                        shadowColor: selectedColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6,
+                                                    }}
+                                                >
+                                                    <Ionicons name="color-palette" size={14} color="#fff" style={{ opacity: 0.9 }} />
                                                 </TouchableOpacity>
                                             </View>
+                                        </VoidCard>
 
-                                            {/* Info Tooltip */}
-                                            {showPillarInfo && (
-                                                <View style={{ backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginTop: 10, marginBottom: 4, borderWidth: 1, borderColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)' }}>
-                                                    <Text style={{ color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)', fontSize: 10, marginBottom: 10, fontWeight: '700', letterSpacing: 0.5 }}>6 Pillars of Life Balance</Text>
-                                                    {LIFE_PILLARS.map(p => (
-                                                        <View key={p.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
-                                                            <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: p.color + '15', alignItems: 'center', justifyContent: 'center', marginRight: 8, marginTop: 1 }}>
-                                                                <Ionicons name={p.icon as any} size={9} color={p.color} />
+                                        {/* Quick Templates Button */}
+                                        <TouchableOpacity
+                                            onPress={() => { selectionFeedback(); setActiveOverlay('templates'); }}
+                                            style={{
+                                                flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                                                paddingVertical: 12, paddingHorizontal: 16, marginBottom: 24,
+                                                backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary,
+                                                borderRadius: 14, borderWidth: 1,
+                                                borderColor: isLight ? 'rgba(0,0,0,0.06)' : selectedColor + '20',
+                                                gap: 8,
+                                            }}
+                                        >
+                                            <Ionicons name="sparkles" size={14} color={selectedColor} />
+                                            <Text style={{ color: selectedColor, fontSize: 12, fontWeight: '700', fontFamily: 'Lexend_600SemiBold', letterSpacing: 0.3 }}>Templates</Text>
+                                            <View style={{ width: 1, height: 12, backgroundColor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)' }} />
+                                            <Text style={{ color: isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)', fontSize: 10, fontFamily: 'Lexend_400Regular' }}>30 preset habits</Text>
+                                        </TouchableOpacity>
+
+                                        {/* Configuration Section */}
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 }}>
+                                            <View style={{ flex: 1, height: 1, backgroundColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)' }} />
+                                            <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.3)', letterSpacing: 1.5, fontFamily: 'Lexend_600SemiBold' }}>CONFIGURATION</Text>
+                                            <View style={{ flex: 1, height: 1, backgroundColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)' }} />
+                                        </View>
+                                        <View style={styles.grid}>
+
+                                            {/* Goal Link */}
+                                            <View
+                                                style={[styles.gridItem, {
+                                                    width: '100%',
+                                                    backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary,
+                                                    borderColor: goalId ? (linkedGoal?.color || selectedColor) + '25' : effectiveBorderColor,
+                                                }]}
+                                            >
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                        <Ionicons name="flag" size={12} color={linkedGoal?.color || selectedColor} />
+                                                        <Text style={[styles.gridLabel, { marginTop: 0, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>LINKED GOAL</Text>
+                                                    </View>
+                                                    <View style={{ backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                                                        <Text style={{ fontSize: 9, color: isLight ? colors.textTertiary : 'rgba(255,255,255,0.5)', fontWeight: '700' }}>OPTIONAL</Text>
+                                                    </View>
+                                                </View>
+                                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                                                    {availableGoals.map(g => (
+                                                        <TouchableOpacity
+                                                            key={g.id}
+                                                            onPress={() => { selectionFeedback(); setGoalId(g.id); }}
+                                                            style={[
+                                                                {
+                                                                    flexDirection: 'row',
+                                                                    alignItems: 'center',
+                                                                    paddingHorizontal: 14,
+                                                                    paddingVertical: 9,
+                                                                    borderRadius: 14,
+                                                                    backgroundColor: goalId === g.id ? g.color + '18' : (isLight ? colors.surfaceSecondary : colors.surfaceTertiary),
+                                                                    borderWidth: 1.5,
+                                                                    borderColor: goalId === g.id ? g.color + '50' : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'),
+                                                                    gap: 7,
+                                                                }
+                                                            ]}
+                                                        >
+                                                            <Ionicons name={g.icon as any} size={14} color={goalId === g.id ? g.color : (isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)')} />
+                                                            <Text style={{ color: goalId === g.id ? g.color : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)'), fontSize: 12, fontWeight: '600', fontFamily: 'Lexend_500Medium' }}>{g.name}</Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                    {availableGoals.length === 0 && (
+                                                        <Text style={{ color: colors.textTertiary, fontSize: 12, fontStyle: 'italic' }}>No goals yet — create one first</Text>
+                                                    )}
+                                                </ScrollView>
+                                            </View>
+
+                                            {/* Life Pillar / Category Selection */}
+                                            <View style={[styles.gridItem, { width: '100%', backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor }]}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                        <Ionicons name="compass" size={12} color={LIFE_PILLARS.find(p => p.id === lifePillar)?.color || selectedColor} />
+                                                        <Text style={[styles.gridLabel, { marginTop: 0, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>LIFE PILLAR</Text>
+                                                    </View>
+                                                    <TouchableOpacity
+                                                        onPress={() => { selectionFeedback(); setShowPillarInfo(!showPillarInfo); }}
+                                                        style={{ padding: 4 }}
+                                                    >
+                                                        <Ionicons name="information-circle-outline" size={16} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
+                                                    </TouchableOpacity>
+                                                </View>
+
+                                                {/* Info Tooltip */}
+                                                {showPillarInfo && (
+                                                    <View style={{ backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginTop: 10, marginBottom: 4, borderWidth: 1, borderColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)' }}>
+                                                        <Text style={{ color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)', fontSize: 10, marginBottom: 10, fontWeight: '700', letterSpacing: 0.5 }}>6 Pillars of Life Balance</Text>
+                                                        {LIFE_PILLARS.map(p => (
+                                                            <View key={p.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
+                                                                <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: p.color + '15', alignItems: 'center', justifyContent: 'center', marginRight: 8, marginTop: 1 }}>
+                                                                    <Ionicons name={p.icon as any} size={9} color={p.color} />
+                                                                </View>
+                                                                <View style={{ flex: 1 }}>
+                                                                    <Text style={{ color: p.color, fontSize: 10, fontWeight: '700' }}>{p.fullName}</Text>
+                                                                    <Text style={{ color: isLight ? colors.textTertiary : 'rgba(255,255,255,0.3)', fontSize: 9 }}>{p.description}</Text>
+                                                                </View>
                                                             </View>
-                                                            <View style={{ flex: 1 }}>
-                                                                <Text style={{ color: p.color, fontSize: 10, fontWeight: '700' }}>{p.fullName}</Text>
-                                                                <Text style={{ color: isLight ? colors.textTertiary : 'rgba(255,255,255,0.3)', fontSize: 9 }}>{p.description}</Text>
-                                                            </View>
-                                                        </View>
+                                                        ))}
+                                                    </View>
+                                                )}
+
+                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                                                    {LIFE_PILLARS.map(pillar => (
+                                                        <TouchableOpacity
+                                                            key={pillar.id}
+                                                            onPress={() => { selectionFeedback(); setLifePillar(pillar.id); }}
+                                                            style={[
+                                                                {
+                                                                    flexDirection: 'row',
+                                                                    alignItems: 'center',
+                                                                    paddingHorizontal: 14,
+                                                                    paddingVertical: 9,
+                                                                    borderRadius: 14,
+                                                                    backgroundColor: lifePillar === pillar.id ? pillar.color + '18' : (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.04)'),
+                                                                    borderWidth: 1.5,
+                                                                    borderColor: lifePillar === pillar.id ? pillar.color + '50' : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'),
+                                                                    gap: 6,
+                                                                }
+                                                            ]}
+                                                        >
+                                                            <Ionicons name={pillar.icon as any} size={13} color={lifePillar === pillar.id ? pillar.color : (isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)')} />
+                                                            <Text style={{ color: lifePillar === pillar.id ? pillar.color : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)'), fontSize: 11, fontWeight: '600', fontFamily: 'Lexend_500Medium' }}>
+                                                                {pillar.label}
+                                                            </Text>
+                                                        </TouchableOpacity>
                                                     ))}
                                                 </View>
-                                            )}
+                                            </View>
+                                        </View>
+                                    </>)}
 
-                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                                                {LIFE_PILLARS.map(pillar => (
+                                    {/* ═══════════════ STEP 2: SCHEDULE ═══════════════ */}
+                                    {currentStep === 2 && (<>
+                                        <View style={{ marginBottom: 20 }}>
+                                            <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12, fontFamily: 'Lexend_600SemiBold' }}>FREQUENCY</Text>
+                                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                                {(['daily', 'weekly', 'monthly'] as HabitFrequency[]).map(f => (
                                                     <TouchableOpacity
-                                                        key={pillar.id}
-                                                        onPress={() => { selectionFeedback(); setLifePillar(pillar.id); }}
-                                                        style={[
-                                                            {
-                                                                flexDirection: 'row',
-                                                                alignItems: 'center',
-                                                                paddingHorizontal: 14,
-                                                                paddingVertical: 9,
-                                                                borderRadius: 14,
-                                                                backgroundColor: lifePillar === pillar.id ? pillar.color + '18' : (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.04)'),
-                                                                borderWidth: 1.5,
-                                                                borderColor: lifePillar === pillar.id ? pillar.color + '50' : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'),
-                                                                gap: 6,
-                                                            }
-                                                        ]}
+                                                        key={f}
+                                                        onPress={() => { selectionFeedback(); setFrequency(f); }}
+                                                        style={[{ flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: frequency === f ? selectedColor + '18' : (isLight ? colors.surfaceSecondary : colors.surfaceTertiary), borderWidth: 1.5, borderColor: frequency === f ? selectedColor + '50' : effectiveBorderColor }]}
                                                     >
-                                                        <Ionicons name={pillar.icon as any} size={13} color={lifePillar === pillar.id ? pillar.color : (isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)')} />
-                                                        <Text style={{ color: lifePillar === pillar.id ? pillar.color : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)'), fontSize: 11, fontWeight: '600', fontFamily: 'Lexend_500Medium' }}>
-                                                            {pillar.label}
-                                                        </Text>
+                                                        <Ionicons name={f === 'daily' ? 'sunny' : f === 'weekly' ? 'calendar' : 'calendar-outline'} size={18} color={frequency === f ? selectedColor : (isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)')} />
+                                                        <Text style={{ color: frequency === f ? selectedColor : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)'), fontSize: 11, fontWeight: '600', marginTop: 4, fontFamily: 'Lexend_500Medium', textTransform: 'capitalize' }}>{f}</Text>
                                                     </TouchableOpacity>
                                                 ))}
                                             </View>
                                         </View>
-
-                                        {/* Frequency Section REMOVED */}
-
-                                        {/* Time Picker Trigger */}
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setActiveOverlay('time'); }}
-                                            style={[styles.gridItem, { backgroundColor: colors.surfaceSecondary, borderColor: effectiveBorderColor }]}
-                                        >
-                                            <Ionicons name="time-outline" size={20} color={useFreeTime ? '#8B5CF6' : selectedColor} />
-                                            <Text style={[styles.gridValue, { color: colors.text }]}>{useFreeTime ? 'Anytime' : `${formatTime(startTime)}`}</Text>
-                                            <Text style={[styles.gridLabel, { color: colors.textTertiary }]}>SCHEDULE</Text>
+                                        {frequency === 'weekly' && (
+                                            <View style={{ marginBottom: 20 }}>
+                                                <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12, fontFamily: 'Lexend_600SemiBold' }}>REPEAT ON</Text>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                                    {WEEKDAYS.map(day => (
+                                                        <TouchableOpacity key={day.id} onPress={() => toggleDay(day.id)}
+                                                            style={[{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: selectedDays.includes(day.id) ? selectedColor + '20' : (isLight ? colors.surfaceSecondary : colors.surfaceTertiary), borderWidth: 1.5, borderColor: selectedDays.includes(day.id) ? selectedColor : effectiveBorderColor }]}>
+                                                            <Text style={{ color: selectedDays.includes(day.id) ? selectedColor : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)'), fontSize: 11, fontWeight: '700' }}>{day.label.charAt(0)}</Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                                <Text style={{ color: isLight ? colors.textTertiary : 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>{repeatText}</Text>
+                                            </View>
+                                        )}
+                                        {frequency === 'monthly' && (
+                                            <View style={{ marginBottom: 20 }}>
+                                                <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12, fontFamily: 'Lexend_600SemiBold' }}>DAY OF MONTH</Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                                    <TouchableOpacity onPress={() => setMonthDay(Math.max(1, monthDay - 1))} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : colors.surfaceTertiary, alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Ionicons name="remove" size={20} color={colors.text} />
+                                                    </TouchableOpacity>
+                                                    <Text style={{ fontSize: 28, fontWeight: '900', color: selectedColor, fontFamily: 'Lexend', minWidth: 40, textAlign: 'center' }}>{monthDay}</Text>
+                                                    <TouchableOpacity onPress={() => setMonthDay(Math.min(31, monthDay + 1))} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : colors.surfaceTertiary, alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Ionicons name="add" size={20} color={colors.text} />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        )}
+                                        <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('time'); }}
+                                            style={[styles.gridItem, { width: '100%', backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                <Ionicons name="time-outline" size={20} color={useFreeTime ? '#8B5CF6' : selectedColor} />
+                                                <View>
+                                                    <Text style={[styles.gridLabel, { marginTop: 0, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>TIME WINDOW</Text>
+                                                    <Text style={[styles.gridValue, { color: colors.text }]}>{useFreeTime ? 'Anytime' : `${formatTime(startTime)} – ${formatTime(endTime)}`}</Text>
+                                                </View>
+                                            </View>
+                                            <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
                                         </TouchableOpacity>
+                                        <View style={[styles.gridItem, { width: '100%', backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor }]}>
+                                            <Text style={[styles.gridLabel, { marginTop: 0, marginBottom: 8, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>START DATE</Text>
+                                            <DateTimePicker value={habitStartDate} mode="date" display="compact" onChange={(_, d) => d && setHabitStartDate(d)} minimumDate={new Date()} themeVariant={isLight ? 'light' : 'dark'} />
+                                        </View>
+                                    </>)}
 
-                                        {/* Reminder Trigger */}
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setActiveOverlay('reminder'); }}
-                                            style={[styles.gridItem, { backgroundColor: colors.surfaceSecondary, borderColor: effectiveBorderColor }]}
-                                        >
-                                            <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={20} color={reminderEnabled ? selectedColor : colors.textTertiary} />
-                                            <Text style={[styles.gridValue, { color: colors.text }]}>{reminderEnabled ? formatTime(reminderTime) : 'Off'}</Text>
-                                            <Text style={[styles.gridLabel, { color: colors.textTertiary }]}>REMINDERS</Text>
+                                    {/* ═══════════════ STEP 3: TRACK ═══════════════ */}
+                                    {currentStep === 3 && (<>
+                                        <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('measurement'); }}
+                                            style={[styles.gridItem, { width: '100%', backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                <Ionicons name="scale-outline" size={20} color={selectedColor} />
+                                                <View>
+                                                    <Text style={[styles.gridLabel, { marginTop: 0, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>DAILY TARGET</Text>
+                                                    <Text style={[styles.gridValue, { color: colors.text }]}>{measurementValue} {UNITS.find(u => u.id === measurementUnit)?.label}</Text>
+                                                </View>
+                                            </View>
+                                            <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
                                         </TouchableOpacity>
-
-                                        {/* Graph Style */}
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setActiveOverlay('graph'); }}
-                                            style={[styles.gridItem, { backgroundColor: colors.surfaceSecondary, borderColor: effectiveBorderColor }]}
-                                        >
-                                            <Ionicons name={GRAPH_STYLES.find(g => g.id === graphStyle)?.icon as any} size={20} color={selectedColor} />
-                                            <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={1}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
-                                            <Text style={[styles.gridLabel, { color: colors.textTertiary }]}>VISUALIZATION</Text>
+                                        <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('reminder'); }}
+                                            style={[styles.gridItem, { width: '100%', backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={20} color={reminderEnabled ? selectedColor : colors.textTertiary} />
+                                                <View>
+                                                    <Text style={[styles.gridLabel, { marginTop: 0, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>REMINDERS</Text>
+                                                    <Text style={[styles.gridValue, { color: colors.text }]}>{reminderEnabled ? formatTime(reminderTime) : 'Off'}</Text>
+                                                </View>
+                                            </View>
+                                            <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
                                         </TouchableOpacity>
-
-                                        {/* Measurement */}
-                                        <TouchableOpacity
-                                            onPress={() => { selectionFeedback(); setActiveOverlay('measurement'); }}
-                                            style={[styles.gridItem, { backgroundColor: colors.surfaceSecondary, borderColor: effectiveBorderColor }]}
-                                        >
-                                            <Ionicons name="scale-outline" size={20} color={selectedColor} />
-                                            <Text style={[styles.gridValue, { color: colors.text }]}>{measurementValue} {UNITS.find(u => u.id === measurementUnit)?.label}</Text>
-                                            <Text style={[styles.gridLabel, { color: colors.textTertiary }]}>TARGET</Text>
+                                        <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('graph'); }}
+                                            style={[styles.gridItem, { width: '100%', backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                <Ionicons name={GRAPH_STYLES.find(g => g.id === graphStyle)?.icon as any} size={20} color={selectedColor} />
+                                                <View>
+                                                    <Text style={[styles.gridLabel, { marginTop: 0, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>VISUALIZATION</Text>
+                                                    <Text style={[styles.gridValue, { color: colors.text }]} numberOfLines={1}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
+                                                </View>
+                                            </View>
+                                            <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
                                         </TouchableOpacity>
+                                    </>)}
 
-                                    </View>
                                 </ScrollView>
+
+                                {/* ═══════ BOTTOM NAVIGATION BAR ═══════ */}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 32, borderTopWidth: 1, borderTopColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', gap: 12 }}>
+                                    {currentStep > 1 ? (
+                                        <TouchableOpacity onPress={handleBack} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 16, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)' }}>
+                                            <Ionicons name="arrow-back" size={18} color={isLight ? colors.textSecondary : 'rgba(255,255,255,0.6)'} />
+                                            <Text style={{ color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: '600', fontFamily: 'Lexend_500Medium' }}>Back</Text>
+                                        </TouchableOpacity>
+                                    ) : <View style={{ flex: 1 }} />}
+                                    <TouchableOpacity onPress={handleNext} disabled={saving}
+                                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16, borderRadius: 16, backgroundColor: selectedColor, shadowColor: selectedColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 }}>
+                                        {saving ? (
+                                            <ActivityIndicator color="#fff" size="small" />
+                                        ) : (<>
+                                            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', fontFamily: 'Lexend_600SemiBold' }}>
+                                                {currentStep === TOTAL_STEPS ? (habitToEdit ? 'Save Changes' : 'Create Habit') : 'Continue'}
+                                            </Text>
+                                            {currentStep < TOTAL_STEPS && <Ionicons name="arrow-forward" size={18} color="#fff" />}
+                                        </>)}
+                                    </TouchableOpacity>
+                                </View>
                             </KeyboardAvoidingView>
                         </SafeAreaView>
 
                         {/* --- OVERLAYS (Simulated Modals) --- */}
-                        {/* Dimmer for overlays */}
                         {activeOverlay !== 'none' && (
-                            <Animated.View
-                                entering={FadeIn.duration(200)}
-                                exiting={FadeOut.duration(200)}
-                                style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 10 }]}
-                            >
+                            <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)}
+                                style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 10 }]}>
                                 <Pressable style={StyleSheet.absoluteFill} onPress={() => setActiveOverlay('none')} />
                             </Animated.View>
                         )}
@@ -868,10 +992,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* ICON OVERLAY */}
                             {activeOverlay === 'icon' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { height: height * 0.7, backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { height: height * 0.7, backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}>
                                     <OverlayHeader title="Choose Icon" onClose={() => { setActiveOverlay('none'); setIconSearch(''); }} />
                                     {/* Search Bar */}
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, marginBottom: 16 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderRadius: 12, paddingHorizontal: 12, marginBottom: 16 }}>
                                         <Ionicons name="search" size={18} color={colors.textTertiary} />
                                         <TextInput
                                             style={{ flex: 1, color: colors.text, paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }}
@@ -893,7 +1017,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                 key={icon}
                                                 onPress={() => { selectionFeedback(); setSelectedIcon(icon); setActiveOverlay('none'); setIconSearch(''); }}
                                                 style={[styles.iconOption, {
-                                                    backgroundColor: selectedIcon === icon ? selectedColor + '20' : (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)'),
+                                                    backgroundColor: selectedIcon === icon ? selectedColor + '20' : (isLight ? colors.surfaceSecondary : colors.surfaceTertiary),
                                                     borderColor: selectedIcon === icon ? selectedColor : effectiveBorderColor
                                                 }]}
                                             >
@@ -906,7 +1030,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* COLOR OVERLAY */}
                             {activeOverlay === 'color' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8, backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8, backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}>
                                     <OverlayHeader title="Choose Color" onClose={() => setActiveOverlay('none')} />
 
                                     {/* Selected Color Preview */}
@@ -966,7 +1090,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* TIME OVERLAY */}
                             {activeOverlay === 'time' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}>
                                     <OverlayHeader title="Set Schedule" onClose={() => setActiveOverlay('none')} />
 
                                     {/* Time Pickers - Always Visible */}
@@ -1085,7 +1209,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* REMINDER OVERLAY */}
                             {activeOverlay === 'reminder' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8, backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8, backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}>
                                     <OverlayHeader title="Notifications" onClose={() => setActiveOverlay('none')} />
 
                                     {/* Toggle */}
@@ -1186,13 +1310,13 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* GRAPH OVERLAY */}
                             {activeOverlay === 'graph' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}>
                                     <OverlayHeader title="Graph Style" onClose={() => setActiveOverlay('none')} />
                                     {GRAPH_STYLES.map(g => (
                                         <TouchableOpacity
                                             key={g.id}
                                             onPress={() => { selectionFeedback(); setGraphStyle(g.id); setActiveOverlay('none'); }}
-                                            style={[styles.listItem, { backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}
+                                            style={[styles.listItem, { backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor }, graphStyle === g.id && { backgroundColor: selectedColor + '20' }]}
                                         >
                                             <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : colors.textSecondary} />
                                             <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : colors.text }]}>{g.label}</Text>
@@ -1209,7 +1333,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     <Animated.View
                                         entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))}
                                         exiting={SlideOutDown.duration(250)}
-                                        style={[styles.overlayPanel, { backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}
+                                        style={[styles.overlayPanel, { backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}
                                         onStartShouldSetResponder={() => true}
                                     >
                                         <OverlayHeader title="Target & Units" onClose={() => { Keyboard.dismiss(); setActiveOverlay('none'); }} />
@@ -1308,7 +1432,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
                             {/* TEMPLATES OVERLAY */}
                             {activeOverlay === 'templates' && (
-                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: '85%', backgroundColor: isLight ? '#FFFFFF' : '#0f1218' }]}>
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: '85%', backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}>
                                     <OverlayHeader title="Quick Templates" onClose={() => setActiveOverlay('none')} />
                                     <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
                                         {LIFE_PILLARS.map(pillar => (
@@ -1333,7 +1457,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                                 setMeasurementUnit(habit.unit);
                                                                 setActiveOverlay('none');
                                                             }}
-                                                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderRadius: 10, borderWidth: 1, borderColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }}
+                                                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderRadius: 10, borderWidth: 1, borderColor: effectiveBorderColor }}
                                                         >
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                                                 <Ionicons name={habit.icon as any} size={18} color={pillar.color} />

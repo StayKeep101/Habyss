@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, useWindowDimensions, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -173,8 +173,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     };
 
     const progress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
-    const circumference = 2 * Math.PI * 52;
-    const strokeDashoffset = circumference - (progress / 100) * circumference;
+
 
     const primaryColor = accentColor;
     const gradientColors: readonly [string, string] = accentColors;
@@ -187,13 +186,24 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         }
     };
 
+    const { width, height } = useWindowDimensions();
+    const isSmallScreen = width < 380 || height < 700;
+
+    // Responsive Base Sizes
+    const BASE_SIZE = isSmallScreen ? 140 : 180;
+    const BIG_SIZE = Math.min(width * 0.7, 260); // Max 260 or 70% width
+
+    const timerSize = fullSizeRunning ? BIG_SIZE : BASE_SIZE;
+    const strokeWidth = fullSizeRunning ? 15 : 10;
+    const radius = (timerSize / 2) - strokeWidth;
+    const circumference = 2 * Math.PI * radius;
+
     const Wrapper = noCard ? View : VoidCard;
     const noCardStyle = { alignItems: 'center' as const, width: '100%' as `${number}%` };
     const wrapperProps = noCard ? { style: noCardStyle } : { style: styles.container };
 
     return (
         <Wrapper {...wrapperProps}>
-            {/* Active Timer Display (Replaces Idle Settings & Big Timer) */}
             {/* Active Timer Display (Replaces Idle Settings & Big Timer) */}
             {/* Show ActiveSessionDisplay ONLY if NOT fullSizeRunning */}
             {((state === 'running' || state === 'paused') && !fullSizeRunning) ? (
@@ -215,7 +225,12 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                     />
                 </View>
             ) : (
-                <>
+                <ScrollView
+                    contentContainerStyle={{ alignItems: 'center', paddingBottom: 20 }}
+                    showsVerticalScrollIndicator={false}
+                    scrollEnabled={isSmallScreen}
+                    style={{ maxHeight: fullSizeRunning ? undefined : 400 }} // Limit height if not full screen to avoid taking over
+                >
                     {/* Header - Fixed */}
                     {!noCard && (
                         <View style={styles.header}>
@@ -288,12 +303,12 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                         styles.timerContainer,
                         pulseStyle,
                         {
-                            width: fullSizeRunning ? 260 : 180,
-                            height: fullSizeRunning ? 260 : 180,
-                            marginVertical: fullSizeRunning ? 40 : 0
+                            width: timerSize,
+                            height: timerSize,
+                            marginVertical: fullSizeRunning ? (isSmallScreen ? 20 : 40) : 0
                         }
                     ]}>
-                        <Svg width="100%" height="100%" viewBox="0 0 200 200" style={styles.progressRing}>
+                        <Svg width="100%" height="100%" viewBox={`0 0 ${timerSize} ${timerSize}`} style={styles.progressRing}>
                             <Defs>
                                 <SvgGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
                                     <Stop offset="0%" stopColor={accentColors[0]} />
@@ -303,36 +318,36 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
                             {/* Outer Glow / Track */}
                             <Circle
-                                cx="100"
-                                cy="100"
-                                r="90"
+                                cx={timerSize / 2}
+                                cy={timerSize / 2}
+                                r={radius}
                                 stroke={isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)'}
-                                strokeWidth={fullSizeRunning ? "15" : "10"}
+                                strokeWidth={strokeWidth}
                                 fill="transparent"
                             />
 
                             {/* Gradient Progress Arc */}
                             <Circle
-                                cx="100"
-                                cy="100"
-                                r="90"
+                                cx={timerSize / 2}
+                                cy={timerSize / 2}
+                                r={radius}
                                 stroke="url(#grad)" // Use gradient if SVG supports, otherwise primary
-                                strokeWidth={fullSizeRunning ? "15" : "10"}
+                                strokeWidth={strokeWidth}
                                 fill="transparent"
-                                strokeDasharray={2 * Math.PI * 90}
-                                strokeDashoffset={(2 * Math.PI * 90) - (progress / 100) * (2 * Math.PI * 90)}
+                                strokeDasharray={circumference}
+                                strokeDashoffset={circumference - (progress / 100) * circumference}
                                 strokeLinecap="round"
-                                transform="rotate(-90 100 100)"
+                                transform={`rotate(-90 ${timerSize / 2} ${timerSize / 2})`}
                             />
 
                             {/* Dot Indicator */}
                             {state !== 'idle' && (
                                 <Circle
-                                    cx="100"
-                                    cy="10"
+                                    cx={timerSize / 2}
+                                    cy={strokeWidth / 2} // Top center relative
                                     r={fullSizeRunning ? 8 : 6}
                                     fill={accentColors[1]}
-                                    transform={`rotate(${(progress / 100) * 360} 100 100)`}
+                                    transform={`rotate(${(progress / 100) * 360} ${timerSize / 2} ${timerSize / 2})`}
                                     stroke={isLight ? '#fff' : '#000'}
                                     strokeWidth="2"
                                 />
@@ -344,7 +359,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                                 styles.timeText,
                                 {
                                     color: colors.textPrimary,
-                                    fontSize: fullSizeRunning ? 64 : 48,
+                                    fontSize: fullSizeRunning ? (isSmallScreen ? 48 : 64) : 42,
                                     fontWeight: '900'
                                 }
                             ]}>
@@ -409,7 +424,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                             </View>
                         ) : null}
                     </View>
-                </>
+                </ScrollView>
             )}
 
             {/* Session Stats (Always Visible or maybe hide when running if ActiveSessionDisplay shows logic?) 

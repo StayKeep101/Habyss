@@ -638,17 +638,22 @@ export const FriendsService = {
                 .in('habit_id', habitIds)
                 .gte('date', startDate);
 
-            // Calculate completions per user
+            // Calculate completions per user (deduplicated by habit_id + date)
             const habitToUser: Record<string, string> = {};
             allHabits?.forEach(h => { habitToUser[h.id] = h.user_id; });
 
-            const userCompletionCount: Record<string, number> = {};
+            const userCompletionSet: Record<string, Set<string>> = {};
             allCompletions?.forEach(c => {
                 const userId = habitToUser[c.habit_id];
                 if (userId) {
-                    userCompletionCount[userId] = (userCompletionCount[userId] || 0) + 1;
+                    if (!userCompletionSet[userId]) userCompletionSet[userId] = new Set();
+                    userCompletionSet[userId].add(`${c.habit_id}_${c.date}`);
                 }
             });
+
+            // Calculate days in period for "total possible" calculation
+            const startDateObj = new Date(startDate);
+            const daysInPeriod = Math.max(1, Math.ceil((now.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24)));
 
             // Get current user's profile info
             const { data: userProfile } = await supabase
@@ -657,25 +662,41 @@ export const FriendsService = {
                 .eq('id', currentUser.id)
                 .single();
 
-            // Build all users list with completion counts
-            const allUsers: Friend[] = [
-                ...friends.map(f => ({
-                    ...f,
-                    currentStreak: userCompletionCount[f.id] || 0,
-                })),
+            // Build all users with completion RATE scoring
+            const allUsers: (Friend & { score: number; totalCompletions: number; totalPossible: number })[] = [
+                ...friends.map(f => {
+                    const totalCompletions = userCompletionSet[f.id]?.size || 0;
+                    const habitCount = userHabitMap[f.id]?.length || 0;
+                    const totalPossible = habitCount * daysInPeriod;
+                    const score = totalPossible > 0 ? Math.round((totalCompletions / totalPossible) * 100) : 0;
+                    return { ...f, currentStreak: score, score, totalCompletions, totalPossible };
+                }),
                 {
                     id: currentUser.id,
                     username: userProfile?.username || currentUser.email?.split('@')[0] || 'Me',
                     email: currentUser.email || '',
-                    currentStreak: userCompletionCount[currentUser.id] || 0,
+                    currentStreak: (() => {
+                        const tc = userCompletionSet[currentUser.id]?.size || 0;
+                        const hc = userHabitMap[currentUser.id]?.length || 0;
+                        const tp = hc * daysInPeriod;
+                        return tp > 0 ? Math.round((tc / tp) * 100) : 0;
+                    })(),
                     todayCompletion: 0,
                     avatarUrl: userProfile?.avatar_url,
                     isCurrentUser: true,
+                    score: (() => {
+                        const tc = userCompletionSet[currentUser.id]?.size || 0;
+                        const hc = userHabitMap[currentUser.id]?.length || 0;
+                        const tp = hc * daysInPeriod;
+                        return tp > 0 ? Math.round((tc / tp) * 100) : 0;
+                    })(),
+                    totalCompletions: userCompletionSet[currentUser.id]?.size || 0,
+                    totalPossible: (userHabitMap[currentUser.id]?.length || 0) * daysInPeriod,
                 }
             ];
 
-            // Sort by completion count
-            allUsers.sort((a, b) => b.currentStreak - a.currentStreak);
+            // Sort by score (completion rate), tie-break by total completions
+            allUsers.sort((a, b) => b.score - a.score || b.totalCompletions - a.totalCompletions);
 
             return allUsers.map((friend, index) => ({
                 rank: index + 1,
@@ -695,19 +716,59 @@ export const FriendsService = {
             const currentUser = await this.getCurrentUser();
             if (!currentUser) return false;
 
+            // Get habit name for notification
+            const { data: habit } = await supabase
+                .from('habits')
+                .select('name')
+                .eq('id', habitId)
+                .single();
+
+            const { data: userProfile } = await supabase
+                .from('profiles')
+                .select('username')
+                .eq('id', currentUser.id)
+                .single();
+
             const { error } = await supabase
                 .from('shared_habits')
-                .insert({
+                .upsert({
                     habit_id: habitId,
                     owner_id: currentUser.id,
                     shared_with_id: friendId,
-                });
+                    status: 'pending',
+                    deleted_at: null,
+                }, { onConflict: 'habit_id,shared_with_id' });
 
             if (error) {
                 if (isTableMissing(error)) return false;
                 console.error('Error sharing habit:', error);
                 return false;
             }
+
+            // Send notification to recipient
+            const senderName = userProfile?.username || currentUser.email?.split('@')[0] || 'A friend';
+            const habitName = habit?.name || 'a habit';
+            await Promise.all([
+                supabase.from('notifications').insert({
+                    user_id: friendId,
+                    type: 'shared_habit',
+                    title: `${senderName} wants to share a habit`,
+                    body: `"${habitName}" — Accept to track together!`,
+                    from_user_id: currentUser.id,
+                    read: false,
+                    data: { habitId, type: 'shared_habit' },
+                    created_at: new Date().toISOString(),
+                }),
+                supabase.functions.invoke('send-push-notification', {
+                    body: {
+                        userId: friendId,
+                        title: `${senderName} shared a habit with you`,
+                        body: `"${habitName}" — Open to accept or decline.`,
+                        data: { type: 'shared_habit', habitId, fromUserId: currentUser.id },
+                    },
+                }).catch(e => console.warn('Push send failed:', e)),
+            ]);
+
             return true;
         } catch (e) {
             return false;
@@ -743,7 +804,9 @@ export const FriendsService = {
             const { data: shares, error } = await supabase
                 .from('shared_habits')
                 .select('habit_id, owner_id')
-                .eq('shared_with_id', currentUser.id);
+                .eq('shared_with_id', currentUser.id)
+                .eq('status', 'accepted')
+                .is('deleted_at', null);
 
             if (error || !shares || shares.length === 0) return [];
 
@@ -794,12 +857,26 @@ export const FriendsService = {
             const currentUser = await this.getCurrentUser();
             if (!currentUser) return false;
 
+            // Get goal name for notification
+            const { data: goal } = await supabase
+                .from('habits')
+                .select('name')
+                .eq('id', goalId)
+                .single();
+
+            const { data: userProfile } = await supabase
+                .from('profiles')
+                .select('username')
+                .eq('id', currentUser.id)
+                .single();
+
             const { error } = await supabase
                 .from('shared_goals')
                 .upsert({
                     goal_id: goalId,
                     owner_id: currentUser.id,
                     shared_with_id: friendId,
+                    status: 'pending',
                     deleted_at: null,
                 }, { onConflict: 'goal_id,shared_with_id' });
 
@@ -808,6 +885,31 @@ export const FriendsService = {
                 console.error('Error sharing goal:', error);
                 return false;
             }
+
+            // Send notification to recipient
+            const senderName = userProfile?.username || currentUser.email?.split('@')[0] || 'A friend';
+            const goalName = goal?.name || 'a goal';
+            await Promise.all([
+                supabase.from('notifications').insert({
+                    user_id: friendId,
+                    type: 'shared_goal',
+                    title: `${senderName} wants to share a goal`,
+                    body: `"${goalName}" — Accept to track together!`,
+                    from_user_id: currentUser.id,
+                    read: false,
+                    data: { goalId, type: 'shared_goal' },
+                    created_at: new Date().toISOString(),
+                }),
+                supabase.functions.invoke('send-push-notification', {
+                    body: {
+                        userId: friendId,
+                        title: `${senderName} shared a goal with you`,
+                        body: `"${goalName}" — Open to accept or decline.`,
+                        data: { type: 'shared_goal', goalId, fromUserId: currentUser.id },
+                    },
+                }).catch(e => console.warn('Push send failed:', e)),
+            ]);
+
             invalidateCachePattern('goal_shared');
             return true;
         } catch (e) {
@@ -900,6 +1002,7 @@ export const FriendsService = {
                 .from('shared_goals')
                 .select('goal_id, owner_id')
                 .eq('shared_with_id', currentUser.id)
+                .eq('status', 'accepted')
                 .is('deleted_at', null);
 
             if (error || !shares || shares.length === 0) return [];
@@ -1028,6 +1131,7 @@ export const FriendsService = {
                 profiles:shared_with_id (id, username, email, avatar_url)
             `)
                 .eq('goal_id', goalId)
+                .eq('status', 'accepted')
                 .is('deleted_at', null);
 
             if (error) {
@@ -1063,7 +1167,9 @@ export const FriendsService = {
                     shared_with_id,
                     profiles:shared_with_id (id, username, email, avatar_url)
                 `)
-                .eq('habit_id', habitId);
+                .eq('habit_id', habitId)
+                .eq('status', 'accepted')
+                .is('deleted_at', null);
 
             if (error) {
                 if (isTableMissing(error)) return [];
@@ -1353,6 +1459,293 @@ export const FriendsService = {
         } catch (e) {
             console.error('Error getting friend detailed stats:', e);
             return null;
+        }
+    },
+
+    // ============================================
+    // Accept / Decline / Stop Sharing
+    // ============================================
+
+    /**
+     * Accept a sharing request (habit or goal)
+     */
+    async acceptShareRequest(type: 'habit' | 'goal', itemId: string, ownerId: string): Promise<boolean> {
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
+
+            const table = type === 'habit' ? 'shared_habits' : 'shared_goals';
+            const idCol = type === 'habit' ? 'habit_id' : 'goal_id';
+
+            const { error } = await supabase
+                .from(table)
+                .update({ status: 'accepted' })
+                .eq(idCol, itemId)
+                .eq('owner_id', ownerId)
+                .eq('shared_with_id', currentUser.id)
+                .eq('status', 'pending');
+
+            if (error) {
+                console.error('Error accepting share request:', error);
+                return false;
+            }
+
+            invalidateCachePattern(type === 'habit' ? 'habit_shared' : 'goal_shared');
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+     * Decline a sharing request (habit or goal)
+     */
+    async declineShareRequest(type: 'habit' | 'goal', itemId: string, ownerId: string): Promise<boolean> {
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
+
+            const table = type === 'habit' ? 'shared_habits' : 'shared_goals';
+            const idCol = type === 'habit' ? 'habit_id' : 'goal_id';
+
+            const { error } = await supabase
+                .from(table)
+                .update({ status: 'declined' })
+                .eq(idCol, itemId)
+                .eq('owner_id', ownerId)
+                .eq('shared_with_id', currentUser.id)
+                .eq('status', 'pending');
+
+            if (error) {
+                console.error('Error declining share request:', error);
+                return false;
+            }
+
+            invalidateCachePattern(type === 'habit' ? 'habit_shared' : 'goal_shared');
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+     * Stop sharing — either party can use this to soft-delete
+     */
+    async stopSharing(type: 'habit' | 'goal', itemId: string, otherUserId: string): Promise<boolean> {
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return false;
+
+            const table = type === 'habit' ? 'shared_habits' : 'shared_goals';
+            const idCol = type === 'habit' ? 'habit_id' : 'goal_id';
+
+            // Match whether current user is owner or recipient
+            let query = supabase
+                .from(table)
+                .update({ deleted_at: new Date().toISOString() })
+                .eq(idCol, itemId)
+                .is('deleted_at', null);
+
+            // The current user might be either the owner or the shared_with
+            const { error } = await query.or(
+                `and(owner_id.eq.${currentUser.id},shared_with_id.eq.${otherUserId}),and(owner_id.eq.${otherUserId},shared_with_id.eq.${currentUser.id})`
+            );
+
+            if (error) {
+                console.error('Error stopping share:', error);
+                return false;
+            }
+
+            invalidateCachePattern(type === 'habit' ? 'habit_shared' : 'goal_shared');
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+     * Get all pending share requests for the current user
+     */
+    async getPendingShareRequests(): Promise<{
+        id: string;
+        type: 'habit' | 'goal';
+        itemId: string;
+        itemName: string;
+        ownerId: string;
+        ownerName: string;
+        ownerAvatar?: string;
+        createdAt: string;
+    }[]> {
+        try {
+            const currentUser = await this.getCurrentUser();
+            if (!currentUser) return [];
+
+            // Fetch pending habits and goals in parallel
+            const [habitsRes, goalsRes] = await Promise.all([
+                supabase
+                    .from('shared_habits')
+                    .select('habit_id, owner_id, created_at, profiles:owner_id (id, username, avatar_url)')
+                    .eq('shared_with_id', currentUser.id)
+                    .eq('status', 'pending')
+                    .is('deleted_at', null),
+                supabase
+                    .from('shared_goals')
+                    .select('goal_id, owner_id, created_at, profiles:owner_id (id, username, avatar_url)')
+                    .eq('shared_with_id', currentUser.id)
+                    .eq('status', 'pending')
+                    .is('deleted_at', null),
+            ]);
+
+            const pendingItems: any[] = [];
+
+            // Process habit requests
+            if (habitsRes.data && habitsRes.data.length > 0) {
+                const habitIds = habitsRes.data.map(r => r.habit_id);
+                const { data: habits } = await supabase
+                    .from('habits')
+                    .select('id, name')
+                    .in('id', habitIds);
+                const habitMap = new Map(habits?.map(h => [h.id, h.name]) || []);
+
+                habitsRes.data.forEach(row => {
+                    const profile = (row as any).profiles;
+                    pendingItems.push({
+                        id: `habit_${row.habit_id}_${row.owner_id}`,
+                        type: 'habit' as const,
+                        itemId: row.habit_id,
+                        itemName: habitMap.get(row.habit_id) || 'Unknown Habit',
+                        ownerId: row.owner_id,
+                        ownerName: profile?.username || 'Friend',
+                        ownerAvatar: profile?.avatar_url,
+                        createdAt: row.created_at,
+                    });
+                });
+            }
+
+            // Process goal requests
+            if (goalsRes.data && goalsRes.data.length > 0) {
+                const goalIds = goalsRes.data.map(r => r.goal_id);
+                const { data: goals } = await supabase
+                    .from('habits')
+                    .select('id, name')
+                    .in('id', goalIds);
+                const goalMap = new Map(goals?.map(g => [g.id, g.name]) || []);
+
+                goalsRes.data.forEach(row => {
+                    const profile = (row as any).profiles;
+                    pendingItems.push({
+                        id: `goal_${row.goal_id}_${row.owner_id}`,
+                        type: 'goal' as const,
+                        itemId: row.goal_id,
+                        itemName: goalMap.get(row.goal_id) || 'Unknown Goal',
+                        ownerId: row.owner_id,
+                        ownerName: profile?.username || 'Friend',
+                        ownerAvatar: profile?.avatar_url,
+                        createdAt: row.created_at,
+                    });
+                });
+            }
+
+            // Sort by most recent first
+            pendingItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            return pendingItems;
+        } catch (e) {
+            console.error('Error fetching pending share requests:', e);
+            return [];
+        }
+    },
+
+    /**
+     * Get all participants of a shared item with their today completion status
+     */
+    async getSharedItemParticipants(itemId: string, itemType: 'habit' | 'goal'): Promise<{
+        userId: string;
+        username: string;
+        avatarUrl?: string;
+        completedToday: boolean;
+        isOwner: boolean;
+    }[]> {
+        try {
+            const table = itemType === 'habit' ? 'shared_habits' : 'shared_goals';
+            const idCol = itemType === 'habit' ? 'habit_id' : 'goal_id';
+
+            const { data, error } = await supabase
+                .from(table)
+                .select(`
+                    owner_id,
+                    shared_with_id,
+                    profiles_owner:owner_id (id, username, avatar_url),
+                    profiles_shared:shared_with_id (id, username, avatar_url)
+                `)
+                .eq(idCol, itemId)
+                .eq('status', 'accepted')
+                .is('deleted_at', null);
+
+            if (error || !data || data.length === 0) return [];
+
+            // Collect all unique participants
+            const participantsMap = new Map<string, { userId: string; username: string; avatarUrl?: string; isOwner: boolean }>();
+
+            data.forEach(row => {
+                const owner = (row as any).profiles_owner;
+                const shared = (row as any).profiles_shared;
+
+                if (owner && !participantsMap.has(owner.id)) {
+                    participantsMap.set(owner.id, {
+                        userId: owner.id,
+                        username: owner.username || 'Owner',
+                        avatarUrl: owner.avatar_url,
+                        isOwner: true,
+                    });
+                }
+                if (shared && !participantsMap.has(shared.id)) {
+                    participantsMap.set(shared.id, {
+                        userId: shared.id,
+                        username: shared.username || 'Friend',
+                        avatarUrl: shared.avatar_url,
+                        isOwner: false,
+                    });
+                }
+            });
+
+            // Check today's completions for all participants
+            const today = new Date().toISOString().split('T')[0];
+            const userIds = Array.from(participantsMap.keys());
+
+            // For habits, check habit_completions directly
+            // For goals, check if any habit linked to the goal is completed
+            const { data: completions } = await supabase
+                .from('habit_completions')
+                .select('habit_id, date')
+                .eq('habit_id', itemId)
+                .eq('date', today)
+                .in('habit_id', [itemId]); // For now, check direct item completion
+
+            const completedUserIds = new Set<string>();
+            // We need to get which users completed this habit today
+            // Since completions are per-habit (user_id is the owner), we check ownership
+            if (completions) {
+                // Get the habits to find their owners
+                const { data: habits } = await supabase
+                    .from('habits')
+                    .select('id, user_id')
+                    .eq('id', itemId);
+
+                if (habits) {
+                    habits.forEach(h => {
+                        const hasCompletion = completions.some(c => c.habit_id === h.id);
+                        if (hasCompletion) completedUserIds.add(h.user_id);
+                    });
+                }
+            }
+
+            return Array.from(participantsMap.values()).map(p => ({
+                ...p,
+                completedToday: completedUserIds.has(p.userId),
+            }));
+        } catch (e) {
+            console.error('Error getting shared item participants:', e);
+            return [];
         }
     },
 };

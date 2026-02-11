@@ -480,7 +480,13 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         // Start Live Activity
         try {
-            const attributes = { name: 'Focus Timer' };
+            const attributes = {
+                name: 'Focus Timer',
+                totalDurationSeconds: durationSeconds,
+                backgroundColor: '#0A0F14',
+                titleColor: '#8BADD6',
+                progressViewTint: '#8BADD6',
+            };
             const contentState = {
                 title: habitName,
                 subtitle: 'Focusing...',

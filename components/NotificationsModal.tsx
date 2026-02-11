@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp, SlideOutRight } from 'react-native-reanimated';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -9,6 +10,7 @@ import { NotificationService, InAppNotification } from '@/lib/notificationServic
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { useAccentGradient } from '@/constants/AccentContext';
+import { FriendsService } from '@/lib/friendsService';
 
 interface NotificationsModalProps {
     visible: boolean;
@@ -70,7 +72,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
             case 'achievement': return '#A855F7';
             case 'nudge': return '#3B82F6';
             case 'friend_request': return '#EC4899';
-            case 'shared_habit': return '#10B981';
+            case 'shared_habit': return '#34D399'; // More vibrant emerald
+            case 'shared_goal': return '#8B5CF6';
             default: return accentColor;
         }
     };
@@ -125,6 +128,44 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
         selectionFeedback();
         await NotificationService.markNotificationRead(id);
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    };
+
+    const handleAcceptShare = async (notification: InAppNotification) => {
+        mediumFeedback();
+        const type = notification.type === 'shared_habit' ? 'habit' : 'goal';
+        const itemId = notification.data?.habitId || notification.data?.goalId;
+        const ownerId = notification.fromUserId || notification.data?.fromUserId;
+        if (!itemId || !ownerId) return;
+
+        const success = await FriendsService.acceptShareRequest(type, itemId, ownerId);
+        if (success) {
+            await NotificationService.markNotificationRead(notification.id);
+            setNotifications(prev => prev.map(n =>
+                n.id === notification.id
+                    ? { ...n, read: true, message: '✅ Accepted! You can now view this together.', data: { ...n.data, responded: true } }
+                    : n
+            ));
+        } else {
+            Alert.alert('Error', 'Failed to accept. Please try again.');
+        }
+    };
+
+    const handleDeclineShare = async (notification: InAppNotification) => {
+        selectionFeedback();
+        const type = notification.type === 'shared_habit' ? 'habit' : 'goal';
+        const itemId = notification.data?.habitId || notification.data?.goalId;
+        const ownerId = notification.fromUserId || notification.data?.fromUserId;
+        if (!itemId || !ownerId) return;
+
+        const success = await FriendsService.declineShareRequest(type, itemId, ownerId);
+        if (success) {
+            await NotificationService.markNotificationRead(notification.id);
+            setNotifications(prev => prev.map(n =>
+                n.id === notification.id
+                    ? { ...n, read: true, message: 'Declined.', data: { ...n.data, responded: true } }
+                    : n
+            ));
+        }
     };
 
     return (
@@ -188,31 +229,84 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                                         entering={FadeInDown.delay((groupIndex * 50) + (index * 30)).duration(300)}
                                         exiting={SlideOutRight.duration(200)}
                                     >
-                                        <TouchableOpacity
-                                            onPress={() => handleNotificationPress(notification.id)}
-                                            onLongPress={() => handleDismiss(notification.id)}
-                                            delayLongPress={400}
-                                        >
-                                            <VoidCard glass style={{ ...styles.notificationItem, ...(!notification.read ? styles.unreadItem : {}) }}>
-                                                <View style={[styles.notifIconContainer, { backgroundColor: getTypeColor(notification.type) + '15' }]}>
-                                                    <Ionicons name={notification.icon as any} size={18} color={getTypeColor(notification.type)} />
-                                                </View>
-                                                <View style={styles.notifContent}>
-                                                    <View style={styles.titleRow}>
-                                                        <Text style={[styles.notificationTitle, { color: colors.text, fontWeight: notification.read ? '500' : '700' }]} numberOfLines={1}>
-                                                            {notification.title}
-                                                        </Text>
-                                                        <Text style={[styles.notificationTime, { color: colors.textTertiary }]}>
-                                                            {formatTimeAgo(notification.timestamp)}
-                                                        </Text>
+                                        <Swipeable
+                                            renderRightActions={(progress, dragX) => {
+                                                const trans = dragX.interpolate({
+                                                    inputRange: [-100, 0],
+                                                    outputRange: [0, 100],
+                                                    extrapolate: 'clamp',
+                                                });
+                                                return (
+                                                    <View style={{ width: 80, height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                                                        <Animated.View style={{ transform: [{ translateX: trans }], width: '100%', height: '100%' }}>
+                                                            <TouchableOpacity
+                                                                onPress={() => handleDismiss(notification.id)}
+                                                                style={{
+                                                                    backgroundColor: '#EF4444',
+                                                                    justifyContent: 'center',
+                                                                    alignItems: 'center',
+                                                                    width: '100%',
+                                                                    height: '100%',
+                                                                    borderTopRightRadius: 16,
+                                                                    borderBottomRightRadius: 16,
+                                                                    marginBottom: 6,
+                                                                    marginTop: 0,
+                                                                }}>
+                                                                <Ionicons name="trash" size={24} color="white" />
+                                                            </TouchableOpacity>
+                                                        </Animated.View>
                                                     </View>
-                                                    <Text style={[styles.notificationMessage, { color: colors.textSecondary }]} numberOfLines={2}>
-                                                        {notification.message}
-                                                    </Text>
-                                                </View>
-                                                {!notification.read && <View style={[styles.unreadDot, { backgroundColor: accentColor }]} />}
-                                            </VoidCard>
-                                        </TouchableOpacity>
+                                                );
+                                            }}
+                                            containerStyle={{ overflow: 'visible' }}
+                                        >
+                                            <TouchableOpacity
+                                                onPress={() => handleNotificationPress(notification.id)}
+                                                onLongPress={() => handleDismiss(notification.id)}
+                                                delayLongPress={400}
+                                                activeOpacity={0.9}
+                                            >
+                                                <VoidCard glass style={{ ...styles.notificationItem, ...(!notification.read ? styles.unreadItem : {}) }}>
+                                                    <View style={[styles.notifIconContainer, { backgroundColor: getTypeColor(notification.type) + '15' }]}>
+                                                        <Ionicons name={notification.icon as any} size={18} color={getTypeColor(notification.type)} />
+                                                    </View>
+                                                    <View style={styles.notifContent}>
+                                                        <View style={styles.titleRow}>
+                                                            <Text style={[styles.notificationTitle, { color: colors.text, fontWeight: notification.read ? '500' : '700' }]} numberOfLines={1}>
+                                                                {notification.title}
+                                                            </Text>
+                                                            <Text style={[styles.notificationTime, { color: colors.textTertiary }]}>
+                                                                {formatTimeAgo(notification.timestamp)}
+                                                            </Text>
+                                                        </View>
+                                                        <Text style={[styles.notificationMessage, { color: colors.textSecondary }]} numberOfLines={2}>
+                                                            {notification.message}
+                                                        </Text>
+
+                                                        {/* Accept/Refuse buttons for share requests */}
+                                                        {(notification.type === 'shared_habit' || notification.type === 'shared_goal') && !notification.data?.responded && (
+                                                            <View style={styles.shareActions}>
+                                                                <TouchableOpacity
+                                                                    onPress={() => handleAcceptShare(notification)}
+                                                                    style={[styles.shareBtn, { backgroundColor: colors.success + '20' }]}
+                                                                >
+                                                                    <Ionicons name="checkmark" size={14} color={colors.success} />
+                                                                    <Text style={[styles.shareBtnText, { color: colors.success }]}>Accept</Text>
+                                                                </TouchableOpacity>
+                                                                <TouchableOpacity
+                                                                    onPress={() => handleDeclineShare(notification)}
+                                                                    style={[styles.shareBtn, { backgroundColor: colors.error + '15' }]}
+                                                                >
+                                                                    <Ionicons name="close" size={14} color={colors.error} />
+                                                                    <Text style={[styles.shareBtnText, { color: colors.error }]}>Decline</Text>
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                    {!notification.read && <View style={[styles.unreadDot, { backgroundColor: accentColor }]} />}
+                                                </VoidCard>
+                                            </TouchableOpacity>
+                                        </Swipeable>
                                     </Animated.View>
                                 ))}
                             </View>
@@ -339,5 +433,22 @@ const styles = StyleSheet.create({
         fontSize: 9,
         fontFamily: 'Lexend_400Regular',
         marginLeft: 8,
+    },
+    shareActions: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 10,
+    },
+    shareBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        borderRadius: 10,
+    },
+    shareBtnText: {
+        fontSize: 12,
+        fontFamily: 'Lexend_600SemiBold',
     },
 });

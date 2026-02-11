@@ -11,8 +11,11 @@ import {
     TouchableWithoutFeedback,
     Platform,
     KeyboardAvoidingView,
-    ScrollView
+    ScrollView,
+    Image,
+    Alert
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -77,6 +80,20 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
     const [selectedIcon, setSelectedIcon] = useState<string>('trophy');
     const [selectedTheme, setSelectedTheme] = useState<keyof typeof PRESET_GRADIENTS>('purple');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setSelectedIcon(result.assets[0].uri);
+            mediumFeedback();
+        }
+    };
 
     // Animations
     const progress = useSharedValue(0);
@@ -219,27 +236,55 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                         <Text style={styles.helper}>A goal without a deadline is just a dream.</Text>
                     </Animated.View>
                 );
-            case 3: // SYMBOL
+            case 3: // SYMBOL or IMAGE
                 return (
                     <Animated.View entering={FadeIn.duration(400)} exiting={FadeOut.duration(200)} style={styles.stepContainer}>
                         <Text style={styles.question}>Define the vibe.</Text>
 
-                        <Text style={styles.label}>CATEGORY</Text>
-                        <View style={styles.categoryGrid}>
-                            {CATEGORIES.map(cat => (
-                                <TouchableOpacity
-                                    key={cat.key}
-                                    style={[styles.catChip, category === cat.key && styles.catChipActive]}
-                                    onPress={() => {
-                                        setCategory(cat.key);
-                                        selectionFeedback();
-                                    }}
-                                >
-                                    <Ionicons name={cat.icon as any} size={16} color={category === cat.key ? '#fff' : 'rgba(255,255,255,0.6)'} />
-                                    <Text style={[styles.catText, category === cat.key && styles.catTextActive]}>{cat.label}</Text>
-                                </TouchableOpacity>
-                            ))}
+                        {/* Toggle Type */}
+                        <View style={styles.typeToggle}>
+                            <TouchableOpacity
+                                style={[styles.typeOption, selectedIcon.includes('/') ? {} : styles.typeOptionActive]}
+                                onPress={() => { selectionFeedback(); if (selectedIcon.includes('/')) setSelectedIcon('trophy'); }}
+                            >
+                                <Text style={[styles.typeText, selectedIcon.includes('/') ? {} : styles.typeTextActive]}>Icon</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.typeOption, selectedIcon.includes('/') ? styles.typeOptionActive : {}]}
+                                onPress={pickImage}
+                            >
+                                <Text style={[styles.typeText, selectedIcon.includes('/') ? styles.typeTextActive : {}]}>Image</Text>
+                            </TouchableOpacity>
                         </View>
+
+                        {selectedIcon.includes('/') || selectedIcon.startsWith('file:') ? (
+                            <View style={{ alignItems: 'center', marginVertical: 20 }}>
+                                <Image source={{ uri: selectedIcon }} style={{ width: 120, height: 120, borderRadius: 24 }} />
+                                <TouchableOpacity onPress={pickImage} style={{ marginTop: 16 }}>
+                                    <Text style={{ color: 'white', textDecorationLine: 'underline', fontFamily: 'Lexend_400Regular' }}>Change Image</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <>
+                                <Text style={styles.label}>CATEGORY</Text>
+                                <View style={styles.categoryGrid}>
+                                    {CATEGORIES.map(cat => (
+                                        <TouchableOpacity
+                                            key={cat.key}
+                                            style={[styles.catChip, category === cat.key && styles.catChipActive]}
+                                            onPress={() => {
+                                                setCategory(cat.key);
+                                                selectionFeedback();
+                                            }}
+                                        >
+                                            <Ionicons name={cat.icon as any} size={16} color={category === cat.key ? '#fff' : 'rgba(255,255,255,0.6)'} />
+                                            <Text style={[styles.catText, category === cat.key && styles.catTextActive]}>{cat.label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
+
 
                         <Text style={[styles.label, { marginTop: 24 }]}>THEME (Visual Only)</Text>
                         <View style={styles.themeGrid}>
@@ -553,5 +598,30 @@ const styles = StyleSheet.create({
         right: 0,
         backgroundColor: 'white',
         height: '100%',
+    },
+    typeToggle: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        padding: 4,
+        borderRadius: 12,
+        marginBottom: 24,
+    },
+    typeOption: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        minWidth: 80,
+        alignItems: 'center',
+    },
+    typeOptionActive: {
+        backgroundColor: 'white',
+    },
+    typeText: {
+        color: 'rgba(255,255,255,0.6)',
+        fontWeight: '600',
+        fontFamily: 'Lexend_400Regular',
+    },
+    typeTextActive: {
+        color: '#0f172a',
     },
 });
