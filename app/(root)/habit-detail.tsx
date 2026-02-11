@@ -14,6 +14,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { PomodoroTimer } from '@/components/Habit/PomodoroTimer';
 import { SpotifyPage } from '@/components/Habit/SpotifyPage';
 import { SpinningLogo } from '@/components/SpinningLogo';
+import { HabitGraphRenderer } from '@/components/Habit/HabitGraphRenderer';
 
 const { width } = Dimensions.get('window');
 
@@ -95,9 +96,9 @@ export default function HabitDetailScreen() {
       const completions = await getCompletions(dateStr);
       setCompleted(!!completions[habitId]);
 
-      // Fetch history for charts (30 days)
-      const last30 = await getLastNDaysCompletions(30);
-      const habitHistory = last30.map(d => ({
+      // Fetch history for charts (35 days for heatmap support)
+      const last35 = await getLastNDaysCompletions(35);
+      const habitHistory = last35.map(d => ({
         date: d.date,
         completed: d.completedIds.includes(habitId)
       }));
@@ -282,9 +283,15 @@ export default function HabitDetailScreen() {
               {/* Visualization Card */}
               <View style={{ marginBottom: 24 }}>
                 <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
-                <VoidCard glass style={{ padding: 16, alignItems: 'center' }}>
-                  <HabitVisualization habit={habit} history={history} colors={colors} />
-                </VoidCard>
+                <HabitGraphRenderer
+                  graphStyle={habit.graphStyle || 'bar'}
+                  color={habit.color || colors.primary}
+                  goalValue={habit.goalValue || 1}
+                  unit={habit.unit || 'count'}
+                  completionData={history}
+                  currentStreak={streak}
+                  todayValue={completed ? (habit.goalValue || 1) : 0}
+                />
               </View>
 
               {/* Description */}
@@ -464,23 +471,3 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
-
-// --- Visualization Component ---
-const HabitVisualization = ({ habit, history, colors }: { habit: Habit, history: { date: string; completed: boolean }[], colors: any }) => {
-  // Simple block visualization for now
-  return (
-    <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-      {history.map((d, i) => (
-        <View
-          key={i}
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: 4,
-            backgroundColor: d.completed ? colors.success : colors.surfaceSecondary
-          }}
-        />
-      ))}
-    </View>
-  );
-};

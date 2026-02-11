@@ -256,14 +256,23 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
               ) : null}
             </View>
 
-            {/* Time / Timer (Compact) */}
-            <View>
+            {/* Time / Timer + Target (Compact) */}
+            <View style={{ alignItems: 'flex-end' }}>
               {isActive && formattedTime ? (
                 <Text style={{ fontSize: 13, fontWeight: '700', color: accentColor, fontFamily: 'Lexend', fontVariant: ['tabular-nums'] }}>
                   {formattedTime}
                 </Text>
               ) : (
-                <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>{habit.startTime || '--:--'}</Text>
+                <>
+                  {habit.goalValue > 1 && habit.unit && habit.unit !== 'count' && !isSmall && (
+                    <Text style={{ fontSize: 9, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', marginBottom: 1 }}>
+                      {habit.goalValue} {habit.unit}
+                    </Text>
+                  )}
+                  <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>
+                    {habit.startTime || '--:--'}{habit.durationMinutes ? ` · ${habit.durationMinutes}m` : ''}
+                  </Text>
+                </>
               )}
             </View>
 

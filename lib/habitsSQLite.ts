@@ -175,7 +175,9 @@ export async function getHabits(): Promise<Habit[]> {
                     weekInterval: row.week_interval,
                     timeOfDay: row.time_of_day,
                     reminderOffset: row.reminder_offset,
-                    locationReminders: typeof row.location_reminders === 'string' ? JSON.parse(row.location_reminders || '[]') : (row.location_reminders || [])
+                    locationReminders: typeof row.location_reminders === 'string' ? JSON.parse(row.location_reminders || '[]') : (row.location_reminders || []),
+                    graphStyle: row.graph_style,
+                    trackingMethod: row.tracking_method,
                 }));
 
                 cachedHabits = habits;
@@ -258,8 +260,9 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                         id, user_id, name, description, category, icon, is_goal, target_date, goal_id,
                         task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
                         type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
-                        frequency, week_interval, time_of_day, created_at, updated_at, synced, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                        frequency, week_interval, time_of_day, graph_style, tracking_method,
+                        reminder_offset, location_reminders, created_at, updated_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                 `,
                     id,
                     uid,
@@ -288,6 +291,10 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     habitData.frequency || null,
                     habitData.weekInterval || 1,
                     habitData.timeOfDay || null,
+                    habitData.graphStyle || null,
+                    habitData.trackingMethod || 'boolean',
+                    habitData.reminderOffset || null,
+                    JSON.stringify(habitData.locationReminders || []),
                     now,
                     now
                 );
@@ -324,7 +331,9 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     showMemo: habitData.showMemo || false,
                     goalId: habitData.goalId,
                     reminderOffset: habitData.reminderOffset,
-                    locationReminders: habitData.locationReminders || []
+                    locationReminders: habitData.locationReminders || [],
+                    graphStyle: habitData.graphStyle,
+                    trackingMethod: habitData.trackingMethod,
                 };
 
                 if (created.reminders && created.reminders.length > 0) {
@@ -439,6 +448,10 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.durationMinutes !== undefined) { setClauses.push('duration_minutes = ?'); params.push(updatedHabit.durationMinutes); }
                 if (updatedHabit.startTime !== undefined) { setClauses.push('start_time = ?'); params.push(updatedHabit.startTime); }
                 if (updatedHabit.endTime !== undefined) { setClauses.push('end_time = ?'); params.push(updatedHabit.endTime); }
+                if (updatedHabit.graphStyle !== undefined) { setClauses.push('graph_style = ?'); params.push(updatedHabit.graphStyle); }
+                if (updatedHabit.trackingMethod !== undefined) { setClauses.push('tracking_method = ?'); params.push(updatedHabit.trackingMethod); }
+                if (updatedHabit.reminderOffset !== undefined) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset); }
+                if (updatedHabit.locationReminders !== undefined) { setClauses.push('location_reminders = ?'); params.push(JSON.stringify(updatedHabit.locationReminders)); }
 
                 params.push(updatedHabit.id, uid);
 

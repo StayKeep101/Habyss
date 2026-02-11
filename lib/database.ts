@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 3;
 
 let dbInstance: any = null;
 
@@ -38,8 +38,14 @@ export async function getDatabase(): Promise<any | null> {
     try {
         dbInstance = await SQLite.openDatabaseAsync(DATABASE_NAME);
 
-        // Enable WAL mode for better performance
+        // Enable WAL mode for better concurrent read/write performance
         await dbInstance.execAsync('PRAGMA journal_mode = WAL;');
+        // NORMAL sync is safe with WAL and significantly faster than FULL
+        await dbInstance.execAsync('PRAGMA synchronous = NORMAL;');
+        // 8MB cache for faster reads on repeated queries
+        await dbInstance.execAsync('PRAGMA cache_size = -8000;');
+        // Store temp tables in memory for faster joins/sorts
+        await dbInstance.execAsync('PRAGMA temp_store = MEMORY;');
 
         // Run migrations
         await runMigrations(dbInstance);
@@ -69,6 +75,12 @@ async function runMigrations(db: any): Promise<void> {
 
     if (currentVersion < 1) {
         await migrateToV1(db);
+    }
+    if (currentVersion < 2) {
+        await migrateToV2(db);
+    }
+    if (currentVersion < 3) {
+        await migrateToV3(db);
     }
 
     // Update schema version
@@ -153,6 +165,45 @@ async function migrateToV1(db: any): Promise<void> {
     `);
 
     console.log('[Database] Migrated to schema v1');
+}
+
+/**
+ * Migration to version 2 - Add graph_style, tracking_method, reminder_offset, location_reminders
+ */
+async function migrateToV2(db: any): Promise<void> {
+    await db.execAsync(`
+        ALTER TABLE habits ADD COLUMN graph_style TEXT;
+        ALTER TABLE habits ADD COLUMN tracking_method TEXT DEFAULT 'boolean';
+        ALTER TABLE habits ADD COLUMN reminder_offset INTEGER;
+        ALTER TABLE habits ADD COLUMN location_reminders TEXT DEFAULT '[]';
+    `);
+
+    console.log('[Database] Migrated to schema v2');
+}
+
+/**
+ * Migration to version 3 - Performance indexes, completions updated_at, sync queue optimization
+ */
+async function migrateToV3(db: any): Promise<void> {
+    await db.execAsync(`
+        -- Add updated_at to completions for sync conflict resolution
+        ALTER TABLE completions ADD COLUMN updated_at TEXT;
+
+        -- Composite index: active habits for a user (most common query)
+        CREATE INDEX IF NOT EXISTS idx_habits_user_active ON habits(user_id, deleted, is_archived);
+
+        -- Composite index: completions by habit + date + deleted (daily check)
+        CREATE INDEX IF NOT EXISTS idx_completions_habit_date_active ON completions(habit_id, date, deleted);
+
+        -- Composite index: unsynced records (push-to-cloud query)
+        CREATE INDEX IF NOT EXISTS idx_habits_unsynced ON habits(synced, deleted) WHERE synced = 0;
+        CREATE INDEX IF NOT EXISTS idx_completions_unsynced ON completions(synced, deleted) WHERE synced = 0;
+
+        -- Sync queue: pending items ordered by time
+        CREATE INDEX IF NOT EXISTS idx_sync_queue_pending ON sync_queue(attempts, created_at) WHERE attempts < 3;
+    `);
+
+    console.log('[Database] Migrated to schema v3');
 }
 
 /**

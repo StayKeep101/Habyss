@@ -79,16 +79,16 @@ const ICONS = [
     // Creative
     'brush', 'color-palette', 'camera', 'videocam', 'mic', 'musical-notes', 'headset', 'film', 'image',
     // Food & Drink
-    'cafe', 'beer', 'wine', 'pizza', 'fast-food', 'restaurant', 'ice-cream', 'nutrition',
+    'cafe', 'beer', 'wine', 'pizza', 'fast-food', 'restaurant', 'ice-cream',
     // Travel & Places
     'airplane', 'car', 'bus', 'train', 'boat', 'navigate', 'compass', 'map', 'location', 'flag', 'home', 'business',
     // Communication
     'mail', 'chatbubbles', 'call', 'notifications', 'megaphone', 'paper-plane',
     // Fun & Games
-    'game-controller', 'dice', 'football', 'basketball', 'baseball', 'tennis-ball', 'golf', 'american-football',
+    'game-controller', 'dice', 'football', 'basketball', 'baseball', 'tennisball', 'golf', 'american-football',
     // General
     'rocket', 'flash', 'bulb', 'star', 'trophy', 'medal', 'ribbon', 'diamond', 'gift', 'sparkles', 'happy', 'sad', 'skull',
-    'paw', 'bug', 'fish', 'construct', 'hammer', 'wrench', 'key', 'lock-closed', 'shield-checkmark', 'eye', 'glasses', 'accessibility'
+    'paw', 'bug', 'fish', 'construct', 'hammer', 'build', 'key', 'lock-closed', 'shield-checkmark', 'eye', 'glasses', 'accessibility'
 ];
 
 const COLORS = [
@@ -1265,6 +1265,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                                     <Ionicons name="add" size={24} color={colors.text} />
                                                 </TouchableOpacity>
                                             </View>
+                                            {/* Live Preview */}
+                                            <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 6, fontFamily: 'Lexend_400Regular' }}>
+                                                Target: {targetInputValue || '1'} {measurementUnit || 'count'}
+                                            </Text>
                                         </View>
 
                                         {/* Categorized Units */}

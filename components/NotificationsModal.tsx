@@ -1,23 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, SlideOutRight } from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { NotificationService, InAppNotification } from '@/lib/notificationService';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { VoidModal } from '@/components/Layout/VoidModal';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 interface NotificationsModalProps {
     visible: boolean;
     onClose: () => void;
 }
 
+// Group notifications by date bucket
+function groupByDate(notifications: InAppNotification[]): { label: string; items: InAppNotification[] }[] {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterdayStart = todayStart - 86400000;
+
+    const groups: Record<string, InAppNotification[]> = { today: [], yesterday: [], earlier: [] };
+
+    notifications.forEach(n => {
+        if (n.timestamp >= todayStart) groups.today.push(n);
+        else if (n.timestamp >= yesterdayStart) groups.yesterday.push(n);
+        else groups.earlier.push(n);
+    });
+
+    const result: { label: string; items: InAppNotification[] }[] = [];
+    if (groups.today.length > 0) result.push({ label: 'Today', items: groups.today });
+    if (groups.yesterday.length > 0) result.push({ label: 'Yesterday', items: groups.yesterday });
+    if (groups.earlier.length > 0) result.push({ label: 'Earlier', items: groups.earlier });
+    return result;
+}
+
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible, onClose }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
+    const { primary: accentColor } = useAccentGradient();
 
     const [notifications, setNotifications] = useState<InAppNotification[]>([]);
     const [loading, setLoading] = useState(true);
@@ -36,6 +59,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     };
 
     const unreadCount = notifications.filter(n => !n.read).length;
+    const grouped = useMemo(() => groupByDate(notifications), [notifications]);
 
     const getTypeColor = (type: string) => {
         switch (type) {
@@ -47,7 +71,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
             case 'nudge': return '#3B82F6';
             case 'friend_request': return '#EC4899';
             case 'shared_habit': return '#10B981';
-            default: return colors.primary;
+            default: return accentColor;
         }
     };
 
@@ -58,10 +82,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
         const hours = Math.floor(diff / 3600000);
         const days = Math.floor(diff / 86400000);
         if (minutes < 1) return 'Just now';
-        if (minutes < 60) return `${minutes} min ago`;
-        if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
         if (days === 1) return 'Yesterday';
-        return `${days} days ago`;
+        return `${days}d ago`;
     };
 
     const handleMarkAllRead = async () => {
@@ -70,9 +94,16 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     };
 
+    const handleDismiss = async (id: string) => {
+        selectionFeedback();
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        // Mark as read when dismissed
+        await NotificationService.markNotificationRead(id);
+    };
+
     const handleClearAll = () => {
         mediumFeedback();
-        Alert.alert('Clear All Notifications', 'Are you sure you want to remove all notifications?', [
+        Alert.alert('Clear All', 'Remove all notifications?', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Clear All',
@@ -83,7 +114,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                         setNotifications([]);
                         onClose();
                     } else {
-                        Alert.alert('Error', 'Failed to clear notifications. Please try again.');
+                        Alert.alert('Error', 'Failed to clear notifications.');
                     }
                 }
             }
@@ -106,54 +137,88 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                     </TouchableOpacity>
                     <View style={{ flex: 1, marginLeft: 16 }}>
                         <Text style={[styles.title, { color: colors.text }]}>NOTIFICATIONS</Text>
-                        <Text style={[styles.subtitle, { color: '#2DD4BF' }]}>{unreadCount > 0 ? `${unreadCount} UNREAD` : 'ALL CAUGHT UP'}</Text>
+                        <Text style={[styles.subtitle, { color: accentColor }]}>
+                            {unreadCount > 0 ? `${unreadCount} UNREAD` : 'ALL CAUGHT UP'}
+                        </Text>
                     </View>
-                    {unreadCount > 0 && (
-                        <TouchableOpacity onPress={handleMarkAllRead} style={[styles.iconButton, { backgroundColor: 'rgba(45, 212, 191, 0.2)' }]}>
-                            <Ionicons name="checkmark-done" size={20} color="#2DD4BF" />
-                        </TouchableOpacity>
-                    )}
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {unreadCount > 0 && (
+                            <TouchableOpacity onPress={handleMarkAllRead} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
+                                <Ionicons name="checkmark-done" size={20} color={accentColor} />
+                            </TouchableOpacity>
+                        )}
+                        {notifications.length > 0 && (
+                            <TouchableOpacity onPress={handleClearAll} style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
 
                 {/* List */}
                 <ScrollView style={styles.listContainer} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     {notifications.length === 0 ? (
-                        <VoidCard glass style={styles.emptyCard}>
-                            <Ionicons name="notifications-off-outline" size={40} color={colors.textTertiary} />
-                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No notifications</Text>
-                            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>You're all caught up!</Text>
-                        </VoidCard>
+                        <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+                            <VoidCard glass style={styles.emptyCard}>
+                                <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: accentColor + '10', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                                    <Ionicons name="notifications-off-outline" size={32} color={accentColor + '50'} />
+                                </View>
+                                <Text style={[styles.emptyText, { color: colors.textPrimary }]}>All Clear!</Text>
+                                <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                                    You don't have any notifications.{'\n'}We'll alert you when something happens.
+                                </Text>
+                            </VoidCard>
+                        </Animated.View>
                     ) : (
-                        notifications.map((notification, index) => (
-                            <Animated.View key={notification.id} entering={FadeInDown.delay(index * 30).duration(300)}>
-                                <TouchableOpacity onPress={() => handleNotificationPress(notification.id)}>
-                                    <VoidCard glass style={{ ...styles.notificationItem, ...(!notification.read ? styles.unreadItem : {}) }}>
-                                        <View style={[styles.notifIconContainer, { backgroundColor: getTypeColor(notification.type) + '20' }]}>
-                                            <Ionicons name={notification.icon as any} size={20} color={getTypeColor(notification.type)} />
-                                        </View>
-                                        <View style={styles.notifContent}>
-                                            <View style={styles.titleRow}>
-                                                <Text style={[styles.notificationTitle, { color: colors.text }]}>{notification.title}</Text>
-                                                {!notification.read && <View style={styles.unreadDot} />}
-                                            </View>
-                                            <Text style={[styles.notificationMessage, { color: colors.textSecondary }]} numberOfLines={2}>{notification.message}</Text>
-                                            <Text style={[styles.notificationTime, { color: colors.textTertiary }]}>{formatTimeAgo(notification.timestamp)}</Text>
-                                        </View>
-                                    </VoidCard>
-                                </TouchableOpacity>
-                            </Animated.View>
+                        grouped.map((group, groupIndex) => (
+                            <View key={group.label} style={{ marginBottom: 16 }}>
+                                {/* Section Header */}
+                                <View style={styles.sectionHeader}>
+                                    <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: accentColor, marginRight: 8 }} />
+                                    <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
+                                        {group.label.toUpperCase()}
+                                    </Text>
+                                    <View style={{ flex: 1, height: 1, backgroundColor: colors.border, marginLeft: 12 }} />
+                                </View>
+
+                                {/* Notifications in this group */}
+                                {group.items.map((notification, index) => (
+                                    <Animated.View
+                                        key={notification.id}
+                                        entering={FadeInDown.delay((groupIndex * 50) + (index * 30)).duration(300)}
+                                        exiting={SlideOutRight.duration(200)}
+                                    >
+                                        <TouchableOpacity
+                                            onPress={() => handleNotificationPress(notification.id)}
+                                            onLongPress={() => handleDismiss(notification.id)}
+                                            delayLongPress={400}
+                                        >
+                                            <VoidCard glass style={{ ...styles.notificationItem, ...(!notification.read ? styles.unreadItem : {}) }}>
+                                                <View style={[styles.notifIconContainer, { backgroundColor: getTypeColor(notification.type) + '15' }]}>
+                                                    <Ionicons name={notification.icon as any} size={18} color={getTypeColor(notification.type)} />
+                                                </View>
+                                                <View style={styles.notifContent}>
+                                                    <View style={styles.titleRow}>
+                                                        <Text style={[styles.notificationTitle, { color: colors.text, fontWeight: notification.read ? '500' : '700' }]} numberOfLines={1}>
+                                                            {notification.title}
+                                                        </Text>
+                                                        <Text style={[styles.notificationTime, { color: colors.textTertiary }]}>
+                                                            {formatTimeAgo(notification.timestamp)}
+                                                        </Text>
+                                                    </View>
+                                                    <Text style={[styles.notificationMessage, { color: colors.textSecondary }]} numberOfLines={2}>
+                                                        {notification.message}
+                                                    </Text>
+                                                </View>
+                                                {!notification.read && <View style={[styles.unreadDot, { backgroundColor: accentColor }]} />}
+                                            </VoidCard>
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                ))}
+                            </View>
                         ))
                     )}
                 </ScrollView>
-
-                {notifications.length > 0 && (
-                    <View style={[styles.actionsRow, { borderTopColor: colors.border }]}>
-                        <TouchableOpacity style={styles.clearButton} onPress={handleClearAll}>
-                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                            <Text style={styles.clearText}>Clear All</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
             </View>
         </VoidModal>
     );
@@ -190,6 +255,18 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend_400Regular',
         marginTop: 2,
     },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+        paddingVertical: 4,
+    },
+    sectionLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 1.5,
+        fontFamily: 'Lexend_400Regular',
+    },
     listContainer: {
         flex: 1,
     },
@@ -200,30 +277,35 @@ const styles = StyleSheet.create({
     },
     emptyCard: {
         alignItems: 'center',
-        padding: 40,
+        padding: 48,
+        marginTop: 40,
     },
     emptyText: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginTop: 12,
+        fontSize: 18,
+        fontWeight: '700',
+        fontFamily: 'Lexend',
     },
     emptySubtext: {
         fontSize: 12,
-        marginTop: 4,
+        marginTop: 8,
+        textAlign: 'center',
+        lineHeight: 18,
+        fontFamily: 'Lexend_400Regular',
     },
     notificationItem: {
         flexDirection: 'row',
+        alignItems: 'center',
         padding: 14,
-        marginBottom: 8,
+        marginBottom: 6,
     },
     unreadItem: {
         borderLeftWidth: 3,
         borderLeftColor: '#2DD4BF',
     },
     notifIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
+        width: 36,
+        height: 36,
+        borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 12,
@@ -234,44 +316,28 @@ const styles = StyleSheet.create({
     titleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 4,
+        justifyContent: 'space-between',
+        marginBottom: 3,
     },
     notificationTitle: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 13,
+        flex: 1,
+        fontFamily: 'Lexend_400Regular',
     },
     unreadDot: {
-        width: 8,
-        height: 8,
+        width: 7,
+        height: 7,
         borderRadius: 4,
-        backgroundColor: '#2DD4BF',
         marginLeft: 8,
     },
     notificationMessage: {
-        fontSize: 12,
-        marginBottom: 4,
+        fontSize: 11,
+        fontFamily: 'Lexend_400Regular',
+        lineHeight: 16,
     },
     notificationTime: {
-        fontSize: 10,
+        fontSize: 9,
         fontFamily: 'Lexend_400Regular',
-    },
-    actionsRow: {
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        borderTopWidth: 1,
-    },
-    clearButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 12,
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        gap: 8,
-    },
-    clearText: {
-        color: '#EF4444',
-        fontSize: 13,
-        fontWeight: '600',
+        marginLeft: 8,
     },
 });

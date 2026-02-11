@@ -9,6 +9,7 @@
  * - Always compare timestamps before overwriting
  * - Local wins if local is newer (conflict resolution)
  * - Bidirectional sync of deletions
+ * - Graceful degradation when SQLite is unavailable (Expo Go)
  */
 
 import { getDatabase, nowISO } from './database';
@@ -82,12 +83,16 @@ export async function syncPendingChanges(): Promise<void> {
 
     try {
         const db = await getDatabase();
+        if (!db) {
+            // SQLite unavailable (Expo Go) — skip sync silently
+            return;
+        }
+
         const queue = await db.getAllAsync<SyncQueueItem>(
             'SELECT * FROM sync_queue WHERE attempts < 3 ORDER BY created_at ASC LIMIT 50'
         );
 
         if (queue.length === 0) {
-            isSyncing = false;
             return;
         }
 
@@ -95,7 +100,7 @@ export async function syncPendingChanges(): Promise<void> {
 
         for (const item of queue) {
             try {
-                await processSyncItem(item);
+                await processSyncItem(db, item);
                 // Remove from queue on success
                 await db.runAsync('DELETE FROM sync_queue WHERE id = ?', item.id);
             } catch (error) {
@@ -116,22 +121,66 @@ export async function syncPendingChanges(): Promise<void> {
 /**
  * Process a single sync queue item
  */
-async function processSyncItem(item: SyncQueueItem): Promise<void> {
+async function processSyncItem(db: any, item: SyncQueueItem): Promise<void> {
     const payload = item.payload ? JSON.parse(item.payload) : null;
 
     if (item.table_name === 'habits') {
-        await syncHabit(item.operation, item.record_id, payload);
+        await syncHabit(db, item.operation, item.record_id, payload);
     } else if (item.table_name === 'completions') {
-        await syncCompletion(item.operation, item.record_id, payload);
+        await syncCompletion(db, item.operation, item.record_id, payload);
     }
+}
+
+/**
+ * Map a local SQLite habit row to Supabase column format
+ * Ensures ALL fields are synced between local and cloud
+ */
+function mapLocalHabitToSupabase(row: any): Record<string, any> {
+    return {
+        id: row.id,
+        user_id: row.user_id,
+        name: row.name,
+        description: row.description,
+        category: row.category,
+        icon: row.icon,
+        is_goal: row.is_goal === 1,
+        target_date: row.target_date,
+        goal_id: row.goal_id,
+        task_days: JSON.parse(row.task_days || '[]'),
+        reminders: JSON.parse(row.reminders || '[]'),
+        start_date: row.start_date,
+        end_date: row.end_date,
+        duration_minutes: row.duration_minutes,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        type: row.type || 'build',
+        color: row.color || '#6B46C1',
+        goal_period: row.goal_period || 'daily',
+        goal_value: row.goal_value ?? 1,
+        unit: row.unit || 'count',
+        chart_type: row.chart_type || 'bar',
+        is_archived: row.is_archived === 1,
+        show_memo: row.show_memo === 1,
+        frequency: row.frequency,
+        week_interval: row.week_interval ?? 1,
+        time_of_day: row.time_of_day,
+        graph_style: row.graph_style,
+        tracking_method: row.tracking_method || 'boolean',
+        reminder_offset: row.reminder_offset,
+        location_reminders: typeof row.location_reminders === 'string'
+            ? JSON.parse(row.location_reminders || '[]')
+            : (row.location_reminders || []),
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        deleted_at: null, // Explicitly null for non-deleted
+    };
 }
 
 /**
  * Sync a habit change to Supabase
  * Uses soft-delete pattern - sets deleted_at instead of hard delete
  */
-async function syncHabit(operation: string, recordId: string, payload: any): Promise<void> {
-    const db = await getDatabase();
+async function syncHabit(db: any, operation: string, recordId: string, payload: any): Promise<void> {
     const now = nowISO();
 
     if (operation === 'DELETE') {
@@ -160,27 +209,8 @@ async function syncHabit(operation: string, recordId: string, payload: any): Pro
             return;
         }
 
-        // Map to Supabase schema
-        const habitData = {
-            id: row.id,
-            user_id: row.user_id,
-            name: row.name,
-            description: row.description,
-            category: row.category,
-            icon: row.icon,
-            is_goal: row.is_goal === 1,
-            target_date: row.target_date,
-            goal_id: row.goal_id,
-            task_days: JSON.parse(row.task_days || '[]'),
-            reminders: JSON.parse(row.reminders || '[]'),
-            start_date: row.start_date,
-            duration_minutes: row.duration_minutes,
-            start_time: row.start_time,
-            end_time: row.end_time,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            deleted_at: null, // Explicitly null for non-deleted
-        };
+        // Map ALL fields to Supabase schema
+        const habitData = mapLocalHabitToSupabase(row);
 
         await supabase.from('habits').upsert(habitData);
 
@@ -192,8 +222,7 @@ async function syncHabit(operation: string, recordId: string, payload: any): Pro
 /**
  * Sync a completion change to Supabase
  */
-async function syncCompletion(operation: string, recordId: string, payload: any): Promise<void> {
-    const db = await getDatabase();
+async function syncCompletion(db: any, operation: string, recordId: string, payload: any): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -221,6 +250,8 @@ async function syncCompletion(operation: string, recordId: string, payload: any)
             user_id: row.user_id,
             habit_id: row.habit_id,
             date: row.date,
+            value: row.value ?? 1,
+            memo: row.memo,
             completed: true,
             deleted_at: null,
         });
@@ -232,11 +263,13 @@ async function syncCompletion(operation: string, recordId: string, payload: any)
 
 /**
  * Pull latest data from Supabase into local SQLite
- * INDUSTRY STANDARD: Preserves local deleted state,  only updates if cloud is newer
+ * INDUSTRY STANDARD: Preserves local deleted state, only updates if cloud is newer
  */
 export async function pullFromCloud(userId: string): Promise<void> {
     try {
         const db = await getDatabase();
+        if (!db) return; // SQLite unavailable — skip
+
         const now = nowISO();
 
         // Pull ALL habits (including soft-deleted) to sync deletion state
@@ -320,10 +353,11 @@ export async function pullFromCloud(userId: string): Promise<void> {
                 // Insert or ignore (don't overwrite local changes)
                 await db.runAsync(`
                     INSERT OR IGNORE INTO completions (
-                        id, user_id, habit_id, date, value, created_at, synced, deleted
-                    ) VALUES (?, ?, ?, ?, 1, ?, 1, 0)
+                        id, user_id, habit_id, date, value, memo, created_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0)
                 `,
-                    completionId, c.user_id, c.habit_id, c.date, now
+                    completionId, c.user_id, c.habit_id, c.date,
+                    c.value ?? 1, c.memo || null, now
                 );
             }
         }
@@ -337,38 +371,62 @@ export async function pullFromCloud(userId: string): Promise<void> {
 
 /**
  * Insert a new habit from cloud into local SQLite
+ * Maps ALL Supabase columns to local SQLite columns
  */
 async function insertLocalHabit(db: any, h: any, now: string): Promise<void> {
     await db.runAsync(`
         INSERT INTO habits (
             id, user_id, name, description, category, icon, is_goal, target_date, goal_id,
-            task_days, reminders, start_date, duration_minutes, start_time, end_time,
+            task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
+            type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
+            frequency, week_interval, time_of_day, graph_style, tracking_method,
+            reminder_offset, location_reminders,
             created_at, updated_at, synced, deleted
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
     `,
         h.id, h.user_id, h.name, h.description, h.category, h.icon,
         h.is_goal ? 1 : 0, h.target_date, h.goal_id,
         JSON.stringify(h.task_days || []), JSON.stringify(h.reminders || []),
-        h.start_date, h.duration_minutes, h.start_time, h.end_time,
+        h.start_date, h.end_date, h.duration_minutes, h.start_time, h.end_time,
+        h.type || 'build', h.color || '#6B46C1', h.goal_period || 'daily',
+        h.goal_value ?? 1, h.unit || 'count', h.chart_type || 'bar',
+        h.is_archived ? 1 : 0, h.show_memo ? 1 : 0,
+        h.frequency, h.week_interval ?? 1, h.time_of_day,
+        h.graph_style, h.tracking_method || 'boolean',
+        h.reminder_offset, JSON.stringify(h.location_reminders || []),
         h.created_at, now
     );
 }
 
 /**
  * Update an existing local habit from cloud data
+ * Maps ALL Supabase columns to local SQLite columns
  */
 async function updateLocalHabit(db: any, h: any, now: string): Promise<void> {
     await db.runAsync(`
         UPDATE habits SET
             name = ?, description = ?, category = ?, icon = ?, is_goal = ?, target_date = ?, goal_id = ?,
-            task_days = ?, reminders = ?, start_date = ?, duration_minutes = ?, start_time = ?, end_time = ?,
+            task_days = ?, reminders = ?, start_date = ?, end_date = ?,
+            duration_minutes = ?, start_time = ?, end_time = ?,
+            type = ?, color = ?, goal_period = ?, goal_value = ?, unit = ?,
+            chart_type = ?, is_archived = ?, show_memo = ?,
+            frequency = ?, week_interval = ?, time_of_day = ?,
+            graph_style = ?, tracking_method = ?,
+            reminder_offset = ?, location_reminders = ?,
             updated_at = ?, synced = 1
         WHERE id = ?
     `,
         h.name, h.description, h.category, h.icon,
         h.is_goal ? 1 : 0, h.target_date, h.goal_id,
         JSON.stringify(h.task_days || []), JSON.stringify(h.reminders || []),
-        h.start_date, h.duration_minutes, h.start_time, h.end_time,
+        h.start_date, h.end_date,
+        h.duration_minutes, h.start_time, h.end_time,
+        h.type || 'build', h.color || '#6B46C1', h.goal_period || 'daily',
+        h.goal_value ?? 1, h.unit || 'count',
+        h.chart_type || 'bar', h.is_archived ? 1 : 0, h.show_memo ? 1 : 0,
+        h.frequency, h.week_interval ?? 1, h.time_of_day,
+        h.graph_style, h.tracking_method || 'boolean',
+        h.reminder_offset, JSON.stringify(h.location_reminders || []),
         now, h.id
     );
 }
