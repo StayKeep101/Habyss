@@ -49,6 +49,11 @@ serve(async (req) => {
 
         // 3. Determine if it's a subscription or one-time payment
         const price = await stripe.prices.retrieve(priceId);
+
+        if (!price.active) {
+            throw new Error(`Price ${price.id} is inactive in Stripe Dashboard. Please activate it.`);
+        }
+
         let paymentIntentClientSecret;
 
         if (price.type === 'recurring') {

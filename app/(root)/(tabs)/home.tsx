@@ -70,11 +70,9 @@ const FREE_PROMOS = [
 
 import { useTheme } from '@/constants/themeContext';
 
-// New Dashboard Components
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { StreakCard } from '@/components/Home/StreakCard';
 import { ConsistencyCard } from '@/components/Home/ConsistencyCard';
-import { GoalsGridModal } from '@/components/Home/GoalsGridModal';
 import { StreakModal } from '@/components/Home/StreakModal';
 import { AnalyticsDashboard } from '@/components/Home/AnalyticsDashboard';
 import { ConsistencyModal } from '@/components/Home/ConsistencyModal';
@@ -108,7 +106,6 @@ const Home = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAIAgent, setShowAIAgent] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [showConsistencyModal, setShowConsistencyModal] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
@@ -644,7 +641,7 @@ const Home = () => {
             <GoalsProgressBar
               progress={avgGoalProgress}
               goalsCount={goals.length}
-              onPress={() => setShowGoalsModal(true)}
+              onPress={() => router.push('/goals-overview')}
             />
           </Animated.View>
 
@@ -678,13 +675,6 @@ const Home = () => {
 
         </ScrollView>
 
-        {/* Modals */}
-        <GoalsGridModal
-          visible={showGoalsModal}
-          onClose={() => setShowGoalsModal(false)}
-          goals={goals}
-          goalProgress={goalProgressMap}
-        />
         <StreakModal
           visible={showStreakModal}
           onClose={() => setShowStreakModal(false)}

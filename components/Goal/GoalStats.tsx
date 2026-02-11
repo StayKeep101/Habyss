@@ -37,6 +37,7 @@ export const GoalStats: React.FC<GoalStatsProps> = ({ goal, habits }) => {
     // Interaction State
     const activeIndex = useSharedValue(-1);
     const [tooltipData, setTooltipData] = useState<{ date: string, value: number } | null>(null);
+    const [tooltipIndex, setTooltipIndex] = useState(-1);
 
     useEffect(() => {
         const loadStats = async () => {
@@ -125,9 +126,11 @@ export const GoalStats: React.FC<GoalStatsProps> = ({ goal, habits }) => {
                 date: new Date(stats.dailyActivity[index].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                 value: stats.dailyActivity[index].count
             });
+            setTooltipIndex(index);
             selectionFeedback();
         } else {
             setTooltipData(null);
+            setTooltipIndex(-1);
         }
     }, [stats.dailyActivity]);
 
@@ -147,6 +150,7 @@ export const GoalStats: React.FC<GoalStatsProps> = ({ goal, habits }) => {
         .onFinalize(() => {
             activeIndex.value = -1;
             runOnJS(setTooltipData)(null);
+            runOnJS(setTooltipIndex)(-1);
         });
 
     return (
@@ -251,12 +255,12 @@ export const GoalStats: React.FC<GoalStatsProps> = ({ goal, habits }) => {
                                 );
                             })}
 
-                            {/* Active Cursor (Only when touching) - Animated via React State for simplicity here, or Reanimated if using direct props */}
-                            {tooltipData && (
+                            {/* Active Cursor (Only when touching) */}
+                            {tooltipData && tooltipIndex >= 0 && (
                                 <Line
-                                    x1={activeIndex.value * stepX}
+                                    x1={tooltipIndex * stepX}
                                     y1={0}
-                                    x2={activeIndex.value * stepX}
+                                    x2={tooltipIndex * stepX}
                                     y2={GRAPH_HEIGHT}
                                     stroke="white"
                                     strokeWidth="1"
@@ -265,9 +269,9 @@ export const GoalStats: React.FC<GoalStatsProps> = ({ goal, habits }) => {
                             )}
 
                             {/* Active Dot */}
-                            {tooltipData && (
+                            {tooltipData && tooltipIndex >= 0 && (
                                 <Circle
-                                    cx={activeIndex.value * stepX}
+                                    cx={tooltipIndex * stepX}
                                     cy={GRAPH_HEIGHT - (tooltipData.value / maxVal) * GRAPH_HEIGHT}
                                     r="6"
                                     fill="white"

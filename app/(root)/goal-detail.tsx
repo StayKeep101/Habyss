@@ -375,20 +375,18 @@ const GoalDetail = () => {
         {/* Main Content Area */}
         <Animated.View entering={FadeIn.duration(500)} style={[styles.contentContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
 
-          {/* Floating Progress Badge */}
+          {/* Floating Progress */}
           <View style={styles.progressBadgeContainer}>
-            <VoidCard glass intensity={40} style={[styles.progressBadge, { backgroundColor: theme === 'light' ? colors.surface : 'rgba(0,0,0,0.6)', borderColor: colors.border }]}>
-              <HalfCircleProgress
-                progress={progress}
-                size={120}
-                strokeWidth={12}
-                color={goal.color || accentColor}
-                backgroundColor={colors.surfaceSecondary}
-                textColor={colors.text}
-                fontSize={28}
-                showPercentage={true}
-              />
-            </VoidCard>
+            <HalfCircleProgress
+              progress={progress}
+              size={140}
+              strokeWidth={12}
+              color={goal.color || accentColor}
+              backgroundColor={colors.surfaceSecondary}
+              textColor={colors.text}
+              fontSize={28}
+              showPercentage={true}
+            />
           </View>
 
           {/* Goal Info */}
@@ -528,16 +526,8 @@ const styles = StyleSheet.create({
   },
   progressBadgeContainer: {
     alignItems: 'center',
-    marginTop: -100, // Pull up to overlap with header image
+    marginTop: -80, // Pull up to overlap with header image
     marginBottom: 0,
-  },
-  progressBadge: {
-    width: 140, height: 140,
-    borderRadius: 70,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)', // Darker backing
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   goalTitle: {
     fontSize: 28,

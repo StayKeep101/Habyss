@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView, Image, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -8,6 +9,8 @@ import { ScrollPickerModal } from './ScrollPickerModal';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidModal } from '@/components/Layout/VoidModal';
+import Animated, { useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
@@ -41,6 +44,38 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 
     const ages = Array.from({ length: 100 }, (_, i) => String(i + 1));
     const genders = ['Male', 'Female', 'Other'];
+
+    // Animation Values
+    const scrollY = useSharedValue(0);
+    const HEADER_HEIGHT = 200;
+
+    const scrollHandler = useAnimatedScrollHandler({
+        onScroll: (event) => {
+            scrollY.value = event.contentOffset.y;
+        },
+    });
+
+    const headerAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [
+                {
+                    translateY: interpolate(
+                        scrollY.value,
+                        [-HEADER_HEIGHT, 0, HEADER_HEIGHT],
+                        [-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75]
+                    ),
+                },
+                {
+                    scale: interpolate(
+                        scrollY.value,
+                        [-HEADER_HEIGHT, 0, HEADER_HEIGHT],
+                        [2, 1, 1],
+                        Extrapolation.CLAMP
+                    ),
+                },
+            ],
+        };
+    });
 
     // Load initial data
     useEffect(() => {
@@ -182,104 +217,129 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 
     return (
         <VoidModal visible={visible} onClose={onClose} heightPercentage={0.85}>
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-            >
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: colors.borderLight }]}>
-                    <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-                        <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend' }}>Cancel</Text>
+            <View style={{ flex: 1, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
+                {/* Parallax Header Image */}
+                <Animated.View style={[styles.headerImageContainer, headerAnimatedStyle]}>
+                    <Image
+                        source={avatarUri ? { uri: avatarUri } : require('@/assets/images/icon.png')} // Fallback to icon or a specific cover if available
+                        style={[styles.headerImage, { opacity: 0.6 }]}
+                        resizeMode="cover"
+                    />
+                    <LinearGradient
+                        colors={['transparent', colors.background]}
+                        style={StyleSheet.absoluteFill}
+                    />
+                </Animated.View>
+
+                {/* Header Actions - Absolute positioned on top */}
+                <View style={[styles.headerOverlay, { paddingTop: 20 }]}>
+                    <TouchableOpacity onPress={onClose} style={styles.headerBtnBlur}>
+                        <BlurView intensity={30} tint="dark" style={styles.blurBtn}>
+                            <Ionicons name="close" size={20} color="#fff" />
+                        </BlurView>
                     </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.text }]}>Edit Profile</Text>
-                    <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerBtn}>
+                    <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerBtnBlur}>
                         {saving ? (
-                            <ActivityIndicator size="small" color={colors.primary} />
+                            <ActivityIndicator size="small" color="#fff" />
                         ) : (
-                            <Text style={{ color: colors.primary, fontFamily: 'Lexend', fontWeight: 'bold' }}>Save</Text>
+                            <BlurView intensity={30} tint="dark" style={styles.blurBtn}>
+                                <Ionicons name="checkmark" size={20} color="#fff" />
+                            </BlurView>
                         )}
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-                    {loading && <ActivityIndicator style={{ marginBottom: 20 }} />}
-
-                    {/* Profile Photo */}
-                    <TouchableOpacity onPress={handleChangeAvatar} style={styles.avatarSection}>
-                        <View style={[styles.avatarContainer, { borderColor: colors.border }]}>
-                            {avatarUri ? (
-                                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-                            ) : (
-                                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceTertiary }]}>
-                                    <Ionicons name="person" size={40} color={colors.textTertiary} />
-                                </View>
-                            )}
-                            <View style={[styles.cameraIcon, { backgroundColor: colors.primary }]}>
-                                <Ionicons name="camera" size={14} color="black" />
-                            </View>
-                        </View>
-                        <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>Tap to change photo</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.fieldGroup}>
-                        <Text style={[styles.label, { color: colors.textSecondary }]}>NICKNAME</Text>
-                        <TextInput
-                            style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                            value={nickname}
-                            onChangeText={setNickname}
-                            placeholder="Your codename"
-                            placeholderTextColor={colors.textTertiary}
-                        />
-                    </View>
-
-                    <View style={styles.row}>
-                        <View style={[styles.fieldGroup, { flex: 1, marginRight: 10, marginBottom: 0 }]}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>AGE</Text>
-                            <TouchableOpacity
-                                style={[styles.input, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
-                                onPress={() => setShowAgePicker(true)}
-                            >
-                                <Text style={{ color: age ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
-                                    {age || "Years"}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                        <View style={[styles.fieldGroup, { flex: 1, marginLeft: 10, marginBottom: 0 }]}>
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>GENDER</Text>
-                            <TouchableOpacity
-                                style={[styles.input, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
-                                onPress={() => setShowGenderPicker(true)}
-                            >
-                                <Text style={{ color: gender ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
-                                    {gender || "Identity"}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    <View style={[styles.fieldGroup, { marginTop: 16 }]}>
-                        <Text style={[styles.label, { color: colors.textSecondary }]}>DESCRIPTION</Text>
-                        <TextInput
-                            style={[styles.inputTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                            value={description}
-                            onChangeText={setDescription}
-                            placeholder="Your mission briefing..."
-                            placeholderTextColor={colors.textTertiary}
-                            multiline
-                            numberOfLines={4}
-                            textAlignVertical="top"
-                        />
-                    </View>
-
-                    <TouchableOpacity
-                        onPress={handleDeleteAccount}
-                        style={[styles.deleteBtn, { borderColor: colors.error }]}
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+                >
+                    <Animated.ScrollView
+                        onScroll={scrollHandler}
+                        scrollEventThrottle={16}
+                        contentContainerStyle={{ paddingBottom: 40, paddingTop: HEADER_HEIGHT - 60 }}
+                        showsVerticalScrollIndicator={false}
                     >
-                        <Text style={{ color: colors.error, fontFamily: 'Lexend_600SemiBold' }}>Delete Account</Text>
-                    </TouchableOpacity>
-                </ScrollView>
-            </KeyboardAvoidingView>
+                        <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
+                            {loading && <ActivityIndicator style={{ marginBottom: 20 }} />}
+
+                            {/* Profile Photo - Overlapping Header */}
+                            <TouchableOpacity onPress={handleChangeAvatar} style={styles.avatarSection}>
+                                <View style={[styles.avatarContainer, { borderColor: colors.background }]}>
+                                    {avatarUri ? (
+                                        <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                                    ) : (
+                                        <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceTertiary }]}>
+                                            <Ionicons name="person" size={40} color={colors.textTertiary} />
+                                        </View>
+                                    )}
+                                    <View style={[styles.cameraIcon, { backgroundColor: colors.primary }]}>
+                                        <Ionicons name="camera" size={14} color="black" />
+                                    </View>
+                                </View>
+                                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>Tap to change photo</Text>
+                            </TouchableOpacity>
+
+                            <View style={styles.fieldGroup}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>NICKNAME</Text>
+                                <TextInput
+                                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
+                                    value={nickname}
+                                    onChangeText={setNickname}
+                                    placeholder="Your codename"
+                                    placeholderTextColor={colors.textTertiary}
+                                />
+                            </View>
+
+                            <View style={styles.row}>
+                                <View style={[styles.fieldGroup, { flex: 1, marginRight: 10, marginBottom: 0 }]}>
+                                    <Text style={[styles.label, { color: colors.textSecondary }]}>AGE</Text>
+                                    <TouchableOpacity
+                                        style={[styles.input, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
+                                        onPress={() => setShowAgePicker(true)}
+                                    >
+                                        <Text style={{ color: age ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
+                                            {age || "Years"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={[styles.fieldGroup, { flex: 1, marginLeft: 10, marginBottom: 0 }]}>
+                                    <Text style={[styles.label, { color: colors.textSecondary }]}>GENDER</Text>
+                                    <TouchableOpacity
+                                        style={[styles.input, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
+                                        onPress={() => setShowGenderPicker(true)}
+                                    >
+                                        <Text style={{ color: gender ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
+                                            {gender || "Identity"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            <View style={[styles.fieldGroup, { marginTop: 16 }]}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>DESCRIPTION</Text>
+                                <TextInput
+                                    style={[styles.inputTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    placeholder="Your mission briefing..."
+                                    placeholderTextColor={colors.textTertiary}
+                                    multiline
+                                    numberOfLines={4}
+                                    textAlignVertical="top"
+                                />
+                            </View>
+
+                            <TouchableOpacity
+                                onPress={handleDeleteAccount}
+                                style={[styles.deleteBtn, { borderColor: colors.error }]}
+                            >
+                                <Text style={{ color: colors.error, fontFamily: 'Lexend_600SemiBold' }}>Delete Account</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.ScrollView>
+                </KeyboardAvoidingView>
+            </View>
 
             <ScrollPickerModal
                 visible={showAgePicker}
@@ -303,14 +363,44 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 };
 
 const styles = StyleSheet.create({
-    header: {
+    headerImageContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 200,
+        zIndex: 0,
+    },
+    headerImage: {
+        width: '100%',
+        height: '100%',
+    },
+    headerOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingBottom: 12,
-        paddingTop: 20, // Added top padding for spacing in VoidModal
-        borderBottomWidth: 1,
+        zIndex: 100, // Make sure buttons are clickable
+    },
+    headerBtnBlur: {
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    blurBtn: {
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+    contentContainer: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 20,
+        minHeight: 500,
     },
     headerBtn: {
         padding: 4,

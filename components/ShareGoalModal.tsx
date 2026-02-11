@@ -17,6 +17,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FriendsService, Friend } from '@/lib/friendsService';
+import { subscribeToHabits, Habit } from '@/lib/habitsSQLite';
 
 const { height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.50;
@@ -37,6 +38,7 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
     const [friends, setFriends] = useState<Friend[]>([]);
     const [sharedWith, setSharedWith] = useState<string[]>([]);
     const [initialSharedWith, setInitialSharedWith] = useState<string[]>([]);
+    const [linkedHabits, setLinkedHabits] = useState<Habit[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
@@ -78,6 +80,13 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
         const sharedIds = alreadyShared.map(f => f.id);
         setSharedWith(sharedIds);
         setInitialSharedWith(sharedIds);
+
+        // Fetch linked habits for auto-sharing
+        const unsubPromise = subscribeToHabits((allHabits) => {
+            setLinkedHabits(allHabits.filter(h => h.goalId === goalId && !h.isGoal));
+        });
+        unsubPromise.then(unsub => unsub()); // One-shot read
+
         setLoading(false);
     };
 
@@ -97,10 +106,27 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
         // Close immediately (optimistic) — operations fire in background
         closeModal();
 
-        // Batch operations in parallel
+        // Batch operations in parallel: share/unshare goal AND all linked habits
+        const habitOps: Promise<boolean>[] = [];
+
+        // Auto-share all linked habits with newly shared friends
+        for (const friendId of toShare) {
+            for (const habit of linkedHabits) {
+                habitOps.push(FriendsService.shareHabitWithFriend(habit.id, friendId));
+            }
+        }
+
+        // Auto-unshare all linked habits from unshared friends
+        for (const friendId of toUnshare) {
+            for (const habit of linkedHabits) {
+                habitOps.push(FriendsService.unshareHabit(habit.id, friendId));
+            }
+        }
+
         await Promise.all([
             FriendsService.batchShareGoal(goalId, toShare),
             FriendsService.batchUnshareGoal(goalId, toUnshare),
+            ...habitOps,
         ]);
 
         setSaving(false);

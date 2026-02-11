@@ -129,7 +129,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
     return (
         <View style={styles.container}>
             {/* Life Balance Matrix Card */}
-            <VoidCard glass={!isTrueDark} style={[styles.chartCard, isLight && { backgroundColor: colors.surfaceSecondary }]} intensity={isLight ? 20 : 90}>
+            <VoidCard glass={!isTrueDark} style={[styles.chartCard, { backgroundColor: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.4)' }]} intensity={isLight ? 20 : 90}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 12, paddingHorizontal: 8, alignItems: 'center' }}>
                     <Text style={[styles.cardTitle, { color: colors.textSecondary, marginBottom: 0 }]}>LIFE MATRIX</Text>
                     <View style={{ flexDirection: 'row', backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)', borderRadius: 8, padding: 2 }}>
