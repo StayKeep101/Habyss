@@ -27,6 +27,8 @@ import { HabitCreationModal } from '@/components/HabitCreationModal';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+import StripeAppProvider from '@/components/StripeAppProvider';
+
 export default function MobileLayout() {
   const [loaded] = useFonts({
     'Lexend': Lexend_700Bold,
@@ -160,25 +162,24 @@ export default function MobileLayout() {
 
   return (
     <ThemeProvider>
-      {/* <StripeAppProvider> */}
-      <AppSettingsProvider>
-        <AIPersonalityProvider>
-          <AccentProvider>
-            <FocusTimeProvider>
-              {/* TutorialProvider removed */}
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <InnerLayout />
-              </GestureHandlerRootView>
-              {/* TutorialProvider removed */}
-            </FocusTimeProvider>
-          </AccentProvider>
-        </AIPersonalityProvider>
-      </AppSettingsProvider>
-      {/* </StripeAppProvider> */}
+      <StripeAppProvider>
+        <AppSettingsProvider>
+          <AIPersonalityProvider>
+            <AccentProvider>
+              <FocusTimeProvider>
+                {/* TutorialProvider removed */}
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <InnerLayout />
+                </GestureHandlerRootView>
+                {/* TutorialProvider removed */}
+              </FocusTimeProvider>
+            </AccentProvider>
+          </AIPersonalityProvider>
+        </AppSettingsProvider>
+      </StripeAppProvider>
     </ThemeProvider>
   );
 }
-
 function InnerLayout() {
   const theme = useColorScheme();
   const isDark = theme !== 'light';
