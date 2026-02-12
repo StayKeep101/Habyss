@@ -23,6 +23,16 @@ serve(async (req) => {
     }
 
     try {
+        // 0. CHECK ENV VARS
+        const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+        const sbUrl = Deno.env.get('SUPABASE_URL');
+        const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+        if (!stripeKey || !sbUrl || !sbKey) {
+            console.error('Missing env vars:', { stripeKey: !!stripeKey, sbUrl: !!sbUrl, sbKey: !!sbKey });
+            throw new Error('Server misconfiguration: Missing environment variables.');
+        }
+
         // 1. Get the user from the authorization header
         const authHeader = req.headers.get('Authorization')
         if (!authHeader) {

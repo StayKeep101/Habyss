@@ -1,6 +1,7 @@
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const { SharedDefaults } = NativeModules;
 const ACTIVITY_ID_KEY = '@habyss_live_activity_id';
 
 // Dynamically import to avoid crashes on Android
@@ -18,6 +19,9 @@ export interface DailyProgress {
     total: number;
     topHabitName?: string;
     streakDays?: number;
+    // New fields for timer
+    activeHabitName?: string;
+    targetDate?: number; // timestamp in ms
 }
 
 export const LiveActivityService = {
@@ -38,19 +42,20 @@ export const LiveActivityService = {
             }
 
             const progress = stats.total > 0 ? stats.completed / stats.total : 0;
-            const subtitle = stats.streakDays
-                ? `🔥 ${stats.streakDays} day streak`
-                : stats.topHabitName
-                    ? `Next: ${stats.topHabitName}`
-                    : 'Keep going!';
+            const subtitle = stats.activeHabitName
+                ? 'Focusing...'
+                : stats.streakDays
+                    ? `🔥 ${stats.streakDays} day streak`
+                    : stats.topHabitName
+                        ? `Next: ${stats.topHabitName}`
+                        : 'Keep going!';
+
+            const title = stats.activeHabitName || `${stats.completed}/${stats.total} Habits Done`;
 
             const activityId = LiveActivity.startActivity(
                 {
-                    title: `${stats.completed}/${stats.total} Habits Done`,
-                    subtitle,
-                    progressBar: { progress },
-                },
-                {
+                    name: 'Habyss Live Activity',
+                    totalDurationSeconds: stats.targetDate ? (stats.targetDate - Date.now()) / 1000 : undefined,
                     backgroundColor: '#0A0A0F',
                     titleColor: '#FFFFFF',
                     subtitleColor: '#EBEBF099',
@@ -58,13 +63,23 @@ export const LiveActivityService = {
                     progressViewLabelColor: '#FFFFFF',
                     deepLinkUrl: '/home',
                     padding: { horizontal: 20, top: 16, bottom: 16 },
-                }
+                } as any,
+                {
+                    title,
+                    subtitle,
+                    timerEndDateInMilliseconds: stats.targetDate,
+                    progress,
+                    progressBar: { progress },
+                } as any
             );
 
             if (activityId) {
                 await AsyncStorage.setItem(ACTIVITY_ID_KEY, activityId);
                 console.log('Live Activity started:', activityId);
             }
+
+            // Sync to Widget
+            this.syncToWidget(stats);
         } catch (e) {
             console.warn('Failed to start Live Activity:', e);
         }
@@ -82,16 +97,26 @@ export const LiveActivityService = {
             if (!activityId) return;
 
             const progress = stats.total > 0 ? stats.completed / stats.total : 0;
-            const subtitle = stats.completed >= stats.total
+
+            let title = `${stats.completed}/${stats.total} Habits Done`;
+            let subtitle = stats.completed >= stats.total
                 ? '✅ All done for today!'
                 : stats.topHabitName
                     ? `Next: ${stats.topHabitName}`
                     : `${stats.total - stats.completed} remaining`;
 
+            if (stats.activeHabitName) {
+                title = stats.activeHabitName;
+                subtitle = 'Focusing...';
+            }
+
             LiveActivity.updateActivity(activityId, {
-                title: `${stats.completed}/${stats.total} Habits Done`,
+                title,
                 subtitle,
+                timerEndDateInMilliseconds: stats.targetDate,
                 progressBar: { progress },
+                // Allow static progress if no timer
+                progress: progress,
             });
 
             // Auto-stop when all habits are complete
@@ -99,6 +124,9 @@ export const LiveActivityService = {
                 // Keep it visible for a bit longer, then stop
                 setTimeout(() => this.stopActivity(), 30000); // 30s celebration
             }
+
+            // Sync to Widget
+            this.syncToWidget(stats);
         } catch (e) {
             console.warn('Failed to update Live Activity:', e);
         }
@@ -118,10 +146,20 @@ export const LiveActivityService = {
                 title: 'Great job today! 🎉',
                 subtitle: 'See you tomorrow',
                 progressBar: { progress: 1.0 },
-            });
+            } as any);
 
             await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
             console.log('Live Activity stopped');
+
+            // Clear Widget active state
+            if (SharedDefaults) {
+                SharedDefaults.set('activeHabitName', 'No Active Habit');
+                SharedDefaults.set('todayStats', 'Great job today!');
+                // Force reload widget might be needed but requires WidgetKit from Swift side.
+                // The Provider checks on timeline refresh. To force update, we'd need another native method.
+                // For now, rely on timeline policy.
+            }
+
         } catch (e) {
             console.warn('Failed to stop Live Activity:', e);
         }
@@ -134,4 +172,19 @@ export const LiveActivityService = {
         const id = await AsyncStorage.getItem(ACTIVITY_ID_KEY);
         return id !== null;
     },
+
+    /**
+     * Sync data to App Group for Home Screen Widget
+     */
+    syncToWidget(stats: DailyProgress) {
+        if (!SharedDefaults) return;
+
+        const habitName = stats.activeHabitName || 'No Active Habit';
+        const status = stats.activeHabitName
+            ? 'Focusing...'
+            : `${stats.completed}/${stats.total} Habits`;
+
+        SharedDefaults.set('activeHabitName', habitName);
+        SharedDefaults.set('todayStats', status);
+    }
 };

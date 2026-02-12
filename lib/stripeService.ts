@@ -86,8 +86,18 @@ export const StripeService = {
       if (error) throw error;
 
       return data?.restored || false;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error restoring purchases:', error);
+
+      // Try to log the backend error message if available
+      if (error && typeof error === 'object') {
+        if ('message' in error) console.error('Error Message:', error.message);
+        if ('context' in error) {
+          // For FunctionsHttpError, context often contains the response
+          console.error('Error Context:', JSON.stringify(error.context, null, 2));
+        }
+      }
+
       return false;
     }
   }

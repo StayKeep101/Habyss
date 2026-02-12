@@ -15,12 +15,21 @@ const supabaseClient = createClient(
 serve(async (req) => {
   const signature = req.headers.get('stripe-signature')
 
+  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+  if (!stripeKey) throw new Error('Missing STRIPE_SECRET_KEY');
+
+  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+  if (!stripeKey) throw new Error('Missing STRIPE_SECRET_KEY');
+
   try {
+    const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
+    if (!webhookSecret) throw new Error('Missing STRIPE_WEBHOOK_SECRET');
+
     const body = await req.text()
     const event = stripe.webhooks.constructEvent(
       body,
       signature!,
-      Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
+      webhookSecret
     )
 
     switch (event.type) {
@@ -30,7 +39,10 @@ serve(async (req) => {
         const stripeCustomerId = session.customer as string
         const stripeSubscriptionId = session.subscription as string
 
-        if (userId) {
+        if (userId && stripeSubscriptionId) {
+          // Fetch actual subscription to get accurate period end
+          const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+
           const { error } = await supabaseClient
             .from('subscriptions')
             .upsert({
@@ -38,8 +50,8 @@ serve(async (req) => {
               stripe_customer_id: stripeCustomerId,
               stripe_subscription_id: stripeSubscriptionId,
               plan_type: 'premium',
-              status: 'active',
-              current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // Mock for now
+              status: subscription.status,
+              current_period_end: new Date(subscription.current_period_end * 1000).toISOString()
             })
 
           if (error) throw error

@@ -109,13 +109,62 @@ export default function MobileLayout() {
     return () => subscription.remove();
   }, []);
 
-  // --- Live Activity & App State ---
+  if (!loaded) {
+    return null;
+  }
+
+  return (
+    <ThemeProvider>
+      <StripeAppProvider>
+        <AppSettingsProvider>
+          <AIPersonalityProvider>
+            <AccentProvider>
+              <FocusTimeProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <InnerLayout />
+                </GestureHandlerRootView>
+              </FocusTimeProvider>
+            </AccentProvider>
+          </AIPersonalityProvider>
+        </AppSettingsProvider>
+      </StripeAppProvider>
+    </ThemeProvider>
+  );
+}
+
+function InnerLayout() {
+  const theme = useColorScheme();
+  const isDark = theme !== 'light';
+
+  // Connect Live Activity to Focus Context
+  const { isRunning, activeHabitName, totalDuration, timeLeft } = require('@/constants/FocusTimeContext').useFocusTime();
+
   useEffect(() => {
     const updateLiveActivity = async () => {
       try {
         const { getHabits, getLastNDaysCompletions } = require('@/lib/habitsSQLite');
         const { LiveActivityService } = require('@/lib/liveActivityService');
 
+        // 1. If Timer is running, show Focus Timer
+        if (isRunning && activeHabitName) {
+          const now = Date.now();
+          // Calculate target date based on timeLeft
+          // Note: timeLeft in context is live, but for LA we need absolute time
+          // Best to strictly use the context's state if it provided absolute end time
+          // BUT context only provides timeLeft string/number.
+          // So we approximate: now + timeLeft * 1000
+          const targetDate = now + (timeLeft * 1000);
+
+          await LiveActivityService.startDailyProgress({
+            completed: 0, // Not relevant for timer mode
+            total: 1,
+            activeHabitName: activeHabitName,
+            targetDate: targetDate
+          });
+          return;
+        }
+
+        // 2. Otherwise show Daily Progress (Default)
         const habits = await getHabits();
         const activeHabits = habits.filter((h: any) => !h.isGoal && !h.isArchived);
         const todayCompletions = await getLastNDaysCompletions(1);
@@ -131,7 +180,8 @@ export default function MobileLayout() {
           topHabitName: nextHabit?.name,
         });
       } catch (e) {
-        // Live Activity is optional — don't break the app
+        // Live Activity is optional
+        console.log('Live Activity Update Error:', e);
       }
     };
 
@@ -141,10 +191,10 @@ export default function MobileLayout() {
       }
     });
 
-    // Also start on mount
+    // Initial update
     updateLiveActivity();
 
-    // Listen for habit completions to update Live Activity
+    // Listen for habit completions
     const { DeviceEventEmitter } = require('react-native');
     const completionListener = DeviceEventEmitter.addListener('habit_completion_updated', () => {
       updateLiveActivity();
@@ -154,35 +204,7 @@ export default function MobileLayout() {
       subscription.remove();
       completionListener.remove();
     };
-  }, []);
-
-  if (!loaded) {
-    return null;
-  }
-
-  return (
-    <ThemeProvider>
-      <StripeAppProvider>
-        <AppSettingsProvider>
-          <AIPersonalityProvider>
-            <AccentProvider>
-              <FocusTimeProvider>
-                {/* TutorialProvider removed */}
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <InnerLayout />
-                </GestureHandlerRootView>
-                {/* TutorialProvider removed */}
-              </FocusTimeProvider>
-            </AccentProvider>
-          </AIPersonalityProvider>
-        </AppSettingsProvider>
-      </StripeAppProvider>
-    </ThemeProvider>
-  );
-}
-function InnerLayout() {
-  const theme = useColorScheme();
-  const isDark = theme !== 'light';
+  }, [isRunning, activeHabitName]); // Re-run when timer state changes
 
   return (
     <View style={{ flex: 1 }} className={theme}>
@@ -194,7 +216,6 @@ function InnerLayout() {
         </Stack>
         <CreationModal />
         <HabitCreationModal />
-        {/* TutorialOverlay removed */}
         <StatusBar style={isDark ? "light" : "dark"} />
       </VoidShell>
     </View>

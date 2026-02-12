@@ -437,7 +437,6 @@ export default function CommunityScreen() {
                                                     borderRadius: 19,
                                                     padding: 16,
                                                     alignItems: 'center',
-                                                    height: '100%',
                                                 }}
                                             >
                                                 {/* Crown Icon with animation */}

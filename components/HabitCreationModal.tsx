@@ -44,6 +44,8 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { TopDragHandle } from './TopDragHandle';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CalendarService } from '@/lib/calendarService';
+import { usePremiumStatus } from '@/hooks/usePremiumStatus';
+import { useRouter } from 'expo-router';
 
 const OverlayHeader = ({ title, onClose }: { title: string, onClose: () => void }) => {
     const { theme } = useTheme();
@@ -258,6 +260,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { mediumFeedback, selectionFeedback, successFeedback } = useHaptics();
+    const { isPremium } = usePremiumStatus();
+    const router = useRouter();
     const isLight = theme === 'light';
     // Use darker border for light mode visibility
     const effectiveBorderColor = isLight ? '#94A3B8' : colors.border;
@@ -502,6 +506,25 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             Alert.alert('Missing Title', 'Please enter a title for your habit.');
             return;
         }
+
+        // --- PRO LIMIT CHECK ---
+        if (!habitToEdit && !isPremium) {
+            const currentHabits = await getHabits();
+            const activeHabits = currentHabits.filter(h => !h.isGoal && !h.isArchived);
+
+            if (activeHabits.length >= 3) {
+                Alert.alert(
+                    'Limit Reached',
+                    'Free users can only track up to 3 habits. Upgrade to Pro for unlimited habits!',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Upgrade', onPress: () => router.push('/(root)/paywall') }
+                    ]
+                );
+                return;
+            }
+        }
+
         // Goal is now optional
 
         // Validate weekly frequency has at least one day selected

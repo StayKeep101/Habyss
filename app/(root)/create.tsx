@@ -10,6 +10,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { addHabit, getHabits, updateHabit } from '@/lib/habitsSQLite';
+import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 
 // Simple 2-step Goal Creation/Edit Wizard
 // Step 1: Name + Description
@@ -22,6 +23,7 @@ export default function GoalCreationWizard() {
     const colors = Colors[theme];
     const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
+    const { isPremium } = usePremiumStatus();
 
     // Check if editing existing goal
     const editId = params.id as string | undefined;
@@ -90,6 +92,25 @@ export default function GoalCreationWizard() {
 
     const handleSubmit = async () => {
         if (!name.trim()) return;
+
+        // --- PRO LIMIT CHECK ---
+        if (!isEditing && !isPremium) {
+            const currentHabits = await getHabits();
+            const activeGoals = currentHabits.filter(h => h.isGoal && !h.isArchived);
+
+            if (activeGoals.length >= 1) {
+                Alert.alert(
+                    'Limit Reached',
+                    'Free users can only track 1 goal. Upgrade to Pro for unlimited goals!',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Upgrade', onPress: () => router.push('/(root)/paywall') }
+                    ]
+                );
+                return;
+            }
+        }
+
         setSaving(true);
         successFeedback();
 
