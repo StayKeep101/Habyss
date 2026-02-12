@@ -83,21 +83,24 @@ export const StripeService = {
     try {
       const { data, error } = await supabase.functions.invoke('sync-subscription');
 
-      if (error) throw error;
+      if (error) {
+        // Specifically check for 404 or connection issues
+        if (error.message?.includes('FunctionsHttpError') || error.message?.includes('404')) {
+          console.error('Sync function not found or unreachable:', error);
+          throw new Error('The restoration service is currently unavailable. Please ensure you are online and try again.');
+        }
+        throw error;
+      }
 
       return data?.restored || false;
     } catch (error: any) {
       console.error('Error restoring purchases:', error);
 
-      // Try to log the backend error message if available
-      if (error && typeof error === 'object') {
-        if ('message' in error) console.error('Error Message:', error.message);
-        if ('context' in error) {
-          // For FunctionsHttpError, context often contains the response
-          console.error('Error Context:', JSON.stringify(error.context, null, 2));
-        }
-      }
+      let userMessage = 'Failed to restore purchases. Please try again later.';
+      if (error.message) userMessage = error.message;
 
+      // Re-throw to let the UI catch it if needed, or just return false
+      // For now we return false as expected by the existing UI logic
       return false;
     }
   }

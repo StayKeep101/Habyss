@@ -8,6 +8,8 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 import { useAccentGradient } from '@/constants/AccentContext';
+import { SwipeableHabitItem } from './SwipeableHabitItem';
+import { useRouter } from 'expo-router';
 
 interface CompletionModalProps {
     visible: boolean;
@@ -15,6 +17,8 @@ interface CompletionModalProps {
     habits: Habit[];
     completions: Record<string, boolean>;
     onToggle: (habitId: string) => void;
+    onEdit?: (habit: Habit) => void;
+    onDelete?: (habit: Habit) => void;
 }
 
 export const CompletionModal: React.FC<CompletionModalProps> = ({
@@ -22,8 +26,11 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
     onClose,
     habits,
     completions,
-    onToggle
+    onToggle,
+    onEdit,
+    onDelete
 }) => {
+    const router = useRouter();
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -140,46 +147,23 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
                                     {category.toUpperCase()}
                                 </Text>
                                 {categoryHabits.map(habit => {
-                                    const isCompleted = completions[habit.id];
                                     return (
-                                        <TouchableOpacity
+                                        <SwipeableHabitItem
                                             key={habit.id}
-                                            onPress={() => onToggle(habit.id)}
-                                            activeOpacity={0.7}
-                                        >
-                                            <VoidCard glass style={styles.habitCard}>
-                                                <View style={[styles.habitIcon, { backgroundColor: (habit.color || accentColor) + '15' }]}>
-                                                    <Text style={{ fontSize: 18 }}>{habit.icon || '📝'}</Text>
-                                                </View>
-                                                <View style={styles.habitInfo}>
-                                                    <Text
-                                                        style={[
-                                                            styles.habitName,
-                                                            { color: colors.text },
-                                                            isCompleted && styles.habitNameComplete
-                                                        ]}
-                                                        numberOfLines={1}
-                                                    >
-                                                        {habit.name}
-                                                    </Text>
-                                                    {habit.description && (
-                                                        <Text style={[styles.habitDesc, { color: colors.textTertiary }]} numberOfLines={1}>
-                                                            {habit.description}
-                                                        </Text>
-                                                    )}
-                                                </View>
-                                                <View style={[
-                                                    styles.checkBox,
-                                                    isCompleted
-                                                        ? { backgroundColor: '#10B981', borderColor: '#10B981' }
-                                                        : { borderColor: colors.border }
-                                                ]}>
-                                                    {isCompleted && (
-                                                        <Ionicons name="checkmark" size={14} color="#fff" />
-                                                    )}
-                                                </View>
-                                            </VoidCard>
-                                        </TouchableOpacity>
+                                            habit={habit}
+                                            completed={!!completions[habit.id]}
+                                            onToggle={() => onToggle(habit.id)}
+                                            onPress={() => {
+                                                onClose();
+                                                router.push({
+                                                    pathname: '/habit-detail',
+                                                    params: { habitId: habit.id }
+                                                });
+                                            }}
+                                            onEdit={onEdit || (() => { })}
+                                            onDelete={onDelete || (() => { })}
+                                            size="standard"
+                                        />
                                     );
                                 })}
                             </View>

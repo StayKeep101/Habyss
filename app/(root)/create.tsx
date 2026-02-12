@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Keyboard, DeviceEventEmitter, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Keyboard, DeviceEventEmitter, Alert, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useGlobalSearchParams } from 'expo-router';
 import { useTheme } from '@/constants/themeContext';
@@ -8,13 +8,16 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 import { useHaptics } from '@/hooks/useHaptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
+import { IconPicker } from '@/components/IconPicker';
 
 import { addHabit, getHabits, updateHabit } from '@/lib/habitsSQLite';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 
-// Simple 2-step Goal Creation/Edit Wizard
+// Simple 3-step Goal Creation/Edit Wizard
 // Step 1: Name + Description
 // Step 2: Target Date
+// Step 3: Icon / Image
 
 export default function GoalCreationWizard() {
     const router = useRouter();
@@ -22,7 +25,7 @@ export default function GoalCreationWizard() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary: accentColor } = useAccentGradient();
-    const { lightFeedback, successFeedback } = useHaptics();
+    const { lightFeedback, successFeedback, mediumFeedback, selectionFeedback } = useHaptics();
     const { isPremium } = usePremiumStatus();
 
     // Check if editing existing goal
@@ -37,11 +40,14 @@ export default function GoalCreationWizard() {
     const [name, setName] = useState((params.name as string) || '');
     const [description, setDescription] = useState((params.description as string) || '');
     const [targetDate, setTargetDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // +30 days
-    const [icon, setIcon] = useState((params.icon as string) || 'flag');
-    const [color, setColor] = useState(accentColor);
+    const [icon, setIcon] = useState((params.icon as string) || 'trophy');
+    const [color, setColor] = useState((params.color as string) || accentColor); // Use passed color or accent
     const [category, setCategory] = useState((params.category as string) || 'personal');
 
-    const totalSteps = 2;
+    // Icon Picker State
+    const [showIconPicker, setShowIconPicker] = useState(false);
+
+    const totalSteps = 3;
 
     // Load existing goal data if editing
     useEffect(() => {
@@ -53,7 +59,7 @@ export default function GoalCreationWizard() {
                     if (goal) {
                         setName(goal.name || '');
                         setDescription(goal.description || '');
-                        setIcon(goal.icon || 'flag');
+                        setIcon(goal.icon || 'trophy');
                         setColor(goal.color || accentColor);
                         setCategory(goal.category || 'personal');
                         if (goal.targetDate) {
@@ -90,6 +96,20 @@ export default function GoalCreationWizard() {
         }
     };
 
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setIcon(result.assets[0].uri);
+            mediumFeedback();
+        }
+    };
+
     const handleSubmit = async () => {
         if (!name.trim()) return;
 
@@ -122,7 +142,7 @@ export default function GoalCreationWizard() {
                 description: description.trim(),
                 type: 'build' as const,
                 icon,
-                color,
+                color, // Ensure color is passed
                 category: category as any,
                 goalValue: 1,
                 unit: 'count',
@@ -198,37 +218,102 @@ export default function GoalCreationWizard() {
                     />
                 </Animated.View>
             );
+        } else if (step === 1) {
+            return (
+                <Animated.View entering={FadeIn} style={styles.stepContainer}>
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>
+                        {isEditing ? 'Update target date' : 'Set your target date'}
+                    </Text>
+                    <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                        When do you want to achieve this?
+                    </Text>
+
+                    <View style={[styles.datePickerContainer, { backgroundColor: colors.surfaceSecondary }]}>
+                        <DateTimePicker
+                            value={targetDate}
+                            mode="date"
+                            display="spinner"
+                            onChange={(_, date) => date && setTargetDate(date)}
+                            minimumDate={new Date()}
+                            textColor={colors.textPrimary}
+                        />
+                    </View>
+
+                    <View style={[styles.datePreview, { backgroundColor: colors.surfaceSecondary }]}>
+                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: color + '20', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="calendar" size={20} color={color} />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                            <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>TARGET</Text>
+                            <Text style={[styles.previewDate, { color: colors.textPrimary }]}>
+                                {targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                            </Text>
+                        </View>
+                    </View>
+                </Animated.View>
+            );
         }
 
+        // STEP 3: SYMBOL / ICON
         return (
             <Animated.View entering={FadeIn} style={styles.stepContainer}>
                 <Text style={[styles.title, { color: colors.textPrimary }]}>
-                    {isEditing ? 'Update target date' : 'Set your target date'}
+                    Choose a symbol
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    When do you want to achieve this?
+                    Select an icon or upload an image to represent your goal.
                 </Text>
 
-                <View style={[styles.datePickerContainer, { backgroundColor: colors.surfaceSecondary }]}>
-                    <DateTimePicker
-                        value={targetDate}
-                        mode="date"
-                        display="spinner"
-                        onChange={(_, date) => date && setTargetDate(date)}
-                        minimumDate={new Date()}
-                        textColor={colors.textPrimary}
-                    />
+                <View style={styles.typeToggle}>
+                    <TouchableOpacity
+                        style={[styles.typeOption, !icon.includes('/') && !icon.startsWith('file:') ? styles.typeOptionActive : {}]}
+                        onPress={() => { selectionFeedback(); if (icon.includes('/') || icon.startsWith('file:')) setIcon('trophy'); }}
+                    >
+                        <Text style={[styles.typeText, !icon.includes('/') && !icon.startsWith('file:') ? styles.typeTextActive : {}]}>Icon</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.typeOption, icon.includes('/') || icon.startsWith('file:') ? styles.typeOptionActive : {}]}
+                        onPress={pickImage}
+                    >
+                        <Text style={[styles.typeText, icon.includes('/') || icon.startsWith('file:') ? styles.typeTextActive : {}]}>Image</Text>
+                    </TouchableOpacity>
                 </View>
 
-                <View style={[styles.datePreview, { backgroundColor: colors.surfaceSecondary }]}>
-                    <Ionicons name="flag" size={24} color={color} />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>TARGET</Text>
-                        <Text style={[styles.previewDate, { color: colors.textPrimary }]}>
-                            {targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                        </Text>
-                    </View>
+                <View style={{ alignItems: 'center', marginTop: 30 }}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (icon.includes('/') || icon.startsWith('file:')) {
+                                pickImage();
+                            } else {
+                                setShowIconPicker(true);
+                            }
+                        }}
+                        style={{
+                            width: 120, height: 120,
+                            borderRadius: 24,
+                            backgroundColor: colors.surfaceSecondary,
+                            alignItems: 'center', justifyContent: 'center',
+                            borderWidth: 2, borderColor: color,
+                            overflow: 'hidden'
+                        }}
+                    >
+                        {icon.includes('/') || icon.startsWith('file:') ? (
+                            <Image source={{ uri: icon }} style={{ width: '100%', height: '100%' }} />
+                        ) : (
+                            <Ionicons name={icon as any} size={64} color={color} />
+                        )}
+
+                        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.5)', paddingVertical: 4, alignItems: 'center' }}>
+                            <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>EDIT</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <Text style={{ marginTop: 16, color: colors.textSecondary, fontSize: 14 }}>
+                        {icon.includes('/') || icon.startsWith('file:') ? 'Tap to change image' : 'Tap to change icon'}
+                    </Text>
                 </View>
+
+                {/* Color Preview (Optional - could add color picker here too if needed, but keeping it simple) */}
             </Animated.View>
         );
     };
@@ -275,6 +360,18 @@ export default function GoalCreationWizard() {
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
+
+            <IconPicker
+                visible={showIconPicker}
+                onClose={() => setShowIconPicker(false)}
+                onSelect={(newIcon: React.SetStateAction<string>) => {
+                    setIcon(newIcon);
+                    selectionFeedback();
+                }}
+                selectedIcon={icon}
+                habitName={name}
+                color={color}
+            />
         </SafeAreaView>
     );
 }
@@ -300,4 +397,32 @@ const styles = StyleSheet.create({
     footer: { paddingHorizontal: 24, paddingVertical: 16 },
     nextBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 18, borderRadius: 16 },
     nextBtnText: { fontSize: 17, fontWeight: '700' },
+    typeToggle: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(120,120,120,0.2)', // neutral translucent
+        padding: 4,
+        borderRadius: 12,
+        alignSelf: 'center',
+        marginBottom: 10,
+    },
+    typeOption: {
+        paddingVertical: 8,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+    },
+    typeOptionActive: {
+        backgroundColor: 'white',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    typeText: {
+        fontWeight: '600',
+        color: 'rgba(150,150,150,1)',
+    },
+    typeTextActive: {
+        color: '#000',
+    },
 });

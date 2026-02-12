@@ -15,6 +15,7 @@ import { PomodoroTimer } from '@/components/Habit/PomodoroTimer';
 import { SpotifyPage } from '@/components/Habit/SpotifyPage';
 import { SpinningLogo } from '@/components/SpinningLogo';
 import { HabitGraphRenderer } from '@/components/Habit/HabitGraphRenderer';
+import { DetailedHeatmap } from '@/components/Habit/DetailedHeatmap';
 
 const { width } = Dimensions.get('window');
 
@@ -96,9 +97,9 @@ export default function HabitDetailScreen() {
       const completions = await getCompletions(dateStr);
       setCompleted(!!completions[habitId]);
 
-      // Fetch history for charts (35 days for heatmap support)
-      const last35 = await getLastNDaysCompletions(35);
-      const habitHistory = last35.map(d => ({
+      // Fetch history for charts (366 days for full year heatmap)
+      const last366 = await getLastNDaysCompletions(366);
+      const habitHistory = last366.map(d => ({
         date: d.date,
         completed: d.completedIds.includes(habitId)
       }));
@@ -293,6 +294,15 @@ export default function HabitDetailScreen() {
                   todayValue={completed ? (habit.goalValue || 1) : 0}
                 />
               </View>
+
+              {/* Detailed Heatmap */}
+              <VoidCard style={{ padding: 16, marginBottom: 24 }} glass intensity={20}>
+                <DetailedHeatmap
+                  completionData={history}
+                  color={habit.color || colors.primary}
+                  description="YEARLY CONSISTENCY"
+                />
+              </VoidCard>
 
               {/* Description */}
               <VoidCard style={styles.descCard}>

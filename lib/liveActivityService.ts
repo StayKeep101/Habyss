@@ -22,6 +22,7 @@ export interface DailyProgress {
     // New fields for timer
     activeHabitName?: string;
     targetDate?: number; // timestamp in ms
+    profilePicture?: string; // local file path or base64
 }
 
 export const LiveActivityService = {
@@ -52,6 +53,25 @@ export const LiveActivityService = {
 
             const title = stats.activeHabitName || `${stats.completed}/${stats.total} Habits Done`;
 
+            let profileImagePath: string | undefined;
+
+            if (stats.profilePicture && SharedDefaults.saveImage) {
+                try {
+                    // Extract base64 if it's a data URL, otherwise assume it's raw base64
+                    const base64 = stats.profilePicture.includes('base64,')
+                        ? stats.profilePicture.split('base64,')[1]
+                        : stats.profilePicture;
+
+                    // Simple hash or timestamp for filename to avoid collisions/caching issues if needed, 
+                    // but for a profile pic, 'current_profile.jpg' might be enough or 'profile_<habit_id>.jpg'
+                    const fileName = 'live_activity_profile.jpg';
+                    profileImagePath = await SharedDefaults.saveImage(base64, fileName);
+                    console.log('Saved profile image to:', profileImagePath);
+                } catch (e) {
+                    console.warn('Failed to save profile image:', e);
+                }
+            }
+
             const activityId = LiveActivity.startActivity(
                 {
                     name: 'Habyss Live Activity',
@@ -70,6 +90,7 @@ export const LiveActivityService = {
                     timerEndDateInMilliseconds: stats.targetDate,
                     progress,
                     progressBar: { progress },
+                    profileImagePath,
                 } as any
             );
 
@@ -110,6 +131,19 @@ export const LiveActivityService = {
                 subtitle = 'Focusing...';
             }
 
+            let profileImagePath: string | undefined;
+            if (stats.profilePicture && SharedDefaults.saveImage) {
+                try {
+                    const base64 = stats.profilePicture.includes('base64,')
+                        ? stats.profilePicture.split('base64,')[1]
+                        : stats.profilePicture;
+                    const fileName = 'live_activity_profile.jpg';
+                    profileImagePath = await SharedDefaults.saveImage(base64, fileName);
+                } catch (e) {
+                    console.warn('Failed to save profile image:', e);
+                }
+            }
+
             LiveActivity.updateActivity(activityId, {
                 title,
                 subtitle,
@@ -117,7 +151,8 @@ export const LiveActivityService = {
                 progressBar: { progress },
                 // Allow static progress if no timer
                 progress: progress,
-            });
+                profileImagePath,
+            } as any);
 
             // Auto-stop when all habits are complete
             if (stats.completed >= stats.total && stats.total > 0) {

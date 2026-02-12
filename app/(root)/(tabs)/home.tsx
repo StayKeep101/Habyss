@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, DeviceEventEmitter, InteractionManager, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, DeviceEventEmitter, InteractionManager, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
@@ -560,7 +560,7 @@ const Home = () => {
           {/* Header Row */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 20 }}>
             {/* Left: Profile */}
-            <View style={{ flex: 1 }}>
+            <View>
               {/* Profile Avatar */}
               <TouchableOpacity onPress={() => router.push('/(root)/(tabs)/settings')} activeOpacity={0.8}>
                 <LinearGradient
@@ -696,6 +696,27 @@ const Home = () => {
           habits={allHabits}
           completions={completions}
           onToggle={handleHabitToggle}
+          onEdit={(habit) => {
+            setShowCompletionModal(false);
+            DeviceEventEmitter.emit('show_habit_modal', { initialHabit: habit, goalId: habit.goalId });
+          }}
+          onDelete={(habit) => {
+            Alert.alert(
+              "Delete Habit",
+              "Are you sure? This cannot be undone.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: async () => {
+                    const { removeHabitEverywhere } = require('@/lib/habitsSQLite');
+                    await removeHabitEverywhere(habit.id);
+                  }
+                }
+              ]
+            );
+          }}
         />
         <NotificationsModal
           visible={showNotifications}

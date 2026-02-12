@@ -461,7 +461,8 @@ const GoalDetail = () => {
                       <View key={habit.id}>
                         <SwipeableHabitItem
                           habit={{ ...habit, completed: !!completions[habit.id] }}
-                          onPress={handleHabitPress}
+                          onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
+                          onToggle={() => handleHabitPress(habit)}
                           onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id, goalId: goalId as string } })}
                           onDelete={handleDeleteHabit}
                           size="standard"

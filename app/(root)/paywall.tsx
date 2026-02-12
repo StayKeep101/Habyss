@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Alert, SafeAreaView, StyleSheet, StatusBar, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, SafeAreaView, StyleSheet, StatusBar, ScrollView, Dimensions, Platform } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
@@ -67,37 +67,23 @@ export default function PaywallScreen() {
 
     // --- Stripe Logic ---
     const fetchPaymentSheetParams = async () => {
-        const { data: { user, session } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
 
-        // Get the Supabase URL from environment or client
-        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://bxfuopvlbmlblqkvsvnk.supabase.co';
-        const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-
-        // Use fetch directly for better error handling
-        const response = await fetch(`${supabaseUrl}/functions/v1/payment-sheet`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session?.access_token || anonKey}`,
-                'apikey': anonKey,
-            },
-            body: JSON.stringify({
+        const { data, error } = await supabase.functions.invoke('payment-sheet', {
+            body: {
                 email: user?.email,
+                userId: user?.id,
                 priceId: selectedPlan.priceId,
                 planId: selectedPlanId
-            })
+            }
         });
 
-        const data = await response.json();
-
-        if (!response.ok) {
-            // Extract error message from response
-            const errorMessage = data?.error || `Payment server error (${response.status})`;
-            console.error('Payment sheet error:', errorMessage);
-            throw new Error(errorMessage);
+        if (error) {
+            console.error('Payment sheet error:', error);
+            throw new Error(error.message || 'Payment server error');
         }
 
-        if (!data.paymentIntent) {
+        if (!data?.paymentIntent) {
             throw new Error('Invalid response from payment server');
         }
 
@@ -224,8 +210,8 @@ export default function PaywallScreen() {
                             entering={FadeInDown.delay(index * 100 + 300).springify()}
                         >
                             <VoidCard glass style={styles.benefitCard}>
-                                <View style={[styles.iconBox, { backgroundColor: benefit.color + '20' }]}>
-                                    <Ionicons name={benefit.icon as any} size={24} color={benefit.color} />
+                                <View style={[styles.iconBox, { backgroundColor: benefit.color + '20', borderColor: benefit.color + '30' }]}>
+                                    <Ionicons name={benefit.icon as any} size={28} color={benefit.color} />
                                 </View>
                                 <View style={styles.benefitTextContent}>
                                     <Text style={styles.benefitTitle}>{benefit.title}</Text>
@@ -326,11 +312,11 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 10, // Adjust for status bar
+        marginTop: Platform.OS === 'android' ? 40 : 10, // Adjust for status bar
     },
     scrollContent: {
         paddingTop: 100,
-        paddingBottom: 40,
+        paddingBottom: 200, // Increased to avoid overlap with bottom bar
     },
     heroSection: {
         alignItems: 'center',
@@ -369,31 +355,34 @@ const styles = StyleSheet.create({
     benefitCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        gap: 16,
+        padding: 20, // Increased padding
+        gap: 20, // Increased gap
         backgroundColor: 'rgba(20, 20, 30, 0.6)',
+        minHeight: 100, // Ensure substantial vertical size
     },
     iconBox: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 56, // Bigger icon box
+        height: 56,
+        borderRadius: 28,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1, // Added border for style
     },
     benefitTextContent: {
         flex: 1,
     },
     benefitTitle: {
-        fontSize: 16,
+        fontSize: 18, // Bigger title
         color: 'white',
         fontFamily: 'Lexend',
-        marginBottom: 4,
+        marginBottom: 6,
+        fontWeight: '600',
     },
     benefitDesc: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.6)',
+        fontSize: 14, // Bigger desc
+        color: 'rgba(255,255,255,0.7)',
         fontFamily: 'Lexend_400Regular',
-        lineHeight: 18,
+        lineHeight: 20,
     },
     trustSection: {
         marginTop: 40,
@@ -415,14 +404,16 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        paddingTop: 20,
-        paddingBottom: 40,
+        paddingTop: 24,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 24, // Explicit padding for bottom safe area
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.1)',
+        paddingHorizontal: 20,
     },
     restoreBtn: {
         alignItems: 'center',
-        marginTop: 4,
+        marginTop: 16, // More space between button and restore text
+        paddingVertical: 8,
     },
     plansContainer: {
         marginTop: 40,
@@ -493,11 +484,9 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend_400Regular',
     },
     restoreText: {
-        color: 'rgba(255,255,255,0.4)',
-        fontSize: 12,
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 13,
         fontWeight: '600',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
     }
 });

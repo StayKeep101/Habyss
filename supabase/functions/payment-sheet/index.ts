@@ -23,7 +23,7 @@ serve(async (req) => {
             httpClient: Stripe.createFetchHttpClient(),
         })
 
-        const { email, priceId } = await req.json()
+        const { email, priceId, userId } = await req.json()
         if (!priceId) {
             throw new Error('Price ID is required');
         }
@@ -64,6 +64,10 @@ serve(async (req) => {
                 payment_behavior: 'default_incomplete',
                 payment_settings: { save_default_payment_method: 'on_subscription' },
                 expand: ['latest_invoice.payment_intent'],
+                metadata: {
+                    userId: userId,
+                    type: 'subscription'
+                }
             });
             paymentIntentClientSecret = subscription.latest_invoice.payment_intent.client_secret;
 
@@ -74,6 +78,11 @@ serve(async (req) => {
                 currency: price.currency,
                 customer: customer.id,
                 automatic_payment_methods: { enabled: true },
+                metadata: {
+                    userId: userId,
+                    priceId: priceId,
+                    type: 'lifetime'
+                }
             });
             paymentIntentClientSecret = paymentIntent.client_secret;
         } else {

@@ -18,9 +18,6 @@ serve(async (req) => {
   const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
   if (!stripeKey) throw new Error('Missing STRIPE_SECRET_KEY');
 
-  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-  if (!stripeKey) throw new Error('Missing STRIPE_SECRET_KEY');
-
   try {
     const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
     if (!webhookSecret) throw new Error('Missing STRIPE_WEBHOOK_SECRET');
@@ -31,6 +28,8 @@ serve(async (req) => {
       signature!,
       webhookSecret
     )
+
+    console.log(`🔔 Webhook received: ${event.type}`);
 
     switch (event.type) {
       case 'checkout.session.completed':
@@ -58,7 +57,30 @@ serve(async (req) => {
         }
         break
 
-      case 'customer.subscription.deleted':
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+        // Only process if it's a lifetime purchase (has metadata)
+        if (paymentIntent.metadata?.type === 'lifetime' || paymentIntent.metadata?.priceId) {
+          const userId = paymentIntent.metadata.userId;
+          const customerId = paymentIntent.customer as string;
+
+          if (userId) {
+            const { error } = await supabaseClient
+              .from('subscriptions')
+              .upsert({
+                user_id: userId,
+                stripe_customer_id: customerId,
+                stripe_subscription_id: paymentIntent.id,
+                plan_type: 'premium',
+                status: 'active',
+                current_period_end: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString()
+              })
+
+            if (error) throw error
+          }
+        }
+        break
       case 'customer.subscription.updated':
         const subscription = event.data.object as Stripe.Subscription
         const status = subscription.status === 'active' ? 'active' : 'inactive'

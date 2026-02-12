@@ -82,7 +82,7 @@ serve(async (req) => {
         )
 
         if (activeSub) {
-            // 3. Update Supabase
+            // 3. Update Supabase with Subscription
             const { error: upsertError } = await supabaseClient
                 .from('subscriptions')
                 .upsert({
@@ -94,16 +94,48 @@ serve(async (req) => {
                     current_period_end: new Date(activeSub.current_period_end * 1000).toISOString()
                 })
 
-            if (upsertError) {
-                console.error('Upsert Error:', upsertError)
-                throw upsertError
-            }
+            if (upsertError) throw upsertError
 
             return new Response(
                 JSON.stringify({ message: 'Subscription synced', restored: true, plan: 'premium' }),
                 { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
-        } else {
+        }
+
+        // 3b. Check for One-Time Payments (Livetime)
+        const paymentIntents = await stripe.paymentIntents.list({
+            customer: customer.id,
+            limit: 100 // Check last 100 payments to be safe
+        });
+
+        const lifetimePurchase = paymentIntents.data.find(pi =>
+            pi.status === 'succeeded' &&
+            (pi.metadata?.type === 'lifetime' || pi.metadata?.priceId === 'price_1SoRiYAzxf3pzNzA28oOqFTw')
+        );
+
+        if (lifetimePurchase) {
+            // Upsert a "fake" subscription for lifetime access
+            const { error: upsertError } = await supabaseClient
+                .from('subscriptions')
+                .upsert({
+                    user_id: user.id,
+                    stripe_customer_id: customer.id,
+                    stripe_subscription_id: lifetimePurchase.id, // Use PaymentIntent ID as Subscription ID
+                    plan_type: 'premium', // or 'lifetime'
+                    status: 'active',
+                    current_period_end: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString() // 100 years from now
+                })
+
+            if (upsertError) throw upsertError
+
+            return new Response(
+                JSON.stringify({ message: 'Lifetime purchase synced', restored: true, plan: 'premium' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
+        // No active subscription or purchase found
+        {
             // No active subscription found, ensure DB says inactive
             await supabaseClient
                 .from('subscriptions')

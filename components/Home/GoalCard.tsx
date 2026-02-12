@@ -50,106 +50,117 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   const barHeight = isSmall ? 3 : (isBig ? 6 : 4);
 
   return (
-    <TouchableOpacity onPress={onToggleExpand} activeOpacity={0.8} style={{ flex: 1 }}>
-      <VoidCard glass intensity={isLight ? 20 : (isBig ? 80 : 60)} style={[styles.card, { padding }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-        {/* NavigationTrigger (Icon) */}
+    <VoidCard glass intensity={isLight ? 20 : (isBig ? 80 : 60)} style={[styles.card, { padding: 0 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        {/* LEFT SIDE: Details Trigger */}
         <TouchableOpacity
-          onPress={(e) => {
-            e.stopPropagation();
-            onPress();
-          }}
-          activeOpacity={0.6}
-          style={[styles.iconBox, {
-            width: iconBoxSize, height: iconBoxSize,
-            backgroundColor: (goal.color || defaultColor) + '20',
-            overflow: 'hidden'
-          }]}
+          onPress={onPress}
+          activeOpacity={0.7}
+          style={{ flexDirection: 'row', alignItems: 'center', flex: 1, padding }}
         >
-          {(goal.icon && (goal.icon.includes('/') || goal.icon.startsWith('file:'))) ? (
-            <Image
-              source={{ uri: goal.icon }}
-              style={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
-            />
-          ) : (
-            <Ionicons name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || defaultColor} />
-          )}
-          {/* Subtle indicator that this is clickable for details */}
-          <View style={{ position: 'absolute', bottom: -4, right: -4, backgroundColor: colors.surface, borderRadius: 6, padding: 1, zIndex: 10 }}>
-            <Ionicons name="open-outline" size={8} color={colors.textTertiary} />
+          {/* Icon Box */}
+          <View
+            style={[styles.iconBox, {
+              width: iconBoxSize, height: iconBoxSize,
+              backgroundColor: (goal.color || defaultColor) + '20',
+              overflow: 'hidden'
+            }]}
+          >
+            {(goal.icon && (goal.icon.includes('/') || goal.icon.startsWith('file:'))) ? (
+              <Image
+                source={{ uri: goal.icon }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || defaultColor} />
+            )}
+            {/* Subtle indicator that this is clickable for details */}
+            <View style={{ position: 'absolute', bottom: -4, right: -4, backgroundColor: colors.surface, borderRadius: 6, padding: 1, zIndex: 10 }}>
+              <Ionicons name="open-outline" size={8} color={colors.textTertiary} />
+            </View>
           </View>
+
+          {/* Content (Expands) */}
+          <View style={styles.content}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: isBig ? 6 : 2 }}>
+              <Text style={[styles.name, { color: colors.textPrimary, fontSize: titleSize }]} numberOfLines={1}>{goal.name}</Text>
+              {daysLeft !== null && (
+                <View style={[styles.daysChip, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }, daysLeft < 7 && { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+                  <Text style={[styles.daysText, { color: colors.textSecondary }, daysLeft < 7 && { color: '#EF4444' }]}>{daysLeft}d</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.progressBg, { height: barHeight, backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }]}>
+                <View style={[styles.progressFill, { backgroundColor: goal.color || defaultColor, width: `${progress}%` }]} />
+              </View>
+              <Text style={[styles.progressText, { color: goal.color || defaultColor, fontSize: isSmall ? 9 : 11 }]}>{Math.round(progress)}%</Text>
+            </View>
+          </View>
+
+          {/* Shared With Avatars */}
+          {sharedWith && sharedWith.length > 0 && (
+            <View style={{ flexDirection: 'row', marginRight: 8 }}>
+              {sharedWith.slice(0, 3).map((friend, idx) => (
+                <View
+                  key={friend.id}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    backgroundColor: colors.surfaceTertiary,
+                    borderWidth: 2,
+                    borderColor: colors.surface,
+                    marginLeft: idx > 0 ? -8 : 0,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {friend.avatarUrl ? (
+                    <Image source={{ uri: friend.avatarUrl }} style={{ width: 18, height: 18, borderRadius: 9 }} />
+                  ) : (
+                    <Text style={{ fontSize: 9, color: colors.textSecondary }}>
+                      {friend.username?.[0]?.toUpperCase() || '?'}
+                    </Text>
+                  )}
+                </View>
+              ))}
+              {sharedWith.length > 3 && (
+                <View style={{
+                  width: 22, height: 22, borderRadius: 11,
+                  backgroundColor: colors.surfaceTertiary, marginLeft: -8,
+                  alignItems: 'center', justifyContent: 'center',
+                  borderWidth: 2, borderColor: colors.surface,
+                }}>
+                  <Text style={{ fontSize: 8, color: colors.textSecondary }}>+{sharedWith.length - 3}</Text>
+                </View>
+              )}
+            </View>
+          )}
         </TouchableOpacity>
 
-        {/* Content (Expands) */}
-        <View style={styles.content}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: isBig ? 6 : 2 }}>
-            <Text style={[styles.name, { color: colors.textPrimary, fontSize: titleSize }]} numberOfLines={1}>{goal.name}</Text>
-            {daysLeft !== null && (
-              <View style={[styles.daysChip, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }, daysLeft < 7 && { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-                <Text style={[styles.daysText, { color: colors.textSecondary }, daysLeft < 7 && { color: '#EF4444' }]}>{daysLeft}d</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={[styles.progressBg, { height: barHeight, backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }]}>
-              <View style={[styles.progressFill, { backgroundColor: goal.color || defaultColor, width: `${progress}%` }]} />
-            </View>
-            <Text style={[styles.progressText, { color: goal.color || defaultColor, fontSize: isSmall ? 9 : 11 }]}>{Math.round(progress)}%</Text>
-          </View>
-        </View>
-
-        {/* Shared With Avatars */}
-        {sharedWith && sharedWith.length > 0 && (
-          <View style={{ flexDirection: 'row', marginRight: 8 }}>
-            {sharedWith.slice(0, 3).map((friend, idx) => (
-              <View
-                key={friend.id}
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: colors.surfaceTertiary,
-                  borderWidth: 2,
-                  borderColor: colors.surface,
-                  marginLeft: idx > 0 ? -8 : 0,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                }}
-              >
-                {friend.avatarUrl ? (
-                  <Image source={{ uri: friend.avatarUrl }} style={{ width: 18, height: 18, borderRadius: 9 }} />
-                ) : (
-                  <Text style={{ fontSize: 9, color: colors.textSecondary }}>
-                    {friend.username?.[0]?.toUpperCase() || '?'}
-                  </Text>
-                )}
-              </View>
-            ))}
-            {sharedWith.length > 3 && (
-              <View style={{
-                width: 22, height: 22, borderRadius: 11,
-                backgroundColor: colors.surfaceTertiary, marginLeft: -8,
-                alignItems: 'center', justifyContent: 'center',
-                borderWidth: 2, borderColor: colors.surface,
-              }}>
-                <Text style={{ fontSize: 8, color: colors.textSecondary }}>+{sharedWith.length - 3}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Expansion Indicator (Visual only, transmits press to parent) */}
-        <View style={[styles.toggleBtn, { borderLeftColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)' }]}>
+        {/* RIGHT SIDE: Expand Trigger */}
+        <TouchableOpacity
+          onPress={onToggleExpand}
+          activeOpacity={0.6}
+          style={[styles.toggleBtn, {
+            borderLeftColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)',
+            padding, // Match the padding of the left side content roughly, or specific vertical padding
+            paddingLeft: 12,
+            alignSelf: 'stretch', // Full height
+            justifyContent: 'center'
+          }]}
+        >
           <Text style={{ color: colors.textTertiary, fontSize: 10, fontWeight: '700', fontFamily: 'Lexend', marginRight: 4 }}>
             {linkedHabitsCount}
           </Text>
           <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.textTertiary} />
-        </View>
-
-      </VoidCard>
-    </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
+    </VoidCard>
   );
 };
 

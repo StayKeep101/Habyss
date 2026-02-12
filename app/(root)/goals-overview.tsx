@@ -12,6 +12,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
+import { GoalProgressGraph } from '@/components/Goal/GoalProgressGraph';
 
 const { width } = Dimensions.get('window');
 
@@ -125,12 +126,21 @@ const GoalsOverview = () => {
                             <Text style={[styles.statValue, { color: colors.text }]}>{goals.length}</Text>
                             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GOALS</Text>
                         </VoidCard>
-                        <VoidCard glass style={styles.statCard}>
-                            <View style={[styles.statIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                                <Ionicons name="trending-up" size={22} color="#10B981" />
+                        <VoidCard glass style={[styles.statCard, { padding: 0, overflow: 'hidden' }]}>
+                            {/* Background Graph */}
+                            <View style={StyleSheet.absoluteFill}>
+                                <GoalProgressGraph
+                                    height={100}
+                                    width={(width - 50) / 2}
+                                    color="#10B981"
+                                />
                             </View>
-                            <Text style={[styles.statValue, { color: colors.text }]}>{avgProgress}%</Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>AVG PROGRESS</Text>
+
+                            {/* Overlay Content */}
+                            <View style={{ padding: 16, alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                                <Text style={[styles.statValue, { color: colors.text, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }]}>{avgProgress}%</Text>
+                                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>AVG PROGRESS</Text>
+                            </View>
                         </VoidCard>
                     </Animated.View>
 

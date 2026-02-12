@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated, StyleSheet, Dimensions } from 'react-native';
-import { Swipeable, RectButton } from 'react-native-gesture-handler';
+import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
+import { Swipeable, RectButton, TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -21,6 +21,7 @@ interface ExtendedHabit extends Habit {
 interface SwipeableHabitItemProps {
   habit: ExtendedHabit;
   onPress: (habit: ExtendedHabit) => void;
+  onToggle?: (habit: ExtendedHabit) => void;
   onEdit: (habit: ExtendedHabit) => void;
   onDelete: (habit: ExtendedHabit) => void;
   onShare?: (habit: ExtendedHabit) => void;
@@ -36,7 +37,7 @@ const { width } = Dimensions.get('window');
 const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 
 export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
-  habit, onPress, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration
+  habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -87,15 +88,16 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
 
     return (
       <RectButton
-        style={[styles.leftAction, { backgroundColor: colors.primary }]}
+        style={[styles.leftAction, { backgroundColor: isCompleted ? colors.surfaceSecondary : '#10B981' }]}
         onPress={() => {
-          selectionFeedback();
+          if (onToggle) {
+            onToggle(habit);
+          }
           close();
-          router.push({ pathname: '/habit-detail', params: { habitId: habit.id } });
         }}
       >
         <Animated.View style={[styles.actionContent, { transform: [{ translateX: trans }, { scale }] }]}>
-          <Ionicons name="open-outline" size={20} color="white" />
+          <Ionicons name={isCompleted ? "close-circle-outline" : "checkmark-circle-outline"} size={26} color="white" />
         </Animated.View>
       </RectButton>
     );
@@ -171,7 +173,7 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
       renderRightActions={renderRightActions}
       leftThreshold={50}
       rightThreshold={40}
-      overshootLeft={false}
+      overshootLeft={true} // Bouncy effect enabled for completion
       overshootRight={true} // Allow slight overshoot for organic feel
       overshootFriction={8}
       friction={1.2} // More responsive (1.0 is 1:1, >1 is slower)
@@ -186,8 +188,8 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
       >
         {/* Active Gradient Border Wrapper (NOW SVG) */}
         {isActive && layout.width > 0 && (
-          <View style={StyleSheet.absoluteFill}>
-            <Svg width={layout.width} height={layout.height} style={StyleSheet.absoluteFill}>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Svg width={layout.width} height={layout.height} style={StyleSheet.absoluteFill} pointerEvents="none">
               <Defs>
                 <SvgGradient id="grad" x1="0" y1="0" x2="1" y2="1">
                   <Stop offset="0" stopColor={accentColors[0]} stopOpacity="1" />
@@ -235,9 +237,15 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
             ]}
           >
             {/* Checkbox / Hit Area */}
-            <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, isCompleted && { backgroundColor: accentColor + '30', borderColor: accentColor }, isActive && { borderColor: accentColor, backgroundColor: accentColor + '20' }]}>
-              {(isCompleted || isActive) && <Ionicons name={isCompleted ? "checkmark" : "play"} size={checkboxSize * 0.7} color={accentColor} />}
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.6}
+              onPress={() => onToggle && onToggle(habit)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, isCompleted && { backgroundColor: accentColor + '30', borderColor: accentColor }, isActive && { borderColor: accentColor, backgroundColor: accentColor + '20' }]}>
+                {(isCompleted || isActive) && <Ionicons name={isCompleted ? "checkmark" : "play"} size={checkboxSize * 0.7} color={accentColor} />}
+              </View>
+            </TouchableOpacity>
 
             {/* Icon */}
             <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: isCompleted ? accentColor + '15' : (habit.color || accentColor) + '15' }]}>

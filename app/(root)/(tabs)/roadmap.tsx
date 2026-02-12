@@ -690,7 +690,8 @@ const CalendarScreen = () => {
                                                                         isActive={habit.id === activeHabitId}
                                                                         timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
                                                                         totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
-                                                                        onPress={() => handleHabitPress(habit)}
+                                                                        onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
+                                                                        onToggle={() => handleHabitPress(habit)}
                                                                         onEdit={handleEdit}
                                                                         onDelete={handleDelete}
                                                                     />
@@ -732,7 +733,8 @@ const CalendarScreen = () => {
                                                 timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
                                                 totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
                                                 goalName={activeFilter === 'habits_only' && associatedGoal ? associatedGoal.name : undefined}
-                                                onPress={(h) => {
+                                                onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
+                                                onToggle={(h) => {
                                                     // Use local date format, not UTC
                                                     const today = new Date();
                                                     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
