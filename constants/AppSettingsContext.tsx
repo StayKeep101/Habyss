@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PersonalityModeId } from '@/constants/AIPersonalities';
 
-
 export type RoadMapCardSize = 'small' | 'standard' | 'big';
 export type GreetingStyle = 'ai' | 'quotes' | 'data' | 'all';  // ai=personality, quotes=motivational, data=insights, all=random mix
 
@@ -13,6 +12,7 @@ interface AppSettings {
     aiPersonality: PersonalityModeId;
     cardSize: RoadMapCardSize;
     greetingStyle: GreetingStyle;
+    useLocalAI: boolean;
 }
 
 interface AppSettingsContextType extends AppSettings {
@@ -22,6 +22,7 @@ interface AppSettingsContextType extends AppSettings {
     setAIPersonality: (personality: PersonalityModeId) => void;
     setCardSize: (size: RoadMapCardSize) => void;
     setGreetingStyle: (style: GreetingStyle) => void;
+    setUseLocalAI: (enabled: boolean) => void;
     isLoaded: boolean;
 }
 
@@ -32,6 +33,7 @@ const defaultSettings: AppSettings = {
     aiPersonality: 'friendly',
     cardSize: 'small',
     greetingStyle: 'ai', // Default to AI-powered greetings
+    useLocalAI: false
 };
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
@@ -104,6 +106,12 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         saveSettings(newSettings);
     };
 
+    const setUseLocalAI = (enabled: boolean) => {
+        const newSettings = { ...settings, useLocalAI: enabled };
+        setSettings(newSettings);
+        saveSettings(newSettings);
+    };
+
     return (
         <AppSettingsContext.Provider
             value={{
@@ -114,6 +122,7 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
                 setAIPersonality,
                 setCardSize,
                 setGreetingStyle,
+                setUseLocalAI,
                 isLoaded,
             }}
         >

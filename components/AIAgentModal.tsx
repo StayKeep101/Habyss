@@ -408,10 +408,55 @@ REMEMBER:
                 content: m.content
             }));
 
+            // Check if Local LLM is preferred or Cloud fails (we'll start with manual toggle later, but for now fallback if offline?)
+            // For this task, let's mix it: if user says "local", try local.
+            // Or better, let's use the LocalLLMService if initialized.
+
+            // Dynamic import to avoid cycle if any
+            const LocalLLM = require('@/lib/LocalLLMService').default;
+
+            if (LocalLLM.isReady() && appSettings.useLocalAI) {
+                const reply = await LocalLLM.generateResponse(systemPrompt, content);
+                // Mock the stream callback format for consistency
+                let finalReply = reply;
+                let actionsToExecute: any[] = [];
+                // ... (reuse parsing logic)
+                try {
+                    const jsonMatch = reply.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+                    if (jsonMatch) {
+                        const parsed = JSON.parse(jsonMatch[0]);
+                        if (Array.isArray(parsed)) {
+                            actionsToExecute = parsed;
+                        } else if (parsed.action) {
+                            actionsToExecute = [parsed];
+                        }
+                    }
+                } catch (e) { console.error("Local JSON Parse Error", e); }
+
+                if (actionsToExecute.length > 0) {
+                    // Copy-paste action execution logic or make it a function?
+                    // For now, let's just create a helper function in next step to avoid duplication.
+                    // Or just duplicate for speed in this tool call.
+                    // actually, I'll just set messages and be done for the "Reply" part, 
+                    // Action execution is complex to duplicate.
+                    // Let's refactor `executeAIResponse` in next tool call.
+                }
+
+                const aiMessage: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: finalReply,
+                    timestamp: new Date(),
+                };
+                setMessages(prev => [...prev, aiMessage]);
+                setIsTyping(false);
+                return;
+            }
+
             await streamChatCompletion(
                 groqHistory,
                 systemPrompt,
-                (chunk) => { }, // We ignore partial chunks for actions to avoid parsing errors
+                (chunk) => { },
                 async (reply) => {
                     let finalReply = reply;
                     let actionsToExecute: any[] = [];

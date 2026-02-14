@@ -69,13 +69,6 @@
       ],
       "expo-router",
       [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.yourcompany.habyss",
-          "enableGooglePay": true
-        }
-      ],
-      [
         "expo-splash-screen",
         {
           "image": "./assets/images/Habyss Logo.png",

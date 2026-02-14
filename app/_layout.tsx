@@ -44,9 +44,11 @@ export default function MobileLayout() {
           // Initialize notifications sequence safely
           try {
             await NotificationService.init();
-            await NotificationService.init();
             await NotificationService.registerForPushNotificationsAsync();
             await RevenueCatService.init();
+            // Initialize Local LLM in background to avoid blocking startup too much
+            // We catch errors internally so it doesn't crash the app if model is missing
+            import('@/lib/LocalLLMService').then(service => service.default.init());
           } catch (e) {
             console.warn("Notification initialization failed", e);
           }
