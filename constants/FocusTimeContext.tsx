@@ -5,7 +5,6 @@ import { AppState, AppStateStatus, Vibration } from 'react-native';
 import { NotificationService } from '@/lib/notificationService';
 import { IntegrationService } from '@/lib/integrationService';
 import { HealthKitService } from '@/lib/healthKit';
-import { startActivity, updateActivity, stopActivity } from 'expo-live-activity';
 import { supabase } from '@/lib/supabase';
 
 // ============================================
@@ -434,17 +433,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         focusStartRef.current = null;
         currentSessionRef.current = null;
 
-        // End Live Activity
-        if (activityIdRef.current) {
-            try {
-                stopActivity(activityIdRef.current, {
-                    title: 'Session Complete',
-                    subtitle: 'Great job!',
-                    timerEndDateInMilliseconds: undefined
-                } as any);
-            } catch (e) { }
-            activityIdRef.current = null;
-        }
+        // End Live Activity - Handled by _layout.tsx
 
         // Haptic + Notification
         Vibration.vibrate([0, 500, 200, 500]);
@@ -478,35 +467,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             completed: false,
         };
 
-        // Start Live Activity
-        try {
-            const attributes = {
-                name: 'Focus Timer',
-                totalDurationSeconds: durationSeconds,
-                backgroundColor: '#0A0F14',
-                titleColor: '#8BADD6',
-                progressViewTint: '#8BADD6',
-            };
-            const contentState = {
-                title: habitName,
-                subtitle: 'Focusing...',
-                timerEndDateInMilliseconds: endTimeRef.current,
-                progress: 0,
-            };
-
-            (async () => {
-                try {
-                    const id = await startActivity(attributes as any, contentState as any);
-                    if (typeof id === 'string') {
-                        activityIdRef.current = id;
-                    }
-                } catch (e) {
-                    console.log('Live Activity Start Error:', e);
-                }
-            })();
-        } catch (e: any) {
-            console.log('Live Activity Start Failed', e);
-        }
+        // Note: Live Activity is handled by _layout.tsx observing state changes
 
         return true;
     }, [isRunning, isPaused]);
@@ -529,14 +490,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         endTimeRef.current = null;
 
-        // Update Live Activity
-        if (activityIdRef.current) {
-            updateActivity(activityIdRef.current, {
-                title: activeHabitName || 'Focus',
-                subtitle: 'Paused',
-                timerEndDateInMilliseconds: undefined,
-            } as any);
-        }
+        // Update Live Activity - Handled by _layout.tsx
     }, [isRunning, isPaused, activeHabitName]);
 
     // ============================================
@@ -551,14 +505,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         focusStartRef.current = now;
         endTimeRef.current = now + (timeLeft * 1000);
 
-        // Update Live Activity
-        if (activityIdRef.current && endTimeRef.current) {
-            updateActivity(activityIdRef.current, {
-                title: activeHabitName || 'Focus',
-                subtitle: 'Focusing...',
-                timerEndDateInMilliseconds: endTimeRef.current,
-            } as any);
-        }
+        // Update Live Activity - Handled by _layout.tsx
     }, [isPaused, timeLeft, activeHabitName]);
 
     // ============================================
@@ -603,15 +550,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         endTimeRef.current = null;
         currentSessionRef.current = null;
 
-        // End Live Activity
-        if (activityIdRef.current) {
-            try {
-                stopActivity(activityIdRef.current, { title: 'Stopped' } as any);
-            } catch (e: any) {
-                console.log('End Activity (Stop) Failed', e);
-            }
-            activityIdRef.current = null;
-        }
+        // Note: Live Activity is handled by _layout.tsx observing state changes
     }, [updateStats, saveFocusSession]);
 
     // ============================================

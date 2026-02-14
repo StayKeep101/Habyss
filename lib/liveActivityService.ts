@@ -23,6 +23,7 @@ export interface DailyProgress {
     activeHabitName?: string;
     targetDate?: number; // timestamp in ms
     profilePicture?: string; // local file path or base64
+    habits?: { id: string; name: string; isCompleted: boolean }[];
 }
 
 export const LiveActivityService = {
@@ -72,24 +73,19 @@ export const LiveActivityService = {
                 }
             }
 
+            console.log('Starting Activity with targetDate:', stats.targetDate);
             const activityId = LiveActivity.startActivity(
                 {
                     name: 'Habyss Live Activity',
                     totalDurationSeconds: stats.targetDate ? (stats.targetDate - Date.now()) / 1000 : undefined,
+                    // Extra fields ignored by Swift but useful for reference
                     backgroundColor: '#0A0A0F',
-                    titleColor: '#FFFFFF',
-                    subtitleColor: '#EBEBF099',
-                    progressViewTint: '#38ACDD',
-                    progressViewLabelColor: '#FFFFFF',
-                    deepLinkUrl: '/home',
-                    padding: { horizontal: 20, top: 16, bottom: 16 },
                 } as any,
                 {
                     title,
                     subtitle,
                     timerEndDateInMilliseconds: stats.targetDate,
                     progress,
-                    progressBar: { progress },
                     profileImagePath,
                 } as any
             );
@@ -163,8 +159,6 @@ export const LiveActivityService = {
                 title,
                 subtitle,
                 timerEndDateInMilliseconds: stats.targetDate,
-                progressBar: { progress },
-                // Allow static progress if no timer
                 progress: progress,
                 profileImagePath,
             } as any);
@@ -242,5 +236,14 @@ export const LiveActivityService = {
 
         SharedDefaults.set('activeHabitName', habitName);
         SharedDefaults.set('todayStats', status);
+
+        if (stats.habits) {
+            try {
+                const habitsJson = JSON.stringify(stats.habits);
+                SharedDefaults.set('habitsData', habitsJson);
+            } catch (e) {
+                console.warn('Failed to serialize habits for widget:', e);
+            }
+        }
     }
 };

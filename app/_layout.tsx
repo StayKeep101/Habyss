@@ -178,6 +178,11 @@ function InnerLayout() {
           completed: completedToday,
           total: activeHabits.length,
           topHabitName: nextHabit?.name,
+          habits: activeHabits.map((h: any) => ({
+            id: h.id,
+            name: h.name,
+            isCompleted: completedSet.has(h.id)
+          }))
         });
       } catch (e) {
         // Live Activity is optional
