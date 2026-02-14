@@ -94,13 +94,16 @@ export const StripeService = {
 
       return data?.restored || false;
     } catch (error: any) {
-      console.error('Error restoring purchases:', error);
+      console.warn('Silent warning - Error restoring purchases:', error);
 
-      let userMessage = 'Failed to restore purchases. Please try again later.';
-      if (error.message) userMessage = error.message;
-
-      // Re-throw to let the UI catch it if needed, or just return false
-      // For now we return false as expected by the existing UI logic
+      // Try to log the backend error message if available
+      if (error && typeof error === 'object') {
+        if ('message' in error) console.warn('Error Message:', error.message);
+        if ('context' in error) {
+          // For FunctionsHttpError, context often contains the response
+          console.warn('Error Context:', JSON.stringify(error.context, null, 2));
+        }
+      }
       return false;
     }
   }

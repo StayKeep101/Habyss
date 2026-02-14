@@ -162,8 +162,13 @@ export const LiveActivityService = {
 
             // Sync to Widget
             this.syncToWidget(stats);
-        } catch (e) {
+        } catch (e: any) {
             console.warn('Failed to update Live Activity:', e);
+            // If the activity is not found (e.g. user killed it or reinstall), clear our local ID so we can start a new one next time
+            if (e?.message?.includes('ActivityNotFound') || e?.message?.includes('not found')) {
+                console.log('Live Activity not found on device, clearing local ID.');
+                await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
+            }
         }
     },
 
