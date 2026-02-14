@@ -117,6 +117,21 @@ export const LiveActivityService = {
             const activityId = await AsyncStorage.getItem(ACTIVITY_ID_KEY);
             if (!activityId) return;
 
+            // Check if activity is still valid on the native side to avoid "ActivityNotFoundException" logs
+            // (We patched expo-live-activity to include this method)
+            if ((LiveActivity as any)?.listActivities) {
+                try {
+                    const activeIds = await (LiveActivity as any).listActivities();
+                    if (Array.isArray(activeIds) && !activeIds.includes(activityId)) {
+                        console.log('Live Activity not found in active list, clearing local ID.');
+                        await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('Failed to list activities:', err);
+                }
+            }
+
             const progress = stats.total > 0 ? stats.completed / stats.total : 0;
 
             let title = `${stats.completed}/${stats.total} Habits Done`;
@@ -163,11 +178,12 @@ export const LiveActivityService = {
             // Sync to Widget
             this.syncToWidget(stats);
         } catch (e: any) {
-            console.warn('Failed to update Live Activity:', e);
             // If the activity is not found (e.g. user killed it or reinstall), clear our local ID so we can start a new one next time
             if (e?.message?.includes('ActivityNotFound') || e?.message?.includes('not found')) {
                 console.log('Live Activity not found on device, clearing local ID.');
                 await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
+            } else {
+                console.warn('Failed to update Live Activity:', e);
             }
         }
     },
