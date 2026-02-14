@@ -158,7 +158,7 @@ export const LiveActivityService = {
             LiveActivity.updateActivity(activityId, {
                 title,
                 subtitle,
-                timerEndDateInMilliseconds: stats.targetDate,
+                timerEndDateInMilliseconds: stats.targetDate || null,
                 progress: progress,
                 profileImagePath,
             } as any);
@@ -236,6 +236,12 @@ export const LiveActivityService = {
 
         SharedDefaults.set('activeHabitName', habitName);
         SharedDefaults.set('todayStats', status);
+
+        if (stats.targetDate) {
+            SharedDefaults.set('timerEndDate', stats.targetDate);
+        } else {
+            SharedDefaults.set('timerEndDate', null); // Clear if no timer
+        }
 
         if (stats.habits) {
             try {
