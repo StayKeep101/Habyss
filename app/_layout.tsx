@@ -16,18 +16,16 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View, AppState } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
+import '@/lib/LocationService'; // Register background tasks
 import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 import { AppSettingsProvider } from '@/constants/AppSettingsContext';
 import { AccentProvider } from '@/constants/AccentContext';
-import { FocusTimeProvider } from '@/constants/FocusTimeContext';
+import { FocusTimeProvider, useFocusTime } from '@/constants/FocusTimeContext';
 import { CreationModal } from '@/components/CreationModal';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
-// Tutorial removed
-
+import RevenueCatService from '@/lib/RevenueCat';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
-
-import StripeAppProvider from '@/components/StripeAppProvider';
 
 export default function MobileLayout() {
   const [loaded] = useFonts({
@@ -46,7 +44,9 @@ export default function MobileLayout() {
           // Initialize notifications sequence safely
           try {
             await NotificationService.init();
+            await NotificationService.init();
             await NotificationService.registerForPushNotificationsAsync();
+            await RevenueCatService.init();
           } catch (e) {
             console.warn("Notification initialization failed", e);
           }
@@ -115,19 +115,17 @@ export default function MobileLayout() {
 
   return (
     <ThemeProvider>
-      <StripeAppProvider>
-        <AppSettingsProvider>
-          <AIPersonalityProvider>
-            <AccentProvider>
-              <FocusTimeProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <InnerLayout />
-                </GestureHandlerRootView>
-              </FocusTimeProvider>
-            </AccentProvider>
-          </AIPersonalityProvider>
-        </AppSettingsProvider>
-      </StripeAppProvider>
+      <AppSettingsProvider>
+        <AIPersonalityProvider>
+          <AccentProvider>
+            <FocusTimeProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <InnerLayout />
+              </GestureHandlerRootView>
+            </FocusTimeProvider>
+          </AccentProvider>
+        </AIPersonalityProvider>
+      </AppSettingsProvider>
     </ThemeProvider>
   );
 }
@@ -137,7 +135,63 @@ function InnerLayout() {
   const isDark = theme !== 'light';
 
   // Connect Live Activity to Focus Context
-  const { isRunning, activeHabitName, totalDuration, timeLeft } = require('@/constants/FocusTimeContext').useFocusTime();
+  // ... (existing code for Live Activity?)
+
+  // --- App Intents Listener (Siri/Shortcuts) ---
+  // --- App Intents Listener (Siri/Shortcuts) ---
+  const { startTimer } = useFocusTime();
+
+  useEffect(() => {
+    const checkIntents = async () => {
+      try {
+        const SharedDefaults = require('@/lib/SharedDefaults').default;
+
+        // 1. Check for Start Focus Intent
+        const focusDuration = await SharedDefaults.getInteger('intent_start_focus_duration');
+        if (focusDuration > 0) {
+          console.log('[AppIntents] Starting focus for', focusDuration, 'minutes');
+          // Use a dummy habit ID for intent-started focus
+          startTimer('intent_habit', 'Focus Session', focusDuration * 60);
+          // Clear intent
+          await SharedDefaults.remove('intent_start_focus_duration');
+        }
+
+        // 2. Check for Log Habit Intent
+        const pendingLogs = await SharedDefaults.getArray('pending_habit_logs');
+        if (pendingLogs && pendingLogs.length > 0) {
+          console.log('[AppIntents] Processing pending logs:', pendingLogs);
+          const { toggleCompletion, getHabits } = require('@/lib/habitsSQLite');
+          const habits = await getHabits();
+
+          for (const habitName of pendingLogs) {
+            const habit = habits.find((h: any) => h.name.toLowerCase() === habitName.toLowerCase());
+            if (habit) {
+              await toggleCompletion(habit.id, new Date().toISOString().split('T')[0]);
+            }
+          }
+          // Clear intents
+          await SharedDefaults.remove('pending_habit_logs');
+        }
+
+      } catch (e) {
+        console.warn('[AppIntents] Error checking intents:', e);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        checkIntents();
+      }
+    });
+
+    // Check on mount too
+    checkIntents();
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+  const { isRunning, activeHabitName, totalDuration, timeLeft } = useFocusTime();
 
   useEffect(() => {
     const updateLiveActivity = async () => {

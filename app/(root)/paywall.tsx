@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, SafeAreaView, StyleSheet, StatusBar, ScrollView, Dimensions, Platform } from 'react-native';
-import { useStripe } from '@stripe/stripe-react-native';
-import { supabase } from '@/lib/supabase';
+import { PurchasesPackage } from 'react-native-purchases';
+import RevenueCatService from '@/lib/RevenueCat';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -15,24 +15,72 @@ import { useAccentGradient } from '@/constants/AccentContext';
 
 const { width } = Dimensions.get('window');
 
-
-
 export default function PaywallScreen() {
-    const { initPaymentSheet, presentPaymentSheet } = useStripe();
+    const [packages, setPackages] = useState<PurchasesPackage[]>([]);
+    const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
     const [loading, setLoading] = useState(false);
-    const [selectedPlanId, setSelectedPlanId] = useState<'yearly' | '2year' | 'lifetime'>('yearly');
-    const { restorePurchases } = usePremiumStatus();
+
+    // Fallback Plans in case RevenueCat fails or for design preview
+    const FALLBACK_PLANS = [
+        { identifier: 'yearly', product: { priceString: '$12.99', title: 'Yearly' } },
+        { identifier: 'lifetime', product: { priceString: '$29.99', title: 'Lifetime' } }
+    ];
+
     const { primary: accentColor } = useAccentGradient();
-    const isProcessingPayment = useRef(false); // Prevent double payment sheet calls
 
-    const PLANS = [
-        // { id: 'monthly', title: 'Monthly', price: '$1.99', period: '/mo', save: null },
-        { id: 'yearly', title: 'Yearly', price: '$6.99', originalPrice: '$12.99', period: '/yr', save: '50% OFF', priceId: 'price_1SoRgGAzxf3pzNzAHlzJd5GF' },
-        { id: '2year', title: '2 Years', price: '$19.99', period: '/2yr', save: null, priceId: 'price_1SoRgyAzxf3pzNzAyKcBMIvq' },
-        { id: 'lifetime', title: 'Lifetime', price: '$29.99', period: 'one-time', save: 'BEST VALUE', priceId: 'price_1SoRiYAzxf3pzNzA28oOqFTw' }
-    ] as const;
+    // Initialize & Fetch Offerings
+    useEffect(() => {
+        const loadOfferings = async () => {
+            try {
+                const offerings = await RevenueCatService.getOfferings();
+                if (offerings && offerings.availablePackages.length > 0) {
+                    setPackages(offerings.availablePackages);
+                    // Select yearly by default if available, else first one
+                    const yearly = offerings.availablePackages.find(p => p.packageType === 'ANNUAL');
+                    setSelectedPackage(yearly || offerings.availablePackages[0]);
+                }
+            } catch (e) {
+                console.warn('Failed to load offerings', e);
+            }
+        };
+        loadOfferings();
+    }, []);
 
-    const selectedPlan = PLANS.find(p => p.id === selectedPlanId) || PLANS[1];
+    const handleSubscribe = async () => {
+        if (loading || !selectedPackage) return;
+        setLoading(true);
+
+        try {
+            const result = await RevenueCatService.purchasePackage(selectedPackage);
+            if (result.isPro) {
+                Alert.alert('Ascension Complete', 'Welcome to the cosmos. 🎉');
+                router.back();
+            }
+        } catch (e: any) {
+            if (e.message !== 'User cancelled') {
+                Alert.alert('Error', e.message);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRestore = async () => {
+        setLoading(true);
+        try {
+            const isPro = await RevenueCatService.restorePurchases();
+            if (isPro) {
+                Alert.alert('Restored', 'Your cosmic access has been restored.');
+                router.back();
+            } else {
+                Alert.alert('Restore Failed', 'No active subscription found.');
+            }
+        } catch (e: any) {
+            Alert.alert('Error', e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const BENEFITS = [
         {
@@ -65,115 +113,6 @@ export default function PaywallScreen() {
         }
     ];
 
-    // --- Stripe Logic ---
-    const fetchPaymentSheetParams = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        const { data, error } = await supabase.functions.invoke('payment-sheet', {
-            body: {
-                email: user?.email,
-                userId: user?.id,
-                priceId: selectedPlan.priceId,
-                planId: selectedPlanId
-            }
-        });
-
-        if (error) {
-            console.error('Payment sheet error:', error);
-            throw new Error(error.message || 'Payment server error');
-        }
-
-        if (!data?.paymentIntent) {
-            throw new Error('Invalid response from payment server');
-        }
-
-        return {
-            paymentIntent: data.paymentIntent,
-            ephemeralKey: data.ephemeralKey,
-            customer: data.customer,
-        };
-    };
-
-    const initializePaymentSheet = async () => {
-        const { paymentIntent, ephemeralKey, customer } = await fetchPaymentSheetParams();
-
-        const { error } = await initPaymentSheet({
-            merchantDisplayName: "Habyss",
-            customerId: customer,
-            customerEphemeralKeySecret: ephemeralKey,
-            paymentIntentClientSecret: paymentIntent,
-            allowsDelayedPaymentMethods: true,
-            returnURL: 'habyss://stripe-redirect',
-            appearance: {
-                colors: {
-                    primary: accentColor,
-                    background: '#0a0a0a',
-                    componentBackground: '#1a1a1a',
-                    componentBorder: '#333333',
-                    componentDivider: '#333333',
-                    primaryText: '#ffffff',
-                    secondaryText: '#aaaaaa',
-                },
-                primaryButton: {
-                    colors: {
-                        background: accentColor,
-                        text: '#ffffff',
-                    }
-                }
-            }
-        });
-
-        if (error) {
-            Alert.alert('Error', error.message);
-            return false;
-        }
-        return true;
-    };
-
-    const handleSubscribe = async () => {
-        // Prevent multiple calls - Stripe SDK throws "resolve promise more than once" if called twice
-        if (isProcessingPayment.current || loading) return;
-        isProcessingPayment.current = true;
-        setLoading(true);
-
-        try {
-            const isInitialized = await initializePaymentSheet();
-            if (!isInitialized) {
-                setLoading(false);
-                isProcessingPayment.current = false;
-                return;
-            }
-
-            const { error } = await presentPaymentSheet();
-
-            if (error) {
-                if (error.code !== "Canceled") {
-                    Alert.alert(`Error code: ${error.code}`, error.message);
-                }
-            } else {
-                Alert.alert('Ascension Complete', 'Welcome to the cosmos. 🎉');
-                await restorePurchases();
-                router.back();
-            }
-        } catch (e: any) {
-            Alert.alert('Error', e.message);
-        } finally {
-            setLoading(false);
-            isProcessingPayment.current = false;
-        }
-    };
-
-    const handleRestore = async () => {
-        setLoading(true);
-        const success = await restorePurchases();
-        setLoading(false);
-        if (success) {
-            Alert.alert('Restored', 'Your cosmic access has been restored.');
-            router.back();
-        } else {
-            Alert.alert('Restore Failed', 'No active subscription found.');
-        }
-    };
 
     return (
         <View style={styles.container}>
@@ -226,14 +165,18 @@ export default function PaywallScreen() {
                 <View style={styles.plansContainer}>
                     <Text style={styles.sectionHeader}>CHOOSE YOUR PATH</Text>
                     <View style={styles.plansGrid}>
-                        {PLANS.map((plan) => {
-                            const isSelected = selectedPlanId === plan.id;
+                        {(packages.length > 0 ? packages : FALLBACK_PLANS).map((pkg: any) => {
+                            const isSelected = selectedPackage?.identifier === pkg.identifier || (packages.length === 0 && pkg.identifier === 'yearly');
+                            const title = pkg.product.title.replace(/\s*\((.*?)\)\s*/g, ''); // Remove (Duration) from title if present
+
                             return (
                                 <TouchableOpacity
-                                    key={plan.id}
+                                    key={pkg.identifier}
                                     onPress={() => {
                                         import('expo-haptics').then(H => H.selectionAsync());
-                                        setSelectedPlanId(plan.id);
+                                        if (packages.length > 0) {
+                                            setSelectedPackage(pkg);
+                                        }
                                     }}
                                     activeOpacity={0.8}
                                 >
@@ -243,18 +186,29 @@ export default function PaywallScreen() {
                                             isSelected && { borderColor: accentColor, backgroundColor: accentColor + '10' }
                                         ]}
                                     >
-                                        {plan.save && (
+                                        {/* Badge logic can be added here if we identify 'best value' etc */}
+                                        {pkg.packageType === 'LIFETIME' && (
                                             <View style={[styles.saveBadge, { backgroundColor: accentColor }]}>
-                                                <Text style={styles.saveText}>{plan.save}</Text>
+                                                <Text style={styles.saveText}>BEST VALUE</Text>
                                             </View>
                                         )}
-                                        <Text style={[styles.planTitle, isSelected && { color: accentColor }]}>{plan.title}</Text>
+                                        {pkg.packageType === 'ANNUAL' && (
+                                            <View style={[styles.saveBadge, { backgroundColor: accentColor }]}>
+                                                <Text style={styles.saveText}>MOST POPULAR</Text>
+                                            </View>
+                                        )}
+
+                                        <Text style={[styles.planTitle, isSelected && { color: accentColor }]}>
+                                            {title || pkg.product.title}
+                                        </Text>
                                         <View style={styles.priceRow}>
-                                            {(plan as any).originalPrice && (
-                                                <Text style={styles.originalPrice}>{(plan as any).originalPrice}</Text>
-                                            )}
-                                            <Text style={styles.planPrice}>{plan.price}</Text>
-                                            <Text style={styles.planPeriod}>{plan.period}</Text>
+                                            <Text style={styles.planPrice}>{pkg.product.priceString}</Text>
+                                            {/* Period logic */}
+                                            <Text style={styles.planPeriod}>
+                                                {pkg.packageType === 'ANNUAL' ? '/yr' :
+                                                    pkg.packageType === 'MONTHLY' ? '/mo' :
+                                                        pkg.packageType === 'LIFETIME' ? 'one-time' : ''}
+                                            </Text>
                                         </View>
                                     </Animated.View>
                                 </TouchableOpacity>
@@ -281,7 +235,7 @@ export default function PaywallScreen() {
                 <StargateButton
                     onPress={handleSubscribe}
                     loading={loading}
-                    price={selectedPlan.price}
+                    price={selectedPackage?.product.priceString || packages[0]?.product.priceString || '$6.99'}
                 />
                 <TouchableOpacity onPress={handleRestore} disabled={loading} style={styles.restoreBtn}>
                     <Text style={styles.restoreText}>Restore Purchase</Text>

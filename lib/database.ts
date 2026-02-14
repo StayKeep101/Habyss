@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 let dbInstance: any = null;
 
@@ -76,11 +76,11 @@ async function runMigrations(db: any): Promise<void> {
     if (currentVersion < 1) {
         await migrateToV1(db);
     }
-    if (currentVersion < 2) {
-        await migrateToV2(db);
-    }
     if (currentVersion < 3) {
         await migrateToV3(db);
+    }
+    if (currentVersion < 4) {
+        await migrateToV4(db);
     }
 
     // Update schema version
@@ -204,6 +204,18 @@ async function migrateToV3(db: any): Promise<void> {
     `);
 
     console.log('[Database] Migrated to schema v3');
+}
+
+/**
+ * Migration to version 4 - HealthKit integration
+ */
+async function migrateToV4(db: any): Promise<void> {
+    await db.execAsync(`
+        ALTER TABLE habits ADD COLUMN health_kit_metric TEXT;
+        ALTER TABLE habits ADD COLUMN health_kit_target REAL;
+    `);
+
+    console.log('[Database] Migrated to schema v4');
 }
 
 /**

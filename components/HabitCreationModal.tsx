@@ -180,6 +180,13 @@ const GRAPH_STYLES = [
     { id: 'streak', label: 'Streak Counter', icon: 'flame' },
 ];
 
+const HEALTH_KIT_METRICS = [
+    { id: 'steps', label: 'Steps', icon: 'walk', unit: 'steps' },
+    { id: 'sleep', label: 'Sleep', icon: 'bed', unit: 'hours' },
+    { id: 'mindfulness', label: 'Mindfulness', icon: 'leaf', unit: 'minutes' },
+    { id: 'workout', label: 'Workout', icon: 'fitness', unit: 'minutes' },
+];
+
 // 6 Pillars of Life Balance
 const LIFE_PILLARS = [
     { id: 'body', label: 'Body', fullName: 'Physical Health', icon: 'fitness', color: '#EF4444', description: 'Energy, nutrition, movement, sleep' },
@@ -296,6 +303,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [measurementValue, setMeasurementValue] = useState(1);
     const [measurementUnit, setMeasurementUnit] = useState('times');
     const [graphStyle, setGraphStyle] = useState('progress');
+    const [healthKitMetric, setHealthKitMetric] = useState<'steps' | 'sleep' | 'mindfulness' | 'workout' | undefined>(undefined);
+    const [healthKitTarget, setHealthKitTarget] = useState<number | undefined>(undefined);
 
     // Automatic scheduling state
     const [suggestedSlots, setSuggestedSlots] = useState<{ start: Date; end: Date }[]>([]);
@@ -309,7 +318,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const TOTAL_STEPS = 3;
 
     // Active Overlay (Replacing nested modals)
-    type OverlayType = 'none' | 'icon' | 'color' | 'time' | 'reminder' | 'ringtone' | 'measurement' | 'graph' | 'startDate' | 'templates';
+    type OverlayType = 'none' | 'icon' | 'color' | 'time' | 'reminder' | 'ringtone' | 'measurement' | 'graph' | 'startDate' | 'templates' | 'healthKit';
     const [activeOverlay, setActiveOverlay] = useState<OverlayType>('none');
     const [iconSearch, setIconSearch] = useState('');
     const [customColor, setCustomColor] = useState('');
@@ -374,7 +383,15 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
             setMeasurementValue(habitToEdit.goalValue || 1);
             setMeasurementUnit(habitToEdit.unit || 'times');
+            setMeasurementUnit(habitToEdit.unit || 'times');
             setGraphStyle((habitToEdit.graphStyle as any) || 'progress');
+            setHealthKitMetric(habitToEdit.healthKitMetric);
+            setHealthKitTarget(habitToEdit.healthKitTarget);
+            if (habitToEdit.healthKitMetric) {
+                // If using HealthKit, ensure unit matches
+                const metric = HEALTH_KIT_METRICS.find(m => m.id === habitToEdit.healthKitMetric);
+                if (metric) setMeasurementUnit(metric.unit);
+            }
         }
     }, [habitToEdit]);
 
@@ -467,7 +484,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setRingtone('default');
         setMeasurementValue(1);
         setMeasurementUnit('times');
+        setMeasurementUnit('times');
         setGraphStyle('progress');
+        setHealthKitMetric(undefined);
+        setHealthKitTarget(undefined);
         setSuggestedSlots([]);
         setMonthDay(1);
         setShowPillarInfo(false);
@@ -565,7 +585,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 unit: measurementUnit,
                 chartType: (graphStyle === 'bar' ? 'bar' : 'line') as any,
                 graphStyle: graphStyle,
+                graphStyle: graphStyle,
                 trackingMethod: (measurementUnit === 'times' ? 'boolean' : 'numeric') as any,
+                healthKitMetric: healthKitMetric,
+                healthKitTarget: healthKitMetric ? measurementValue : undefined, // Use main goal value as target
             };
 
             if (habitToEdit) {
@@ -975,6 +998,25 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             </View>
                                             <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
                                         </TouchableOpacity>
+
+                                        {/* HealthKit Integration (Only for Body pillar for now to keep it simple, or all?) */}
+                                        {lifePillar === 'body' && (
+                                            <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('healthKit'); }}
+                                                style={[styles.gridItem, { width: '100%', backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                    <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: '#FA2D48', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Ionicons name="heart" size={12} color="#fff" />
+                                                    </View>
+                                                    <View>
+                                                        <Text style={[styles.gridLabel, { marginTop: 0, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)' }]}>APPLE HEALTH</Text>
+                                                        <Text style={[styles.gridValue, { color: colors.text }]}>
+                                                            {healthKitMetric ? HEALTH_KIT_METRICS.find(m => m.id === healthKitMetric)?.label : 'Not Connected'}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
+                                            </TouchableOpacity>
+                                        )}
                                     </>)}
 
                                 </ScrollView>
@@ -1344,6 +1386,49 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             <Ionicons name={g.icon as any} size={20} color={graphStyle === g.id ? selectedColor : colors.textSecondary} />
                                             <Text style={[styles.listItemText, { color: graphStyle === g.id ? selectedColor : colors.text }]}>{g.label}</Text>
                                             {graphStyle === g.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
+                                        </TouchableOpacity>
+                                    ))}
+                                </Animated.View>
+                            )}
+
+                            {/* HEALTHKIT OVERLAY */}
+                            {activeOverlay === 'healthKit' && (
+                                <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}>
+                                    <OverlayHeader title="Apple Health" onClose={() => setActiveOverlay('none')} />
+
+                                    <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 20, textAlign: 'center', lineHeight: 20 }}>
+                                        Automatically sync data from Apple Health to complete this habit.
+                                    </Text>
+
+                                    <TouchableOpacity
+                                        onPress={() => { selectionFeedback(); setHealthKitMetric(undefined); setHealthKitTarget(undefined); setActiveOverlay('none'); }}
+                                        style={[styles.listItem, { backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor }, !healthKitMetric && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                    >
+                                        <Ionicons name="close-circle-outline" size={20} color={!healthKitMetric ? selectedColor : colors.textSecondary} />
+                                        <Text style={[styles.listItemText, { color: !healthKitMetric ? selectedColor : colors.text }]}>Manual Tracking (No Sync)</Text>
+                                        {!healthKitMetric && <Ionicons name="checkmark" size={20} color={selectedColor} />}
+                                    </TouchableOpacity>
+
+                                    <View style={{ height: 1, backgroundColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', marginVertical: 10 }} />
+
+                                    {HEALTH_KIT_METRICS.map(m => (
+                                        <TouchableOpacity
+                                            key={m.id}
+                                            onPress={() => {
+                                                selectionFeedback();
+                                                setHealthKitMetric(m.id as any);
+                                                // Auto-set unit
+                                                setMeasurementUnit(m.unit);
+                                                // If target not set, set a default? No, keep user's.
+                                                setActiveOverlay('none');
+                                            }}
+                                            style={[styles.listItem, { backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderColor: effectiveBorderColor }, healthKitMetric === m.id && { backgroundColor: selectedColor + '20', borderColor: selectedColor }]}
+                                        >
+                                            <View style={{ width: 24, height: 24, borderRadius: 8, backgroundColor: '#FA2D4820', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Ionicons name={m.icon as any} size={14} color="#FA2D48" />
+                                            </View>
+                                            <Text style={[styles.listItemText, { color: healthKitMetric === m.id ? selectedColor : colors.text }]}>{m.label}</Text>
+                                            {healthKitMetric === m.id && <Ionicons name="checkmark" size={20} color={selectedColor} />}
                                         </TouchableOpacity>
                                     ))}
                                 </Animated.View>

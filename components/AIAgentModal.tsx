@@ -35,7 +35,6 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useHaptics } from '@/hooks/useHaptics';
-import { StripeService } from '@/lib/stripeService';
 import { useRouter } from 'expo-router';
 import { streamChatCompletion, ChatMessage as AIStackMessage, EXPERT_SYSTEM_PROMPT } from '@/lib/deepseek';
 import { useAIPersonality } from '@/constants/AIPersonalityContext';

@@ -8,7 +8,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions, isHabitScheduledForDate } from '@/lib/habitsSQLite';
+import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { NotificationService } from '@/lib/notificationService';
 import { NotificationsModal } from '@/components/NotificationsModal';
 import { AIAgentModal } from '@/components/AIAgentModal';
@@ -235,6 +235,9 @@ const Home = () => {
   // Pull-to-refresh handler - OPTIMIZED: reload all stats data here
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Sync HealthKit Data
+    syncHealthKitData().catch(console.error);
+
     // Generate new greeting based on preference
     if (isPremium && greetingStyle === 'ai') {
       generateUserGreeting().then(q => setMotivationalQuote(q));
@@ -325,6 +328,15 @@ const Home = () => {
     });
     return () => task.cancel();
   }, []);
+
+  // Sync HealthKit on focus/mount
+  useFocusEffect(
+    useCallback(() => {
+      InteractionManager.runAfterInteractions(() => {
+        syncHealthKitData().catch(e => console.log('HealthKit sync error:', e));
+      });
+    }, [])
+  );
 
   // INSTANT: Calculate goal progress synchronously using local state (completions + historyData)
   // This avoids the network delay of 'calculateGoalProgress' after every toggle

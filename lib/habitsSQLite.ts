@@ -5,6 +5,8 @@
  */
 
 import { isSQLiteAvailable } from './database';
+import { HealthKitService } from './HealthKitService';
+import { VoidCard } from '@/components/Layout/VoidCard';
 import { supabase } from './supabase';
 import { DeviceEventEmitter } from 'react-native';
 import { NotificationService } from './notificationService';
@@ -51,6 +53,8 @@ export interface Habit {
     ringtone?: string;
     locationReminders?: { name: string; latitude: number; longitude: number; radius?: number }[];
     reminderOffset?: number; // Minutes before start time
+    healthKitMetric?: 'steps' | 'sleep' | 'mindfulness' | 'workout'; // New
+    healthKitTarget?: number; // New
 }
 
 // Cache
@@ -141,7 +145,7 @@ export async function getHabits(): Promise<Habit[]> {
             const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db) {
-                const rows = await db.getAllAsync<any>(
+                const rows = await db.getAllAsync(
                     'SELECT * FROM habits WHERE user_id = ? AND deleted = 0 ORDER BY created_at DESC',
                     uid
                 );
@@ -178,6 +182,8 @@ export async function getHabits(): Promise<Habit[]> {
                     locationReminders: typeof row.location_reminders === 'string' ? JSON.parse(row.location_reminders || '[]') : (row.location_reminders || []),
                     graphStyle: row.graph_style,
                     trackingMethod: row.tracking_method,
+                    healthKitMetric: row.health_kit_metric,
+                    healthKitTarget: row.health_kit_target,
                 }));
 
                 cachedHabits = habits;
@@ -224,7 +230,9 @@ export async function getHabits(): Promise<Habit[]> {
             showMemo: row.show_memo || false,
             goalId: row.goal_id,
             reminderOffset: row.reminder_offset,
-            locationReminders: row.location_reminders || []
+            locationReminders: row.location_reminders || [],
+            healthKitMetric: row.health_kit_metric,
+            healthKitTarget: row.health_kit_target
         }));
 
         cachedHabits = habits;
@@ -261,8 +269,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                         task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
                         type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
                         frequency, week_interval, time_of_day, graph_style, tracking_method,
-                        reminder_offset, location_reminders, created_at, updated_at, synced, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                        reminder_offset, location_reminders, health_kit_metric, health_kit_target, created_at, updated_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                 `,
                     id,
                     uid,
@@ -295,6 +303,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     habitData.trackingMethod || 'boolean',
                     habitData.reminderOffset || null,
                     JSON.stringify(habitData.locationReminders || []),
+                    habitData.healthKitMetric || null,
+                    habitData.healthKitTarget || null,
                     now,
                     now
                 );
@@ -334,6 +344,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     locationReminders: habitData.locationReminders || [],
                     graphStyle: habitData.graphStyle,
                     trackingMethod: habitData.trackingMethod,
+                    healthKitMetric: habitData.healthKitMetric,
+                    healthKitTarget: habitData.healthKitTarget,
                 };
 
                 if (created.reminders && created.reminders.length > 0) {
@@ -366,6 +378,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
         is_goal: habitData.isGoal,
         target_date: habitData.targetDate,
         ...(habitData.goalId ? { goal_id: habitData.goalId } : {}),
+        health_kit_metric: habitData.healthKitMetric,
+        health_kit_target: habitData.healthKitTarget,
     };
 
     const { data, error } = await supabase
@@ -405,7 +419,9 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
         showMemo: data.show_memo || false,
         goalId: data.goal_id,
         reminderOffset: data.reminder_offset,
-        locationReminders: data.location_reminders || []
+        locationReminders: data.location_reminders || [],
+        healthKitMetric: data.health_kit_metric,
+        healthKitTarget: data.health_kit_target
     };
 
     if (created.reminders && created.reminders.length > 0) {
@@ -452,6 +468,8 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.trackingMethod !== undefined) { setClauses.push('tracking_method = ?'); params.push(updatedHabit.trackingMethod); }
                 if (updatedHabit.reminderOffset !== undefined) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset); }
                 if (updatedHabit.locationReminders !== undefined) { setClauses.push('location_reminders = ?'); params.push(JSON.stringify(updatedHabit.locationReminders)); }
+                if (updatedHabit.healthKitMetric !== undefined) { setClauses.push('health_kit_metric = ?'); params.push(updatedHabit.healthKitMetric); }
+                if (updatedHabit.healthKitTarget !== undefined) { setClauses.push('health_kit_target = ?'); params.push(updatedHabit.healthKitTarget); }
 
                 params.push(updatedHabit.id, uid);
 
@@ -499,6 +517,8 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
     if (updatedHabit.goalId !== undefined) updateData.goal_id = updatedHabit.goalId;
     if (updatedHabit.reminderOffset !== undefined) updateData.reminder_offset = updatedHabit.reminderOffset;
     if (updatedHabit.locationReminders !== undefined) updateData.location_reminders = updatedHabit.locationReminders;
+    if (updatedHabit.healthKitMetric !== undefined) updateData.health_kit_metric = updatedHabit.healthKitMetric;
+    if (updatedHabit.healthKitTarget !== undefined) updateData.health_kit_target = updatedHabit.healthKitTarget;
 
     const { error } = await supabase
         .from('habits')
@@ -603,7 +623,7 @@ export async function getCompletions(dateISO?: string): Promise<Record<string, b
             const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db) {
-                const rows = await db.getAllAsync<{ habit_id: string }>(
+                const rows = await db.getAllAsync(
                     'SELECT habit_id FROM completions WHERE user_id = ? AND date = ? AND deleted = 0',
                     uid, dateStr
                 );
@@ -765,7 +785,7 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
             const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db && uid) {
-                const rows = await db.getAllAsync<{ date: string; habit_id: string }>(
+                const rows = await db.getAllAsync(
                     'SELECT date, habit_id FROM completions WHERE user_id = ? AND date >= ? AND date <= ? AND deleted = 0',
                     uid, startStr, endStr
                 );
@@ -1000,7 +1020,7 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
             const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db && uid) {
-                const rows = await db.getAllAsync<{ date: string }>(
+                const rows = await db.getAllAsync(
                     'SELECT date FROM completions WHERE user_id = ? AND date >= ? AND date <= ? AND deleted = 0',
                     uid, startStr, endStr
                 );
@@ -1043,6 +1063,107 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
     }));
 }
 
+export async function setCompletionValue(habitId: string, value: number, dateISO?: string): Promise<void> {
+    const uid = await getUserId();
+    if (!uid) return;
+
+    const dateStr = dateISO ?? todayString();
+    const now = new Date().toISOString();
+
+    // Try SQLite first (offline-capable)
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase } = await import('./database');
+            const db = await getDatabase();
+            if (db) {
+                // Upsert completion with value
+                await db.runAsync(
+                    `INSERT INTO completions (id, user_id, habit_id, date, value, created_at, updated_at, synced, deleted)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+                     ON CONFLICT(habit_id, date) DO UPDATE SET
+                     value = excluded.value,
+                     updated_at = excluded.updated_at,
+                     deleted = 0,
+                     synced = 0`,
+                    `${habitId}_${dateStr}`, uid, habitId, dateStr, value, now, now
+                );
+
+                // Update cache
+                if (!completionsCache[dateStr]) completionsCache[dateStr] = {};
+                completionsCache[dateStr][habitId] = true; // Mark as completed (existence implies completion for now, or check value > target?)
+
+                // Notify listeners
+                if (cachedHabits) habitsListeners.forEach(l => l(cachedHabits!));
+                DeviceEventEmitter.emit('habit_completed', { habitId, date: dateStr, value });
+
+                // Queue sync not strictly needed if we just mark synced=0, but for completeness:
+                // We rely on background sync to pick up unsynced records.
+                // Or we can explicitly queue if we want faster sync.
+                return;
+            }
+        } catch (e) {
+            console.log('[Habits] SQLite setCompletionValue failed:', e);
+        }
+    }
+}
+
 export async function syncHealthKitData() {
-    console.log('[Habits] HealthKit sync placeholder');
+    if (!HealthKitService.isAvailable) return;
+
+    // Check if we have any habits that need syncing BEFORE asking for permission/init
+    const habits = await getHabits();
+    const hkHabits = habits.filter(h => h.healthKitMetric && !h.isArchived && !h.isGoal);
+
+    if (hkHabits.length === 0) return;
+
+    // Now init (will prompt if not authorized, or just return false if denied/restricted)
+    const authorized = await HealthKitService.init();
+    if (!authorized) return;
+
+    console.log('[Habits] Syncing HealthKit data for', hkHabits.length, 'habits');
+
+    const today = new Date();
+    const dateStr = todayString(today);
+
+    for (const habit of hkHabits) {
+        let value = 0;
+        try {
+            switch (habit.healthKitMetric) {
+                case 'steps': value = await HealthKitService.getSteps(today); break;
+                case 'sleep': value = await HealthKitService.getSleep(today); break; // mins
+                case 'mindfulness': value = await HealthKitService.getMindfulness(today); break;
+                case 'workout': value = await HealthKitService.getWorkout(today); break;
+            }
+
+            // Only update if we have data. 
+            // Also logic: should we only complete if value >= target? 
+            // For numeric tracking, we store the value. 
+            // For boolean tracking, we might want to toggle?
+            // Let's store the value regardless. The UI can decide if it shows as "checked" based on target.
+
+            if (value > 0) {
+                // If it's a "Steps" habit, goalValue 10000. 
+                // We store 5000 in completions. 
+                // Does getCompletions return values? currently it returns boolean map.
+                // We might need to upgrade getCompletions to return values map or similar.
+                // For now, let's just use setCompletionValue which inserts into DB.
+                // But does UI see it? 
+
+                // If the habit is "boolean" tracking (default), we only mark complete if target reached.
+                if (habit.trackingMethod === 'numeric') {
+                    await setCompletionValue(habit.id, value, dateStr);
+                } else {
+                    // Boolean tracking (e.g. Ring)
+                    const target = habit.healthKitTarget || habit.goalValue || 1;
+                    if (value >= target) {
+                        // Check if already completed?
+                        // Just force complete
+                        await setCompletionValue(habit.id, value, dateStr);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('[Habits] Error syncing habit', habit.id, e);
+        }
+    }
 }

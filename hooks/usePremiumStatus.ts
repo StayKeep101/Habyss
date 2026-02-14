@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StripeService, SubscriptionStatus } from '@/lib/stripeService';
+import RevenueCatService, { ProStatus } from '@/lib/RevenueCat';
 import { useHaptics } from './useHaptics';
 
 export const PREMIUM_BUTTONS = [
@@ -9,21 +9,15 @@ export const PREMIUM_BUTTONS = [
 ];
 
 export const usePremiumStatus = () => {
-  const [status, setStatus] = useState<SubscriptionStatus>({
-    premium: false,
-    status: 'inactive',
-    expires: null
-  });
+  const [isPremium, setIsPremium] = useState(false);
   const [loading, setLoading] = useState(true);
   const { lightFeedback } = useHaptics();
 
   const refreshStatus = useCallback(async () => {
     setLoading(true);
     try {
-
-
-      const currentStatus = await StripeService.getSubscriptionStatus();
-      setStatus(currentStatus);
+      const isPro = await RevenueCatService.checkProStatus();
+      setIsPremium(isPro);
     } catch (error) {
       console.error('Error refreshing premium status:', error);
     } finally {
@@ -34,8 +28,8 @@ export const usePremiumStatus = () => {
   useEffect(() => {
     refreshStatus();
 
-    // Listen for Dev Mode updates
-    const subscription = DeviceEventEmitter.addListener('dev_premium_update', () => {
+    // Listen for updates (e.g. from Paywall purchase)
+    const subscription = DeviceEventEmitter.addListener('premium_status_updated', () => {
       refreshStatus();
     });
 
@@ -43,8 +37,6 @@ export const usePremiumStatus = () => {
       subscription.remove();
     };
   }, [refreshStatus]);
-
-  const isPremium = status.premium;
 
   const paywallGuard = (buttonId: string, onAllow: () => void, onShowPaywall: () => void) => {
     if (isPremium || !PREMIUM_BUTTONS.includes(buttonId)) {
@@ -57,18 +49,16 @@ export const usePremiumStatus = () => {
 
   const restorePurchases = useCallback(async () => {
     setLoading(true);
-    const success = await StripeService.restorePurchases();
+    const success = await RevenueCatService.restorePurchases();
     if (success) {
-      await refreshStatus();
+      setIsPremium(true);
     }
     setLoading(false);
     return success;
-  }, [refreshStatus]);
-
+  }, []);
 
   return {
     isPremium,
-    status,
     loading,
     refreshStatus,
     paywallGuard,
