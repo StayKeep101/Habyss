@@ -609,7 +609,17 @@ const Home = () => {
 
             {/* Right: Action Buttons */}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
-              <TouchableOpacity onPress={() => { mediumFeedback(); setShowAIAgent(true); }} style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }}>
+              <TouchableOpacity
+                onPress={() => {
+                  mediumFeedback();
+                  if (isPremium) {
+                    setShowAIAgent(true);
+                  } else {
+                    router.push('/paywall');
+                  }
+                }}
+                style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }}
+              >
                 <LinearGradient
                   colors={accentColors}
                   start={{ x: 0, y: 0 }}

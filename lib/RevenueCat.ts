@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 // TODO: Replace with your actual RevenueCat API Keys
 const API_KEYS = {
-    apple: 'appl_placeholder', // REPLACE THIS
+    apple: 'test_EdqZuOzgwERAuCejCCNfNMRicdW', // Set from user request
     google: 'goog_placeholder', // REPLACE THIS
 };
 
@@ -101,11 +101,15 @@ class RevenueCatService {
     }
 
     private checkProEntitlement(customerInfo: CustomerInfo): boolean {
+        console.log('[RevenueCat] Checking Entitlements:', JSON.stringify(customerInfo.entitlements.active, null, 2));
+
         if (
             customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined
         ) {
+            console.log('[RevenueCat] User IS Pro');
             return true;
         }
+        console.log('[RevenueCat] User is NOT Pro');
         return false;
     }
 }

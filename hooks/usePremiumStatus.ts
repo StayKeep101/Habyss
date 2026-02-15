@@ -16,7 +16,9 @@ export const usePremiumStatus = () => {
   const refreshStatus = useCallback(async () => {
     setLoading(true);
     try {
+      console.log('[usePremiumStatus] Refreshing status...');
       const isPro = await RevenueCatService.checkProStatus();
+      console.log('[usePremiumStatus] Result:', isPro);
       setIsPremium(isPro);
     } catch (error) {
       console.error('Error refreshing premium status:', error);

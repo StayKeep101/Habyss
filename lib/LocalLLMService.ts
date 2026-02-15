@@ -2,7 +2,7 @@ import { mlc } from '@react-native-ai/mlc';
 import { generateText } from 'ai';
 
 class LocalLLMService {
-    private modelId = 'Qwen2.5-1.5B-Instruct'; // Default model ID expected by MLC
+    private modelId = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'; // Full model ID required by MLC
     private isModelReady = false;
 
     // Initialize the engine (prepare the model)

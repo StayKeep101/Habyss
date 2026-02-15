@@ -89,7 +89,18 @@
       ],
       "expo-sqlite",
       "expo-asset",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          },
+          "android": {
+            "minSdkVersion": 21
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

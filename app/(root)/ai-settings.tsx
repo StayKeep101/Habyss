@@ -123,6 +123,8 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     );
 };
 
+import { useSuperwall } from 'expo-superwall';
+
 const AISettings = () => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -130,6 +132,7 @@ const AISettings = () => {
     const isTrueDark = theme === 'trueDark';
     const { mediumFeedback, selectionFeedback } = useHaptics();
     const { aiPersonality, setAIPersonality, greetingStyle, setGreetingStyle } = useAppSettings();
+    const { registerPlacement } = useSuperwall();
 
     const handleSelectPersonality = (id: PersonalityModeId) => {
         mediumFeedback();
@@ -275,7 +278,34 @@ const AISettings = () => {
                         (Requires ~1GB download)
                     </Text>
 
+
                     <OfflineStartCard colors={colors} isLight={isLight} isTrueDark={isTrueDark} />
+
+                    {/* Customer Center Section */}
+                    {/* Only show if user is likely Pro or for testing */}
+                    <TouchableOpacity
+                        style={{ marginTop: 32, marginBottom: 20, alignItems: 'center' }}
+                        onPress={async () => {
+                            const RevenueCatUI = require('react-native-purchases-ui').default;
+                            await RevenueCatUI.presentCustomerCenter();
+                        }}
+                    >
+                        <Text style={{ color: colors.primary, fontFamily: 'Lexend', fontSize: 14 }}>
+                            Manage Subscription
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Superwall Test */}
+                    <TouchableOpacity
+                        style={{ marginTop: 20, alignItems: 'center' }}
+                        onPress={async () => {
+                            await registerPlacement("campaign_trigger");
+                        }}
+                    >
+                        <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend', fontSize: 12 }}>
+                            Test Superwall Paywall
+                        </Text>
+                    </TouchableOpacity>
                 </ScrollView>
             </SafeAreaView>
         </VoidShell>
