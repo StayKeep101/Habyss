@@ -23,9 +23,10 @@ import { AccentProvider } from '@/constants/AccentContext';
 import { FocusTimeProvider, useFocusTime } from '@/constants/FocusTimeContext';
 import { CreationModal } from '@/components/CreationModal';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
-import RevenueCatService from '@/lib/RevenueCat';
+import { RevenueCatService } from '@/lib/RevenueCat';
 import { SuperwallProvider, SuperwallExpoModule } from 'expo-superwall';
 import * as Linking from 'expo-linking';
+import { BiometricGuard } from '@/components/BiometricGuard';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
@@ -149,7 +150,9 @@ export default function MobileLayout() {
             <AccentProvider>
               <FocusTimeProvider>
                 <GestureHandlerRootView style={{ flex: 1 }}>
-                  <InnerLayout />
+                  <BiometricGuard>
+                    <InnerLayout />
+                  </BiometricGuard>
                 </GestureHandlerRootView>
               </FocusTimeProvider>
             </AccentProvider>

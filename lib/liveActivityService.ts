@@ -205,9 +205,7 @@ export const LiveActivityService = {
             if (SharedDefaults) {
                 SharedDefaults.set('activeHabitName', 'No Active Habit');
                 SharedDefaults.set('todayStats', 'Great job today!');
-                // Force reload widget might be needed but requires WidgetKit from Swift side.
-                // The Provider checks on timeline refresh. To force update, we'd need another native method.
-                // For now, rely on timeline policy.
+                await SharedDefaults.reloadTimelines();
             }
 
         } catch (e) {

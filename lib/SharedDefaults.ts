@@ -10,6 +10,7 @@ export interface SharedDefaultsType {
     getArray(key: string): Promise<any[] | null>;
     remove(key: string): Promise<boolean>;
     saveImage(base64: string, fileName: string): Promise<string>;
+    reloadTimelines(): Promise<boolean>;
 }
 
 // Mock for non-iOS or Simulator if module missing
@@ -21,6 +22,7 @@ const MockSharedDefaults: SharedDefaultsType = {
     getArray: async () => [],
     remove: async () => false,
     saveImage: async () => '',
+    reloadTimelines: async () => false,
 };
 
 export default (Platform.OS === 'ios' && SharedDefaults)

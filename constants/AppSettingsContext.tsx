@@ -12,7 +12,7 @@ interface AppSettings {
     aiPersonality: PersonalityModeId;
     cardSize: RoadMapCardSize;
     greetingStyle: GreetingStyle;
-    useLocalAI: boolean;
+    isAppLockEnabled: boolean;
 }
 
 interface AppSettingsContextType extends AppSettings {
@@ -23,6 +23,7 @@ interface AppSettingsContextType extends AppSettings {
     setCardSize: (size: RoadMapCardSize) => void;
     setGreetingStyle: (style: GreetingStyle) => void;
     setUseLocalAI: (enabled: boolean) => void;
+    setIsAppLockEnabled: (enabled: boolean) => void;
     isLoaded: boolean;
 }
 
@@ -33,7 +34,8 @@ const defaultSettings: AppSettings = {
     aiPersonality: 'friendly',
     cardSize: 'small',
     greetingStyle: 'ai', // Default to AI-powered greetings
-    useLocalAI: false
+    useLocalAI: false,
+    isAppLockEnabled: false,
 };
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
@@ -112,6 +114,12 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         saveSettings(newSettings);
     };
 
+    const setIsAppLockEnabled = (enabled: boolean) => {
+        const newSettings = { ...settings, isAppLockEnabled: enabled };
+        setSettings(newSettings);
+        saveSettings(newSettings);
+    };
+
     return (
         <AppSettingsContext.Provider
             value={{
@@ -123,6 +131,7 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
                 setCardSize,
                 setGreetingStyle,
                 setUseLocalAI,
+                setIsAppLockEnabled,
                 isLoaded,
             }}
         >

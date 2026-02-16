@@ -10,6 +10,36 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { supabase } from './supabase';
 import { DeviceEventEmitter } from 'react-native';
 import { NotificationService } from './notificationService';
+import SharedDefaults from './SharedDefaults';
+
+// Widget Sync Helper
+async function syncWidgets() {
+    try {
+        const habits = await getHabits();
+        const activeHabits = habits.filter(h => !h.isArchived && !h.isGoal);
+        const todayCompletions = await getCompletions(todayString());
+
+        const widgetData = activeHabits.map(h => ({
+            id: h.id,
+            name: h.name,
+            isCompleted: !!todayCompletions[h.id]
+        }));
+
+        console.log('[Widget] Syncing', widgetData.length, 'habits');
+        await SharedDefaults.set('habitsData', JSON.stringify(widgetData));
+        await SharedDefaults.set('todayStats', JSON.stringify({
+            total: activeHabits.length,
+            completed: Object.keys(todayCompletions).length
+        }));
+
+        // Force widget reload
+        await SharedDefaults.reloadTimelines();
+
+    } catch (e) {
+        console.warn('[Widget] Sync failed:', e);
+    }
+}
+
 
 // Re-export types
 export type HabitCategory = 'body' | 'wealth' | 'heart' | 'mind' | 'soul' | 'play' | 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc' | 'productivity' | 'learning' | 'creativity' | 'social' | 'family' | 'finance';
@@ -358,6 +388,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                 }
 
                 DeviceEventEmitter.emit('habit_created', { habit: created });
+                syncWidgets(); // Sync to widget
                 return created;
             }
         } catch (e) {
@@ -433,6 +464,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
         habitsListeners.forEach(l => l(cachedHabits!));
     }
 
+    syncWidgets(); // Sync to widget
     return created;
 }
 
@@ -496,6 +528,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 }
 
                 DeviceEventEmitter.emit('habit_updated', { habitId: updatedHabit.id });
+                syncWidgets(); // Sync to widget
                 return;
             }
         } catch (e) {
@@ -539,6 +572,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
         if (fullHabit) {
             await NotificationService.scheduleHabitReminder(fullHabit);
         }
+        syncWidgets(); // Sync to widget
     }
 }
 
@@ -572,6 +606,7 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
                 }
 
                 DeviceEventEmitter.emit('habit_deleted', { habitId });
+                syncWidgets(); // Sync to widget
                 return;
             }
         } catch (e) {
@@ -589,6 +624,7 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
         cachedHabits = cachedHabits.filter(h => h.id !== habitId);
         habitsListeners.forEach(l => l(cachedHabits!));
     }
+    syncWidgets(); // Sync to widget
 }
 
 export async function removeGoalWithLinkedHabits(goalId: string): Promise<void> {
@@ -764,6 +800,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
     })();
 
     DeviceEventEmitter.emit('habit_completion_updated', { habitId, date: dateStr, completed: newCompleted });
+    syncWidgets(); // Sync to widget
 
     return optimisticResult;
 }

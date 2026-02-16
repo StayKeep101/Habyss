@@ -11,6 +11,8 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
 
+import { useAppSettings } from '@/constants/AppSettingsContext';
+
 const Privacy = () => {
   // const colorScheme = useColorScheme();
   const { theme } = useTheme();
@@ -18,6 +20,7 @@ const Privacy = () => {
   const isLight = theme === 'light';
   const isTrueDark = theme === 'trueDark';
   const { lightFeedback } = useHaptics();
+  const { isAppLockEnabled, setIsAppLockEnabled } = useAppSettings();
 
   const [analytics, setAnalytics] = useState(true);
   const [crashReports, setCrashReports] = useState(true);
@@ -92,6 +95,35 @@ const Privacy = () => {
               <Switch
                 value={crashReports}
                 onValueChange={(v) => { lightFeedback(); setCrashReports(v); }}
+                trackColor={{ false: colors.border, true: colors.success }}
+              />
+            </View>
+          </VoidCard>
+
+          {/* Security */}
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>SECURITY</Text>
+          <VoidCard
+            glass={!isTrueDark}
+            intensity={isLight ? 20 : 80}
+            style={[
+              styles.card,
+              {
+                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
+                borderColor: colors.border
+              }
+            ]}
+          >
+            <View style={styles.row}>
+              <View style={styles.rowContent}>
+                <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} />
+                <View style={styles.textContent}>
+                  <Text style={[styles.label, { color: colors.textPrimary }]}>App Lock</Text>
+                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Require FaceID/TouchID to open</Text>
+                </View>
+              </View>
+              <Switch
+                value={isAppLockEnabled}
+                onValueChange={(v) => { lightFeedback(); setIsAppLockEnabled(v); }}
                 trackColor={{ false: colors.border, true: colors.success }}
               />
             </View>
