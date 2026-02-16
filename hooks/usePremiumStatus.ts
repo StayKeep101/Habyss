@@ -14,15 +14,31 @@ export const usePremiumStatus = () => {
   const { lightFeedback } = useHaptics();
 
   const refreshStatus = useCallback(async () => {
-    setLoading(true);
+    // 1. Check cache first for instant load
+    try {
+      const cached = await AsyncStorage.getItem('is_premium_cache');
+      if (cached !== null) {
+        setIsPremium(JSON.parse(cached));
+        setLoading(false); // Enable UI immediately based on cache
+      }
+    } catch (e) {
+      // Ignore cache errors
+    }
+
+    // 2. Fetch fresh status from RevenueCat
     try {
       console.log('[usePremiumStatus] Refreshing status...');
       const isPro = await RevenueCatService.checkProStatus();
       console.log('[usePremiumStatus] Result:', isPro);
+
       setIsPremium(isPro);
+      setLoading(false); // Ensure loading is off
+
+      // 3. Update cache
+      await AsyncStorage.setItem('is_premium_cache', JSON.stringify(isPro));
+
     } catch (error) {
       console.error('Error refreshing premium status:', error);
-    } finally {
       setLoading(false);
     }
   }, []);

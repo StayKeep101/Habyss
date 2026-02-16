@@ -51,6 +51,15 @@ class RevenueCatService {
         }
     }
 
+    async logOut() {
+        try {
+            await Purchases.logOut();
+            console.log('[RevenueCat] Logged out');
+        } catch (e) {
+            console.error('[RevenueCat] Logout error:', e);
+        }
+    }
+
     async getOfferings(): Promise<PurchasesOffering | null> {
         try {
             const offerings = await Purchases.getOfferings();
@@ -67,6 +76,8 @@ class RevenueCatService {
     async purchasePackage(
         pkg: PurchasesPackage
     ): Promise<{ isPro: boolean; customerInfo: CustomerInfo }> {
+        if (!this.isInitialized) await this.init(); // Auto-init if needed (fallback)
+
         try {
             const { customerInfo } = await Purchases.purchasePackage(pkg);
             const isPro = this.checkProEntitlement(customerInfo);
@@ -81,6 +92,8 @@ class RevenueCatService {
     }
 
     async restorePurchases(): Promise<boolean> {
+        if (!this.isInitialized) await this.init();
+
         try {
             const customerInfo = await Purchases.restorePurchases();
             return this.checkProEntitlement(customerInfo);
@@ -91,6 +104,15 @@ class RevenueCatService {
     }
 
     async checkProStatus(): Promise<boolean> {
+        if (!this.isInitialized) {
+            console.log('[RevenueCat] Check status called before initialization. Initializing now...');
+            // Try to initialize immediately if possible, or just return false to avoid crash
+            // Ideally we wait for init, but for now let's safe guard
+            // We can try to init here if we had the userId, but we don't. 
+            // Better to return false and let the listener update it later.
+            return false;
+        }
+
         try {
             const customerInfo = await Purchases.getCustomerInfo();
             return this.checkProEntitlement(customerInfo);

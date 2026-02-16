@@ -199,8 +199,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
     const appSettings = useAppSettings();
 
     // Use the hook that handles dev overrides
-    const { isPremium } = usePremiumStatus();
-    const checkingPremium = false;
+    const { isPremium, loading: checkingPremium } = usePremiumStatus();
 
     const flatListRef = useRef<FlatList>(null);
 

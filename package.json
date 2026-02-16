@@ -101,8 +101,6 @@
           "react-native-chart-kit",
           "react-native-health",
           "expo-av",
-          "@stripe/stripe-js",
-          "stripe",
           "getenv"
         ],
         "listUnknownPackages": false

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { MusicSelectorModal } from './MusicSelectorModal';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,7 +37,6 @@ export const ActiveSessionDisplay: React.FC<ActiveSessionDisplayProps> = ({
     yearlyAverage
 }) => {
     const { colors: accentColors, primary: accentColor } = useAccentGradient();
-    const [musicModalVisible, setMusicModalVisible] = useState(false);
 
     const formatCountdown = (seconds: number): string => {
         const mins = Math.floor(seconds / 60);
@@ -114,12 +112,7 @@ export const ActiveSessionDisplay: React.FC<ActiveSessionDisplayProps> = ({
 
                 {/* Control Buttons */}
                 <View style={styles.controlButtons}>
-                    <TouchableOpacity
-                        onPress={() => setMusicModalVisible(true)}
-                        style={[styles.controlBtn, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }]}
-                    >
-                        <Ionicons name="musical-notes" size={18} color={colors.textPrimary} />
-                    </TouchableOpacity>
+                    {/* Music Button Removed as per request */}
 
                     <TouchableOpacity
                         onPress={onStop}
@@ -143,11 +136,6 @@ export const ActiveSessionDisplay: React.FC<ActiveSessionDisplayProps> = ({
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
-                <MusicSelectorModal
-                    visible={musicModalVisible}
-                    onClose={() => setMusicModalVisible(false)}
-                    onSelect={(name) => console.log('Selected playlist:', name)}
-                />
             </View>
 
             {/* Stats Column - optional if passed */}

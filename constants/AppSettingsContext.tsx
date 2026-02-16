@@ -12,6 +12,7 @@ interface AppSettings {
     aiPersonality: PersonalityModeId;
     cardSize: RoadMapCardSize;
     greetingStyle: GreetingStyle;
+    useLocalAI: boolean;
     isAppLockEnabled: boolean;
 }
 

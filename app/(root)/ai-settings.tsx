@@ -123,7 +123,7 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     );
 };
 
-import { useSuperwall } from 'expo-superwall';
+// import { useSuperwall } from 'expo-superwall';
 
 const AISettings = () => {
     const { theme } = useTheme();
@@ -132,7 +132,7 @@ const AISettings = () => {
     const isTrueDark = theme === 'trueDark';
     const { mediumFeedback, selectionFeedback } = useHaptics();
     const { aiPersonality, setAIPersonality, greetingStyle, setGreetingStyle } = useAppSettings();
-    const { registerPlacement } = useSuperwall();
+    // const { registerPlacement } = useSuperwall();
 
     const handleSelectPersonality = (id: PersonalityModeId) => {
         mediumFeedback();
@@ -299,7 +299,7 @@ const AISettings = () => {
                     <TouchableOpacity
                         style={{ marginTop: 20, alignItems: 'center' }}
                         onPress={async () => {
-                            await registerPlacement("campaign_trigger");
+                            // await registerPlacement("campaign_trigger");
                         }}
                     >
                         <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend', fontSize: 12 }}>
