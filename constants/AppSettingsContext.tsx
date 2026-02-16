@@ -3,7 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PersonalityModeId } from '@/constants/AIPersonalities';
 
 export type RoadMapCardSize = 'small' | 'standard' | 'big';
-export type GreetingStyle = 'ai' | 'quotes' | 'data' | 'all';  // ai=personality, quotes=motivational, data=insights, all=random mix
+export type GreetingStyle = 'ai' | 'quotes' | 'data' | 'all';
+export type MotivationStyle = 'gentle' | 'tough_love';
+export type CommunicationStyle = 'empathetic' | 'direct' | 'philosophical';
 
 interface AppSettings {
     hapticsEnabled: boolean;
@@ -14,6 +16,8 @@ interface AppSettings {
     greetingStyle: GreetingStyle;
     useLocalAI: boolean;
     isAppLockEnabled: boolean;
+    motivationStyle: MotivationStyle;
+    communicationStyle: CommunicationStyle;
 }
 
 interface AppSettingsContextType extends AppSettings {
@@ -25,6 +29,8 @@ interface AppSettingsContextType extends AppSettings {
     setGreetingStyle: (style: GreetingStyle) => void;
     setUseLocalAI: (enabled: boolean) => void;
     setIsAppLockEnabled: (enabled: boolean) => void;
+    setMotivationStyle: (style: MotivationStyle) => void;
+    setCommunicationStyle: (style: CommunicationStyle) => void;
     isLoaded: boolean;
 }
 
@@ -34,9 +40,11 @@ const defaultSettings: AppSettings = {
     notificationsEnabled: true,
     aiPersonality: 'friendly',
     cardSize: 'small',
-    greetingStyle: 'ai', // Default to AI-powered greetings
+    greetingStyle: 'ai',
     useLocalAI: false,
     isAppLockEnabled: false,
+    motivationStyle: 'gentle',
+    communicationStyle: 'empathetic',
 };
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
@@ -121,6 +129,18 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         saveSettings(newSettings);
     };
 
+    const setMotivationStyle = (style: 'gentle' | 'tough_love') => {
+        const newSettings = { ...settings, motivationStyle: style };
+        setSettings(newSettings);
+        saveSettings(newSettings);
+    };
+
+    const setCommunicationStyle = (style: 'empathetic' | 'direct' | 'philosophical') => {
+        const newSettings = { ...settings, communicationStyle: style };
+        setSettings(newSettings);
+        saveSettings(newSettings);
+    };
+
     return (
         <AppSettingsContext.Provider
             value={{
@@ -133,6 +153,8 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
                 setGreetingStyle,
                 setUseLocalAI,
                 setIsAppLockEnabled,
+                setMotivationStyle,
+                setCommunicationStyle, // Export new setters
                 isLoaded,
             }}
         >

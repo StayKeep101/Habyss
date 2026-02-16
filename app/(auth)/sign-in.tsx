@@ -10,6 +10,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { AppleAuthButton } from '@/components/Auth/AppleAuthButton';
 
 const SignIn = () => {
   const { theme } = useTheme();
@@ -170,15 +171,19 @@ const SignIn = () => {
               <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
             </View>
 
-            {/* Google Sign In */}
-            <TouchableOpacity
-              onPress={handleGoogleSignIn}
-              disabled={loading}
-              style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
-            >
-              <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 12 }} />
-              <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
-            </TouchableOpacity>
+            {/* Social Sign In */}
+            <View style={{ gap: 12 }}>
+              <AppleAuthButton type="sign-in" />
+
+              <TouchableOpacity
+                onPress={handleGoogleSignIn}
+                disabled={loading}
+                style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
+              >
+                <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 12 }} />
+                <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Footer Actions */}
             <View style={{ marginTop: 20, gap: 16 }}>

@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { AppleAuthButton } from '@/components/Auth/AppleAuthButton';
 
 const SignUp = () => {
   const { theme } = useTheme();
@@ -170,15 +171,19 @@ const SignUp = () => {
               <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
             </View>
 
-            {/* Google Sign Up */}
-            <TouchableOpacity
-              onPress={handleGoogleSignUp}
-              disabled={loading}
-              style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
-            >
-              <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 12 }} />
-              <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
-            </TouchableOpacity>
+            {/* Social Sign Up */}
+            <View style={{ gap: 12 }}>
+              <AppleAuthButton type="sign-up" />
+
+              <TouchableOpacity
+                onPress={handleGoogleSignUp}
+                disabled={loading}
+                style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
+              >
+                <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 12 }} />
+                <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Footer */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20 }}>

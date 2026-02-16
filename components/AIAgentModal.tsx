@@ -390,6 +390,10 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
             const systemPrompt = `You are ABYSS. MODE: ${personality.toUpperCase()}.
 DATE: ${new Date().toLocaleDateString()}
 
+USER PREFERENCES:
+- Motivation Style: ${appSettings.motivationStyle?.toUpperCase() || 'GENTLE'}
+- Communication Style: ${appSettings.communicationStyle?.toUpperCase() || 'EMPATHETIC'}
+
 EXISTING HABITS:
 ${habitsList || 'None'}
 
@@ -399,7 +403,8 @@ REMEMBER:
 1. You are an ACTION AGENT.
 2. If user asks for a plan, BUILD IT (Create Goal + Habits).
 3. NO advice. NO yapping. ACTIONS only.
-4. STAY IN character: ${personality.toUpperCase()}`;
+4. STAY IN character: ${personality.toUpperCase()}
+5. ADAPT to User Preferences (e.g. if 'Tough Love', be strict. If 'Direct', be concise).`;
 
             // Convert to DeepSeek/OpenAI format
             const groqHistory: AIStackMessage[] = newMessages.map(m => ({
