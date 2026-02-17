@@ -41,7 +41,7 @@ const defaultSettings: AppSettings = {
     aiPersonality: 'friendly',
     cardSize: 'small',
     greetingStyle: 'ai',
-    useLocalAI: false,
+    useLocalAI: true,
     isAppLockEnabled: false,
     motivationStyle: 'gentle',
     communicationStyle: 'empathetic',

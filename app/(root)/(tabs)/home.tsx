@@ -21,7 +21,7 @@ import { useFocusEffect } from 'expo-router';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { generateGreeting, generateSmartGreeting, UserGreetingData } from '@/lib/deepseek';
+import { UserGreetingData } from '@/lib/deepseek';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Pro user motivational quotes by AI personality
@@ -92,7 +92,7 @@ const Home = () => {
 
   // Pro Hooks
   const { isPremium } = usePremiumStatus();
-  const { aiPersonality, greetingStyle } = useAppSettings();
+  const { aiPersonality, greetingStyle, useLocalAI } = useAppSettings();
 
   // Data state
   const [allHabits, setAllHabits] = useState<Habit[]>([]);
@@ -174,11 +174,37 @@ const Home = () => {
       }
     }
 
-    // AI mode - try smart greeting (API-powered)
+    // AI mode - try smart greeting (API-powered or Local)
     try {
-      const smartGreeting = await generateSmartGreeting(aiPersonality || 'mentor', userData);
-      return smartGreeting;
-    } catch {
+      // Check for Local LLM preference
+      // Dynamic import
+      // Note: usage inside callback might be stale if we don't include it in dependency array or use a ref/getter. 
+      // better to use the hook value passed in dependencies.
+      // But let's look at dependencies below: [isPremium, aiPersonality, allHabits... greetingStyle]
+      // We need to add useLocalAI to the hook and dependencies.
+
+      // Dynamic import
+      const LocalLLM = require('@/lib/LocalLLMService').default;
+
+      if (LocalLLM.isReady()) {
+        const prompt = `You are a motivational habit coach.
+TASK: Write ONE short, inspiring sentence (max 15 words) based on these stats:
+Streak: ${userData.currentStreak} days
+Consistency: ${userData.consistencyScore}%
+Today: ${userData.todayCompleted}/${userData.todayTotal} done
+Personality: ${aiPersonality || 'mentor'}
+
+OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
+
+        const reply = await LocalLLM.generateResponse(prompt, "Generate greeting.");
+        // Clean up response
+        return reply.replace(/"/g, '').trim();
+      }
+
+      // If Local LLM is not ready, fall back to static text (Offline)
+      throw new Error("Local LLM not ready");
+    } catch (e) {
+      console.log("Greeting Error", e);
       // Fallback to static quotes on error
       if (isPremium) {
         const personality = aiPersonality || 'mentor';
@@ -188,7 +214,7 @@ const Home = () => {
         return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
       }
     }
-  }, [isPremium, aiPersonality, allHabits, completions, historyData, greetingStyle]);
+  }, [isPremium, aiPersonality, allHabits, completions, historyData, greetingStyle, useLocalAI]);
 
   // Get random quote based on pro status and AI personality (fallback)
   const getRandomQuote = useCallback(() => {
@@ -274,7 +300,9 @@ const Home = () => {
       // Update greeting ONLY if premium AND using AI greeting style
       // This prevents unnecessary API calls when quotes-only is selected
       if (isPremium && greetingStyle === 'ai') {
-        generateGreeting(aiPersonality).then(g => setGreeting(g));
+        // For simple "Greeting", just use a static one or Local LLM if we wanted to (but let's keep it simple/static for now to guarantee no cloud)
+        // generateGreeting(aiPersonality).then(g => setGreeting(g));
+        setGreeting("Ready to build?");
       }
     }, [isPremium, aiPersonality, greetingStyle])
   );

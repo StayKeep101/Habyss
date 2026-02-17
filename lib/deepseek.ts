@@ -41,57 +41,9 @@ export const streamChatCompletion = async (
     onComplete: (fullText: string) => void,
     onError: (error: Error) => void
 ) => {
-    try {
-        // CACHE OPTIMIZATION: Keep messages minimal for 500 token input limit
-        // Only send system prompt + last 4 messages to stay under limit
-        const recentHistory = history.slice(-4);
-
-        // If a dynamic system instruction is provided (from AIAgentModal), use it.
-        // Otherwise fallback to the static EXPERT_SYSTEM_PROMPT.
-        const systemPrompt = systemInstruction || EXPERT_SYSTEM_PROMPT;
-
-        const messages: ChatMessage[] = [
-            { role: 'system', content: systemPrompt },
-            ...recentHistory.map(msg => ({
-                role: msg.role as 'user' | 'assistant',
-                content: msg.content.slice(0, 500) // Truncate long messages
-            }))
-        ];
-
-        const { data, error } = await supabase.functions.invoke('ai-chat', {
-            body: {
-                model: MODEL,
-                messages,
-                temperature: 0.7,
-                max_tokens: 1000,
-            }
-        });
-
-        if (error) {
-            console.error('Edge Function Error:', error);
-            throw new Error(error.message || 'Failed to connect to AI service');
-        }
-
-        if (data?.error) {
-            throw new Error(data.error);
-        }
-
-        const reply = data.choices?.[0]?.message?.content || '';
-
-        // Log cache statistics for monitoring
-        if (data.usage) {
-            const cacheHit = data.usage.prompt_cache_hit_tokens || 0;
-            const cacheMiss = data.usage.prompt_cache_miss_tokens || 0;
-            const hitRate = cacheHit + cacheMiss > 0 ? (cacheHit / (cacheHit + cacheMiss) * 100).toFixed(1) : 0;
-            console.log(`DeepSeek Cache: ${cacheHit} hit, ${cacheMiss} miss (${hitRate}% hit rate)`);
-        }
-
-        onComplete(reply);
-
-    } catch (error) {
-        console.error('DeepSeek AI Error:', error);
-        onError(error instanceof Error ? error : new Error('Unknown error during AI chat'));
-    }
+    // CLOUD AI REMOVED
+    console.warn("Cloud AI called but disabled.");
+    onError(new Error("Cloud AI is disabled. Please use Local LLM."));
 };
 
 /**
@@ -211,49 +163,9 @@ export const generateSmartGreeting = async (
     personality: string,
     userData: UserGreetingData
 ): Promise<string> => {
-    try {
-        const personalityGuidelines = getPersonalityGuidelines(personality);
-
-        // User context as a structured message for consistent caching
-        const userContext = `Personality: ${personality} (${personalityGuidelines})
-Stats: ${userData.currentStreak}-day streak, ${userData.consistencyScore}% consistency, ${userData.todayCompleted}/${userData.todayTotal} today.
-${userData.bestHabit ? `Best habit (crushing it): ${userData.bestHabit}` : ''}
-${userData.strugglingHabit ? `Struggling with: ${userData.strugglingHabit}` : ''}
-${userData.topHabit && !userData.bestHabit ? `Top habit: ${userData.topHabit}` : ''}
-Generate a personalized greeting.`;
-
-        const { data, error } = await supabase.functions.invoke('ai-chat', {
-            body: {
-                model: MODEL,
-                messages: [
-                    { role: 'system', content: SMART_GREETING_SYSTEM_PROMPT },
-                    { role: 'user', content: userContext }
-                ],
-                temperature: 0.8,
-                max_tokens: 60,
-            }
-        });
-
-        if (error || data?.error) {
-            // Fallback to data-driven static greeting if AI fails
-            return userData.currentStreak > 0
-                ? `${userData.currentStreak}-day streak. Keep going.`
-                : "Ready to build today.";
-        }
-
-        // Log cache statistics
-        if (data.usage) {
-            console.log(`Smart Greeting Cache: ${data.usage.prompt_cache_hit_tokens || 0} hit, ${data.usage.prompt_cache_miss_tokens || 0} miss`);
-        }
-
-        const greeting = data.choices?.[0]?.message?.content?.trim();
-
-        return greeting || `${userData.currentStreak}-day streak. Let's build.`;
-
-    } catch (e) {
-        console.error("Smart Greeting Error:", e);
-        return userData.currentStreak > 0
-            ? `${userData.currentStreak} days strong. Continue.`
-            : "Time to build habits.";
-    }
+    // CLOUD AI REMOVED BY USER REQUEST
+    // Fallback to data-driven static greeting
+    return userData.currentStreak > 0
+        ? `${userData.currentStreak}-day streak. Keep going.`
+        : "Ready to build today.";
 };

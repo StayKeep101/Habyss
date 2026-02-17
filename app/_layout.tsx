@@ -1,3 +1,4 @@
+import '@/lib/polyfills'; // Must be first
 import { ThemeProvider } from "../constants/themeContext";
 import { useFonts, Lexend_400Regular, Lexend_500Medium, Lexend_600SemiBold, Lexend_700Bold } from '@expo-google-fonts/lexend';
 import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
@@ -64,7 +65,6 @@ export default function MobileLayout() {
         }
       }
     }
-    prepare();
     prepare();
   }, [loaded]);
 

@@ -39,37 +39,53 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     }, []);
 
     const handleToggle = async () => {
-        if (!useLocalAI) {
-            // Turning ON
-            const Service = require('@/lib/LocalLLMService').default;
-            if (!Service.isReady()) {
-                Alert.alert(
-                    "Download Required",
-                    "To use Offline AI, you need to download the Qwen2.5-1.5B model (~900MB). Wi-Fi recommended.",
-                    [
-                        { text: "Cancel", style: "cancel" },
-                        {
-                            text: "Download & Enable",
-                            onPress: async () => {
-                                setIsDownloading(true);
-                                const success = await Service.downloadModel((p: number) => setProgress(p));
-                                setIsDownloading(false);
-                                if (success) {
-                                    setModelReady(true);
-                                    setUseLocalAI(true);
-                                } else {
-                                    Alert.alert("Download Failed", "Please check your connection and try again.");
-                                }
+        // If it's ON and Ready -> Turn Off
+        if (useLocalAI && modelReady) {
+            setUseLocalAI(false);
+            return;
+        }
+
+        // If it's OFF or (ON but Not Ready) -> Try to Enable/Download
+        const Service = require('@/lib/LocalLLMService').default;
+
+        // re-check readiness just in case
+        const isReady = Service.isReady();
+
+        if (!isReady) {
+            Alert.alert(
+                "Download Required",
+                "To use Offline AI, you need to download the Llama 3.2 (1B) model (~1.2GB). This is a smaller, more efficient model optimized for your device.",
+                [
+                    {
+                        text: "Cancel", style: "cancel", onPress: () => {
+                            // If we cancelled and it was supposedly "ON" but not ready, maybe turn it off?
+                            // Or just leave it as is (fallback to cloud). 
+                            // Let's leave it, but user might want to turn it off.
+                            // Actually if they cancel download, we probably shouldn't change the toggle if it was already ON.
+                            // If it was OFF, stay OFF.
+                        }
+                    },
+                    {
+                        text: "Download & Enable",
+                        onPress: async () => {
+                            setIsDownloading(true);
+                            // We can pass a progress callback
+                            const success = await Service.downloadModel((p: number) => setProgress(p));
+                            setIsDownloading(false);
+                            if (success) {
+                                setModelReady(true);
+                                setUseLocalAI(true);
+                            } else {
+                                Alert.alert("Download Failed", "Please check your connection and try again.");
                             }
                         }
-                    ]
-                );
-            } else {
-                setUseLocalAI(true);
-            }
+                    }
+                ]
+            );
         } else {
-            // Turning OFF
-            setUseLocalAI(false);
+            // It is ready, just ensure it's on
+            setUseLocalAI(true);
+            setModelReady(true);
         }
     };
 
@@ -97,8 +113,8 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
                     {isDownloading
                         ? `Downloading Model... ${Math.round(progress * 100)}%`
                         : modelReady
-                            ? "Model Ready • Privacy Focused"
-                            : "Download Model to run offline"}
+                            ? "Running Llama 3.2 (1B) • Efficient & Private"
+                            : "Download Llama 3.2 (1B) (~1.2GB) to run offline"}
                 </Text>
                 {isDownloading && (
                     <View style={{ height: 4, backgroundColor: colors.surface, marginTop: 8, borderRadius: 2, overflow: 'hidden' }}>
@@ -275,7 +291,7 @@ const AISettings = () => {
                     </Text>
                     <Text style={[styles.sectionDesc, { color: colors.textTertiary }]}>
                         Run AI locally on your device for privacy and offline access.
-                        (Requires ~1GB download)
+                        (Requires ~1.2GB download)
                     </Text>
 
 

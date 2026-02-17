@@ -7,7 +7,7 @@ const API_KEYS = {
     google: 'goog_placeholder', // REPLACE THIS
 };
 
-const ENTITLEMENT_ID = 'pro'; // Must match your RevenueCat Entitlement ID
+const ENTITLEMENT_ID = 'Habyss Pro'; // Must match your RevenueCat Entitlement ID
 
 export interface ProStatus {
     isPro: boolean;
@@ -44,6 +44,12 @@ class RevenueCatService {
     }
 
     async logIn(userId: string) {
+        if (!this.isInitialized) {
+            console.log('[RevenueCat] Login called before init. Initializing now...');
+            await this.init(userId);
+            return;
+        }
+
         try {
             await Purchases.logIn(userId);
         } catch (e) {
@@ -52,6 +58,8 @@ class RevenueCatService {
     }
 
     async logOut() {
+        if (!this.isInitialized) return;
+
         try {
             await Purchases.logOut();
             console.log('[RevenueCat] Logged out');
@@ -61,6 +69,8 @@ class RevenueCatService {
     }
 
     async getOfferings(): Promise<PurchasesOffering | null> {
+        if (!this.isInitialized) await this.init();
+
         try {
             const offerings = await Purchases.getOfferings();
             if (offerings.current !== null) {
@@ -105,12 +115,7 @@ class RevenueCatService {
 
     async checkProStatus(): Promise<boolean> {
         if (!this.isInitialized) {
-            console.log('[RevenueCat] Check status called before initialization. Initializing now...');
-            // Try to initialize immediately if possible, or just return false to avoid crash
-            // Ideally we wait for init, but for now let's safe guard
-            // We can try to init here if we had the userId, but we don't. 
-            // Better to return false and let the listener update it later.
-            return false;
+            await this.init();
         }
 
         try {

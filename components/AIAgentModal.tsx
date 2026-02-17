@@ -419,8 +419,51 @@ REMEMBER:
             // Dynamic import to avoid cycle if any
             const LocalLLM = require('@/lib/LocalLLMService').default;
 
-            if (LocalLLM.isReady() && appSettings.useLocalAI) {
-                const reply = await LocalLLM.generateResponse(systemPrompt, content);
+            if (!LocalLLM.isReady()) {
+                const errorMsg: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: "Local Model missing. Please download it in AI Settings to use the Agent.",
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, errorMsg]);
+                setIsTyping(false);
+                return;
+            }
+
+            try {
+                // Optimized prompt for Llama 3.2 1B (smaller model needs simpler, structured instructions)
+                // We remove the fluff and complex personality rules for the "thinking" part to ensure JSON.
+                // The "role" and "content" in the personality message will handle the visible personality.
+                const localSystemPrompt = `You are a helper AI that controls a Habit Tracker app.
+Capabilities: Create habits, set goals, change settings.
+
+INSTRUCTIONS:
+1. If the user wants to do something, output JSON commands.
+2. If the user just wants to chat, reply normally.
+3. DO NOT lecture. DO NOT say "I cannot". JUST DO IT.
+
+JSON FORMATS:
+- Create Habit: {"action":"create","data":{"name":"Run","category":"fitness","durationMinutes":30}}
+- Create Goal: {"action":"create_goal","data":{"name":"Marathon","category":"fitness","deadline":"2025-12-31"}}
+- Change Setting: {"action":"toggle_notifications","data":{"enabled":true}}
+
+EXAMPLES:
+User: "I want to run every day"
+Response: {"action":"create","data":{"name":"Run","category":"fitness","durationMinutes":30},"response":"Added run habit."}
+
+User: "Turn on dark mode"
+Response: {"action":"change_theme","data":{"theme":"dark"},"response":"Dark mode on."}
+
+User: "Help me save money"
+Response: [{"action":"create_goal","data":{"name":"Save Money","category":"finance","deadline":"2025-12-31"}},{"action":"create","data":{"name":"Track Spend","category":"finance"}}]
+
+CURRENT DATE: ${new Date().toLocaleDateString()}
+USER REQUEST: ${content}
+`;
+
+                const reply = await LocalLLM.generateResponse(localSystemPrompt, content);
+
                 // Mock the stream callback format for consistency
                 let finalReply = reply;
                 let actionsToExecute: any[] = [];
@@ -438,12 +481,100 @@ REMEMBER:
                 } catch (e) { console.error("Local JSON Parse Error", e); }
 
                 if (actionsToExecute.length > 0) {
-                    // Copy-paste action execution logic or make it a function?
-                    // For now, let's just create a helper function in next step to avoid duplication.
-                    // Or just duplicate for speed in this tool call.
-                    // actually, I'll just set messages and be done for the "Reply" part, 
-                    // Action execution is complex to duplicate.
-                    // Let's refactor `executeAIResponse` in next tool call.
+                    // Reuse the action execution logic below
+                    // Ideally we refactor this, but for now we will just use a flag
+                    // efficient reuse: set a flag and fall through? No, async flow.
+                    // We must duplicate or refactor. 
+                    // Refactoring is cleaner but riskier in this tool call.
+                    // Let's duplicate the action execution strictly for Local Mode to ensure it works isolation.
+
+                    const agentAction: AgentAction = {
+                        action: 'multi_action',
+                        category: 'settings',
+                        data: {},
+                        response: 'Executing plan...'
+                    };
+
+                    const steps: ActionStep[] = actionsToExecute.map((a, i) => ({
+                        id: i.toString(),
+                        label: `${a.action.replace(/_/g, ' ')}: ${a.data?.name || 'Action'}`,
+                        status: 'pending'
+                    }));
+                    setActionSteps(steps);
+                    setCurrentStepIndex(0);
+                    setShowActionFeed(true);
+
+                    let latestGoalId: string | null = null;
+                    for (let i = 0; i < actionsToExecute.length; i++) {
+                        setCurrentStepIndex(i);
+                        const actionData = actionsToExecute[i];
+
+                        const isSettingsAction = ['toggle_notifications', 'toggle_haptics', 'toggle_sounds', 'change_ai_personality', 'change_card_size', 'change_greeting_style', 'change_theme'].includes(actionData.action);
+                        const isNavigationAction = ['navigate_to', 'open_modal'].includes(actionData.action);
+                        const isHabitAction = ['create', 'update', 'delete'].includes(actionData.action);
+                        const isGoalAction = ['create_goal', 'update_goal'].includes(actionData.action);
+
+                        const stepAction: AgentAction = {
+                            action: actionData.action,
+                            category: isSettingsAction ? 'settings' : 'navigation',
+                            data: actionData.data,
+                            response: actionData.response
+                        };
+
+                        if (isSettingsAction) {
+                            if (actionData.action === 'change_greeting_style') {
+                                appSettings.setGreetingStyle?.(actionData.data?.style || 'quotes');
+                            } else if (actionData.action === 'change_theme') {
+                            } else {
+                                await executeSettingsAction(stepAction, appSettings as any);
+                            }
+                        } else if (isNavigationAction) {
+                            await executeNavigationAction(stepAction);
+                        } else if (isGoalAction) {
+                            if (actionData.action === 'create_goal') {
+                                const targetDate = actionData.data?.deadline || actionData.data?.targetDate || actionData.data?.target_date;
+                                const newGoal = await addHabit({
+                                    ...actionData.data,
+                                    name: actionData.data?.name || 'New Goal',
+                                    category: actionData.data?.category || 'personal',
+                                    isGoal: true,
+                                    taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+                                    targetDate: targetDate,
+                                } as any);
+                                if (newGoal) latestGoalId = newGoal.id;
+                            } else if (actionData.action === 'update_goal' && actionData.id) {
+                                await updateHabit({ id: actionData.id, ...actionData.data });
+                            }
+                        } else if (isHabitAction) {
+                            if (actionData.action === 'create') {
+                                let targetGoalId = actionData.data?.goalId;
+                                const isValidUUID = targetGoalId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetGoalId);
+                                if (targetGoalId && !isValidUUID) {
+                                    targetGoalId = latestGoalId || undefined;
+                                }
+                                await addHabit({
+                                    name: actionData.data?.name || 'New Habit',
+                                    category: actionData.data?.category || 'personal',
+                                    durationMinutes: actionData.data?.durationMinutes,
+                                    taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+                                    isGoal: false,
+                                    goalId: targetGoalId,
+                                });
+                            } else if (actionData.action === 'update' && actionData.id) {
+                                await updateHabit({ id: actionData.id, ...actionData.data });
+                            } else if (actionData.action === 'delete' && actionData.id) {
+                                await removeHabitEverywhere(actionData.id);
+                            }
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 800));
+                        if (i === actionsToExecute.length - 1) {
+                            finalReply = actionData.response || "Plan executed.";
+                        }
+                    }
+                    const updated = await getHabits();
+                    setHabits(updated);
+                    successFeedback();
+                    setShowActionFeed(false);
                 }
 
                 const aiMessage: Message = {
@@ -453,10 +584,20 @@ REMEMBER:
                     timestamp: new Date(),
                 };
                 setMessages(prev => [...prev, aiMessage]);
-                setIsTyping(false);
-                return;
+            } catch (e) {
+                const errorMsg: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: "I'm having trouble thinking locally. Ensure the model is downloaded.",
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, errorMsg]);
             }
 
+            setIsTyping(false);
+            return;
+
+            // Cloud Implementation (Legacy - Removed)
             await streamChatCompletion(
                 groqHistory,
                 systemPrompt,
@@ -477,10 +618,6 @@ REMEMBER:
                                 actionsToExecute = [parsed];
                             }
                             hasJson = true;
-
-                            // If there is text outside the JSON, we might want to keep it?
-                            // For now, if we have actions, use the action response as the reply
-                            // and DON'T show the raw JSON block.
                         }
                     } catch (e) {
                         console.error("JSON Parse Error:", e);
