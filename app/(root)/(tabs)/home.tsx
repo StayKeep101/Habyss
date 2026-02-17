@@ -575,12 +575,77 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
 
     // Fire and forget - don't await, let it run in background
     toggleCompletion(habitId, today).catch(console.error);
+
+    // LIVE ACTIVITY UPDATE
+    // Calculate new stats for immediate update
+    const activeHabits = habits.filter(h => isHabitScheduledForDate(h, now) && !h.isArchived);
+    const totalToday = activeHabits.length;
+    let completedCount = activeHabits.filter(h => completions[h.id]).length;
+
+    // Adjust for the toggle we just made (since completions state might lag slightly behind this function start)
+    // Actually, we already updated 'completions' optimistically above via setCompletions, 
+    // BUT 'completions' variable in this scope is stale (closure).
+    // So we use the 'wasCompleted' flag.
+    if (wasCompleted) {
+      completedCount = Math.max(0, completedCount - 1);
+    } else {
+      completedCount = Math.min(totalToday, completedCount + 1);
+    }
+
+    // Find next habit to do
+    const nextHabit = activeHabits.find(h => !completions[h.id] && h.id !== habitId); // Simplified
+
+    const { LiveActivityService } = require('@/lib/liveActivityService');
+    LiveActivityService.updateProgress({
+      completed: completedCount,
+      total: totalToday,
+      topHabitName: nextHabit?.name,
+      streakDays: streak,
+      profilePicture: profileAvatar || undefined,
+      habits: activeHabits.map(h => ({
+        id: h.id,
+        name: h.name,
+        isCompleted: h.id === habitId ? !wasCompleted : !!completions[h.id]
+      }))
+    });
   };
 
   const handleProfilePress = () => {
     selectionFeedback();
     router.push('/(root)/(tabs)/settings');
   };
+
+  // Live Activity Init
+  useEffect(() => {
+    const initLiveActivity = async () => {
+      const now = new Date();
+      const activeHabits = habits.filter(h => isHabitScheduledForDate(h, now) && !h.isArchived);
+      if (activeHabits.length > 0) {
+        const completedCount = activeHabits.filter(h => completions[h.id]).length;
+        const nextHabit = activeHabits.find(h => !completions[h.id]);
+        const { LiveActivityService } = require('@/lib/liveActivityService');
+
+        // Only start if we have habits
+        await LiveActivityService.startDailyProgress({
+          completed: completedCount,
+          total: activeHabits.length,
+          topHabitName: nextHabit?.name,
+          streakDays: streak, // Use calculated streak
+          profilePicture: profileAvatar || undefined,
+          habits: activeHabits.map(h => ({
+            id: h.id,
+            name: h.name,
+            isCompleted: !!completions[h.id]
+          }))
+        });
+      }
+    };
+
+    // Run on mount and when data changes significantly (e.g. initial load)
+    if (habits.length > 0) {
+      initLiveActivity();
+    }
+  }, [habits.length, streak, profileAvatar]); // Minimized dependencies to avoid loops
 
   return (
     <VoidShell>

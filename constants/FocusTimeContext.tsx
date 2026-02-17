@@ -6,6 +6,7 @@ import { NotificationService } from '@/lib/notificationService';
 import { IntegrationService } from '@/lib/integrationService';
 import { HealthKitService } from '@/lib/healthKit';
 import { supabase } from '@/lib/supabase';
+import { ScreenTimeService } from '@/lib/ScreenTimeService';
 
 // ============================================
 // Focus Time Context - INDUSTRY STANDARD
@@ -13,11 +14,14 @@ import { supabase } from '@/lib/supabase';
 // proper analytics, persistence, and cloud sync.
 // ============================================
 
+export type FocusMode = 'pomodoro' | 'deep_focus' | 'flow' | 'sprint' | 'check_in';
+
 // Focus session record type
 interface FocusSession {
     id?: string;
     habitId: string;
     habitName: string;
+    mode: FocusMode;
     startedAt: Date;
     endedAt?: Date;
     plannedDuration: number; // seconds
@@ -29,6 +33,7 @@ interface FocusTimeContextType {
     // Active Timer State
     activeHabitId: string | null;
     activeHabitName: string | null;
+    activeMode: FocusMode;
     isRunning: boolean;
     isPaused: boolean;
     timeLeft: number; // Seconds remaining
@@ -52,7 +57,7 @@ interface FocusTimeContextType {
     totalSessionsThisWeek: number;
 
     // Actions
-    startTimer: (habitId: string, habitName: string, durationSeconds: number) => boolean;
+    startTimer: (habitId: string, habitName: string, durationSeconds: number, mode?: FocusMode) => boolean;
     pauseTimer: () => void;
     resumeTimer: () => void;
     stopTimer: () => void;
@@ -117,6 +122,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Timer State
     const [activeHabitId, setActiveHabitId] = useState<string | null>(null);
     const [activeHabitName, setActiveHabitName] = useState<string | null>(null);
+    const [activeMode, setActiveMode] = useState<FocusMode>('pomodoro');
     const [isRunning, setIsRunning] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [timeLeft, setTimeLeft] = useState(0);
@@ -274,6 +280,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 actual_duration: session.actualDuration,
                 completed: session.completed,
                 date: getTodayString(),
+                mode: session.mode, // Save mode
             });
         } catch (e) {
             console.log('Failed to save focus session to DB:', e);
@@ -375,18 +382,32 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Timer tick effect
     // ============================================
     useEffect(() => {
-        if (isRunning && !isPaused && endTimeRef.current) {
+        if (isRunning && !isPaused) {
             const updateTimer = () => {
-                if (!endTimeRef.current) return;
-                const now = Date.now();
-                const remaining = Math.ceil((endTimeRef.current - now) / 1000);
 
-                if (remaining <= 0) {
-                    setTimeLeft(0);
-                    if (intervalRef.current) clearInterval(intervalRef.current);
-                    handleTimerComplete();
+                // If flow mode (mode='flow'), we count UP instead of down (or treat duration as suggestion?)
+                // For simplified v1, let's keep countdown logic for all modes except maybe flow.
+                // But context needs to know if it's counting down.
+                // Assuming countdown for now based on endTime.
+
+                if (activeMode === 'flow') {
+                    // Calculate elapsed time instead of remaining
+                    if (!focusStartRef.current) return;
+                    const now = Date.now();
+                    const elapsed = Math.floor((now - focusStartRef.current) / 1000);
+                    setTimeLeft(elapsed); // Actually represents elapsed time
                 } else {
-                    setTimeLeft(remaining);
+                    if (!endTimeRef.current) return;
+                    const now = Date.now();
+                    const remaining = Math.ceil((endTimeRef.current - now) / 1000);
+
+                    if (remaining <= 0) {
+                        setTimeLeft(0);
+                        if (intervalRef.current) clearInterval(intervalRef.current);
+                        handleTimerComplete();
+                    } else {
+                        setTimeLeft(remaining);
+                    }
                 }
             };
 
@@ -401,7 +422,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current);
         };
-    }, [isRunning, isPaused]);
+    }, [isRunning, isPaused, activeMode]);
 
     // ============================================
     // Timer complete handler
@@ -423,6 +444,9 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             saveFocusSession(session);
         }
 
+        // Disable Screen Time Shield
+        ScreenTimeService.setShieldEnabled(false);
+
         // Reset state
         setIsRunning(false);
         setIsPaused(false);
@@ -434,6 +458,9 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         currentSessionRef.current = null;
 
         // End Live Activity - Handled by _layout.tsx
+        // Actually, we should handle it here to be safe and immediate
+        const { LiveActivityService } = require('@/lib/liveActivityService');
+        LiveActivityService.stopActivity();
 
         // Haptic + Notification
         Vibration.vibrate([0, 500, 200, 500]);
@@ -443,31 +470,54 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // ============================================
     // Start Timer
     // ============================================
-    const startTimer = useCallback((habitId: string, habitName: string, durationSeconds: number): boolean => {
+    const startTimer = useCallback((habitId: string, habitName: string, durationSeconds: number, mode: FocusMode = 'pomodoro'): boolean => {
         if (isRunning || isPaused) return false;
 
         setActiveHabitId(habitId);
         setActiveHabitName(habitName);
-        setTimeLeft(durationSeconds);
+        setActiveMode(mode);
+
+        // For flow mode, start at 0
+        if (mode === 'flow') {
+            setTimeLeft(0);
+        } else {
+            setTimeLeft(durationSeconds);
+        }
+
         setTotalDuration(durationSeconds);
         setIsRunning(true);
         setIsPaused(false);
 
         const now = Date.now();
         focusStartRef.current = now;
-        endTimeRef.current = now + (durationSeconds * 1000);
+
+        if (mode !== 'flow') {
+            endTimeRef.current = now + (durationSeconds * 1000);
+        }
 
         // Create session record
         currentSessionRef.current = {
             habitId,
             habitName,
+            mode,
             startedAt: new Date(now),
             plannedDuration: durationSeconds,
             actualDuration: 0,
             completed: false,
         };
 
-        // Note: Live Activity is handled by _layout.tsx observing state changes
+        // Enable Screen Time Shield
+        ScreenTimeService.setShieldEnabled(true);
+
+        // LIVE ACTIVITY START
+        const { LiveActivityService } = require('@/lib/liveActivityService');
+        LiveActivityService.startDailyProgress({
+            completed: 0, // In Focus Mode, we might not have access to total habits easily here, or we can pass it
+            total: 0,
+            activeHabitName: habitName,
+            targetDate: endTimeRef.current || (Date.now() + durationSeconds * 1000),
+            // We could pass current habit ID to show icon if needed
+        });
 
         return true;
     }, [isRunning, isPaused]);
@@ -490,7 +540,18 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         endTimeRef.current = null;
 
-        // Update Live Activity - Handled by _layout.tsx
+        // Disable Screen Time Shield
+        ScreenTimeService.setShieldEnabled(false);
+
+        // LIVE ACTIVITY UPDATE (Paused)
+        const { LiveActivityService } = require('@/lib/liveActivityService');
+        LiveActivityService.updateProgress({
+            completed: 0,
+            total: 0,
+            activeHabitName: `${activeHabitName} (Paused)`,
+            targetDate: undefined, // Clear timer
+        });
+
     }, [isRunning, isPaused, activeHabitName]);
 
     // ============================================
@@ -503,10 +564,24 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsRunning(true);
         const now = Date.now();
         focusStartRef.current = now;
-        endTimeRef.current = now + (timeLeft * 1000);
 
-        // Update Live Activity - Handled by _layout.tsx
-    }, [isPaused, timeLeft, activeHabitName]);
+        if (activeMode !== 'flow') {
+            endTimeRef.current = now + (timeLeft * 1000);
+        }
+
+        // Re-enable Screen Time Shield
+        ScreenTimeService.setShieldEnabled(true);
+
+        // LIVE ACTIVITY RESUME
+        const { LiveActivityService } = require('@/lib/liveActivityService');
+        LiveActivityService.updateProgress({
+            completed: 0,
+            total: 0,
+            activeHabitName: activeHabitName || 'Focus',
+            targetDate: endTimeRef.current || (Date.now() + timeLeft * 1000),
+        });
+
+    }, [isPaused, timeLeft, activeHabitName, activeMode]);
 
     // ============================================
     // Stop Timer (early termination)
@@ -540,6 +615,13 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
         }
 
+        // Disable Screen Time Shield
+        ScreenTimeService.setShieldEnabled(false);
+
+        // LIVE ACTIVITY STOP
+        const { LiveActivityService } = require('@/lib/liveActivityService');
+        LiveActivityService.stopActivity();
+
         // Reset all state
         setIsRunning(false);
         setIsPaused(false);
@@ -550,7 +632,6 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         endTimeRef.current = null;
         currentSessionRef.current = null;
 
-        // Note: Live Activity is handled by _layout.tsx observing state changes
     }, [updateStats, saveFocusSession]);
 
     // ============================================
@@ -604,6 +685,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             value={{
                 activeHabitId,
                 activeHabitName,
+                activeMode,
                 isRunning,
                 isPaused,
                 timeLeft,

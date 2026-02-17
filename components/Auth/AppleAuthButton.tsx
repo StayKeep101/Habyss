@@ -29,7 +29,8 @@ export function AppleAuthButton({ type = 'sign-in' }: { type?: 'sign-in' | 'sign
                         });
 
                         if (!error) {
-                            router.replace("/(root)/(tabs)/home");
+                            // HARD PAYWALL: Redirect to paywall
+                            router.replace("/(root)/onboarding-paywall");
                         } else {
                             throw error;
                         }

@@ -28,6 +28,76 @@ interface Option {
 
 const STEPS: Step[] = [
     {
+        id: 'goal',
+        title: "What is your main focus?",
+        description: "We'll prioritize habits that align with your primary goal.",
+        options: [
+            {
+                id: 'productivity',
+                label: "Maximize Productivity",
+                icon: 'rocket-outline',
+                value: 'productivity',
+                description: "Get more done, focus deeper, manage time."
+            },
+            {
+                id: 'mental_health',
+                label: "Mental Wellness",
+                icon: 'leaf-outline',
+                value: 'mental_health',
+                description: "Reduce anxiety, practice mindfulness, sleep better."
+            },
+            {
+                id: 'physical_health',
+                label: "Physical Health",
+                icon: 'fitness-outline',
+                value: 'physical_health',
+                description: "Exercise regularly, eat better, build strength."
+            },
+            {
+                id: 'financial',
+                label: "Financial Freedom",
+                icon: 'wallet-outline',
+                value: 'financial',
+                description: "Save more, invest wisely, track expenses."
+            }
+        ]
+    },
+    {
+        id: 'struggle',
+        title: "What holds you back?",
+        description: "Knowing your enemy is the first step to defeating it.",
+        options: [
+            {
+                id: 'procrastination',
+                label: "Procrastination",
+                icon: 'hourglass-outline',
+                value: 'procrastination',
+                description: "Putting things off until the last minute."
+            },
+            {
+                id: 'consistency',
+                label: "Inconsistency",
+                icon: 'pulse-outline',
+                value: 'consistency',
+                description: "Starting strong but falling off quickly."
+            },
+            {
+                id: 'overwhelm',
+                label: "Overwhelm",
+                icon: 'flash-off-outline',
+                value: 'overwhelm',
+                description: "Too many tasks, not knowing where to start."
+            },
+            {
+                id: 'distraction',
+                label: "Distractions",
+                icon: 'notifications-off-outline',
+                value: 'distraction',
+                description: "Social media, notifications, losing focus."
+            }
+        ]
+    },
+    {
         id: 'motivation',
         title: "How do you stay motivated?",
         description: "Echo will adapt its coaching style to fuel your drive.",
@@ -84,7 +154,7 @@ const STEPS: Step[] = [
             { id: 'mentor', label: 'The Mentor', icon: 'school-outline', value: 'mentor', description: "Wise, patient, guiding." },
             { id: 'drill_sergeant', label: 'Drill Sergeant', icon: 'megaphone-outline', value: 'drill_sergeant', description: "High intensity, discipline focused." },
             { id: 'friend', label: 'Best Friend', icon: 'people-outline', value: 'friend', description: "Casual, supportive, fun." },
-            { id: 'stoic', label: 'The Stoic', icon: 'file-tray-full-outline', value: 'stoic' as any, description: "Calm, rational, focused on virtue." }, // Cast as any because icons name might differ or personality ID
+            { id: 'stoic', label: 'The Stoic', icon: 'file-tray-full-outline', value: 'stoic' as any, description: "Calm, rational, focused on virtue." },
         ]
     }
 ];

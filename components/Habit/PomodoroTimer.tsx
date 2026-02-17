@@ -6,7 +6,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
-import { useFocusTime } from '@/constants/FocusTimeContext';
+import { useFocusTime, FocusMode } from '@/constants/FocusTimeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { ActiveSessionDisplay } from '@/components/Timer/ActiveSessionDisplay';
@@ -29,11 +29,22 @@ interface PomodoroTimerProps {
     fullSizeRunning?: boolean;
 }
 
-// Default intervals (in minutes)
-const DEFAULT_WORK = 25;
+// Mode Configuration
+interface ModeConfig {
+    id: FocusMode;
+    label: string;
+    duration: number; // minutes, 0 for flow
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+}
 
-// Preset durations for quick selection
-const WORK_PRESETS = [15, 25, 30, 45, 60];
+const FOCUS_MODES: ModeConfig[] = [
+    { id: 'pomodoro', label: 'Pomodoro', duration: 25, icon: 'timer-outline', color: '#3B82F6' },
+    { id: 'deep_focus', label: 'Deep Work', duration: 90, icon: 'hardware-chip-outline', color: '#6366F1' },
+    { id: 'flow', label: 'Flow State', duration: 0, icon: 'infinite-outline', color: '#10B981' },
+    { id: 'sprint', label: 'Sprint', duration: 10, icon: 'flash-outline', color: '#F59E0B' },
+    { id: 'check_in', label: 'Check-in', duration: 5, icon: 'checkmark-circle-outline', color: '#A855F7' },
+];
 
 export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     defaultMinutes,
@@ -54,21 +65,21 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         isPaused: globalIsPaused,
         activeHabitId,
         activeHabitName,
+        activeMode: globalActiveMode,
         timeLeft: globalTimeLeft,
         totalDuration: globalTotalDuration,
         startTimer: globalStartTimer,
         pauseTimer: globalPauseTimer,
         resumeTimer: globalResumeTimer,
         stopTimer: globalStopTimer,
-        totalFocusToday,
         sessionsToday,
         weeklyFocusTotal,
         monthlyFocusTotal,
         yearlyFocusTotal
     } = useFocusTime();
 
-    // Local UI state only
-    const [workDuration, setWorkDuration] = useState((defaultMinutes || DEFAULT_WORK) * 60);
+    // Local UI state
+    const [selectedMode, setSelectedMode] = useState<FocusMode>('pomodoro');
     const [showSettings, setShowSettings] = useState(false);
 
     const { successFeedback, mediumFeedback, lightFeedback } = useHaptics();
@@ -77,8 +88,16 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     const isThisTimerActive = activeHabitId === habitId;
     const isRunning = isThisTimerActive && globalIsRunning;
     const isPaused = isThisTimerActive && globalIsPaused;
-    const timeLeft = isThisTimerActive ? globalTimeLeft : workDuration;
-    const totalTime = isThisTimerActive ? globalTotalDuration : workDuration;
+
+    // Derived state based on global or local selection
+    const activeModeConfig = FOCUS_MODES.find(m => m.id === (isThisTimerActive ? globalActiveMode : selectedMode)) || FOCUS_MODES[0];
+
+    // For Flow mode, we might want to show elapsed time, but context handles timeLeft. 
+    // If flow mode in context (timeLeft starts at 0 and goes up?), we need to handle that display. 
+    // Context currently returning 'timeLeft'. In flow mode, that might be elapsed.
+
+    const displayTime = isThisTimerActive ? globalTimeLeft : (activeModeConfig.duration * 60);
+    const totalTime = isThisTimerActive ? globalTotalDuration : (activeModeConfig.duration * 60);
 
     // Timer state for display
     const state = isRunning ? 'running' : isPaused ? 'paused' : 'idle';
@@ -107,13 +126,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         transform: [{ scale: pulseAnim.value }],
     }));
 
-    // Update work duration when defaultMinutes changes (only if idle)
-    useEffect(() => {
-        if (defaultMinutes && state === 'idle') {
-            setWorkDuration(defaultMinutes * 60);
-        }
-    }, [defaultMinutes, state]);
-
     const handleStart = () => {
         // Check if another timer is running globally
         if ((globalIsRunning || globalIsPaused) && activeHabitId !== habitId) {
@@ -129,7 +141,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
         // Start global timer
         if (habitId && habitName) {
-            const success = globalStartTimer(habitId, habitName, workDuration);
+            const success = globalStartTimer(habitId, habitName, activeModeConfig.duration * 60, selectedMode);
             if (!success) {
                 Alert.alert('Error', 'Failed to start timer. Please try again.');
                 return;
@@ -153,9 +165,9 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         onComplete?.();
     };
 
-    const handleSelectPreset = (minutes: number) => {
+    const handleSelectMode = (mode: FocusMode) => {
         lightFeedback();
-        setWorkDuration(minutes * 60);
+        setSelectedMode(mode);
         setShowSettings(false);
     };
 
@@ -172,11 +184,14 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         return `${mins}m`;
     };
 
-    const progress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
+    // Progress calculation
+    // Flow mode (duration 0) - maybe just spin or fixed ring?
+    const progress = activeModeConfig.id === 'flow'
+        ? 100 // Always full ring for flow? Or maybe pulse? 
+        : (totalTime > 0 ? ((totalTime - displayTime) / totalTime) * 100 : 0);
 
-
-    const primaryColor = accentColor;
-    const gradientColors: readonly [string, string] = accentColors;
+    const primaryColor = activeModeConfig.color; // Use mode color
+    const gradientColors: readonly [string, string] = [activeModeConfig.color, isLight ? '#000' : '#fff']; // Simple gradient for now or predefined
 
     const getStateLabel = () => {
         switch (state) {
@@ -191,7 +206,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
 
     // Responsive Base Sizes
     const BASE_SIZE = isSmallScreen ? 140 : 180;
-    const BIG_SIZE = Math.min(width * 0.7, 260); // Max 260 or 70% width
+    const BIG_SIZE = Math.min(width * 0.7, 260);
 
     const timerSize = fullSizeRunning ? BIG_SIZE : BASE_SIZE;
     const strokeWidth = fullSizeRunning ? 15 : 10;
@@ -209,7 +224,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             {((state === 'running' || state === 'paused') && !fullSizeRunning) ? (
                 <View style={{ width: '100%', alignItems: 'center' }}>
                     <ActiveSessionDisplay
-                        timeLeft={timeLeft}
+                        timeLeft={displayTime}
                         totalDuration={totalTime}
                         habitName={habitName || 'Focus'}
                         isPaused={state === 'paused'}
@@ -229,15 +244,15 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                     contentContainerStyle={{ alignItems: 'center', paddingBottom: 20 }}
                     showsVerticalScrollIndicator={false}
                     scrollEnabled={isSmallScreen}
-                    style={{ maxHeight: fullSizeRunning ? undefined : 400 }} // Limit height if not full screen to avoid taking over
+                    style={{ maxHeight: fullSizeRunning ? undefined : 450 }}
                 >
                     {/* Header - Fixed */}
                     {!noCard && (
                         <View style={styles.header}>
                             <View style={styles.headerLeft}>
-                                <Ionicons name="timer-outline" size={18} color={primaryColor} />
+                                <Ionicons name={activeModeConfig.icon} size={18} color={primaryColor} />
                                 <Text style={[styles.title, { color: colors.textSecondary }]}>
-                                    {habitName ? `FOCUS: ${habitName.toUpperCase()}` : 'POMODORO'}
+                                    {habitName ? `FOCUS: ${habitName.toUpperCase()}` : activeModeConfig.label.toUpperCase()}
                                 </Text>
                             </View>
                             <TouchableOpacity
@@ -246,7 +261,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                                 disabled={state !== 'idle'}
                             >
                                 <Ionicons
-                                    name={showSettings ? "close" : "settings-outline"}
+                                    name={showSettings ? "close" : "options-outline"}
                                     size={18}
                                     color={state === 'idle' ? colors.textTertiary : colors.border}
                                 />
@@ -257,40 +272,41 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                     {noCard && (
                         <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <Ionicons name="timer-outline" size={18} color={colors.textSecondary} />
-                                <Text style={[styles.title, { color: colors.textSecondary }]}>POMODORO</Text>
+                                <Ionicons name={activeModeConfig.icon} size={18} color={primaryColor} />
+                                <Text style={[styles.title, { color: colors.textSecondary }]}>{activeModeConfig.label.toUpperCase()}</Text>
                             </View>
                             <TouchableOpacity onPress={() => setShowSettings(!showSettings)} disabled={state !== 'idle'}>
-                                <Ionicons name="settings-outline" size={20} color={state === 'idle' ? colors.textSecondary : colors.border} />
+                                <Ionicons name="options-outline" size={20} color={state === 'idle' ? colors.textSecondary : colors.border} />
                             </TouchableOpacity>
                         </View>
                     )}
 
-                    {/* Settings Panel - Only in idle state */}
+                    {/* Settings Panel - Mode Selection */}
                     {showSettings && state === 'idle' && (
                         <View style={[styles.settingsPanel, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
-                            <Text style={[styles.settingsLabel, { color: colors.textSecondary }]}>WORK DURATION (MIN)</Text>
-                            <View style={styles.presets}>
-                                {WORK_PRESETS.map(mins => (
+                            <Text style={[styles.settingsLabel, { color: colors.textSecondary }]}>SELECT MODE</Text>
+                            <View style={styles.modesGrid}>
+                                {FOCUS_MODES.map(mode => (
                                     <TouchableOpacity
-                                        key={mins}
-                                        onPress={() => handleSelectPreset(mins)}
+                                        key={mode.id}
+                                        onPress={() => handleSelectMode(mode.id)}
                                         style={[
-                                            styles.presetBtn,
+                                            styles.modeBtn,
                                             {
-                                                backgroundColor: workDuration === mins * 60
-                                                    ? primaryColor
+                                                backgroundColor: selectedMode === mode.id
+                                                    ? mode.color
                                                     : (isLight ? colors.surfaceTertiary : 'rgba(255,255,255,0.1)'),
-                                                borderWidth: 1,
-                                                borderColor: workDuration === mins * 60 ? primaryColor : colors.border
+                                                borderColor: selectedMode === mode.id ? mode.color : colors.border,
+                                                opacity: selectedMode === mode.id ? 1 : 0.7
                                             }
                                         ]}
                                     >
+                                        <Ionicons name={mode.icon} size={20} color={selectedMode === mode.id ? '#fff' : colors.textPrimary} />
                                         <Text style={[
-                                            styles.presetText,
-                                            { color: workDuration === mins * 60 ? '#fff' : colors.textPrimary }
+                                            styles.modeText,
+                                            { color: selectedMode === mode.id ? '#fff' : colors.textPrimary }
                                         ]}>
-                                            {mins}
+                                            {mode.label}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
@@ -311,8 +327,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                         <Svg width="100%" height="100%" viewBox={`0 0 ${timerSize} ${timerSize}`} style={styles.progressRing}>
                             <Defs>
                                 <SvgGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <Stop offset="0%" stopColor={accentColors[0]} />
-                                    <Stop offset="100%" stopColor={accentColors[1]} />
+                                    <Stop offset="0%" stopColor={primaryColor} />
+                                    <Stop offset="100%" stopColor={primaryColor} stopOpacity={0.6} />
                                 </SvgGradient>
                             </Defs>
 
@@ -331,22 +347,22 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                                 cx={timerSize / 2}
                                 cy={timerSize / 2}
                                 r={radius}
-                                stroke="url(#grad)" // Use gradient if SVG supports, otherwise primary
+                                stroke="url(#grad)"
                                 strokeWidth={strokeWidth}
                                 fill="transparent"
                                 strokeDasharray={circumference}
-                                strokeDashoffset={circumference - (progress / 100) * circumference}
+                                strokeDashoffset={activeModeConfig.id === 'flow' ? 0 : circumference - (progress / 100) * circumference}
                                 strokeLinecap="round"
                                 transform={`rotate(-90 ${timerSize / 2} ${timerSize / 2})`}
                             />
 
                             {/* Dot Indicator */}
-                            {state !== 'idle' && (
+                            {state !== 'idle' && activeModeConfig.id !== 'flow' && (
                                 <Circle
                                     cx={timerSize / 2}
-                                    cy={strokeWidth / 2} // Top center relative
+                                    cy={strokeWidth / 2}
                                     r={fullSizeRunning ? 8 : 6}
-                                    fill={accentColors[1]}
+                                    fill={primaryColor}
                                     transform={`rotate(${(progress / 100) * 360} ${timerSize / 2} ${timerSize / 2})`}
                                     stroke={isLight ? '#fff' : '#000'}
                                     strokeWidth="2"
@@ -363,7 +379,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                                     fontWeight: '900'
                                 }
                             ]}>
-                                {formatTime(timeLeft)}
+                                {activeModeConfig.id === 'flow' && state === 'idle' ? 'OPEN' : formatTime(displayTime)}
                             </Text>
                             <Text style={[
                                 styles.stateText,
@@ -382,7 +398,10 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                     <View style={styles.controls}>
                         {state === 'idle' ? (
                             <TouchableOpacity onPress={handleStart} activeOpacity={0.8}>
-                                <LinearGradient colors={gradientColors} style={[styles.mainButton, { transform: [{ scale: 1.1 }] }]}>
+                                <LinearGradient
+                                    colors={[primaryColor, primaryColor]} // Can add gradient here
+                                    style={[styles.mainButton, { transform: [{ scale: 1.1 }] }]}
+                                >
                                     <Ionicons name="play" size={36} color="white" style={{ marginLeft: 6 }} />
                                 </LinearGradient>
                             </TouchableOpacity>
@@ -408,7 +427,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                                     }}
                                 >
                                     <LinearGradient
-                                        colors={gradientColors}
+                                        colors={[primaryColor, primaryColor]}
                                         style={[styles.mainButton, { width: 88, height: 88, borderRadius: 44 }]}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
@@ -427,9 +446,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 </ScrollView>
             )}
 
-            {/* Session Stats (Always Visible or maybe hide when running if ActiveSessionDisplay shows logic?) 
-                Actually keeping them below is fine for history context
-            */}
+            {/* Session Stats */}
             <View style={styles.stats}>
                 <View style={styles.statItem}>
                     <Ionicons name="checkmark-circle" size={14} color={colors.success} />
@@ -440,9 +457,9 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                 <View style={styles.statItem}>
                     <Ionicons name="time" size={14} color={colors.primary} />
                     <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                        {formatFocusTime(totalFocusToday)}
+                        {formatFocusTime(weeklyFocusTotal)}
                     </Text>
-                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>focused</Text>
+                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>this week</Text>
                 </View>
             </View>
         </Wrapper>
@@ -491,18 +508,25 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         fontFamily: 'Lexend_400Regular',
     },
-    presets: {
+    modesGrid: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 8,
     },
-    presetBtn: {
-        flex: 1,
-        paddingVertical: 8,
+    modeBtn: {
+        flexGrow: 1,
+        width: '45%',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
         borderRadius: 8,
         alignItems: 'center',
+        flexDirection: 'row',
+        gap: 8,
+        justifyContent: 'center',
+        borderWidth: 1,
     },
-    presetText: {
-        fontSize: 13,
+    modeText: {
+        fontSize: 12,
         fontWeight: '600',
         fontFamily: 'Lexend',
     },

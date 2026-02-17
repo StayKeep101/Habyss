@@ -89,6 +89,31 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
         }
     };
 
+    const handleDelete = () => {
+        Alert.alert(
+            "Delete Local Model?",
+            "This will remove the Llama 3.2 (1B) model from your device (~1.2GB). usage will revert to offline-only (no AI) or require re-download.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        const Service = require('@/lib/LocalLLMService').default;
+                        const success = await Service.deleteModel();
+                        if (success) {
+                            setModelReady(false);
+                            setUseLocalAI(false);
+                            Alert.alert("Deleted", "Model has been removed from storage.");
+                        } else {
+                            Alert.alert("Error", "Could not delete model. It might be in use.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     return (
         <VoidCard
             glass={!isTrueDark}
@@ -111,30 +136,47 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
                 </View>
                 <Text style={{ fontSize: 12, color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>
                     {isDownloading
-                        ? `Downloading Model... ${Math.round(progress * 100)}%`
+                        ? `Downloading Model... ${Math.round(progress)}%`
                         : modelReady
-                            ? "Running Llama 3.2 (1B) • Efficient & Private"
+                            ? "Running Llama 3.2 (1B) • 1.2GB"
                             : "Download Llama 3.2 (1B) (~1.2GB) to run offline"}
                 </Text>
                 {isDownloading && (
                     <View style={{ height: 4, backgroundColor: colors.surface, marginTop: 8, borderRadius: 2, overflow: 'hidden' }}>
-                        <View style={{ height: '100%', width: `${progress * 100}%`, backgroundColor: colors.primary }} />
+                        <View style={{ height: '100%', width: `${progress}%`, backgroundColor: colors.primary }} />
                     </View>
                 )}
             </View>
 
-            <TouchableOpacity
-                onPress={handleToggle}
-                disabled={isDownloading}
-                style={{
-                    width: 50, height: 30, borderRadius: 15,
-                    backgroundColor: useLocalAI ? colors.success : colors.surface,
-                    justifyContent: 'center', alignItems: useLocalAI ? 'flex-end' : 'flex-start',
-                    paddingHorizontal: 4
-                }}
-            >
-                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' }} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {modelReady && !isDownloading && (
+                    <TouchableOpacity
+                        onPress={handleDelete}
+                        style={{
+                            width: 36, height: 36,
+                            borderRadius: 18,
+                            backgroundColor: colors.surface,
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        <Ionicons name="trash-outline" size={18} color={colors.error || '#EF4444'} />
+                    </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                    onPress={handleToggle}
+                    disabled={isDownloading}
+                    style={{
+                        width: 50, height: 30, borderRadius: 15,
+                        backgroundColor: useLocalAI ? colors.success : colors.surface,
+                        justifyContent: 'center', alignItems: useLocalAI ? 'flex-end' : 'flex-start',
+                        paddingHorizontal: 4
+                    }}
+                >
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' }} />
+                </TouchableOpacity>
+            </View>
         </VoidCard>
     );
 };

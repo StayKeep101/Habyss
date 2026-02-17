@@ -49,6 +49,32 @@ class LocalLLMService {
         }
     }
 
+    // Delete the model from storage
+    async deleteModel() {
+        try {
+            console.log(`Deleting Local LLM (${this.modelId})...`);
+            // Unload first if ready
+            if (this.isModelReady) {
+                // We might need to unload explicitly if the SDK supports it, or just rely on remove
+                // mlc.languageModel doesn't seem to have a direct unload on the instance we create easily 
+                // without keeping the reference, but we can try removing directly.
+            }
+
+            const model = mlc.languageModel(this.modelId);
+            // The remove method is available on the model instance in the SDK
+            // We need to cast or ensure typescript knows about it if it's in the interface
+            // Looking at ai-sdk.ts, 'remove' is part of MlcChatLanguageModel
+            await (model as any).remove();
+
+            console.log("Local LLM Deleted");
+            this.isModelReady = false;
+            return true;
+        } catch (e) {
+            console.error("Failed to delete Local LLM:", e);
+            return false;
+        }
+    }
+
     async generateResponse(systemPrompt: string, userMessage: string): Promise<string> {
         if (!this.isModelReady) {
             // Try to init just in case

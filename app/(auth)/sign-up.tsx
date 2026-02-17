@@ -41,7 +41,10 @@ const SignUp = () => {
 
       if (error) throw error;
 
-      router.replace("/(root)/(tabs)/home");
+      if (error) throw error;
+
+      // HARD PAYWALL: Redirect to paywall instead of home for new users
+      router.replace("/(root)/onboarding-paywall");
     } catch (e: any) {
       console.error(e);
       Alert.alert('Error', e.message);

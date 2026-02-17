@@ -28,6 +28,8 @@ export default function RevenueCatPaywall() {
                 onRestoreCompleted={handleRestoreCompleted}
                 options={{
                     displayCloseButton: true,
+                    // If we want to force "Yearly has trial", we rely on the Offering setup in RevenueCat.
+                    // However, we can use the `defaultPackage` option if available or `offering` to specific one.
                 }}
             />
         </View>

@@ -231,15 +231,51 @@ export const parseAgentAction = (response: string): AgentAction | null => {
             .replace(/```/g, '')
             .trim();
 
-        if (cleanResponse.startsWith('{')) {
+        if (cleanResponse.startsWith('{') || cleanResponse.startsWith('[')) {
             const parsed = JSON.parse(cleanResponse);
-            if (parsed.action) {
+            if (Array.isArray(parsed)) {
+                // Return first action for now, or handle multi-step actions differently if architecture allows
+                // For now, this function returns a single AgentAction, so we take the first one.
+                const first = parsed[0];
+                if (first && first.action) {
+                    return {
+                        action: first.action,
+                        category: categorizeAction(first.action),
+                        data: first.data || first,
+                        response: first.response || 'Action completed.',
+                    };
+                }
+            } else if (parsed.action) {
                 return {
                     action: parsed.action,
                     category: categorizeAction(parsed.action),
                     data: parsed.data || parsed,
                     response: parsed.response || 'Action completed.',
                 };
+            }
+        } else {
+            // Attempt to find JSON object within text
+            const jsonMatch = cleanResponse.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (Array.isArray(parsed)) {
+                    const first = parsed[0];
+                    if (first && first.action) {
+                        return {
+                            action: first.action,
+                            category: categorizeAction(first.action),
+                            data: first.data || first,
+                            response: first.response || 'Action completed.',
+                        };
+                    }
+                } else if (parsed.action) {
+                    return {
+                        action: parsed.action,
+                        category: categorizeAction(parsed.action),
+                        data: parsed.data || parsed,
+                        response: parsed.response || 'Action completed.',
+                    };
+                }
             }
         }
         return null;
