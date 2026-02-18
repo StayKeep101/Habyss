@@ -7,6 +7,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { useFocusTime, FocusMode } from '@/constants/FocusTimeContext';
+import { SessionRatingCard } from '@/components/Timer/SessionRatingCard';
 import { useAccentGradient } from '@/constants/AccentContext';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { ActiveSessionDisplay } from '@/components/Timer/ActiveSessionDisplay';
@@ -75,12 +76,19 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
         sessionsToday,
         weeklyFocusTotal,
         monthlyFocusTotal,
-        yearlyFocusTotal
+        yearlyFocusTotal,
+        // Phase & session tracking
+        currentPhase,
+        sessionNumber,
+        totalSessionsGoal,
+        qualityRating,
+        setQualityRating,
     } = useFocusTime();
 
     // Local UI state
     const [selectedMode, setSelectedMode] = useState<FocusMode>('pomodoro');
     const [showSettings, setShowSettings] = useState(false);
+    const [showRating, setShowRating] = useState(false);
 
     const { successFeedback, mediumFeedback, lightFeedback } = useHaptics();
 
@@ -88,6 +96,14 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     const isThisTimerActive = activeHabitId === habitId;
     const isRunning = isThisTimerActive && globalIsRunning;
     const isPaused = isThisTimerActive && globalIsPaused;
+
+    // Show rating when timer completes (timeLeft reaches 0 from an active session)
+    useEffect(() => {
+        if (isThisTimerActive && !globalIsRunning && !globalIsPaused && globalTimeLeft === 0 && globalTotalDuration > 0) {
+            // Timer completed naturally — show rating
+            setShowRating(true);
+        }
+    }, [globalIsRunning, globalIsPaused, globalTimeLeft]);
 
     // Derived state based on global or local selection
     const activeModeConfig = FOCUS_MODES.find(m => m.id === (isThisTimerActive ? globalActiveMode : selectedMode)) || FOCUS_MODES[0];
@@ -462,6 +478,33 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
                     <Text style={[styles.statLabel, { color: colors.textTertiary }]}>this week</Text>
                 </View>
             </View>
+
+            {/* Post-Session Rating */}
+            {showRating && habitName && (
+                <SessionRatingCard
+                    habitName={habitName}
+                    duration={globalTotalDuration}
+                    onRate={async (rating: number) => {
+                        setQualityRating(rating);
+                        setShowRating(false);
+                        onComplete?.();
+                    }}
+                    onSkip={() => {
+                        setShowRating(false);
+                        onComplete?.();
+                    }}
+                    visible={showRating}
+                />
+            )}
+
+            {/* Session Counter */}
+            {isThisTimerActive && (isRunning || isPaused) && selectedMode === 'pomodoro' && (
+                <View style={{ alignItems: 'center', marginTop: 4, marginBottom: -4 }}>
+                    <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'Lexend_400Regular' }}>
+                        Session {sessionNumber} of {totalSessionsGoal}
+                    </Text>
+                </View>
+            )}
         </Wrapper>
     );
 };

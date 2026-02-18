@@ -249,5 +249,8 @@ export const LiveActivityService = {
                 console.warn('Failed to serialize habits for widget:', e);
             }
         }
+
+        // Reload widget timelines so changes appear immediately
+        SharedDefaults.reloadTimelines?.().catch(() => { });
     }
 };

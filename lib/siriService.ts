@@ -1,19 +1,90 @@
+import { Platform, NativeModules } from 'react-native';
 
-// Basic Siri Service Structure
-// In Expo, deep linking is the primary way to integrate with Siri Shortcuts via NSUserActivity
-// This usually requires native config in app.json and complex setups.
-// For now, we will create utility functions to construct the deep links that Siri would open.
+const { SharedDefaults } = NativeModules;
 
-import * as Linking from 'expo-linking';
-
+/**
+ * SiriService — Manages Siri Shortcut data sharing between React Native and native App Intents.
+ * 
+ * The native HabyssIntents.swift uses App Group UserDefaults to communicate with the app.
+ * This service writes data to the same shared storage so that Siri intents like
+ * CheckProgressIntent can read fresh habit data without opening the app.
+ */
 export class SiriService {
-    static getCompleteHabitShortcutUrl(habitId: string): string {
-        return Linking.createURL('/home', { queryParams: { action: 'complete', habitId } });
+    /**
+     * Syncs today's habit progress to shared defaults so CheckProgressIntent can read it.
+     * Should be called after every habit completion.
+     */
+    static async syncProgressForSiri(habits: { id: string; name: string; isCompleted: boolean }[]): Promise<void> {
+        if (Platform.OS !== 'ios' || !SharedDefaults) return;
+
+        try {
+            const habitsJson = JSON.stringify(habits);
+            await SharedDefaults.set('habitsData', habitsJson);
+        } catch (e) {
+            console.warn('SiriService: Failed to sync progress:', e);
+        }
     }
 
-    // In a real native implementation, we would donate shortcuts here using a native module
-    // e.g. SharedGroupPreferences or Expo's intent launcher
-    static async donateShortcut(habit: any) {
-        console.log("Siri Shortcut donation requires native module integration.");
+    /**
+     * Checks if a stop focus intent was triggered via Siri.
+     * Returns true if found and clears the flag.
+     */
+    static async checkStopFocusIntent(): Promise<boolean> {
+        if (Platform.OS !== 'ios' || !SharedDefaults) return false;
+
+        try {
+            const timestamp = await SharedDefaults.getDouble('intent_stop_focus_timestamp');
+            if (timestamp > 0) {
+                // Clear the intent
+                await SharedDefaults.remove('intent_stop_focus');
+                await SharedDefaults.remove('intent_stop_focus_timestamp');
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.warn('SiriService: Error checking stop intent:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Checks if a start focus intent was triggered via Siri.
+     * Returns the duration in minutes or null if no intent pending.
+     */
+    static async checkStartFocusIntent(): Promise<number | null> {
+        if (Platform.OS !== 'ios' || !SharedDefaults) return null;
+
+        try {
+            const duration = await SharedDefaults.getInteger('intent_start_focus_duration');
+            if (duration > 0) {
+                await SharedDefaults.remove('intent_start_focus_duration');
+                await SharedDefaults.remove('intent_start_focus_timestamp');
+                return duration;
+            }
+            return null;
+        } catch (e) {
+            console.warn('SiriService: Error checking start intent:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Checks for pending habit logs from Siri and returns them.
+     * Clears the queue after reading.
+     */
+    static async checkPendingHabitLogs(): Promise<string[]> {
+        if (Platform.OS !== 'ios' || !SharedDefaults) return [];
+
+        try {
+            const pending = await SharedDefaults.getArray('pending_habit_logs');
+            if (pending && pending.length > 0) {
+                await SharedDefaults.remove('pending_habit_logs');
+                return pending as string[];
+            }
+            return [];
+        } catch (e) {
+            console.warn('SiriService: Error checking pending logs:', e);
+            return [];
+        }
     }
 }

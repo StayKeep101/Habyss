@@ -72,11 +72,13 @@ import { useTheme } from '@/constants/themeContext';
 
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { StreakCard } from '@/components/Home/StreakCard';
+import { StreakSuccessModal } from '@/components/Home/StreakSuccessModal';
 import { ConsistencyCard } from '@/components/Home/ConsistencyCard';
 import { StreakModal } from '@/components/Home/StreakModal';
 import { AnalyticsDashboard } from '@/components/Home/AnalyticsDashboard';
 import { ConsistencyModal } from '@/components/Home/ConsistencyModal';
 import { FocusTimeCard } from '@/components/Home/FocusTimeCard';
+import { RoutineCard } from '@/components/Home/RoutineCard';
 import { TodaysCompletionCard } from '@/components/Home/TodaysCompletionCard';
 import { CompletionModal } from '@/components/Home/CompletionModal';
 
@@ -107,6 +109,7 @@ const Home = () => {
   const [showAIAgent, setShowAIAgent] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showStreakModal, setShowStreakModal] = useState(false);
+  const [showStreakSuccessModal, setShowStreakSuccessModal] = useState(false);
   const [showConsistencyModal, setShowConsistencyModal] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
@@ -114,6 +117,9 @@ const Home = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [motivationalQuote, setMotivationalQuote] = useState('');
   const [displayedQuote, setDisplayedQuote] = useState('');
+
+  // Track previous streak for celebration
+  const [lastKnownStreak, setLastKnownStreak] = useState<number | null>(null);
 
   // Generate smart greeting using user data
   const generateUserGreeting = useCallback(async () => {
@@ -455,7 +461,16 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
     goals.forEach(g => { completedDaysPerGoal[g.id] = []; });
 
     // Check each day for goal completion
-    const sortedHistory = [...historyData].sort((a, b) => b.date.localeCompare(a.date));
+    // MERGE TODAY'S COMPLETIONS INTO HISTORY for instant updates
+    const todayStr = new Date().toISOString().split('T')[0];
+    const sortedHistory = historyData.map(d => {
+      if (d.date === todayStr) {
+        // Use current 'completions' state for today to ensure we have latest data
+        const todayCompletedIds = Object.keys(completions).filter(id => completions[id]);
+        return { ...d, completedIds: todayCompletedIds };
+      }
+      return d;
+    }).sort((a, b) => b.date.localeCompare(a.date));
 
     for (const dayData of sortedHistory) {
       let anyGoalComplete = false;
@@ -543,6 +558,42 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
 
     return { goalConsistency: consistency, avgConsistency: avg };
   }, [goals, habits, historyData]);
+
+  // --- Streak Success Logic ---
+
+  // 1. Load last known streak from storage on mount
+  useEffect(() => {
+    AsyncStorage.getItem('last_known_streak').then(val => {
+      if (val !== null) {
+        setLastKnownStreak(parseInt(val, 10));
+      } else {
+        setLastKnownStreak(-1); // Signal that we haven't synced yet (fresh install/first run)
+      }
+    });
+  }, []);
+
+  // 2. Watch for streak increases
+  useEffect(() => {
+    if (streak === undefined || lastKnownStreak === null) return;
+
+    if (lastKnownStreak === -1) {
+      // First run: just sync up silently
+      setLastKnownStreak(streak);
+      AsyncStorage.setItem('last_known_streak', streak.toString());
+      return;
+    }
+
+    if (streak > lastKnownStreak) {
+      // Streak extended!
+      setShowStreakSuccessModal(true);
+      setLastKnownStreak(streak);
+      AsyncStorage.setItem('last_known_streak', streak.toString());
+    } else if (streak !== lastKnownStreak) {
+      // Streak broken or reset - sync silently
+      setLastKnownStreak(streak);
+      AsyncStorage.setItem('last_known_streak', streak.toString());
+    }
+  }, [streak, lastKnownStreak]);
 
   // Quick habits (non-goal habits for today)
   // Filter for ONLY habits scheduled for TODAY
@@ -783,6 +834,11 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
             <FocusTimeCard />
           </Animated.View>
 
+          {/* Routines Section */}
+          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
+            <RoutineCard />
+          </Animated.View>
+
           {/* Analytics Dashboard (Life Balance Matrix) */}
           <View style={{ marginTop: 16 }}>
             <AnalyticsDashboard habits={habits} completions={completions} history={historyData} />
@@ -796,6 +852,12 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
           goals={goals}
           completedDays={completedDaysPerGoal}
           streak={streak}
+        />
+
+        <StreakSuccessModal
+          visible={showStreakSuccessModal}
+          streak={streak}
+          onClose={() => setShowStreakSuccessModal(false)}
         />
         <ConsistencyModal
           visible={showConsistencyModal}

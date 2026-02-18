@@ -1,7 +1,9 @@
-import AppleHealthKit, {
-    HealthValue,
-    HealthKitPermissions,
-} from 'react-native-health';
+// import AppleHealthKit, {
+//     HealthValue,
+//     HealthKitPermissions,
+// } from 'react-native-health';
+const AppleHealthKit = require('react-native-health');
+import { HealthValue, HealthKitPermissions } from 'react-native-health';
 import { Platform } from 'react-native';
 import { useEffect, useState } from 'react';
 
@@ -27,6 +29,12 @@ export class HealthKitService {
         if (!this.isAvailable) return false;
 
         return new Promise((resolve) => {
+            console.log('AppleHealthKit object keys:', Object.keys(AppleHealthKit));
+            if (!AppleHealthKit.initHealthKit) {
+                console.error('AppleHealthKit.initHealthKit is undefined. Native module might not be linked.');
+                resolve(false);
+                return;
+            }
             AppleHealthKit.initHealthKit(PERMISSIONS, (err: string, results: any) => {
                 if (err) {
                     console.warn('HealthKit init error:', err);

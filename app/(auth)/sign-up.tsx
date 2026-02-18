@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, StyleSheet, Linking } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, StyleSheet, Linking, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -87,115 +87,141 @@ const SignUp = () => {
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1, paddingHorizontal: 24, justifyContent: 'center' }}
+          style={{ flex: 1 }}
         >
-          <Animated.View entering={FadeInDown.duration(800).springify()}>
+          <Animated.View style={{ flex: 1 }} entering={FadeInDown.duration(800).springify()}>
+            <ScrollView
+              contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, justifyContent: 'center', paddingBottom: 40 }}
+              showsVerticalScrollIndicator={false}
+            >
 
-            {/* Header */}
-            <View style={{ marginBottom: 32 }}>
-              <Text style={[styles.title, { color: colors.textPrimary }]}>CREATE ACCOUNT</Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Join us</Text>
-            </View>
-
-            {/* Form Container */}
-            <VoidCard glass style={{ padding: 24 }}>
-
-              {/* Email */}
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>EMAIL</Text>
-                <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
-                  <Ionicons name="mail-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
-                  <TextInput
-                    placeholder="Enter your email"
-                    placeholderTextColor={colors.textTertiary}
-                    style={[styles.input, { color: colors.textPrimary }]}
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
-                </View>
+              {/* Header */}
+              <View style={{ marginBottom: 32, marginTop: 20 }}>
+                <Text style={[styles.title, { color: colors.textPrimary }]}>CREATE ACCOUNT</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Join us</Text>
               </View>
 
-              {/* Password */}
-              <View style={[styles.inputGroup, { marginTop: 16 }]}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>PASSWORD</Text>
-                <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
-                  <TextInput
-                    placeholder="Create a password"
-                    placeholderTextColor={colors.textTertiary}
-                    style={[styles.input, { color: colors.textPrimary }]}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textTertiary} />
-                  </TouchableOpacity>
+              {/* Form Container */}
+              <VoidCard glass style={{ padding: 24 }}>
+
+                {/* Email */}
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>EMAIL</Text>
+                  <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
+                    <Ionicons name="mail-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
+                    <TextInput
+                      placeholder="Enter your email"
+                      placeholderTextColor={colors.textTertiary}
+                      style={[styles.input, { color: colors.textPrimary }]}
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                    />
+                  </View>
                 </View>
+
+                {/* Password */}
+                <View style={[styles.inputGroup, { marginTop: 16 }]}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>PASSWORD</Text>
+                  <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
+                    <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
+                    <TextInput
+                      placeholder="Create a password"
+                      placeholderTextColor={colors.textTertiary}
+                      style={[styles.input, { color: colors.textPrimary }]}
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                      <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textTertiary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Confirm Password */}
+                <View style={[styles.inputGroup, { marginTop: 16 }]}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>CONFIRM PASSWORD</Text>
+                  <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
+                    <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
+                    <TextInput
+                      placeholder="Confirm your password"
+                      placeholderTextColor={colors.textTertiary}
+                      style={[styles.input, { color: colors.textPrimary }]}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!showPassword}
+                    />
+                  </View>
+                </View>
+
+                {/* Sign Up Button */}
+                <TouchableOpacity
+                  onPress={handleSignUp}
+                  disabled={loading}
+                  style={[styles.button, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="black" />
+                  ) : (
+                    <Text style={styles.buttonText}>SIGN UP</Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* Terms & Privacy Links */}
+                <View style={{ marginTop: 16, alignItems: 'center' }}>
+                  <Text style={{ color: colors.textTertiary, fontSize: 10, textAlign: 'center', fontFamily: 'Lexend_400Regular' }}>
+                    By signing up, you agree to our{' '}
+                    <Text
+                      style={{ color: colors.primary, textDecorationLine: 'underline' }}
+                      onPress={() => Linking.openURL('https://habyss.com/terms')}
+                    >
+                      Terms
+                    </Text>
+                    {' '}and{' '}
+                    <Text
+                      style={{ color: colors.primary, textDecorationLine: 'underline' }}
+                      onPress={() => Linking.openURL('https://habyss.com/privacy')}
+                    >
+                      Privacy Policy
+                    </Text>
+                    .
+                  </Text>
+                </View>
+
+              </VoidCard>
+
+              {/* Divider */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'Lexend_400Regular', marginHorizontal: 12 }}>OR</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
               </View>
 
-              {/* Confirm Password */}
-              <View style={[styles.inputGroup, { marginTop: 16 }]}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>CONFIRM PASSWORD</Text>
-                <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
-                  <TextInput
-                    placeholder="Confirm your password"
-                    placeholderTextColor={colors.textTertiary}
-                    style={[styles.input, { color: colors.textPrimary }]}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                </View>
+              {/* Social Sign Up */}
+              <View style={{ gap: 12 }}>
+                <AppleAuthButton type="sign-up" />
+
+                <TouchableOpacity
+                  onPress={handleGoogleSignUp}
+                  disabled={loading}
+                  style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
+                >
+                  <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 12 }} />
+                  <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Sign Up Button */}
-              <TouchableOpacity
-                onPress={handleSignUp}
-                disabled={loading}
-                style={[styles.button, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
-              >
-                {loading ? (
-                  <ActivityIndicator color="black" />
-                ) : (
-                  <Text style={styles.buttonText}>SIGN UP</Text>
-                )}
-              </TouchableOpacity>
+              {/* Footer */}
+              <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20 }}>
+                <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>Already have an account? </Text>
+                <TouchableOpacity onPress={() => router.replace('/(auth)/sign-in')}>
+                  <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>Sign In</Text>
+                </TouchableOpacity>
+              </View>
 
-            </VoidCard>
-
-            {/* Divider */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'Lexend_400Regular', marginHorizontal: 12 }}>OR</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-            </View>
-
-            {/* Social Sign Up */}
-            <View style={{ gap: 12 }}>
-              <AppleAuthButton type="sign-up" />
-
-              <TouchableOpacity
-                onPress={handleGoogleSignUp}
-                disabled={loading}
-                style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
-              >
-                <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 12 }} />
-                <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Footer */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20 }}>
-              <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => router.replace('/(auth)/sign-in')}>
-                <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>Sign In</Text>
-              </TouchableOpacity>
-            </View>
-
+            </ScrollView>
           </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>

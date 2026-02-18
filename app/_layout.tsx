@@ -22,12 +22,13 @@ import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 import { AppSettingsProvider } from '@/constants/AppSettingsContext';
 import { AccentProvider } from '@/constants/AccentContext';
 import { FocusTimeProvider, useFocusTime } from '@/constants/FocusTimeContext';
+import { RoutineProvider } from '@/constants/RoutineContext';
 import { CreationModal } from '@/components/CreationModal';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
 import RevenueCatService from '@/lib/RevenueCat';
 // import { SuperwallProvider, SuperwallExpoModule } from 'expo-superwall';
 // import * as Linking from 'expo-linking';
-// import { BiometricGuard } from '@/components/BiometricGuard';
+import { BiometricGuard } from '@/components/BiometricGuard';
 // // Prevent the splash screen from auto-hiding before asset loading is complete.
 // SplashScreen.preventAutoHideAsync();
 
@@ -177,11 +178,13 @@ export default function MobileLayout() {
         <AIPersonalityProvider>
           <AccentProvider>
             <FocusTimeProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                {/* <BiometricGuard> */}
-                <InnerLayout />
-                {/* </BiometricGuard> */}
-              </GestureHandlerRootView>
+              <RoutineProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <BiometricGuard>
+                    <InnerLayout />
+                  </BiometricGuard>
+                </GestureHandlerRootView>
+              </RoutineProvider>
             </FocusTimeProvider>
           </AccentProvider>
         </AIPersonalityProvider>
@@ -199,25 +202,31 @@ function InnerLayout() {
   // ... (existing code for Live Activity?)
 
   // --- App Intents Listener (Siri/Shortcuts) ---
-  // --- App Intents Listener (Siri/Shortcuts) ---
-  const { startTimer } = useFocusTime();
+  const { startTimer, stopTimer: globalStopTimer } = useFocusTime();
 
   useEffect(() => {
     const checkIntents = async () => {
       try {
         const SharedDefaults = require('@/lib/SharedDefaults').default;
 
-        // 1. Check for Start Focus Intent
+        // 1. Check for Stop Focus Intent (NEW)
+        const stopFlag = await SharedDefaults.getDouble('intent_stop_focus_timestamp');
+        if (stopFlag > 0) {
+          console.log('[AppIntents] Stopping focus session via Siri');
+          globalStopTimer();
+          await SharedDefaults.remove('intent_stop_focus');
+          await SharedDefaults.remove('intent_stop_focus_timestamp');
+        }
+
+        // 2. Check for Start Focus Intent
         const focusDuration = await SharedDefaults.getInteger('intent_start_focus_duration');
         if (focusDuration > 0) {
           console.log('[AppIntents] Starting focus for', focusDuration, 'minutes');
-          // Use a dummy habit ID for intent-started focus
           startTimer('intent_habit', 'Focus Session', focusDuration * 60);
-          // Clear intent
           await SharedDefaults.remove('intent_start_focus_duration');
         }
 
-        // 2. Check for Log Habit Intent
+        // 3. Check for Log Habit Intent
         const pendingLogs = await SharedDefaults.getArray('pending_habit_logs');
         if (pendingLogs && pendingLogs.length > 0) {
           console.log('[AppIntents] Processing pending logs:', pendingLogs);
@@ -230,7 +239,6 @@ function InnerLayout() {
               await toggleCompletion(habit.id, new Date().toISOString().split('T')[0]);
             }
           }
-          // Clear intents
           await SharedDefaults.remove('pending_habit_logs');
         }
 
@@ -259,45 +267,46 @@ function InnerLayout() {
       try {
         const { getHabits, getLastNDaysCompletions } = require('@/lib/habitsSQLite');
         const { LiveActivityService } = require('@/lib/liveActivityService');
+        const { WidgetService } = require('@/lib/widgetService');
 
-        // 1. If Timer is running, show Focus Timer
+        // Always sync habits to widget (home screen + lock screen widgets)
+        const habits = await getHabits();
+        const activeHabits = habits.filter((h: any) => !h.isGoal && !h.isArchived);
+        const todayCompletions = await getLastNDaysCompletions(1);
+        const completedToday = todayCompletions[0]?.completedIds?.length || 0;
+        const completedSet = new Set(todayCompletions[0]?.completedIds || []);
+
+        // Sync habit data to widget
+        const widgetHabits = activeHabits.map((h: any) => ({
+          id: h.id,
+          name: h.name,
+          isCompleted: completedSet.has(h.id)
+        }));
+        await WidgetService.syncHabitsToWidget(widgetHabits);
+
+        // 1. If Timer is running, show Focus Timer in Live Activity
         if (isRunning && activeHabitName) {
           const now = Date.now();
-          // Calculate target date based on timeLeft
-          // Note: timeLeft in context is live, but for LA we need absolute time
-          // Best to strictly use the context's state if it provided absolute end time
-          // BUT context only provides timeLeft string/number.
-          // So we approximate: now + timeLeft * 1000
           const targetDate = now + (timeLeft * 1000);
 
           await LiveActivityService.startDailyProgress({
-            completed: 0, // Not relevant for timer mode
-            total: 1,
+            completed: completedToday,
+            total: activeHabits.length,
             activeHabitName: activeHabitName,
-            targetDate: targetDate
+            targetDate: targetDate,
+            habits: widgetHabits,
           });
           return;
         }
 
         // 2. Otherwise show Daily Progress (Default)
-        const habits = await getHabits();
-        const activeHabits = habits.filter((h: any) => !h.isGoal && !h.isArchived);
-        const todayCompletions = await getLastNDaysCompletions(1);
-        const completedToday = todayCompletions[0]?.completedIds?.length || 0;
-
-        // Find next uncompleted habit
-        const completedSet = new Set(todayCompletions[0]?.completedIds || []);
         const nextHabit = activeHabits.find((h: any) => !completedSet.has(h.id));
 
         await LiveActivityService.startDailyProgress({
           completed: completedToday,
           total: activeHabits.length,
           topHabitName: nextHabit?.name,
-          habits: activeHabits.map((h: any) => ({
-            id: h.id,
-            name: h.name,
-            isCompleted: completedSet.has(h.id)
-          }))
+          habits: widgetHabits,
         });
       } catch (e) {
         // Live Activity is optional

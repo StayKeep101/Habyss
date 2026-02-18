@@ -14,12 +14,8 @@ export default function OnboardingPaywall() {
                 return true; // Return true to prevent default behavior (going back)
             };
 
-            BackHandler.addEventListener('hardwareBackPress', onBackPress);
-
-            // React Native > 0.65 BackHandler.addEventListener returns a subscription
-            // However, types might still suggest void/removeEventListener depending on version
-            // Safer way for modern RN:
-            return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+            const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+            return () => subscription.remove();
         }, [])
     );
 

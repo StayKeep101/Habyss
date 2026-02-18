@@ -19,6 +19,8 @@
         "NSCalendarsUsageDescription": "Habyss uses calendar access to schedule habit reminders and sync with your calendar events.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
         "NSLocationWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
+        "NSHealthShareUsageDescription": "Habyss uses HealthKit to track your steps, sleep, and workouts to help you achieve your fitness goals.",
+        "NSHealthUpdateUsageDescription": "Habyss can save workout data to your Health app.",
         "UIBackgroundModes": [
           "remote-notification",
           "location"

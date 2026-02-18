@@ -16,10 +16,22 @@ export const BiometricGuard: React.FC<BiometricGuardProps> = ({ children }) => {
     const { isAppLockEnabled } = useAppSettings();
     const appState = useRef(AppState.currentState);
     const [isLocked, setIsLocked] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isDark = theme !== 'light';
 
+    // Initial launch authentication
+    useEffect(() => {
+        if (isAppLockEnabled && !isInitialized) {
+            setIsLocked(true);
+            authenticate().finally(() => setIsInitialized(true));
+        } else {
+            setIsInitialized(true);
+        }
+    }, [isAppLockEnabled]);
+
+    // Background → foreground authentication
     useEffect(() => {
         const subscription = AppState.addEventListener('change', handleAppStateChange);
         return () => {
@@ -74,6 +86,9 @@ export const BiometricGuard: React.FC<BiometricGuardProps> = ({ children }) => {
                             <Ionicons name="lock-closed" size={48} color={colors.primary} />
                         </View>
                         <Text style={[styles.title, { color: colors.textPrimary }]}>Habyss Locked</Text>
+                        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                            Authenticate to continue
+                        </Text>
                         <TouchableOpacity
                             style={[styles.button, { backgroundColor: colors.primary }]}
                             onPress={authenticate}
@@ -111,6 +126,12 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: '700',
         fontFamily: 'Lexend',
+    },
+    subtitle: {
+        fontSize: 14,
+        fontWeight: '400',
+        fontFamily: 'Lexend',
+        textAlign: 'center' as const,
     },
     button: {
         paddingHorizontal: 32,

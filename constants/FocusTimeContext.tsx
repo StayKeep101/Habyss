@@ -15,6 +15,7 @@ import { ScreenTimeService } from '@/lib/ScreenTimeService';
 // ============================================
 
 export type FocusMode = 'pomodoro' | 'deep_focus' | 'flow' | 'sprint' | 'check_in';
+export type TimerPhase = 'focus' | 'shortBreak' | 'longBreak';
 
 // Focus session record type
 interface FocusSession {
@@ -62,7 +63,17 @@ interface FocusTimeContextType {
     resumeTimer: () => void;
     stopTimer: () => void;
     addFocusTime: (seconds: number) => void;
-    refreshStats: () => Promise<void>; // NEW: Manual refresh
+    refreshStats: () => Promise<void>;
+
+    // NEW: Phase & Session Tracking
+    currentPhase: TimerPhase;
+    sessionNumber: number;
+    totalSessionsGoal: number;
+    qualityRating: number | null;
+    setQualityRating: (rating: number | null) => void;
+    breakDuration: number; // seconds
+    longBreakDuration: number; // seconds
+    sessionsBeforeLongBreak: number;
 }
 
 const FocusTimeContext = createContext<FocusTimeContextType | undefined>(undefined);
@@ -127,6 +138,15 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [isPaused, setIsPaused] = useState(false);
     const [timeLeft, setTimeLeft] = useState(0);
     const [totalDuration, setTotalDuration] = useState(0);
+
+    // Phase & Session Tracking (NEW)
+    const [currentPhase, setCurrentPhase] = useState<TimerPhase>('focus');
+    const [sessionNumber, setSessionNumber] = useState(1);
+    const [totalSessionsGoal, setTotalSessionsGoal] = useState(4);
+    const [qualityRating, setQualityRating] = useState<number | null>(null);
+    const breakDuration = 300; // 5 min short break
+    const longBreakDuration = 900; // 15 min long break
+    const sessionsBeforeLongBreak = 4;
 
     // Aggregate Stats
     const [totalFocusToday, setTotalFocusToday] = useState(0);
@@ -711,6 +731,15 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 stopTimer,
                 addFocusTime,
                 refreshStats,
+                // Phase & Session Tracking
+                currentPhase,
+                sessionNumber,
+                totalSessionsGoal,
+                qualityRating,
+                setQualityRating,
+                breakDuration,
+                longBreakDuration,
+                sessionsBeforeLongBreak,
             }}
         >
             {children}

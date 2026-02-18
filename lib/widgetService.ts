@@ -1,8 +1,6 @@
-import { Platform } from 'react-native';
-// import { SharedGroupPreferences } from 'react-native-shared-group-preferences'; // Would be used for real iOS widgets
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform, NativeModules } from 'react-native';
 
-const APP_GROUP = 'group.com.habyss.app'; // Replace with your actual App Group ID
+const { SharedDefaults: SharedDefaultsModule } = NativeModules;
 
 export interface WidgetData {
     todayProgress: number;
@@ -11,27 +9,56 @@ export interface WidgetData {
     topHabitName: string;
 }
 
+export interface WidgetHabit {
+    id: string;
+    name: string;
+    isCompleted: boolean;
+}
+
 export const WidgetService = {
     /**
-     * Updates the shared data container for the iOS Widget
+     * Syncs the current habits list to the iOS widget via App Group UserDefaults.
+     * The widget reads from the "habitsData" key in group.com.habyss.data.
      */
-    async updateTimeline(data: WidgetData) {
-        // console.log('WidgetService: Updating timeline with', data);
+    async syncHabitsToWidget(habits: WidgetHabit[]): Promise<void> {
+        if (Platform.OS !== 'ios' || !SharedDefaultsModule) return;
 
         try {
-            // For now, we'll store it in AsyncStorage as a fallback/debug
-            // In a real implementation with the native module linked:
-            // await SharedGroupPreferences.setItem('widgetData', data, APP_GROUP);
+            const habitsJson = JSON.stringify(habits);
+            await SharedDefaultsModule.set('habitsData', habitsJson);
+            await SharedDefaultsModule.reloadTimelines();
+        } catch (error) {
+            console.warn('WidgetService: Failed to sync habits to widget', error);
+        }
+    },
 
-            await AsyncStorage.setItem('widget_debug_data', JSON.stringify(data));
+    /**
+     * Updates the shared data container for the iOS Widget with summary stats.
+     */
+    async updateTimeline(data: WidgetData): Promise<void> {
+        if (Platform.OS !== 'ios' || !SharedDefaultsModule) return;
 
-            if (Platform.OS === 'ios') {
-                // Here we would call a native module function to reload the timeline
-                // NativeModules.WidgetBridge.reloadAllTimelines();
-                // console.log('WidgetService: Requested native timeline reload');
-            }
+        try {
+            await SharedDefaultsModule.set('todayProgress', String(data.todayProgress));
+            await SharedDefaultsModule.set('streakCount', String(data.streak));
+            await SharedDefaultsModule.set('habitsLeft', String(data.habitsLeft));
+            await SharedDefaultsModule.set('topHabitName', data.topHabitName);
+            await SharedDefaultsModule.reloadTimelines();
         } catch (error) {
             console.warn('WidgetService: Failed to update widget data', error);
         }
-    }
+    },
+
+    /**
+     * Forces a widget timeline reload without changing data.
+     */
+    async reloadTimelines(): Promise<void> {
+        if (Platform.OS !== 'ios' || !SharedDefaultsModule) return;
+
+        try {
+            await SharedDefaultsModule.reloadTimelines();
+        } catch (error) {
+            console.warn('WidgetService: Failed to reload timelines', error);
+        }
+    },
 };
