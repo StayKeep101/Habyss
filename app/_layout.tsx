@@ -29,6 +29,7 @@ import RevenueCatService from '@/lib/RevenueCat';
 // import { SuperwallProvider, SuperwallExpoModule } from 'expo-superwall';
 // import * as Linking from 'expo-linking';
 import { BiometricGuard } from '@/components/BiometricGuard';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 // // Prevent the splash screen from auto-hiding before asset loading is complete.
 // SplashScreen.preventAutoHideAsync();
 
@@ -173,23 +174,25 @@ export default function MobileLayout() {
 
   return (
     // <SuperwallProvider apiKeys={{ ios: "pk_UMIRgoqWMWWOJ9H2Lp6RG" }}>
-    <ThemeProvider>
-      <AppSettingsProvider>
-        <AIPersonalityProvider>
-          <AccentProvider>
-            <FocusTimeProvider>
-              <RoutineProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <BiometricGuard>
-                    <InnerLayout />
-                  </BiometricGuard>
-                </GestureHandlerRootView>
-              </RoutineProvider>
-            </FocusTimeProvider>
-          </AccentProvider>
-        </AIPersonalityProvider>
-      </AppSettingsProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AppSettingsProvider>
+          <AIPersonalityProvider>
+            <AccentProvider>
+              <FocusTimeProvider>
+                <RoutineProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <BiometricGuard>
+                      <InnerLayout />
+                    </BiometricGuard>
+                  </GestureHandlerRootView>
+                </RoutineProvider>
+              </FocusTimeProvider>
+            </AccentProvider>
+          </AIPersonalityProvider>
+        </AppSettingsProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
     // </SuperwallProvider>
   );
 }

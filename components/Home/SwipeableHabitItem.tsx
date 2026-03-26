@@ -171,12 +171,13 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
       ref={swipeableRef}
       renderLeftActions={renderLeftActions}
       renderRightActions={renderRightActions}
-      leftThreshold={50}
-      rightThreshold={40}
-      overshootLeft={true} // Bouncy effect enabled for completion
-      overshootRight={true} // Allow slight overshoot for organic feel
-      overshootFriction={8}
-      friction={1.2} // More responsive (1.0 is 1:1, >1 is slower)
+      leftThreshold={30}
+      rightThreshold={35}
+      overshootLeft={false}
+      overshootRight={false}
+      overshootFriction={4}
+      friction={2}
+      useNativeAnimations
       onSwipeableWillOpen={onSwipeableWillOpen}
       containerStyle={styles.swipeableContainer}
     >

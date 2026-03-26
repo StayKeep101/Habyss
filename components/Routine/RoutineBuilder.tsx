@@ -8,7 +8,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useRoutines } from '@/constants/RoutineContext';
 import { FocusMode } from '@/constants/FocusTimeContext';
-import { supabase } from '@/lib/supabase';
+import { getHabits } from '@/lib/habitsSQLite';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 
@@ -19,14 +19,14 @@ import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
 interface HabitOption {
     id: string;
     name: string;
-    emoji: string;
+    icon: string;
     color: string;
 }
 
 interface RoutineHabitEntry {
     habitId: string;
     habitName: string;
-    habitEmoji: string;
+    habitIcon: string;
     timerMode: FocusMode;
     focusDuration: number; // seconds
 }
@@ -87,7 +87,7 @@ export const RoutineBuilder: React.FC<RoutineBuilderProps> = ({
                 setHabits(existing.habits.map(h => ({
                     habitId: h.habitId,
                     habitName: h.habitName,
-                    habitEmoji: h.habitEmoji,
+                    habitIcon: h.habitEmoji || 'star',
                     timerMode: h.timerMode,
                     focusDuration: h.focusDuration,
                 })));
@@ -97,19 +97,12 @@ export const RoutineBuilder: React.FC<RoutineBuilderProps> = ({
 
     const loadHabits = async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data } = await supabase
-                .from('habits')
-                .select('id, name, emoji, color')
-                .eq('user_id', user.id)
-                .order('name');
-
-            setAvailableHabits((data || []).map(h => ({
+            const allHabits = await getHabits();
+            const activeHabits = allHabits.filter(h => !h.isGoal && !h.isArchived);
+            setAvailableHabits(activeHabits.map(h => ({
                 id: h.id,
                 name: h.name,
-                emoji: h.emoji || '📋',
+                icon: h.icon || 'star',
                 color: h.color || '#6366F1',
             })));
         } catch (err) {
@@ -122,7 +115,7 @@ export const RoutineBuilder: React.FC<RoutineBuilderProps> = ({
         setHabits(prev => [...prev, {
             habitId: habit.id,
             habitName: habit.name,
-            habitEmoji: habit.emoji,
+            habitIcon: habit.icon,
             timerMode: 'pomodoro',
             focusDuration: 1500,
         }]);
@@ -307,7 +300,9 @@ export const RoutineBuilder: React.FC<RoutineBuilderProps> = ({
                             </View>
 
                             {/* Habit info */}
-                            <Text style={{ fontSize: 22, marginRight: 8 }}>{h.habitEmoji}</Text>
+                            <View style={[styles.habitIconCircle, { backgroundColor: (availableHabits.find(a => a.id === h.habitId)?.color || '#6366F1') + '20' }]}>
+                                <Ionicons name={(h.habitIcon || 'star') as any} size={18} color={availableHabits.find(a => a.id === h.habitId)?.color || '#6366F1'} />
+                            </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={[styles.habitName, { color: colors.textPrimary }]}>
                                     {h.habitName}
@@ -377,7 +372,9 @@ export const RoutineBuilder: React.FC<RoutineBuilderProps> = ({
                                 onPress={() => addHabit(h)}
                                 style={styles.pickerRow}
                             >
-                                <Text style={{ fontSize: 20, marginRight: 10 }}>{h.emoji}</Text>
+                                <View style={[styles.pickerIconCircle, { backgroundColor: h.color + '20' }]}>
+                                    <Ionicons name={(h.icon || 'star') as any} size={16} color={h.color} />
+                                </View>
                                 <Text style={[styles.pickerHabitName, { color: colors.textPrimary }]}>
                                     {h.name}
                                 </Text>
@@ -493,6 +490,14 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend',
         fontWeight: '600',
     },
+    habitIconCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
+    },
     modePill: {
         paddingVertical: 4,
         paddingHorizontal: 10,
@@ -554,6 +559,14 @@ const styles = StyleSheet.create({
     pickerHabitName: {
         fontSize: 14,
         fontFamily: 'Lexend_400Regular',
+    },
+    pickerIconCircle: {
+        width: 30,
+        height: 30,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
     },
     actions: {
         marginTop: 8,

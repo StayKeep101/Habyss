@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet, DeviceEventEmitter, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, DeviceEventEmitter, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Habit, getHabits, toggleCompletion, getCompletions, getLastNDaysCompletions } from '@/lib/habitsSQLite';
+import { Habit, getHabits, toggleCompletion, getCompletions, getLastNDaysCompletions, getHabitStats, inferTrackingStyle } from '@/lib/habitsSQLite';
 import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -54,10 +54,13 @@ export default function HabitDetailScreen() {
   const [completed, setCompleted] = useState(params.initialCompleted === 'true');
   const [loading, setLoading] = useState(!habit);
   const [streak, setStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [completionRate, setCompletionRate] = useState(0);
+  const [totalCompletions, setTotalCompletions] = useState(0);
   const [history, setHistory] = useState<{ date: string; completed: boolean }[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
-  const [showStats, setShowStats] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [counterValue, setCounterValue] = useState(0);
 
   useEffect(() => {
     loadHabitDetails();
@@ -92,6 +95,14 @@ export default function HabitDetailScreen() {
           setHabit(found);
           currentHabit = found;
         }
+      } else {
+        // Reload fresh data even if we had initial params
+        const habits = await getHabits();
+        const found = habits.find(h => h.id === habitId);
+        if (found) {
+          setHabit(found);
+          currentHabit = found;
+        }
       }
 
       const completions = await getCompletions(dateStr);
@@ -107,20 +118,21 @@ export default function HabitDetailScreen() {
       habitHistory.sort((a, b) => a.date.localeCompare(b.date));
       setHistory(habitHistory);
 
-      // Simple streak calc
-      let currentStreak = 0;
-      for (let i = habitHistory.length - 1; i >= 0; i--) {
-        if (habitHistory[i].completed) currentStreak++;
-        else if (i === habitHistory.length - 1 && dateStr === todayStr) continue;
-        else break;
+      // Fetch real stats
+      const stats = await getHabitStats(habitId);
+      setStreak(stats.currentStreak);
+      setBestStreak(stats.bestStreak);
+      setCompletionRate(stats.completionRate);
+      setTotalCompletions(stats.totalCompletions);
+
+      // Set initial counter value for counter-based habits
+      if (currentHabit && completed) {
+        setCounterValue(currentHabit.goalValue || 1);
       }
-      setStreak(currentStreak);
     } finally {
       setLoading(false);
     }
   };
-
-
 
   const handleToggle = () => {
     if (!habit) return;
@@ -139,16 +151,41 @@ export default function HabitDetailScreen() {
     toggleCompletion(habit.id, dateStr).catch(console.error);
   };
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const page = Math.round(event.nativeEvent.contentOffset.x / width);
-    setCurrentPage(page);
-  };
+  const handleCounterIncrement = useCallback(() => {
+    if (!habit) return;
+    if (dateStr !== todayStr) return;
+
+    selectionFeedback();
+    const newValue = Math.min(counterValue + 1, habit.goalValue || 999);
+    setCounterValue(newValue);
+
+    // Mark complete when target is reached
+    if (newValue >= (habit.goalValue || 1) && !completed) {
+      setCompleted(true);
+      toggleCompletion(habit.id, dateStr).catch(console.error);
+    }
+  }, [habit, counterValue, completed, dateStr, todayStr]);
+
+  const handleCounterDecrement = useCallback(() => {
+    if (!habit) return;
+    if (dateStr !== todayStr) return;
+
+    selectionFeedback();
+    const newValue = Math.max(counterValue - 1, 0);
+    setCounterValue(newValue);
+
+    // Un-mark complete if below target
+    if (newValue < (habit.goalValue || 1) && completed) {
+      setCompleted(false);
+      toggleCompletion(habit.id, dateStr).catch(console.error);
+    }
+  }, [habit, counterValue, completed, dateStr, todayStr]);
+
+  // Determine tracking style
+  const trackingStyle = habit ? inferTrackingStyle(habit.unit, habit.goalValue) : 'boolean';
 
   // Only show loading if habit truly isn't available yet (fallback case)
-  // In most cases, habit is initialized from params so this won't show
-  if (loading && !habit) {
-    return null; // Return nothing briefly while loading, prevents jarring spinner
-  }
+  if (loading && !habit) return null;
 
   if (!habit) {
     return (
@@ -160,6 +197,10 @@ export default function HabitDetailScreen() {
       </View>
     );
   }
+
+  // Last 7 days for quick view
+  const last7Days = history.slice(-7);
+  const habitColor = habit.color || colors.primary;
 
   return (
     <VoidShell>
@@ -197,7 +238,10 @@ export default function HabitDetailScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScroll}
+        onMomentumScrollEnd={(event) => {
+          const page = Math.round(event.nativeEvent.contentOffset.x / width);
+          setCurrentPage(page);
+        }}
         contentContainerStyle={{ flexGrow: 1 }}
       >
         {/* PAGE 1: Focus & Stats */}
@@ -205,9 +249,10 @@ export default function HabitDetailScreen() {
 
           <ScreenHeader title={habit.name.toUpperCase()} subtitle="PROTOCOL DETAILS" />
 
-          {/* Pomodoro Timer - HERO POSITION */}
-          {/* Pomodoro Timer - HERO POSITION (Hidden when stats are shown) */}
-          {!showStats && (
+          {/* === CONTEXT-SENSITIVE PRIMARY INPUT === */}
+
+          {/* TIMER: Only for time-based habits */}
+          {trackingStyle === 'timer' && (
             <View style={{ marginBottom: 24 }}>
               <PomodoroTimer
                 defaultMinutes={habit.durationMinutes}
@@ -219,14 +264,57 @@ export default function HabitDetailScreen() {
             </View>
           )}
 
-          {/* Main Info Card */}
-          {showStats && (
-            <VoidCard style={styles.mainCard}>
-              <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : (habit.color ? habit.color + '15' : colors.primary + '15') }]}>
+          {/* COUNTER: For numeric/countable habits (glasses, pages, reps, etc.) */}
+          {trackingStyle === 'counter' && (
+            <VoidCard style={styles.counterCard}>
+              <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : habitColor + '15' }]}>
                 <Ionicons
                   name={(habit.icon as any) || 'star'}
                   size={40}
-                  color={completed ? colors.success : (habit.color || colors.primary)}
+                  color={completed ? colors.success : habitColor}
+                />
+              </View>
+              <Text style={[styles.counterProgress, { color: colors.textPrimary }]}>
+                {counterValue}
+                <Text style={{ color: colors.textTertiary, fontSize: 20 }}> / {habit.goalValue || 1}</Text>
+              </Text>
+              <Text style={[styles.counterUnit, { color: colors.textSecondary }]}>
+                {habit.unit || 'count'}
+              </Text>
+
+              <View style={styles.counterControls}>
+                <TouchableOpacity
+                  onPress={handleCounterDecrement}
+                  style={[styles.counterBtn, { backgroundColor: colors.surfaceTertiary }]}
+                  disabled={counterValue <= 0}
+                >
+                  <Ionicons name="remove" size={28} color={counterValue <= 0 ? colors.textTertiary : colors.textPrimary} />
+                </TouchableOpacity>
+
+                <View style={[styles.counterValueDisplay, { backgroundColor: completed ? colors.success + '15' : habitColor + '10', borderColor: completed ? colors.success + '40' : habitColor + '30' }]}>
+                  <Text style={[styles.counterValueText, { color: completed ? colors.success : habitColor }]}>
+                    {completed ? '✓ Complete' : `${Math.round((counterValue / (habit.goalValue || 1)) * 100)}%`}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleCounterIncrement}
+                  style={[styles.counterBtn, { backgroundColor: habitColor + '20' }]}
+                >
+                  <Ionicons name="add" size={28} color={habitColor} />
+                </TouchableOpacity>
+              </View>
+            </VoidCard>
+          )}
+
+          {/* BOOLEAN: Simple toggle for yes/no habits */}
+          {trackingStyle === 'boolean' && (
+            <VoidCard style={styles.mainCard}>
+              <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : habitColor + '15' }]}>
+                <Ionicons
+                  name={(habit.icon as any) || 'star'}
+                  size={40}
+                  color={completed ? colors.success : habitColor}
                 />
               </View>
               <Text style={[styles.habitName, { color: colors.textPrimary }]}>
@@ -238,10 +326,10 @@ export default function HabitDetailScreen() {
                     {habit.category.toUpperCase()}
                   </Text>
                 </View>
-                {habit.durationMinutes && (
+                {habit.frequency && (
                   <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
                     <Text style={{ fontSize: 10, fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
-                      {habit.durationMinutes} MIN
+                      {habit.frequency.toUpperCase()}
                     </Text>
                   </View>
                 )}
@@ -260,61 +348,95 @@ export default function HabitDetailScreen() {
             </VoidCard>
           )}
 
-          {/* Performance Stats */}
-          {showStats && (
-            <View style={{ marginTop: 20 }}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>PERFORMANCE</Text>
-              <View style={styles.statsGrid}>
-                {[
-                  { label: 'STREAK', value: `${streak} DAYS`, icon: 'flame', color: '#FFD93D' },
-                  { label: 'BEST', value: `${streak} DAYS`, icon: 'trophy', color: '#4ECDC4' },
-                  { label: 'VOLUME', value: habit.durationMinutes ? `${habit.durationMinutes * streak} MIN` : '0 MIN', icon: 'time', color: '#8BADD6' },
-                  { label: 'CYCLE', value: 'DAILY', icon: 'repeat', color: '#8B5CF6' }
-                ].map((stat, i) => (
-                  <VoidCard key={i} style={styles.statCard}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                      <Ionicons name={stat.icon as any} size={16} color={stat.color} />
-                      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+          {/* === THIS WEEK — Quick 7-day view === */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>THIS WEEK</Text>
+            <VoidCard style={{ padding: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                {last7Days.map((day, i) => {
+                  const dayDate = new Date(day.date + 'T12:00:00');
+                  const dayLabel = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][dayDate.getDay()];
+                  const isToday = day.date === todayStr;
+                  return (
+                    <View key={day.date} style={{ alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 10, color: isToday ? habitColor : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontWeight: isToday ? '700' : '400' }}>
+                        {dayLabel}
+                      </Text>
+                      <View style={{
+                        width: 32, height: 32, borderRadius: 16,
+                        backgroundColor: day.completed ? habitColor + '20' : 'transparent',
+                        borderWidth: isToday ? 2 : 1,
+                        borderColor: day.completed ? habitColor : (isToday ? habitColor + '50' : colors.border),
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {day.completed ? (
+                          <Ionicons name="checkmark" size={16} color={habitColor} />
+                        ) : (
+                          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.textTertiary + '30' }} />
+                        )}
+                      </View>
                     </View>
-                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
-                  </VoidCard>
-                ))}
+                  );
+                })}
               </View>
+            </VoidCard>
+          </View>
 
-              {/* Visualization Card */}
-              <View style={{ marginBottom: 24 }}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
-                <HabitGraphRenderer
-                  graphStyle={habit.graphStyle || 'bar'}
-                  color={habit.color || colors.primary}
-                  goalValue={habit.goalValue || 1}
-                  unit={habit.unit || 'count'}
-                  completionData={history}
-                  currentStreak={streak}
-                  todayValue={completed ? (habit.goalValue || 1) : 0}
-                />
-              </View>
-
-              {/* Detailed Heatmap */}
-              <VoidCard style={{ padding: 16, marginBottom: 24 }} glass intensity={20}>
-                <DetailedHeatmap
-                  completionData={history}
-                  color={habit.color || colors.primary}
-                  description="YEARLY CONSISTENCY"
-                />
-              </VoidCard>
-
-              {/* Description */}
-              <VoidCard style={styles.descCard}>
-                <Text style={[styles.descTitle, { color: colors.textPrimary }]}>DIRECTIVE</Text>
-                <Text style={[styles.descText, { color: colors.textSecondary }]}>
-                  Consistency is key. You've set this protocol to improve your {habit.category}.
-                  Maintain your streak to achieve optimal results.
-                </Text>
-              </VoidCard>
-
+          {/* === PERFORMANCE STATS — Always visible === */}
+          <View style={{ marginBottom: 20 }}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>PERFORMANCE</Text>
+            <View style={styles.statsGrid}>
+              {[
+                { label: 'STREAK', value: `${streak}`, suffix: 'DAYS', icon: 'flame', color: '#FFD93D' },
+                { label: 'BEST', value: `${bestStreak}`, suffix: 'DAYS', icon: 'trophy', color: '#4ECDC4' },
+                { label: 'RATE', value: `${completionRate}`, suffix: '%', icon: 'trending-up', color: '#8BADD6' },
+                { label: 'TOTAL', value: `${totalCompletions}`, suffix: 'DONE', icon: 'checkmark-done', color: '#8B5CF6' }
+              ].map((stat, i) => (
+                <VoidCard key={i} style={styles.statCard}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <Ionicons name={stat.icon as any} size={16} color={stat.color} />
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                  </View>
+                  <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                    {stat.value}
+                    <Text style={{ fontSize: 10, color: colors.textTertiary }}> {stat.suffix}</Text>
+                  </Text>
+                </VoidCard>
+              ))}
             </View>
-          )}
+          </View>
+
+          {/* === VISUALIZATION === */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
+            <HabitGraphRenderer
+              graphStyle={habit.graphStyle || 'bar'}
+              color={habitColor}
+              goalValue={habit.goalValue || 1}
+              unit={habit.unit || 'count'}
+              completionData={history}
+              currentStreak={streak}
+              todayValue={completed ? (habit.goalValue || 1) : 0}
+            />
+          </View>
+
+          {/* === HEATMAP === */}
+          <VoidCard style={{ padding: 16, marginBottom: 24 }} glass intensity={20}>
+            <DetailedHeatmap
+              completionData={history}
+              color={habitColor}
+              description="YEARLY CONSISTENCY"
+            />
+          </VoidCard>
+
+          {/* === DESCRIPTION === */}
+          <VoidCard style={styles.descCard}>
+            <Text style={[styles.descTitle, { color: colors.textPrimary }]}>DIRECTIVE</Text>
+            <Text style={[styles.descText, { color: colors.textSecondary }]}>
+              Consistency is key. You've set this protocol to improve your {habit.category}.
+              Maintain your streak to achieve optimal results.
+            </Text>
+          </VoidCard>
 
           {/* Bottom Padding for scroll */}
           <View style={{ height: 100 }} />
@@ -326,29 +448,6 @@ export default function HabitDetailScreen() {
         </View>
 
       </ScrollView>
-      {/* Floating Stats Toggle Button */}
-      <TouchableOpacity
-        onPress={() => {
-          selectionFeedback();
-          setShowStats(!showStats);
-        }}
-        style={{
-          position: 'absolute',
-          bottom: 40,
-          left: 20,
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: colors.surfaceSecondary,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: colors.border,
-          zIndex: 100
-        }}
-      >
-        <Ionicons name={showStats ? "close" : "stats-chart"} size={20} color={colors.textPrimary} />
-      </TouchableOpacity>
 
       {/* Share Modal */}
       <ShareHabitModal
@@ -374,20 +473,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
   },
-  paginationContainer: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
   iconButton: {
     width: 44,
     height: 44,
@@ -398,7 +483,12 @@ const styles = StyleSheet.create({
   mainCard: {
     alignItems: 'center',
     padding: 32,
-    marginBottom: 32,
+    marginBottom: 24,
+  },
+  counterCard: {
+    alignItems: 'center',
+    padding: 28,
+    marginBottom: 24,
   },
   iconLarge: {
     width: 80,
@@ -415,13 +505,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Lexend',
   },
-  habitMeta: {
-    fontSize: 12,
-    marginBottom: 24,
-    textAlign: 'center',
-    fontFamily: 'Lexend_400Regular',
-    letterSpacing: 1,
-  },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -436,6 +519,44 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend_400Regular',
     letterSpacing: 0.5,
   },
+  // Counter styles
+  counterProgress: {
+    fontSize: 48,
+    fontWeight: '900',
+    fontFamily: 'Lexend',
+    marginBottom: 4,
+  },
+  counterUnit: {
+    fontSize: 13,
+    fontFamily: 'Lexend_400Regular',
+    letterSpacing: 1,
+    marginBottom: 24,
+    textTransform: 'uppercase',
+  },
+  counterControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  counterBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  counterValueDisplay: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  counterValueText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Lexend',
+  },
+  // Stats
   sectionTitle: {
     fontSize: 14,
     fontWeight: '900',
@@ -447,7 +568,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 24,
   },
   statCard: {
     width: '48%',
@@ -462,7 +582,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend_400Regular',
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: 'bold',
     fontFamily: 'Lexend',
   },

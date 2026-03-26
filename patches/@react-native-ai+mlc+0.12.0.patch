@@ -1,0 +1,125 @@
+diff --git a/node_modules/@react-native-ai/mlc/ios/engine/JSONFFIEngine.mm b/node_modules/@react-native-ai/mlc/ios/engine/JSONFFIEngine.mm
+index cec8778..8cfd56a 100644
+--- a/node_modules/@react-native-ai/mlc/ios/engine/JSONFFIEngine.mm
++++ b/node_modules/@react-native-ai/mlc/ios/engine/JSONFFIEngine.mm
+@@ -17,10 +17,14 @@
+  */
+ #import <Foundation/Foundation.h>
+ #import <UIKit/UIKit.h>
+-#include <os/proc.h>
++#import <TargetConditionals.h>
+ 
+ #include "JSONFFIEngine.h"
+ 
++#if !TARGET_OS_SIMULATOR
++
++#include <os/proc.h>
++
+ #define TVM_USE_LIBBACKTRACE 0
+ #define DMLC_USE_LOGGING_LIBRARY <tvm/runtime/logging.h>
+ 
+@@ -121,3 +125,56 @@ - (void)exitBackgroundLoop {
+ }
+ 
+ @end
++
++#else // TARGET_OS_SIMULATOR
++
++// Simulator stub: MLC engine is not available on simulator since the
++// prebuilt static libraries are compiled for device (arm64) only.
++
++@implementation JSONFFIEngine
++
++- (instancetype)init {
++  self = [super init];
++  NSLog(@"[MLC] JSONFFIEngine: MLC engine is not supported on the iOS simulator.");
++  return self;
++}
++
++- (void)initBackgroundEngine:(void (^)(NSString*))streamCallback {
++  NSLog(@"[MLC] initBackgroundEngine: Not available on simulator");
++}
++
++- (void)reload:(NSString*)engineConfigJson {
++  NSLog(@"[MLC] reload: Not available on simulator");
++}
++
++- (void)unload {
++  NSLog(@"[MLC] unload: Not available on simulator");
++}
++
++- (void)reset {
++  NSLog(@"[MLC] reset: Not available on simulator");
++}
++
++- (void)chatCompletion:(NSString*)requestJSON requestID:(NSString*)requestID {
++  NSLog(@"[MLC] chatCompletion: Not available on simulator");
++}
++
++- (void)abort:(NSString*)requestID {
++  NSLog(@"[MLC] abort: Not available on simulator");
++}
++
++- (void)runBackgroundLoop {
++  NSLog(@"[MLC] runBackgroundLoop: Not available on simulator");
++}
++
++- (void)runBackgroundStreamBackLoop {
++  NSLog(@"[MLC] runBackgroundStreamBackLoop: Not available on simulator");
++}
++
++- (void)exitBackgroundLoop {
++  NSLog(@"[MLC] exitBackgroundLoop: Not available on simulator");
++}
++
++@end
++
++#endif // !TARGET_OS_SIMULATOR
+diff --git a/node_modules/@react-native-ai/mlc/react-native-ai-mlc.podspec b/node_modules/@react-native-ai/mlc/react-native-ai-mlc.podspec
+index 31e8cf6..54c3ec2 100644
+--- a/node_modules/@react-native-ai/mlc/react-native-ai-mlc.podspec
++++ b/node_modules/@react-native-ai/mlc/react-native-ai-mlc.podspec
+@@ -24,16 +24,9 @@ Pod::Spec.new do |s|
+ 
+   s.source_files = "ios/**/*.{h,m,mm,swift}"
+   
+-  # Use prebuilt static libraries shipped with the package
+-  s.vendored_libraries = [
+-    'prebuilt/ios/lib/libmlc_llm.a',
+-    'prebuilt/ios/lib/libmodel_iphone.a',
+-    'prebuilt/ios/lib/libsentencepiece.a',
+-    'prebuilt/ios/lib/libtokenizers_c.a',
+-    'prebuilt/ios/lib/libtokenizers_cpp.a',
+-    'prebuilt/ios/lib/libtvm_ffi_static.a',
+-    'prebuilt/ios/lib/libtvm_runtime.a'
+-  ]
++  # NOTE: vendored_libraries removed. Libraries are linked conditionally via
++  # OTHER_LDFLAGS scoped to iphoneos only, since the prebuilt .a files are
++  # arm64 device-only and cannot be linked in simulator builds.
+   
+   # Include bundle configuration
+   s.resources = ['prebuilt/ios/bundle/**/*']
+@@ -42,12 +35,21 @@ Pod::Spec.new do |s|
+   s.pod_target_xcconfig = {
+     'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/ios" "$(PODS_TARGET_SRCROOT)/prebuilt/ios/include"',
+     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
+-    'LIBRARY_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/prebuilt/ios/lib"'
++    'LIBRARY_SEARCH_PATHS[sdk=iphoneos*]' => '"$(PODS_TARGET_SRCROOT)/prebuilt/ios/lib"',
++    'OTHER_LDFLAGS[sdk=iphoneos*]' => [
++      '-force_load "$(PODS_TARGET_SRCROOT)/prebuilt/ios/lib/libmlc_llm.a"',
++      '-force_load "$(PODS_TARGET_SRCROOT)/prebuilt/ios/lib/libmodel_iphone.a"',
++      '-force_load "$(PODS_TARGET_SRCROOT)/prebuilt/ios/lib/libtvm_runtime.a"',
++      '-force_load "$(PODS_TARGET_SRCROOT)/prebuilt/ios/lib/libtvm_ffi_static.a"',
++      '-force_load "$(PODS_TARGET_SRCROOT)/prebuilt/ios/lib/libsentencepiece.a"',
++      '-force_load "$(PODS_TARGET_SRCROOT)/prebuilt/ios/lib/libtokenizers_cpp.a"',
++      '-force_load "$(PODS_TARGET_SRCROOT)/prebuilt/ios/lib/libtokenizers_c.a"'
++    ].join(' ')
+   }
+   
+   # User target configuration to ensure static libraries are force loaded
+   s.user_target_xcconfig = {
+-    'OTHER_LDFLAGS' => [
++    'OTHER_LDFLAGS[sdk=iphoneos*]' => [
+       '$(inherited)',
+       '-ObjC',
+       "-force_load \"#{package_path}/prebuilt/ios/lib/libmodel_iphone.a\"",

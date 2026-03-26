@@ -928,6 +928,66 @@ export async function getStreakData(): Promise<{ currentStreak: number; bestStre
     return { currentStreak, bestStreak, perfectDays, totalCompleted };
 }
 
+/**
+ * Get detailed stats for a single habit
+ */
+export async function getHabitStats(habitId: string): Promise<{
+    currentStreak: number;
+    bestStreak: number;
+    completionRate: number; // 0-100
+    totalCompletions: number;
+    totalDaysTracked: number;
+}> {
+    const history = await getLastNDaysCompletions(366);
+    const habitHistory = history.map(d => ({
+        date: d.date,
+        completed: d.completedIds.includes(habitId),
+    }));
+
+    // Find the first day this habit was completed (or just use full range)
+    const firstCompletionIdx = habitHistory.findIndex(d => d.completed);
+    const relevantHistory = firstCompletionIdx >= 0 ? habitHistory.slice(firstCompletionIdx) : habitHistory;
+
+    let currentStreak = 0;
+    let bestStreak = 0;
+    let tempStreak = 0;
+    let totalCompletions = 0;
+
+    relevantHistory.forEach(day => {
+        if (day.completed) {
+            tempStreak++;
+            totalCompletions++;
+        } else {
+            bestStreak = Math.max(bestStreak, tempStreak);
+            tempStreak = 0;
+        }
+    });
+    bestStreak = Math.max(bestStreak, tempStreak);
+
+    // Current streak (from end, allow today to be incomplete)
+    for (let i = habitHistory.length - 1; i >= 0; i--) {
+        if (habitHistory[i].completed) currentStreak++;
+        else if (i === habitHistory.length - 1) continue; // today might not be done yet
+        else break;
+    }
+
+    const totalDaysTracked = relevantHistory.length || 1;
+    const completionRate = Math.round((totalCompletions / totalDaysTracked) * 100);
+
+    return { currentStreak, bestStreak, completionRate, totalCompletions, totalDaysTracked };
+}
+
+/**
+ * Infer tracking style from habit unit & goalValue
+ * Returns 'timer' | 'counter' | 'boolean'
+ */
+export function inferTrackingStyle(unit?: string, goalValue?: number): 'timer' | 'counter' | 'boolean' {
+    const timerUnits = ['minutes', 'hours', 'seconds', 'min', 'hrs', 'sec'];
+    if (unit && timerUnits.includes(unit.toLowerCase())) return 'timer';
+    if (goalValue && goalValue > 1) return 'counter';
+    return 'boolean';
+}
+
 export async function calculateGoalProgress(goal: Habit): Promise<number> {
     const uid = await getUserId();
     if (!uid || !goal.isGoal) return 0;

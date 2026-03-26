@@ -88,9 +88,9 @@ export async function syncPendingChanges(): Promise<void> {
             return;
         }
 
-        const queue = await db.getAllAsync<SyncQueueItem>(
+        const queue = await db.getAllAsync(
             'SELECT * FROM sync_queue WHERE attempts < 3 ORDER BY created_at ASC LIMIT 50'
-        );
+        ) as SyncQueueItem[];
 
         if (queue.length === 0) {
             return;
@@ -193,10 +193,10 @@ async function syncHabit(db: any, operation: string, recordId: string, payload: 
         await db.runAsync('UPDATE habits SET synced = 1 WHERE id = ?', recordId);
     } else if (operation === 'INSERT' || operation === 'UPDATE') {
         // Get full habit from local DB
-        const row = await db.getFirstAsync<any>(
+        const row = await db.getFirstAsync(
             'SELECT * FROM habits WHERE id = ?',
             recordId
-        );
+        ) as any;
 
         if (!row) return;
 
@@ -239,10 +239,10 @@ async function syncCompletion(db: any, operation: string, recordId: string, payl
         }
     } else if (operation === 'INSERT') {
         // Get completion from local DB
-        const row = await db.getFirstAsync<any>(
+        const row = await db.getFirstAsync(
             'SELECT * FROM completions WHERE id = ?',
             recordId
-        );
+        ) as any;
 
         if (!row || row.deleted) return;
 
@@ -281,11 +281,11 @@ export async function pullFromCloud(userId: string): Promise<void> {
         if (habitError) throw habitError;
 
         // Get all local habits for comparison
-        const localHabits = await db.getAllAsync<any>(
+        const localHabits = await db.getAllAsync(
             'SELECT id, updated_at, deleted FROM habits WHERE user_id = ?',
             userId
-        );
-        const localHabitMap = new Map<string, any>(localHabits.map((h: any) => [h.id, h]));
+        ) as LocalHabit[];
+        const localHabitMap = new Map<string, LocalHabit>(localHabits.map((h: LocalHabit) => [h.id, h]));
 
         for (const cloudHabit of cloudHabits || []) {
             const localHabit = localHabitMap.get(cloudHabit.id);

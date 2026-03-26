@@ -258,6 +258,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                                                     </View>
                                                 );
                                             }}
+                                            rightThreshold={40}
+                                            friction={2}
+                                            overshootRight={false}
+                                            overshootFriction={4}
+                                            useNativeAnimations
                                             containerStyle={{ overflow: 'visible' }}
                                         >
                                             <TouchableOpacity

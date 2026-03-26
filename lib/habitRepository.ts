@@ -102,10 +102,10 @@ export class HabitRepository {
      */
     async getAllHabits(): Promise<Habit[]> {
         const db = await getDatabase();
-        const rows = await db.getAllAsync<HabitRow>(
+        const rows = await db.getAllAsync(
             'SELECT * FROM habits WHERE user_id = ? AND deleted = 0 ORDER BY created_at DESC',
             this.userId
-        );
+        ) as HabitRow[];
         return rows.map(rowToHabit);
     }
 
@@ -114,10 +114,10 @@ export class HabitRepository {
      */
     async getHabit(id: string): Promise<Habit | null> {
         const db = await getDatabase();
-        const row = await db.getFirstAsync<HabitRow>(
+        const row = await db.getFirstAsync(
             'SELECT * FROM habits WHERE id = ? AND user_id = ? AND deleted = 0',
             id, this.userId
-        );
+        ) as HabitRow | null;
         return row ? rowToHabit(row) : null;
     }
 
@@ -126,10 +126,10 @@ export class HabitRepository {
      */
     async getGoals(): Promise<Habit[]> {
         const db = await getDatabase();
-        const rows = await db.getAllAsync<HabitRow>(
+        const rows = await db.getAllAsync(
             'SELECT * FROM habits WHERE user_id = ? AND is_goal = 1 AND deleted = 0 ORDER BY created_at DESC',
             this.userId
-        );
+        ) as HabitRow[];
         return rows.map(rowToHabit);
     }
 
@@ -243,13 +243,13 @@ export class HabitRepository {
         const db = await getDatabase();
         const dateStr = date || todayString();
 
-        const rows = await db.getAllAsync<{ habit_id: string }>(
+        const rows = await db.getAllAsync(
             'SELECT habit_id FROM completions WHERE user_id = ? AND date = ? AND deleted = 0',
             this.userId, dateStr
-        );
+        ) as { habit_id: string }[];
 
         const result: Record<string, boolean> = {};
-        rows.forEach(row => { result[row.habit_id] = true; });
+        rows.forEach((row: { habit_id: string }) => { result[row.habit_id] = true; });
         return result;
     }
 
@@ -261,10 +261,10 @@ export class HabitRepository {
         const dateStr = date || todayString();
 
         // Check if already completed
-        const existing = await db.getFirstAsync<{ id: string }>(
+        const existing = await db.getFirstAsync(
             'SELECT id FROM completions WHERE habit_id = ? AND date = ? AND user_id = ? AND deleted = 0',
             habitId, dateStr, this.userId
-        );
+        ) as { id: string } | null;
 
         if (existing) {
             // Mark as deleted
@@ -294,13 +294,13 @@ export class HabitRepository {
      */
     async getCompletionsRange(startDate: string, endDate: string): Promise<{ date: string; completedIds: string[] }[]> {
         const db = await getDatabase();
-        const rows = await db.getAllAsync<{ date: string; habit_id: string }>(
+        const rows = await db.getAllAsync(
             'SELECT date, habit_id FROM completions WHERE user_id = ? AND date >= ? AND date <= ? AND deleted = 0',
             this.userId, startDate, endDate
-        );
+        ) as { date: string; habit_id: string }[];
 
         const map = new Map<string, string[]>();
-        rows.forEach(row => {
+        rows.forEach((row: { date: string; habit_id: string }) => {
             if (!map.has(row.date)) map.set(row.date, []);
             map.get(row.date)!.push(row.habit_id);
         });

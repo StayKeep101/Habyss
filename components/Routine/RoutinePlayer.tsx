@@ -163,7 +163,8 @@ export const RoutinePlayer: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                             entering={FadeInDown.delay(600).springify()}
                             style={[styles.celebrationSubtitle, { color: colors.textSecondary }]}
                         >
-                            {activeRoutine.emoji} {activeRoutine.name}
+                            <Ionicons name={(activeRoutine.habits?.[0]?.habitEmoji || 'star') as any} size={16} color={colors.textSecondary} style={{ marginRight: 6 }} />
+                            {activeRoutine.name}
                         </Animated.Text>
 
                         <Animated.View
@@ -261,7 +262,9 @@ export const RoutinePlayer: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 {!showRating && currentHabit && (
                     <Animated.View style={[styles.timerContainer, pulseStyle]}>
                         {/* Current habit info */}
-                        <Text style={styles.habitEmoji}>{currentHabit.habitEmoji}</Text>
+                        <View style={styles.habitIconContainer}>
+                            <Ionicons name={(currentHabit.habitEmoji || 'star') as any} size={32} color={currentHabit.habitColor || colors.primary} />
+                        </View>
                         <Text style={[styles.habitName, { color: colors.textPrimary }]}>
                             {currentHabit.habitName}
                         </Text>
@@ -354,7 +357,9 @@ export const RoutinePlayer: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                         </Text>
                         {activeRoutine.habits.slice(currentHabitIndex + 1, currentHabitIndex + 4).map((h) => (
                             <View key={h.id} style={styles.upcomingRow}>
-                                <Text style={{ fontSize: 16 }}>{h.habitEmoji}</Text>
+                                <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: (h.habitColor || '#6366F1') + '15', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Ionicons name={(h.habitEmoji || 'star') as any} size={14} color={h.habitColor || '#6366F1'} />
+                                </View>
                                 <Text style={[styles.upcomingName, { color: colors.textSecondary }]} numberOfLines={1}>
                                     {h.habitName}
                                 </Text>
@@ -413,8 +418,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingBottom: 20,
     },
-    habitEmoji: {
-        fontSize: 40,
+    habitIconContainer: {
+        width: 56,
+        height: 56,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginBottom: 8,
     },
     habitName: {

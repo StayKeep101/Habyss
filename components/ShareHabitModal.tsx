@@ -16,6 +16,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { FriendsService, Friend } from '@/lib/friendsService';
 
 const { height } = Dimensions.get('window');
@@ -33,6 +34,8 @@ export const ShareHabitModal: React.FC<ShareHabitModalProps> = ({ visible, habit
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { lightFeedback, successFeedback } = useHaptics();
+    const { primary: accentColor } = useAccentGradient();
+    const isLight = theme === 'light';
 
     const [friends, setFriends] = useState<Friend[]>([]);
     const [sharedWith, setSharedWith] = useState<string[]>([]);
@@ -116,12 +119,14 @@ export const ShareHabitModal: React.FC<ShareHabitModalProps> = ({ visible, habit
 
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, sheetStyle]}>
-                        <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
+                        <LinearGradient colors={isLight ? [colors.surface, colors.background] : ['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
+                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder, { borderColor: accentColor + '15' }]} />
 
                         <Animated.View style={[styles.content, contentStyle]}>
-                            <Text style={styles.title}>SHARE</Text>
-                            <Text style={[styles.subtitle, { color: '#3B82F6' }]} numberOfLines={1}>{habitName.toUpperCase()}</Text>
+                            <View style={styles.dragIndicator} />
+                            <Text style={[styles.title, { color: isLight ? colors.text : '#fff' }]}>SHARE</Text>
+                            <Text style={[styles.subtitle, { color: accentColor }]} numberOfLines={1}>{habitName.toUpperCase()}</Text>
+                            <Text style={styles.description}>Share this habit with friends to stay accountable together</Text>
 
                             {loading ? (
                                 <ActivityIndicator color={colors.primary} style={{ marginVertical: 30 }} />
@@ -135,19 +140,19 @@ export const ShareHabitModal: React.FC<ShareHabitModalProps> = ({ visible, habit
                                     {friends.map(friend => {
                                         const isShared = sharedWith.includes(friend.id);
                                         return (
-                                            <TouchableOpacity key={friend.id} onPress={() => toggleShare(friend.id)} style={[styles.friendChip, isShared && styles.friendChipActive]}>
-                                                <View style={[styles.avatar, isShared && { backgroundColor: '#3B82F6' }]}>
+                                            <TouchableOpacity key={friend.id} onPress={() => toggleShare(friend.id)} style={[styles.friendChip, isShared && [styles.friendChipActive, { backgroundColor: accentColor + '15', borderColor: accentColor }]]}>
+                                                <View style={[styles.avatar, isShared && { backgroundColor: accentColor }]}>
                                                     <Text style={{ fontSize: 12, color: isShared ? '#fff' : colors.textSecondary, fontFamily: 'Lexend' }}>{friend.username[0]?.toUpperCase()}</Text>
                                                 </View>
-                                                <Text style={[styles.friendName, { color: isShared ? '#3B82F6' : colors.textSecondary }]} numberOfLines={1}>{friend.username}</Text>
-                                                {isShared && <Ionicons name="checkmark" size={14} color="#3B82F6" />}
+                                                <Text style={[styles.friendName, { color: isShared ? accentColor : colors.textSecondary }]} numberOfLines={1}>{friend.username}</Text>
+                                                {isShared && <Ionicons name="checkmark" size={14} color={accentColor} />}
                                             </TouchableOpacity>
                                         );
                                     })}
                                 </ScrollView>
                             )}
 
-                            <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.saveButton, { opacity: saving ? 0.6 : 1 }]}>
+                            <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.saveButton, { backgroundColor: accentColor, opacity: saving ? 0.6 : 1 }]}>
                                 {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveText}>Save Changes</Text>}
                             </TouchableOpacity>
                         </Animated.View>
@@ -162,9 +167,11 @@ const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
     sheet: { height: SHEET_HEIGHT, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
     sheetBorder: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(59, 130, 246, 0.15)', pointerEvents: 'none' },
-    content: { flex: 1, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 40, alignItems: 'center' },
+    content: { flex: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 40, alignItems: 'center' },
+    dragIndicator: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: 16 },
     title: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },
-    subtitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1, fontFamily: 'Lexend_400Regular', marginTop: 2, marginBottom: 24 },
+    subtitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1, fontFamily: 'Lexend_400Regular', marginTop: 2, marginBottom: 8 },
+    description: { fontSize: 12, color: 'rgba(255,255,255,0.5)', textAlign: 'center', fontFamily: 'Lexend_400Regular', marginBottom: 16, paddingHorizontal: 20 },
     emptyState: { alignItems: 'center', paddingVertical: 30 },
     emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 8, fontFamily: 'Lexend_400Regular' },
     friendsRow: { paddingVertical: 8, gap: 10 },
@@ -172,6 +179,6 @@ const styles = StyleSheet.create({
     friendChipActive: { backgroundColor: 'rgba(59, 130, 246, 0.15)', borderColor: '#3B82F6' },
     avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
     friendName: { fontSize: 13, fontWeight: '600', maxWidth: 80, fontFamily: 'Lexend' },
-    saveButton: { marginTop: 20, backgroundColor: '#3B82F6', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
+    saveButton: { marginTop: 20, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
     saveText: { color: '#fff', fontSize: 14, fontWeight: '600', fontFamily: 'Lexend' },
 });

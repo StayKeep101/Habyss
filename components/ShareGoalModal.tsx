@@ -16,6 +16,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { FriendsService, Friend } from '@/lib/friendsService';
 import { subscribeToHabits, Habit } from '@/lib/habitsSQLite';
 
@@ -34,6 +35,8 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { lightFeedback, successFeedback } = useHaptics();
+    const { primary: accentColor } = useAccentGradient();
+    const isLight = theme === 'light';
 
     const [friends, setFriends] = useState<Friend[]>([]);
     const [sharedWith, setSharedWith] = useState<string[]>([]);
@@ -154,13 +157,13 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
 
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, sheetStyle]}>
-                        <LinearGradient colors={['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder]} />
+                        <LinearGradient colors={isLight ? [colors.surface, colors.background] : ['#0f1218', '#080a0e']} style={StyleSheet.absoluteFill} />
+                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder, { borderColor: accentColor + '15' }]} />
 
                         <Animated.View style={[styles.content, contentStyle]}>
                             <View style={styles.dragIndicator} />
-                            <Text style={styles.title}>SHARE GOAL</Text>
-                            <Text style={[styles.subtitle, { color: '#10B981' }]} numberOfLines={1}>{goalName.toUpperCase()}</Text>
+                            <Text style={[styles.title, { color: isLight ? colors.text : '#fff' }]}>SHARE GOAL</Text>
+                            <Text style={[styles.subtitle, { color: accentColor }]} numberOfLines={1}>{goalName.toUpperCase()}</Text>
                             <Text style={styles.description}>Collaborate or compete with friends to achieve this goal together</Text>
 
                             {loading ? (
@@ -176,19 +179,19 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
                                     {friends.map(friend => {
                                         const isShared = sharedWith.includes(friend.id);
                                         return (
-                                            <TouchableOpacity key={friend.id} onPress={() => toggleShare(friend.id)} style={[styles.friendChip, isShared && styles.friendChipActive]}>
-                                                <View style={[styles.avatar, isShared && { backgroundColor: '#10B981' }]}>
+                                            <TouchableOpacity key={friend.id} onPress={() => toggleShare(friend.id)} style={[styles.friendChip, isShared && [styles.friendChipActive, { backgroundColor: accentColor + '15', borderColor: accentColor }]]}>
+                                                <View style={[styles.avatar, isShared && { backgroundColor: accentColor }]}>
                                                     <Text style={{ fontSize: 12, color: isShared ? '#fff' : colors.textSecondary, fontFamily: 'Lexend' }}>{friend.username[0]?.toUpperCase()}</Text>
                                                 </View>
-                                                <Text style={[styles.friendName, { color: isShared ? '#10B981' : colors.textSecondary }]} numberOfLines={1}>{friend.username}</Text>
-                                                {isShared && <Ionicons name="checkmark" size={14} color="#10B981" />}
+                                                <Text style={[styles.friendName, { color: isShared ? accentColor : colors.textSecondary }]} numberOfLines={1}>{friend.username}</Text>
+                                                {isShared && <Ionicons name="checkmark" size={14} color={accentColor} />}
                                             </TouchableOpacity>
                                         );
                                     })}
                                 </ScrollView>
                             )}
 
-                            <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.saveButton, { opacity: saving ? 0.6 : 1 }]}>
+                            <TouchableOpacity onPress={handleSave} disabled={saving} style={[styles.saveButton, { backgroundColor: accentColor, opacity: saving ? 0.6 : 1 }]}>
                                 {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveText}>Save Changes</Text>}
                             </TouchableOpacity>
                         </Animated.View>
@@ -216,6 +219,6 @@ const styles = StyleSheet.create({
     friendChipActive: { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: '#10B981' },
     avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
     friendName: { fontSize: 13, fontWeight: '600', maxWidth: 80, fontFamily: 'Lexend' },
-    saveButton: { marginTop: 20, backgroundColor: '#10B981', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
+    saveButton: { marginTop: 20, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
     saveText: { color: '#fff', fontSize: 14, fontWeight: '600', fontFamily: 'Lexend' },
 });

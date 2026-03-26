@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DeviceEventEmitter } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { toggleCompletion } from '@/lib/habitsSQLite';
 import { useFocusTime, FocusMode } from '@/constants/FocusTimeContext';
 
 // ============================================
@@ -308,8 +310,21 @@ export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const completeCurrentHabit = useCallback(() => {
         if (!activeRoutine || !activeRoutineSession) return;
 
+        const currentHabit = activeRoutine.habits[currentHabitIndex];
         const nextIndex = currentHabitIndex + 1;
         const newCompleted = activeRoutineSession.completedHabits + 1;
+
+        // Mark the habit as complete in the database
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (currentHabit) {
+            toggleCompletion(currentHabit.habitId, todayStr).catch(console.error);
+            // Emit event so home screen updates
+            DeviceEventEmitter.emit('habit_completion_updated', {
+                habitId: currentHabit.habitId,
+                date: todayStr,
+                completed: true,
+            });
+        }
 
         setActiveRoutineSession(prev => prev ? {
             ...prev,
