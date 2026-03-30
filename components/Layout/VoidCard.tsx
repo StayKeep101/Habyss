@@ -15,19 +15,28 @@ export const VoidCard: React.FC<VoidCardProps> = ({ children, style, glass = fal
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
 
     const containerStyle = [
         styles.card,
         {
-            backgroundColor: glass ? (isLight ? 'rgba(255,255,255,0.9)' : 'transparent') : colors.surface,
-            borderColor: isLight ? 'rgba(0,0,0,0.08)' : colors.border,
+            backgroundColor: glass
+                ? isLight
+                    ? 'rgba(255,255,255,0.84)'
+                    : isTrueDark
+                        ? 'rgba(255,255,255,0.03)'
+                        : 'transparent'
+                : isLight
+                    ? colors.surface
+                    : colors.surfaceSecondary,
+            borderColor: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.07)',
         },
         isLight && {
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08,
-            shadowRadius: 8,
-            elevation: 2,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.06,
+            shadowRadius: 20,
+            elevation: 3,
         },
         style,
     ];
@@ -49,7 +58,7 @@ export const VoidCard: React.FC<VoidCardProps> = ({ children, style, glass = fal
 
 const styles = StyleSheet.create({
     card: {
-        borderRadius: 24,
+        borderRadius: 22,
         borderWidth: 1,
         overflow: 'hidden',
     },

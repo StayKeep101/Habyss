@@ -4,6 +4,8 @@
  * This stub prevents import errors in free tier.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export interface Integration {
     id: string;
     service_name: string;
@@ -13,26 +15,82 @@ export interface Integration {
     config?: any;
 }
 
-export class IntegrationService {
-    static async getIntegrations(): Promise<Integration[]> {
+const STORAGE_KEY = 'local_integrations';
+
+async function readIntegrations(): Promise<Integration[]> {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
         return [];
     }
+}
 
-    static async connectService(_serviceName: string, _config?: any): Promise<boolean> {
-        console.log('[Integration] Cloud integrations require premium');
-        return false;
+async function writeIntegrations(integrations: Integration[]): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(integrations));
+}
+
+export class IntegrationService {
+    static async getIntegrations(): Promise<Integration[]> {
+        return readIntegrations();
     }
 
-    static async disconnectService(_id: string): Promise<boolean> {
+    static async connectService(serviceName: string, config?: any): Promise<boolean> {
+        const integrations = await readIntegrations();
+        const existingIndex = integrations.findIndex((integration) => integration.service_name === serviceName);
+        const nextIntegration: Integration = {
+            id: existingIndex >= 0 ? integrations[existingIndex].id : serviceName,
+            service_name: serviceName,
+            is_connected: true,
+            last_sync: new Date().toISOString(),
+            sync_status: 'idle',
+            config,
+        };
+
+        if (existingIndex >= 0) {
+            integrations[existingIndex] = nextIntegration;
+        } else {
+            integrations.push(nextIntegration);
+        }
+
+        await writeIntegrations(integrations);
         return true;
     }
 
-    static async updateIntegration(_id: string, _updates: Partial<Integration>): Promise<void> {
-        // No-op in local mode
+    static async disconnectService(id: string): Promise<boolean> {
+        const integrations = await readIntegrations();
+        const nextIntegrations = integrations.map((integration) =>
+            integration.service_name === id
+                ? {
+                    ...integration,
+                    is_connected: false,
+                    last_sync: undefined,
+                    sync_status: 'idle',
+                }
+                : integration
+        );
+
+        await writeIntegrations(nextIntegrations);
+        return true;
     }
 
-    static async getIntegration(_serviceName: string): Promise<Integration | null> {
-        return null;
+    static async updateIntegration(id: string, updates: Partial<Integration>): Promise<void> {
+        const integrations = await readIntegrations();
+        const nextIntegrations = integrations.map((integration) =>
+            integration.id === id || integration.service_name === id
+                ? { ...integration, ...updates }
+                : integration
+        );
+
+        await writeIntegrations(nextIntegrations);
+    }
+
+    static async getIntegration(serviceName: string): Promise<Integration | null> {
+        const integrations = await readIntegrations();
+        return integrations.find((integration) => integration.service_name === serviceName) || null;
     }
 
     static async recordActivity(_service: string, _type: string, _data?: any): Promise<void> {

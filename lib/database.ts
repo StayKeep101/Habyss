@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 let dbInstance: any = null;
 
@@ -76,11 +76,17 @@ async function runMigrations(db: any): Promise<void> {
     if (currentVersion < 1) {
         await migrateToV1(db);
     }
+    if (currentVersion < 2) {
+        await migrateToV2(db);
+    }
     if (currentVersion < 3) {
         await migrateToV3(db);
     }
     if (currentVersion < 4) {
         await migrateToV4(db);
+    }
+    if (currentVersion < 5) {
+        await migrateToV5(db);
     }
 
     // Update schema version
@@ -216,6 +222,14 @@ async function migrateToV4(db: any): Promise<void> {
     `);
 
     console.log('[Database] Migrated to schema v4');
+}
+
+async function migrateToV5(db: any): Promise<void> {
+    await db.execAsync(`
+        ALTER TABLE habits ADD COLUMN ringtone TEXT DEFAULT 'default';
+    `);
+
+    console.log('[Database] Migrated to schema v5');
 }
 
 /**

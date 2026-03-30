@@ -41,7 +41,9 @@ const HEADER_HEIGHT = 380; // Taller header for better visual
 
 const GoalDetail = () => {
   const router = useRouter();
-  const { goalId } = useGlobalSearchParams();
+  const params = useGlobalSearchParams();
+  const goalIdParam = params.goalId;
+  const goalId = Array.isArray(goalIdParam) ? goalIdParam[0] : goalIdParam;
   const { theme } = useTheme();
   const colors = Colors[theme];
   const { primary: accentColor } = useAccentGradient();
@@ -69,13 +71,18 @@ const GoalDetail = () => {
   });
 
   useEffect(() => {
+    if (!goalId) return;
+
+    let isActive = true;
+
     const loadBackground = async () => {
       const stored = await AsyncStorage.getItem(`goal_bg_${goalId}`);
-      if (stored) setBgImage(stored);
+      if (stored && isActive) setBgImage(stored);
     };
     loadBackground();
 
     const unsubPromise = subscribeToHabits((allHabits) => {
+      if (!isActive) return;
       setHabits(allHabits);
       const foundGoal = allHabits.find(h => h.id === goalId);
       if (foundGoal) {
@@ -90,14 +97,14 @@ const GoalDetail = () => {
       const now = new Date();
       const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const c = await getCompletions(dateStr);
-      setCompletions(c);
+      if (isActive) setCompletions(c);
     };
     loadCompletions();
 
     // Load history data for accurate progress calculation
     const loadHistory = async () => {
       const data = await getLastNDaysCompletions(90);
-      setHistoryData(data);
+      if (isActive) setHistoryData(data);
     };
     loadHistory();
 
@@ -110,6 +117,7 @@ const GoalDetail = () => {
     });
 
     return () => {
+      isActive = false;
       unsubPromise.then(unsub => unsub());
       sub.remove();
     };
@@ -267,6 +275,17 @@ const GoalDetail = () => {
     const diff = target.getTime() - today.getTime();
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [goal?.targetDate]);
+
+  if (!goalId) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <Text style={{ color: colors.textSecondary }}>Goal is unavailable</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <Text style={{ color: colors.primary }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (!goal) return null;
 

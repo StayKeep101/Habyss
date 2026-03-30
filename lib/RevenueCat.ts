@@ -1,13 +1,12 @@
 import Purchases, { PurchasesOffering, PurchasesPackage, CustomerInfo, LOG_LEVEL } from 'react-native-purchases';
 import { Platform } from 'react-native';
 
-// TODO: Replace with your actual RevenueCat API Keys
 const API_KEYS = {
-    apple: 'test_EdqZuOzgwERAuCejCCNfNMRicdW', // Set from user request
-    google: 'goog_placeholder', // REPLACE THIS
+    apple: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY || 'test_EdqZuOzgwERAuCejCCNfNMRicdW',
+    google: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY || '',
 };
 
-const ENTITLEMENT_ID = 'Habyss Pro'; // Must match your RevenueCat Entitlement ID
+const ENTITLEMENT_IDS = ['Habyss Pro', 'pro'];
 
 export interface ProStatus {
     isPro: boolean;
@@ -18,6 +17,7 @@ export interface ProStatus {
 class RevenueCatService {
     private static instance: RevenueCatService;
     private isInitialized = false;
+    private currentAppUserId?: string;
 
     private constructor() { }
 
@@ -28,30 +28,69 @@ class RevenueCatService {
         return RevenueCatService.instance;
     }
 
+    private getApiKeyForCurrentPlatform(): string | null {
+        if (Platform.OS === 'ios') return API_KEYS.apple || null;
+        if (Platform.OS === 'android') return API_KEYS.google || null;
+        return null;
+    }
+
+    isConfigured(): boolean {
+        return !!this.getApiKeyForCurrentPlatform();
+    }
+
+    private async ensureInitialized(userId?: string): Promise<boolean> {
+        const desiredUserId = userId || this.currentAppUserId;
+
+        if (!this.isConfigured()) {
+            console.warn(`[RevenueCat] Missing API key for ${Platform.OS}`);
+            return false;
+        }
+
+        if (!this.isInitialized) {
+            await this.init(desiredUserId);
+            return this.isInitialized;
+        }
+
+        if (desiredUserId && desiredUserId !== this.currentAppUserId) {
+            try {
+                await Purchases.logIn(desiredUserId);
+                this.currentAppUserId = desiredUserId;
+            } catch (e) {
+                console.error('[RevenueCat] Login sync error:', e);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     async init(userId?: string) {
         if (this.isInitialized) return;
 
-        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-
-        if (Platform.OS === 'ios') {
-            Purchases.configure({ apiKey: API_KEYS.apple, appUserID: userId });
-        } else if (Platform.OS === 'android') {
-            Purchases.configure({ apiKey: API_KEYS.google, appUserID: userId });
+        const apiKey = this.getApiKeyForCurrentPlatform();
+        if (!apiKey) {
+            console.warn(`[RevenueCat] Skipping initialization: no API key for ${Platform.OS}`);
+            return;
         }
 
+        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+
+        Purchases.configure({ apiKey, appUserID: userId });
+
         this.isInitialized = true;
+        this.currentAppUserId = userId;
         console.log('[RevenueCat] Initialized');
     }
 
     async logIn(userId: string) {
-        if (!this.isInitialized) {
-            console.log('[RevenueCat] Login called before init. Initializing now...');
-            await this.init(userId);
+        const initialized = await this.ensureInitialized(userId);
+        if (!initialized) {
             return;
         }
 
         try {
             await Purchases.logIn(userId);
+            this.currentAppUserId = userId;
         } catch (e) {
             console.error('[RevenueCat] Login error:', e);
         }
@@ -69,7 +108,8 @@ class RevenueCatService {
     }
 
     async getOfferings(): Promise<PurchasesOffering | null> {
-        if (!this.isInitialized) await this.init();
+        const initialized = await this.ensureInitialized();
+        if (!initialized) return null;
 
         try {
             const offerings = await Purchases.getOfferings();
@@ -86,7 +126,10 @@ class RevenueCatService {
     async purchasePackage(
         pkg: PurchasesPackage
     ): Promise<{ isPro: boolean; customerInfo: CustomerInfo }> {
-        if (!this.isInitialized) await this.init(); // Auto-init if needed (fallback)
+        const initialized = await this.ensureInitialized();
+        if (!initialized) {
+            throw new Error(`RevenueCat is not configured for ${Platform.OS}`);
+        }
 
         try {
             const { customerInfo } = await Purchases.purchasePackage(pkg);
@@ -102,7 +145,8 @@ class RevenueCatService {
     }
 
     async restorePurchases(): Promise<boolean> {
-        if (!this.isInitialized) await this.init();
+        const initialized = await this.ensureInitialized();
+        if (!initialized) return false;
 
         try {
             const customerInfo = await Purchases.restorePurchases();
@@ -114,9 +158,8 @@ class RevenueCatService {
     }
 
     async checkProStatus(): Promise<boolean> {
-        if (!this.isInitialized) {
-            await this.init();
-        }
+        const initialized = await this.ensureInitialized();
+        if (!initialized) return false;
 
         try {
             const customerInfo = await Purchases.getCustomerInfo();
@@ -130,12 +173,13 @@ class RevenueCatService {
     private checkProEntitlement(customerInfo: CustomerInfo): boolean {
         console.log('[RevenueCat] Checking Entitlements:', JSON.stringify(customerInfo.entitlements.active, null, 2));
 
-        if (
-            customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined
-        ) {
-            console.log('[RevenueCat] User IS Pro');
-            return true;
+        for (const entitlementId of ENTITLEMENT_IDS) {
+            if (customerInfo.entitlements.active[entitlementId] !== undefined) {
+                console.log('[RevenueCat] User IS Pro');
+                return true;
+            }
         }
+
         console.log('[RevenueCat] User is NOT Pro');
         return false;
     }

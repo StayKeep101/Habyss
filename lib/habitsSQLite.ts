@@ -207,6 +207,7 @@ export async function getHabits(): Promise<Habit[]> {
                     frequency: row.frequency,
                     weekInterval: row.week_interval,
                     timeOfDay: row.time_of_day,
+                    ringtone: row.ringtone || 'default',
                     reminderOffset: row.reminder_offset,
                     locationReminders: typeof row.location_reminders === 'string' ? JSON.parse(row.location_reminders || '[]') : (row.location_reminders || []),
                     graphStyle: row.graph_style,
@@ -252,8 +253,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                         task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
                         type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
                         frequency, week_interval, time_of_day, graph_style, tracking_method,
-                        reminder_offset, location_reminders, health_kit_metric, health_kit_target, created_at, updated_at, synced, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                        ringtone, reminder_offset, location_reminders, health_kit_metric, health_kit_target, created_at, updated_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                 `,
                     id,
                     uid,
@@ -284,6 +285,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     habitData.timeOfDay || null,
                     habitData.graphStyle || null,
                     habitData.trackingMethod || 'boolean',
+                    habitData.ringtone || 'default',
                     habitData.reminderOffset || null,
                     JSON.stringify(habitData.locationReminders || []),
                     habitData.healthKitMetric || null,
@@ -318,6 +320,10 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     isArchived: habitData.isArchived || false,
                     showMemo: habitData.showMemo || false,
                     goalId: habitData.goalId,
+                    frequency: habitData.frequency,
+                    weekInterval: habitData.weekInterval,
+                    timeOfDay: habitData.timeOfDay,
+                    ringtone: habitData.ringtone || 'default',
                     reminderOffset: habitData.reminderOffset,
                     locationReminders: habitData.locationReminders || [],
                     graphStyle: habitData.graphStyle,
@@ -377,8 +383,21 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.durationMinutes !== undefined) { setClauses.push('duration_minutes = ?'); params.push(updatedHabit.durationMinutes); }
                 if (updatedHabit.startTime !== undefined) { setClauses.push('start_time = ?'); params.push(updatedHabit.startTime); }
                 if (updatedHabit.endTime !== undefined) { setClauses.push('end_time = ?'); params.push(updatedHabit.endTime); }
+                if (updatedHabit.type !== undefined) { setClauses.push('type = ?'); params.push(updatedHabit.type); }
+                if (updatedHabit.color !== undefined) { setClauses.push('color = ?'); params.push(updatedHabit.color); }
+                if (updatedHabit.goalPeriod !== undefined) { setClauses.push('goal_period = ?'); params.push(updatedHabit.goalPeriod); }
+                if (updatedHabit.goalValue !== undefined) { setClauses.push('goal_value = ?'); params.push(updatedHabit.goalValue); }
+                if (updatedHabit.unit !== undefined) { setClauses.push('unit = ?'); params.push(updatedHabit.unit); }
+                if (updatedHabit.chartType !== undefined) { setClauses.push('chart_type = ?'); params.push(updatedHabit.chartType); }
+                if (updatedHabit.showMemo !== undefined) { setClauses.push('show_memo = ?'); params.push(updatedHabit.showMemo ? 1 : 0); }
+                if (updatedHabit.frequency !== undefined) { setClauses.push('frequency = ?'); params.push(updatedHabit.frequency); }
+                if (updatedHabit.weekInterval !== undefined) { setClauses.push('week_interval = ?'); params.push(updatedHabit.weekInterval); }
+                if (updatedHabit.timeOfDay !== undefined) { setClauses.push('time_of_day = ?'); params.push(updatedHabit.timeOfDay); }
+                if (updatedHabit.startDate !== undefined) { setClauses.push('start_date = ?'); params.push(updatedHabit.startDate); }
+                if (updatedHabit.endDate !== undefined) { setClauses.push('end_date = ?'); params.push(updatedHabit.endDate); }
                 if (updatedHabit.graphStyle !== undefined) { setClauses.push('graph_style = ?'); params.push(updatedHabit.graphStyle); }
                 if (updatedHabit.trackingMethod !== undefined) { setClauses.push('tracking_method = ?'); params.push(updatedHabit.trackingMethod); }
+                if (updatedHabit.ringtone !== undefined) { setClauses.push('ringtone = ?'); params.push(updatedHabit.ringtone); }
                 if (updatedHabit.reminderOffset !== undefined) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset); }
                 if (updatedHabit.locationReminders !== undefined) { setClauses.push('location_reminders = ?'); params.push(JSON.stringify(updatedHabit.locationReminders)); }
                 if (updatedHabit.healthKitMetric !== undefined) { setClauses.push('health_kit_metric = ?'); params.push(updatedHabit.healthKitMetric); }
@@ -523,7 +542,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {
         try {
-            const { getDatabase, generateId } = await import('./database');
+            const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db) {
                 if (wasCompleted) {
@@ -535,17 +554,21 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
 
                     // Queue for sync removed — local-only
                 } else {
-                    // Insert new completion
-                    const id = generateId();
                     await db.runAsync(
-                        'INSERT INTO completions (id, user_id, habit_id, date, value, created_at, synced, deleted) VALUES (?, ?, ?, ?, 1, ?, 0, 0)',
-                        id, uid, habitId, dateStr, now
+                        `INSERT INTO completions (id, user_id, habit_id, date, value, created_at, updated_at, synced, deleted)
+                         VALUES (?, ?, ?, ?, 1, ?, ?, 0, 0)
+                         ON CONFLICT(habit_id, date) DO UPDATE SET
+                         value = 1,
+                         updated_at = excluded.updated_at,
+                         deleted = 0,
+                         synced = 0`,
+                        `${habitId}_${dateStr}`, uid, habitId, dateStr, now, now
                     );
 
                     // Queue for sync
                     await db.runAsync(
                         'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-                        'completions', 'INSERT', id, JSON.stringify({ habitId, date: dateStr }), now
+                        'completions', 'UPSERT', `${habitId}_${dateStr}`, JSON.stringify({ habitId, date: dateStr }), now
                     );
 
                     // Send notification
@@ -673,15 +696,23 @@ export async function getHabitStats(habitId: string): Promise<{
     totalCompletions: number;
     totalDaysTracked: number;
 }> {
+    const habits = await getHabits();
+    const habit = habits.find((item) => item.id === habitId);
+    if (!habit) {
+        return { currentStreak: 0, bestStreak: 0, completionRate: 0, totalCompletions: 0, totalDaysTracked: 0 };
+    }
+
     const history = await getLastNDaysCompletions(366);
-    const habitHistory = history.map(d => ({
+    const trackingStartStr = todayString(new Date(habit.startDate || habit.createdAt));
+    const habitHistory = history
+        .filter((day) => day.date >= trackingStartStr)
+        .map(d => ({
         date: d.date,
         completed: d.completedIds.includes(habitId),
+        scheduled: isHabitScheduledForDate(habit, new Date(`${d.date}T12:00:00`)),
     }));
 
-    // Find the first day this habit was completed (or just use full range)
-    const firstCompletionIdx = habitHistory.findIndex(d => d.completed);
-    const relevantHistory = firstCompletionIdx >= 0 ? habitHistory.slice(firstCompletionIdx) : habitHistory;
+    const relevantHistory = habitHistory.filter((day) => day.scheduled);
 
     let currentStreak = 0;
     let bestStreak = 0;
@@ -700,14 +731,14 @@ export async function getHabitStats(habitId: string): Promise<{
     bestStreak = Math.max(bestStreak, tempStreak);
 
     // Current streak (from end, allow today to be incomplete)
-    for (let i = habitHistory.length - 1; i >= 0; i--) {
-        if (habitHistory[i].completed) currentStreak++;
-        else if (i === habitHistory.length - 1) continue; // today might not be done yet
+    for (let i = relevantHistory.length - 1; i >= 0; i--) {
+        if (relevantHistory[i].completed) currentStreak++;
+        else if (i === relevantHistory.length - 1) continue; // today might not be done yet
         else break;
     }
 
-    const totalDaysTracked = relevantHistory.length || 1;
-    const completionRate = Math.round((totalCompletions / totalDaysTracked) * 100);
+    const totalDaysTracked = relevantHistory.length;
+    const completionRate = totalDaysTracked > 0 ? Math.round((totalCompletions / totalDaysTracked) * 100) : 0;
 
     return { currentStreak, bestStreak, completionRate, totalCompletions, totalDaysTracked };
 }

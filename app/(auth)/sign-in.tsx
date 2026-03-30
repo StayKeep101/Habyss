@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, StyleSheet, Linking } from 'react-native';
+import { Text, TouchableOpacity, View, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,9 +8,11 @@ import { useTheme } from '@/constants/themeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { AppleAuthButton } from '@/components/Auth/AppleAuthButton';
+import { AppButton } from '@/components/Common/AppButton';
+import { AppTextField } from '@/components/Common/AppTextField';
+import { SectionDivider } from '@/components/Common/SectionDivider';
 
 const SignIn = () => {
   const { theme } = useTheme();
@@ -32,11 +34,6 @@ const SignIn = () => {
     Alert.alert('Coming Soon', 'Cloud sign-in will be available with premium.');
   };
 
-  const handleSkip = async () => {
-    await AsyncStorage.setItem('habyss_onboarding_complete', 'true');
-    router.replace("/(root)/(tabs)/home");
-  };
-
   return (
     <VoidShell>
       <SafeAreaView style={{ flex: 1 }}>
@@ -54,41 +51,27 @@ const SignIn = () => {
 
             {/* Form Container */}
             <VoidCard glass style={{ padding: 24 }}>
+              <AppTextField
+                label="Email"
+                leadingIcon="mail-outline"
+                placeholder="Enter your email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
 
-              {/* Email */}
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>EMAIL</Text>
-                <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
-                  <Ionicons name="mail-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
-                  <TextInput
-                    placeholder="Enter your email"
-                    placeholderTextColor={colors.textTertiary}
-                    style={[styles.input, { color: colors.textPrimary }]}
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
-                </View>
-              </View>
-
-              {/* Password */}
-              <View style={[styles.inputGroup, { marginTop: 20 }]}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>PASSWORD</Text>
-                <View style={[styles.inputContainer, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }]}>
-                  <Ionicons name="lock-closed-outline" size={20} color={colors.textTertiary} style={{ marginRight: 10 }} />
-                  <TextInput
-                    placeholder="Enter your password"
-                    placeholderTextColor={colors.textTertiary}
-                    style={[styles.input, { color: colors.textPrimary }]}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textTertiary} />
-                  </TouchableOpacity>
-                </View>
+              <View style={{ marginTop: 20 }}>
+                <AppTextField
+                  label="Password"
+                  leadingIcon="lock-closed-outline"
+                  trailingIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  onTrailingPress={() => setShowPassword(!showPassword)}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
               </View>
 
               <TouchableOpacity style={{ alignItems: 'flex-end', marginTop: 12 }}>
@@ -96,39 +79,23 @@ const SignIn = () => {
               </TouchableOpacity>
 
               {/* Sign In Button */}
-              <TouchableOpacity
-                onPress={handleSignIn}
-                disabled={loading}
-                style={[styles.button, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
-              >
-                {loading ? (
-                  <ActivityIndicator color="black" />
-                ) : (
-                  <Text style={styles.buttonText}>SIGN IN</Text>
-                )}
-              </TouchableOpacity>
+              <AppButton label="Sign In" onPress={handleSignIn} loading={loading} style={styles.primaryButton} />
 
             </VoidCard>
 
-            {/* Divider */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8 }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: 'Lexend_400Regular', marginHorizontal: 12 }}>OR</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-            </View>
+            <SectionDivider label="or" />
 
             {/* Social Sign In */}
             <View style={{ gap: 12 }}>
               <AppleAuthButton type="sign-in" />
 
-              <TouchableOpacity
+              <AppButton
+                label="Continue with Google"
                 onPress={handleGoogleSignIn}
                 disabled={loading}
-                style={[styles.googleButton, { borderColor: 'rgba(255,255,255,0.2)' }]}
-              >
-                <Ionicons name="logo-google" size={20} color={colors.textPrimary} style={{ marginRight: 12 }} />
-                <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
-              </TouchableOpacity>
+                variant="secondary"
+                icon="logo-google"
+              />
             </View>
 
             {/* Footer Actions */}
@@ -161,62 +128,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  // glassCard removed
-  inputGroup: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 10,
-    fontFamily: 'Lexend_400Regular',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    height: '100%',
-    fontFamily: 'Lexend_400Regular',
-  },
-  button: {
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  primaryButton: {
     marginTop: 24,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  buttonText: {
-    color: 'black', // High contrast on cyan/primary
-    fontSize: 14,
-    fontFamily: 'Lexend_400Regular',
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  googleButton: {
-    height: 52,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  googleButtonText: {
-    fontSize: 12,
-    fontFamily: 'Lexend_400Regular',
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
   },
 });
 

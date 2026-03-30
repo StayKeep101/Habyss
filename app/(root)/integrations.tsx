@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, Linking, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -20,29 +21,37 @@ interface IntegrationItem {
     description: string;
     icon: keyof typeof Ionicons.glyphMap;
     service: string;
+    available: boolean;
+    badge?: string;
 }
 
 const INTEGRATIONS: IntegrationItem[] = [
     {
         id: 'spotify',
-        name: 'Spotify (Coming Soon)',
+        name: 'Spotify',
         description: 'Play music while building habits',
         icon: 'musical-notes',
         service: 'spotify',
+        available: true,
+        badge: 'Beta',
     },
     {
         id: 'calendar',
-        name: 'Calendar (Coming Soon)',
+        name: 'Calendar',
         description: 'Sync habits with your calendar events',
         icon: 'calendar-outline',
         service: 'apple_calendar',
+        available: false,
+        badge: 'Soon',
     },
     {
         id: 'reminders',
-        name: 'Reminders (Coming Soon)',
+        name: 'Reminders',
         description: 'Create reminders for your habits',
         icon: 'notifications-outline',
         service: 'apple_reminders',
+        available: false,
+        badge: 'Soon',
     },
     {
         id: 'health',
@@ -50,6 +59,8 @@ const INTEGRATIONS: IntegrationItem[] = [
         description: 'Auto-complete fitness habits from Health data',
         icon: 'heart-outline',
         service: 'apple_health',
+        available: Platform.OS === 'ios',
+        badge: Platform.OS === 'ios' ? undefined : 'iOS only',
     },
 ];
 
@@ -69,117 +80,87 @@ export default function IntegrationsScreen() {
         loadIntegrations();
     }, []);
 
-    const loadIntegrations = async () => {
+    const loadIntegrations = useCallback(async () => {
         try {
             const data = await IntegrationService.getIntegrations();
             const statuses: Record<string, boolean> = {};
             data.forEach((i: Integration) => {
                 statuses[i.service_name] = i.is_connected;
             });
+
+            statuses.spotify = await SpotifyService.isConnected();
             setIntegrations(statuses);
         } catch (e) {
             console.error('Error loading integrations:', e);
         }
-    };
+    }, []);
 
-    const handleCalendarToggle = async (enabled: boolean) => {
-        setLoading(prev => ({ ...prev, apple_calendar: true }));
-        try {
-            if (enabled) {
-                try {
-                    const Calendar = require('expo-calendar');
-                    const { status } = await Calendar.requestCalendarPermissionsAsync();
-                    if (status === 'granted') {
-                        // Get default calendar
-                        const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-                        if (calendars.length > 0) {
-                            await IntegrationService.connectService('apple_calendar', { accessToken: 'local' });
-                            setIntegrations(prev => ({ ...prev, apple_calendar: true }));
-                            successFeedback();
-                            Alert.alert('Connected', 'Calendar integration enabled');
-                        }
-                    } else {
-                        Alert.alert('Permission Denied', 'Calendar access is required for this feature');
-                    }
-                } catch (e) {
-                    Alert.alert('Not Available', 'Calendar feature is not available in this build.');
-                    console.error(e);
-                }
-            } else {
-                await IntegrationService.disconnectService('apple_calendar');
-                setIntegrations(prev => ({ ...prev, apple_calendar: false }));
-                lightFeedback();
-            }
-        } catch (e) {
-            console.error('Calendar toggle error:', e);
-            Alert.alert('Error', 'Failed to toggle calendar integration');
-        }
-        setLoading(prev => ({ ...prev, apple_calendar: false }));
-    };
+    useEffect(() => {
+        const handleSpotifyCallback = async (url: string | null) => {
+            if (!url || !url.includes('spotify-callback')) return;
 
-    const handleRemindersToggle = async (enabled: boolean) => {
-        setLoading(prev => ({ ...prev, apple_reminders: true }));
-        try {
-            if (enabled) {
-                try {
-                    const Calendar = require('expo-calendar');
-                    const { status } = await Calendar.requestRemindersPermissionsAsync();
-                    if (status === 'granted') {
-                        await IntegrationService.connectService('apple_reminders', { accessToken: 'local' });
-                        setIntegrations(prev => ({ ...prev, apple_reminders: true }));
-                        successFeedback();
-                        Alert.alert('Connected', 'Reminders integration enabled');
-                    } else {
-                        Alert.alert('Permission Denied', 'Reminders access is required for this feature');
-                    }
-                } catch (e) {
-                    Alert.alert('Not Available', 'Reminders feature is not available in this build.');
-                    console.error(e);
+            setLoading(prev => ({ ...prev, spotify: true }));
+            try {
+                const connected = await SpotifyService.handleCallback(url);
+                if (connected) {
+                    successFeedback();
+                    await loadIntegrations();
+                    Alert.alert('Connected', 'Spotify integration enabled');
+                } else {
+                    Alert.alert('Spotify', 'Could not complete Spotify sign-in.');
                 }
-            } else {
-                await IntegrationService.disconnectService('apple_reminders');
-                setIntegrations(prev => ({ ...prev, apple_reminders: false }));
-                lightFeedback();
+            } catch (e) {
+                console.error('Spotify callback handling error:', e);
+                Alert.alert('Error', 'Failed to finish Spotify connection');
+            } finally {
+                setLoading(prev => ({ ...prev, spotify: false }));
             }
-        } catch (e) {
-            console.error('Reminders toggle error:', e);
-            Alert.alert('Error', 'Failed to toggle reminders integration');
-        }
-        setLoading(prev => ({ ...prev, apple_reminders: false }));
+        };
+
+        Linking.getInitialURL().then(handleSpotifyCallback).catch(() => undefined);
+        const subscription = Linking.addEventListener('url', ({ url }) => {
+            handleSpotifyCallback(url);
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [loadIntegrations, successFeedback]);
+
+    const showUnavailableNotice = (name: string) => {
+        Alert.alert('Not available yet', `${name} is not ready in the app yet.`);
     };
 
     const handleHealthToggle = async (enabled: boolean) => {
-        const handleHealthToggle = async (enabled: boolean) => {
-            setLoading(prev => ({ ...prev, apple_health: true }));
-            try {
-                if (enabled) {
-                    const available = await HealthKitService.isAvailable();
-                    if (!available) {
-                        Alert.alert('Not Available', 'Apple Health is not available on this device.');
-                        setLoading(prev => ({ ...prev, apple_health: false }));
-                        return;
-                    }
-
-                    const granted = await HealthKitService.requestPermissions();
-                    if (granted) {
-                        await IntegrationService.connectService('apple_health', { accessToken: 'local' });
-                        setIntegrations(prev => ({ ...prev, apple_health: true }));
-                        successFeedback();
-                        Alert.alert('Connected', 'Apple Health integration enabled. Focus sessions will now count as Mindful Minutes.');
-                    } else {
-                        Alert.alert('Permission Denied', 'Health access is required to sync minutes.');
-                    }
-                } else {
-                    await IntegrationService.disconnectService('apple_health');
-                    setIntegrations(prev => ({ ...prev, apple_health: false }));
-                    lightFeedback();
+        setLoading(prev => ({ ...prev, apple_health: true }));
+        try {
+            if (enabled) {
+                const available = await HealthKitService.isAvailable();
+                if (!available) {
+                    Alert.alert('Not Available', 'Apple Health is not available on this device.');
+                    return;
                 }
-            } catch (e) {
-                console.error('Health toggle error:', e);
-                Alert.alert('Error', 'Failed to toggle Health integration');
+
+                const granted = await HealthKitService.requestPermissions();
+                if (granted) {
+                    await IntegrationService.connectService('apple_health', { accessToken: 'local' });
+                    setIntegrations(prev => ({ ...prev, apple_health: true }));
+                    successFeedback();
+                    Alert.alert('Connected', 'Apple Health integration enabled.');
+                } else {
+                    Alert.alert('Permission Denied', 'Health access is required to sync minutes.');
+                }
+            } else {
+                await IntegrationService.disconnectService('apple_health');
+                setIntegrations(prev => ({ ...prev, apple_health: false }));
+                lightFeedback();
             }
+        } catch (e) {
+            console.error('Health toggle error:', e);
+            Alert.alert('Error', 'Failed to toggle Health integration');
+        } finally {
             setLoading(prev => ({ ...prev, apple_health: false }));
-        };
+        }
     };
 
     const handleSpotifyToggle = async (enabled: boolean) => {
@@ -197,7 +178,6 @@ export default function IntegrationsScreen() {
                     return;
                 }
                 await SpotifyService.connect();
-                // Note: OAuth callback will update the connection status
                 Alert.alert('Spotify', 'Complete the login in your browser, then return to the app.');
             } else {
                 await SpotifyService.disconnect();
@@ -214,8 +194,6 @@ export default function IntegrationsScreen() {
     const getToggleHandler = (service: string) => {
         switch (service) {
             case 'spotify': return handleSpotifyToggle;
-            case 'apple_calendar': return handleCalendarToggle;
-            case 'apple_reminders': return handleRemindersToggle;
             case 'apple_health': return handleHealthToggle;
             default: return () => { };
         }
@@ -260,17 +238,32 @@ export default function IntegrationsScreen() {
                                         <Ionicons name={item.icon} size={20} color={accentColor} />
                                     </View>
                                     <View style={styles.textContent}>
-                                        <Text style={[styles.itemName, { color: colors.textPrimary }]}>
-                                            {item.name}
-                                        </Text>
+                                        <View style={styles.nameRow}>
+                                            <Text style={[styles.itemName, { color: colors.textPrimary }]}>
+                                                {item.name}
+                                            </Text>
+                                            {item.badge ? (
+                                                <View style={[styles.badge, { backgroundColor: colors.surface }]}>
+                                                    <Text style={[styles.badgeText, { color: colors.textSecondary }]}>
+                                                        {item.badge}
+                                                    </Text>
+                                                </View>
+                                            ) : null}
+                                        </View>
                                         <Text style={[styles.itemDesc, { color: colors.textTertiary }]}>
                                             {item.description}
                                         </Text>
                                     </View>
                                     <Switch
                                         value={integrations[item.service] || false}
-                                        onValueChange={(v) => getToggleHandler(item.service)(v)}
-                                        disabled={loading[item.service]}
+                                        onValueChange={(v) => {
+                                            if (!item.available) {
+                                                showUnavailableNotice(item.name);
+                                                return;
+                                            }
+                                            getToggleHandler(item.service)(v);
+                                        }}
+                                        disabled={loading[item.service] || !item.available}
                                         trackColor={{ false: colors.border, true: accentColor }}
                                     />
                                 </View>
@@ -347,10 +340,25 @@ const styles = StyleSheet.create({
     textContent: {
         flex: 1,
     },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
     itemName: {
         fontSize: 15,
         fontWeight: '600',
         fontFamily: 'Lexend',
+    },
+    badge: {
+        borderRadius: 999,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+    },
+    badgeText: {
+        fontSize: 10,
+        fontFamily: 'Lexend_400Regular',
+        textTransform: 'uppercase',
     },
     itemDesc: {
         fontSize: 11,

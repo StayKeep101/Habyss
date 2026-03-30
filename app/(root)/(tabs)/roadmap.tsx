@@ -22,7 +22,7 @@ import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { GoalCreationWizard } from '@/components/GoalCreationWizard';
 
-import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, isHabitScheduledForDate, addHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
+import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { FriendsService } from '@/lib/friendsService';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -90,6 +90,11 @@ const CalendarScreen = () => {
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
     const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
+    const [draggingHabit, setDraggingHabit] = useState<Habit | null>(null);
+    const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+    const [hoveredGoalId, setHoveredGoalId] = useState<string | null>(null);
+    const goalRefs = useRef<Record<string, View | null>>({});
+    const goalDropLayouts = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
 
     // Pull-to-Filter Logic
     const scrollY = useSharedValue(0);
@@ -382,6 +387,66 @@ const CalendarScreen = () => {
         });
     };
 
+    const measureGoalDropTargets = useCallback(async (goalList: Habit[]) => {
+        const entries = await Promise.all(
+            goalList.map(
+                (goal) =>
+                    new Promise<[string, { x: number; y: number; width: number; height: number } | null]>((resolve) => {
+                        const ref = goalRefs.current[goal.id];
+                        if (!ref || typeof ref.measureInWindow !== 'function') {
+                            resolve([goal.id, null]);
+                            return;
+                        }
+
+                        ref.measureInWindow((x, y, width, height) => {
+                            resolve([goal.id, { x, y, width, height }]);
+                        });
+                    })
+            )
+        );
+
+        goalDropLayouts.current = Object.fromEntries(entries.filter((entry): entry is [string, { x: number; y: number; width: number; height: number }] => !!entry[1]));
+    }, []);
+
+    const getHoveredGoalAtPoint = useCallback((x: number, y: number) => {
+        for (const [goalId, layout] of Object.entries(goalDropLayouts.current)) {
+            if (x >= layout.x && x <= layout.x + layout.width && y >= layout.y && y <= layout.y + layout.height) {
+                return goalId;
+            }
+        }
+        return null;
+    }, []);
+
+    const handleHabitDragStart = useCallback(async (habit: Habit, x: number, y: number) => {
+        selectionFeedback();
+        setDraggingHabit(habit);
+        setDragPosition({ x, y });
+        const currentGoals = habitsStore.filter((item) => item.isGoal) as Habit[];
+        await measureGoalDropTargets(currentGoals);
+        setHoveredGoalId(getHoveredGoalAtPoint(x, y));
+    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore]);
+
+    const handleHabitDragMove = useCallback((habit: Habit, x: number, y: number) => {
+        setDragPosition({ x, y });
+        setHoveredGoalId(getHoveredGoalAtPoint(x, y));
+    }, [getHoveredGoalAtPoint]);
+
+    const handleHabitDragEnd = useCallback(async (habit: Habit, x: number, y: number) => {
+        const targetGoalId = getHoveredGoalAtPoint(x, y);
+
+        setDraggingHabit(null);
+        setHoveredGoalId(null);
+
+        if (!targetGoalId || targetGoalId === habit.goalId) {
+            return;
+        }
+
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        await updateHabit({ id: habit.id, goalId: targetGoalId });
+        setExpandedGoals((prev) => ({ ...prev, [targetGoalId]: true }));
+        lightFeedback();
+    }, [getHoveredGoalAtPoint, lightFeedback]);
+
     const toggleGoalExpansion = (goalId: string) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setExpandedGoals(prev => ({
@@ -657,7 +722,8 @@ const CalendarScreen = () => {
                                             const progress = goalProgress[goal.id] || 0;
 
                                             return (
-                                                <View key={goal.id} style={{ marginBottom: 16 }}>
+                                                    <View key={goal.id} style={{ marginBottom: 16 }}>
+                                                    <View ref={(ref) => { goalRefs.current[goal.id] = ref; }}>
                                                     {/* Goal Header / Card */}
                                                     <View style={{ position: 'relative' }}>
                                                         <GoalCard
@@ -666,6 +732,7 @@ const CalendarScreen = () => {
                                                             size={cardSize}
                                                             isExpanded={!!isExpanded}
                                                             linkedHabitsCount={linkedHabits.length}
+                                                            isDropTarget={hoveredGoalId === goal.id}
                                                             onToggleExpand={() => toggleGoalExpansion(goal.id)}
                                                             onPress={() => router.push({ pathname: '/goal-detail', params: { goalId: goal.id } })}
                                                         />
@@ -687,9 +754,13 @@ const CalendarScreen = () => {
                                                                         habit={habit}
                                                                         size={cardSize}
                                                                         completed={!!completions[habit.id]}
+                                                                        isDragging={draggingHabit?.id === habit.id}
                                                                         isActive={habit.id === activeHabitId}
                                                                         timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
                                                                         totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
+                                                                        onDragStart={handleHabitDragStart}
+                                                                        onDragMove={handleHabitDragMove}
+                                                                        onDragEnd={handleHabitDragEnd}
                                                                         onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
                                                                         onToggle={() => handleHabitPress(habit)}
                                                                         onEdit={handleEdit}
@@ -703,6 +774,7 @@ const CalendarScreen = () => {
                                                             )}
                                                         </View>
                                                     )}
+                                                    </View>
                                                 </View>
                                             );
                                         })
@@ -729,10 +801,14 @@ const CalendarScreen = () => {
                                                 key={habit.id}
                                                 habit={habit}
                                                 completed={!!completions[habit.id]}
+                                                isDragging={draggingHabit?.id === habit.id}
                                                 isActive={habit.id === activeHabitId}
                                                 timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
                                                 totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
                                                 goalName={activeFilter === 'habits_only' && associatedGoal ? associatedGoal.name : undefined}
+                                                onDragStart={handleHabitDragStart}
+                                                onDragMove={handleHabitDragMove}
+                                                onDragEnd={handleHabitDragEnd}
                                                 onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
                                                 onToggle={(h) => {
                                                     // Use local date format, not UTC
@@ -762,6 +838,28 @@ const CalendarScreen = () => {
                             {/* Habits section removed - all habits must be linked to goals */}
 
                         </Animated.ScrollView>
+
+                        {draggingHabit ? (
+                            <View pointerEvents="none" style={styles.dragOverlay}>
+                                <View
+                                    style={[
+                                        styles.dragPreview,
+                                        {
+                                            top: dragPosition.y - 28,
+                                            left: 20,
+                                            right: 20,
+                                            borderColor: hoveredGoalId ? accentColor : colors.border,
+                                            backgroundColor: isLight ? 'rgba(255,255,255,0.98)' : 'rgba(10,12,16,0.96)',
+                                        },
+                                    ]}
+                                >
+                                    <Ionicons name={(draggingHabit.icon as any) || 'ellipse-outline'} size={16} color={draggingHabit.color || accentColor} />
+                                    <Text style={[styles.dragPreviewText, { color: colors.text }]} numberOfLines={1}>
+                                        Move "{draggingHabit.name}" into {hoveredGoalId ? goals.find((goal) => goal.id === hoveredGoalId)?.name || 'goal' : 'a goal'}
+                                    </Text>
+                                </View>
+                            </View>
+                        ) : null}
                     </View>
 
                     <GoalCreationWizard
@@ -1032,6 +1130,30 @@ const CalendarScreen = () => {
 };
 
 const styles = StyleSheet.create({
+    dragOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 30,
+    },
+    dragPreview: {
+        position: 'absolute',
+        minHeight: 56,
+        borderRadius: 18,
+        borderWidth: 1.5,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        shadowColor: '#000',
+        shadowOpacity: 0.16,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 10,
+    },
+    dragPreviewText: {
+        flex: 1,
+        fontSize: 14,
+        fontFamily: 'Lexend_500Medium',
+    },
     filterOption: {
         flexDirection: 'row',
         alignItems: 'center',

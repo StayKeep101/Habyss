@@ -1,31 +1,47 @@
-import AppleHealthKit, {
-    HealthValue,
-    HealthKitPermissions,
-} from 'react-native-health';
 import { Platform } from 'react-native';
 
-const PERMISSIONS: HealthKitPermissions = {
-    permissions: {
-        read: [AppleHealthKit.Constants.Permissions.MindfulSession],
-        write: [AppleHealthKit.Constants.Permissions.MindfulSession],
-    },
+let AppleHealthKit: any = null;
+
+try {
+    AppleHealthKit = require('react-native-health');
+} catch {
+    AppleHealthKit = null;
+}
+
+const mindfulPermission = AppleHealthKit?.Constants?.Permissions?.MindfulSession ?? null;
+
+const PERMISSIONS = mindfulPermission
+    ? {
+        permissions: {
+            read: [mindfulPermission],
+            write: [mindfulPermission],
+        },
+    }
+    : {
+        permissions: {
+            read: [],
+            write: [],
+        },
+    };
+
+const hasMethod = (methodName: string): boolean => {
+    return Platform.OS === 'ios' && !!AppleHealthKit && typeof AppleHealthKit[methodName] === 'function';
 };
 
 export const HealthKitService = {
     isAvailable: async (): Promise<boolean> => {
-        if (Platform.OS !== 'ios') return false;
+        if (!hasMethod('isAvailable')) return false;
         return new Promise((resolve) => {
-            AppleHealthKit.isAvailable((err, available) => {
-                if (err) resolve(false);
-                resolve(available);
+            AppleHealthKit.isAvailable((_err: object, available: boolean) => {
+                resolve(!!available);
             });
         });
     },
 
     requestPermissions: async (): Promise<boolean> => {
-        if (Platform.OS !== 'ios') return false;
+        if (!hasMethod('initHealthKit') || !mindfulPermission) return false;
         return new Promise((resolve) => {
-            AppleHealthKit.initHealthKit(PERMISSIONS, (err) => {
+            AppleHealthKit.initHealthKit(PERMISSIONS, (err: string | null) => {
                 if (err) {
                     console.log('HealthKit Init Error:', err);
                     resolve(false);
@@ -37,20 +53,19 @@ export const HealthKitService = {
     },
 
     saveMindfulMinutes: async (startDate: number, endDate: number): Promise<boolean> => {
-        if (Platform.OS !== 'ios') return false;
+        if (!hasMethod('saveMindfulSession')) return false;
 
-        const options: any = {
+        const options = {
             startDate: new Date(startDate).toISOString(),
             endDate: new Date(endDate).toISOString(),
         };
 
         return new Promise((resolve) => {
-            AppleHealthKit.saveMindfulSession(options, (err, res) => {
+            AppleHealthKit.saveMindfulSession(options, (err: object | null) => {
                 if (err) {
                     console.log('Error saving mindful session:', err);
                     resolve(false);
                 } else {
-                    console.log('Saved mindful session:', res);
                     resolve(true);
                 }
             });

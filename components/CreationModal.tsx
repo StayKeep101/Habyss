@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, Dimensions, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -17,6 +17,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useRouter } from 'expo-router';
+import { AppButton } from '@/components/Common/AppButton';
 
 const { height } = Dimensions.get('window');
 const SHEET_HEIGHT = height * 0.40;
@@ -30,23 +31,41 @@ export const CreationModal: React.FC<CreationModalProps> = () => {
     const { mediumFeedback, lightFeedback } = useHaptics();
     const router = useRouter();
     const [visible, setVisible] = useState(false);
+    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const transitionLockRef = useRef(false);
 
     const translateY = useSharedValue(SHEET_HEIGHT);
     const backdropOpacity = useSharedValue(0);
     const contentOpacity = useSharedValue(0);
 
     const openModal = useCallback(() => {
+        if (transitionLockRef.current || visible) return;
         setVisible(true);
         translateY.value = withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) });
         backdropOpacity.value = withTiming(1, { duration: 250 });
         contentOpacity.value = withDelay(150, withTiming(1, { duration: 300 }));
-    }, []);
+    }, [visible]);
 
     const closeModal = useCallback(() => {
+        if (!visible || transitionLockRef.current) return;
+        transitionLockRef.current = true;
         contentOpacity.value = withTiming(0, { duration: 100 });
         translateY.value = withTiming(SHEET_HEIGHT, { duration: 250, easing: Easing.in(Easing.cubic) });
         backdropOpacity.value = withTiming(0, { duration: 200 });
-        setTimeout(() => { runOnJS(setVisible)(false); }, 250);
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = setTimeout(() => {
+            setVisible(false);
+            transitionLockRef.current = false;
+        }, 250);
+    }, [visible]);
+
+    const closeModalImmediately = useCallback(() => {
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        translateY.value = SHEET_HEIGHT;
+        backdropOpacity.value = 0;
+        contentOpacity.value = 0;
+        setVisible(false);
+        transitionLockRef.current = false;
     }, []);
 
     useEffect(() => {
@@ -54,11 +73,19 @@ export const CreationModal: React.FC<CreationModalProps> = () => {
             lightFeedback();
             openModal();
         });
-        return () => subscription.remove();
-    }, [openModal]);
+        const closeSubscription = DeviceEventEmitter.addListener('close_creation_modal', () => {
+            closeModalImmediately();
+        });
+        return () => {
+            subscription.remove();
+            closeSubscription.remove();
+            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        };
+    }, [openModal, closeModalImmediately]);
 
     const handleGoal = () => {
         mediumFeedback();
+        DeviceEventEmitter.emit('close_habit_modal');
         closeModal();
         setTimeout(() => router.push('/create'), 300);
     };
@@ -118,6 +145,11 @@ export const CreationModal: React.FC<CreationModalProps> = () => {
                                     <Text style={[styles.optionDesc, { color: colors.textSecondary }]}>Big objective</Text>
                                 </TouchableOpacity>
                             </View>
+
+                            <View style={styles.footerActions}>
+                                <AppButton label="Create Habit" onPress={handleHabit} variant="secondary" icon="repeat" style={styles.footerButton} />
+                                <AppButton label="Create Goal" onPress={handleGoal} icon="flag" style={styles.footerButton} />
+                            </View>
                         </Animated.View>
                     </Animated.View>
                 </GestureDetector>
@@ -134,8 +166,10 @@ const styles = StyleSheet.create({
     title: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 1, fontFamily: 'Lexend' },
     subtitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1.5, fontFamily: 'Lexend_400Regular', marginTop: 2, marginBottom: 28 },
     optionsContainer: { flexDirection: 'row', gap: 12 },
-    optionCard: { flex: 1, alignItems: 'center', padding: 20, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+    optionCard: { flex: 1, alignItems: 'center', padding: 20, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
     optionIcon: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
     optionTitle: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', fontFamily: 'Lexend' },
     optionDesc: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4, fontFamily: 'Lexend_400Regular' },
+    footerActions: { width: '100%', gap: 10, marginTop: 20 },
+    footerButton: { width: '100%' },
 });

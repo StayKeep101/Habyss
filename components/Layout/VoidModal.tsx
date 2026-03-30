@@ -76,11 +76,11 @@ export const VoidModal: React.FC<VoidModalProps> = ({
     const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
 
     // Determine Gradient Colors based on Theme
-    let bgColors: string[] = ['#0f1218', '#080a0e']; // Default Abyss
+    let bgColors: string[] = ['#0f1218', '#080a0e'];
     if (isLight) {
-        bgColors = ['#FFFFFF', '#F5F5F7'];
+        bgColors = ['#FFFFFF', '#F7FAFF'];
     } else if (isTrueDark) {
-        bgColors = ['#000000', '#000000'];
+        bgColors = ['#030303', '#000000'];
     }
 
     if (!isOpen && !visible) return null;
@@ -95,8 +95,24 @@ export const VoidModal: React.FC<VoidModalProps> = ({
                 <GestureDetector gesture={panGesture}>
                     <Animated.View style={[styles.sheet, { height: SHEET_HEIGHT }, sheetStyle, style]}>
                         <LinearGradient colors={bgColors as [string, string, ...string[]]} style={StyleSheet.absoluteFill} />
-                        {/* Optional border overlay - Removed colored outline as requested */}
-                        <View style={[StyleSheet.absoluteFill, styles.sheetBorder, { borderColor: 'transparent' }]} />
+                        <LinearGradient
+                            colors={
+                                isLight
+                                    ? ['rgba(59,130,246,0.08)', 'transparent']
+                                    : ['rgba(139,173,214,0.08)', 'transparent']
+                            }
+                            style={[StyleSheet.absoluteFill, { height: 140 }]}
+                            start={{ x: 0.5, y: 0 }}
+                            end={{ x: 0.5, y: 1 }}
+                        />
+                        <View
+                            style={[
+                                StyleSheet.absoluteFill,
+                                styles.sheetBorder,
+                                { borderColor: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.08)' }
+                            ]}
+                        />
+                        <View style={[styles.dragHandle, { backgroundColor: isLight ? 'rgba(15,23,42,0.14)' : 'rgba(255,255,255,0.16)' }]} />
 
                         <Animated.View style={[{ flex: 1 }, contentStyle]}>
                             {children}
@@ -115,18 +131,26 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         overflow: 'hidden',
-        // Shadow for separation
         shadowColor: "#000",
         shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
+        shadowOpacity: 0.16,
+        shadowRadius: 20,
+        elevation: 10,
     },
     sheetBorder: {
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        borderWidth: 1, // Ensure border is visible if color allows
+        borderWidth: 1,
         borderBottomWidth: 0,
         pointerEvents: 'none'
+    },
+    dragHandle: {
+        position: 'absolute',
+        top: 10,
+        alignSelf: 'center',
+        width: 42,
+        height: 5,
+        borderRadius: 999,
+        zIndex: 2,
     },
 });

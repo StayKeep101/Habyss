@@ -1,237 +1,239 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  Modal, 
-  TouchableOpacity, 
-  TouchableWithoutFeedback, 
-  Animated, 
-  Dimensions, 
-  TextInput,
-  ScrollView,
-  Platform
+import React, { useEffect, useState } from 'react';
+import {
+    View,
+    Text,
+    TextInput,
+    ScrollView,
+    Platform,
+    StyleSheet,
+    TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+import { useTheme } from '@/constants/themeContext';
+import { VoidModal } from '@/components/Layout/VoidModal';
+import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { AppButton } from '@/components/Common/AppButton';
 
 export type InputMode = 'date' | 'time' | 'numeric' | 'text';
 
 interface UnifiedInputModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onConfirm: (value: any) => void;
-  initialValue: any;
-  mode: InputMode;
-  title: string;
-  unit?: string;
-  options?: { label: string; value: string }[];
-  color?: string;
-  showClear?: boolean;
-  onClear?: () => void;
+    visible: boolean;
+    onClose: () => void;
+    onConfirm: (value: any) => void;
+    initialValue: any;
+    mode: InputMode;
+    title: string;
+    unit?: string;
+    options?: { label: string; value: string }[];
+    color?: string;
+    showClear?: boolean;
+    onClear?: () => void;
 }
 
 export const UnifiedInputModal: React.FC<UnifiedInputModalProps> = ({
-  visible,
-  onClose,
-  onConfirm,
-  initialValue,
-  mode,
-  title,
-  unit,
-  options,
-  color = '#6B46C1',
-  showClear = false,
-  onClear
+    visible,
+    onClose,
+    onConfirm,
+    initialValue,
+    mode,
+    title,
+    unit,
+    options,
+    color = '#6B46C1',
+    showClear = false,
+    onClear,
 }) => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  
-  const [currentValue, setCurrentValue] = useState(initialValue);
-  const [slideAnim] = useState(new Animated.Value(SCREEN_HEIGHT));
-  const [fadeAnim] = useState(new Animated.Value(0));
+    const { theme } = useTheme();
+    const colors = Colors[theme];
 
-  useEffect(() => {
-    if (visible) {
-      setCurrentValue(initialValue);
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [visible, initialValue]);
+    const [currentValue, setCurrentValue] = useState(initialValue);
 
-  const handleConfirm = () => {
-    onConfirm(currentValue);
-    onClose();
-  };
+    useEffect(() => {
+        if (visible) {
+            setCurrentValue(initialValue);
+        }
+    }, [visible, initialValue]);
 
-  const handleClear = () => {
-    if (onClear) {
-      onClear();
-      onClose();
-    }
-  };
+    const handleConfirm = () => {
+        onConfirm(currentValue);
+        onClose();
+    };
 
-  const renderDateInput = () => (
-    <View className="items-center py-4">
-      <DateTimePicker
-        value={currentValue instanceof Date ? currentValue : new Date()}
-        mode={mode === 'date' ? 'date' : 'time'}
-        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-        onChange={(event, date) => {
-          if (date) setCurrentValue(date);
-        }}
-        textColor={colors.textPrimary}
-        style={{ width: '100%', height: 200 }}
-      />
-    </View>
-  );
+    const handleClear = () => {
+        onClear?.();
+        onClose();
+    };
 
-  const renderNumericInput = () => (
-    <View className="items-center py-8">
-      <View className="flex-row items-center justify-center gap-8">
-        <TouchableOpacity 
-          onPress={() => setCurrentValue(Math.max(0, (Number(currentValue) || 0) - 1))}
-          className="w-16 h-16 rounded-full items-center justify-center"
-          style={{ backgroundColor: colors.surfaceSecondary }}
-        >
-          <Ionicons name="remove" size={32} color={color} />
-        </TouchableOpacity>
-        
-        <View className="items-center min-w-[100px]">
-          <TextInput
-            value={String(currentValue)}
-            onChangeText={(text) => setCurrentValue(text.replace(/[^0-9]/g, ''))}
-            keyboardType="numeric"
-            className="text-5xl font-bold text-center"
-            style={{ color: colors.textPrimary }}
-          />
-          {unit && (
-            <Text className="text-sm mt-1" style={{ color: colors.textSecondary }}>{unit}</Text>
-          )}
+    const renderDateInput = () => (
+        <View style={styles.dateWrap}>
+            <DateTimePicker
+                value={currentValue instanceof Date ? currentValue : new Date()}
+                mode={mode === 'date' ? 'date' : 'time'}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_, date) => {
+                    if (date) setCurrentValue(date);
+                }}
+                textColor={colors.textPrimary}
+                style={{ width: '100%', height: 220 }}
+            />
         </View>
+    );
 
-        <TouchableOpacity 
-          onPress={() => setCurrentValue((Number(currentValue) || 0) + 1)}
-          className="w-16 h-16 rounded-full items-center justify-center"
-          style={{ backgroundColor: colors.surfaceSecondary }}
-        >
-          <Ionicons name="add" size={32} color={color} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  const renderTextInput = () => (
-    <ScrollView className="max-h-60 mt-4" showsVerticalScrollIndicator={false}>
-      {options?.map((option) => (
-        <TouchableOpacity
-          key={option.value}
-          onPress={() => setCurrentValue(option.value)}
-          className="flex-row justify-between items-center py-4 px-4 rounded-xl mb-2"
-          style={{ 
-            backgroundColor: currentValue === option.value ? color + '15' : 'transparent',
-            borderWidth: 1,
-            borderColor: currentValue === option.value ? color : colors.border
-          }}
-        >
-          <Text 
-            className="text-base font-semibold" 
-            style={{ color: currentValue === option.value ? color : colors.textPrimary }}
-          >
-            {option.label}
-          </Text>
-          {currentValue === option.value && (
-            <Ionicons name="checkmark-circle" size={20} color={color} />
-          )}
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  );
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
-    >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View 
-          className="flex-1 bg-black/50" 
-          style={{ opacity: fadeAnim }}
-        />
-      </TouchableWithoutFeedback>
-      
-      <Animated.View 
-        className="absolute bottom-0 left-0 right-0 rounded-t-[40px] px-6 pb-12 pt-8"
-        style={{ 
-          backgroundColor: colors.background,
-          transform: [{ translateY: slideAnim }],
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -10 },
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          elevation: 20
-        }}
-      >
-        <View className="flex-row justify-between items-center mb-6">
-          <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>{title}</Text>
-          <TouchableOpacity onPress={onClose} className="p-2">
-            <Ionicons name="close" size={24} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-
-        <View className="mb-8">
-          {(mode === 'date' || mode === 'time') && renderDateInput()}
-          {mode === 'numeric' && renderNumericInput()}
-          {mode === 'text' && renderTextInput()}
-        </View>
-
-        <View className="flex-row gap-3">
-          {showClear && (
+    const renderNumericInput = () => (
+        <View style={styles.numericWrap}>
             <TouchableOpacity
-              onPress={handleClear}
-              className="flex-1 py-4 rounded-full items-center border"
-              style={{ borderColor: colors.border, backgroundColor: colors.surfaceSecondary }}
+                onPress={() => setCurrentValue(Math.max(0, (Number(currentValue) || 0) - 1))}
+                style={[styles.stepperButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
             >
-              <Text className="text-lg font-bold" style={{ color: colors.textSecondary }}>Clear</Text>
+                <Ionicons name="remove" size={28} color={color} />
             </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={handleConfirm}
-            className="flex-[2] py-4 rounded-full items-center"
-            style={{ backgroundColor: color }}
-          >
-            <Text className="text-lg font-bold text-white">Confirm</Text>
-          </TouchableOpacity>
+
+            <View style={styles.numericCenter}>
+                <TextInput
+                    value={String(currentValue)}
+                    onChangeText={(text) => setCurrentValue(text.replace(/[^0-9]/g, ''))}
+                    keyboardType="numeric"
+                    style={[styles.numericInput, { color: colors.textPrimary }]}
+                />
+                {unit ? <Text style={[styles.numericUnit, { color: colors.textSecondary }]}>{unit}</Text> : null}
+            </View>
+
+            <TouchableOpacity
+                onPress={() => setCurrentValue((Number(currentValue) || 0) + 1)}
+                style={[styles.stepperButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+            >
+                <Ionicons name="add" size={28} color={color} />
+            </TouchableOpacity>
         </View>
-      </Animated.View>
-    </Modal>
-  );
+    );
+
+    const renderTextInput = () => (
+        <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
+            {options?.map((option) => {
+                const selected = currentValue === option.value;
+                return (
+                    <TouchableOpacity
+                        key={option.value}
+                        onPress={() => setCurrentValue(option.value)}
+                        style={[
+                            styles.optionRow,
+                            {
+                                backgroundColor: selected ? color + '15' : colors.surfaceSecondary,
+                                borderColor: selected ? color : colors.border,
+                            },
+                        ]}
+                    >
+                        <Text style={[styles.optionLabel, { color: selected ? color : colors.textPrimary }]}>
+                            {option.label}
+                        </Text>
+                        {selected ? <Ionicons name="checkmark-circle" size={20} color={color} /> : null}
+                    </TouchableOpacity>
+                );
+            })}
+        </ScrollView>
+    );
+
+    return (
+        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.55}>
+            <View style={styles.container}>
+                <ModalHeader title={title} subtitle="EDIT VALUE" onBack={onClose} />
+
+                <View style={styles.content}>
+                    {(mode === 'date' || mode === 'time') && renderDateInput()}
+                    {mode === 'numeric' && renderNumericInput()}
+                    {mode === 'text' && renderTextInput()}
+                </View>
+
+                <View style={styles.footer}>
+                    {showClear ? (
+                        <AppButton label="Clear" onPress={handleClear} variant="ghost" style={styles.actionButton} fullWidth={false} />
+                    ) : null}
+                    <AppButton label="Confirm" onPress={handleConfirm} style={styles.primaryAction} fullWidth />
+                </View>
+            </View>
+        </VoidModal>
+    );
 };
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    content: {
+        flex: 1,
+        paddingHorizontal: 20,
+        paddingTop: 20,
+    },
+    dateWrap: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingTop: 12,
+    },
+    numericWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        paddingTop: 36,
+    },
+    stepperButton: {
+        width: 58,
+        height: 58,
+        borderRadius: 18,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    numericCenter: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    numericInput: {
+        fontSize: 46,
+        lineHeight: 52,
+        fontWeight: '900',
+        textAlign: 'center',
+        fontFamily: 'Lexend',
+        minWidth: 120,
+    },
+    numericUnit: {
+        marginTop: 6,
+        fontSize: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+        fontFamily: 'Lexend_400Regular',
+    },
+    optionsList: {
+        maxHeight: 320,
+    },
+    optionRow: {
+        minHeight: 56,
+        borderRadius: 18,
+        borderWidth: 1,
+        marginBottom: 10,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    optionLabel: {
+        fontSize: 15,
+        fontWeight: '600',
+        fontFamily: 'Lexend',
+    },
+    footer: {
+        flexDirection: 'row',
+        gap: 12,
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 28,
+    },
+    actionButton: {
+        minWidth: 110,
+    },
+    primaryAction: {
+        flex: 1,
+    },
+});

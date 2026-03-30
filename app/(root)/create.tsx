@@ -47,6 +47,11 @@ export default function GoalCreationWizard() {
     // Icon Picker State
     const [showIconPicker, setShowIconPicker] = useState(false);
 
+    useEffect(() => {
+        DeviceEventEmitter.emit('close_creation_modal');
+        DeviceEventEmitter.emit('close_habit_modal');
+    }, []);
+
     const totalSteps = 3;
 
     // Load existing goal data if editing
@@ -89,6 +94,10 @@ export default function GoalCreationWizard() {
     const handleBack = () => {
         lightFeedback();
         Keyboard.dismiss();
+        if (showIconPicker) {
+            setShowIconPicker(false);
+            return;
+        }
         if (step > 0) {
             setStep(step - 1);
         } else {

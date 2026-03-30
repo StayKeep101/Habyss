@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
-import { Swipeable, RectButton, TouchableOpacity } from 'react-native-gesture-handler';
+import { Swipeable, RectButton, TouchableOpacity, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -11,6 +11,7 @@ import { RoadMapCardSize } from '@/constants/AppSettingsContext';
 import { VoidCard } from '../Layout/VoidCard';
 import { useHaptics } from '@/hooks/useHaptics';
 import Svg, { Rect, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+import { runOnJS } from 'react-native-reanimated';
 
 // Extended habit type with runtime properties
 interface ExtendedHabit extends Habit {
@@ -31,13 +32,18 @@ interface SwipeableHabitItemProps {
   isActive?: boolean;
   timeLeft?: number; // In seconds
   totalDuration?: number; // In minutes
+  onDragStart?: (habit: ExtendedHabit, x: number, y: number) => void;
+  onDragMove?: (habit: ExtendedHabit, x: number, y: number) => void;
+  onDragEnd?: (habit: ExtendedHabit, x: number, y: number) => void;
+  isDragging?: boolean;
 }
 
 const { width } = Dimensions.get('window');
 const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 
 export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
-  habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration
+  habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration,
+  onDragStart, onDragMove, onDragEnd, isDragging = false
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -164,29 +170,48 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
   const perimeter = 2 * (layout.width + layout.height) - 8 * radius + (2 * Math.PI * radius);
   const strokeDashoffset = perimeter * (1 - progress);
 
+  const dragGesture = Gesture.Pan()
+    .enabled(!!onDragStart)
+    .activateAfterLongPress(250)
+    .onStart((event) => {
+      if (onDragStart) {
+        runOnJS(onDragStart)(habit, event.absoluteX, event.absoluteY);
+      }
+    })
+    .onUpdate((event) => {
+      if (onDragMove) {
+        runOnJS(onDragMove)(habit, event.absoluteX, event.absoluteY);
+      }
+    })
+    .onFinalize((event) => {
+      if (onDragEnd) {
+        runOnJS(onDragEnd)(habit, event.absoluteX, event.absoluteY);
+      }
+    });
+
   return (
-
-
-    <Swipeable
-      ref={swipeableRef}
-      renderLeftActions={renderLeftActions}
-      renderRightActions={renderRightActions}
-      leftThreshold={30}
-      rightThreshold={35}
-      overshootLeft={false}
-      overshootRight={false}
-      overshootFriction={4}
-      friction={2}
-      useNativeAnimations
-      onSwipeableWillOpen={onSwipeableWillOpen}
-      containerStyle={styles.swipeableContainer}
-    >
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={() => onPress(habit)}
-        style={styles.cardWrapper}
-        onLayout={(e) => setLayout(e.nativeEvent.layout)}
-      >
+    <GestureDetector gesture={dragGesture}>
+      <View style={[styles.dragWrapper, isDragging && styles.dragging]}>
+        <Swipeable
+          ref={swipeableRef}
+          renderLeftActions={renderLeftActions}
+          renderRightActions={renderRightActions}
+          leftThreshold={30}
+          rightThreshold={35}
+          overshootLeft={false}
+          overshootRight={false}
+          overshootFriction={4}
+          friction={2}
+          useNativeAnimations
+          onSwipeableWillOpen={onSwipeableWillOpen}
+          containerStyle={styles.swipeableContainer}
+        >
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => onPress(habit)}
+            style={styles.cardWrapper}
+            onLayout={(e) => setLayout(e.nativeEvent.layout)}
+          >
         {/* Active Gradient Border Wrapper (NOW SVG) */}
         {isActive && layout.width > 0 && (
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -287,8 +312,10 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
 
           </VoidCard>
         </View>
-      </TouchableOpacity>
-    </Swipeable>
+          </TouchableOpacity>
+        </Swipeable>
+      </View>
+    </GestureDetector>
   );
 });
 
@@ -297,6 +324,12 @@ const styles = StyleSheet.create({
     marginBottom: 4, // Tighter gap
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  dragWrapper: {
+    position: 'relative',
+  },
+  dragging: {
+    opacity: 0.25,
   },
   cardWrapper: {
     backgroundColor: 'transparent',

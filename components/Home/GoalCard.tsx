@@ -19,10 +19,11 @@ interface GoalCardProps {
   onToggleExpand: () => void;
   linkedHabitsCount: number;
   sharedWith?: { id: string; avatarUrl?: string; username?: string }[];
+  isDropTarget?: boolean;
 }
 
 export const GoalCard: React.FC<GoalCardProps> = ({
-  goal, progress, onPress, size, isExpanded, onToggleExpand, linkedHabitsCount, sharedWith
+  goal, progress, onPress, size, isExpanded, onToggleExpand, linkedHabitsCount, sharedWith, isDropTarget = false
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -50,7 +51,25 @@ export const GoalCard: React.FC<GoalCardProps> = ({
   const barHeight = isSmall ? 3 : (isBig ? 6 : 4);
 
   return (
-    <VoidCard glass intensity={isLight ? 20 : (isBig ? 80 : 60)} style={[styles.card, { padding: 0 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+    <VoidCard
+      glass
+      intensity={isLight ? 20 : (isBig ? 80 : 60)}
+      style={[
+        styles.card,
+        { padding: 0 },
+        isLight && { backgroundColor: colors.surfaceSecondary },
+        isDropTarget && {
+          borderColor: goal.color || defaultColor,
+          borderWidth: 1.5,
+          shadowColor: goal.color || defaultColor,
+          shadowOpacity: 0.2,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 8,
+          transform: [{ scale: 1.01 }],
+        }
+      ]}
+    >
       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
         {/* LEFT SIDE: Details Trigger */}
         <TouchableOpacity

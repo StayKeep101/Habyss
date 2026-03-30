@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions, Text } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
-import { useAccentGradient } from '@/constants/AccentContext';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 
@@ -20,26 +19,22 @@ export const GoalProgressGraph: React.FC<GoalProgressGraphProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { primary } = useAccentGradient();
     const screenWidth = Dimensions.get('window').width;
 
-    // Generate mock data if none provided or if data is too short to look good
     const chartData = useMemo(() => {
-        if (data && data.length > 5) return data;
-
-        // Create a "stock-like" upward trend mock data
-        const mockMsg = [];
-        let value = 30;
-        for (let i = 0; i < 20; i++) {
-            // Random walk with upward bias
-            const change = (Math.random() - 0.3) * 10;
-            value = Math.max(10, Math.min(100, value + change));
-            mockMsg.push({ value });
-        }
-        return mockMsg;
+        return data?.filter((point) => Number.isFinite(point.value)) || [];
     }, [data]);
+    const hasEnoughData = chartData.length >= 2;
 
     const graphColor = color || '#10B981'; // Green by default for "stocks/growth" look
+
+    if (!hasEnoughData) {
+        return (
+            <View style={[styles.container, styles.emptyState, { width: propWidth || (screenWidth / 2 - 60) }]}>
+                <Text style={[styles.emptyText, { color: colors.textTertiary }]}>Not enough real data yet</Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -74,5 +69,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         overflow: 'hidden',
         borderRadius: 16,
+    },
+    emptyState: {
+        minHeight: 80,
+    },
+    emptyText: {
+        fontSize: 12,
+        textAlign: 'center',
+        fontFamily: 'Lexend_400Regular',
     },
 });

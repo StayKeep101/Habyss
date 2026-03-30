@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 
 interface ScreenHeaderProps {
     title: string;
@@ -12,6 +12,7 @@ interface ScreenHeaderProps {
 export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, subtitle }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: accentColor } = useAccentGradient();
 
     return (
         <View style={styles.container}>
@@ -20,7 +21,7 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, subtitle }) =
                     {title}
                 </Text>
                 {subtitle && (
-                    <Text style={[styles.subtitle, { color: colors.primary }]}>
+                    <Text style={[styles.subtitle, { color: accentColor }]}>
                         {subtitle}
                     </Text>
                 )}
@@ -31,36 +32,21 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, subtitle }) =
 
 const styles = StyleSheet.create({
     container: {
-        marginBottom: 32,
-        position: 'relative',
-    },
-    ambientGlow: {
-        position: 'absolute',
-        top: -120,
-        left: -20, // Extend slightly beyond container if needed, but absolute positioning relative to this headers view might be tricky if consistent placement is needed at Screen top. 
-        // Actually, ScreenHeader is likely placed inside the ScrollView padding. 
-        // To be consistent with statistics.tsx which had it absolute at top of screen, we might need to adjust.
-        // But having it localized to the heater is safer for now. Let's make it bigger.
-        right: -20,
-        height: 300,
-        opacity: 0.12, // Increased slightly as it's localized
-        zIndex: -1,
+        marginBottom: 28,
     },
     content: {
-        // paddingHorizontal is handled by parent ScrollView usually
     },
     title: {
-        fontSize: 32,
+        fontSize: 30,
         fontWeight: '900',
-        letterSpacing: -1,
+        letterSpacing: -0.8,
         fontFamily: 'Lexend',
     },
     subtitle: {
-        marginTop: 4,
-        fontSize: 12,
+        marginTop: 6,
+        fontSize: 10,
         fontWeight: '600',
-        letterSpacing: 2,
-        opacity: 0.8,
+        letterSpacing: 1.5,
         fontFamily: 'Lexend_400Regular',
         textTransform: 'uppercase',
     }

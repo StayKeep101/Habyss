@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -47,6 +47,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CalendarService } from '@/lib/calendarService';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
+import { NotificationService } from '@/lib/notificationService';
 
 const OverlayHeader = ({ title, onClose }: { title: string, onClose: () => void }) => {
     const { theme } = useTheme();
@@ -331,6 +333,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     // Animations
     const translateY = useSharedValue(SHEET_HEIGHT);
     const backdropOpacity = useSharedValue(0);
+    const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const transitionLockRef = useRef(false);
 
     const linkedGoal = useMemo(() => availableGoals.find(g => g.id === goalId), [availableGoals, goalId]);
 
@@ -359,6 +363,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             if (habitToEdit.goalId) setGoalId(habitToEdit.goalId!);
             setFrequency(habitToEdit.frequency || 'daily');
             if (habitToEdit.taskDays) setSelectedDays(habitToEdit.taskDays);
+            setWeekInterval(habitToEdit.weekInterval || 1);
+            setHabitStartDate(habitToEdit.startDate ? new Date(habitToEdit.startDate) : new Date());
 
             if (habitToEdit.startTime) {
                 const [h, m] = habitToEdit.startTime.split(':').map(Number);
@@ -381,6 +387,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 const d = new Date(); d.setHours(h); d.setMinutes(m);
                 setReminderTime(d);
             }
+            setReminderOffset(habitToEdit.reminderOffset);
+            setLocationReminders(habitToEdit.locationReminders || []);
+            setRingtone(habitToEdit.ringtone || 'default');
 
             setMeasurementValue(habitToEdit.goalValue || 1);
             setMeasurementUnit(habitToEdit.unit || 'times');
@@ -393,8 +402,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 const metric = HEALTH_KIT_METRICS.find(m => m.id === habitToEdit.healthKitMetric);
                 if (metric) setMeasurementUnit(metric.unit);
             }
+        } else {
+            setGoalId(propGoalId);
         }
-    }, [habitToEdit]);
+    }, [habitToEdit, propGoalId]);
 
     // Save custom colors helper
     const saveCustomColor = async (color: string) => {
@@ -427,7 +438,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         if (!listenToGlobalEvents) return;
 
         const subscription = DeviceEventEmitter.addListener('show_habit_modal', (data) => {
+            if (transitionLockRef.current) return;
             selectionFeedback();
+            DeviceEventEmitter.emit('close_creation_modal');
             setGoalId(data?.goalId || undefined);
             // If habit data is passed, set it for editing
             if (data?.initialHabit) {
@@ -437,8 +450,15 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             }
             setIsVisible(true);
         });
-        return () => subscription.remove();
-    }, [listenToGlobalEvents]);
+        const closeSubscription = DeviceEventEmitter.addListener('close_habit_modal', () => {
+            closeModalImmediately();
+        });
+        return () => {
+            subscription.remove();
+            closeSubscription.remove();
+            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        };
+    }, [listenToGlobalEvents, selectionFeedback]);
 
     useEffect(() => {
         if (isVisible && !isOpen) {
@@ -448,29 +468,50 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
     // --- ANIMATIONS ---
     const openModal = useCallback(() => {
+        if (transitionLockRef.current || isOpen) return;
         setIsOpen(true);
         translateY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
         backdropOpacity.value = withTiming(1, { duration: 300 });
-    }, []);
+    }, [isOpen]);
 
     const closeModal = useCallback(() => {
-        setActiveOverlay('none'); // Close any overlays first
+        if (activeOverlay !== 'none') {
+            setActiveOverlay('none');
+            return;
+        }
+        if (transitionLockRef.current || !isOpen) return;
+        transitionLockRef.current = true;
         translateY.value = withTiming(SHEET_HEIGHT, { duration: 350, easing: Easing.in(Easing.cubic) });
         backdropOpacity.value = withTiming(0, { duration: 250 });
-        setTimeout(() => {
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = setTimeout(() => {
             setIsOpen(false);
             setIsVisible(false);
             if (propOnClose) propOnClose();
             setEventHabit(undefined); // Clear event habit on close
             resetForm();
+            transitionLockRef.current = false;
         }, 350);
-    }, [propOnClose]);
+    }, [propOnClose, activeOverlay, isOpen, propGoalId]);
+
+    const closeModalImmediately = useCallback(() => {
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        translateY.value = SHEET_HEIGHT;
+        backdropOpacity.value = 0;
+        setActiveOverlay('none');
+        setIsOpen(false);
+        setIsVisible(false);
+        setEventHabit(undefined);
+        resetForm();
+        transitionLockRef.current = false;
+    }, [propGoalId]);
 
     const resetForm = () => {
         setTitle('');
         setSelectedIcon('fitness');
         setSelectedColor('#10B981');
         setLifePillar('body');
+        setGoalId(propGoalId);
         setFrequency('daily');
         setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
         setWeekInterval(1);
@@ -564,6 +605,11 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         try {
             const fmtTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
             const fmtDate = (d: Date) => d.toISOString().split('T')[0];
+            const derivedTimeOfDay =
+                useFreeTime ? 'free_time'
+                    : startTime.getHours() < 12 ? 'morning'
+                        : startTime.getHours() < 17 ? 'afternoon'
+                            : 'evening';
 
             const habitData = {
                 name: title.trim(),
@@ -590,7 +636,11 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 unit: measurementUnit,
                 chartType: (graphStyle === 'bar' ? 'bar' : 'line') as any,
                 graphStyle: graphStyle,
+                timeOfDay: derivedTimeOfDay as any,
                 trackingMethod: (measurementUnit === 'times' ? 'boolean' : 'numeric') as any,
+                ringtone,
+                reminderOffset,
+                locationReminders,
                 healthKitMetric: healthKitMetric,
                 healthKitTarget: healthKitMetric ? measurementValue : undefined, // Use main goal value as target
             };
@@ -611,6 +661,40 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             setSaving(false);
         }
     };
+
+    const toggleLocationReminder = useCallback(async (label: 'Home' | 'Work') => {
+        selectionFeedback();
+
+        if (locationReminders.some((location) => location.name === label)) {
+            setLocationReminders((prev) => prev.filter((location) => location.name !== label));
+            return;
+        }
+
+        const granted = await NotificationService.requestLocationPermissions();
+        if (!granted) {
+            Alert.alert('Location Permission Needed', 'Enable location permissions to use arrival reminders.');
+            return;
+        }
+
+        try {
+            const position = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
+
+            setLocationReminders((prev) => [
+                ...prev,
+                {
+                    name: label,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    radius: 120,
+                },
+            ]);
+        } catch (error) {
+            console.error('Failed to capture location reminder:', error);
+            Alert.alert('Location Unavailable', 'Could not capture your current location. Try again outside or with GPS enabled.');
+        }
+    }, [locationReminders, selectionFeedback]);
 
     const toggleDay = (dayId: string) => {
         selectionFeedback();
@@ -1236,20 +1320,12 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     </View>
                                 </View>
 
-                                {/* Location Reminder (Placeholder Logic) */}
+                                {/* Location Reminder */}
                                 <View style={{ marginBottom: 24 }}>
-                                    <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>LOCATION TRIGGER (Beta)</Text>
+                                    <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>LOCATION TRIGGER</Text>
                                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
                                         <TouchableOpacity
-                                            onPress={() => {
-                                                selectionFeedback();
-                                                if (locationReminders.some(l => l.name === 'Home')) {
-                                                    setLocationReminders(prev => prev.filter(l => l.name !== 'Home'));
-                                                } else {
-                                                    // Mock Location for now
-                                                    setLocationReminders(prev => [...prev, { name: 'Home', latitude: 0, longitude: 0 }]);
-                                                }
-                                            }}
+                                            onPress={() => toggleLocationReminder('Home')}
                                             style={[
                                                 styles.unitChip,
                                                 locationReminders.some(l => l.name === 'Home') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
@@ -1260,14 +1336,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                         </TouchableOpacity>
 
                                         <TouchableOpacity
-                                            onPress={() => {
-                                                selectionFeedback();
-                                                if (locationReminders.some(l => l.name === 'Work')) {
-                                                    setLocationReminders(prev => prev.filter(l => l.name !== 'Work'));
-                                                } else {
-                                                    setLocationReminders(prev => [...prev, { name: 'Work', latitude: 0, longitude: 0 }]);
-                                                }
-                                            }}
+                                            onPress={() => toggleLocationReminder('Work')}
                                             style={[
                                                 styles.unitChip,
                                                 locationReminders.some(l => l.name === 'Work') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
@@ -1277,6 +1346,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             <Text style={{ color: locationReminders.some(l => l.name === 'Work') ? selectedColor : colors.textSecondary, fontSize: 13, fontWeight: '600' }}>Arriving Work</Text>
                                         </TouchableOpacity>
                                     </View>
+                                    <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 8, lineHeight: 16, fontFamily: 'Lexend_400Regular' }}>
+                                        Choosing Home or Work saves your current position for an arrival reminder.
+                                    </Text>
                                 </View>
                             </ScrollView>
                         )}

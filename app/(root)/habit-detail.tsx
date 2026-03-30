@@ -22,14 +22,16 @@ const { width } = Dimensions.get('window');
 export default function HabitDetailScreen() {
   const router = useRouter();
   const params = useGlobalSearchParams();
-  const habitId = params.habitId as string;
+  const habitIdParam = params.habitId;
+  const habitId = Array.isArray(habitIdParam) ? habitIdParam[0] : habitIdParam;
 
   // Use consistent LOCAL date format (not UTC)
   const getLocalDateStr = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   };
-  const dateStr = params.date as string || getLocalDateStr();
+  const dateParam = params.date;
+  const dateStr = (Array.isArray(dateParam) ? dateParam[0] : dateParam) || getLocalDateStr();
   const todayStr = getLocalDateStr();
 
   const { theme } = useTheme();
@@ -63,12 +65,14 @@ export default function HabitDetailScreen() {
   const [counterValue, setCounterValue] = useState(0);
 
   useEffect(() => {
+    if (!habitId) return;
     loadHabitDetails();
 
     // Listen for completion updates from other screens for instant sync
     const completionSub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId: updatedId, date, completed: isCompleted }) => {
       if (updatedId === habitId && date === dateStr) {
         setCompleted(isCompleted);
+        loadHabitDetails();
       }
     });
 
@@ -86,6 +90,11 @@ export default function HabitDetailScreen() {
   }, [habitId, dateStr]);
 
   const loadHabitDetails = async () => {
+    if (!habitId) {
+      setLoading(false);
+      return;
+    }
+
     try {
       let currentHabit = habit;
       if (!currentHabit) {
@@ -186,6 +195,17 @@ export default function HabitDetailScreen() {
 
   // Only show loading if habit truly isn't available yet (fallback case)
   if (loading && !habit) return null;
+
+  if (!habitId) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <Text style={{ color: colors.textSecondary }}>Habit is unavailable</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <Text style={{ color: colors.primary }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (!habit) {
     return (
@@ -322,8 +342,8 @@ export default function HabitDetailScreen() {
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 }}>
                 <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                  <Text style={{ fontSize: 10, fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
-                    {habit.category.toUpperCase()}
+                    <Text style={{ fontSize: 10, fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
+                    {(habit.category || 'general').toUpperCase()}
                   </Text>
                 </View>
                 {habit.frequency && (
