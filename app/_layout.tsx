@@ -19,6 +19,7 @@ import { View, AppState } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import '@/lib/LocationService'; // Register background tasks
+import { LocationService } from '@/lib/LocationService';
 import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 import { AppSettingsProvider } from '@/constants/AppSettingsContext';
 import { AccentProvider } from '@/constants/AccentContext';
@@ -31,8 +32,10 @@ import RevenueCatService from '@/lib/RevenueCat';
 // import * as Linking from 'expo-linking';
 import { BiometricGuard } from '@/components/BiometricGuard';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-// // Prevent the splash screen from auto-hiding before asset loading is complete.
-// SplashScreen.preventAutoHideAsync();
+import { HabyssBootScreen } from '@/components/Loading/HabyssBootScreen';
+import { SiriService } from '@/lib/siriService';
+
+SplashScreen.preventAutoHideAsync().catch(() => { });
 
 export default function MobileLayout() {
   const [loaded] = useFonts({
@@ -43,6 +46,7 @@ export default function MobileLayout() {
     Lexend_700Bold,
     SpaceGrotesk_700Bold,
   });
+  const [bootReady, setBootReady] = React.useState(false);
 
   useEffect(() => {
     async function prepare() {
@@ -53,6 +57,8 @@ export default function MobileLayout() {
             await NotificationService.init();
             await NotificationService.registerForPushNotificationsAsync();
             await RevenueCatService.init();
+            await LocationService.refreshGeofences();
+            await SiriService.syncTodayProgress();
             // Initialize Local LLM in background to avoid blocking startup too much
             // We catch errors internally so it doesn't crash the app if model is missing
             import('@/lib/LocalLLMService').then(service => service.default.init());
@@ -64,6 +70,7 @@ export default function MobileLayout() {
         console.warn("Preparation failed", e);
       } finally {
         if (loaded) {
+          setBootReady(true);
           await SplashScreen.hideAsync();
         }
       }
@@ -130,8 +137,8 @@ export default function MobileLayout() {
     initLocalUser();
   }, []);
 
-  if (!loaded) {
-    return null;
+  if (!loaded || !bootReady) {
+    return <HabyssBootScreen />;
   }
 
   return (
@@ -205,6 +212,22 @@ function InnerLayout() {
             }
           }
           await SharedDefaults.remove('pending_habit_logs');
+        }
+
+        const pendingWidgetToggles = await SharedDefaults.getArray('pending_widget_toggles');
+        if (pendingWidgetToggles && pendingWidgetToggles.length > 0) {
+          console.log('[Widget] Processing pending toggles:', pendingWidgetToggles.length);
+          const { toggleCompletion } = require('@/lib/habitsSQLite');
+          const now = new Date();
+          const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+          for (const habitId of pendingWidgetToggles) {
+            if (typeof habitId === 'string' && habitId.length > 0) {
+              await toggleCompletion(habitId, dateStr);
+            }
+          }
+
+          await SharedDefaults.remove('pending_widget_toggles');
         }
 
       } catch (e) {

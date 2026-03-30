@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, useColorScheme } from 'react-native';
 import { getLocalUserId, isOnboardingComplete } from '@/lib/localUser';
 import { Colors } from '@/constants/Colors';
-import { SpinningLogo } from "@/components/SpinningLogo";
+import { HabyssBootScreen } from "@/components/Loading/HabyssBootScreen";
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -23,11 +23,7 @@ export default function App() {
   }, []);
 
   if (!ready) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <SpinningLogo />
-      </View>
-    );
+    return <HabyssBootScreen subtitle="Booting your private system" />;
   }
 
   if (onboarded) {

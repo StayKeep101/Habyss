@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, RefreshControl, StyleSheet, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Share } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, StyleSheet, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Share, DeviceEventEmitter } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -86,6 +86,14 @@ export default function CommunityScreen() {
             loadData();
         }
     }, []);
+
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('social_state_updated', () => {
+            loadData(true);
+        });
+
+        return () => subscription.remove();
+    }, [loadData]);
 
     // Reload leaderboard when period changes
     useEffect(() => {
@@ -317,7 +325,7 @@ export default function CommunityScreen() {
                 visible={showAddFriendModal}
                 onClose={() => setShowAddFriendModal(false)}
                 userCode={userCode}
-                onFriendAdded={loadData}
+                onFriendAdded={() => loadData(true)}
             />
         </VoidShell>
     );

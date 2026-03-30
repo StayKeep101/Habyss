@@ -51,7 +51,7 @@ const GoalDetail = () => {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [goal, setGoal] = useState<Habit | null>(null);
   const [bgImage, setBgImage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'habits' | 'stats'>('habits');
+  const [activeTab, setActiveTab] = useState<'habits' | 'stats'>('stats');
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -301,14 +301,15 @@ const GoalDetail = () => {
         <ImageBackground
           source={bgImage ? { uri: bgImage } : require('@/assets/images/adaptive-icon.png')}
           style={{ flex: 1 }}
-          imageStyle={{ opacity: 0.4 }}
+          resizeMode="cover"
+          imageStyle={styles.heroImage}
         >
           <LinearGradient
             colors={theme === 'light'
-              ? ['rgba(255,255,255,0.8)', colors.background]
-              : ['rgba(0,0,0,0.1)', '#000']}
+              ? ['rgba(255,255,255,0.22)', 'rgba(255,255,255,0.74)', colors.background]
+              : ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.38)', '#040507']}
             style={StyleSheet.absoluteFill}
-            locations={[0, 0.9]}
+            locations={[0, 0.38, 0.95]}
           />
         </ImageBackground>
       </View>
@@ -331,6 +332,35 @@ const GoalDetail = () => {
         contentContainerStyle={{ paddingTop: HEADER_HEIGHT - 60, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
+        <Animated.View style={[styles.heroOverlay, headerStyle]}>
+          <View style={styles.heroContent}>
+            <View style={[styles.heroEyebrow, { backgroundColor: (goal.color || accentColor) + '18', borderColor: (goal.color || accentColor) + '30' }]}>
+              <Ionicons name={(goal.icon as any) || 'flag'} size={14} color={goal.color || accentColor} />
+              <Text style={[styles.heroEyebrowText, { color: goal.color || accentColor }]}>{goal.category.toUpperCase()}</Text>
+            </View>
+
+            <Text style={styles.heroTitle}>{goal.name}</Text>
+            <Text style={styles.heroSubtitle}>
+              {goal.description || 'Track the outcome, monitor momentum, and steer the supporting habits from one place.'}
+            </Text>
+
+            <View style={styles.heroStatsRow}>
+              <View style={styles.heroStatPill}>
+                <Text style={styles.heroStatValue}>{associatedHabits.length}</Text>
+                <Text style={styles.heroStatLabel}>habits</Text>
+              </View>
+              <View style={styles.heroStatPill}>
+                <Text style={styles.heroStatValue}>{progress}%</Text>
+                <Text style={styles.heroStatLabel}>progress</Text>
+              </View>
+              <View style={styles.heroStatPill}>
+                <Text style={styles.heroStatValue}>{daysLeft > 0 ? daysLeft : 'Now'}</Text>
+                <Text style={styles.heroStatLabel}>{daysLeft > 0 ? 'days left' : 'deadline'}</Text>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+
         {/* Main Content Area */}
         <Animated.View entering={FadeIn.duration(500)} style={[styles.contentContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
 
@@ -348,10 +378,11 @@ const GoalDetail = () => {
             />
           </View>
 
-          {/* Goal Info */}
+          {/* Dashboard Header */}
           <View style={{ marginTop: 50, paddingHorizontal: 20 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <View style={{ flex: 1 }}>
+                <Text style={[styles.dashboardLabel, { color: colors.textTertiary }]}>GOAL DASHBOARD</Text>
                 <Text style={[styles.goalTitle, { color: colors.text }]}>{goal.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} style={{ marginRight: 4 }} />
@@ -385,6 +416,29 @@ const GoalDetail = () => {
             )}
           </View>
 
+          <View style={styles.dashboardGrid}>
+            <VoidCard glass style={[styles.dashboardCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
+              <Text style={[styles.dashboardCardLabel, { color: colors.textTertiary }]}>Completion</Text>
+              <Text style={[styles.dashboardCardValue, { color: goal.color || accentColor }]}>{progress}%</Text>
+              <Text style={[styles.dashboardCardHint, { color: colors.textSecondary }]}>live goal score</Text>
+            </VoidCard>
+            <VoidCard glass style={[styles.dashboardCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
+              <Text style={[styles.dashboardCardLabel, { color: colors.textTertiary }]}>Attached Habits</Text>
+              <Text style={[styles.dashboardCardValue, { color: colors.text }]}>{associatedHabits.length}</Text>
+              <Text style={[styles.dashboardCardHint, { color: colors.textSecondary }]}>systems driving this goal</Text>
+            </VoidCard>
+            <VoidCard glass style={[styles.dashboardCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
+              <Text style={[styles.dashboardCardLabel, { color: colors.textTertiary }]}>Completed Today</Text>
+              <Text style={[styles.dashboardCardValue, { color: colors.text }]}>{associatedHabits.filter(habit => completions[habit.id]).length}</Text>
+              <Text style={[styles.dashboardCardHint, { color: colors.textSecondary }]}>checked habits now</Text>
+            </VoidCard>
+            <VoidCard glass style={[styles.dashboardCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
+              <Text style={[styles.dashboardCardLabel, { color: colors.textTertiary }]}>Runway</Text>
+              <Text style={[styles.dashboardCardValue, { color: colors.text }]}>{goal.targetDate ? daysLeft : 'Open'}</Text>
+              <Text style={[styles.dashboardCardHint, { color: colors.textSecondary }]}>{goal.targetDate ? 'days remaining' : 'no deadline set'}</Text>
+            </VoidCard>
+          </View>
+
 
           {/* Void Tabs */}
           <View style={styles.tabContainer}>
@@ -395,13 +449,13 @@ const GoalDetail = () => {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { mediumFeedback(); setActiveTab('stats'); }} style={{ flex: 1 }}>
               <VoidCard glass intensity={activeTab === 'stats' ? 50 : 10} style={[styles.tab, activeTab === 'stats' && { backgroundColor: colors.surfaceSecondary }]}>
-                <Text style={[styles.tabText, activeTab === 'stats' ? { color: colors.text } : { color: colors.textTertiary }]}>Stats</Text>
+                <Text style={[styles.tabText, activeTab === 'stats' ? { color: colors.text } : { color: colors.textTertiary }]}>Dashboard</Text>
               </VoidCard>
             </TouchableOpacity>
           </View>
 
           {/* Content Switching */}
-          <View style={{ padding: 20 }}>
+          <VoidCard glass style={[styles.mainPanel, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
             {activeTab === 'stats' ? (
               <Animated.View entering={FadeInDown}>
                 <GoalStats goal={goal} habits={associatedHabits} />
@@ -444,7 +498,7 @@ const GoalDetail = () => {
                 )}
               </Animated.View>
             )}
-          </View>
+          </VoidCard>
 
         </Animated.View>
       </Animated.ScrollView>
@@ -459,6 +513,10 @@ const GoalDetail = () => {
 };
 
 const styles = StyleSheet.create({
+  heroImage: {
+    opacity: 0.56,
+    transform: [{ scale: 1.02 }],
+  },
   navHeader: {
     position: 'absolute',
     top: 0, left: 0, right: 0,
@@ -472,6 +530,74 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center'
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 88,
+    left: 0,
+    right: 0,
+    zIndex: 5,
+  },
+  heroContent: {
+    paddingHorizontal: 24,
+  },
+  heroEyebrow: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  heroEyebrowText: {
+    fontSize: 10,
+    letterSpacing: 1.2,
+    fontFamily: 'Lexend_600SemiBold',
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 33,
+    lineHeight: 38,
+    fontFamily: 'Lexend_700Bold',
+    maxWidth: '82%',
+  },
+  heroSubtitle: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
+    maxWidth: '88%',
+    fontFamily: 'Lexend_400Regular',
+  },
+  heroStatsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  heroStatPill: {
+    minWidth: 86,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
+  heroStatValue: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: 'Lexend_700Bold',
+  },
+  heroStatLabel: {
+    color: 'rgba(255,255,255,0.64)',
+    fontSize: 10,
+    marginTop: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    fontFamily: 'Lexend_500Medium',
   },
   contentContainer: {
     minHeight: height,
@@ -495,6 +621,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend',
     letterSpacing: -0.5,
   },
+  dashboardLabel: {
+    fontSize: 10,
+    letterSpacing: 1.6,
+    marginBottom: 8,
+    fontFamily: 'Lexend_500Medium',
+  },
   goalTarget: {
     fontSize: 13,
     fontFamily: 'Lexend_400Regular',
@@ -514,6 +646,36 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     lineHeight: 20,
+    fontFamily: 'Lexend_400Regular',
+  },
+  dashboardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingHorizontal: 20,
+    marginTop: 22,
+  },
+  dashboardCard: {
+    width: (width - 52) / 2,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    borderRadius: 22,
+  },
+  dashboardCardLabel: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+    fontFamily: 'Lexend_500Medium',
+  },
+  dashboardCardValue: {
+    fontSize: 28,
+    marginTop: 8,
+    fontFamily: 'Lexend_700Bold',
+  },
+  dashboardCardHint: {
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 17,
     fontFamily: 'Lexend_400Regular',
   },
   miniActionBtn: {
@@ -543,6 +705,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     fontFamily: 'Lexend',
+  },
+  mainPanel: {
+    margin: 20,
+    marginTop: 18,
+    padding: 20,
+    borderRadius: 26,
   },
   addBtn: {
     width: 32, height: 32,

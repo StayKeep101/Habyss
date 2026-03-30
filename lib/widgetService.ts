@@ -7,6 +7,8 @@ export interface WidgetData {
     streak: number;
     habitsLeft: number;
     topHabitName: string;
+    total?: number;
+    completed?: number;
 }
 
 export interface WidgetHabit {
@@ -43,6 +45,10 @@ export const WidgetService = {
             await SharedDefaultsModule.set('streakCount', String(data.streak));
             await SharedDefaultsModule.set('habitsLeft', String(data.habitsLeft));
             await SharedDefaultsModule.set('topHabitName', data.topHabitName);
+            await SharedDefaultsModule.set('widgetSummary', JSON.stringify({
+                total: data.total ?? data.todayProgress + data.habitsLeft,
+                completed: data.completed ?? data.todayProgress,
+            }));
             await SharedDefaultsModule.reloadTimelines();
         } catch (error) {
             console.warn('WidgetService: Failed to update widget data', error);

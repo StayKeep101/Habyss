@@ -15,11 +15,16 @@ interface BiometricGuardProps {
 export const BiometricGuard: React.FC<BiometricGuardProps> = ({ children }) => {
     const { isAppLockEnabled } = useAppSettings();
     const appState = useRef(AppState.currentState);
+    const isAuthenticatingRef = useRef(false);
+    const lastUnlockAtRef = useRef(0);
+    const backgroundedAtRef = useRef(0);
     const [isLocked, setIsLocked] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isDark = theme !== 'light';
+    const unlockGraceMs = 60 * 1000;
+    const backgroundRelockMs = 10 * 1000;
 
     // Initial launch authentication
     useEffect(() => {
@@ -27,6 +32,10 @@ export const BiometricGuard: React.FC<BiometricGuardProps> = ({ children }) => {
             setIsLocked(true);
             authenticate().finally(() => setIsInitialized(true));
         } else {
+            setIsLocked(false);
+            isAuthenticatingRef.current = false;
+            lastUnlockAtRef.current = 0;
+            backgroundedAtRef.current = 0;
             setIsInitialized(true);
         }
     }, [isAppLockEnabled]);
@@ -40,18 +49,40 @@ export const BiometricGuard: React.FC<BiometricGuardProps> = ({ children }) => {
     }, [isAppLockEnabled]);
 
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+        const previousState = appState.current;
+
+        if (nextAppState === 'background') {
+            backgroundedAtRef.current = Date.now();
+        }
+
         if (
-            appState.current.match(/inactive|background/) &&
+            previousState.match(/inactive|background/) &&
             nextAppState === 'active' &&
             isAppLockEnabled
         ) {
+            const now = Date.now();
+            const recentlyUnlocked = now - lastUnlockAtRef.current < unlockGraceMs;
+            const backgroundDuration = backgroundedAtRef.current > 0 ? now - backgroundedAtRef.current : 0;
+            const cameFromBackground = previousState === 'background';
+            const shouldReauthenticate = cameFromBackground ? backgroundDuration >= backgroundRelockMs : !recentlyUnlocked;
+
+            if (!shouldReauthenticate || isAuthenticatingRef.current) {
+                appState.current = nextAppState;
+                return;
+            }
+
             setIsLocked(true);
-            authenticate();
+            await authenticate();
         }
         appState.current = nextAppState;
     };
 
     const authenticate = async () => {
+        if (isAuthenticatingRef.current) {
+            return;
+        }
+
+        isAuthenticatingRef.current = true;
         try {
             const hasHardware = await LocalAuthentication.hasHardwareAsync();
             const isEnrolled = await LocalAuthentication.isEnrolledAsync();
@@ -59,6 +90,7 @@ export const BiometricGuard: React.FC<BiometricGuardProps> = ({ children }) => {
             if (!hasHardware || !isEnrolled) {
                 // Fallback if no biometrics are available (or just unlock to avoid lockout)
                 setIsLocked(false);
+                lastUnlockAtRef.current = Date.now();
                 return;
             }
 
@@ -70,9 +102,12 @@ export const BiometricGuard: React.FC<BiometricGuardProps> = ({ children }) => {
 
             if (result.success) {
                 setIsLocked(false);
+                lastUnlockAtRef.current = Date.now();
             }
         } catch (error) {
             console.error('Authentication error:', error);
+        } finally {
+            isAuthenticatingRef.current = false;
         }
     };
 

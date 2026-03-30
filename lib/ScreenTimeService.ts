@@ -65,4 +65,32 @@ export const ScreenTimeService = {
             return false;
         }
     },
+
+    /**
+     * Best-effort shield arming for focus sessions.
+     * Returns true when shields were actually enabled.
+     */
+    async armShieldIfPossible(): Promise<boolean> {
+        if (Platform.OS !== 'ios' || !ScreenTimeModule) return false;
+
+        try {
+            const authorized = await this.isAuthorized();
+            if (!authorized) {
+                const granted = await this.requestAuthorization();
+                if (!granted) return false;
+            }
+
+            const hasApps = await this.hasSelectedApps();
+            if (!hasApps) {
+                this.presentPicker();
+                return false;
+            }
+
+            this.setShieldEnabled(true);
+            return true;
+        } catch (error) {
+            console.warn('ScreenTime: Failed to arm shield', error);
+            return false;
+        }
+    },
 };

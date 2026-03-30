@@ -76,6 +76,7 @@ interface RoutineContextType {
     // Helpers
     getRoutinesForTimeOfDay: (time: string) => Routine[];
     getTodayRoutineSessions: () => Promise<{ routineId: string; completed: boolean }[]>;
+    getRoutinesForHabit: (habitId: string) => Routine[];
 }
 
 const RoutineContext = createContext<RoutineContextType | undefined>(undefined);
@@ -359,6 +360,12 @@ export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
     }, []);
 
+    const getRoutinesForHabit = useCallback((habitId: string) => {
+        return routines.filter((routine) =>
+            routine.habits.some((routineHabit) => routineHabit.habitId === habitId)
+        );
+    }, [routines]);
+
     return (
         <RoutineContext.Provider value={{
             routines,
@@ -377,6 +384,7 @@ export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ child
             endRoutine,
             getRoutinesForTimeOfDay,
             getTodayRoutineSessions,
+            getRoutinesForHabit,
         }}>
             {children}
         </RoutineContext.Provider>

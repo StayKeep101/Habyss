@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { Habit } from '@/lib/habitsSQLite';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -119,9 +120,9 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
         .failOffsetY([-14, 14])
         .onEnd((event) => {
             if (event.translationX <= -56) {
-                switchGoal(1);
+                runOnJS(switchGoal)(1);
             } else if (event.translationX >= 56) {
-                switchGoal(-1);
+                runOnJS(switchGoal)(-1);
             }
         });
 
@@ -293,8 +294,8 @@ export const StreakModal: React.FC<StreakModalProps> = ({ visible, onClose, goal
                                 </View>
 
                                 <View style={styles.weekdayRow}>
-                                    {WEEKDAY_LABELS.map((label) => (
-                                        <Text key={label} style={[styles.weekdayLabel, { color: colors.textTertiary }]}>
+                                    {WEEKDAY_LABELS.map((label, index) => (
+                                        <Text key={`weekday-${index}-${label}`} style={[styles.weekdayLabel, { color: colors.textTertiary }]}>
                                             {label}
                                         </Text>
                                     ))}

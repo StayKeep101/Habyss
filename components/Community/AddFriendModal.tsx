@@ -49,8 +49,16 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
         setLoading(true);
         try {
             const results = await FriendsService.searchUsers(friendCode);
-            const lowerCode = friendCode.toLowerCase();
-            const target = results.find(u => u.id.toLowerCase().startsWith(lowerCode) || u.username.toLowerCase() === lowerCode);
+            const normalizedQuery = friendCode.trim().toLowerCase();
+            const target = results.find((user) => {
+                const friendCodeValue = user.id.slice(0, 8).toLowerCase();
+                return (
+                    user.id.toLowerCase() === normalizedQuery ||
+                    friendCodeValue === normalizedQuery ||
+                    user.id.toLowerCase().includes(normalizedQuery) ||
+                    user.username.toLowerCase() === normalizedQuery
+                );
+            }) || results[0];
 
             if (!target) {
                 Alert.alert('Not Found', 'No explorer found with this code.');

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, Image } from 'react-native';
-import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, ZoomIn, withRepeat, withTiming, Easing, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 
@@ -13,18 +13,20 @@ const { width } = Dimensions.get('window');
 export const GenesisIntro: React.FC<GenesisIntroProps> = ({ onComplete }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const pulse = useSharedValue(1);
 
     // Stages: 0 = "Descend...", 1 = "...Rise", 2 = "Logo", 3 = Complete
     const [stage, setStage] = useState(0);
 
     useEffect(() => {
         // Timeline
-        const t1 = setTimeout(() => setStage(1), 3000); // Show second part
-        const t2 = setTimeout(() => setStage(2), 6500); // Show logo/final
+        pulse.value = withRepeat(withTiming(1.06, { duration: 1800, easing: Easing.inOut(Easing.ease) }), -1, true);
+        const t1 = setTimeout(() => setStage(1), 2200);
+        const t2 = setTimeout(() => setStage(2), 4700);
         const t3 = setTimeout(() => {
             setStage(3);
             onComplete();
-        }, 9000);
+        }, 7200);
 
         return () => {
             clearTimeout(t1);
@@ -32,6 +34,10 @@ export const GenesisIntro: React.FC<GenesisIntroProps> = ({ onComplete }) => {
             clearTimeout(t3);
         };
     }, []);
+
+    const pulseStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: pulse.value }],
+    }));
 
     if (stage === 3) return null;
 
@@ -43,7 +49,7 @@ export const GenesisIntro: React.FC<GenesisIntroProps> = ({ onComplete }) => {
                     exiting={FadeOut.duration(1000)}
                     style={styles.center}
                 >
-                    <Text style={styles.textMain}>Descend into discipline</Text>
+                    <Text style={styles.textMain}>Build your private system</Text>
                 </Animated.View>
             )}
 
@@ -53,7 +59,7 @@ export const GenesisIntro: React.FC<GenesisIntroProps> = ({ onComplete }) => {
                     exiting={FadeOut.duration(1000)}
                     style={styles.center}
                 >
-                    <Text style={styles.textMain}>...rise through time.</Text>
+                    <Text style={styles.textMain}>...and train it daily.</Text>
                 </Animated.View>
             )}
 
@@ -63,12 +69,15 @@ export const GenesisIntro: React.FC<GenesisIntroProps> = ({ onComplete }) => {
                     exiting={FadeOut.duration(800)}
                     style={styles.center}
                 >
-                    <Image
-                        source={require('@/assets/images/Habyss Logo.png')}
-                        style={{ width: 120, height: 120, marginBottom: 24 }}
-                        resizeMode="contain"
-                    />
+                    <Animated.View style={pulseStyle}>
+                        <Image
+                            source={require('@/assets/images/Habyss Logo.png')}
+                            style={{ width: 120, height: 120, marginBottom: 24 }}
+                            resizeMode="contain"
+                        />
+                    </Animated.View>
                     <Text style={styles.brandText}>HABYSS</Text>
+                    <Text style={styles.brandSubtext}>Local-first focus, owned by you</Text>
                 </Animated.View>
             )}
         </View>
@@ -88,7 +97,7 @@ const styles = StyleSheet.create({
     },
     textMain: {
         color: '#fff',
-        fontSize: 32,
+        fontSize: 30,
         fontWeight: '200',
         letterSpacing: 2,
         textAlign: 'center',
@@ -116,5 +125,13 @@ const styles = StyleSheet.create({
         fontWeight: '900',
         letterSpacing: 8,
         fontFamily: 'Lexend',
-    }
+    },
+    brandSubtext: {
+        marginTop: 10,
+        color: 'rgba(255,255,255,0.72)',
+        fontSize: 12,
+        letterSpacing: 1.2,
+        textTransform: 'uppercase',
+        fontFamily: 'Lexend_400Regular',
+    },
 });

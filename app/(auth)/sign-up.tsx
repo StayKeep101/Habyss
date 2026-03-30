@@ -1,38 +1,36 @@
 import { router } from 'expo-router';
-import { Text, TouchableOpacity, View, KeyboardAvoidingView, Platform, Alert, StyleSheet, Linking, ScrollView } from 'react-native';
+import { Text, TouchableOpacity, View, KeyboardAvoidingView, Platform, StyleSheet, ScrollView, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { AppleAuthButton } from '@/components/Auth/AppleAuthButton';
 import { AppButton } from '@/components/Common/AppButton';
 import { AppTextField } from '@/components/Common/AppTextField';
 import { SectionDivider } from '@/components/Common/SectionDivider';
+import { getLocalUserId, setLocalProfileName, setOnboardingComplete } from '@/lib/localUser';
+import { useAppSettings } from '@/constants/AppSettingsContext';
 
 const SignUp = () => {
   const { theme } = useTheme();
   const colors = Colors[theme];
+  const { isAppLockEnabled, setIsAppLockEnabled } = useAppSettings();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [nickname, setNickname] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSignUp = async () => {
-    // In local mode, just route to home
-    await AsyncStorage.setItem('habyss_onboarding_complete', 'true');
-    router.replace("/(root)/(tabs)/home");
-  };
-
-  const handleGoogleSignUp = async () => {
-    // Cloud auth disabled in local-only mode
-    Alert.alert('Coming Soon', 'Cloud sign-up will be available with premium.');
+    setLoading(true);
+    try {
+      await getLocalUserId();
+      await setLocalProfileName(nickname.trim() || 'Operator');
+      await setOnboardingComplete();
+      router.replace("/(root)/(tabs)/home");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,91 +48,60 @@ const SignUp = () => {
 
               {/* Header */}
               <View style={{ marginBottom: 32, marginTop: 20 }}>
-                <Text style={[styles.title, { color: colors.textPrimary }]}>CREATE ACCOUNT</Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Join us</Text>
+                <Text style={[styles.title, { color: colors.textPrimary }]}>SET UP THIS DEVICE</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Create your local Habyss vault</Text>
               </View>
 
               {/* Form Container */}
               <VoidCard glass style={{ padding: 24 }}>
                 <AppTextField
-                  label="Email"
-                  leadingIcon="mail-outline"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
+                  label="Codename"
+                  leadingIcon="sparkles-outline"
+                  placeholder="What should Habyss call you?"
+                  value={nickname}
+                  onChangeText={setNickname}
+                  autoCapitalize="words"
                 />
 
-                <View style={{ marginTop: 16 }}>
-                  <AppTextField
-                    label="Password"
-                    leadingIcon="lock-closed-outline"
-                    trailingIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    onTrailingPress={() => setShowPassword(!showPassword)}
-                    placeholder="Create a password"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                </View>
-
-                <View style={{ marginTop: 16 }}>
-                  <AppTextField
-                    label="Confirm Password"
-                    leadingIcon="shield-checkmark-outline"
-                    placeholder="Confirm your password"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                </View>
-
-                <AppButton label="Create Account" onPress={handleSignUp} loading={loading} style={styles.primaryButton} />
-
-                {/* Terms & Privacy Links */}
-                <View style={{ marginTop: 16, alignItems: 'center' }}>
-                  <Text style={{ color: colors.textTertiary, fontSize: 10, textAlign: 'center', fontFamily: 'Lexend_400Regular' }}>
-                    By signing up, you agree to our{' '}
-                    <Text
-                      style={{ color: colors.primary, textDecorationLine: 'underline' }}
-                      onPress={() => Linking.openURL('https://habyss.com/terms')}
-                    >
-                      Terms
-                    </Text>
-                    {' '}and{' '}
-                    <Text
-                      style={{ color: colors.primary, textDecorationLine: 'underline' }}
-                      onPress={() => Linking.openURL('https://habyss.com/privacy')}
-                    >
-                      Privacy Policy
-                    </Text>
-                    .
+                <View style={[styles.localOnlyCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                  <Text style={[styles.localOnlyTitle, { color: colors.textPrimary }]}>This app stays local</Text>
+                  <Text style={[styles.localOnlyBody, { color: colors.textSecondary }]}>
+                    No cloud account. No hosted database. Your profile, habits, routines, and personal AI stay on this device.
                   </Text>
                 </View>
 
+                <View style={[styles.lockRow, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text style={[styles.lockTitle, { color: colors.textPrimary }]}>Face ID / Touch ID lock</Text>
+                    <Text style={[styles.lockBody, { color: colors.textSecondary }]}>
+                      Require biometric unlock when reopening Habyss on this device.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={isAppLockEnabled}
+                    onValueChange={setIsAppLockEnabled}
+                    trackColor={{ false: colors.surfaceTertiary, true: colors.primary + '66' }}
+                    thumbColor={isAppLockEnabled ? colors.primary : colors.textSecondary}
+                  />
+                </View>
+
+                <AppButton label="Enter Habyss" onPress={handleSignUp} loading={loading} style={styles.primaryButton} />
+
               </VoidCard>
 
-              <SectionDivider label="or" />
+              <SectionDivider label="already configured?" />
 
-              {/* Social Sign Up */}
-              <View style={{ gap: 12 }}>
-                <AppleAuthButton type="sign-up" />
-
-                <AppButton
-                  label="Continue with Google"
-                  onPress={handleGoogleSignUp}
-                  disabled={loading}
-                  variant="secondary"
-                  icon="logo-google"
-                />
-              </View>
+              <AppButton
+                label="Resume On This Device"
+                onPress={() => router.replace('/(auth)/sign-in')}
+                variant="secondary"
+              />
 
               {/* Footer */}
               <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 20 }}>
-                <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>Already have an account? </Text>
+                <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>Need to recalibrate first? </Text>
                 <TouchableOpacity onPress={() => router.replace('/(auth)/sign-in')}>
-                  <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>Sign In</Text>
+                  <Text style={{ color: colors.primary, fontFamily: 'Lexend_400Regular', fontWeight: 'bold', fontSize: 12 }}>Resume setup</Text>
                 </TouchableOpacity>
               </View>
 
@@ -161,6 +128,41 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     marginTop: 24,
+  },
+  localOnlyCard: {
+    marginTop: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+  },
+  localOnlyTitle: {
+    fontSize: 15,
+    fontFamily: 'Lexend',
+    marginBottom: 6,
+  },
+  localOnlyBody: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: 'Lexend_400Regular',
+  },
+  lockRow: {
+    marginTop: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  lockTitle: {
+    fontSize: 14,
+    fontFamily: 'Lexend',
+    marginBottom: 4,
+  },
+  lockBody: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: 'Lexend_400Regular',
   },
 });
 

@@ -13,6 +13,7 @@ import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { GoalProgressGraph } from '@/components/Goal/GoalProgressGraph';
+import { GoalStats } from '@/components/Goal/GoalStats';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +26,7 @@ const GoalsOverview = () => {
     const [allHabits, setAllHabits] = useState<Habit[]>([]);
     const [completions, setCompletions] = useState<Record<string, boolean>>({});
     const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
+    const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
 
     // Subscribe to habits
     useEffect(() => {
@@ -49,6 +51,25 @@ const GoalsOverview = () => {
 
     const goals = useMemo(() => allHabits.filter(h => h.isGoal), [allHabits]);
     const habits = useMemo(() => allHabits.filter(h => !h.isGoal), [allHabits]);
+    const selectedGoal = useMemo(
+        () => goals.find((goal) => goal.id === selectedGoalId) || goals[0] || null,
+        [goals, selectedGoalId]
+    );
+    const selectedGoalHabits = useMemo(
+        () => habits.filter((habit) => habit.goalId === selectedGoal?.id),
+        [habits, selectedGoal?.id]
+    );
+
+    useEffect(() => {
+        if (!goals.length) {
+            setSelectedGoalId(null);
+            return;
+        }
+
+        if (!selectedGoalId || !goals.some((goal) => goal.id === selectedGoalId)) {
+            setSelectedGoalId(goals[0].id);
+        }
+    }, [goals, selectedGoalId]);
 
     // Calculate goal progress (same logic as home.tsx)
     const goalProgress = useMemo(() => {
@@ -144,6 +165,72 @@ const GoalsOverview = () => {
                         </VoidCard>
                     </Animated.View>
 
+                    {selectedGoal && (
+                        <>
+                            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>MISSION CONTROL</Text>
+                            <VoidCard glass style={[styles.featuredGoalCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
+                                <View style={styles.featuredGoalHeader}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.featuredGoalEyebrow, { color: colors.textTertiary }]}>ACTIVE GOAL</Text>
+                                        <Text style={[styles.featuredGoalTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+                                            {selectedGoal.name}
+                                        </Text>
+                                        <Text style={[styles.featuredGoalMeta, { color: colors.textSecondary }]}>
+                                            {selectedGoalHabits.length} linked habits
+                                            {selectedGoal.targetDate ? ` • due ${new Date(selectedGoal.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={() => handleGoalPress(selectedGoal.id)}
+                                        style={[styles.openButton, { backgroundColor: accentColor + '18' }]}
+                                    >
+                                        <Ionicons name="open-outline" size={18} color={accentColor} />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.goalChipRow}
+                                >
+                                    {goals.map((goal) => {
+                                        const isActive = goal.id === selectedGoal.id;
+                                        return (
+                                            <TouchableOpacity
+                                                key={goal.id}
+                                                onPress={() => setSelectedGoalId(goal.id)}
+                                                style={[
+                                                    styles.goalChip,
+                                                    {
+                                                        backgroundColor: isActive ? accentColor + '18' : (theme === 'light' ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
+                                                        borderColor: isActive ? accentColor + '55' : colors.border,
+                                                    }
+                                                ]}
+                                            >
+                                                <Ionicons
+                                                    name={(goal.icon as any) || 'flag'}
+                                                    size={13}
+                                                    color={isActive ? accentColor : colors.textTertiary}
+                                                />
+                                                <Text
+                                                    style={[
+                                                        styles.goalChipText,
+                                                        { color: isActive ? accentColor : colors.textSecondary }
+                                                    ]}
+                                                    numberOfLines={1}
+                                                >
+                                                    {goal.name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+
+                                <GoalStats goal={selectedGoal} habits={selectedGoalHabits} />
+                            </VoidCard>
+                        </>
+                    )}
+
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ALL GOALS</Text>
                     <View style={styles.grid}>
                         {goals.length > 0 ? goals.map((goal, index) => {
@@ -207,6 +294,58 @@ const styles = StyleSheet.create({
     statValue: { fontSize: 24, fontWeight: 'bold', fontFamily: 'Lexend' },
     statLabel: { fontSize: 9, marginTop: 4, fontFamily: 'Lexend_400Regular', letterSpacing: 1 },
     sectionTitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginBottom: 14, fontFamily: 'Lexend_400Regular' },
+    featuredGoalCard: {
+        padding: 18,
+        marginBottom: 24,
+    },
+    featuredGoalHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: 12,
+        marginBottom: 14,
+    },
+    featuredGoalEyebrow: {
+        fontSize: 10,
+        letterSpacing: 1.4,
+        fontFamily: 'Lexend_500Medium',
+    },
+    featuredGoalTitle: {
+        marginTop: 6,
+        fontSize: 24,
+        lineHeight: 28,
+        fontFamily: 'Lexend_700Bold',
+    },
+    featuredGoalMeta: {
+        marginTop: 8,
+        fontSize: 13,
+        fontFamily: 'Lexend_400Regular',
+    },
+    openButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    goalChipRow: {
+        gap: 10,
+        paddingBottom: 14,
+    },
+    goalChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 14,
+        borderWidth: 1,
+        maxWidth: 180,
+    },
+    goalChipText: {
+        fontSize: 12,
+        fontFamily: 'Lexend_500Medium',
+    },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     goalCard: { width: (width - 50) / 2, padding: 14, alignItems: 'center' },
     goalIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },

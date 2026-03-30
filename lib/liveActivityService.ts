@@ -1,7 +1,6 @@
-import { Platform, NativeModules } from 'react-native';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const { SharedDefaults } = NativeModules;
+import SharedDefaults from './SharedDefaults';
 const ACTIVITY_ID_KEY = '@habyss_live_activity_id';
 
 // Dynamically import to avoid crashes on Android
@@ -24,6 +23,14 @@ export interface DailyProgress {
     targetDate?: number; // timestamp in ms
     profilePicture?: string; // local file path or base64
     habits?: { id: string; name: string; isCompleted: boolean }[];
+}
+
+function syncWidgetSummary(stats: DailyProgress) {
+    if (!SharedDefaults) return;
+    SharedDefaults.set('widgetSummary', JSON.stringify({
+        total: stats.total,
+        completed: stats.completed,
+    })).catch(() => { });
 }
 
 export const LiveActivityService = {
@@ -54,24 +61,7 @@ export const LiveActivityService = {
 
             const title = stats.activeHabitName || `${stats.completed}/${stats.total} Habits Done`;
 
-            let profileImagePath: string | undefined;
-
-            if (stats.profilePicture && SharedDefaults.saveImage) {
-                try {
-                    // Extract base64 if it's a data URL, otherwise assume it's raw base64
-                    const base64 = stats.profilePicture.includes('base64,')
-                        ? stats.profilePicture.split('base64,')[1]
-                        : stats.profilePicture;
-
-                    // Simple hash or timestamp for filename to avoid collisions/caching issues if needed, 
-                    // but for a profile pic, 'current_profile.jpg' might be enough or 'profile_<habit_id>.jpg'
-                    const fileName = 'live_activity_profile.jpg';
-                    profileImagePath = await SharedDefaults.saveImage(base64, fileName);
-                    console.log('Saved profile image to:', profileImagePath);
-                } catch (e) {
-                    console.warn('Failed to save profile image:', e);
-                }
-            }
+            const profileImagePath: string | undefined = undefined;
 
             console.log('Starting Activity with targetDate:', stats.targetDate);
             const activityId = LiveActivity.startActivity(
@@ -142,18 +132,7 @@ export const LiveActivityService = {
                 subtitle = 'Focusing...';
             }
 
-            let profileImagePath: string | undefined;
-            if (stats.profilePicture && SharedDefaults.saveImage) {
-                try {
-                    const base64 = stats.profilePicture.includes('base64,')
-                        ? stats.profilePicture.split('base64,')[1]
-                        : stats.profilePicture;
-                    const fileName = 'live_activity_profile.jpg';
-                    profileImagePath = await SharedDefaults.saveImage(base64, fileName);
-                } catch (e) {
-                    console.warn('Failed to save profile image:', e);
-                }
-            }
+            const profileImagePath: string | undefined = undefined;
 
             LiveActivity.updateActivity(activityId, {
                 title,
@@ -203,9 +182,12 @@ export const LiveActivityService = {
 
             // Clear Widget active state
             if (SharedDefaults) {
-                SharedDefaults.set('activeHabitName', 'No Active Habit');
-                SharedDefaults.set('todayStats', 'Great job today!');
-                await SharedDefaults.reloadTimelines();
+                await SharedDefaults.set('activeHabitName', 'No Active Habit');
+                await SharedDefaults.remove('timerEndDate');
+                syncWidgetSummary({ completed: 0, total: 0 });
+                if (typeof SharedDefaults.reloadTimelines === 'function') {
+                    await SharedDefaults.reloadTimelines();
+                }
             }
 
         } catch (e) {
@@ -232,25 +214,28 @@ export const LiveActivityService = {
             ? 'Focusing...'
             : `${stats.completed}/${stats.total} Habits`;
 
-        SharedDefaults.set('activeHabitName', habitName);
-        SharedDefaults.set('todayStats', status);
+        SharedDefaults.set('activeHabitName', habitName).catch(() => { });
+        SharedDefaults.set('todayStats', status).catch(() => { });
+        syncWidgetSummary(stats);
 
         if (stats.targetDate) {
-            SharedDefaults.set('timerEndDate', stats.targetDate);
+            SharedDefaults.set('timerEndDate', String(stats.targetDate)).catch(() => { });
         } else {
-            SharedDefaults.set('timerEndDate', null); // Clear if no timer
+            SharedDefaults.remove('timerEndDate').catch(() => { });
         }
 
         if (stats.habits) {
             try {
                 const habitsJson = JSON.stringify(stats.habits);
-                SharedDefaults.set('habitsData', habitsJson);
+                SharedDefaults.set('habitsData', habitsJson).catch(() => { });
             } catch (e) {
                 console.warn('Failed to serialize habits for widget:', e);
             }
         }
 
         // Reload widget timelines so changes appear immediately
-        SharedDefaults.reloadTimelines?.().catch(() => { });
+        if (typeof SharedDefaults.reloadTimelines === 'function') {
+            SharedDefaults.reloadTimelines().catch(() => { });
+        }
     }
 };

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, AppStateStatus, Vibration } from 'react-native';
+import { AppState, AppStateStatus, Alert, Platform, Vibration } from 'react-native';
 
 import { NotificationService } from '@/lib/notificationService';
 import { IntegrationService } from '@/lib/integrationService';
@@ -170,6 +170,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const appState = useRef(AppState.currentState);
     const activityIdRef = useRef<string | null>(null);
     const todaySessionRecordedRef = useRef(false); // Track if we recorded a session for today's active days
+    const hasShownBlockingSetupPromptRef = useRef(false);
 
     // DERIVED: Industry-Standard Calculations
     const dailyAverageAccurate = activeDaysThisWeek > 0
@@ -473,6 +474,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         endTimeRef.current = null;
         focusStartRef.current = null;
         currentSessionRef.current = null;
+        hasShownBlockingSetupPromptRef.current = false;
 
         // End Live Activity - Handled by _layout.tsx
         // Actually, we should handle it here to be safe and immediate
@@ -523,8 +525,18 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             completed: false,
         };
 
-        // Enable Screen Time Shield
-        ScreenTimeService.setShieldEnabled(true);
+        // Enable Screen Time Shield when available. If setup is incomplete, prompt once.
+        if (Platform.OS === 'ios') {
+            ScreenTimeService.armShieldIfPossible().then((armed) => {
+                if (!armed && !hasShownBlockingSetupPromptRef.current) {
+                    hasShownBlockingSetupPromptRef.current = true;
+                    Alert.alert(
+                        'App Blocking Setup',
+                        'Choose the apps you want to block in the iOS picker, then your focus sessions will shield them automatically.'
+                    );
+                }
+            });
+        }
 
         // LIVE ACTIVITY START
         const { LiveActivityService } = require('@/lib/liveActivityService');
@@ -586,8 +598,9 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             endTimeRef.current = now + (timeLeft * 1000);
         }
 
-        // Re-enable Screen Time Shield
-        ScreenTimeService.setShieldEnabled(true);
+        if (Platform.OS === 'ios') {
+            ScreenTimeService.armShieldIfPossible();
+        }
 
         // LIVE ACTIVITY RESUME
         const { LiveActivityService } = require('@/lib/liveActivityService');
@@ -648,6 +661,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setTotalDuration(0);
         endTimeRef.current = null;
         currentSessionRef.current = null;
+        hasShownBlockingSetupPromptRef.current = false;
 
     }, [updateStats, saveFocusSession]);
 

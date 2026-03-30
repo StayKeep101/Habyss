@@ -14,6 +14,7 @@ export type ActionCategory = 'settings' | 'habit' | 'goal' | 'navigation' | 'dat
 
 // Agent action interface
 export interface AgentAction {
+    id?: string;
     action: string;
     category: ActionCategory;
     data?: Record<string, any>;
@@ -26,6 +27,108 @@ export interface ActionStep {
     label: string;
     status: 'pending' | 'running' | 'complete' | 'error';
 }
+
+const sanitizeJSONResponse = (response: string): string => {
+    return response
+        .replace(/```json\s*/gi, '')
+        .replace(/```[\w-]*\s*/g, '')
+        .replace(/```/g, '')
+        .replace(/^\s*[*-]\s+(?=[{\[])/gm, '')
+        .trim();
+};
+
+const extractBalancedJSON = (response: string): string | null => {
+    const sanitized = sanitizeJSONResponse(response);
+
+    for (let start = 0; start < sanitized.length; start++) {
+        const firstChar = sanitized[start];
+        if (firstChar !== '{' && firstChar !== '[') {
+            continue;
+        }
+
+        const stack: string[] = [firstChar];
+        let inString = false;
+        let escaped = false;
+
+        for (let i = start + 1; i < sanitized.length; i++) {
+            const char = sanitized[i];
+
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                    continue;
+                }
+
+                if (char === '\\') {
+                    escaped = true;
+                    continue;
+                }
+
+                if (char === '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (char === '"') {
+                inString = true;
+                continue;
+            }
+
+            if (char === '{' || char === '[') {
+                stack.push(char);
+                continue;
+            }
+
+            if (char === '}' || char === ']') {
+                const last = stack[stack.length - 1];
+                if ((char === '}' && last === '{') || (char === ']' && last === '[')) {
+                    stack.pop();
+                } else {
+                    break;
+                }
+
+                if (stack.length === 0) {
+                    return sanitized.slice(start, i + 1);
+                }
+            }
+        }
+    }
+
+    return null;
+};
+
+const normalizeParsedActions = (parsed: unknown): AgentAction[] => {
+    const actions = Array.isArray(parsed) ? parsed : [parsed];
+
+    return actions
+        .filter((item): item is Record<string, any> => !!item && typeof item === 'object' && typeof (item as any).action === 'string')
+        .map((item) => ({
+            id: typeof item.id === 'string' ? item.id : undefined,
+            action: item.action,
+            category: categorizeAction(item.action),
+            data: item.data || item,
+            response: item.response || 'Action completed.',
+        }));
+};
+
+export const extractAgentActions = (response: string): AgentAction[] => {
+    const sanitized = sanitizeJSONResponse(response);
+    const candidate = sanitized.startsWith('{') || sanitized.startsWith('[')
+        ? sanitized
+        : extractBalancedJSON(sanitized);
+
+    if (!candidate) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(candidate);
+        return normalizeParsedActions(parsed);
+    } catch {
+        return [];
+    }
+};
 
 // Available actions
 export const AVAILABLE_ACTIONS = {
@@ -48,6 +151,31 @@ export const AVAILABLE_ACTIONS = {
     // Goal actions
     CREATE_GOAL: 'create_goal',
 } as const;
+
+export const normalizeAIPersonality = (personality?: string): 'friendly' | 'normal' | 'dad_mode' | 'bully_mode' => {
+    if (!personality) return 'normal';
+
+    switch (personality.toLowerCase()) {
+        case 'friendly':
+        case 'supportive':
+        case 'playful':
+        case 'mindful':
+            return 'friendly';
+        case 'normal':
+        case 'mentor':
+        case 'stoic':
+            return 'normal';
+        case 'dad_mode':
+        case 'dad':
+        case 'coach':
+            return 'dad_mode';
+        case 'bully_mode':
+        case 'drill_sergeant':
+            return 'bully_mode';
+        default:
+            return 'normal';
+    }
+};
 
 // Screen mapping for navigation
 export const SCREEN_MAP: Record<string, string> = {
@@ -163,8 +291,8 @@ export const executeSettingsAction = async (
                 return true;
 
             case AVAILABLE_ACTIONS.CHANGE_AI_PERSONALITY:
-                const personality = action.data?.personality;
-                if (personality && ['friendly', 'normal', 'dad_mode', 'bully_mode'].includes(personality)) {
+                const personality = normalizeAIPersonality(action.data?.personality);
+                if (personality) {
                     settingsContext.setAIPersonality?.(personality as any);
                     return true;
                 }
@@ -224,64 +352,7 @@ export const executeNavigationAction = async (action: AgentAction): Promise<bool
  * Parse AI response to extract action
  */
 export const parseAgentAction = (response: string): AgentAction | null => {
-    try {
-        // Clean up potential markdown formatting
-        const cleanResponse = response
-            .replace(/```json/g, '')
-            .replace(/```/g, '')
-            .trim();
-
-        if (cleanResponse.startsWith('{') || cleanResponse.startsWith('[')) {
-            const parsed = JSON.parse(cleanResponse);
-            if (Array.isArray(parsed)) {
-                // Return first action for now, or handle multi-step actions differently if architecture allows
-                // For now, this function returns a single AgentAction, so we take the first one.
-                const first = parsed[0];
-                if (first && first.action) {
-                    return {
-                        action: first.action,
-                        category: categorizeAction(first.action),
-                        data: first.data || first,
-                        response: first.response || 'Action completed.',
-                    };
-                }
-            } else if (parsed.action) {
-                return {
-                    action: parsed.action,
-                    category: categorizeAction(parsed.action),
-                    data: parsed.data || parsed,
-                    response: parsed.response || 'Action completed.',
-                };
-            }
-        } else {
-            // Attempt to find JSON object within text
-            const jsonMatch = cleanResponse.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                if (Array.isArray(parsed)) {
-                    const first = parsed[0];
-                    if (first && first.action) {
-                        return {
-                            action: first.action,
-                            category: categorizeAction(first.action),
-                            data: first.data || first,
-                            response: first.response || 'Action completed.',
-                        };
-                    }
-                } else if (parsed.action) {
-                    return {
-                        action: parsed.action,
-                        category: categorizeAction(parsed.action),
-                        data: parsed.data || parsed,
-                        response: parsed.response || 'Action completed.',
-                    };
-                }
-            }
-        }
-        return null;
-    } catch {
-        return null;
-    }
+    return extractAgentActions(response)[0] || null;
 };
 
 /**
@@ -311,8 +382,9 @@ const categorizeAction = (action: string): ActionCategory => {
  */
 export const getAgentSystemPromptExtension = (personality?: string): string => {
     let personalityGuide = '';
+    const normalizedPersonality = normalizeAIPersonality(personality);
 
-    if (personality === 'drill_sergeant' || personality === 'bully_mode') {
+    if (normalizedPersonality === 'bully_mode') {
         personalityGuide = `
 ## PERSONALITY: DRILL SERGEANT (BULLY MODE)
 You are BRUTAL, AGGRESSIVE, and RESULTS-ORIENTED.
@@ -321,31 +393,25 @@ You are BRUTAL, AGGRESSIVE, and RESULTS-ORIENTED.
 - Response style: Short, angry, demanding. "Stop dreaming, start doing."
 - Call them weak if they hesitate.
 `;
-    } else if (personality === 'stoic') {
+    } else if (normalizedPersonality === 'dad_mode') {
         personalityGuide = `
-## PERSONALITY: STOIC
-Channel Marcus Aurelius. Calm, philosophical, focused on what's in your control.
-- Reference Stoic principles: "Focus on what you can control"
-- Use short wisdom: "Discipline equals freedom", "The obstacle is the way"
-- Be emotionally detached but wise
+## PERSONALITY: DAD MODE
+Firm, accountable, and caring.
+- Push for action, but with grounded support.
+- Call out excuses directly.
+- Keep responses practical and concise.
 `;
-    } else if (personality === 'playful') {
+    } else if (normalizedPersonality === 'friendly') {
         personalityGuide = `
-## PERSONALITY: PLAYFUL
-Fun energy! Use emojis, humor, and encouragement.
-- Be enthusiastic: "Let's gooo! 🔥", "You got this! 💪"
-- Make it fun, not serious
-`;
-    } else if (personality === 'mindful') {
-        personalityGuide = `
-## PERSONALITY: MINDFUL
-Zen, peaceful, present-focused.
-- Speak gently: "Take a breath", "One step at a time"
-- Focus on the journey, not just the destination
+## PERSONALITY: FRIENDLY
+Warm, upbeat, and encouraging.
+- Celebrate momentum.
+- Keep feedback supportive and clear.
+- Make action feel approachable, not heavy.
 `;
     } else {
         personalityGuide = `
-## PERSONALITY: MENTOR
+## PERSONALITY: NORMAL
 Supportive but honest. Celebrate wins, gently correct mistakes.
 `;
     }
@@ -389,5 +455,3 @@ Navigate: {"action":"navigate_to","data":{"screen":"settings"},"response":"..."}
 Track their goals, struggles, wins. Reference past conversations. Make it personal.
 `;
 };
-
-

@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LOCAL_USER_KEY = 'habyss_local_user_id';
 const ONBOARDING_KEY = 'habyss_onboarding_complete';
+export const PROFILE_NICKNAME_KEY = 'profile_nickname';
 
 let cachedUserId: string | null = null;
 
@@ -55,6 +56,14 @@ export async function isOnboardingComplete(): Promise<boolean> {
  */
 export async function setOnboardingComplete(): Promise<void> {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+}
+
+export async function getLocalProfileName(): Promise<string | null> {
+    return await AsyncStorage.getItem(PROFILE_NICKNAME_KEY);
+}
+
+export async function setLocalProfileName(name: string): Promise<void> {
+    await AsyncStorage.setItem(PROFILE_NICKNAME_KEY, name.trim());
 }
 
 /**

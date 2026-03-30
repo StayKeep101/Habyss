@@ -631,7 +631,6 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                     : fmtDate(habitStartDate),
                 isArchived: false,
                 reminders: reminderEnabled ? [fmtTime(reminderTime)] : [],
-                ringtone: ringtone,
                 goalValue: measurementValue,
                 unit: measurementUnit,
                 chartType: (graphStyle === 'bar' ? 'bar' : 'line') as any,

@@ -108,6 +108,26 @@ export const generateGreeting = async (personality: string): Promise<string> => 
             "Be present with your practice today.",
             "Peace comes through purposeful action.",
         ],
+        friendly: [
+            "You're doing amazing, keep showing up.",
+            "Every step forward counts, proud of you.",
+            "Welcome back, your consistency inspires.",
+        ],
+        normal: [
+            "Every step forward counts. Keep building.",
+            "Consistency beats intensity. You've got this.",
+            "Today's discipline is tomorrow's freedom.",
+        ],
+        dad_mode: [
+            "Let's get it done. No drifting today.",
+            "You're stronger than your excuses.",
+            "Discipline first. Feelings second.",
+        ],
+        bully_mode: [
+            "No excuses. Time to move.",
+            "Discipline beats motivation. Start now.",
+            "Less talk. More action.",
+        ],
     };
 
     const key = personality.toLowerCase();
@@ -130,6 +150,14 @@ const getPersonalityGuidelines = (personality: string): string => {
             return 'Be fun, light-hearted, use humor and friendly energy.';
         case 'mindful':
             return 'Be peaceful, zen-like, focused on presence and inner calm.';
+        case 'friendly':
+            return 'Be warm, encouraging, and celebratory.';
+        case 'normal':
+            return 'Be balanced, practical, and motivating.';
+        case 'dad_mode':
+            return 'Be firm, accountable, and caring.';
+        case 'bully_mode':
+            return 'Be intense, blunt, and relentlessly action-oriented.';
         default:
             return 'Be motivating and encouraging.';
     }

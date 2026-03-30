@@ -20,8 +20,31 @@ export class SiriService {
         try {
             const habitsJson = JSON.stringify(habits);
             await SharedDefaults.set('habitsData', habitsJson);
+            await SharedDefaults.set('siri_last_sync', String(Date.now()));
         } catch (e) {
             console.warn('SiriService: Failed to sync progress:', e);
+        }
+    }
+
+    static async syncTodayProgress(): Promise<void> {
+        if (Platform.OS !== 'ios' || !SharedDefaults) return;
+
+        try {
+            const { getHabits, getLastNDaysCompletions } = require('./habitsSQLite');
+            const habits = await getHabits();
+            const activeHabits = habits.filter((habit: any) => !habit.isGoal && !habit.isArchived);
+            const todayCompletions = await getLastNDaysCompletions(1);
+            const completedSet = new Set(todayCompletions[0]?.completedIds || []);
+
+            await this.syncProgressForSiri(
+                activeHabits.map((habit: any) => ({
+                    id: habit.id,
+                    name: habit.name,
+                    isCompleted: completedSet.has(habit.id),
+                }))
+            );
+        } catch (e) {
+            console.warn('SiriService: Failed to sync today progress:', e);
         }
     }
 

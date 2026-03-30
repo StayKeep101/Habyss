@@ -51,14 +51,27 @@ export class LocationService {
         }
     }
 
+    static async hasPermissions(): Promise<boolean> {
+        try {
+            const { status: fgStatus } = await Location.getForegroundPermissionsAsync();
+            const { status: bgStatus } = await Location.getBackgroundPermissionsAsync();
+            return fgStatus === 'granted' && bgStatus === 'granted';
+        } catch (e) {
+            console.warn('Error checking location permissions:', e);
+            return false;
+        }
+    }
+
     /**
      * Refreshes all geofences based on current habits.
      * This is the source of truth - it stops everything and re-registers active reminders.
      * This handles addition, removal, and updates in one go.
      */
-    static async refreshGeofences() {
+    static async refreshGeofences(options?: { requestPermissions?: boolean }) {
         try {
-            const hasPermission = await this.requestPermissions();
+            const hasPermission = options?.requestPermissions
+                ? await this.requestPermissions()
+                : await this.hasPermissions();
             if (!hasPermission) {
                 console.warn('[Geofencing] Missing permissions');
                 return;

@@ -9,6 +9,8 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
+import { useRoutines } from '@/constants/RoutineContext';
+import { useFocusTime } from '@/constants/FocusTimeContext';
 
 import { useHaptics } from '@/hooks/useHaptics';
 import { PomodoroTimer } from '@/components/Habit/PomodoroTimer';
@@ -37,6 +39,8 @@ export default function HabitDetailScreen() {
   const { theme } = useTheme();
   const colors = Colors[theme];
   const { selectionFeedback, mediumFeedback } = useHaptics();
+  const { getRoutinesForHabit } = useRoutines();
+  const { activeHabitId, isRunning: isFocusRunning } = useFocusTime();
 
   // Initialize with passed params to avoid loading state
   const [habit, setHabit] = useState<Habit | null>(() => {
@@ -221,6 +225,8 @@ export default function HabitDetailScreen() {
   // Last 7 days for quick view
   const last7Days = history.slice(-7);
   const habitColor = habit.color || colors.primary;
+  const linkedRoutines = habit ? getRoutinesForHabit(habit.id) : [];
+  const isFocusActiveForHabit = activeHabitId === habit.id && isFocusRunning;
 
   return (
     <VoidShell>
@@ -268,6 +274,34 @@ export default function HabitDetailScreen() {
         <ScrollView style={{ width: width }} contentContainerStyle={styles.pageContent}>
 
           <ScreenHeader title={habit.name.toUpperCase()} subtitle="PROTOCOL DETAILS" />
+
+          <VoidCard style={styles.contextCard}>
+            <View style={styles.contextRow}>
+              <View>
+                <Text style={[styles.contextLabel, { color: colors.textTertiary }]}>SCHEDULE</Text>
+                <Text style={[styles.contextValue, { color: colors.textPrimary }]}>
+                  {habit.startTime ? `${habit.startTime}${habit.durationMinutes ? ` · ${habit.durationMinutes} min` : ''}` : 'Anytime'}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.contextLabel, { color: colors.textTertiary }]}>FOCUS</Text>
+                <Text style={[styles.contextValue, { color: isFocusActiveForHabit ? habitColor : colors.textSecondary }]}>
+                  {isFocusActiveForHabit ? 'Running now' : 'Idle'}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.routinePills, { marginTop: 14 }]}>
+              {linkedRoutines.length > 0 ? linkedRoutines.map((routine) => (
+                <View key={routine.id} style={[styles.routinePill, { backgroundColor: habitColor + '14', borderColor: habitColor + '28' }]}>
+                  <Text style={[styles.routinePillText, { color: colors.textPrimary }]}>{routine.emoji} {routine.name}</Text>
+                </View>
+              )) : (
+                <View style={[styles.routinePill, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                  <Text style={[styles.routinePillText, { color: colors.textSecondary }]}>Not inside a routine yet</Text>
+                </View>
+              )}
+            </View>
+          </VoidCard>
 
           {/* === CONTEXT-SENSITIVE PRIMARY INPUT === */}
 
@@ -492,6 +526,40 @@ const styles = StyleSheet.create({
   pageContent: {
     paddingHorizontal: 20,
     paddingTop: 10,
+  },
+  contextCard: {
+    padding: 18,
+    marginBottom: 20,
+  },
+  contextRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  contextLabel: {
+    fontSize: 10,
+    letterSpacing: 1.3,
+    fontFamily: 'Lexend_400Regular',
+  },
+  contextValue: {
+    fontSize: 15,
+    fontFamily: 'Lexend',
+    marginTop: 4,
+  },
+  routinePills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  routinePill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  routinePillText: {
+    fontSize: 11,
+    fontFamily: 'Lexend_400Regular',
   },
   iconButton: {
     width: 44,

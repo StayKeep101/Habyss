@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Image } from 'react-native';
-import Animated, { FadeInDown, FadeOut, useSharedValue, withSpring, useAnimatedStyle, interpolate, Extrapolate } from 'react-native-reanimated';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -12,21 +12,21 @@ const { width, height } = Dimensions.get('window');
 const SLIDES = [
     {
         id: '1',
-        title: 'Master Your Void',
-        desc: 'Build habits that withstand the entropy of life.',
-        icon: 'planet'
+        title: 'Private by default',
+        desc: 'Your habits, focus sessions, routines, and AI stay on this device.',
+        icon: 'lock-closed'
     },
     {
         id: '2',
-        title: 'Architect Reality',
-        desc: 'Design your days with precision and purpose.',
-        icon: 'construct'
+        title: 'Built for momentum',
+        desc: 'Roadmaps, routines, timers, and streaks line up into one clean system.',
+        icon: 'flash'
     },
     {
         id: '3',
-        title: 'Ascend Together',
-        desc: 'Join a community of disciplined minds.',
-        icon: 'infinite'
+        title: 'Calibrate your mode',
+        desc: 'Tune your AI, pacing, and discipline style before the first day starts.',
+        icon: 'sparkles'
     }
 ];
 
@@ -64,8 +64,9 @@ export const GenesisCarousel: React.FC<GenesisCarouselProps> = ({ onFinish, onLo
                             style={styles.slideContent}
                         >
                             <View style={[styles.iconContainer, { backgroundColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', borderColor: theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)', shadowColor: colors.textPrimary }]}>
-                                <Ionicons name={slide.icon as any} size={80} color={colors.textPrimary} />
+                                <Ionicons name={slide.icon as any} size={72} color={colors.textPrimary} />
                             </View>
+                            <Text style={[styles.kicker, { color: colors.textTertiary }]}>LOCAL SYSTEM {index + 1}</Text>
                             <Text style={[styles.title, { color: colors.textPrimary }]}>{slide.title}</Text>
                             <Text style={[styles.desc, { color: colors.textSecondary }]}>{slide.desc}</Text>
                         </Animated.View>
@@ -91,13 +92,13 @@ export const GenesisCarousel: React.FC<GenesisCarouselProps> = ({ onFinish, onLo
                 <TouchableOpacity onPress={handleNext} activeOpacity={0.8}>
                     <BlurView intensity={20} style={[styles.primaryBtn, { borderColor: colors.border, backgroundColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }]}>
                         <Text style={[styles.primaryBtnText, { color: colors.textPrimary }]}>
-                            {currentSlide === SLIDES.length - 1 ? 'BEGIN JOURNEY' : 'CONTINUE'}
+                            {currentSlide === SLIDES.length - 1 ? 'START CALIBRATION' : 'CONTINUE'}
                         </Text>
                     </BlurView>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={onLogin} style={styles.secondaryBtn}>
-                    <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>I already have an account</Text>
+                    <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Set up this device now</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -139,6 +140,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         letterSpacing: 1,
         fontFamily: 'Lexend',
+    },
+    kicker: {
+        fontSize: 11,
+        letterSpacing: 2.4,
+        marginBottom: 12,
+        fontFamily: 'Lexend_400Regular',
+        textTransform: 'uppercase',
     },
     desc: {
         fontSize: 16,

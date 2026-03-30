@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { Habit } from '@/lib/habitsSQLite';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -94,9 +95,9 @@ export const ConsistencyModal: React.FC<ConsistencyModalProps> = ({
         .failOffsetY([-14, 14])
         .onEnd((event) => {
             if (event.translationX <= -56) {
-                switchGoal(1);
+                runOnJS(switchGoal)(1);
             } else if (event.translationX >= 56) {
-                switchGoal(-1);
+                runOnJS(switchGoal)(-1);
             }
         });
 

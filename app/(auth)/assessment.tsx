@@ -17,9 +17,7 @@ export default function AssessmentScreen() {
     };
 
     const handleAnalysisComplete = async () => {
-        // Mark onboarding as done, then go straight to app
-        await setOnboardingComplete();
-        router.replace('/(root)/(tabs)/home');
+        router.replace('/(auth)/sign-up');
     };
 
     return (
@@ -36,4 +34,3 @@ export default function AssessmentScreen() {
         </View>
     );
 }
-

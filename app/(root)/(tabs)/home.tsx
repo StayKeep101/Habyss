@@ -23,32 +23,33 @@ import { useAppSettings } from '@/constants/AppSettingsContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { UserGreetingData } from '@/lib/deepseek';
 import { LinearGradient } from 'expo-linear-gradient';
+import { normalizeAIPersonality } from '@/lib/aiAgentService';
 
 // Pro user motivational quotes by AI personality
 const PRO_QUOTES: Record<string, string[]> = {
-  mentor: [
+  normal: [
     "Every step forward counts. Keep building.",
     "Consistency beats intensity. You've got this.",
     "Your habits are shaping your future self.",
     "Progress is progress, no matter how small.",
     "Today's discipline is tomorrow's freedom.",
   ],
-  coach: [
-    "Let's crush it today! 💪",
+  dad_mode: [
+    "Let's get it done. No drifting today.",
     "You're stronger than your excuses!",
     "Champions are made in the daily grind!",
     "No limits! Push through!",
     "Your potential is unlimited!",
   ],
-  friend: [
-    "Hey! You're doing amazing 🌟",
+  friendly: [
+    "Hey! You're doing amazing today.",
     "So proud of your progress!",
     "One day at a time, friend.",
     "You've got this, I believe in you!",
     "Keep going, you're inspiring!",
   ],
-  minimal: [
-    "Execute.",
+  bully_mode: [
+    "Execute. No excuses.",
     "Focus. Discipline. Results.",
     "Less talk. More action.",
     "Build the habit.",
@@ -94,7 +95,7 @@ const Home = () => {
 
   // Pro Hooks
   const { isPremium } = usePremiumStatus();
-  const { aiPersonality, greetingStyle, useLocalAI } = useAppSettings();
+  const { aiPersonality, greetingStyle, useLocalAI, motivationStyle, communicationStyle } = useAppSettings();
 
   // Data state
   const [allHabits, setAllHabits] = useState<Habit[]>([]);
@@ -172,8 +173,8 @@ const Home = () => {
     if (greetingStyle !== 'ai') {
       // Use static quotes - NO API CALLS
       if (isPremium) {
-        const personality = aiPersonality || 'mentor';
-        const quotes = PRO_QUOTES[personality] || PRO_QUOTES.mentor;
+        const personality = normalizeAIPersonality(aiPersonality || 'normal');
+        const quotes = PRO_QUOTES[personality] || PRO_QUOTES.normal;
         return quotes[Math.floor(Math.random() * quotes.length)];
       } else {
         return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
@@ -192,13 +193,16 @@ const Home = () => {
       // Dynamic import
       const LocalLLM = require('@/lib/LocalLLMService').default;
 
-      if (LocalLLM.isReady()) {
+      if (useLocalAI && LocalLLM.isReady()) {
+        const normalizedPersonality = normalizeAIPersonality(aiPersonality || 'normal');
         const prompt = `You are a motivational habit coach.
 TASK: Write ONE short, inspiring sentence (max 15 words) based on these stats:
 Streak: ${userData.currentStreak} days
 Consistency: ${userData.consistencyScore}%
 Today: ${userData.todayCompleted}/${userData.todayTotal} done
-Personality: ${aiPersonality || 'mentor'}
+Personality: ${normalizedPersonality}
+Motivation Style: ${motivationStyle || 'gentle'}
+Communication Style: ${communicationStyle || 'empathetic'}
 
 OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
 
@@ -213,20 +217,20 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
       console.log("Greeting Error", e);
       // Fallback to static quotes on error
       if (isPremium) {
-        const personality = aiPersonality || 'mentor';
-        const quotes = PRO_QUOTES[personality] || PRO_QUOTES.mentor;
+        const personality = normalizeAIPersonality(aiPersonality || 'normal');
+        const quotes = PRO_QUOTES[personality] || PRO_QUOTES.normal;
         return quotes[Math.floor(Math.random() * quotes.length)];
       } else {
         return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
       }
     }
-  }, [isPremium, aiPersonality, allHabits, completions, historyData, greetingStyle, useLocalAI]);
+  }, [isPremium, aiPersonality, allHabits, completions, historyData, greetingStyle, useLocalAI, motivationStyle, communicationStyle]);
 
   // Get random quote based on pro status and AI personality (fallback)
   const getRandomQuote = useCallback(() => {
     if (isPremium) {
-      const personality = aiPersonality || 'mentor';
-      const quotes = PRO_QUOTES[personality] || PRO_QUOTES.mentor;
+      const personality = normalizeAIPersonality(aiPersonality || 'normal');
+      const quotes = PRO_QUOTES[personality] || PRO_QUOTES.normal;
       return quotes[Math.floor(Math.random() * quotes.length)];
     } else {
       return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];

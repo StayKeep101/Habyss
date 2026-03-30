@@ -6,6 +6,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { ThemeMode } from '@/constants/themeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DeviceEventEmitter } from 'react-native';
 
 // LOCATION_TASK_NAME is now defined in LocationService.ts
 // We import it in _layout.tsx to ensure it's registered.
@@ -28,6 +29,31 @@ export interface InAppNotification {
 }
 
 let isHandlerSet = false;
+const INBOX_NOTIFICATIONS_KEY = 'habyss_inbox_notifications';
+
+function sortNotifications(items: InAppNotification[]) {
+  return [...items].sort((a, b) => b.timestamp - a.timestamp);
+}
+
+async function readInbox(): Promise<InAppNotification[]> {
+  try {
+    const raw = await AsyncStorage.getItem(INBOX_NOTIFICATIONS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? sortNotifications(parsed) : [];
+  } catch (e) {
+    console.warn('Failed to read inbox notifications:', e);
+    return [];
+  }
+}
+
+async function writeInbox(items: InAppNotification[]) {
+  const sorted = sortNotifications(items);
+  await AsyncStorage.setItem(INBOX_NOTIFICATIONS_KEY, JSON.stringify(sorted));
+  DeviceEventEmitter.emit('notifications_updated', {
+    unreadCount: sorted.filter((item) => !item.read).length,
+  });
+}
 
 export class NotificationService {
   static async init() {
@@ -103,11 +129,7 @@ export class NotificationService {
 
   static async requestLocationPermissions() {
     try {
-      const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
-      if (fgStatus !== 'granted') return false;
-
-      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      return bgStatus === 'granted';
+      return await LocationService.requestPermissions();
     } catch (e) {
       console.warn('Error requesting location permissions:', e);
       return false;
@@ -179,48 +201,74 @@ export class NotificationService {
       }
     }
 
-    // Cancel Location-based
-    // For now we don't have a specific API to stop just ONE habit's regions without knowing identifiers?
-    // But we generate identifiers as `habitId::...`
-    // So we can find them if we list them.
-    // LocationService needs a method stopHabitGeofencing(habitId)
-    // For now, let's skip explicit stop logic for location or assume overwriting handles it?
-    // startGeofencingAsync adds to the list. 
-    // We SHOULD stop them.
-    // But since we can't easily list them in NotificationService without LocationService help...
-    // We'll rely on LocationService.stopAllGeofencing() or implement stopHabitGeofencing there.
-    // For now, let's just log.
-    // console.log('[Geofencing] Stopping location reminders for habit', habitId);
+    await LocationService.refreshGeofences();
   }
 
   static async sendCompletionNotification(habitName: string) {
-    // Optional local notification
+    try {
+      const hasPermission = await this.requestPermissions();
+      if (!hasPermission) return;
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Session complete',
+          body: `${habitName} is done.`,
+          sound: 'default',
+          data: { type: 'completion', habitName },
+        },
+        trigger: null,
+      });
+    } catch (e) {
+      console.warn('Failed to send completion notification:', e);
+    }
   }
 
   // --- Inbox Methods (local stubs — cloud inbox re-enabled with premium) ---
 
   static async getUnreadCount(): Promise<number> {
-    return 0;
+    const notifications = await readInbox();
+    return notifications.filter((notification) => !notification.read).length;
   }
 
   static async getInboxNotifications(): Promise<InAppNotification[]> {
-    return [];
+    return await readInbox();
   }
 
   static async markAllNotificationsRead() {
-    // No-op in local mode
+    const notifications = await readInbox();
+    await writeInbox(notifications.map((notification) => ({ ...notification, read: true })));
   }
 
   static async clearAllNotifications(): Promise<boolean> {
+    await AsyncStorage.removeItem(INBOX_NOTIFICATIONS_KEY);
+    DeviceEventEmitter.emit('notifications_updated', { unreadCount: 0 });
     return true;
   }
 
-  static async markNotificationRead(_id: string) {
-    // No-op in local mode
+  static async markNotificationRead(id: string) {
+    const notifications = await readInbox();
+    await writeInbox(
+      notifications.map((notification) =>
+        notification.id === id ? { ...notification, read: true } : notification
+      )
+    );
   }
 
-  static async addNotification(_notification: { title: string; body: string; type: string; data?: any }) {
-    // No-op in local mode — cloud inbox disabled
+  static async addNotification(notification: { id?: string; title: string; body: string; type: string; data?: any; fromUserId?: string }) {
+    const notifications = await readInbox();
+    const nextNotification: InAppNotification = {
+      id: notification.id || `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      title: notification.title,
+      message: notification.body,
+      type: notification.type as InAppNotification['type'],
+      timestamp: Date.now(),
+      read: false,
+      data: notification.data,
+      fromUserId: notification.fromUserId,
+    };
+
+    const deduped = notifications.filter((item) => item.id !== nextNotification.id);
+    await writeInbox([nextNotification, ...deduped]);
   }
 
   // --- Realtime Subscription (disabled — premium feature) ---

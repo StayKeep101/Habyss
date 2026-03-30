@@ -11,6 +11,7 @@ import { getLocalUserId } from './localUser';
 import { DeviceEventEmitter } from 'react-native';
 import { NotificationService } from './notificationService';
 import SharedDefaults from './SharedDefaults';
+import { SiriService } from './siriService';
 
 // Widget Sync Helper
 async function syncWidgets() {
@@ -31,9 +32,14 @@ async function syncWidgets() {
             total: activeHabits.length,
             completed: Object.keys(todayCompletions).length
         }));
+        await SharedDefaults.set('widgetSummary', JSON.stringify({
+            total: activeHabits.length,
+            completed: Object.values(todayCompletions).filter(Boolean).length,
+        }));
 
         // Force widget reload
         await SharedDefaults.reloadTimelines();
+        await SiriService.syncProgressForSiri(widgetData);
 
     } catch (e) {
         console.warn('[Widget] Sync failed:', e);
@@ -332,7 +338,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     healthKitTarget: habitData.healthKitTarget,
                 };
 
-                if (created.reminders && created.reminders.length > 0) {
+                if ((created.reminders && created.reminders.length > 0) || (created.locationReminders && created.locationReminders.length > 0)) {
                     await NotificationService.scheduleHabitReminder(created);
                 }
 
@@ -579,6 +585,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
                 }
 
                 DeviceEventEmitter.emit('habit_completion_updated', { habitId, date: dateStr, completed: newCompleted });
+                syncWidgets();
                 return optimisticResult;
             }
         } catch (e) {
