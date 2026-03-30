@@ -180,8 +180,6 @@ export class HabitRepository {
             now
         );
 
-        // Queue for sync
-        await this.queueSync('habits', 'INSERT', id, habit);
 
         const created = await this.getHabit(id);
         DeviceEventEmitter.emit('habit_created', { habit: created });
@@ -216,7 +214,7 @@ export class HabitRepository {
             ...params
         );
 
-        await this.queueSync('habits', 'UPDATE', id, updates);
+
         DeviceEventEmitter.emit('habit_updated', { habitId: id });
     }
 
@@ -230,7 +228,7 @@ export class HabitRepository {
             nowISO(), id, this.userId
         );
 
-        await this.queueSync('habits', 'DELETE', id, null);
+
         DeviceEventEmitter.emit('habit_deleted', { habitId: id });
     }
 
@@ -272,7 +270,7 @@ export class HabitRepository {
                 'UPDATE completions SET deleted = 1, synced = 0 WHERE id = ?',
                 existing.id
             );
-            await this.queueSync('completions', 'DELETE', existing.id, null);
+
             DeviceEventEmitter.emit('habit_completion_updated', { habitId, date: dateStr, completed: false });
             return false;
         } else {
@@ -283,7 +281,7 @@ export class HabitRepository {
                 'INSERT INTO completions (id, user_id, habit_id, date, value, created_at, synced, deleted) VALUES (?, ?, ?, ?, 1, ?, 0, 0)',
                 id, this.userId, habitId, dateStr, now
             );
-            await this.queueSync('completions', 'INSERT', id, { habitId, date: dateStr });
+
             DeviceEventEmitter.emit('habit_completion_updated', { habitId, date: dateStr, completed: true });
             return true;
         }
@@ -321,13 +319,4 @@ export class HabitRepository {
         return result;
     }
 
-    // --- Sync Queue ---
-
-    private async queueSync(table: string, operation: string, recordId: string, payload: any): Promise<void> {
-        const db = await getDatabase();
-        await db.runAsync(
-            'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-            table, operation, recordId, payload ? JSON.stringify(payload) : null, nowISO()
-        );
-    }
 }

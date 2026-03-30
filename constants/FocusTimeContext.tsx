@@ -5,7 +5,7 @@ import { AppState, AppStateStatus, Vibration } from 'react-native';
 import { NotificationService } from '@/lib/notificationService';
 import { IntegrationService } from '@/lib/integrationService';
 import { HealthKitService } from '@/lib/healthKit';
-import { supabase } from '@/lib/supabase';
+import { getLocalUserId } from '@/lib/localUser';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
 
 // ============================================
@@ -97,8 +97,7 @@ const STORAGE_KEY_TOTAL_SESSIONS_WEEK = 'focus_total_sessions_week';
 
 // Helper: Get current user ID
 const getUserId = async (): Promise<string | null> => {
-    const { data } = await supabase.auth.getSession();
-    return data?.session?.user?.id || null;
+    return await getLocalUserId();
 };
 
 // Helper: Get today's date string (YYYY-MM-DD)
@@ -284,15 +283,13 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, []);
 
     // ============================================
-    // Save session to database (Supabase) - fire and forget
+    // Save session locally (cloud sync gated behind premium)
     // ============================================
     const saveFocusSession = useCallback(async (session: FocusSession) => {
         try {
-            const userId = await getUserId();
-            if (!userId) return;
-
-            await supabase.from('focus_sessions').insert({
-                user_id: userId,
+            // Save to AsyncStorage for local persistence
+            const key = `focus_session_${Date.now()}`;
+            await AsyncStorage.setItem(key, JSON.stringify({
                 habit_id: session.habitId,
                 started_at: session.startedAt.toISOString(),
                 ended_at: session.endedAt?.toISOString() || new Date().toISOString(),
@@ -300,10 +297,10 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 actual_duration: session.actualDuration,
                 completed: session.completed,
                 date: getTodayString(),
-                mode: session.mode, // Save mode
-            });
+                mode: session.mode,
+            }));
         } catch (e) {
-            console.log('Failed to save focus session to DB:', e);
+            console.log('Failed to save focus session locally:', e);
         }
     }, []);
 
@@ -662,42 +659,13 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }, [updateStats]);
 
     // ============================================
-    // Refresh stats from DB (for sync)
+    // Refresh stats from local storage (cloud sync gated behind premium)
     // ============================================
     const refreshStats = useCallback(async () => {
-        try {
-            const userId = await getUserId();
-            if (!userId) return;
-
-            const { data, error } = await supabase
-                .from('focus_stats')
-                .select('*')
-                .eq('user_id', userId)
-                .single();
-
-            if (error || !data) return;
-
-            // Update state from DB
-            setTotalFocusToday(data.today_total || 0);
-            setSessionsToday(data.today_sessions || 0);
-            setBestSessionToday(data.today_best || 0);
-            setWeeklyFocusTotal(data.week_total || 0);
-            setActiveDaysThisWeek(data.week_active_days || 0);
-            setTotalSessionsThisWeek(data.week_sessions || 0);
-            setCompletedSessionsThisWeek(data.week_completed_sessions || 0);
-            setMonthlyFocusTotal(data.month_total || 0);
-            setYearlyFocusTotal(data.year_total || 0);
-            setAllTimeBest(data.all_time_best || 0);
-
-            // Persist to AsyncStorage for offline access
-            await AsyncStorage.setItem(STORAGE_KEY_FOCUS_TODAY, String(data.today_total || 0));
-            await AsyncStorage.setItem(STORAGE_KEY_WEEKLY_TOTAL, String(data.week_total || 0));
-            await AsyncStorage.setItem(STORAGE_KEY_MONTHLY_TOTAL, String(data.month_total || 0));
-            await AsyncStorage.setItem(STORAGE_KEY_YEARLY_TOTAL, String(data.year_total || 0));
-            await AsyncStorage.setItem(STORAGE_KEY_ALL_TIME_BEST, String(data.all_time_best || 0));
-        } catch (e) {
-            console.log('Failed to refresh focus stats:', e);
-        }
+        // Stats are already loaded from AsyncStorage on mount
+        // This is a no-op in local-only mode
+        // Cloud sync will refresh from Supabase when premium is enabled
+        console.log('[FocusTime] Stats refresh — using local AsyncStorage data');
     }, []);
 
     return (

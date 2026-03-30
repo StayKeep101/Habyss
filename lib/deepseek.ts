@@ -1,13 +1,8 @@
-import { supabase } from './supabase';
-
 /**
  * DeepSeek AI Service for Habyss
  * 
- * Uses Supabase Edge Functions to securely call DeepSeek API.
- * Automatic prefix caching is preserved by keeping system prompts static.
- * 
- * SETUP: Ensure DEEPSEEK_API_KEY is set in Supabase secrets:
- * npx supabase secrets set DEEPSEEK_API_KEY=...
+ * Cloud AI is gated behind premium. Local fallbacks used for free tier.
+ * When premium is enabled, uses Supabase Edge Functions for DeepSeek API.
  */
 
 export interface ChatMessage {
@@ -81,38 +76,43 @@ RULES:
 Personality styles: Supportive (warm/encouraging), Drill Sergeant (intense/pushing), Stoic (calm/philosophical), Playful (fun/light), Mindful (peaceful/zen).`;
 
 /**
- * Generate a motivational greeting using Supabase Edge Function
+ * Generate a motivational greeting (local fallback — cloud AI gated behind premium)
  */
 export const generateGreeting = async (personality: string): Promise<string> => {
-    try {
-        const { data, error } = await supabase.functions.invoke('ai-chat', {
-            body: {
-                model: MODEL,
-                messages: [
-                    { role: 'system', content: GREETING_SYSTEM_PROMPT },
-                    { role: 'user', content: `Personality: ${personality}. Give me a greeting.` }
-                ],
-                temperature: 0.9,
-                max_tokens: 50,
-            }
-        });
+    const guidelines = getPersonalityGuidelines(personality);
+    
+    // Local greeting rotation based on personality
+    const greetings: Record<string, string[]> = {
+        supportive: [
+            "You're doing amazing, keep showing up.",
+            "Every step forward counts, proud of you.",
+            "Welcome back, your consistency inspires.",
+        ],
+        drill_sergeant: [
+            "No excuses. Time to get after it.",
+            "Champions don't take days off. Move.",
+            "Discipline beats motivation. Let's go.",
+        ],
+        stoic: [
+            "The obstacle is the way forward.",
+            "Control what you can. Begin now.",
+            "Virtue is found in daily practice.",
+        ],
+        playful: [
+            "Hey superstar, ready to crush it?",
+            "Let's make today ridiculously productive!",
+            "Your habits called, they miss you!",
+        ],
+        mindful: [
+            "Breathe in. This moment is yours.",
+            "Be present with your practice today.",
+            "Peace comes through purposeful action.",
+        ],
+    };
 
-        if (error || data?.error) {
-            console.error("Greeting Gen Error", error || data?.error);
-            return "Welcome back.";
-        }
-
-        // Log cache stats
-        if (data.usage) {
-            console.log(`Greeting Cache: ${data.usage.prompt_cache_hit_tokens || 0} hit, ${data.usage.prompt_cache_miss_tokens || 0} miss`);
-        }
-
-        return data.choices?.[0]?.message?.content || "Welcome back.";
-
-    } catch (e) {
-        console.error("Greeting Gen Error", e);
-        return "Welcome back.";
-    }
+    const key = personality.toLowerCase();
+    const options = greetings[key] || greetings.supportive;
+    return options[Math.floor(Math.random() * options.length)];
 };
 
 /**

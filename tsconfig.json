@@ -17,6 +17,7 @@
   ],
   "exclude": [
     "supabase/**/*",
+    "lib/_premium/**/*",
     "node_modules"
   ]
 }

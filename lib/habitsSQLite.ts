@@ -1,13 +1,13 @@
 /**
- * SQLite-Enabled Habits Module with Expo Go Fallback
- * Provides SQLite-first data access with Supabase cloud sync
- * Falls back to Supabase-only when SQLite is unavailable (Expo Go)
+ * SQLite-Only Habits Module
+ * All data operations go through SQLite. No cloud sync.
+ * Cloud sync will be re-enabled with premium subscription.
  */
 
 import { isSQLiteAvailable } from './database';
 import { HealthKitService } from './HealthKitService';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { supabase } from './supabase';
+import { getLocalUserId } from './localUser';
 import { DeviceEventEmitter } from 'react-native';
 import { NotificationService } from './notificationService';
 import SharedDefaults from './SharedDefaults';
@@ -95,8 +95,7 @@ const completionsCache: Record<string, Record<string, boolean>> = {};
 // --- Helpers ---
 
 export async function getUserId(): Promise<string | undefined> {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id;
+    return await getLocalUserId();
 }
 
 const todayString = (d = new Date()) => {
@@ -220,58 +219,12 @@ export async function getHabits(): Promise<Habit[]> {
                 return habits;
             }
         } catch (e) {
-            console.log('[Habits] SQLite read failed, falling back to Supabase:', e);
+            console.error('[Habits] SQLite read failed:', e);
         }
     }
 
-    // Fallback to Supabase (online mode)
-    try {
-        const { data, error } = await supabase
-            .from('habits')
-            .select('*')
-            .eq('user_id', uid)
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const habits: Habit[] = (data || []).map((row: any) => ({
-            id: row.id,
-            name: row.name,
-            description: row.description,
-            category: row.category as HabitCategory,
-            icon: row.icon,
-            createdAt: row.created_at,
-            durationMinutes: row.duration_minutes,
-            startTime: row.start_time,
-            endTime: row.end_time,
-            isGoal: row.is_goal,
-            targetDate: row.target_date,
-            type: row.type || 'build',
-            color: row.color || '#6B46C1',
-            goalPeriod: row.goal_period || 'daily',
-            goalValue: row.goal_value || 1,
-            unit: row.unit || 'count',
-            taskDays: row.task_days || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
-            reminders: row.reminders || [],
-            chartType: row.chart_type || 'bar',
-            startDate: row.start_date || row.created_at,
-            endDate: row.end_date,
-            isArchived: row.is_archived || false,
-            showMemo: row.show_memo || false,
-            goalId: row.goal_id,
-            reminderOffset: row.reminder_offset,
-            locationReminders: row.location_reminders || [],
-            healthKitMetric: row.health_kit_metric,
-            healthKitTarget: row.health_kit_target
-        }));
-
-        cachedHabits = habits;
-        return habits;
-    } catch (e) {
-        console.error('Error fetching habits:', e);
-        // Return cached data if available (offline fallback)
-        return cachedHabits || [];
-    }
+    // SQLite is the only data source in local-only mode
+    return cachedHabits || [];
 }
 
 export async function getGoals(): Promise<Habit[]> {
@@ -339,11 +292,6 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     now
                 );
 
-                // Queue for sync to cloud
-                await db.runAsync(
-                    'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-                    'habits', 'INSERT', id, JSON.stringify(habitData), now
-                );
 
                 const created: Habit = {
                     id,
@@ -392,80 +340,13 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                 return created;
             }
         } catch (e) {
-            console.log('[Habits] SQLite insert failed, falling back to Supabase:', e);
+            console.error('[Habits] SQLite insert failed:', e);
         }
     }
 
-    // Fallback to Supabase (online mode)
-    const newHabit: any = {
-        user_id: uid,
-        name: habitData.name,
-        category: habitData.category,
-        icon: habitData.icon,
-        created_at: now,
-        duration_minutes: habitData.durationMinutes,
-        start_time: habitData.startTime,
-        end_time: habitData.endTime,
-        is_goal: habitData.isGoal,
-        target_date: habitData.targetDate,
-        ...(habitData.goalId ? { goal_id: habitData.goalId } : {}),
-        health_kit_metric: habitData.healthKitMetric,
-        health_kit_target: habitData.healthKitTarget,
-    };
-
-    const { data, error } = await supabase
-        .from('habits')
-        .insert([newHabit])
-        .select()
-        .single();
-
-    if (error) {
-        console.error("Error adding habit:", error);
-        return null;
-    }
-
-    const created: Habit = {
-        id: data.id,
-        name: data.name,
-        description: data.description,
-        category: data.category as HabitCategory,
-        icon: data.icon,
-        createdAt: data.created_at,
-        durationMinutes: data.duration_minutes,
-        startTime: data.start_time,
-        endTime: data.end_time,
-        isGoal: data.is_goal,
-        targetDate: data.target_date,
-        type: data.type || 'build',
-        color: data.color || '#6B46C1',
-        goalPeriod: data.goal_period || 'daily',
-        goalValue: data.goal_value || 1,
-        unit: data.unit || 'count',
-        taskDays: data.task_days || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
-        reminders: data.reminders || [],
-        chartType: data.chart_type || 'bar',
-        startDate: data.start_date || data.created_at,
-        endDate: data.end_date,
-        isArchived: data.is_archived || false,
-        showMemo: data.show_memo || false,
-        goalId: data.goal_id,
-        reminderOffset: data.reminder_offset,
-        locationReminders: data.location_reminders || [],
-        healthKitMetric: data.health_kit_metric,
-        healthKitTarget: data.health_kit_target
-    };
-
-    if (created.reminders && created.reminders.length > 0) {
-        await NotificationService.scheduleHabitReminder(created);
-    }
-
-    if (cachedHabits) {
-        cachedHabits = [created, ...cachedHabits];
-        habitsListeners.forEach(l => l(cachedHabits!));
-    }
-
-    syncWidgets(); // Sync to widget
-    return created;
+    // SQLite is the only data source
+    console.error('[Habits] Cannot add habit: SQLite unavailable');
+    return null;
 }
 
 export async function updateHabit(updatedHabit: Partial<Habit> & { id: string }): Promise<void> {
@@ -510,11 +391,6 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                     ...params
                 );
 
-                // Queue for sync
-                await db.runAsync(
-                    'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-                    'habits', 'UPDATE', updatedHabit.id, JSON.stringify(updatedHabit), now
-                );
 
                 // Update cache
                 if (cachedHabits) {
@@ -532,47 +408,8 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 return;
             }
         } catch (e) {
-            console.log('[Habits] SQLite update failed, falling back to Supabase:', e);
+            console.error('[Habits] SQLite update failed:', e);
         }
-    }
-
-    // Fallback to Supabase
-    const updateData: Record<string, any> = {};
-
-    if (updatedHabit.name !== undefined) updateData.name = updatedHabit.name;
-    if (updatedHabit.category !== undefined) updateData.category = updatedHabit.category;
-    if (updatedHabit.icon !== undefined) updateData.icon = updatedHabit.icon;
-    if (updatedHabit.durationMinutes !== undefined) updateData.duration_minutes = updatedHabit.durationMinutes;
-    if (updatedHabit.startTime !== undefined) updateData.start_time = updatedHabit.startTime;
-    if (updatedHabit.endTime !== undefined) updateData.end_time = updatedHabit.endTime;
-    if (updatedHabit.isGoal !== undefined) updateData.is_goal = updatedHabit.isGoal;
-    if (updatedHabit.targetDate !== undefined) updateData.target_date = updatedHabit.targetDate;
-    if (updatedHabit.goalId !== undefined) updateData.goal_id = updatedHabit.goalId;
-    if (updatedHabit.reminderOffset !== undefined) updateData.reminder_offset = updatedHabit.reminderOffset;
-    if (updatedHabit.locationReminders !== undefined) updateData.location_reminders = updatedHabit.locationReminders;
-    if (updatedHabit.healthKitMetric !== undefined) updateData.health_kit_metric = updatedHabit.healthKitMetric;
-    if (updatedHabit.healthKitTarget !== undefined) updateData.health_kit_target = updatedHabit.healthKitTarget;
-
-    const { error } = await supabase
-        .from('habits')
-        .update(updateData)
-        .eq('id', updatedHabit.id);
-
-    if (error) {
-        console.error("Error updating habit:", error);
-    } else {
-        if (cachedHabits) {
-            cachedHabits = cachedHabits.map(h => h.id === updatedHabit.id ? { ...h, ...updatedHabit } as Habit : h);
-            habitsListeners.forEach(l => l(cachedHabits!));
-        }
-
-        const fullHabit = cachedHabits?.find(h => h.id === updatedHabit.id) ||
-            (await getHabits()).find(h => h.id === updatedHabit.id);
-
-        if (fullHabit) {
-            await NotificationService.scheduleHabitReminder(fullHabit);
-        }
-        syncWidgets(); // Sync to widget
     }
 }
 
@@ -592,11 +429,6 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
                     now, habitId
                 );
 
-                // Queue for sync
-                await db.runAsync(
-                    'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-                    'habits', 'DELETE', habitId, null, now
-                );
 
                 await NotificationService.cancelHabitReminder(habitId);
 
@@ -610,21 +442,9 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
                 return;
             }
         } catch (e) {
-            console.log('[Habits] SQLite delete failed, falling back to Supabase:', e);
+            console.error('[Habits] SQLite delete failed:', e);
         }
     }
-
-    // Fallback to Supabase
-    const { error } = await supabase.from('habits').delete().eq('id', habitId);
-    if (error) console.error("Error deleting habit:", error);
-
-    await NotificationService.cancelHabitReminder(habitId);
-
-    if (cachedHabits) {
-        cachedHabits = cachedHabits.filter(h => h.id !== habitId);
-        habitsListeners.forEach(l => l(cachedHabits!));
-    }
-    syncWidgets(); // Sync to widget
 }
 
 export async function removeGoalWithLinkedHabits(goalId: string): Promise<void> {
@@ -670,28 +490,11 @@ export async function getCompletions(dateISO?: string): Promise<Record<string, b
                 return result;
             }
         } catch (e) {
-            console.log('[Habits] SQLite completions read failed, falling back to Supabase:', e);
+            console.error('[Habits] SQLite completions read failed:', e);
         }
     }
 
-    // Fallback to Supabase
-    const { data, error } = await supabase
-        .from('habit_completions')
-        .select('habit_id')
-        .eq('user_id', uid)
-        .eq('date', dateStr);
-
-    if (error) {
-        console.error("Error getting completions:", error);
-        return completionsCache[dateStr] || {};
-    }
-
-    const result: Record<string, boolean> = {};
-    (data || []).forEach((row: any) => {
-        result[row.habit_id] = true;
-    });
-    completionsCache[dateStr] = result;
-    return result;
+    return completionsCache[dateStr] || {};
 }
 
 export async function toggleCompletion(habitId: string, dateISO?: string): Promise<Record<string, boolean>> {
@@ -730,11 +533,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
                         habitId, dateStr, uid
                     );
 
-                    // Queue for sync
-                    await db.runAsync(
-                        'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-                        'completions', 'DELETE', `${habitId}_${dateStr}`, JSON.stringify({ habitId, date: dateStr }), now
-                    );
+                    // Queue for sync removed — local-only
                 } else {
                     // Insert new completion
                     const id = generateId();
@@ -760,44 +559,9 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
                 return optimisticResult;
             }
         } catch (e) {
-            console.log('[Habits] SQLite completion toggle failed, falling back to Supabase:', e);
+            console.error('[Habits] SQLite completion toggle failed:', e);
         }
     }
-
-    // Fallback to Supabase (async, non-blocking)
-    (async () => {
-        try {
-            if (wasCompleted) {
-                await supabase
-                    .from('habit_completions')
-                    .delete()
-                    .eq('user_id', uid)
-                    .eq('habit_id', habitId)
-                    .eq('date', dateStr);
-            } else {
-                await supabase.from('habit_completions').insert({
-                    user_id: uid,
-                    habit_id: habitId,
-                    date: dateStr,
-                    completed: true
-                });
-
-                const habits = await getHabits();
-                const habit = habits.find(h => h.id === habitId);
-                if (habit) {
-                    await NotificationService.sendCompletionNotification(habit.name);
-                }
-            }
-        } catch (error) {
-            console.error('Error toggling completion:', error);
-            // Revert optimistic update on failure
-            if (newCompleted) {
-                delete completionsCache[dateStr][habitId];
-            } else {
-                completionsCache[dateStr][habitId] = true;
-            }
-        }
-    })();
 
     DeviceEventEmitter.emit('habit_completion_updated', { habitId, date: dateStr, completed: newCompleted });
     syncWidgets(); // Sync to widget
@@ -847,40 +611,11 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
                 return result;
             }
         } catch (e) {
-            console.log('[Habits] SQLite completions range read failed, falling back to Supabase:', e);
+            console.error('[Habits] SQLite completions range read failed:', e);
         }
     }
 
-    // Fallback to Supabase
-    const { data, error } = await supabase
-        .from('habit_completions')
-        .select('date, habit_id')
-        .gte('date', startStr)
-        .lte('date', endStr);
-
-    if (error) {
-        console.error(error);
-        return [];
-    }
-
-    const map = new Map<string, string[]>();
-    (data || []).forEach((row: any) => {
-        if (!map.has(row.date)) map.set(row.date, []);
-        map.get(row.date)!.push(row.habit_id);
-    });
-
-    const result: { date: string; completedIds: string[] }[] = [];
-    for (let i = 0; i < days; i++) {
-        const d = new Date(startDate);
-        d.setDate(startDate.getDate() + i);
-        const dateStr = todayString(d);
-        result.push({
-            date: dateStr,
-            completedIds: map.get(dateStr) || []
-        });
-    }
-
-    return result;
+    return [];
 }
 
 export async function getStreakData(): Promise<{ currentStreak: number; bestStreak: number; perfectDays: number; totalCompleted: number }> {
@@ -1003,20 +738,28 @@ export async function calculateGoalProgress(goal: Habit): Promise<number> {
     const startStr = startDate.toISOString().split('T')[0];
     const endStr = targetDate.toISOString().split('T')[0];
 
-    const { data: completions, error } = await supabase
-        .from('habit_completions')
-        .select('habit_id, date')
-        .in('habit_id', linked.map(h => h.id))
-        .gte('date', startStr)
-        .lte('date', endStr);
-
-    if (error) {
-        console.error('Error fetching goal completions:', error);
-        return 0;
+    // Use SQLite to get completions for linked habits
+    let totalCompleted = 0;
+    if (isSQLiteAvailable()) {
+        try {
+            const { getDatabase } = await import('./database');
+            const db = await getDatabase();
+            if (db) {
+                const linkedIds = linked.map(h => h.id);
+                const placeholders = linkedIds.map(() => '?').join(',');
+                const rows = await db.getAllAsync(
+                    `SELECT habit_id, date FROM completions WHERE habit_id IN (${placeholders}) AND date >= ? AND date <= ? AND deleted = 0`,
+                    ...linkedIds, startStr, endStr
+                );
+                totalCompleted = rows.length;
+            }
+        } catch (e) {
+            console.error('[Habits] SQLite goal progress query failed:', e);
+            return 0;
+        }
     }
 
     let totalExpected = 0;
-    let totalCompleted = completions?.length || 0;
 
     const current = new Date(startDate);
     if (current > targetDate) return 0;
@@ -1133,31 +876,11 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
                 }));
             }
         } catch (e) {
-            console.log('[Habits] SQLite heatmap read failed, falling back to Supabase:', e);
+            console.error('[Habits] SQLite heatmap read failed:', e);
         }
     }
 
-    // Fallback to Supabase
-    const { data, error } = await supabase
-        .from('habit_completions')
-        .select('date')
-        .gte('date', startStr)
-        .lte('date', endStr);
-
-    if (error) {
-        console.error(error);
-        return [];
-    }
-
-    const counts: Record<string, number> = {};
-    (data || []).forEach((row: any) => {
-        counts[row.date] = (counts[row.date] || 0) + 1;
-    });
-
-    return Object.keys(counts).map(date => ({
-        date,
-        count: counts[date]
-    }));
+    return [];
 }
 
 export async function setCompletionValue(habitId: string, value: number, dateISO?: string): Promise<void> {

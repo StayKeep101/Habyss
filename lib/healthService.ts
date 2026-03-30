@@ -4,7 +4,7 @@ import AppleHealthKit, {
   HealthKitPermissions,
 } from 'react-native-health';
 import { IntegrationService } from './integrationService';
-import { supabase } from './supabase';
+// Cloud sync removed — integration status tracked locally
 
 const permissions: HealthKitPermissions = {
   permissions: {
@@ -81,35 +81,11 @@ export const HealthService = {
           console.log('Distance data not available:', e);
         }
 
-        // Update last sync
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: integration } = await supabase
-            .from('integrations')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('service_name', 'apple-health')
-            .single();
-
-          if (integration) {
-            await IntegrationService.updateIntegration(integration.id, {
-              last_sync: new Date().toISOString(),
-              sync_status: 'idle'
-            });
-          }
-        }
+        // Integration sync status tracking removed — premium feature
+        console.log('[Health] Apple Health sync completed');
       });
     } catch (error) {
       console.error('Apple Health sync error after retries:', error);
-      // Update status to error in DB
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from('integrations')
-          .update({ sync_status: 'error' })
-          .eq('user_id', user.id)
-          .eq('service_name', 'apple-health');
-      }
       throw error;
     }
   },

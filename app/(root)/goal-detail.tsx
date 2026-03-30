@@ -16,7 +16,7 @@ import { DeviceEventEmitter, LayoutAnimation } from 'react-native';
 import { GoalStats } from '@/components/Goal/GoalStats';
 import { ShareGoalModal } from '@/components/ShareGoalModal';
 import { getCompletions, toggleCompletion } from '@/lib/habitsSQLite';
-import { supabase } from '@/lib/supabase';
+
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import Animated, {
@@ -84,67 +84,7 @@ const GoalDetail = () => {
       }
     });
 
-    // Fallback: If goal not found locally, try fetching from Supabase (shared goal)
-    const loadSharedGoal = async () => {
-      // Wait a bit for local data to load
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Check if goal was loaded locally
-      const localGoals = await new Promise<Habit[]>(resolve => {
-        subscribeToHabits((allHabits) => resolve(allHabits)).then(unsub => unsub());
-      });
-
-      const foundLocally = localGoals.find(h => h.id === goalId);
-      if (foundLocally) return; // Already loaded
-
-      // Fetch from Supabase
-      const { data: goalData, error } = await supabase
-        .from('habits')
-        .select('*')
-        .eq('id', goalId)
-        .single();
-
-      if (!error && goalData) {
-        // Get owner info
-        const { data: ownerProfile } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('id', goalData.user_id)
-          .single();
-
-        setGoal({
-          id: goalData.id,
-          name: goalData.name,
-          description: goalData.description || `Shared by ${ownerProfile?.username || 'a friend'}`,
-          icon: goalData.icon || '🎯',
-          category: goalData.category || 'General',
-          color: goalData.color || null,
-          frequency: goalData.frequency || 'daily',
-          taskDays: goalData.task_days || [],
-          isGoal: true,
-          targetDate: goalData.target_date,
-          completed: false,
-          streak: 0,
-          createdAt: goalData.created_at || new Date().toISOString(),
-          type: 'build',
-          goalPeriod: goalData.goal_period || 'daily',
-          goalValue: goalData.goal_value || 1,
-          goalUnit: goalData.goal_unit || '',
-          isArchived: goalData.is_archived || false,
-          reminderEnabled: false,
-          reminderTime: null,
-          userId: goalData.user_id,
-          goalId: undefined,
-          unit: '',
-          reminders: [],
-          chartType: 'bar',
-          startDate: goalData.created_at || new Date().toISOString(),
-          showMemo: false,
-        } as Habit);
-        setIsSharedGoal(true);
-      }
-    };
-    loadSharedGoal();
+    // Shared goals disabled in local-only mode
 
     const loadCompletions = async () => {
       const now = new Date();

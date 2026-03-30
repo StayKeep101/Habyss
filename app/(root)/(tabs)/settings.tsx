@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { supabase } from '@/lib/supabase';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
@@ -65,83 +65,44 @@ export default function ProfileScreen() {
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
     const { isPremium } = usePremiumStatus();
 
-    // Load user profile
+    // Load user profile from local storage
     useEffect(() => {
         const loadProfile = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setEmail(user.email || '');
+            const savedNickname = await AsyncStorage.getItem('profile_nickname');
+            if (savedNickname) setUsername(savedNickname);
+            else setUsername('User');
 
-                // Try to get username from profiles table
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('username')
-                    .eq('id', user.id)
-                    .single();
-
-                if (profile?.username) {
-                    setUsername(profile.username);
-                } else {
-                    setUsername(user.email?.split('@')[0] || 'User');
-                }
-
-                // Load saved avatar
-                const savedAvatar = await AsyncStorage.getItem('profile_avatar');
-                if (savedAvatar) setAvatarUri(savedAvatar);
-            }
+            // Load saved avatar
+            const savedAvatar = await AsyncStorage.getItem('profile_avatar');
+            if (savedAvatar) setAvatarUri(savedAvatar);
         };
         loadProfile();
     }, []);
 
-    // Check username availability
+    // Username availability check (local-only — always available)
     const checkUsernameAvailability = async (name: string) => {
         if (name.length < 3) {
             setUsernameAvailable(null);
             return;
         }
-
         setCheckingUsername(true);
-        const { data: { user } } = await supabase.auth.getUser();
-
-        // Check if any user (other than current user) has this username
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('id')
-            .ilike('username', name.toLowerCase()) // Case-insensitive search
-            .neq('id', user?.id || '');
-
+        // In local-only mode, username is always available
         setCheckingUsername(false);
-
-        // Username is available if no matching rows found (data is empty array or null)
-        const isTaken = data && data.length > 0;
-        setUsernameAvailable(!isTaken);
+        setUsernameAvailable(true);
     };
 
-    // Save new username
+    // Save new username locally
     const saveUsername = async () => {
         if (!usernameAvailable || newUsername.length < 3) return;
 
         setSaving(true);
-        const { data: { user } } = await supabase.auth.getUser();
-
-        const { error } = await supabase
-            .from('profiles')
-            .upsert({
-                id: user?.id,
-                username: newUsername.toLowerCase(),
-                updated_at: new Date().toISOString()
-            });
-
+        await AsyncStorage.setItem('profile_nickname', newUsername.toLowerCase());
         setSaving(false);
 
-        if (error) {
-            Alert.alert('Error', 'Could not save username');
-        } else {
-            setUsername(newUsername);
-            setIsEditingUsername(false);
-            setNewUsername('');
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        setUsername(newUsername);
+        setIsEditingUsername(false);
+        setNewUsername('');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     };
 
     const handleChangeAvatar = async () => {
@@ -301,10 +262,9 @@ export default function ProfileScreen() {
     };
 
     const handleLogout = async () => {
-        // Clear all cached user data before logging out
+        // Clear all cached user data
         clearHabitsCache();
-
-        await supabase.auth.signOut();
+        await AsyncStorage.clear();
         router.replace('/(auth)/welcome');
     };
 
@@ -581,14 +541,9 @@ export default function ProfileScreen() {
                 currentUsername={username}
                 currentAvatarUri={avatarUri}
                 onProfileUpdate={(newAvatarUri) => {
-                    // Reload username and avatar
-                    supabase.auth.getUser().then(({ data: { user } }) => {
-                        if (user) {
-                            supabase.from('profiles').select('username').eq('id', user.id).single()
-                                .then(({ data }) => {
-                                    if (data?.username) setUsername(data.username);
-                                });
-                        }
+                    // Reload username from local storage
+                    AsyncStorage.getItem('profile_nickname').then(name => {
+                        if (name) setUsername(name);
                     });
                     if (newAvatarUri) setAvatarUri(newAvatarUri);
                 }}

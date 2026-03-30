@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -22,64 +22,14 @@ const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSignUp = async () => {
-    if (!email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (error) throw error;
-
-      // HARD PAYWALL: Redirect to paywall instead of home for new users
-      router.replace("/(root)/onboarding-paywall");
-    } catch (e: any) {
-      console.error(e);
-      Alert.alert('Error', e.message);
-    } finally {
-      setLoading(false);
-    }
+    // In local mode, just route to home
+    await AsyncStorage.setItem('habyss_onboarding_complete', 'true');
+    router.replace("/(root)/(tabs)/home");
   };
 
   const handleGoogleSignUp = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'habyss://auth/callback',
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data.url) {
-        const supported = await Linking.canOpenURL(data.url);
-        if (supported) {
-          await Linking.openURL(data.url);
-        } else {
-          Alert.alert('Error', 'Cannot open browser for sign-up');
-        }
-      }
-    } catch (e: any) {
-      console.error('Google sign-up error:', e);
-      Alert.alert('Error', e.message || 'Could not sign up with Google');
-    } finally {
-      setLoading(false);
-    }
+    // Cloud auth disabled in local-only mode
+    Alert.alert('Coming Soon', 'Cloud sign-up will be available with premium.');
   };
 
   return (

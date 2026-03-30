@@ -4,7 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { supabase } from '@/lib/supabase';
 import { ScrollPickerModal } from './ScrollPickerModal';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -83,17 +82,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             if (!visible) return;
             setLoading(true);
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('username, avatar_url')
-                        .eq('id', user.id)
-                        .single();
-                    if (profile) {
-                        setNickname(profile.username || '');
-                    }
-                }
+                // Load from local storage
+                const savedNickname = await AsyncStorage.getItem('profile_nickname');
+                if (savedNickname) setNickname(savedNickname);
                 const savedAvatar = await AsyncStorage.getItem('profile_avatar');
                 const savedBio = await AsyncStorage.getItem('profile_bio');
                 const savedAge = await AsyncStorage.getItem('profile_age');
@@ -150,20 +141,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     const handleSave = async () => {
         setSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('No user');
-
-            const updates: any = {
-                id: user.id,
-                username: nickname,
-                updated_at: new Date().toISOString(),
-            };
-
-            const { error } = await supabase.from('profiles').upsert(updates);
-            if (error) {
-                console.error('Update error', error);
-                throw error;
-            }
+            // Save profile locally
+            await AsyncStorage.setItem('profile_nickname', nickname);
 
             if (avatarUri) {
                 await AsyncStorage.setItem('profile_avatar', avatarUri);
@@ -184,34 +163,28 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     };
 
     const handleDeleteAccount = () => {
-        Alert.prompt(
-            "Delete Account",
-            "This action is permanent. To confirm, please type your email address below.",
+        Alert.alert(
+            "Delete All Data",
+            "This will clear all your local data. This action cannot be undone.",
             [
                 { text: "Cancel", style: "cancel" },
                 {
                     text: "Delete",
                     style: 'destructive',
-                    onPress: async (email) => {
+                    onPress: async () => {
                         try {
-                            const { data: { user } } = await supabase.auth.getUser();
-                            if (email?.toLowerCase() === user?.email?.toLowerCase()) {
-                                setLoading(true);
-                                await supabase.auth.signOut();
-                                Alert.alert("Account Deleted", "Your account has been scheduled for deletion.");
-                                onClose();
-                            } else {
-                                Alert.alert("Error", "Email does not match.");
-                            }
+                            setLoading(true);
+                            await AsyncStorage.clear();
+                            Alert.alert("Data Cleared", "All local data has been deleted. The app will restart.");
+                            onClose();
                         } catch (e) {
-                            Alert.alert("Error", "Failed to delete account.");
+                            Alert.alert("Error", "Failed to clear data.");
                         } finally {
                             setLoading(false);
                         }
                     }
                 }
-            ],
-            "plain-text"
+            ]
         );
     };
 

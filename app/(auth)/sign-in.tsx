@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { BlurView } from 'expo-blur';
@@ -22,73 +22,19 @@ const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSignIn = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      router.replace("/(root)/(tabs)/home");
-    } catch (e: any) {
-      console.error(e);
-      Alert.alert('Error', e.message);
-    } finally {
-      setLoading(false);
-    }
+    // In local mode, just route to home
+    await AsyncStorage.setItem('habyss_onboarding_complete', 'true');
+    router.replace("/(root)/(tabs)/home");
   };
 
   const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'habyss://auth/callback',
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data.url) {
-        // Open the OAuth URL in the browser
-        const supported = await Linking.canOpenURL(data.url);
-        if (supported) {
-          await Linking.openURL(data.url);
-        } else {
-          Alert.alert('Error', 'Cannot open browser for sign-in');
-        }
-      }
-    } catch (e: any) {
-      console.error('Google sign-in error:', e);
-      Alert.alert('Error', e.message || 'Could not sign in with Google');
-    } finally {
-      setLoading(false);
-    }
+    // Cloud auth disabled in local-only mode
+    Alert.alert('Coming Soon', 'Cloud sign-in will be available with premium.');
   };
 
   const handleSkip = async () => {
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInAnonymously();
-
-      if (error) throw error;
-
-      router.replace("/(root)/(tabs)/home");
-    } catch (e: any) {
-      console.error(e);
-      Alert.alert("Error", "Could not sign in anonymously");
-    } finally {
-      setLoading(false);
-    }
+    await AsyncStorage.setItem('habyss_onboarding_complete', 'true');
+    router.replace("/(root)/(tabs)/home");
   };
 
   return (

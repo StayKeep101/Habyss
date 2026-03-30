@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter } from 'react-native';
-import { supabase } from '@/lib/supabase';
-import { toggleCompletion } from '@/lib/habitsSQLite';
+import { getLocalUserId } from '@/lib/localUser';
+import { toggleCompletion, getHabits } from '@/lib/habitsSQLite';
 import { useFocusTime, FocusMode } from '@/constants/FocusTimeContext';
 
 // ============================================
-// Routine Context — Industry Standard
-// Manages routine state, sequencing, and sync
+// Routine Context — Local-Only (SQLite/AsyncStorage)
+// Cloud sync gated behind premium tier
 // ============================================
 
 export interface RoutineHabit {
@@ -80,6 +80,16 @@ interface RoutineContextType {
 
 const RoutineContext = createContext<RoutineContextType | undefined>(undefined);
 const STORAGE_KEY_ROUTINES = 'habyss_routines_cache';
+const STORAGE_KEY_ROUTINE_SESSIONS = 'habyss_routine_sessions';
+
+// Generate a simple UUID
+const generateId = (): string => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
 
 export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [routines, setRoutines] = useState<Routine[]>([]);
@@ -92,85 +102,17 @@ export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const focusTime = useFocusTime();
 
     // ============================================
-    // Load routines from Supabase
+    // Load routines from AsyncStorage
     // ============================================
     const loadRoutines = useCallback(async () => {
         try {
             setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            // Fetch routines with their habits
-            const { data: routineData, error } = await supabase
-                .from('routines')
-                .select(`
-                    *,
-                    routine_habits (
-                        id,
-                        habit_id,
-                        position,
-                        timer_mode,
-                        focus_duration
-                    )
-                `)
-                .eq('user_id', user.id)
-                .eq('is_active', true)
-                .order('sort_order', { ascending: true });
-
-            if (error) throw error;
-
-            // Fetch habit details for each routine's habits
-            const allHabitIds = new Set<string>();
-            routineData?.forEach(r => {
-                r.routine_habits?.forEach((rh: any) => allHabitIds.add(rh.habit_id));
-            });
-
-            let habitDetails: Record<string, any> = {};
-            if (allHabitIds.size > 0) {
-                const { data: habits } = await supabase
-                    .from('habits')
-                    .select('id, name, emoji, color')
-                    .in('id', Array.from(allHabitIds));
-
-                habits?.forEach(h => { habitDetails[h.id] = h; });
+            const cached = await AsyncStorage.getItem(STORAGE_KEY_ROUTINES);
+            if (cached) {
+                setRoutines(JSON.parse(cached));
             }
-
-            // Build routine objects
-            const mapped: Routine[] = (routineData || []).map(r => ({
-                id: r.id,
-                userId: r.user_id,
-                name: r.name,
-                emoji: r.emoji,
-                description: r.description,
-                timeOfDay: r.time_of_day,
-                sortOrder: r.sort_order,
-                isActive: r.is_active,
-                createdAt: r.created_at,
-                habits: (r.routine_habits || [])
-                    .sort((a: any, b: any) => a.position - b.position)
-                    .map((rh: any) => {
-                        const detail = habitDetails[rh.habit_id] || {};
-                        return {
-                            id: rh.id,
-                            routineId: r.id,
-                            habitId: rh.habit_id,
-                            habitName: detail.name || 'Unknown',
-                            habitEmoji: detail.emoji || '📋',
-                            habitColor: detail.color || '#6366F1',
-                            position: rh.position,
-                            timerMode: rh.timer_mode || 'pomodoro',
-                            focusDuration: rh.focus_duration || 1500,
-                        };
-                    }),
-            }));
-
-            setRoutines(mapped);
-            await AsyncStorage.setItem(STORAGE_KEY_ROUTINES, JSON.stringify(mapped));
         } catch (err) {
             console.error('[Routine] Load error:', err);
-            // Fallback to cache
-            const cached = await AsyncStorage.getItem(STORAGE_KEY_ROUTINES);
-            if (cached) setRoutines(JSON.parse(cached));
         } finally {
             setLoading(false);
         }
@@ -179,8 +121,14 @@ export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Load on mount
     useEffect(() => { loadRoutines(); }, [loadRoutines]);
 
+    // Helper to persist routines
+    const persistRoutines = async (updated: Routine[]) => {
+        setRoutines(updated);
+        await AsyncStorage.setItem(STORAGE_KEY_ROUTINES, JSON.stringify(updated));
+    };
+
     // ============================================
-    // CRUD
+    // CRUD (AsyncStorage-backed, local-only)
     // ============================================
     const createRoutine = useCallback(async (data: {
         name: string;
@@ -190,121 +138,100 @@ export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         habits: { habitId: string; timerMode: FocusMode; focusDuration: number }[];
     }): Promise<string | null> => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return null;
+            const userId = await getLocalUserId();
+            const routineId = generateId();
 
-            const { data: routine, error } = await supabase
-                .from('routines')
-                .insert({
-                    user_id: user.id,
-                    name: data.name,
-                    emoji: data.emoji,
-                    description: data.description,
-                    time_of_day: data.timeOfDay,
-                    sort_order: routines.length,
-                })
-                .select()
-                .single();
+            // Fetch habit details from SQLite for display
+            const allHabits = await getHabits();
+            const habitMap: Record<string, any> = {};
+            allHabits.forEach(h => { habitMap[h.id] = h; });
 
-            if (error || !routine) throw error;
-
-            // Insert routine habits
-            if (data.habits.length > 0) {
-                const habitRows = data.habits.map((h, i) => ({
-                    routine_id: routine.id,
-                    habit_id: h.habitId,
+            const routineHabits: RoutineHabit[] = data.habits.map((h, i) => {
+                const detail = habitMap[h.habitId] || {};
+                return {
+                    id: generateId(),
+                    routineId,
+                    habitId: h.habitId,
+                    habitName: detail.name || 'Unknown',
+                    habitEmoji: detail.icon || '📋',
+                    habitColor: detail.color || '#6366F1',
                     position: i,
-                    timer_mode: h.timerMode,
-                    focus_duration: h.focusDuration,
-                }));
+                    timerMode: h.timerMode,
+                    focusDuration: h.focusDuration,
+                };
+            });
 
-                const { error: habError } = await supabase
-                    .from('routine_habits')
-                    .insert(habitRows);
+            const newRoutine: Routine = {
+                id: routineId,
+                userId,
+                name: data.name,
+                emoji: data.emoji,
+                description: data.description,
+                timeOfDay: data.timeOfDay as any,
+                sortOrder: routines.length,
+                isActive: true,
+                habits: routineHabits,
+                createdAt: new Date().toISOString(),
+            };
 
-                if (habError) throw habError;
-            }
-
-            await loadRoutines();
-            return routine.id;
+            await persistRoutines([...routines, newRoutine]);
+            return routineId;
         } catch (err) {
             console.error('[Routine] Create error:', err);
             return null;
         }
-    }, [routines.length, loadRoutines]);
+    }, [routines]);
 
     const updateRoutine = useCallback(async (id: string, data: Partial<Routine>) => {
         try {
-            const updateData: any = {};
-            if (data.name !== undefined) updateData.name = data.name;
-            if (data.emoji !== undefined) updateData.emoji = data.emoji;
-            if (data.description !== undefined) updateData.description = data.description;
-            if (data.timeOfDay !== undefined) updateData.time_of_day = data.timeOfDay;
-            if (data.isActive !== undefined) updateData.is_active = data.isActive;
-
-            await supabase.from('routines').update(updateData).eq('id', id);
-            await loadRoutines();
+            const updated = routines.map(r => {
+                if (r.id !== id) return r;
+                return { ...r, ...data };
+            });
+            await persistRoutines(updated);
         } catch (err) {
             console.error('[Routine] Update error:', err);
         }
-    }, [loadRoutines]);
+    }, [routines]);
 
     const deleteRoutine = useCallback(async (id: string) => {
         try {
-            await supabase.from('routines').delete().eq('id', id);
-            await loadRoutines();
+            const updated = routines.filter(r => r.id !== id);
+            await persistRoutines(updated);
         } catch (err) {
             console.error('[Routine] Delete error:', err);
         }
-    }, [loadRoutines]);
+    }, [routines]);
 
     // ============================================
-    // Routine execution
+    // Routine execution (local session tracking)
     // ============================================
     const startRoutine = useCallback(async (routine: Routine) => {
         if (routine.habits.length === 0) return;
 
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+        const sessionId = generateId();
 
-            // Create routine session record
-            const { data: session, error } = await supabase
-                .from('routine_sessions')
-                .insert({
-                    user_id: user.id,
-                    routine_id: routine.id,
-                    total_habits: routine.habits.length,
-                })
-                .select()
-                .single();
+        setActiveRoutine(routine);
+        setActiveRoutineSession({
+            id: sessionId,
+            routineId: routine.id,
+            startedAt: new Date(),
+            totalHabits: routine.habits.length,
+            completedHabits: 0,
+            totalFocusTime: 0,
+            completed: false,
+        });
+        setCurrentHabitIndex(0);
+        setIsRoutineRunning(true);
 
-            if (error || !session) throw error;
-
-            setActiveRoutine(routine);
-            setActiveRoutineSession({
-                id: session.id,
-                routineId: routine.id,
-                startedAt: new Date(),
-                totalHabits: routine.habits.length,
-                completedHabits: 0,
-                totalFocusTime: 0,
-                completed: false,
-            });
-            setCurrentHabitIndex(0);
-            setIsRoutineRunning(true);
-
-            // Start timer for first habit
-            const firstHabit = routine.habits[0];
-            focusTime.startTimer(
-                firstHabit.habitId,
-                firstHabit.habitName,
-                firstHabit.focusDuration,
-                firstHabit.timerMode
-            );
-        } catch (err) {
-            console.error('[Routine] Start error:', err);
-        }
+        // Start timer for first habit
+        const firstHabit = routine.habits[0];
+        focusTime.startTimer(
+            firstHabit.habitId,
+            firstHabit.habitName,
+            firstHabit.focusDuration,
+            firstHabit.timerMode
+        );
     }, [focusTime]);
 
     const completeCurrentHabit = useCallback(() => {
@@ -314,7 +241,7 @@ export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const nextIndex = currentHabitIndex + 1;
         const newCompleted = activeRoutineSession.completedHabits + 1;
 
-        // Mark the habit as complete in the database
+        // Mark the habit as complete in SQLite
         const todayStr = new Date().toISOString().split('T')[0];
         if (currentHabit) {
             toggleCompletion(currentHabit.habitId, todayStr).catch(console.error);
@@ -373,17 +300,27 @@ export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const finishRoutine = async (completed: boolean, completedCount: number) => {
         if (!activeRoutineSession) return;
 
+        // Save session to AsyncStorage
         try {
-            await supabase
-                .from('routine_sessions')
-                .update({
-                    ended_at: new Date().toISOString(),
-                    completed_habits: completedCount,
-                    completed,
-                })
-                .eq('id', activeRoutineSession.id);
+            const sessionsRaw = await AsyncStorage.getItem(STORAGE_KEY_ROUTINE_SESSIONS);
+            const sessions = sessionsRaw ? JSON.parse(sessionsRaw) : [];
+            sessions.push({
+                id: activeRoutineSession.id,
+                routineId: activeRoutineSession.routineId,
+                startedAt: activeRoutineSession.startedAt,
+                endedAt: new Date().toISOString(),
+                completedHabits: completedCount,
+                totalHabits: activeRoutineSession.totalHabits,
+                completed,
+                date: new Date().toISOString().split('T')[0],
+            });
+            // Keep only last 90 days of sessions
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - 90);
+            const filtered = sessions.filter((s: any) => new Date(s.date) >= cutoff);
+            await AsyncStorage.setItem(STORAGE_KEY_ROUTINE_SESSIONS, JSON.stringify(filtered));
         } catch (err) {
-            console.error('[Routine] Finish error:', err);
+            console.error('[Routine] Finish save error:', err);
         }
 
         setActiveRoutine(null);
@@ -406,20 +343,17 @@ export const RoutineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const getTodayRoutineSessions = useCallback(async () => {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return [];
-
+            const sessionsRaw = await AsyncStorage.getItem(STORAGE_KEY_ROUTINE_SESSIONS);
+            if (!sessionsRaw) return [];
+            const sessions = JSON.parse(sessionsRaw);
             const today = new Date().toISOString().split('T')[0];
-            const { data } = await supabase
-                .from('routine_sessions')
-                .select('routine_id, completed')
-                .eq('user_id', user.id)
-                .eq('date', today);
 
-            return (data || []).map(d => ({
-                routineId: d.routine_id,
-                completed: d.completed,
-            }));
+            return sessions
+                .filter((s: any) => s.date === today)
+                .map((d: any) => ({
+                    routineId: d.routineId,
+                    completed: d.completed,
+                }));
         } catch {
             return [];
         }

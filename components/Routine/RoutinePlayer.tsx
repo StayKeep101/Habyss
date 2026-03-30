@@ -9,7 +9,7 @@ import { useTheme } from '@/constants/themeContext';
 import { useRoutines, RoutineHabit } from '@/constants/RoutineContext';
 import { useFocusTime } from '@/constants/FocusTimeContext';
 import { SessionRatingCard } from '@/components/Timer/SessionRatingCard';
-import { supabase } from '@/lib/supabase';
+
 import Animated, {
     FadeIn, FadeInDown, FadeInUp, FadeOut,
     useSharedValue, useAnimatedStyle, withSpring, withTiming,
@@ -77,29 +77,8 @@ export const RoutinePlayer: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     const currentHabit = activeRoutine?.habits?.[currentHabitIndex];
 
     const handleRate = async (rating: number) => {
-        // Save rating to current focus session
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user && currentHabit) {
-                // Update the most recent focus session
-                const { data: sessions } = await supabase
-                    .from('focus_sessions')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .eq('habit_id', currentHabit.habitId)
-                    .order('started_at', { ascending: false })
-                    .limit(1);
-
-                if (sessions?.[0]) {
-                    await supabase
-                        .from('focus_sessions')
-                        .update({ quality_rating: rating })
-                        .eq('id', sessions[0].id);
-                }
-            }
-        } catch (err) {
-            console.error('[RoutinePlayer] Rate error:', err);
-        }
+        // Save rating locally (cloud sync gated behind premium)
+        console.log(`[RoutinePlayer] Habit ${currentHabit?.habitName} rated: ${rating}/5`);
 
         setShowRating(false);
         // Advance to next habit

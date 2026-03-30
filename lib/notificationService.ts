@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { ThemeMode } from '@/constants/themeContext';
-import { supabase } from './supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // LOCATION_TASK_NAME is now defined in LocationService.ts
 // We import it in _layout.tsx to ensure it's registered.
@@ -81,14 +81,8 @@ export class NotificationService {
       const pushToken = tokenData.data;
       console.log('Expo push token:', pushToken);
 
-      // Store to Supabase profiles
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from('profiles')
-          .update({ push_token: pushToken })
-          .eq('id', user.id);
-      }
+      // Store locally (cloud sync will be re-enabled with premium)
+      await AsyncStorage.setItem('habyss_push_token', pushToken);
 
       return pushToken;
     } catch (e) {
@@ -203,172 +197,38 @@ export class NotificationService {
     // Optional local notification
   }
 
-  // --- Inbox Methods (Supabase-backed) ---
+  // --- Inbox Methods (local stubs — cloud inbox re-enabled with premium) ---
 
   static async getUnreadCount(): Promise<number> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return 0;
-
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-
-      return error ? 0 : (count || 0);
-    } catch (e) {
-      console.error('Error getting unread count:', e);
-      return 0;
-    }
+    return 0;
   }
 
   static async getInboxNotifications(): Promise<InAppNotification[]> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error('Error fetching notifications:', error);
-        return [];
-      }
-
-      return (data || []).map(n => ({
-        id: n.id,
-        title: n.title || 'Notification',
-        message: n.body || '',
-        type: n.type || 'info',
-        timestamp: new Date(n.created_at).getTime(),
-        read: n.read || false,
-        icon: n.icon,
-        data: n.data,
-        fromUserId: n.from_user_id,
-      }));
-    } catch (e) {
-      console.error('Error in getInboxNotifications:', e);
-      return [];
-    }
+    return [];
   }
 
   static async markAllNotificationsRead() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id);
-    } catch (e) {
-      console.error('Error marking all as read:', e);
-    }
+    // No-op in local mode
   }
 
   static async clearAllNotifications(): Promise<boolean> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return false;
-
-      const { error, count } = await supabase
-        .from('notifications')
-        .delete({ count: 'exact' })
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error clearing notifications:', error);
-        return false;
-      }
-
-      console.log(`Cleared ${count} notifications`);
-      return true;
-    } catch (e) {
-      console.error('Error clearing notifications:', e);
-      return false;
-    }
+    return true;
   }
 
-  static async markNotificationRead(id: string) {
-    try {
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', id);
-    } catch (e) {
-      console.error('Error marking notification as read:', e);
-    }
+  static async markNotificationRead(_id: string) {
+    // No-op in local mode
   }
 
-  // Helper to add notification (for local testing or system notifications)
-  static async addNotification(notification: { title: string; body: string; type: string; data?: any }) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: user.id,
-          title: notification.title,
-          body: notification.body,
-          type: notification.type,
-          data: notification.data,
-          read: false,
-          created_at: new Date().toISOString(),
-        });
-    } catch (e) {
-      console.error('Error adding notification:', e);
-    }
+  static async addNotification(_notification: { title: string; body: string; type: string; data?: any }) {
+    // No-op in local mode — cloud inbox disabled
   }
 
-  // --- Realtime Subscription ---
-  static subscribeToRealtimeNotifications(onNotification: (notification: any) => void) {
-    // Get current user ID async - wrapping in IIFE or promise handling required by caller?
-    // Better to let caller ensure auth or handle inside
-
-    // We'll create a setup function that returns the channel subscription
-    const setup = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const channel = supabase
-        .channel('public:notifications:' + user.id)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            console.log('Realtime notification received:', payload);
-            if (payload.new) {
-              onNotification(payload.new);
-            }
-          }
-        )
-        .subscribe();
-
-      return channel;
-    };
-
-    return setup();
+  // --- Realtime Subscription (disabled — premium feature) ---
+  static async subscribeToRealtimeNotifications(_onNotification: (notification: any) => void) {
+    return null;
   }
 
-  static async unsubscribe(channel: any) {
-    if (channel) {
-      try {
-        await supabase.removeChannel(channel);
-      } catch (e) {
-        console.warn('Error unsubscribing channel:', e);
-      }
-    }
+  static async unsubscribe(_channel: any) {
+    // No-op
   }
 }

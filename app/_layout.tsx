@@ -1,4 +1,5 @@
 import '@/lib/polyfills'; // Must be first
+import { getLocalUserId } from '@/lib/localUser';
 import { ThemeProvider } from "../constants/themeContext";
 import { useFonts, Lexend_400Regular, Lexend_500Medium, Lexend_600SemiBold, Lexend_700Bold } from '@expo-google-fonts/lexend';
 import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
@@ -70,31 +71,7 @@ export default function MobileLayout() {
     prepare();
   }, [loaded]);
 
-  // --- Realtime Notifications Listener ---
-  useEffect(() => {
-    let channel: any = null;
-    const setupListener = async () => {
-      // Subscribe to Supabase realtime notifications (for Nudges, etc.)
-      channel = await NotificationService.subscribeToRealtimeNotifications(async (notification) => {
-        // Show local notification immediately when received
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: notification.title,
-            body: notification.body,
-            sound: 'default',
-            data: notification.data
-          },
-          trigger: null // Immediate
-        });
-      });
-    };
-
-    setupListener();
-
-    return () => {
-      if (channel) NotificationService.unsubscribe(channel);
-    };
-  }, []);
+  // Realtime Notifications removed — will be re-enabled with premium cloud sync
 
   // --- Notification Deep Linking ---
   useEffect(() => {
@@ -140,32 +117,17 @@ export default function MobileLayout() {
   //   };
   // }, []);
 
-  // --- Auth & RevenueCat Sync ---
+  // --- Local User + RevenueCat Init ---
   useEffect(() => {
-    const { supabase } = require('@/lib/supabase');
-
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }: any) => {
-      if (session?.user) {
-        RevenueCatService.logIn(session.user.id);
+    async function initLocalUser() {
+      try {
+        const userId = await getLocalUserId();
+        await RevenueCatService.logIn(userId);
+      } catch (e) {
+        console.warn('[Auth] Local user init failed:', e);
       }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
-      if (session?.user) {
-        console.log('[Auth] User signed in, identifying in RevenueCat');
-        await RevenueCatService.logIn(session.user.id);
-      } else {
-        console.log('[Auth] User signed out, resetting RevenueCat');
-        // RevenueCatService.logOut() // Or reset() if defined
-        // We might want to keep anonymous access if they log out, but usually for extensive apps we reset.
-        // But RevenueCat.ts might not have logOut method exposed properly yet.
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    }
+    initLocalUser();
   }, []);
 
   if (!loaded) {
