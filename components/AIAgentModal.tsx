@@ -777,11 +777,7 @@ USER REQUEST: ${content}
                 entering={SlideInDown.duration(300)}
                 style={[styles.messageRow, isUser ? styles.userRow : styles.aiRow]}
             >
-                {isUser ? (
-                    <View style={[styles.userAvatar, { backgroundColor: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.1)' }]}>
-                        <Ionicons name="person-outline" size={14} color={isLight ? '#0F172A' : '#FFF'} />
-                    </View>
-                ) : (
+                {!isUser && (
                     <View style={styles.aiAvatar}>
                         <LinearGradient
                             colors={accentColors}
@@ -797,26 +793,47 @@ USER REQUEST: ${content}
                         styles.messageBubble,
                         isUser ? styles.userBubble : styles.aiBubble,
                         {
-                            backgroundColor: isUser ? colors.primary : isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.08)',
-                            borderColor: isUser ? 'transparent' : isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.08)',
+                            backgroundColor: isUser
+                                ? accentColor
+                                : isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.10)',
+                            borderColor: isUser
+                                ? 'transparent'
+                                : isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.10)',
                         }
                     ]}
                 >
-                    <View style={styles.messageMeta}>
-                        <Text style={[styles.messageAuthor, { color: isUser ? '#0F172A' : colors.textPrimary }]}>
-                            {isUser ? 'You' : 'Echo'}
-                        </Text>
-                        <Text style={[styles.messageTime, { color: isUser ? 'rgba(15,23,42,0.68)' : colors.textTertiary }]}>
-                            {timeLabel}
-                        </Text>
-                    </View>
+                    {!isUser && (
+                        <View style={styles.messageMeta}>
+                            <Text style={[styles.messageAuthor, { color: colors.textPrimary }]}>
+                                Echo
+                            </Text>
+                            <Text style={[styles.messageTime, { color: colors.textTertiary }]}>
+                                {timeLabel}
+                            </Text>
+                        </View>
+                    )}
                     <Text style={[
                         styles.messageText,
-                        { color: isUser ? '#0F172A' : colors.textPrimary }
+                        {
+                            color: isUser ? '#FFFFFF' : colors.textPrimary,
+                            fontSize: isUser ? 15 : 15,
+                            lineHeight: isUser ? 22 : 24,
+                        }
                     ]}>
                         {item.content}
                     </Text>
+                    {isUser && (
+                        <Text style={[styles.messageTime, { color: 'rgba(255,255,255,0.6)', marginTop: 6, textAlign: 'right' }]}>
+                            {timeLabel}
+                        </Text>
+                    )}
                 </View>
+
+                {isUser && (
+                    <View style={[styles.userAvatar, { backgroundColor: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.1)' }]}>
+                        <Ionicons name="person" size={14} color={isLight ? '#0F172A' : '#FFF'} />
+                    </View>
+                )}
             </Animated.View>
         );
     };
@@ -929,7 +946,7 @@ USER REQUEST: ${content}
                                 </VoidCard>
                             </View>
 
-                            <VoidCard glass style={[styles.messagesCard, { backgroundColor: isLight ? colors.surfaceSecondary : undefined }]}>
+                            <View style={[styles.messagesCard, { backgroundColor: isLight ? 'rgba(15,23,42,0.02)' : 'rgba(255,255,255,0.03)', borderColor: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.06)' }]}>
                                 <FlatList
                                     ref={flatListRef}
                                     data={messages}
@@ -940,7 +957,7 @@ USER REQUEST: ${content}
                                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
                                     keyboardShouldPersistTaps="handled"
                                 />
-                            </VoidCard>
+                            </View>
 
                             {isTyping && (
                                 <Animated.View
@@ -983,7 +1000,7 @@ USER REQUEST: ${content}
                                 />
                             </View>
 
-                            <View style={[styles.inputContainer, { borderTopColor: colors.border, backgroundColor: isLight ? 'rgba(255,255,255,0.82)' : 'rgba(8,10,14,0.82)' }]}>
+                            <View style={[styles.inputContainer, { borderTopColor: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.08)', backgroundColor: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(8,10,14,0.95)' }]}>
                                 {selectedImage && (
                                     <View style={[styles.attachmentPreview, { backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
                                         <Image source={{ uri: selectedImage }} style={styles.attachmentImage} />
@@ -1068,13 +1085,13 @@ const styles = StyleSheet.create({
         height: height * 0.4,
     },
     chatHeaderCopy: {
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 14,
+        paddingHorizontal: 16,
+        paddingTop: 4,
+        paddingBottom: 10,
     },
     heroCard: {
-        padding: 18,
-        gap: 16,
+        padding: 14,
+        gap: 12,
     },
     heroTopRow: {
         flexDirection: 'row',
@@ -1093,14 +1110,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     chatTitle: {
-        fontSize: 20,
-        lineHeight: 26,
+        fontSize: 17,
+        lineHeight: 22,
         fontFamily: 'Lexend_600SemiBold',
     },
     chatSubtitle: {
-        marginTop: 6,
-        fontSize: 13,
-        lineHeight: 19,
+        marginTop: 4,
+        fontSize: 12,
+        lineHeight: 17,
         fontFamily: 'Lexend_400Regular',
     },
     heroPills: {
@@ -1126,39 +1143,39 @@ const styles = StyleSheet.create({
     },
     messagesCard: {
         flex: 1,
-        marginHorizontal: 20,
-        marginBottom: 10,
+        marginHorizontal: 16,
+        marginBottom: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        overflow: 'hidden',
     },
     messagesList: {
-        padding: 18,
-        paddingBottom: 24,
+        padding: 16,
+        paddingBottom: 20,
     },
     messageRow: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        gap: 10,
-        marginBottom: 14,
+        gap: 8,
+        marginBottom: 12,
     },
     userRow: {
         alignSelf: 'flex-end',
-        flexDirection: 'row-reverse',
-        paddingLeft: 28,
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        paddingLeft: 40,
     },
     aiRow: {
         alignSelf: 'flex-start',
-        paddingRight: 28,
+        paddingRight: 40,
     },
     messageBubble: {
         flexShrink: 1,
         maxWidth: '100%',
-        padding: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         borderRadius: 20,
         borderWidth: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 10,
-        elevation: 3,
     },
     userBubble: {
         borderBottomRightRadius: 6,
@@ -1205,9 +1222,9 @@ const styles = StyleSheet.create({
     },
     messageText: {
         fontSize: 15,
-        lineHeight: 24,
+        lineHeight: 23,
         fontFamily: 'Lexend_400Regular',
-        letterSpacing: 0.2,
+        letterSpacing: 0.15,
     },
     typingIndicator: {
         flexDirection: 'row',

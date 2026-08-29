@@ -52,7 +52,7 @@ const getStartOfWeek = (date: Date) => {
   return addDays(day, -day.getDay());
 };
 
-const DateButton = React.memo(({
+const DateButtonComponent = ({
   item,
   selected,
   onSelect,
@@ -164,7 +164,11 @@ const DateButton = React.memo(({
       </TouchableOpacity>
     </View>
   );
-});
+};
+
+DateButtonComponent.displayName = 'DateButton';
+
+const DateButton = React.memo(DateButtonComponent);
 
 export const CalendarStrip: React.FC<CalendarStripProps> = ({
   selectedDate,

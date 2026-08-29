@@ -41,27 +41,27 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     }, [visible, activeTab]);
 
     const handleAddFriend = async (friendCode: string = code) => {
-        if (friendCode.length < 8) {
-            Alert.alert('Invalid Code', 'Friend codes are at least 8 characters long.');
+        const trimmed = friendCode.trim();
+        if (trimmed.length < 3) {
+            Alert.alert('Invalid Code', 'Enter a friend code or username (at least 3 characters).');
             return;
         }
 
         setLoading(true);
         try {
-            const results = await FriendsService.searchUsers(friendCode);
-            const normalizedQuery = friendCode.trim().toLowerCase();
+            const results = await FriendsService.searchUsers(trimmed);
+            const normalizedQuery = trimmed.toLowerCase();
             const target = results.find((user) => {
                 const friendCodeValue = user.id.slice(0, 8).toLowerCase();
                 return (
                     user.id.toLowerCase() === normalizedQuery ||
                     friendCodeValue === normalizedQuery ||
-                    user.id.toLowerCase().includes(normalizedQuery) ||
                     user.username.toLowerCase() === normalizedQuery
                 );
             }) || results[0];
 
             if (!target) {
-                Alert.alert('Not Found', 'No explorer found with this code.');
+                Alert.alert('Not Found', 'No one found with that code or username. Try searching by name instead.');
                 setLoading(false);
                 return;
             }
@@ -69,19 +69,18 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
             const success = await FriendsService.sendFriendRequest(target.id);
             if (success) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert('Signal Sent! 📡', `Friend request sent to ${target.username}.`);
+                Alert.alert('Connected!', `You and ${target.username} are now friends.`);
                 setCode('');
                 onFriendAdded();
                 onClose();
             } else {
-                Alert.alert('Connection Failed', 'Request already pending or you are already friends.');
+                Alert.alert('Already Connected', 'You are already friends or have a pending request.');
             }
         } catch (e) {
             console.error(e);
             Alert.alert('Error', 'Could not search for friend.');
         } finally {
             setLoading(false);
-            // Reset scan state after attempt if scanning
             if (activeTab === 'scan') {
                 setTimeout(() => setScanned(false), 2000);
             }
@@ -198,7 +197,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                             <Text style={[styles.label, { color: colors.textSecondary }]}>ENTER FRIEND CODE</Text>
                             <TextInput
                                 style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                                placeholder="e.g. A1B2C3D4"
+                                placeholder="Code or username..."
                                 placeholderTextColor={colors.textTertiary}
                                 value={code}
                                 onChangeText={text => setCode(text.toUpperCase())}
@@ -209,12 +208,12 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                             {/* Action Button */}
                             <TouchableOpacity
                                 onPress={() => handleAddFriend()}
-                                disabled={loading || code.length < 3}
+                                disabled={loading || code.trim().length < 3}
                                 style={[
                                     styles.addBtn,
                                     {
-                                        backgroundColor: loading || code.length < 3 ? colors.surfaceTertiary : colors.primary,
-                                        opacity: loading || code.length < 3 ? 0.5 : 1
+                                        backgroundColor: loading || code.trim().length < 3 ? colors.surfaceTertiary : colors.primary,
+                                        opacity: loading || code.trim().length < 3 ? 0.5 : 1
                                     }
                                 ]}
                             >

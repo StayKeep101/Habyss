@@ -14,6 +14,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
+import { s, vs } from '@/constants/Layout';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DRAG_THRESHOLD = 100;
@@ -128,29 +129,29 @@ const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
     sheet: {
         width: '100%',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderTopLeftRadius: s(24),
+        borderTopRightRadius: s(24),
         overflow: 'hidden',
         shadowColor: "#000",
         shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.16,
-        shadowRadius: 20,
+        shadowRadius: s(20),
         elevation: 10,
     },
     sheetBorder: {
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderTopLeftRadius: s(24),
+        borderTopRightRadius: s(24),
         borderWidth: 1,
         borderBottomWidth: 0,
         pointerEvents: 'none'
     },
     dragHandle: {
         position: 'absolute',
-        top: 10,
+        top: vs(10),
         alignSelf: 'center',
-        width: 42,
-        height: 5,
-        borderRadius: 999,
+        width: s(42),
+        height: vs(5),
+        borderRadius: s(999),
         zIndex: 2,
     },
 });

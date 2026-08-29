@@ -90,7 +90,7 @@ export const ShareStatsModal: React.FC<ShareStatsModalProps> = ({ visible, onClo
                             <Text style={styles.statSub}>{stats.subtitle}</Text>
 
                             <TouchableOpacity onPress={cyclePhrase} style={styles.phraseBox}>
-                                <Text style={styles.phraseText}>"{phrase}"</Text>
+                                <Text style={styles.phraseText}>{phrase}</Text>
                                 <Ionicons name="refresh" size={12} color="rgba(255,255,255,0.5)" style={{ marginLeft: 6 }} />
                             </TouchableOpacity>
                         </View>

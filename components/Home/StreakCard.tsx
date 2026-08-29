@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '../Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { s, vs, ms } from '@/constants/Layout';
 
 interface StreakCardProps {
     streak: number;
@@ -40,11 +41,11 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
                             end={{ x: 1, y: 1 }}
                             style={styles.flameGradient}
                         >
-                            <Ionicons name="flame" size={20} color="white" />
+                            <Ionicons name="flame" size={s(20)} color="white" />
                         </LinearGradient>
                     ) : (
                         <View style={[styles.flameGradient, { backgroundColor: flameColors[0] + '30' }]}>
-                            <Ionicons name="flame" size={20} color={flameColors[0]} />
+                            <Ionicons name="flame" size={s(20)} color={flameColors[0]} />
                         </View>
                     )}
                 </View>
@@ -56,7 +57,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
 
                 {completionTier === 4 && (
                     <View style={styles.perfectBadge}>
-                        <Ionicons name="star" size={10} color="#FBBF24" />
+                        <Ionicons name="star" size={s(10)} color="#FBBF24" />
                     </View>
                 )}
             </VoidCard>
@@ -70,42 +71,42 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        padding: 10,
+        padding: s(10),
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
+        gap: s(6),
     },
     iconContainer: {
-        marginBottom: 2,
+        marginBottom: vs(2),
     },
     flameGradient: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: s(36),
+        height: s(36),
+        borderRadius: s(18),
         alignItems: 'center',
         justifyContent: 'center',
     },
     value: {
-        fontSize: 24,
+        fontSize: ms(24),
         fontWeight: '900',
         fontFamily: 'Lexend',
         textAlign: 'center',
-        lineHeight: 24,
+        lineHeight: ms(24),
     },
     label: {
-        fontSize: 8,
+        fontSize: ms(8),
         fontWeight: 'bold',
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
         textAlign: 'center',
-        marginTop: 2,
+        marginTop: vs(2),
     },
     perfectBadge: {
         position: 'absolute',
-        top: 12,
-        right: 12,
+        top: vs(12),
+        right: s(12),
         backgroundColor: 'rgba(251, 191, 36, 0.15)',
-        padding: 4,
-        borderRadius: 10,
+        padding: s(4),
+        borderRadius: s(10),
     },
 });

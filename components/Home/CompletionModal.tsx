@@ -89,7 +89,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
                         <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={[styles.title, { color: colors.text }]}>TODAY'S HABITS</Text>
+                        <Text style={[styles.title, { color: colors.text }]}>TODAY HABITS</Text>
                         <Text style={[styles.subtitle, { color: accentColor }]}>COMPLETION STATUS</Text>
                     </View>
                     <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>

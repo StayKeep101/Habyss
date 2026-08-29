@@ -5,6 +5,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
+import { s, vs, ms } from '@/constants/Layout';
 
 // ============================================
 // Today's Completion Card
@@ -38,7 +39,7 @@ export const TodaysCompletionCard: React.FC<TodaysCompletionCardProps> = ({
                     <View style={[styles.iconGradient, { backgroundColor: (allComplete ? '#10B981' : accentColor) + '30' }]}>
                         <Ionicons
                             name={allComplete ? "checkmark-done" : "checkbox-outline"}
-                            size={20}
+                            size={s(20)}
                             color={allComplete ? '#10B981' : accentColor}
                         />
                     </View>
@@ -58,35 +59,35 @@ export const TodaysCompletionCard: React.FC<TodaysCompletionCardProps> = ({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 10,
+        padding: s(10),
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
-        minHeight: 100, // Ensure same height as others
+        gap: s(6),
+        minHeight: s(100), // Ensure same height as others
     },
     iconContainer: {
-        marginBottom: 2,
+        marginBottom: vs(2),
     },
     iconGradient: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: s(36),
+        height: s(36),
+        borderRadius: s(18),
         alignItems: 'center',
         justifyContent: 'center',
     },
     value: {
-        fontSize: 24,
+        fontSize: ms(24),
         fontWeight: '900',
         fontFamily: 'Lexend',
         textAlign: 'center',
-        lineHeight: 24,
+        lineHeight: ms(24),
     },
     label: {
-        fontSize: 8,
+        fontSize: ms(8),
         fontWeight: 'bold',
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
         textAlign: 'center',
-        marginTop: 2,
+        marginTop: vs(2),
     },
 });

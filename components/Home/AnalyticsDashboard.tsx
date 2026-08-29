@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import { Svg, Path, Polygon, Line, Circle, Text as SvgText, G, Defs, LinearGradient, Stop } from 'react-native-svg';
 import Animated, { useSharedValue, useAnimatedProps, withTiming, withDelay, Easing, withSpring } from 'react-native-reanimated';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
@@ -11,15 +11,6 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
-
-const { width } = Dimensions.get('window');
-
-// ----------------------------------------------------------------------
-// CONFIGURATION
-// ----------------------------------------------------------------------
-const CHART_SIZE = width - 80;
-const CENTER = CHART_SIZE / 2;
-const RADIUS = CHART_SIZE / 2.5;
 
 // 6 Pillars of Life Balance
 const CATEGORIES = [
@@ -47,8 +38,13 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
     const isTrueDark = theme === 'trueDark';
     const { selectionFeedback } = useHaptics();
     const { colors: accentColors, primary } = useAccentGradient();
+    const { width } = useWindowDimensions();
 
     const [chartPeriod, setChartPeriod] = useState<'today' | '30d'>('today');
+    const isCompactWidth = width <= 350;
+    const chartSize = Math.min(Math.max(width - (isCompactWidth ? 72 : 80), 220), 320);
+    const center = chartSize / 2;
+    const radius = chartSize / 2.5;
 
     // ------------------------------------------------------------------
     // 1. CALCULATE RADAR DATA
@@ -100,8 +96,8 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
 
     const getCoordinates = (value: number, index: number) => {
         const angle = index * angleSlice - Math.PI / 2;
-        const x = CENTER + Math.cos(angle) * (RADIUS * value);
-        const y = CENTER + Math.sin(angle) * (RADIUS * value);
+        const x = center + Math.cos(angle) * (radius * value);
+        const y = center + Math.sin(angle) * (radius * value);
         return { x, y };
     };
 
@@ -130,7 +126,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
         <View style={styles.container}>
             {/* Life Balance Matrix Card */}
             <VoidCard glass={!isTrueDark} style={[styles.chartCard, { backgroundColor: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.4)' }]} intensity={isLight ? 20 : 90}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 12, paddingHorizontal: 8, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 12, paddingHorizontal: isCompactWidth ? 4 : 8, alignItems: 'center' }}>
                     <Text style={[styles.cardTitle, { color: colors.textSecondary, marginBottom: 0 }]}>LIFE MATRIX</Text>
                     <View style={{ flexDirection: 'row', backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)', borderRadius: 8, padding: 2 }}>
                         <TouchableOpacity
@@ -147,8 +143,8 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                         </TouchableOpacity>
                     </View>
                 </View>
-                <View style={{ alignItems: 'center', justifyContent: 'center', height: CHART_SIZE }}>
-                    <Svg width={CHART_SIZE} height={CHART_SIZE}>
+                <View style={{ alignItems: 'center', justifyContent: 'center', height: chartSize }}>
+                    <Svg width={chartSize} height={chartSize}>
                         <Defs>
                             <LinearGradient id="radarGrad" x1="0" y1="0" x2="0" y2="1">
                                 <Stop offset="0" stopColor={accentColors[0]} stopOpacity="0.8" />
@@ -179,8 +175,8 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                             return (
                                 <Line
                                     key={`line-${i}`}
-                                    x1={CENTER}
-                                    y1={CENTER}
+                                    x1={center}
+                                    y1={center}
                                     x2={x}
                                     y2={y}
                                     stroke={gridLineColor}
@@ -198,7 +194,7 @@ export const AnalyticsDashboard: React.FC<AnalyticProps> = ({ habits, completion
                                     x={x}
                                     y={y}
                                     fill={labelColor}
-                                    fontSize="9"
+                                    fontSize={isCompactWidth ? "8" : "9"}
                                     fontWeight="bold"
                                     textAnchor="middle"
                                     alignmentBaseline="middle"

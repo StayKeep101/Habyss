@@ -206,7 +206,7 @@ export function IconPicker({ visible, onClose, onSelect, selectedIcon, habitName
                 {suggestions.length > 0 && !searchQuery && (
                     <View className="mb-6">
                         <Text className="text-sm font-bold uppercase tracking-wider mb-3 opacity-70" style={{ color: colors.textSecondary }}>
-                            Suggested for "{habitName}"
+                            {`Suggested for "${habitName}"`}
                         </Text>
                         <View className="flex-row gap-3">
                             {suggestions.map(icon => (

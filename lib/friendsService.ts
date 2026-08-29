@@ -615,10 +615,12 @@ export class FriendsService {
         return state.users
             .filter((user) => user.id !== currentUserId)
             .filter((user) => {
+                const friendCode = user.id.substring(0, 8).toLowerCase();
                 const matchesCode = user.id.toLowerCase().includes(normalized);
+                const matchesFriendCode = friendCode === normalized || friendCode.includes(normalized);
                 const matchesName = user.username.toLowerCase().includes(normalized);
                 const matchesEmail = user.email.toLowerCase().includes(normalized);
-                return matchesCode || matchesName || matchesEmail;
+                return matchesCode || matchesFriendCode || matchesName || matchesEmail;
             })
             .map((user) => mapSeedUserToFriend(user))
             .sort((a, b) => (b.currentStreak || 0) - (a.currentStreak || 0));

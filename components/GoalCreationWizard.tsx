@@ -215,7 +215,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                             numberOfLines={3}
                             returnKeyType="next"
                         />
-                        <Text style={styles.helper}>Your "Why" will keep you going when it gets hard.</Text>
+                        <Text style={styles.helper}>Your reason will keep you going when it gets hard.</Text>
                     </Animated.View>
                 );
             case 2: // DEADLINE
@@ -313,7 +313,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
                     <Animated.View entering={FadeIn.duration(400)} exiting={FadeOut.duration(200)} style={styles.stepContainer}>
                         <Ionicons name="trophy" size={64} color="white" style={{ marginBottom: 24 }} />
                         <Text style={styles.summaryTitle}>{name}</Text>
-                        {why ? <Text style={styles.summaryWhy}>"{why}"</Text> : null}
+                        {why ? <Text style={styles.summaryWhy}>{why}</Text> : null}
                         <Text style={styles.summaryDate}>by {targetDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
 
                         <View style={styles.commitArea}>

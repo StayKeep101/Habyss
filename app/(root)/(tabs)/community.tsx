@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, RefreshControl, StyleSheet, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Share, DeviceEventEmitter } from 'react-native';
 import { Colors } from '@/constants/Colors';
+import { s, vs, ms } from '@/constants/Layout';
 import { useTheme } from '@/constants/themeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -15,6 +16,7 @@ import { useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Leaderboard } from '@/components/Community/Leaderboard';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 export default function CommunityScreen() {
     const { theme } = useTheme();
@@ -24,6 +26,7 @@ export default function CommunityScreen() {
     const { primary: accentColor } = useAccentGradient();
     const { thud, lightFeedback, mediumFeedback } = useHaptics();
     const router = useRouter();
+    const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
     const hasLoadedOnce = useRef(false);
@@ -44,21 +47,29 @@ export default function CommunityScreen() {
     const [userCode, setUserCode] = useState('');
     const [leaderboardPeriod, setLeaderboardPeriod] = useState<'week' | 'month' | 'year' | 'all'>('week');
 
+    const isLoadingRef = useRef(false);
+
     const loadData = useCallback(async (forceRefresh = false) => {
         // Skip if already loaded and not forcing refresh
-        if (!forceRefresh && hasLoadedOnce.current && !loading) {
+        if (!forceRefresh && hasLoadedOnce.current) {
             return;
         }
 
-        setLoading(true);
+        // Prevent concurrent loads that cause flickering
+        if (isLoadingRef.current) return;
+        isLoadingRef.current = true;
+
+        // Only show full-page loader on initial load
+        if (!hasLoadedOnce.current) {
+            setLoading(true);
+        }
+
         try {
             const user = await FriendsService.getCurrentUser();
             if (user) {
-                // Friend Code is first 8 chars of ID
                 setUserCode(user.id.substring(0, 8).toUpperCase());
             }
 
-            // Auto-repair: sync accepted requests to friendships table
             await FriendsService.repairFriendshipsFromAcceptedRequests();
 
             const [friendsList, requests, rankings, feed] = await Promise.all([
@@ -77,6 +88,7 @@ export default function CommunityScreen() {
             console.error('Error loading community data:', error);
         } finally {
             setLoading(false);
+            isLoadingRef.current = false;
         }
     }, [leaderboardPeriod]);
 
@@ -204,28 +216,31 @@ export default function CommunityScreen() {
     return (
         <VoidShell>
             {/* Full-Page Loading Overlay (Initial Load Only) */}
-            {loading && !refreshing && (
-                <View style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: colors.background,
-                    zIndex: 100,
-                }}>
+            {loading && !refreshing && !hasLoadedOnce.current && (
+                <Animated.View
+                    exiting={require('react-native-reanimated').FadeOut.duration(300)}
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: colors.background,
+                        zIndex: 100,
+                    }}
+                >
                     {(() => {
                         const { SpinningLogo } = require('@/components/SpinningLogo');
                         return <SpinningLogo />;
                     })()}
-                    <Text style={{ color: colors.textSecondary, marginTop: 16, fontFamily: 'Lexend_400Regular' }}>Getting crew data...</Text>
-                </View>
+                    <Text style={{ color: colors.textSecondary, marginTop: vs(16), fontFamily: 'Lexend_400Regular' }}>Getting crew data...</Text>
+                </Animated.View>
             )}
 
             <ScrollView
-                contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 20, paddingBottom: 140 }}
+                contentContainerStyle={{ paddingTop: topSpacing + vs(36), paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
@@ -247,7 +262,7 @@ export default function CommunityScreen() {
                     </View>
                 )}
                 {/* Header */}
-                <View style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ marginBottom: isCompactWidth ? 20 : 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View>
                         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COMMUNITY</Text>
                         <Text style={[styles.headerSubtitle, { color: accentColor }]}>CREW STATUS</Text>

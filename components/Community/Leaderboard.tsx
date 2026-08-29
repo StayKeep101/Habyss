@@ -8,6 +8,7 @@ import { Friend } from '@/lib/friendsService';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSequence, withRepeat, Easing, withSpring, withDelay } from 'react-native-reanimated';
+import { s, vs, ms } from '@/constants/Layout';
 
 interface LeaderboardProps {
     leaderboard: { rank: number; friend: Friend }[];
@@ -66,11 +67,11 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
         const isSecond = position === 'second';
 
         // Config based on position
-        const height = isFirst ? 160 : isSecond ? 130 : 110;
-        const avatarSize = isFirst ? 64 : isSecond ? 48 : 42;
+        const height = isFirst ? s(160) : isSecond ? s(130) : s(110);
+        const avatarSize = isFirst ? s(64) : isSecond ? s(48) : s(42);
         const placeColor = isFirst ? '#FFD700' : isSecond ? '#C0C0C0' : '#CD7F32';
         const glowColor = isFirst ? 'rgba(255, 215, 0, 0.4)' : isSecond ? 'rgba(192, 192, 192, 0.3)' : 'rgba(205, 127, 50, 0.3)';
-        const translateY = isFirst ? -20 : 0;
+        const translateY = isFirst ? -s(20) : 0;
         const zIndex = isFirst ? 10 : 1;
 
         return (
@@ -84,12 +85,12 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                     shadowColor: placeColor,
                     shadowOffset: { width: 0, height: 0 },
                     shadowOpacity: isFirst ? 0.8 : 0.5,
-                    shadowRadius: isFirst ? 15 : 10,
-                    marginBottom: 8,
+                    shadowRadius: isFirst ? s(15) : s(10),
+                    marginBottom: vs(8),
                     alignItems: 'center'
                 }}>
                     {isFirst && (
-                        <Animated.Text style={[{ fontSize: 24, marginBottom: -8, zIndex: 20 }, animatedCrownStyle]}>
+                        <Animated.Text style={[{ fontSize: ms(24), marginBottom: -vs(8), zIndex: 20 }, animatedCrownStyle]}>
                             👑
                         </Animated.Text>
                     )}
@@ -113,46 +114,46 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                     {/* Rank Badge */}
                     <View style={{
                         position: 'absolute',
-                        bottom: -6,
+                        bottom: -s(6),
                         backgroundColor: placeColor,
-                        width: 20,
-                        height: 20,
-                        borderRadius: 10,
+                        width: s(20),
+                        height: s(20),
+                        borderRadius: s(10),
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderWidth: 2,
                         borderColor: colors.background
                     }}>
-                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFF' }}>{item.rank}</Text>
+                        <Text style={{ fontSize: ms(10), fontWeight: 'bold', color: '#FFF' }}>{item.rank}</Text>
                     </View>
                 </View>
 
                 {/* Name & Streak */}
                 <Text style={{
                     color: item.friend.isCurrentUser ? accentColor : colors.textPrimary,
-                    fontSize: isFirst ? 14 : 12,
+                    fontSize: isFirst ? ms(14) : ms(12),
                     fontWeight: '700',
                     textAlign: 'center',
                     fontFamily: 'Lexend',
-                    marginBottom: 2
+                    marginBottom: vs(2)
                 }} numberOfLines={1}>
                     {item.friend.isCurrentUser ? 'You' : item.friend.username}
                 </Text>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="flame" size={12} color={placeColor} />
-                    <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', marginLeft: 2, fontFamily: 'Lexend' }}>
+                    <Ionicons name="flame" size={s(12)} color={placeColor} />
+                    <Text style={{ color: colors.textSecondary, fontSize: ms(11), fontWeight: '600', marginLeft: s(2), fontFamily: 'Lexend' }}>
                         {item.friend.currentStreak}
                     </Text>
                 </View>
 
                 {/* Podium Base */}
                 <View style={{
-                    marginTop: 12,
+                    marginTop: vs(12),
                     width: '100%',
-                    height: height - 60, // approximate visual height
-                    borderTopLeftRadius: 8,
-                    borderTopRightRadius: 8,
+                    height: height - s(60), // approximate visual height
+                    borderTopLeftRadius: s(8),
+                    borderTopRightRadius: s(8),
                     overflow: 'hidden',
                 }}>
                     <LinearGradient
@@ -172,11 +173,11 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
     };
 
     return (
-        <View style={{ marginBottom: 24 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <View style={{ marginBottom: vs(24) }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: vs(16) }}>
                 <View>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: 2 }]}>LEADERBOARD</Text>
-                    <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>
+                    <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: vs(2) }]}>LEADERBOARD</Text>
+                    <Text style={{ fontSize: ms(10), color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>
                         Based on streak consistency
                     </Text>
                 </View>
@@ -186,9 +187,9 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
             <View style={{
                 flexDirection: 'row',
                 backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
-                borderRadius: 12,
-                padding: 4,
-                marginBottom: 24,
+                borderRadius: s(12),
+                padding: s(4),
+                marginBottom: vs(24),
             }}>
                 {[
                     { id: 'week', label: 'Week' },
@@ -201,15 +202,15 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                         onPress={() => onPeriodChange(p.id as any)}
                         style={{
                             flex: 1,
-                            paddingVertical: 10,
-                            borderRadius: 10,
+                            paddingVertical: vs(10),
+                            borderRadius: s(10),
                             backgroundColor: period === p.id ? accentColor : 'transparent',
                             alignItems: 'center',
                         }}
                     >
                         <Text style={{
                             color: period === p.id ? '#fff' : colors.textSecondary,
-                            fontSize: 12,
+                            fontSize: ms(12),
                             fontWeight: period === p.id ? '700' : '500',
                             fontFamily: 'Lexend',
                         }}>
@@ -220,16 +221,16 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
             </View>
 
             {leaderboard.length === 0 ? (
-                <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 32, alignItems: 'center' }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                    <Ionicons name="trophy-outline" size={40} color={colors.textTertiary} />
-                    <Text style={[styles.emptyText, { color: colors.textSecondary, marginTop: 12 }]}>No rankings yet</Text>
+                <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: s(32), alignItems: 'center' }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                    <Ionicons name="trophy-outline" size={s(40)} color={colors.textTertiary} />
+                    <Text style={[styles.emptyText, { color: colors.textSecondary, marginTop: vs(12) }]}>No rankings yet</Text>
                     <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>Add friends to compete!</Text>
                 </VoidCard>
             ) : (
                 <>
                     {/* Podium Layout */}
                     {leaderboard.length >= 1 && (
-                        <Animated.View style={[{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 24, paddingHorizontal: 12 }, animatedPodiumStyle]}>
+                        <Animated.View style={[{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: vs(24), paddingHorizontal: s(12) }, animatedPodiumStyle]}>
                             {renderPodiumItem(secondPlace, 'second')}
                             {renderPodiumItem(firstPlace, 'first')}
                             {renderPodiumItem(thirdPlace, 'third')}
@@ -238,7 +239,7 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
 
                     {/* List View for Rest */}
                     {rest.length > 0 && (
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 4 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: s(4) }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                             {rest.map((item, index) => (
                                 <TouchableOpacity
                                     key={`rank_${item.friend.id}`}
@@ -247,26 +248,26 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                                     style={{
                                         flexDirection: 'row',
                                         alignItems: 'center',
-                                        paddingVertical: 12,
-                                        paddingHorizontal: 12,
+                                        paddingVertical: vs(12),
+                                        paddingHorizontal: s(12),
                                         borderBottomWidth: index === rest.length - 1 ? 0 : 1,
                                         borderBottomColor: 'rgba(255,255,255,0.05)',
                                         backgroundColor: item.friend.isCurrentUser ? (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.05)') : 'transparent'
                                     }}
                                 >
-                                    <View style={{ width: 24, alignItems: 'center', marginRight: 12 }}>
+                                    <View style={{ width: s(24), alignItems: 'center', marginRight: s(12) }}>
                                         <Text style={{ color: colors.textTertiary, fontWeight: '700', fontFamily: 'Lexend' }}>{item.rank}</Text>
                                     </View>
 
                                     <View style={{
-                                        width: 32, height: 32, borderRadius: 16,
+                                        width: s(32), height: s(32), borderRadius: s(16),
                                         backgroundColor: colors.surfaceTertiary,
                                         alignItems: 'center', justifyContent: 'center',
-                                        marginRight: 12,
+                                        marginRight: s(12),
                                         borderWidth: 1,
                                         borderColor: 'rgba(255,255,255,0.1)'
                                     }}>
-                                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                                        <Text style={{ fontSize: ms(12), color: colors.textSecondary }}>
                                             {item.friend.username[0]?.toUpperCase()}
                                         </Text>
                                     </View>
@@ -281,8 +282,8 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                                     </Text>
 
                                     <View style={{ flexDirection: 'row', alignItems: 'center', opacity: 0.8 }}>
-                                        <Ionicons name="flame" size={14} color={colors.textTertiary} />
-                                        <Text style={{ color: colors.textSecondary, marginLeft: 4, fontWeight: '600', fontFamily: 'Lexend' }}>
+                                        <Ionicons name="flame" size={s(14)} color={colors.textTertiary} />
+                                        <Text style={{ color: colors.textSecondary, marginLeft: s(4), fontWeight: '600', fontFamily: 'Lexend' }}>
                                             {item.friend.currentStreak}
                                         </Text>
                                     </View>
@@ -298,21 +299,21 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
 
 const styles = StyleSheet.create({
     sectionLabel: {
-        fontSize: 10,
+        fontSize: ms(10),
         fontWeight: '600',
         letterSpacing: 1,
-        marginBottom: 8,
+        marginBottom: vs(8),
         fontFamily: 'Lexend_400Regular',
     },
     emptyText: {
-        fontSize: 14,
+        fontSize: ms(14),
         fontWeight: '600',
-        marginTop: 12,
+        marginTop: vs(12),
         fontFamily: 'Lexend',
     },
     emptySubtext: {
-        fontSize: 11,
-        marginTop: 4,
+        fontSize: ms(11),
+        marginTop: vs(4),
         fontFamily: 'Lexend_400Regular',
     },
 });

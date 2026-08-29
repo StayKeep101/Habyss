@@ -128,7 +128,7 @@ export const StreakSuccessModal: React.FC<StreakSuccessModalProps> = ({ visible,
                     </View>
 
                     <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                        You're on fire! Keep the momentum going.
+                        Keep the momentum going.
                     </Text>
                 </Animated.View>
 

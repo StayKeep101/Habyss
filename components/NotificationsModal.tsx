@@ -206,7 +206,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                                 </View>
                                 <Text style={[styles.emptyText, { color: colors.textPrimary }]}>All Clear!</Text>
                                 <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-                                    You don't have any notifications.{'\n'}We'll alert you when something happens.
+                                    No notifications yet.{'\n'}New updates will appear here.
                                 </Text>
                             </VoidCard>
                         </Animated.View>

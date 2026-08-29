@@ -18,6 +18,7 @@ import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { clearHabitsCache } from '@/lib/habitsSQLite';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 
 // Settings configuration
@@ -40,6 +41,7 @@ export default function ProfileScreen() {
     const isLight = theme === 'light';
     const isTrueDark = theme === 'trueDark';
     const { colors: accentColors, primary: accentColor } = useAccentGradient();
+    const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
     // User state
     const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
@@ -272,15 +274,15 @@ export default function ProfileScreen() {
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header - No Settings Button */}
-                <View style={styles.header}>
-                    <View style={{ width: 40 }} />
-                    <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: 24, fontFamily: 'Lexend_700Bold' }]}>PROFILE</Text>
-                    <View style={{ width: 40 }} />
+                <View style={[styles.header, { paddingHorizontal: horizontalPadding, paddingTop: topSpacing * 0.4 }]}>
+                    <View style={{ width: isCompactWidth ? 32 : 40 }} />
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: isCompactWidth ? 22 : 24, fontFamily: 'Lexend_700Bold' }]}>PROFILE</Text>
+                    <View style={{ width: isCompactWidth ? 32 : 40 }} />
                 </View>
 
-                <ScrollView contentContainerStyle={styles.scrollContent}>
+                <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance, paddingHorizontal: horizontalPadding }]}>
                     {/* Profile Section */}
-                    <View style={styles.profileSection}>
+                    <View style={[styles.profileSection, { marginBottom: isCompactWidth ? 24 : 32, marginTop: topSpacing }]}>
                         <TouchableOpacity onPress={() => setShowEditProfile(true)} style={styles.avatarContainer}>
                             {/* Premium gradient border */}
                             {isPremium && (
@@ -529,8 +531,8 @@ export default function ProfileScreen() {
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={[styles.quote, { color: colors.textSecondary }]}>"Descend into discipline"</Text>
-                        <Text style={[styles.version, { color: colors.textTertiary }]}>v1.0.4 • Void Build</Text>
+                        <Text style={[styles.quote, { color: colors.textSecondary }]}>Descend into discipline</Text>
+                        <Text style={[styles.version, { color: colors.textTertiary }]}>v1.0.0</Text>
                     </View>
 
                 </ScrollView>

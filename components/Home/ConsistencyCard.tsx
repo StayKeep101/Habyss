@@ -5,6 +5,7 @@ import Svg, { Circle, G } from 'react-native-svg';
 import { VoidCard } from '../Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { s, vs, ms } from '@/constants/Layout';
 
 interface ConsistencyCardProps {
     score: number; // 0-100
@@ -62,7 +63,7 @@ export const ConsistencyCard: React.FC<ConsistencyCardProps> = ({ score, onPress
                         </G>
                     </Svg>
                     <View style={styles.iconOverlay}>
-                        <Ionicons name="pulse" size={14} color={color} />
+                        <Ionicons name="pulse" size={s(14)} color={color} />
                     </View>
                 </View>
 
@@ -81,14 +82,14 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        padding: 10,
+        padding: s(10),
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
+        gap: s(6),
     },
     circleContainer: {
         position: 'relative',
-        marginBottom: 2,
+        marginBottom: vs(2),
     },
     iconOverlay: {
         position: 'absolute',
@@ -100,18 +101,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     value: {
-        fontSize: 24,
+        fontSize: ms(24),
         fontWeight: '900',
         fontFamily: 'Lexend',
         textAlign: 'center',
-        lineHeight: 24,
+        lineHeight: ms(24),
     },
     label: {
-        fontSize: 8,
+        fontSize: ms(8),
         fontWeight: 'bold',
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
         textAlign: 'center',
-        marginTop: 2,
+        marginTop: vs(2),
     },
 });

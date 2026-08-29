@@ -7,6 +7,7 @@ import { VoidCard } from '../Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
+import { s, vs, ms } from '@/constants/Layout';
 
 interface GoalsProgressBarProps {
     progress: number; // 0-100
@@ -36,12 +37,12 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
             <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
                 <View style={styles.header}>
                     <View style={styles.titleRow}>
-                        <Ionicons name="flag" size={16} color={primary} />
+                        <Ionicons name="flag" size={s(16)} color={primary} />
                         <Text style={[styles.title, { color: colors.textPrimary }]}>GOALS PROGRESS</Text>
                     </View>
                     <View style={[styles.badge, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
                         <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{goalsCount}</Text>
-                        <Ionicons name="chevron-forward" size={12} color={colors.textTertiary} />
+                        <Ionicons name="chevron-forward" size={s(12)} color={colors.textTertiary} />
                     </View>
                 </View>
 
@@ -67,21 +68,21 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
 
 const styles = StyleSheet.create({
     container: {
-        padding: 20,
+        padding: s(20),
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: vs(16),
     },
     titleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: s(10),
     },
     title: {
-        fontSize: 14,
+        fontSize: ms(14),
         fontWeight: '900',
         letterSpacing: 1.5,
         fontFamily: 'Lexend',
@@ -89,41 +90,41 @@ const styles = StyleSheet.create({
     badge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 12,
-        gap: 4,
+        paddingHorizontal: s(10),
+        paddingVertical: vs(6),
+        borderRadius: s(12),
+        gap: s(4),
     },
     badgeText: {
-        fontSize: 12,
+        fontSize: ms(12),
         fontWeight: 'bold',
         fontFamily: 'Lexend',
     },
     progressContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
-        marginBottom: 8,
+        gap: s(16),
+        marginBottom: vs(8),
     },
     progressBg: {
         flex: 1,
-        height: 6,
-        borderRadius: 3,
+        height: vs(6),
+        borderRadius: s(3),
         overflow: 'hidden',
     },
     progressFill: {
         height: '100%',
-        borderRadius: 3,
+        borderRadius: s(3),
     },
     progressText: {
-        fontSize: 24,
+        fontSize: ms(24),
         fontWeight: '900',
         fontFamily: 'Lexend',
-        width: 60,
+        width: s(60),
         textAlign: 'right',
     },
     subtitle: {
-        fontSize: 10,
+        fontSize: ms(10),
         letterSpacing: 1,
         fontFamily: 'Lexend_400Regular',
     },

@@ -97,7 +97,7 @@ export const FocusTimeCard: React.FC = () => {
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <Ionicons name="timer-outline" size={16} color={accentColor} />
-                    <Text style={[styles.title, { color: colors.textSecondary }]}>TODAY'S FOCUS</Text>
+                    <Text style={[styles.title, { color: colors.textSecondary }]}>TODAY FOCUS</Text>
                 </View>
             </View>
 

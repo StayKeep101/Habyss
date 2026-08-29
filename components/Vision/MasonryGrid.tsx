@@ -78,7 +78,7 @@ const VisionCard = ({ item, index, colIndex, colors }: any) => {
 
             {item.type === 'quote' && !item.imageUrl && (
                 <View style={styles.quoteContainer}>
-                    <Text style={[styles.quoteText, { color: colors.textPrimary }]}>"{item.text}"</Text>
+                    <Text style={[styles.quoteText, { color: colors.textPrimary }]}>{item.text}</Text>
                 </View>
             )}
         </View>

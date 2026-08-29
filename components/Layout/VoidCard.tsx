@@ -3,6 +3,7 @@ import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { BlurView } from 'expo-blur';
+import { s } from '@/constants/Layout';
 
 interface VoidCardProps {
     children: React.ReactNode;
@@ -58,7 +59,7 @@ export const VoidCard: React.FC<VoidCardProps> = ({ children, style, glass = fal
 
 const styles = StyleSheet.create({
     card: {
-        borderRadius: 22,
+        borderRadius: s(22),
         borderWidth: 1,
         overflow: 'hidden',
     },

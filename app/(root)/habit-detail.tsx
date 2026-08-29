@@ -18,6 +18,7 @@ import { SpotifyPage } from '@/components/Habit/SpotifyPage';
 import { SpinningLogo } from '@/components/SpinningLogo';
 import { HabitGraphRenderer } from '@/components/Habit/HabitGraphRenderer';
 import { DetailedHeatmap } from '@/components/Habit/DetailedHeatmap';
+import { s, vs, ms } from '@/constants/Layout';
 
 const { width } = Dimensions.get('window');
 
@@ -204,7 +205,7 @@ export default function HabitDetailScreen() {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <Text style={{ color: colors.textSecondary }}>Habit is unavailable</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: vs(20) }}>
           <Text style={{ color: colors.primary }}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -215,7 +216,7 @@ export default function HabitDetailScreen() {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <Text style={{ color: colors.textSecondary }}>Habit not found</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: vs(20) }}>
           <Text style={{ color: colors.primary }}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -236,9 +237,9 @@ export default function HabitDetailScreen() {
           onPress={() => router.back()}
           style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          <Ionicons name="arrow-back" size={s(24)} color={colors.textPrimary} />
         </TouchableOpacity>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flexDirection: 'row', gap: s(12) }}>
           <TouchableOpacity
             onPress={() => {
               selectionFeedback();
@@ -246,7 +247,7 @@ export default function HabitDetailScreen() {
             }}
             style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
           >
-            <Ionicons name="share-outline" size={20} color={colors.textPrimary} />
+            <Ionicons name="share-outline" size={s(20)} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
@@ -255,7 +256,7 @@ export default function HabitDetailScreen() {
             }}
             style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
           >
-            <Ionicons name="pencil" size={20} color={colors.textPrimary} />
+            <Ionicons name="pencil" size={s(20)} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -290,7 +291,7 @@ export default function HabitDetailScreen() {
                 </Text>
               </View>
             </View>
-            <View style={[styles.routinePills, { marginTop: 14 }]}>
+            <View style={[styles.routinePills, { marginTop: vs(14) }]}>
               {linkedRoutines.length > 0 ? linkedRoutines.map((routine) => (
                 <View key={routine.id} style={[styles.routinePill, { backgroundColor: habitColor + '14', borderColor: habitColor + '28' }]}>
                   <Text style={[styles.routinePillText, { color: colors.textPrimary }]}>{routine.emoji} {routine.name}</Text>
@@ -307,7 +308,7 @@ export default function HabitDetailScreen() {
 
           {/* TIMER: Only for time-based habits */}
           {trackingStyle === 'timer' && (
-            <View style={{ marginBottom: 24 }}>
+            <View style={{ marginBottom: vs(24) }}>
               <PomodoroTimer
                 defaultMinutes={habit.durationMinutes}
                 habitId={habit.id}
@@ -324,13 +325,13 @@ export default function HabitDetailScreen() {
               <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : habitColor + '15' }]}>
                 <Ionicons
                   name={(habit.icon as any) || 'star'}
-                  size={40}
+                  size={s(40)}
                   color={completed ? colors.success : habitColor}
                 />
               </View>
               <Text style={[styles.counterProgress, { color: colors.textPrimary }]}>
                 {counterValue}
-                <Text style={{ color: colors.textTertiary, fontSize: 20 }}> / {habit.goalValue || 1}</Text>
+                <Text style={{ color: colors.textTertiary, fontSize: ms(20) }}> / {habit.goalValue || 1}</Text>
               </Text>
               <Text style={[styles.counterUnit, { color: colors.textSecondary }]}>
                 {habit.unit || 'count'}
@@ -342,7 +343,7 @@ export default function HabitDetailScreen() {
                   style={[styles.counterBtn, { backgroundColor: colors.surfaceTertiary }]}
                   disabled={counterValue <= 0}
                 >
-                  <Ionicons name="remove" size={28} color={counterValue <= 0 ? colors.textTertiary : colors.textPrimary} />
+                  <Ionicons name="remove" size={s(28)} color={counterValue <= 0 ? colors.textTertiary : colors.textPrimary} />
                 </TouchableOpacity>
 
                 <View style={[styles.counterValueDisplay, { backgroundColor: completed ? colors.success + '15' : habitColor + '10', borderColor: completed ? colors.success + '40' : habitColor + '30' }]}>
@@ -355,7 +356,7 @@ export default function HabitDetailScreen() {
                   onPress={handleCounterIncrement}
                   style={[styles.counterBtn, { backgroundColor: habitColor + '20' }]}
                 >
-                  <Ionicons name="add" size={28} color={habitColor} />
+                  <Ionicons name="add" size={s(28)} color={habitColor} />
                 </TouchableOpacity>
               </View>
             </VoidCard>
@@ -367,22 +368,22 @@ export default function HabitDetailScreen() {
               <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : habitColor + '15' }]}>
                 <Ionicons
                   name={(habit.icon as any) || 'star'}
-                  size={40}
+                  size={s(40)}
                   color={completed ? colors.success : habitColor}
                 />
               </View>
               <Text style={[styles.habitName, { color: colors.textPrimary }]}>
                 {habit.name}
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-                <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                    <Text style={{ fontSize: 10, fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8), marginBottom: vs(24) }}>
+                <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: s(10), paddingVertical: vs(4), borderRadius: s(8) }}>
+                    <Text style={{ fontSize: ms(10), fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
                     {(habit.category || 'general').toUpperCase()}
                   </Text>
                 </View>
                 {habit.frequency && (
-                  <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                    <Text style={{ fontSize: 10, fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
+                  <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: s(10), paddingVertical: vs(4), borderRadius: s(8) }}>
+                    <Text style={{ fontSize: ms(10), fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
                       {habit.frequency.toUpperCase()}
                     </Text>
                   </View>
@@ -394,7 +395,7 @@ export default function HabitDetailScreen() {
                 style={[styles.actionButton, { backgroundColor: completed ? colors.success : colors.primaryDark }]}
                 activeOpacity={0.8}
               >
-                <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={20} color="white" style={{ marginRight: 8 }} />
+                <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={s(20)} color="white" style={{ marginRight: s(8) }} />
                 <Text style={styles.actionButtonText}>
                   {completed ? 'PROTOCOL COMPLETE' : 'EXECUTE PROTOCOL'}
                 </Text>
@@ -403,30 +404,30 @@ export default function HabitDetailScreen() {
           )}
 
           {/* === THIS WEEK — Quick 7-day view === */}
-          <View style={{ marginBottom: 20 }}>
+          <View style={{ marginBottom: vs(20) }}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>THIS WEEK</Text>
-            <VoidCard style={{ padding: 16 }}>
+            <VoidCard style={{ padding: s(16) }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 {last7Days.map((day, i) => {
                   const dayDate = new Date(day.date + 'T12:00:00');
                   const dayLabel = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][dayDate.getDay()];
                   const isToday = day.date === todayStr;
                   return (
-                    <View key={day.date} style={{ alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 10, color: isToday ? habitColor : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontWeight: isToday ? '700' : '400' }}>
+                    <View key={day.date} style={{ alignItems: 'center', gap: vs(6) }}>
+                      <Text style={{ fontSize: ms(10), color: isToday ? habitColor : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontWeight: isToday ? '700' : '400' }}>
                         {dayLabel}
                       </Text>
                       <View style={{
-                        width: 32, height: 32, borderRadius: 16,
+                        width: s(32), height: s(32), borderRadius: s(16),
                         backgroundColor: day.completed ? habitColor + '20' : 'transparent',
                         borderWidth: isToday ? 2 : 1,
                         borderColor: day.completed ? habitColor : (isToday ? habitColor + '50' : colors.border),
                         alignItems: 'center', justifyContent: 'center',
                       }}>
                         {day.completed ? (
-                          <Ionicons name="checkmark" size={16} color={habitColor} />
+                          <Ionicons name="checkmark" size={s(16)} color={habitColor} />
                         ) : (
-                          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.textTertiary + '30' }} />
+                          <View style={{ width: s(4), height: s(4), borderRadius: s(2), backgroundColor: colors.textTertiary + '30' }} />
                         )}
                       </View>
                     </View>
@@ -437,7 +438,7 @@ export default function HabitDetailScreen() {
           </View>
 
           {/* === PERFORMANCE STATS — Always visible === */}
-          <View style={{ marginBottom: 20 }}>
+          <View style={{ marginBottom: vs(20) }}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>PERFORMANCE</Text>
             <View style={styles.statsGrid}>
               {[
@@ -447,13 +448,13 @@ export default function HabitDetailScreen() {
                 { label: 'TOTAL', value: `${totalCompletions}`, suffix: 'DONE', icon: 'checkmark-done', color: '#8B5CF6' }
               ].map((stat, i) => (
                 <VoidCard key={i} style={styles.statCard}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Ionicons name={stat.icon as any} size={16} color={stat.color} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: vs(8) }}>
+                    <Ionicons name={stat.icon as any} size={s(16)} color={stat.color} />
                     <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
                   </View>
                   <Text style={[styles.statValue, { color: colors.textPrimary }]}>
                     {stat.value}
-                    <Text style={{ fontSize: 10, color: colors.textTertiary }}> {stat.suffix}</Text>
+                    <Text style={{ fontSize: ms(10), color: colors.textTertiary }}> {stat.suffix}</Text>
                   </Text>
                 </VoidCard>
               ))}
@@ -461,7 +462,7 @@ export default function HabitDetailScreen() {
           </View>
 
           {/* === VISUALIZATION === */}
-          <View style={{ marginBottom: 24 }}>
+          <View style={{ marginBottom: vs(24) }}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
             <HabitGraphRenderer
               graphStyle={habit.graphStyle || 'bar'}
@@ -475,7 +476,7 @@ export default function HabitDetailScreen() {
           </View>
 
           {/* === HEATMAP === */}
-          <VoidCard style={{ padding: 16, marginBottom: 24 }} glass intensity={20}>
+          <VoidCard style={{ padding: s(16), marginBottom: vs(24) }} glass intensity={20}>
             <DetailedHeatmap
               completionData={history}
               color={habitColor}
@@ -487,13 +488,13 @@ export default function HabitDetailScreen() {
           <VoidCard style={styles.descCard}>
             <Text style={[styles.descTitle, { color: colors.textPrimary }]}>DIRECTIVE</Text>
             <Text style={[styles.descText, { color: colors.textSecondary }]}>
-              Consistency is key. You've set this protocol to improve your {habit.category}.
+              {`Consistency is key. You've set this protocol to improve your ${habit.category}.`}
               Maintain your streak to achieve optimal results.
             </Text>
           </VoidCard>
 
           {/* Bottom Padding for scroll */}
-          <View style={{ height: 100 }} />
+          <View style={{ height: vs(100) }} />
         </ScrollView>
 
         {/* PAGE 2: Spotify / Audio */}
@@ -518,137 +519,137 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
-    marginTop: 40,
-    paddingHorizontal: 20,
+    marginBottom: vs(10),
+    marginTop: vs(40),
+    paddingHorizontal: s(20),
     zIndex: 10,
   },
   pageContent: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: s(20),
+    paddingTop: vs(10),
   },
   contextCard: {
-    padding: 18,
-    marginBottom: 20,
+    padding: s(18),
+    marginBottom: vs(20),
   },
   contextRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: s(12),
   },
   contextLabel: {
-    fontSize: 10,
+    fontSize: ms(10),
     letterSpacing: 1.3,
     fontFamily: 'Lexend_400Regular',
   },
   contextValue: {
-    fontSize: 15,
+    fontSize: ms(15),
     fontFamily: 'Lexend',
-    marginTop: 4,
+    marginTop: vs(4),
   },
   routinePills: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: s(8),
   },
   routinePill: {
     borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: s(999),
+    paddingHorizontal: s(10),
+    paddingVertical: vs(6),
   },
   routinePillText: {
-    fontSize: 11,
+    fontSize: ms(11),
     fontFamily: 'Lexend_400Regular',
   },
   iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: s(44),
+    height: s(44),
+    borderRadius: s(22),
     alignItems: 'center',
     justifyContent: 'center',
   },
   mainCard: {
     alignItems: 'center',
-    padding: 32,
-    marginBottom: 24,
+    padding: s(32),
+    marginBottom: vs(24),
   },
   counterCard: {
     alignItems: 'center',
-    padding: 28,
-    marginBottom: 24,
+    padding: s(28),
+    marginBottom: vs(24),
   },
   iconLarge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: s(80),
+    height: s(80),
+    borderRadius: s(40),
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: vs(16),
   },
   habitName: {
-    fontSize: 24,
+    fontSize: ms(24),
     fontWeight: '900',
-    marginBottom: 4,
+    marginBottom: vs(4),
     textAlign: 'center',
     fontFamily: 'Lexend',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: s(24),
+    paddingVertical: vs(12),
+    borderRadius: s(12),
   },
   actionButtonText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: ms(14),
     fontFamily: 'Lexend_400Regular',
     letterSpacing: 0.5,
   },
   // Counter styles
   counterProgress: {
-    fontSize: 48,
+    fontSize: ms(48),
     fontWeight: '900',
     fontFamily: 'Lexend',
-    marginBottom: 4,
+    marginBottom: vs(4),
   },
   counterUnit: {
-    fontSize: 13,
+    fontSize: ms(13),
     fontFamily: 'Lexend_400Regular',
     letterSpacing: 1,
-    marginBottom: 24,
+    marginBottom: vs(24),
     textTransform: 'uppercase',
   },
   counterControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: s(16),
   },
   counterBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: s(56),
+    height: s(56),
+    borderRadius: s(28),
     alignItems: 'center',
     justifyContent: 'center',
   },
   counterValueDisplay: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: s(20),
+    paddingVertical: vs(10),
+    borderRadius: s(12),
     borderWidth: 1,
   },
   counterValueText: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: '700',
     fontFamily: 'Lexend',
   },
   // Stats
   sectionTitle: {
-    fontSize: 14,
+    fontSize: ms(14),
     fontWeight: '900',
-    marginBottom: 16,
+    marginBottom: vs(16),
     letterSpacing: 1,
     fontFamily: 'Lexend_400Regular',
   },
@@ -659,33 +660,33 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    padding: 16,
-    marginBottom: 16,
+    padding: s(16),
+    marginBottom: vs(16),
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: ms(10),
     fontWeight: 'bold',
-    marginLeft: 8,
+    marginLeft: s(8),
     letterSpacing: 1,
     fontFamily: 'Lexend_400Regular',
   },
   statValue: {
-    fontSize: 22,
+    fontSize: ms(22),
     fontWeight: 'bold',
     fontFamily: 'Lexend',
   },
   descCard: {
-    padding: 20,
+    padding: s(20),
   },
   descTitle: {
-    fontSize: 12,
+    fontSize: ms(12),
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: vs(8),
     fontFamily: 'Lexend_400Regular',
     letterSpacing: 1,
   },
   descText: {
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: ms(14),
+    lineHeight: ms(22),
   },
 });

@@ -35,6 +35,7 @@ import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -70,6 +71,7 @@ const CalendarScreen = () => {
     const { cardSize } = useAppSettings();
     const { activeHabitId, activeHabitName, isRunning: isFocusRunning, startTimer, timeLeft, totalDuration } = useFocusTime();
     const { getRoutinesForHabit } = useRoutines();
+    const { horizontalPadding, tabBarClearance, isCompactHeight } = useResponsiveLayout();
 
     // Data State
     const [habitsStore, setHabitsStore] = useState<StoreHabit[]>([]);
@@ -624,7 +626,7 @@ const CalendarScreen = () => {
                         <Animated.ScrollView
                             onScroll={scrollHandler}
                             scrollEventThrottle={16}
-                            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 150, paddingTop: 8 }}
+                            contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, paddingTop: isCompactHeight ? 4 : 8 }}
                             showsVerticalScrollIndicator={false}
                             bounces={true}
                             alwaysBounceVertical={true}
@@ -939,7 +941,7 @@ const CalendarScreen = () => {
                                 >
                                     <Ionicons name={(draggingHabit.icon as any) || 'ellipse-outline'} size={16} color={draggingHabit.color || accentColor} />
                                     <Text style={[styles.dragPreviewText, { color: colors.text }]} numberOfLines={1}>
-                                        Move "{draggingHabit.name}" into {hoveredGoalId ? goals.find((goal) => goal.id === hoveredGoalId)?.name || 'goal' : 'a goal'}
+                                        {`Move "${draggingHabit.name}" into ${hoveredGoalId ? goals.find((goal) => goal.id === hoveredGoalId)?.name || 'goal' : 'a goal'}`}
                                     </Text>
                                 </View>
                             </View>

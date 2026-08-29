@@ -108,7 +108,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
                      {/* Placeholder for Character - Using a large emoji or icon for now if image not available */}
                      <View className="items-center">
                         <View className="p-2 rounded-full mb-1" style={{ backgroundColor: colors.primaryLight }}>
-                             <Text className="font-bold text-xs" style={{ color: colors.textPrimary }}>Let's go!</Text>
+                             <Text className="font-bold text-xs" style={{ color: colors.textPrimary }}>Start strong!</Text>
                         </View>
                         <Ionicons name="person-circle" size={80} color={colors.primary} />
                      </View>

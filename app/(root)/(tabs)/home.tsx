@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, DeviceEventEmitter, InteractionManager, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, DeviceEventEmitter, InteractionManager, RefreshControl, Alert } from 'react-native';
+import { s, vs, ms } from '@/constants/Layout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
@@ -82,6 +83,7 @@ import { FocusTimeCard } from '@/components/Home/FocusTimeCard';
 import { RoutineCard } from '@/components/Home/RoutineCard';
 import { TodaysCompletionCard } from '@/components/Home/TodaysCompletionCard';
 import { CompletionModal } from '@/components/Home/CompletionModal';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 const Home = () => {
   const router = useRouter();
@@ -91,7 +93,7 @@ const Home = () => {
   const { colors: accentColors, primary: accentColor } = useAccentGradient();
   const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
   const { playComplete, playTap } = useSounds();
-  const { width } = Dimensions.get('window');
+  const { horizontalPadding, sectionGap, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
   // Pro Hooks
   const { isPremium } = usePremiumStatus();
@@ -706,7 +708,7 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
     <VoidShell>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}
+          contentContainerStyle={{ paddingBottom: tabBarClearance, paddingHorizontal: horizontalPadding }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -718,7 +720,7 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
         >
 
           {/* Header Row */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 20 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: topSpacing }}>
             {/* Left: Profile */}
             <View>
               {/* Profile Avatar */}
@@ -728,18 +730,18 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 26,
-                    padding: 2,
+                    width: s(52),
+                    height: s(52),
+                    borderRadius: s(26),
+                    padding: s(2),
                     justifyContent: 'center',
                     alignItems: 'center',
                   }}
                 >
                   <View style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
+                    width: s(48),
+                    height: s(48),
+                    borderRadius: s(24),
                     overflow: 'hidden',
                     backgroundColor: colors.background
                   }}>
@@ -747,7 +749,7 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
                       <Image source={{ uri: profileAvatar }} style={{ width: '100%', height: '100%' }} />
                     ) : (
                       <View style={{ flex: 1, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="person" size={22} color={colors.textSecondary} />
+                        <Ionicons name="person" size={s(22)} color={colors.textSecondary} />
                       </View>
                     )}
                   </View>
@@ -756,7 +758,7 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
             </View>
 
             {/* Right: Action Buttons */}
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: vs(4) }}>
               <TouchableOpacity
                 onPress={() => {
                   mediumFeedback();
@@ -766,34 +768,34 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
                     router.push('/paywall');
                   }
                 }}
-                style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }}
+                style={{ width: s(40), height: s(40), borderRadius: s(20), overflow: 'hidden' }}
               >
                 <LinearGradient
                   colors={accentColors}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+                  style={{ width: s(40), height: s(40), alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <Ionicons name="sparkles" size={18} color="#fff" />
+                  <Ionicons name="sparkles" size={s(18)} color="#fff" />
                 </LinearGradient>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { lightFeedback(); setShowNotifications(true); }} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="notifications" size={20} color={colors.textPrimary} />
-                {unreadCount > 0 && <View style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' }} />}
+              <TouchableOpacity onPress={() => { lightFeedback(); setShowNotifications(true); }} style={{ width: s(40), height: s(40), borderRadius: s(20), backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="notifications" size={s(20)} color={colors.textPrimary} />
+                {unreadCount > 0 && <View style={{ position: 'absolute', top: s(10), right: s(10), width: s(8), height: s(8), borderRadius: s(4), backgroundColor: '#EF4444' }} />}
               </TouchableOpacity>
             </View>
           </View>
 
           {/* AI Greeting - Full Width Below Header */}
           {motivationalQuote ? (
-            <Animated.View entering={FadeInDown.duration(400)} style={{ marginTop: 16 }}>
+            <Animated.View entering={FadeInDown.duration(400)} style={{ marginTop: sectionGap }}>
               <Text style={{
-                fontSize: 15,
+                fontSize: ms(15),
                 fontWeight: '600',
                 color: isPremium ? colors.text : colors.textSecondary,
                 fontFamily: 'Lexend',
                 textAlign: 'left',
-                lineHeight: 22,
+                lineHeight: ms(22),
               }}>
                 {displayedQuote}
                 {displayedQuote.length < motivationalQuote.length && (
@@ -804,7 +806,7 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
           ) : null}
 
           {/* Spacer after header */}
-          <View style={{ height: 16 }} />
+          <View style={{ height: sectionGap }} />
 
           {/* Goals Progress Bar */}
           <Animated.View entering={FadeInDown.delay(100).duration(500)}>
@@ -816,7 +818,7 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
           </Animated.View>
 
           {/* 3-Column Stats Row: Streak | Consistency | Completion */}
-          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: sectionGap }}>
             <StreakCard
               streak={streak}
               completionTier={completionTier}
@@ -834,17 +836,17 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
           </Animated.View>
 
           {/* Today's Focus Card - Moved Above Matrix */}
-          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: 16 }}>
+          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: sectionGap }}>
             <FocusTimeCard />
           </Animated.View>
 
           {/* Routines Section */}
-          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: 16 }}>
+          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: sectionGap }}>
             <RoutineCard />
           </Animated.View>
 
           {/* Analytics Dashboard (Life Balance Matrix) */}
-          <View style={{ marginTop: 16 }}>
+          <View style={{ marginTop: sectionGap }}>
             <AnalyticsDashboard habits={habits} completions={completions} history={historyData} />
           </View>
 

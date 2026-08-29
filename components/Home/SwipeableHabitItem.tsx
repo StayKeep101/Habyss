@@ -45,7 +45,7 @@ interface SwipeableHabitItemProps {
 const { width } = Dimensions.get('window');
 const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 
-export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
+const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration,
   routineName, routineEmoji, canFocusNow, onFocusPress,
   onDragStart, onDragMove, onDragEnd, isDragging = false
@@ -345,7 +345,11 @@ export const SwipeableHabitItem = React.memo<SwipeableHabitItemProps>(({
       </View>
     </GestureDetector>
   );
-});
+};
+
+SwipeableHabitItemComponent.displayName = 'SwipeableHabitItem';
+
+export const SwipeableHabitItem = React.memo(SwipeableHabitItemComponent);
 
 const styles = StyleSheet.create({
   swipeableContainer: {
