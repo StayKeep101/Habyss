@@ -190,7 +190,7 @@ export const CelebrationAnimation: React.FC<CelebrationProps> = ({ visible, onCo
 
 const styles = StyleSheet.create({
     overlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         justifyContent: 'center',
         alignItems: 'center',
         pointerEvents: 'none',

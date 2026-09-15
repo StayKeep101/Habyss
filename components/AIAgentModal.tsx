@@ -14,7 +14,7 @@ import {
     Image, // Added Image
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Audio } from 'expo-av';
+import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
     useSharedValue,
@@ -198,7 +198,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
     const [isTyping, setIsTyping] = useState(false);
 
     // Media State
-    const [recording, setRecording] = useState<Audio.Recording | null>(null);
+    const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
     const [isRecording, setIsRecording] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -318,11 +318,8 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         if (isRecording) {
             // Stop
             try {
-                if (recording) {
-                    await recording.stopAndUnloadAsync();
-                }
+                await recorder.stop();
                 setIsRecording(false);
-                setRecording(null);
 
                 const userMsg: Message = {
                     id: Date.now().toString(),
@@ -351,21 +348,19 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         } else {
             // Start
             try {
-                const { status } = await Audio.requestPermissionsAsync();
+                const { status } = await requestRecordingPermissionsAsync();
                 if (status !== 'granted') {
                     Alert.alert('Permission Denied', 'Needs microphone permission.');
                     return;
                 }
 
-                await Audio.setAudioModeAsync({
-                    allowsRecordingIOS: true,
-                    playsInSilentModeIOS: true,
+                await setAudioModeAsync({
+                    allowsRecording: true,
+                    playsInSilentMode: true,
                 });
 
-                const { recording } = await Audio.Recording.createAsync(
-                    Audio.RecordingOptionsPresets.HIGH_QUALITY
-                );
-                setRecording(recording);
+                await recorder.prepareToRecordAsync();
+                recorder.record();
                 setIsRecording(true);
                 mediumFeedback();
             } catch (err) {

@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     glassBorder: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         borderWidth: 1,
         // borderColor set inline
         pointerEvents: 'none',

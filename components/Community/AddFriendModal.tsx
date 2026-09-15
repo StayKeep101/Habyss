@@ -156,7 +156,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                 return (
                     <View style={styles.cameraContainer}>
                         <CameraView
-                            style={StyleSheet.absoluteFillObject}
+                            style={StyleSheet.absoluteFill}
                             onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                             barcodeScannerSettings={{
                                 barcodeTypes: ["qr"],
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     scanOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     scanningOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor: 'rgba(0,0,0,0.5)',
         alignItems: 'center',
         justifyContent: 'center',

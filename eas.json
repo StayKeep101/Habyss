@@ -9,14 +9,14 @@
       "distribution": "internal",
       "channel": "development",
       "ios": {
-        "image": "macos-sequoia-15.3-xcode-16.2"
+        "image": "macos-tahoe-26.5-xcode-26.6"
       }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
       "ios": {
-        "image": "macos-sequoia-15.3-xcode-16.2"
+        "image": "macos-tahoe-26.5-xcode-26.6"
       },
       "env": {
         "EXPO_PUBLIC_SPOTIFY_CLIENT_ID": "PLACEHOLDER_FOR_SPOTIFY_CLIENT_ID",
@@ -25,7 +25,10 @@
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "ios": {
+        "image": "macos-tahoe-26.5-xcode-26.6"
+      }
     }
   },
   "submit": {

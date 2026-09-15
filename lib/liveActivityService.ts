@@ -1,17 +1,11 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SharedDefaults from './SharedDefaults';
+import HabyssLiveActivity from '@/modules/habyss-live-activity';
 const ACTIVITY_ID_KEY = '@habyss_live_activity_id';
 
-// Dynamically import to avoid crashes on Android
-let LiveActivity: typeof import('expo-live-activity') | null = null;
-if (Platform.OS === 'ios') {
-    try {
-        LiveActivity = require('expo-live-activity');
-    } catch (e) {
-        console.warn('expo-live-activity not available:', e);
-    }
-}
+// Local ActivityKit module (modules/habyss-live-activity); null on Android and in Expo Go
+const LiveActivity = Platform.OS === 'ios' ? HabyssLiveActivity : null;
 
 export interface DailyProgress {
     completed: number;
@@ -67,17 +61,15 @@ export const LiveActivityService = {
             const activityId = LiveActivity.startActivity(
                 {
                     name: 'Habyss Live Activity',
-                    totalDurationSeconds: stats.targetDate ? (stats.targetDate - Date.now()) / 1000 : undefined,
-                    // Extra fields ignored by Swift but useful for reference
-                    backgroundColor: '#0A0A0F',
-                } as any,
+                    totalDurationSeconds: stats.targetDate ? (stats.targetDate - Date.now()) / 1000 : null,
+                },
                 {
                     title,
                     subtitle,
-                    timerEndDateInMilliseconds: stats.targetDate,
+                    timerEndDateInMilliseconds: stats.targetDate ?? null,
                     progress,
                     profileImagePath,
-                } as any
+                }
             );
 
             if (activityId) {
@@ -103,19 +95,11 @@ export const LiveActivityService = {
             const activityId = await AsyncStorage.getItem(ACTIVITY_ID_KEY);
             if (!activityId) return;
 
-            // Check if activity is still valid on the native side to avoid "ActivityNotFoundException" logs
-            // (We patched expo-live-activity to include this method)
-            if ((LiveActivity as any)?.listActivities) {
-                try {
-                    const activeIds = await (LiveActivity as any).listActivities();
-                    if (Array.isArray(activeIds) && !activeIds.includes(activityId)) {
-                        console.log('Live Activity not found in active list, clearing local ID.');
-                        await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
-                        return;
-                    }
-                } catch (err) {
-                    console.warn('Failed to list activities:', err);
-                }
+            // Clear a stale ID if the user dismissed the activity or reinstalled the app
+            if (!LiveActivity.listActivities().includes(activityId)) {
+                console.log('Live Activity not found in active list, clearing local ID.');
+                await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
+                return;
             }
 
             const progress = stats.total > 0 ? stats.completed / stats.total : 0;
@@ -134,13 +118,13 @@ export const LiveActivityService = {
 
             const profileImagePath: string | undefined = undefined;
 
-            LiveActivity.updateActivity(activityId, {
+            await LiveActivity.updateActivity(activityId, {
                 title,
                 subtitle,
                 timerEndDateInMilliseconds: stats.targetDate || null,
-                progress: progress,
+                progress,
                 profileImagePath,
-            } as any);
+            });
 
             // Auto-stop when all habits are complete
             if (stats.completed >= stats.total && stats.total > 0) {
@@ -171,11 +155,11 @@ export const LiveActivityService = {
             const activityId = await AsyncStorage.getItem(ACTIVITY_ID_KEY);
             if (!activityId) return;
 
-            LiveActivity.stopActivity(activityId, {
+            await LiveActivity.stopActivity(activityId, {
                 title: 'Great job today! 🎉',
                 subtitle: 'See you tomorrow',
-                progressBar: { progress: 1.0 },
-            } as any);
+                progress: 1,
+            });
 
             await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
             console.log('Live Activity stopped');

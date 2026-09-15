@@ -105,12 +105,12 @@ const styles = StyleSheet.create({
         marginBottom: 0,
     },
     image: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         width: '100%',
         height: '100%',
     },
     gradient: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         justifyContent: 'flex-end',
         padding: 12,
     },

@@ -86,7 +86,7 @@ export const GenesisIntro: React.FC<GenesisIntroProps> = ({ onComplete }) => {
 
 const styles = StyleSheet.create({
     container: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         zIndex: 50,
         alignItems: 'center',
         justifyContent: 'center',

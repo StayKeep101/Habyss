@@ -1203,7 +1203,7 @@ const CalendarScreen = () => {
 
 const styles = StyleSheet.create({
     dragOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         zIndex: 30,
     },
     dragPreview: {

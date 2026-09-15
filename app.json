@@ -7,7 +7,6 @@
     "icon": "./assets/images/Habyss Logo.png",
     "scheme": "habyss",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.habyss.app",
@@ -68,12 +67,6 @@
         }
       ],
       "expo-notifications",
-      [
-        "expo-live-activity",
-        {
-          "enablePushNotifications": true
-        }
-      ],
       "expo-router",
       [
         "expo-splash-screen",
@@ -85,7 +78,6 @@
         }
       ],
       "expo-secure-store",
-      "react-native-health-connect",
       "react-native-health",
       [
         "expo-calendar",
@@ -101,7 +93,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "16.4"
           },
           "android": {
             "minSdkVersion": 21

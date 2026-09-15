@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    SafeAreaView, Dimensions, Vibration,
+    Dimensions, Vibration,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
