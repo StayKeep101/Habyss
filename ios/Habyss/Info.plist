@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Habyss</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>habyss</string>
+				<string>com.habyss.app</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>exp+habyss</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>ExpoLiveActivity_EnablePushNotifications</key>
+	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>For music baby</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>The app needs to access your calendar to sync habits.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>The app needs to access your calendar to sync habits.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The app accesses your camera to let you take profile pictures and goal backgrounds.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Habyss uses FaceID to securely authenticate your access.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Allow $(PRODUCT_NAME) to check health info</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Allow $(PRODUCT_NAME) to update health info</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Habyss needs your location to send reminders when you arrive at specific places like Home or Work.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Allow $(PRODUCT_NAME) to access your location</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Habyss needs your location to send reminders when you arrive at specific places like Home or Work.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>The app accesses your microphon to let you speak to ai</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>The app accesses your photos to let you set custom profile pictures and goal backgrounds.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>The app needs to access your reminders to sync habits.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>The app needs to access your reminders to sync habits.</string>
+	<key>NSSiriUsageDescription</key>
+	<string>Automations baby</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<false/>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
+	</array>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Habyss uses notifications to remind you about your habits and help you stay consistent.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier will be used to deliver personalized content and improve your experience.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>location</string>
+		<string>fetch</string>
+	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>SplashScreen</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UIRequiresFullScreen</key>
+	<false/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDefault</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UIUserInterfaceStyle</key>
+	<string>Automatic</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+</dict>
+</plist>
