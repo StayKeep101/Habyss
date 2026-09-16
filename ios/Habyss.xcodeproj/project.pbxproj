@@ -11,6 +11,7 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		415271EDADD4FFE567C21614 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
+		447218F98F3D5057AC00D262 /* Habyss Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AE7DC6E52F41116000F32E02 /* Habyss Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		5B7CDDA3420C829B536A9342 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
 		6B108C6361DA61CE7F98C7AD /* ScreenTimePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DC916925CA14220E2C514D4 /* ScreenTimePickerView.swift */; };
 		71115719B805A76A1332FCD8 /* ScreenTimeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76DA85DC67D58196B9C62E28 /* ScreenTimeManager.swift */; };
@@ -35,9 +36,27 @@
 			remoteGlobalIDString = AE7DC6F62F41118A00F32E02;
 			remoteInfo = WidgetExtension;
 		};
+		EE3971E8F50D945300758545 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AE7DC6E42F41116000F32E02;
+			remoteInfo = "Habyss Watch App";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		A3576E36CCEE0207FD478432 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				447218F98F3D5057AC00D262 /* Habyss Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C237CC9966B44F2EA213CF54 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -317,11 +336,13 @@
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				C237CC9966B44F2EA213CF54 /* Embed Foundation Extensions */,
 				95B41EA2D63A3717489B75EE /* [CP] Embed Pods Frameworks */,
+				A3576E36CCEE0207FD478432 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				AE7DC7092F41118B00F32E02 /* PBXTargetDependency */,
+				A56762F90E03A2E39B80A765 /* PBXTargetDependency */,
 			);
 			name = Habyss;
 			productName = Habyss;
@@ -633,6 +654,12 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		A56762F90E03A2E39B80A765 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "Habyss Watch App";
+			target = AE7DC6E42F41116000F32E02 /* Habyss Watch App */;
+			targetProxy = EE3971E8F50D945300758545 /* PBXContainerItemProxy */;
+		};
 		AE7DC7092F41118B00F32E02 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AE7DC6F62F41118A00F32E02 /* WidgetExtension */;

@@ -1,8 +1,10 @@
 import Purchases, { PurchasesOffering, PurchasesPackage, CustomerInfo, LOG_LEVEL } from 'react-native-purchases';
 import { Platform } from 'react-native';
 
+// No fallback key on purpose: a test-store key silently breaks real purchases and
+// App Review. Missing config must surface, not degrade quietly.
 const API_KEYS = {
-    apple: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY || 'test_EdqZuOzgwERAuCejCCNfNMRicdW',
+    apple: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY || '',
     google: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY || '',
 };
 
@@ -69,11 +71,15 @@ class RevenueCatService {
 
         const apiKey = this.getApiKeyForCurrentPlatform();
         if (!apiKey) {
-            console.warn(`[RevenueCat] Skipping initialization: no API key for ${Platform.OS}`);
+            const message = `[RevenueCat] No API key for ${Platform.OS}. Set EXPO_PUBLIC_REVENUECAT_${Platform.OS === 'ios' ? 'APPLE' : 'GOOGLE'}_API_KEY (eas env:create) - purchases cannot work without it.`;
+            console.error(message);
+            // Loud in development; in production the paywall shows its unconfigured state
+            // rather than crashing a user mid-session.
+            if (__DEV__) throw new Error(message);
             return;
         }
 
-        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
 
         Purchases.configure({ apiKey, appUserID: userId });
 
