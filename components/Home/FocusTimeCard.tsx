@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -10,6 +10,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
 import { ActiveSessionDisplay } from '@/components/Timer/ActiveSessionDisplay';
+import { FocusHistoryModal } from '@/components/Home/FocusHistoryModal';
+import { DayWindow, DEFAULT_DAY_WINDOW, formatMinutes, getDayWindow, minutesLeftInDay } from '@/lib/focusHistory';
 
 // ============================================
 // Focus Time Card
@@ -32,6 +34,7 @@ export const FocusTimeCard: React.FC = () => {
         totalDuration,
         totalFocusToday,
         sessionsToday,
+        bestSessionToday,
         weeklyFocusTotal,
         monthlyFocusTotal,
         yearlyFocusTotal,
@@ -43,6 +46,24 @@ export const FocusTimeCard: React.FC = () => {
         resumeTimer,
         stopTimer,
     } = useFocusTime();
+
+    const [showHistory, setShowHistory] = useState(false);
+    const [dayWindow, setDayWindowState] = useState<DayWindow>(DEFAULT_DAY_WINDOW);
+    // Re-read on each open so a window edited in the history sheet is reflected here.
+    const [now, setNow] = useState(() => new Date());
+
+    useEffect(() => {
+        let active = true;
+        getDayWindow().then(saved => { if (active) setDayWindowState(saved); });
+        return () => { active = false; };
+    }, [showHistory]);
+
+    useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 60000);
+        return () => clearInterval(id);
+    }, []);
+
+    const minutesLeft = minutesLeftInDay(now, dayWindow);
 
     const formatTime = (seconds: number): string => {
         const hours = Math.floor(seconds / 3600);
@@ -144,31 +165,39 @@ export const FocusTimeCard: React.FC = () => {
                             )}
                         </View>
 
-                        {/* Stats Row - only when idle and has data */}
-                        {(weeklyFocusTotal > 0 || monthlyFocusTotal > 0 || yearlyFocusTotal > 0) && (
-                            <View style={styles.statsRow}>
-                                <View style={styles.statItem}>
-                                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                        {formatTime(weeklyFocusTotal)}
-                                    </Text>
-                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Week</Text>
-                                </View>
-                                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-                                <View style={styles.statItem}>
-                                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                        {formatTime(monthlyFocusTotal)}
-                                    </Text>
-                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Month</Text>
-                                </View>
-                                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-                                <View style={styles.statItem}>
-                                    <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                                        {formatTime(yearlyFocusTotal)}
-                                    </Text>
-                                    <Text style={[styles.statLabel, { color: colors.textTertiary }]}>This Year</Text>
-                                </View>
+                        {/* Today's supporting metrics */}
+                        <View style={styles.statsRow}>
+                            <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: minutesLeft > 0 ? colors.textPrimary : colors.textTertiary }]}>
+                                    {formatMinutes(minutesLeft)}
+                                </Text>
+                                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Left Today</Text>
                             </View>
-                        )}
+                            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                            <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                                    {sessionsToday}
+                                </Text>
+                                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Sessions</Text>
+                            </View>
+                            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                            <View style={styles.statItem}>
+                                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                                    {bestSessionToday > 0 ? formatTime(bestSessionToday) : '—'}
+                                </Text>
+                                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Best Today</Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={() => setShowHistory(true)}
+                            accessibilityRole="button"
+                            accessibilityLabel="See focus for every day"
+                            style={styles.historyLink}
+                        >
+                            <Text style={[styles.historyLinkText, { color: accentColor }]}>See every day</Text>
+                            <Ionicons name="chevron-forward" size={14} color={accentColor} />
+                        </TouchableOpacity>
                     </View>
                 )}
 
@@ -182,6 +211,8 @@ export const FocusTimeCard: React.FC = () => {
                     </View>
                 )}
             </View>
+
+            <FocusHistoryModal visible={showHistory} onClose={() => setShowHistory(false)} />
         </VoidCard>
     );
 };
@@ -307,6 +338,18 @@ const styles = StyleSheet.create({
         fontFamily: 'Lexend_400Regular',
         textAlign: 'center',
         maxWidth: 200,
+    },
+    historyLink: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        marginTop: 12,
+        paddingVertical: 6,
+    },
+    historyLinkText: {
+        fontSize: 12,
+        fontFamily: 'Lexend_500Medium',
     },
     statsRow: {
         flexDirection: 'row',
