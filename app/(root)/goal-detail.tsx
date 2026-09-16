@@ -486,13 +486,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     fontFamily: 'Lexend_600SemiBold',
   },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 33,
-    lineHeight: 38,
-    fontFamily: 'Lexend_700Bold',
-    maxWidth: '82%',
-  },
   heroSubtitle: {
     color: 'rgba(255,255,255,0.78)',
     fontSize: 14,

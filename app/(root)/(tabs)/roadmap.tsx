@@ -98,6 +98,8 @@ const CalendarScreen = () => {
     const dragY = useSharedValue(0);
     const dragPreviewStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value - 28 }] }));
     const [hoveredGoalId, setHoveredGoalId] = useState<string | null>(null);
+    // Mirrors hoveredGoalId so a drag can compare without re-subscribing to state.
+    const hoveredGoalRef = useRef<string | null>(null);
     const goalRefs = useRef<Record<string, View | null>>({});
     const goalDropLayouts = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
 
@@ -446,18 +448,29 @@ const CalendarScreen = () => {
         dragY.value = y;
         const currentGoals = habitsStore.filter((item) => item.isGoal) as Habit[];
         await measureGoalDropTargets(currentGoals);
-        setHoveredGoalId(getHoveredGoalAtPoint(x, y));
+        const initial = getHoveredGoalAtPoint(x, y);
+        hoveredGoalRef.current = initial;
+        setHoveredGoalId(initial);
     }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore]);
 
     const handleHabitDragMove = useCallback((habit: Habit, x: number, y: number) => {
+        // dragY is a shared value, so the floating card follows the finger on the UI
+        // thread. Only publish the hovered goal to React state when it actually
+        // changes; setting it on every pointer move re-rendered every goal and habit
+        // row for each frame of the drag.
         dragY.value = y;
-        setHoveredGoalId(getHoveredGoalAtPoint(x, y));
+        const next = getHoveredGoalAtPoint(x, y);
+        if (next !== hoveredGoalRef.current) {
+            hoveredGoalRef.current = next;
+            setHoveredGoalId(next);
+        }
     }, [getHoveredGoalAtPoint]);
 
     const handleHabitDragEnd = useCallback(async (habit: Habit, x: number, y: number) => {
         const targetGoalId = getHoveredGoalAtPoint(x, y);
 
         setDraggingHabit(null);
+        hoveredGoalRef.current = null;
         setHoveredGoalId(null);
 
         if (!targetGoalId || targetGoalId === habit.goalId) {

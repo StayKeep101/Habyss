@@ -51,7 +51,7 @@ export default function AIConfigScreen() {
                         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PERSONALITY MODE</Text>
                     </View>
 
-                    <View style={styles.grid}>
+                    <View style={styles.list}>
                         {PERSONALITY_MODES.map((mode) => {
                             const isActive = aiPersonality === mode.id;
                             const isLocked = mode.premiumOnly && !isPremium;
@@ -67,34 +67,46 @@ export default function AIConfigScreen() {
                                         handleSelectPersonality(mode.id as PersonalityModeId);
                                     }}
                                     activeOpacity={0.8}
+                                    accessibilityRole="radio"
+                                    accessibilityState={{ selected: isActive, disabled: isLocked }}
                                     style={[
-                                        styles.card,
+                                        styles.row,
                                         {
                                             backgroundColor: isActive
                                                 ? (isLight ? accentColor + '15' : accentColor + '20')
-                                                : (colors.surface),
+                                                : colors.surface,
                                             borderColor: isActive ? accentColor : colors.border,
-                                            borderWidth: 1
-                                        }
+                                            opacity: isLocked ? 0.6 : 1,
+                                        },
                                     ]}
                                 >
-                                    <View style={styles.cardHeader}>
-                                        <View style={[styles.iconBox, { backgroundColor: isActive ? accentColor : (isLight ? '#fff' : 'rgba(255,255,255,0.05)') }]}>
-                                            <Ionicons name={mode.icon as any} size={18} color={isActive ? '#fff' : colors.textPrimary} />
-                                        </View>
-                                        {isLocked && <Ionicons name="lock-closed" size={12} color={colors.textTertiary} />}
+                                    <View style={[styles.emojiBox, { backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)' }]}>
+                                        {/* These are emoji, not Ionicons glyphs. */}
+                                        <Text style={styles.emoji}>{mode.icon}</Text>
                                     </View>
 
-                                    <Text style={[styles.modeName, { color: colors.textPrimary }]}>{mode.name}</Text>
-                                    <Text style={[styles.modeDesc, { color: colors.textSecondary }]} numberOfLines={3}>
-                                        {mode.description}
-                                    </Text>
+                                    <View style={{ flex: 1 }}>
+                                        <View style={styles.rowTitleLine}>
+                                            <Text style={[styles.modeName, { color: colors.textPrimary }]}>{mode.name}</Text>
+                                            {isLocked ? <Ionicons name="lock-closed" size={12} color={colors.textTertiary} /> : null}
+                                        </View>
+                                        {isActive ? (
+                                            <Text style={[styles.modeDesc, { color: colors.textSecondary }]} numberOfLines={2}>
+                                                {mode.description}
+                                            </Text>
+                                        ) : null}
+                                    </View>
+
+                                    <Ionicons
+                                        name={isActive ? 'checkmark-circle' : 'ellipse-outline'}
+                                        size={20}
+                                        color={isActive ? accentColor : colors.textTertiary}
+                                    />
                                 </TouchableOpacity>
                             );
                         })}
                     </View>
 
-                    {/* Greeting Style */}
                     <View style={[styles.sectionHeader, { marginTop: 24 }]}>
                         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>GREETING STYLE</Text>
                     </View>
@@ -170,41 +182,44 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
         fontFamily: 'Lexend_700Bold',
     },
-    grid: {
+    list: {
+        gap: 8,
+    },
+    row: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
+        alignItems: 'center',
         gap: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        borderRadius: 14,
+        borderWidth: 1,
     },
-    card: {
-        width: '48%',
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 0,
-    },
-    cardHeader: {
+    rowTitleLine: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 12,
+        alignItems: 'center',
+        gap: 6,
     },
-    iconBox: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
+    emojiBox: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
     },
+    emoji: {
+        fontSize: 20,
+    },
     modeName: {
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '700',
         fontFamily: 'Lexend',
-        marginBottom: 4,
     },
     modeDesc: {
         fontSize: 12,
         fontFamily: 'Lexend_400Regular',
-        opacity: 0.8,
-        lineHeight: 18,
+        opacity: 0.85,
+        lineHeight: 17,
+        marginTop: 3,
     },
     greetingChip: {
         flex: 1,
