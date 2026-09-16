@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 let dbInstance: any = null;
 
@@ -93,6 +93,7 @@ async function runMigrations(db: any): Promise<void> {
         [3, migrateToV3],
         [4, migrateToV4],
         [5, migrateToV5],
+        [6, migrateToV6],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -237,6 +238,19 @@ async function migrateToV5(db: any): Promise<void> {
     await addColumnIfMissing(db, 'habits', 'ringtone', "TEXT DEFAULT 'default'");
 
     console.log('[Database] Migrated to schema v5');
+}
+
+/**
+ * Migration to version 6 - structured goals.
+ *
+ * goal_value and unit alone cannot tell a limit from a volume, or hold the
+ * baseline a target_value goal needs. goal_spec stores the parsed goal as JSON
+ * so a goal stays calculable.
+ */
+async function migrateToV6(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'habits', 'goal_spec', 'TEXT');
+
+    console.log('[Database] Migrated to schema v6');
 }
 
 /**

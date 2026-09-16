@@ -89,6 +89,8 @@ export interface Habit {
     timeOfDay?: TimeOfDay;
     trackingMethod?: TrackingMethod;
     ringtone?: string;
+    /** Parsed goal contract as JSON; set on goals created from natural language. */
+    goalSpec?: string;
     locationReminders?: { name: string; latitude: number; longitude: number; radius?: number }[];
     reminderOffset?: number; // Minutes before start time
     healthKitMetric?: 'steps' | 'sleep' | 'mindfulness' | 'workout'; // New
@@ -173,6 +175,7 @@ export async function getHabits(): Promise<Habit[]> {
                     weekInterval: row.week_interval,
                     timeOfDay: row.time_of_day,
                     ringtone: row.ringtone || 'default',
+                    goalSpec: row.goal_spec || undefined,
                     reminderOffset: row.reminder_offset,
                     locationReminders: typeof row.location_reminders === 'string' ? JSON.parse(row.location_reminders || '[]') : (row.location_reminders || []),
                     graphStyle: row.graph_style,
@@ -218,8 +221,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                         task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
                         type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
                         frequency, week_interval, time_of_day, graph_style, tracking_method,
-                        ringtone, reminder_offset, location_reminders, health_kit_metric, health_kit_target, created_at, updated_at, synced, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                        ringtone, goal_spec, reminder_offset, location_reminders, health_kit_metric, health_kit_target, created_at, updated_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                 `,
                     id,
                     uid,
@@ -251,6 +254,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     habitData.graphStyle || null,
                     habitData.trackingMethod || 'boolean',
                     habitData.ringtone || 'default',
+                    habitData.goalSpec || null,
                     habitData.reminderOffset || null,
                     JSON.stringify(habitData.locationReminders || []),
                     habitData.healthKitMetric || null,
@@ -289,6 +293,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     weekInterval: habitData.weekInterval,
                     timeOfDay: habitData.timeOfDay,
                     ringtone: habitData.ringtone || 'default',
+                    goalSpec: habitData.goalSpec,
                     reminderOffset: habitData.reminderOffset,
                     locationReminders: habitData.locationReminders || [],
                     graphStyle: habitData.graphStyle,
@@ -363,6 +368,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.graphStyle !== undefined) { setClauses.push('graph_style = ?'); params.push(updatedHabit.graphStyle); }
                 if (updatedHabit.trackingMethod !== undefined) { setClauses.push('tracking_method = ?'); params.push(updatedHabit.trackingMethod); }
                 if (updatedHabit.ringtone !== undefined) { setClauses.push('ringtone = ?'); params.push(updatedHabit.ringtone); }
+                if (updatedHabit.goalSpec !== undefined) { setClauses.push('goal_spec = ?'); params.push(updatedHabit.goalSpec); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'reminderOffset')) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset ?? null); }
                 if (updatedHabit.locationReminders !== undefined) { setClauses.push('location_reminders = ?'); params.push(JSON.stringify(updatedHabit.locationReminders)); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'healthKitMetric')) { setClauses.push('health_kit_metric = ?'); params.push(updatedHabit.healthKitMetric ?? null); }
