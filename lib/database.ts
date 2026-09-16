@@ -59,6 +59,20 @@ export async function getDatabase(): Promise<any | null> {
 }
 
 /**
+ * Add a column only when it is missing.
+ *
+ * ALTER TABLE ... ADD COLUMN throws "duplicate column name" when the column already
+ * exists. That aborted runMigrations before the schema version was written, so every
+ * later launch replayed the same migration, failed again, and getDatabase() disabled
+ * SQLite for the whole session.
+ */
+async function addColumnIfMissing(db: any, table: string, column: string, definition: string): Promise<void> {
+    const columns = await db.getAllAsync(`PRAGMA table_info(${table})`);
+    if (columns?.some((c: any) => c.name === column)) return;
+    await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+}
+
+/**
  * Run database migrations
  */
 async function runMigrations(db: any): Promise<void> {
@@ -73,26 +87,25 @@ async function runMigrations(db: any): Promise<void> {
     const versionRow = await db.getFirstAsync('SELECT version FROM schema_version LIMIT 1');
     const currentVersion = versionRow?.version || 0;
 
-    if (currentVersion < 1) {
-        await migrateToV1(db);
-    }
-    if (currentVersion < 2) {
-        await migrateToV2(db);
-    }
-    if (currentVersion < 3) {
-        await migrateToV3(db);
-    }
-    if (currentVersion < 4) {
-        await migrateToV4(db);
-    }
-    if (currentVersion < 5) {
-        await migrateToV5(db);
+    const migrations: [number, (db: any) => Promise<void>][] = [
+        [1, migrateToV1],
+        [2, migrateToV2],
+        [3, migrateToV3],
+        [4, migrateToV4],
+        [5, migrateToV5],
+    ];
+
+    if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
+        console.warn('[Database] SCHEMA_VERSION does not match the migration list');
     }
 
-    // Update schema version
-    if (currentVersion !== SCHEMA_VERSION) {
+    // Record the version after each migration. Writing it only at the end meant a
+    // failure part-way through left the version unset, replaying every migration.
+    for (const [version, migrate] of migrations) {
+        if (currentVersion >= version) continue;
+        await migrate(db);
         await db.runAsync('DELETE FROM schema_version');
-        await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', SCHEMA_VERSION);
+        await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
     }
 }
 
@@ -177,12 +190,10 @@ async function migrateToV1(db: any): Promise<void> {
  * Migration to version 2 - Add graph_style, tracking_method, reminder_offset, location_reminders
  */
 async function migrateToV2(db: any): Promise<void> {
-    await db.execAsync(`
-        ALTER TABLE habits ADD COLUMN graph_style TEXT;
-        ALTER TABLE habits ADD COLUMN tracking_method TEXT DEFAULT 'boolean';
-        ALTER TABLE habits ADD COLUMN reminder_offset INTEGER;
-        ALTER TABLE habits ADD COLUMN location_reminders TEXT DEFAULT '[]';
-    `);
+    await addColumnIfMissing(db, 'habits', 'graph_style', 'TEXT');
+    await addColumnIfMissing(db, 'habits', 'tracking_method', "TEXT DEFAULT 'boolean'");
+    await addColumnIfMissing(db, 'habits', 'reminder_offset', 'INTEGER');
+    await addColumnIfMissing(db, 'habits', 'location_reminders', "TEXT DEFAULT '[]'");
 
     console.log('[Database] Migrated to schema v2');
 }
@@ -191,10 +202,10 @@ async function migrateToV2(db: any): Promise<void> {
  * Migration to version 3 - Performance indexes, completions updated_at, sync queue optimization
  */
 async function migrateToV3(db: any): Promise<void> {
-    await db.execAsync(`
-        -- Add updated_at to completions for sync conflict resolution
-        ALTER TABLE completions ADD COLUMN updated_at TEXT;
+    // Add updated_at to completions for sync conflict resolution
+    await addColumnIfMissing(db, 'completions', 'updated_at', 'TEXT');
 
+    await db.execAsync(`
         -- Composite index: active habits for a user (most common query)
         CREATE INDEX IF NOT EXISTS idx_habits_user_active ON habits(user_id, deleted, is_archived);
 
@@ -216,18 +227,14 @@ async function migrateToV3(db: any): Promise<void> {
  * Migration to version 4 - HealthKit integration
  */
 async function migrateToV4(db: any): Promise<void> {
-    await db.execAsync(`
-        ALTER TABLE habits ADD COLUMN health_kit_metric TEXT;
-        ALTER TABLE habits ADD COLUMN health_kit_target REAL;
-    `);
+    await addColumnIfMissing(db, 'habits', 'health_kit_metric', 'TEXT');
+    await addColumnIfMissing(db, 'habits', 'health_kit_target', 'REAL');
 
     console.log('[Database] Migrated to schema v4');
 }
 
 async function migrateToV5(db: any): Promise<void> {
-    await db.execAsync(`
-        ALTER TABLE habits ADD COLUMN ringtone TEXT DEFAULT 'default';
-    `);
+    await addColumnIfMissing(db, 'habits', 'ringtone', "TEXT DEFAULT 'default'");
 
     console.log('[Database] Migrated to schema v5');
 }
