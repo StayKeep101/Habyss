@@ -32,8 +32,6 @@ interface SwipeableHabitItemProps {
   isActive?: boolean;
   timeLeft?: number; // In seconds
   totalDuration?: number; // In minutes
-  routineName?: string;
-  routineEmoji?: string;
   canFocusNow?: boolean;
   onFocusPress?: (habit: ExtendedHabit) => void;
   onDragStart?: (habit: ExtendedHabit, x: number, y: number) => void;
@@ -47,7 +45,7 @@ const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 
 const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration,
-  routineName, routineEmoji, canFocusNow, onFocusPress,
+  canFocusNow, onFocusPress,
   onDragStart, onDragMove, onDragEnd, isDragging = false
 }) => {
   const { theme } = useTheme();
@@ -288,22 +286,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }, isActive && { fontWeight: '900', color: accentColor }]} numberOfLines={1}>
                 {habit.name}
               </Text>
-              {routineName && !isSmall ? (
-                <View style={styles.metaRow}>
-                  <View style={[styles.metaBadge, { backgroundColor: accentColor + '14', borderColor: accentColor + '24' }]}>
-                    <Text style={styles.metaBadgeText} numberOfLines={1}>{routineEmoji || '↺'} {routineName}</Text>
-                  </View>
-                  {canFocusNow && onFocusPress ? (
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() => onFocusPress(habit)}
-                      style={[styles.metaBadge, { backgroundColor: accentColor + '1c', borderColor: accentColor + '38' }]}
-                    >
-                      <Text style={[styles.metaBadgeText, { color: accentColor }]}>Focus now</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              ) : goalName && !isSmall ? (
+              {goalName && !isSmall ? (
                 <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
               ) : ((habit.streak ?? 0) > 0 && !isSmall) ? (
                 <Text style={[styles.streakText, { color: '#F59E0B' }]}>🔥 {habit.streak}</Text>

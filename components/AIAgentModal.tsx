@@ -75,7 +75,7 @@ const getPersonalityGreeting = (personality: string): string => {
         case 'dad_mode':
             return "Alright. I'm Echo, here to keep you accountable. I can build habits, set goals, and tune your setup. What's the move?";
         case 'friendly':
-            return "Hey! I'm Echo, your habit coach. I can build routines, set goals, tweak settings, and help you move fast. What are we doing today?";
+            return "Hey! I'm Echo, your habit coach. I can build habits, set goals, tweak settings, and help you move fast. What are we doing today?";
         default:
             return "Hey! I'm Echo, your AI habit coach. I can create habits, set goals, change settings, navigate the app, and more. How can I help you today?";
     }
@@ -105,7 +105,7 @@ const SUGGESTIONS = [
     { id: 'wealth', label: '$100k roadmap', prompt: 'Create $100k roadmap', icon: 'trending-up-outline' as const },
     { id: 'weight', label: 'Weight system', prompt: 'Set up weight loss system', icon: 'barbell-outline' as const },
     { id: 'crew', label: 'Nudge crew', prompt: 'Nudge my friend to workout', icon: 'people-outline' as const },
-    { id: 'morning', label: '5AM routine', prompt: 'Create 5am club routine', icon: 'sunny-outline' as const },
+    { id: 'morning', label: '5AM start', prompt: 'Create a 5am morning habit stack', icon: 'sunny-outline' as const },
 ];
 
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -14,82 +15,81 @@ interface ScrollPickerModalProps {
     selectedValue?: string;
 }
 
-const ITEM_HEIGHT = 50;
-
+/**
+ * Simple option list.
+ *
+ * This used to render a FlatList inside SettingsModal, which already wraps its
+ * children in a ScrollView. React Native warns that VirtualizedLists must never
+ * be nested inside a plain ScrollView with the same orientation, and the wheel
+ * scrolled unpredictably as a result. The option sets here are short, so a plain
+ * mapped list is both correct and easier to tap.
+ */
 export const ScrollPickerModal: React.FC<ScrollPickerModalProps> = ({ visible, onClose, onSelect, title, items, selectedValue }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const isLight = theme === 'light';
     const { selectionFeedback } = useHaptics();
 
     if (!visible) return null;
 
     return (
         <SettingsModal visible={visible} onClose={onClose} title={title}>
-            <View style={styles.pickerContainer}>
-                <FlatList
-                    data={items}
-                    keyExtractor={(item) => item}
-                    showsVerticalScrollIndicator={false}
-                    snapToInterval={ITEM_HEIGHT}
-                    decelerationRate="fast"
-                    contentContainerStyle={{ paddingVertical: 100 }}
-                    getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
-                    initialScrollIndex={items.indexOf(selectedValue || '') > -1 ? items.indexOf(selectedValue || '') : 0}
-                    renderItem={({ item }) => {
-                        const isSelected = item === selectedValue;
-                        return (
-                            <TouchableOpacity
-                                style={[styles.item, { height: ITEM_HEIGHT }]}
-                                onPress={() => {
-                                    selectionFeedback();
-                                    onSelect(item);
-                                }}
+            <View style={styles.list}>
+                {items.map((item) => {
+                    const isSelected = item === selectedValue;
+                    return (
+                        <TouchableOpacity
+                            key={item}
+                            activeOpacity={0.8}
+                            style={[
+                                styles.row,
+                                {
+                                    backgroundColor: isSelected
+                                        ? colors.primary + '1A'
+                                        : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)',
+                                    borderColor: isSelected ? colors.primary + '55' : 'transparent',
+                                },
+                            ]}
+                            onPress={() => {
+                                selectionFeedback();
+                                onSelect(item);
+                            }}
+                        >
+                            <Text
+                                style={[
+                                    styles.rowText,
+                                    { color: isSelected ? colors.primary : colors.textPrimary },
+                                ]}
                             >
-                                <Text style={[
-                                    styles.itemText,
-                                    {
-                                        color: isSelected ? colors.primary : colors.textSecondary,
-                                        fontWeight: isSelected ? '700' : '400',
-                                        fontSize: isSelected ? 20 : 16
-                                    }
-                                ]}>
-                                    {item}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    }}
-                />
-
-                {/* Selection Highlight Overlay */}
-                <View style={[styles.selectionOverlay, { borderColor: colors.primary + '30' }]} pointerEvents="none" />
+                                {item}
+                            </Text>
+                            {isSelected ? (
+                                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                            ) : null}
+                        </TouchableOpacity>
+                    );
+                })}
             </View>
         </SettingsModal>
     );
 };
 
 const styles = StyleSheet.create({
-    pickerContainer: {
-        height: 300,
-        position: 'relative',
+    list: {
+        paddingVertical: 4,
+        gap: 10,
     },
-    item: {
-        justifyContent: 'center',
+    row: {
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 15,
+        borderRadius: 14,
+        borderWidth: 1,
     },
-    itemText: {
-        fontFamily: 'Lexend',
+    rowText: {
+        fontSize: 16,
+        fontFamily: 'Lexend_500Medium',
     },
-    selectionOverlay: {
-        position: 'absolute',
-        top: 100 + ITEM_HEIGHT / 2,
-        left: 0,
-        right: 0,
-        height: ITEM_HEIGHT,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        marginTop: 50,
-        alignSelf: 'center',
-        pointerEvents: 'none',
-        transform: [{ translateY: -ITEM_HEIGHT / 2 }]
-    }
 });

@@ -509,21 +509,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend',
     marginTop: vs(4),
   },
-  routinePills: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: s(8),
-  },
-  routinePill: {
-    borderWidth: 1,
-    borderRadius: s(999),
-    paddingHorizontal: s(10),
-    paddingVertical: vs(6),
-  },
-  routinePillText: {
-    fontSize: ms(11),
-    fontFamily: 'Lexend_400Regular',
-  },
   iconButton: {
     width: s(44),
     height: s(44),

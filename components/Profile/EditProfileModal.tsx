@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, DeviceEventEmitter, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -8,8 +7,8 @@ import { ScrollPickerModal } from './ScrollPickerModal';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidModal } from '@/components/Layout/VoidModal';
-import Animated, { useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { SettingsModal } from '@/components/SettingsModal';
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
@@ -35,46 +34,33 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     const [age, setAge] = useState('');
     const [avatarUri, setAvatarUri] = useState<string | null>(currentAvatarUri || null);
 
-    const [showAgePicker, setShowAgePicker] = useState(false);
+    const [birthday, setBirthday] = useState<Date | null>(null);
+    const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
     const [showGenderPicker, setShowGenderPicker] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    const ages = Array.from({ length: 100 }, (_, i) => String(i + 1));
-    const genders = ['Male', 'Female', 'Other'];
+    const genders = ['Male', 'Female', 'Other', 'Prefer not to say'];
 
-    // Animation Values
-    const scrollY = useSharedValue(0);
-    const HEADER_HEIGHT = 200;
+    // Age is derived from the birthday; the stored age is kept for profiles
+    // saved before birthdays existed.
+    const ageFromBirthday = (date: Date): string => {
+        const today = new Date();
+        let years = today.getFullYear() - date.getFullYear();
+        const monthDelta = today.getMonth() - date.getMonth();
+        if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < date.getDate())) years -= 1;
+        return years >= 0 ? String(years) : '';
+    };
 
-    const scrollHandler = useAnimatedScrollHandler({
-        onScroll: (event) => {
-            scrollY.value = event.contentOffset.y;
-        },
-    });
+    const formatBirthday = (date: Date): string =>
+        date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 
-    const headerAnimatedStyle = useAnimatedStyle(() => {
-        return {
-            transform: [
-                {
-                    translateY: interpolate(
-                        scrollY.value,
-                        [-HEADER_HEIGHT, 0, HEADER_HEIGHT],
-                        [-HEADER_HEIGHT / 2, 0, HEADER_HEIGHT * 0.75]
-                    ),
-                },
-                {
-                    scale: interpolate(
-                        scrollY.value,
-                        [-HEADER_HEIGHT, 0, HEADER_HEIGHT],
-                        [2, 1, 1],
-                        Extrapolation.CLAMP
-                    ),
-                },
-            ],
-        };
-    });
+    // Local YYYY-MM-DD; toISOString() would shift the date in negative-offset timezones.
+    const toDateKey = (date: Date): string =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    const displayedAge = birthday ? ageFromBirthday(birthday) : age;
 
     // Load initial data
     useEffect(() => {
@@ -89,6 +75,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 const savedBio = await AsyncStorage.getItem('profile_bio');
                 const savedAge = await AsyncStorage.getItem('profile_age');
                 const savedGender = await AsyncStorage.getItem('profile_gender');
+                const savedBirthday = await AsyncStorage.getItem('profile_birthday');
+                if (savedBirthday) {
+                    const [y, m, d] = savedBirthday.split('-').map(Number);
+                    if (y && m && d) setBirthday(new Date(y, m - 1, d));
+                }
                 if (savedAvatar) setAvatarUri(savedAvatar);
                 if (savedBio) setDescription(savedBio);
                 if (savedAge) setAge(savedAge);
@@ -149,7 +140,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 DeviceEventEmitter.emit('profile_avatar_changed', avatarUri);
             }
             if (description) await AsyncStorage.setItem('profile_bio', description);
-            if (age) await AsyncStorage.setItem('profile_age', age);
+            if (birthday) {
+                await AsyncStorage.setItem('profile_birthday', toDateKey(birthday));
+                await AsyncStorage.setItem('profile_age', ageFromBirthday(birthday));
+            } else if (age) {
+                await AsyncStorage.setItem('profile_age', age);
+            }
             if (gender) await AsyncStorage.setItem('profile_gender', gender);
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -191,33 +187,23 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     return (
         <VoidModal visible={visible} onClose={onClose} heightPercentage={0.85}>
             <View style={{ flex: 1, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
-                {/* Parallax Header Image */}
-                <Animated.View style={[styles.headerImageContainer, headerAnimatedStyle]}>
-                    <Image
-                        source={avatarUri ? { uri: avatarUri } : require('@/assets/images/icon.png')} // Fallback to icon or a specific cover if available
-                        style={[styles.headerImage, { opacity: 0.6 }]}
-                        resizeMode="cover"
-                    />
-                    <LinearGradient
-                        colors={['transparent', colors.background]}
-                        style={StyleSheet.absoluteFill}
-                    />
-                </Animated.View>
-
-                {/* Header Actions - Absolute positioned on top */}
-                <View style={[styles.headerOverlay, { paddingTop: 20 }]}>
-                    <TouchableOpacity onPress={onClose} style={styles.headerBtnBlur}>
-                        <BlurView intensity={30} tint="dark" style={styles.blurBtn}>
-                            <Ionicons name="close" size={20} color="#fff" />
-                        </BlurView>
+                <View style={styles.headerRow}>
+                    <TouchableOpacity
+                        onPress={onClose}
+                        style={[styles.headerCircleBtn, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)' }]}
+                    >
+                        <Ionicons name="close" size={20} color={colors.textPrimary} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.headerBtnBlur}>
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>EDIT PROFILE</Text>
+                    <TouchableOpacity
+                        onPress={handleSave}
+                        disabled={saving}
+                        style={[styles.headerCircleBtn, { backgroundColor: colors.primary }]}
+                    >
                         {saving ? (
-                            <ActivityIndicator size="small" color="#fff" />
+                            <ActivityIndicator size="small" color="#000" />
                         ) : (
-                            <BlurView intensity={30} tint="dark" style={styles.blurBtn}>
-                                <Ionicons name="checkmark" size={20} color="#fff" />
-                            </BlurView>
+                            <Ionicons name="checkmark" size={20} color="#000" />
                         )}
                     </TouchableOpacity>
                 </View>
@@ -227,11 +213,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
                 >
-                    <Animated.ScrollView
-                        onScroll={scrollHandler}
-                        scrollEventThrottle={16}
-                        contentContainerStyle={{ paddingBottom: 40, paddingTop: HEADER_HEIGHT - 60 }}
+                    <ScrollView
+                        contentContainerStyle={{ paddingBottom: 40 }}
                         showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
                     >
                         <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
                             {loading && <ActivityIndicator style={{ marginBottom: 20 }} />}
@@ -264,29 +249,38 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                                 />
                             </View>
 
-                            <View style={styles.row}>
-                                <View style={[styles.fieldGroup, { flex: 1, marginRight: 10, marginBottom: 0 }]}>
-                                    <Text style={[styles.label, { color: colors.textSecondary }]}>AGE</Text>
-                                    <TouchableOpacity
-                                        style={[styles.input, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
-                                        onPress={() => setShowAgePicker(true)}
-                                    >
-                                        <Text style={{ color: age ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
-                                            {age || "Years"}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <View style={[styles.fieldGroup, { flex: 1, marginLeft: 10, marginBottom: 0 }]}>
-                                    <Text style={[styles.label, { color: colors.textSecondary }]}>GENDER</Text>
-                                    <TouchableOpacity
-                                        style={[styles.input, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', justifyContent: 'center' }]}
-                                        onPress={() => setShowGenderPicker(true)}
-                                    >
-                                        <Text style={{ color: gender ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
-                                            {gender || "Identity"}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
+                            <View style={styles.fieldGroup}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>BIRTHDAY</Text>
+                                <TouchableOpacity
+                                    style={[styles.input, styles.inputRow, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
+                                    onPress={() => setShowBirthdayPicker(true)}
+                                >
+                                    <Text style={{ color: birthday ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
+                                        {birthday ? formatBirthday(birthday) : 'Add your birthday'}
+                                    </Text>
+                                    {displayedAge ? (
+                                        <View style={[styles.agePill, { backgroundColor: colors.primary + '1A' }]}>
+                                            <Text style={{ color: colors.primary, fontFamily: 'Lexend_600SemiBold', fontSize: 12 }}>
+                                                {displayedAge} yrs
+                                            </Text>
+                                        </View>
+                                    ) : (
+                                        <Ionicons name="calendar-outline" size={18} color={colors.textTertiary} />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.fieldGroup}>
+                                <Text style={[styles.label, { color: colors.textSecondary }]}>GENDER</Text>
+                                <TouchableOpacity
+                                    style={[styles.input, styles.inputRow, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
+                                    onPress={() => setShowGenderPicker(true)}
+                                >
+                                    <Text style={{ color: gender ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
+                                        {gender || 'Identity'}
+                                    </Text>
+                                    <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
+                                </TouchableOpacity>
                             </View>
 
                             <View style={[styles.fieldGroup, { marginTop: 16 }]}>
@@ -310,18 +304,38 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                                 <Text style={{ color: colors.error, fontFamily: 'Lexend_600SemiBold' }}>Delete Account</Text>
                             </TouchableOpacity>
                         </View>
-                    </Animated.ScrollView>
+                    </ScrollView>
                 </KeyboardAvoidingView>
             </View>
 
-            <ScrollPickerModal
-                visible={showAgePicker}
-                onClose={() => setShowAgePicker(false)}
-                onSelect={(val) => { setAge(val); setShowAgePicker(false); }}
-                title="Select Age"
-                items={ages}
-                selectedValue={age}
-            />
+            <SettingsModal
+                visible={showBirthdayPicker}
+                onClose={() => setShowBirthdayPicker(false)}
+                title="Your birthday"
+            >
+                <View style={{ alignItems: 'center' }}>
+                    <DateTimePicker
+                        value={birthday || new Date(2000, 0, 1)}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        maximumDate={new Date()}
+                        minimumDate={new Date(1900, 0, 1)}
+                        themeVariant={isLight ? 'light' : 'dark'}
+                        onChange={(_event, selected) => {
+                            if (Platform.OS !== 'ios') setShowBirthdayPicker(false);
+                            if (selected) setBirthday(selected);
+                        }}
+                    />
+                    {Platform.OS === 'ios' ? (
+                        <TouchableOpacity
+                            onPress={() => setShowBirthdayPicker(false)}
+                            style={[styles.doneBtn, { backgroundColor: colors.primary }]}
+                        >
+                            <Text style={{ color: '#000', fontFamily: 'Lexend_600SemiBold', fontSize: 15 }}>Done</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                </View>
+            </SettingsModal>
 
             <ScrollPickerModal
                 visible={showGenderPicker}
@@ -336,38 +350,36 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 };
 
 const styles = StyleSheet.create({
-    headerImageContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 200,
-        zIndex: 0,
-    },
-    headerImage: {
-        width: '100%',
-        height: '100%',
-    },
-    headerOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
+    headerRow: {
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        zIndex: 100, // Make sure buttons are clickable
+        paddingTop: 6,
+        paddingBottom: 10,
     },
-    headerBtnBlur: {
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    blurBtn: {
+    headerCircleBtn: {
         width: 40,
         height: 40,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    agePill: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+    },
+    doneBtn: {
+        marginTop: 12,
+        paddingHorizontal: 28,
+        paddingVertical: 12,
+        borderRadius: 999,
     },
     contentContainer: {
         borderTopLeftRadius: 24,
