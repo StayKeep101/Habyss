@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, DeviceEventEmitter, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -13,9 +13,13 @@ import { localDateKey } from '@/lib/habitSchedule';
 import { describeParsed, parseHabitText, parsedToHabit } from '@/lib/habitParser';
 
 interface Props {
-    visible: boolean;
-    onClose: () => void;
+    visible?: boolean;
+    onClose?: () => void;
     onCreated?: () => void;
+    /** Links the new habit to a goal when opened from a goal. */
+    goalId?: string;
+    /** Mounted once globally to answer the create-habit event. */
+    listenToGlobalEvents?: boolean;
 }
 
 const EXAMPLES = [
@@ -31,7 +35,9 @@ const EXAMPLES = [
  * as AI output. Whatever the parser had to assume is shown before saving, and
  * every field stays editable on the habit afterwards.
  */
-export const QuickAddModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
+export const QuickAddModal: React.FC<Props> = ({
+    visible, onClose, onCreated, goalId: propGoalId, listenToGlobalEvents,
+}) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -39,9 +45,31 @@ export const QuickAddModal: React.FC<Props> = ({ visible, onClose, onCreated }) 
     const { lightFeedback, successFeedback } = useHaptics();
 
     const [text, setText] = useState('');
+    const [eventVisible, setEventVisible] = useState(false);
+    const [eventGoalId, setEventGoalId] = useState<string | undefined>(undefined);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const savingRef = useRef(false);
+
+    useEffect(() => {
+        if (!listenToGlobalEvents) return;
+        const subscription = DeviceEventEmitter.addListener('show_quick_add', (data) => {
+            DeviceEventEmitter.emit('close_creation_modal');
+            setEventGoalId(typeof data?.goalId === 'string' ? data.goalId : undefined);
+            setText('');
+            setError(null);
+            setEventVisible(true);
+        });
+        return () => subscription.remove();
+    }, [listenToGlobalEvents]);
+
+    const isOpen = listenToGlobalEvents ? eventVisible : !!visible;
+    const goalId = propGoalId ?? eventGoalId;
+
+    const close = () => {
+        setEventVisible(false);
+        onClose?.();
+    };
 
     const parsed = useMemo(() => (text.trim() ? parseHabitText(text) : null), [text]);
     const canSave = !!parsed?.name.trim();
@@ -52,12 +80,13 @@ export const QuickAddModal: React.FC<Props> = ({ visible, onClose, onCreated }) 
         setSaving(true);
         setError(null);
         try {
-            const created = await addHabit(parsedToHabit(parsed, localDateKey(new Date())));
+            const created = await addHabit({ ...parsedToHabit(parsed, localDateKey(new Date())), goalId });
             if (!created?.id) throw new Error('not saved');
             successFeedback();
             setText('');
             onCreated?.();
-            onClose();
+            DeviceEventEmitter.emit('habit_updated', { habitId: created.id });
+            close();
         } catch {
             setError('Could not save that habit. Nothing was lost — try again.');
         } finally {
@@ -76,9 +105,9 @@ export const QuickAddModal: React.FC<Props> = ({ visible, onClose, onCreated }) 
     );
 
     return (
-        <VoidModal visible={visible} onClose={onClose}>
+        <VoidModal visible={isOpen} onClose={close}>
             <View style={{ flex: 1 }}>
-                <ModalHeader title="Quick add" onBack={onClose} backIcon="close" />
+                <ModalHeader title="Quick add" onBack={close} backIcon="close" />
 
                 <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                     <Text style={[styles.hint, { color: colors.textSecondary }]}>
@@ -147,6 +176,20 @@ export const QuickAddModal: React.FC<Props> = ({ visible, onClose, onCreated }) 
                 <View style={styles.footer}>
                     <TouchableOpacity
                         accessibilityRole="button"
+                        onPress={() => {
+                            lightFeedback();
+                            const name = parsed?.name?.trim() || text.trim();
+                            close();
+                            // prefillName seeds the form without turning it into an edit.
+                            DeviceEventEmitter.emit('show_habit_modal', { goalId, prefillName: name || undefined });
+                        }}
+                        style={styles.moreBtn}
+                    >
+                        <Text style={[styles.moreText, { color: accent }]}>More options</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        accessibilityRole="button"
                         accessibilityState={{ disabled: !canSave }}
                         disabled={!canSave || saving}
                         onPress={save}
@@ -179,7 +222,9 @@ const styles = StyleSheet.create({
     exampleText: { flex: 1, fontSize: 13, fontFamily: 'Lexend_400Regular' },
     error: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1 },
     errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: 'Lexend_400Regular' },
-    footer: { paddingHorizontal: 20, paddingBottom: 12, paddingTop: 4 },
+    footer: { paddingHorizontal: 20, paddingBottom: 12, paddingTop: 4, gap: 4 },
+    moreBtn: { paddingVertical: 10, alignItems: 'center' },
+    moreText: { fontSize: 13, fontFamily: 'Lexend_500Medium' },
     saveBtn: { paddingVertical: 15, borderRadius: 999, alignItems: 'center' },
     saveText: { fontSize: 15, fontFamily: 'Lexend_600SemiBold' },
 });

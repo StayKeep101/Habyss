@@ -12,7 +12,6 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { NotificationService } from '@/lib/notificationService';
 import { NotificationsModal } from '@/components/NotificationsModal';
-import { QuickAddModal } from '@/components/Home/QuickAddModal';
 import { InsightsCard } from '@/components/Home/InsightsCard';
 import { CelebrationAnimation } from '@/components/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -111,7 +110,6 @@ const Home = () => {
 
   // UI state
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [showStreakSuccessModal, setShowStreakSuccessModal] = useState(false);
@@ -726,21 +724,6 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
 
             {/* Right: Action Buttons */}
             <View style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: vs(4) }}>
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel="Quick add a habit"
-                onPress={() => { mediumFeedback(); setShowQuickAdd(true); }}
-                style={{ width: s(40), height: s(40), borderRadius: s(20), overflow: 'hidden' }}
-              >
-                <LinearGradient
-                  colors={accentColors}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ width: s(40), height: s(40), alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Ionicons name="flash" size={s(18)} color="#fff" />
-                </LinearGradient>
-              </TouchableOpacity>
               <TouchableOpacity onPress={() => { lightFeedback(); setShowNotifications(true); }} style={{ width: s(40), height: s(40), borderRadius: s(20), backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="notifications" size={s(20)} color={colors.textPrimary} />
                 {unreadCount > 0 && <View style={{ position: 'absolute', top: s(10), right: s(10), width: s(8), height: s(8), borderRadius: s(4), backgroundColor: '#EF4444' }} />}
@@ -875,7 +858,6 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
             setUnreadCount(count);
           }}
         />
-        <QuickAddModal visible={showQuickAdd} onClose={() => setShowQuickAdd(false)} onCreated={onRefresh} />
         <CelebrationAnimation visible={showCelebration} onComplete={() => setShowCelebration(false)} />
       </SafeAreaView>
     </VoidShell>

@@ -279,6 +279,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [isOpen, setIsOpen] = useState(false);
     const [availableGoals, setAvailableGoals] = useState<Habit[]>([]);
     const [eventHabit, setEventHabit] = useState<Habit | undefined>(undefined); // Habit passed via DeviceEvent
+    // Name handed over from quick add. Seeds the form without making it an edit.
+    const [prefillName, setPrefillName] = useState<string | undefined>(undefined);
 
     // Form state
     const [title, setTitle] = useState('');
@@ -349,6 +351,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
     // Load initial habit data (from prop or event)
     const habitToEdit = initialHabit || eventHabit;
+
+    useEffect(() => {
+        if (!habitToEdit && prefillName) setTitle(prefillName);
+    }, [habitToEdit, prefillName]);
 
     useEffect(() => {
         if (habitToEdit) {
@@ -442,8 +448,10 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             // If habit data is passed, set it for editing
             if (data?.initialHabit) {
                 setEventHabit(data.initialHabit);
+                setPrefillName(undefined);
             } else {
                 setEventHabit(undefined);
+                setPrefillName(typeof data?.prefillName === 'string' ? data.prefillName : undefined);
             }
             setIsVisible(true);
         });

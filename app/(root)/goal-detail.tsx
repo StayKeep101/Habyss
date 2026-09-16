@@ -219,7 +219,7 @@ const GoalDetail = () => {
   const handleAddHabit = () => {
     selectionFeedback();
     // Directly emit without timeout for snappier response
-    DeviceEventEmitter.emit('show_habit_modal', { goalId: goalId as string });
+    DeviceEventEmitter.emit('show_quick_add', { goalId: goalId as string });
   };
 
   const handleDeleteHabit = (habit: Habit) => {

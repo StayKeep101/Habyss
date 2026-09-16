@@ -12,9 +12,10 @@ jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 describe('floating creation actions', () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
-    it('opens the existing habit editor once after choosing Habit', () => {
+    it('opens quick add once after choosing Habit', () => {
         const callback = jest.fn();
-        const subscription = DeviceEventEmitter.addListener('show_habit_modal', callback);
+        // Creating a habit goes to quick add; the detailed form is for editing.
+        const subscription = DeviceEventEmitter.addListener('show_quick_add', callback);
         const screen = render(<CreationModal />);
         act(() => { DeviceEventEmitter.emit('show_creation_modal'); });
         expect(screen.getByLabelText('Create goal')).toBeTruthy();

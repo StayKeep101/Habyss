@@ -25,7 +25,9 @@ export const CreationModal = () => {
         const selection = pending.current;
         pending.current = null;
         if (fallback.current) clearTimeout(fallback.current);
-        if (selection === 'habit') DeviceEventEmitter.emit('show_habit_modal');
+        // Creating a habit opens quick add; the full form is for editing,
+        // reachable from quick add's More options.
+        if (selection === 'habit') DeviceEventEmitter.emit('show_quick_add');
         if (selection === 'goal') router.push('/create');
     };
     const choose = (selection: 'habit' | 'goal') => {

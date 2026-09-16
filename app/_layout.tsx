@@ -25,6 +25,7 @@ import { AccentProvider } from '@/constants/AccentContext';
 import { FocusTimeProvider, useFocusTime } from '@/constants/FocusTimeContext';
 import { CreationModal } from '@/components/CreationModal';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
+import { QuickAddModal } from '@/components/Home/QuickAddModal';
 import RevenueCatService from '@/lib/RevenueCat';
 // import { SuperwallProvider, SuperwallExpoModule } from 'expo-superwall';
 // import * as Linking from 'expo-linking';
@@ -324,6 +325,7 @@ function InnerLayout() {
         </Stack>
         <CreationModal />
         <HabitCreationModal />
+        <QuickAddModal listenToGlobalEvents />
         <StatusBar style={isDark ? "light" : "dark"} />
       </VoidShell>
     </View>
