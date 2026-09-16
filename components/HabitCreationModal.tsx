@@ -34,7 +34,7 @@ import Animated, {
     SlideOutDown,
     Layout
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
@@ -293,12 +293,12 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [weekInterval, setWeekInterval] = useState(1); // New: every N weeks
     const [startTime, setStartTime] = useState(new Date());
     const [endTime, setEndTime] = useState(new Date(Date.now() + 30 * 60 * 1000));
-    const [useFreeTime, setUseFreeTime] = useState(false);
+    const [useFreeTime, setUseFreeTime] = useState(true);
     const [habitStartDate, setHabitStartDate] = useState(new Date());
     const [saving, setSaving] = useState(false);
 
     // Advanced fields
-    const [reminderEnabled, setReminderEnabled] = useState(true);
+    const [reminderEnabled, setReminderEnabled] = useState(false);
     const [reminderTime, setReminderTime] = useState(new Date());
     const [reminderOffset, setReminderOffset] = useState<number | undefined>(undefined);
     const [locationReminders, setLocationReminders] = useState<{ name: string; latitude: number; longitude: number; radius?: number }[]>([]);
@@ -315,6 +315,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
     // Wizard step state
     const [currentStep, setCurrentStep] = useState(1);
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const stepDirection = useSharedValue(0); // -1 = back, 1 = forward
     const stepProgress = useSharedValue(0);
     const STEP_LABELS = ['Name', 'Style', 'Schedule', 'Target', 'Finish'];
@@ -360,7 +361,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             setSelectedIcon(habitToEdit.icon || 'fitness');
             setSelectedColor(habitToEdit.color || '#10B981');
             setLifePillar(habitToEdit.category);
-            if (habitToEdit.goalId) setGoalId(habitToEdit.goalId!);
+            setGoalId(habitToEdit.goalId);
+            setTargetInputValue(String(habitToEdit.goalValue || 1));
+            setMonthDay(Number(habitToEdit.startDate?.slice(8, 10)) || 1);
             setFrequency(habitToEdit.frequency || 'daily');
             if (habitToEdit.taskDays) setSelectedDays(habitToEdit.taskDays);
             setWeekInterval(habitToEdit.weekInterval || 1);
@@ -456,13 +459,18 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         return () => {
             subscription.remove();
             closeSubscription.remove();
-            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
         };
     }, [listenToGlobalEvents, selectionFeedback]);
+
+    useEffect(() => () => {
+        if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    }, []);
 
     useEffect(() => {
         if (isVisible && !isOpen) {
             openModal();
+        } else if (!isVisible && isOpen) {
+            closeModal();
         }
     }, [isVisible]);
 
@@ -517,9 +525,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setWeekInterval(1);
         setStartTime(new Date());
         setEndTime(new Date(Date.now() + 30 * 60 * 1000));
-        setUseFreeTime(false);
+        setUseFreeTime(true);
         setHabitStartDate(new Date());
-        setReminderEnabled(true);
+        setReminderEnabled(false);
         setReminderTime(new Date());
         setReminderOffset(undefined);
         setLocationReminders([]);
@@ -536,6 +544,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setTargetInputValue('1');
         setActiveOverlay('none');
         setCurrentStep(1);
+        setShowAdvanced(false);
     };
 
     // --- WIZARD NAVIGATION ---
@@ -568,6 +577,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
     // --- ACTIONS ---
     const handleSave = async () => {
+        if (saving) return;
         if (!title.trim()) {
             Alert.alert('Missing Title', 'Please enter a title for your habit.');
             return;
@@ -604,7 +614,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
 
         try {
             const fmtTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-            const fmtDate = (d: Date) => d.toISOString().split('T')[0];
+            const fmtDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const derivedTimeOfDay =
                 useFreeTime ? 'free_time'
                     : startTime.getHours() < 12 ? 'morning'
@@ -629,7 +639,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                         return fmtDate(d);
                     })()
                     : fmtDate(habitStartDate),
-                isArchived: false,
+                isArchived: habitToEdit?.isArchived || false,
                 reminders: reminderEnabled ? [fmtTime(reminderTime)] : [],
                 goalValue: measurementValue,
                 unit: measurementUnit,
@@ -647,12 +657,13 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             if (habitToEdit) {
                 await updateHabit({ id: habitToEdit.id, ...habitData });
             } else {
-                await addHabit(habitData);
+                const created = await addHabit(habitData);
+                if (!created) throw new Error('Your habit could not be saved. Please try again.');
             }
 
             successFeedback();
-            if (propOnSuccess) propOnSuccess();
             closeModal();
+            if (propOnSuccess) propOnSuccess();
         } catch (e: any) {
             console.error('Error adding habit:', e);
             Alert.alert('Error', e.message || 'Failed to create habit');
@@ -738,7 +749,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     if (!isOpen && !isVisible) return null;
 
     return (
-        <View style={[StyleSheet.absoluteFill, { zIndex: 99999 }]}>
+        <Modal visible={isOpen || isVisible} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
+        <GestureHandlerRootView style={{ flex: 1 }}>
             {/* MAIN CONTAINER */}
             <View style={styles.container}>
                 {/* BACKDROP */}
@@ -757,297 +769,104 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                         />
                         {/* Glass Border */}
                         <SafeAreaView style={styles.sheetLayout} edges={['top']}>
-                            {/* Header — create.tsx style with progress bar */}
                             <View style={styles.header}>
-                                <TouchableOpacity onPress={currentStep > 1 ? handleBack : closeModal} style={styles.headerBtn}>
-                                    <Ionicons name={currentStep > 1 ? "arrow-back" : "close"} size={24} color={colors.text} />
+                                <TouchableOpacity accessibilityLabel="Close habit editor" onPress={closeModal} style={styles.headerBtn}>
+                                    <Ionicons name="close" size={24} color={colors.text} />
                                 </TouchableOpacity>
-                                <View style={styles.progressContainer}>
-                                    <Text style={[styles.stepIndicator, { color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.45)' }]}>
-                                        {currentStep} / {TOTAL_STEPS}
-                                    </Text>
-                                    <View style={[styles.progressBar, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }]}>
-                                        <Animated.View
-                                            layout={Layout}
-                                            style={[styles.progressFill, { width: `${(currentStep / TOTAL_STEPS) * 100}%`, backgroundColor: selectedColor }]}
-                                        />
-                                    </View>
-                                </View>
+                                <Text style={{ flex: 1, textAlign: 'center', color: colors.text, fontSize: 18, fontFamily: 'Lexend_600SemiBold' }}>{habitToEdit ? 'Edit habit' : 'New habit'}</Text>
                                 <View style={styles.headerBtn} />
                             </View>
-
-                            {/* Content */}
                             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-                                <ScrollView
-                                    style={{ flex: 1 }}
-                                    contentContainerStyle={{ padding: 20, paddingBottom: 180 }}
-                                    showsVerticalScrollIndicator={false}
-                                    key={`step-${currentStep}`}
-                                >
-
-                                    {/* ═══════════════ STEP 1: NAME ═══════════════ */}
-                                    {currentStep === 1 && (
-                                        <Animated.View entering={FadeIn.duration(300)} style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 8, fontFamily: 'Lexend' }}>
-                                                {habitToEdit ? 'Edit your habit' : 'Name your habit'}
-                                            </Text>
-                                            <Text style={{ fontSize: 15, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 32, fontFamily: 'Lexend_400Regular' }}>
-                                                {habitToEdit ? 'Update your habit details' : 'What do you want to build?'}
-                                            </Text>
-
-                                            <TextInput
-                                                style={{ fontSize: 18, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: effectiveBorderColor, backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, color: colors.text, fontFamily: 'Lexend', marginBottom: 16 }}
-                                                placeholder="e.g., Morning meditation"
-                                                placeholderTextColor={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'}
-                                                value={title}
-                                                onChangeText={setTitle}
-                                                autoFocus={!habitToEdit}
-                                            />
-
-                                            {/* Goal link chip */}
-                                            {linkedGoal && (
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', marginBottom: 16, backgroundColor: (linkedGoal.color || selectedColor) + '15', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 12 }}>
-                                                    <Ionicons name={(linkedGoal.icon as any) || 'flag'} size={14} color={linkedGoal.color || selectedColor} style={{ marginRight: 6 }} />
-                                                    <Text style={{ color: linkedGoal.color || selectedColor, fontSize: 12, fontFamily: 'Lexend_500Medium' }}>
-                                                        Linked to {linkedGoal.name}
-                                                    </Text>
-                                                </View>
-                                            )}
-
-                                            {/* Templates Button */}
-                                            <TouchableOpacity
-                                                onPress={() => { selectionFeedback(); setActiveOverlay('templates'); }}
-                                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 16, borderWidth: 1.5, borderColor: selectedColor + '30', borderStyle: 'dashed', marginTop: 8 }}
-                                            >
-                                                <Ionicons name="flash" size={18} color={selectedColor} />
-                                                <Text style={{ color: selectedColor, fontSize: 14, fontWeight: '600', fontFamily: 'Lexend_500Medium' }}>Browse Templates</Text>
-                                            </TouchableOpacity>
-                                        </Animated.View>
-                                    )}
-
-                                    {/* ═══════════════ STEP 2: STYLE ═══════════════ */}
-                                    {currentStep === 2 && (
-                                        <Animated.View entering={FadeIn.duration(300)} style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 8, fontFamily: 'Lexend' }}>
-                                                Choose your style
-                                            </Text>
-                                            <Text style={{ fontSize: 15, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 32, fontFamily: 'Lexend_400Regular' }}>
-                                                Pick an icon, color, and category
-                                            </Text>
-
-                                            {/* Icon Button */}
-                                            <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                                                <TouchableOpacity
-                                                    onPress={() => { selectionFeedback(); setActiveOverlay('icon'); }}
-                                                    style={{ width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: selectedColor + '18', borderWidth: 2, borderColor: selectedColor + '40' }}
-                                                >
-                                                    <Ionicons name={selectedIcon as any} size={40} color={selectedColor} />
-                                                </TouchableOpacity>
-                                                <Text style={{ color: isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>Tap to change icon</Text>
+                                <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, gap: 14 }} showsVerticalScrollIndicator={false}>
+                                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                                        <TouchableOpacity accessibilityLabel="Choose habit icon" onPress={() => setActiveOverlay('icon')} style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: selectedColor + '20', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Ionicons name={selectedIcon as any} size={25} color={selectedColor} />
+                                        </TouchableOpacity>
+                                        <TextInput accessibilityLabel="Habit name" value={title} onChangeText={setTitle} placeholder="What will you do?" placeholderTextColor={colors.textTertiary} maxLength={120}
+                                            style={{ flex: 1, minHeight: 48, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, color: colors.text, fontFamily: 'Lexend_400Regular', fontSize: 16 }} />
+                                        <TouchableOpacity accessibilityLabel="Choose habit color" onPress={() => setActiveOverlay('color')} style={{ padding: 10 }}>
+                                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: selectedColor }} />
+                                        </TouchableOpacity>
+                                    </View>
+                                    {!habitToEdit && <TouchableOpacity onPress={() => setActiveOverlay('templates')}><Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>Choose from habit ideas</Text></TouchableOpacity>}
+                                    <View>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8, fontFamily: 'Lexend_500Medium' }}>Life area</Text>
+                                        <View style={{ flexDirection: 'row', gap: 5 }}>
+                                            {LIFE_PILLARS.map(pillar => <TouchableOpacity key={pillar.id} accessibilityRole="button" accessibilityState={{ selected: lifePillar === pillar.id }} onPress={() => setLifePillar(pillar.id)}
+                                                style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 12, backgroundColor: lifePillar === pillar.id ? pillar.color + '20' : colors.surfaceSecondary }}>
+                                                <Ionicons name={pillar.icon as any} size={18} color={lifePillar === pillar.id ? pillar.color : colors.textTertiary} />
+                                                <Text style={{ fontSize: 10, color: lifePillar === pillar.id ? colors.text : colors.textSecondary, marginTop: 4 }}>{pillar.label}</Text>
+                                            </TouchableOpacity>)}
+                                        </View>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                                        <TouchableOpacity onPress={() => { setTargetInputValue(String(measurementValue)); setActiveOverlay('measurement'); }} style={{ flex: 1, padding: 13, borderRadius: 14, backgroundColor: colors.surfaceSecondary }}>
+                                            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 5 }}>Target per check-in</Text>
+                                            <Text style={{ color: colors.text, fontSize: 15, fontFamily: 'Lexend_500Medium' }}>{measurementValue} {measurementUnit} <Ionicons name="chevron-down" size={12} /></Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => setActiveOverlay('time')} style={{ flex: 1, padding: 13, borderRadius: 14, backgroundColor: colors.surfaceSecondary }}>
+                                            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 5 }}>Time of day</Text>
+                                            <Text style={{ color: colors.text, fontSize: 14, fontFamily: 'Lexend_500Medium' }}>{useFreeTime ? 'Any time' : formatTime(startTime)} <Ionicons name="chevron-down" size={12} /></Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Repeat</Text>
+                                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                                            {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(value => <TouchableOpacity key={value} onPress={() => setFrequency(value)} accessibilityRole="button" accessibilityState={{ selected: frequency === value }}
+                                                style={{ flex: 1, paddingVertical: 11, alignItems: 'center', borderRadius: 12, backgroundColor: frequency === value ? selectedColor + '20' : colors.surfaceSecondary }}>
+                                                <Text style={{ color: frequency === value ? selectedColor : colors.textSecondary, fontSize: 12 }}>{value[0].toUpperCase() + value.slice(1)}</Text>
+                                            </TouchableOpacity>)}
+                                        </View>
+                                        {frequency === 'weekly' && <View style={{ marginTop: 10, gap: 10 }}>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                                {WEEKDAYS.map(day => <TouchableOpacity key={day.id} onPress={() => toggleDay(day.id)} accessibilityLabel={day.label} accessibilityState={{ selected: selectedDays.includes(day.id) }}
+                                                    style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: selectedDays.includes(day.id) ? selectedColor : colors.surfaceSecondary }}>
+                                                    <Text style={{ color: selectedDays.includes(day.id) ? '#fff' : colors.textSecondary, fontSize: 11 }}>{day.label.slice(0, 2)}</Text>
+                                                </TouchableOpacity>)}
                                             </View>
-
-                                            {/* Color Picker */}
-                                            <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12, fontFamily: 'Lexend_600SemiBold' }}>COLOR</Text>
-                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 24, justifyContent: 'center' }}>
-                                                {COLORS.map(c => (
-                                                    <TouchableOpacity
-                                                        key={c}
-                                                        onPress={() => { selectionFeedback(); setSelectedColor(c); }}
-                                                        style={[styles.colorOption, { backgroundColor: c }, selectedColor === c && styles.colorSelected]}
-                                                    />
-                                                ))}
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                                                <Text style={{ flex: 1, color: colors.textSecondary, fontSize: 12 }}>Every {weekInterval} {weekInterval === 1 ? 'week' : 'weeks'}</Text>
+                                                <TouchableOpacity accessibilityLabel="Fewer weeks" onPress={() => setWeekInterval(Math.max(1, weekInterval - 1))} style={{ padding: 8 }}><Ionicons name="remove" size={20} color={colors.text} /></TouchableOpacity>
+                                                <TouchableOpacity accessibilityLabel="More weeks" onPress={() => setWeekInterval(Math.min(52, weekInterval + 1))} style={{ padding: 8 }}><Ionicons name="add" size={20} color={colors.text} /></TouchableOpacity>
                                             </View>
-
-                                            {/* Life Pillar */}
-                                            <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12, fontFamily: 'Lexend_600SemiBold' }}>LIFE PILLAR</Text>
-                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                                                {LIFE_PILLARS.map(pillar => (
-                                                    <TouchableOpacity
-                                                        key={pillar.id}
-                                                        onPress={() => { selectionFeedback(); setLifePillar(pillar.id); }}
-                                                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: lifePillar === pillar.id ? pillar.color + '18' : (isLight ? colors.surfaceSecondary : colors.surfaceTertiary), borderWidth: 1.5, borderColor: lifePillar === pillar.id ? pillar.color + '50' : effectiveBorderColor }}
-                                                    >
-                                                        <Ionicons name={pillar.icon as any} size={14} color={lifePillar === pillar.id ? pillar.color : (isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)')} />
-                                                        <Text style={{ color: lifePillar === pillar.id ? pillar.color : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)'), fontSize: 11, fontWeight: '600', fontFamily: 'Lexend_500Medium' }}>
-                                                            {pillar.label}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </View>
-                                        </Animated.View>
-                                    )}
-
-                                    {/* ═══════════════ STEP 3: SCHEDULE ═══════════════ */}
-                                    {currentStep === 3 && (
-                                        <Animated.View entering={FadeIn.duration(300)} style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 8, fontFamily: 'Lexend' }}>
-                                                Set your schedule
-                                            </Text>
-                                            <Text style={{ fontSize: 15, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 32, fontFamily: 'Lexend_400Regular' }}>
-                                                How often will you do this?
-                                            </Text>
-
-                                            {/* Frequency */}
-                                            <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12, fontFamily: 'Lexend_600SemiBold' }}>FREQUENCY</Text>
-                                            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-                                                {(['daily', 'weekly', 'monthly'] as HabitFrequency[]).map(f => (
-                                                    <TouchableOpacity key={f} onPress={() => { selectionFeedback(); setFrequency(f); }}
-                                                        style={{ flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', backgroundColor: frequency === f ? selectedColor + '18' : (isLight ? colors.surfaceSecondary : colors.surfaceTertiary), borderWidth: 1.5, borderColor: frequency === f ? selectedColor + '50' : effectiveBorderColor }}>
-                                                        <Ionicons name={f === 'daily' ? 'sunny' : f === 'weekly' ? 'calendar' : 'calendar-outline'} size={18} color={frequency === f ? selectedColor : (isLight ? colors.textTertiary : 'rgba(255,255,255,0.35)')} />
-                                                        <Text style={{ color: frequency === f ? selectedColor : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)'), fontSize: 11, fontWeight: '600', marginTop: 4, fontFamily: 'Lexend_500Medium', textTransform: 'capitalize' }}>{f}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </View>
-
-                                            {/* Weekly days */}
-                                            {frequency === 'weekly' && (
-                                                <View style={{ marginBottom: 20 }}>
-                                                    <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12, fontFamily: 'Lexend_600SemiBold' }}>REPEAT ON</Text>
-                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                        {WEEKDAYS.map(day => (
-                                                            <TouchableOpacity key={day.id} onPress={() => toggleDay(day.id)}
-                                                                style={{ width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: selectedDays.includes(day.id) ? selectedColor + '20' : (isLight ? colors.surfaceSecondary : colors.surfaceTertiary), borderWidth: 1.5, borderColor: selectedDays.includes(day.id) ? selectedColor : effectiveBorderColor }}>
-                                                                <Text style={{ color: selectedDays.includes(day.id) ? selectedColor : (isLight ? colors.textSecondary : 'rgba(255,255,255,0.5)'), fontSize: 11, fontWeight: '700' }}>{day.label.charAt(0)}</Text>
-                                                            </TouchableOpacity>
-                                                        ))}
-                                                    </View>
-                                                    <Text style={{ color: isLight ? colors.textTertiary : 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>{repeatText}</Text>
-                                                </View>
-                                            )}
-
-                                            {/* Monthly day */}
-                                            {frequency === 'monthly' && (
-                                                <View style={{ marginBottom: 20 }}>
-                                                    <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1.5, marginBottom: 12, fontFamily: 'Lexend_600SemiBold' }}>DAY OF MONTH</Text>
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                                        <TouchableOpacity onPress={() => setMonthDay(Math.max(1, monthDay - 1))} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : colors.surfaceTertiary, alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Ionicons name="remove" size={20} color={colors.text} />
-                                                        </TouchableOpacity>
-                                                        <Text style={{ fontSize: 28, fontWeight: '900', color: selectedColor, fontFamily: 'Lexend', minWidth: 40, textAlign: 'center' }}>{monthDay}</Text>
-                                                        <TouchableOpacity onPress={() => setMonthDay(Math.min(31, monthDay + 1))} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : colors.surfaceTertiary, alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Ionicons name="add" size={20} color={colors.text} />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </View>
-                                            )}
-
-                                            {/* Time Window */}
-                                            <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('time'); }}
-                                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderWidth: 1, borderColor: effectiveBorderColor, marginBottom: 12 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                                    <Ionicons name="time-outline" size={20} color={useFreeTime ? '#8B5CF6' : selectedColor} />
-                                                    <View>
-                                                        <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>TIME WINDOW</Text>
-                                                        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text, fontFamily: 'Lexend' }}>{useFreeTime ? 'Anytime' : `${formatTime(startTime)} – ${formatTime(endTime)}`}</Text>
-                                                    </View>
-                                                </View>
-                                                <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
-                                            </TouchableOpacity>
-
-                                            {/* Start Date */}
-                                            <View style={{ padding: 16, borderRadius: 16, backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderWidth: 1, borderColor: effectiveBorderColor }}>
-                                                <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1, marginBottom: 8 }}>START DATE</Text>
-                                                <DateTimePicker value={habitStartDate} mode="date" display="compact" onChange={(_, d) => d && setHabitStartDate(d)} minimumDate={new Date()} themeVariant={isLight ? 'light' : 'dark'} />
-                                            </View>
-                                        </Animated.View>
-                                    )}
-
-                                    {/* ═══════════════ STEP 4: TARGET ═══════════════ */}
-                                    {currentStep === 4 && (
-                                        <Animated.View entering={FadeIn.duration(300)} style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 8, fontFamily: 'Lexend' }}>
-                                                Define your target
-                                            </Text>
-                                            <Text style={{ fontSize: 15, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 32, fontFamily: 'Lexend_400Regular' }}>
-                                                How much do you want to achieve daily?
-                                            </Text>
-
-                                            {/* Measurement */}
-                                            <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('measurement'); }}
-                                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderWidth: 1, borderColor: effectiveBorderColor, marginBottom: 12 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                                    <Ionicons name="scale-outline" size={20} color={selectedColor} />
-                                                    <View>
-                                                        <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>DAILY TARGET</Text>
-                                                        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text, fontFamily: 'Lexend' }}>{measurementValue} {UNITS.find(u => u.id === measurementUnit)?.label}</Text>
-                                                    </View>
-                                                </View>
-                                                <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
-                                            </TouchableOpacity>
-
-                                            {/* HealthKit */}
-                                            {lifePillar === 'body' && (
-                                                <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('healthKit'); }}
-                                                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderWidth: 1, borderColor: effectiveBorderColor, marginBottom: 12 }}>
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                                        <View style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: '#FA2D48', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Ionicons name="heart" size={12} color="#fff" />
-                                                        </View>
-                                                        <View>
-                                                            <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>APPLE HEALTH</Text>
-                                                            <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text, fontFamily: 'Lexend' }}>
-                                                                {healthKitMetric ? HEALTH_KIT_METRICS.find(m => m.id === healthKitMetric)?.label : 'Not Connected'}
-                                                            </Text>
-                                                        </View>
-                                                    </View>
-                                                    <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
-                                                </TouchableOpacity>
-                                            )}
-                                        </Animated.View>
-                                    )}
-
-                                    {/* ═══════════════ STEP 5: FINISH ═══════════════ */}
-                                    {currentStep === 5 && (
-                                        <Animated.View entering={FadeIn.duration(300)} style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 8, fontFamily: 'Lexend' }}>
-                                                Stay on track
-                                            </Text>
-                                            <Text style={{ fontSize: 15, color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.45)', textAlign: 'center', marginBottom: 32, fontFamily: 'Lexend_400Regular' }}>
-                                                Set up reminders and choose how to visualize progress
-                                            </Text>
-
-                                            {/* Reminders */}
-                                            <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('reminder'); }}
-                                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderWidth: 1, borderColor: effectiveBorderColor, marginBottom: 12 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                                    <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={20} color={reminderEnabled ? selectedColor : colors.textTertiary} />
-                                                    <View>
-                                                        <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>REMINDERS</Text>
-                                                        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text, fontFamily: 'Lexend' }}>{reminderEnabled ? formatTime(reminderTime) : 'Off'}</Text>
-                                                    </View>
-                                                </View>
-                                                <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
-                                            </TouchableOpacity>
-
-                                            {/* Graph Style */}
-                                            <TouchableOpacity onPress={() => { selectionFeedback(); setActiveOverlay('graph'); }}
-                                                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, backgroundColor: isLight ? colors.surfaceSecondary : colors.surfaceTertiary, borderWidth: 1, borderColor: effectiveBorderColor, marginBottom: 12 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                                    <Ionicons name={GRAPH_STYLES.find(g => g.id === graphStyle)?.icon as any} size={20} color={selectedColor} />
-                                                    <View>
-                                                        <Text style={{ fontSize: 10, fontWeight: '700', color: isLight ? colors.textSecondary : 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>VISUALIZATION</Text>
-                                                        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text, fontFamily: 'Lexend' }} numberOfLines={1}>{GRAPH_STYLES.find(g => g.id === graphStyle)?.label}</Text>
-                                                    </View>
-                                                </View>
-                                                <Ionicons name="chevron-forward" size={18} color={isLight ? colors.textTertiary : 'rgba(255,255,255,0.25)'} />
-                                            </TouchableOpacity>
-                                        </Animated.View>
-                                    )}
-
+                                        </View>}
+                                        {frequency === 'monthly' && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 8 }}>
+                                            <Text style={{ flex: 1, color: colors.textSecondary }}>On day {monthDay} of each month</Text>
+                                            <TouchableOpacity accessibilityLabel="Earlier day" onPress={() => setMonthDay(Math.max(1, monthDay - 1))} style={{ padding: 8 }}><Ionicons name="remove" size={20} color={colors.text} /></TouchableOpacity>
+                                            <TouchableOpacity accessibilityLabel="Later day" onPress={() => setMonthDay(Math.min(31, monthDay + 1))} style={{ padding: 8 }}><Ionicons name="add" size={20} color={colors.text} /></TouchableOpacity>
+                                        </View>}
+                                    </View>
+                                    {availableGoals.length > 0 && <View>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Goal · optional</Text>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                                            {[{ id: '', name: 'No goal' }, ...availableGoals.filter(g => !g.isArchived)].map(goal => <TouchableOpacity key={goal.id} onPress={() => setGoalId(goal.id || undefined)}
+                                                style={{ paddingHorizontal: 13, paddingVertical: 10, borderRadius: 12, backgroundColor: (goalId || '') === goal.id ? selectedColor + '20' : colors.surfaceSecondary }}>
+                                                <Text numberOfLines={1} style={{ maxWidth: 180, color: (goalId || '') === goal.id ? selectedColor : colors.textSecondary, fontSize: 12 }}>{goal.name}</Text>
+                                            </TouchableOpacity>)}
+                                        </ScrollView>
+                                    </View>}
+                                    <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 }}>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Reminders & more</Text>
+                                        <Ionicons name={showAdvanced ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                    {showAdvanced && <View style={{ gap: 12 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>{frequency === 'yearly' ? 'Repeat each year on' : 'Start date'}</Text>
+                                            <DateTimePicker value={habitStartDate} mode="date" display="compact" onChange={(_, date) => date && setHabitStartDate(date)} themeVariant={isLight ? 'light' : 'dark'} />
+                                        </View>
+                                        {[
+                                            { overlay: 'reminder' as const, label: 'Reminder', value: reminderEnabled ? formatTime(reminderTime) : 'Off' },
+                                            { overlay: 'graph' as const, label: 'Progress chart', value: GRAPH_STYLES.find(g => g.id === graphStyle)?.label || 'Progress' },
+                                            ...(lifePillar === 'body' ? [{ overlay: 'healthKit' as const, label: 'Apple Health', value: healthKitMetric || 'Not connected' }] : []),
+                                        ].map(row => <TouchableOpacity key={row.overlay} onPress={() => setActiveOverlay(row.overlay)} style={{ flexDirection: 'row', padding: 13, borderRadius: 12, backgroundColor: colors.surfaceSecondary }}>
+                                            <Text style={{ flex: 1, color: colors.textSecondary, fontSize: 13 }}>{row.label}</Text><Text style={{ color: colors.text, fontSize: 13 }}>{row.value}</Text><Ionicons name="chevron-forward" size={16} color={colors.textTertiary} style={{ marginLeft: 8 }} />
+                                        </TouchableOpacity>)}
+                                    </View>}
                                 </ScrollView>
-
-                                {/* ═══════ BOTTOM CTA ═══════ */}
-                                <View style={{ paddingHorizontal: 24, paddingVertical: 16, paddingBottom: 32 }}>
-                                    <TouchableOpacity onPress={handleNext} disabled={saving || (currentStep === 1 && !title.trim())}
-                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 18, borderRadius: 16, backgroundColor: (saving || (currentStep === 1 && !title.trim())) ? (isLight ? colors.surfaceSecondary : colors.surfaceTertiary) : selectedColor }}>
-                                        {saving ? (
-                                            <ActivityIndicator color="#fff" size="small" />
-                                        ) : (<>
-                                            <Text style={{ color: (currentStep === 1 && !title.trim()) ? colors.textTertiary : '#fff', fontSize: 17, fontWeight: '700', fontFamily: 'Lexend_600SemiBold' }}>
-                                                {currentStep === TOTAL_STEPS ? (habitToEdit ? 'Save Changes' : 'Create Habit') : 'Continue'}
-                                            </Text>
-                                            {currentStep < TOTAL_STEPS && <Ionicons name="arrow-forward" size={20} color="#fff" />}
-                                        </>)}
+                                <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 28 }}>
+                                    <TouchableOpacity onPress={handleSave} disabled={saving || !title.trim()} accessibilityRole="button"
+                                        style={{ paddingVertical: 16, borderRadius: 16, alignItems: 'center', backgroundColor: selectedColor, opacity: saving || !title.trim() ? 0.5 : 1 }}>
+                                        {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'Lexend_600SemiBold' }}>{habitToEdit ? 'Save changes' : 'Create habit'}</Text>}
                                     </TouchableOpacity>
                                 </View>
                             </KeyboardAvoidingView>
@@ -1566,7 +1385,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                     </Animated.View>
                 )}
             </View>
-        </View>
+        </GestureHandlerRootView>
+        </Modal>
     );
 };
 

@@ -53,7 +53,7 @@ const SignIn = () => {
                 {nickname ? `Welcome back, ${nickname}` : 'This device is ready to continue offline'}
               </Text>
               <Text style={[styles.localBody, { color: colors.textSecondary }]}>
-                Habyss does not use hosted accounts in this build. Your habits, routines, focus history, and AI remain local.
+                Habyss does not use hosted accounts in this build. Your habits, focus history, and AI remain local.
               </Text>
 
               {/* Sign In Button */}

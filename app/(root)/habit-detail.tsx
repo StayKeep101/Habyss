@@ -4,12 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { Habit, getHabits, toggleCompletion, getCompletions, getLastNDaysCompletions, getHabitStats, inferTrackingStyle } from '@/lib/habitsSQLite';
-import { useGlobalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { ScreenHeader } from '@/components/Layout/ScreenHeader';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
-import { useRoutines } from '@/constants/RoutineContext';
+import { HabitCreationModal } from '@/components/HabitCreationModal';
+import { ShareButton } from '@/components/Common/ShareButton';
 import { useFocusTime } from '@/constants/FocusTimeContext';
 
 import { useHaptics } from '@/hooks/useHaptics';
@@ -24,7 +25,7 @@ const { width } = Dimensions.get('window');
 
 export default function HabitDetailScreen() {
   const router = useRouter();
-  const params = useGlobalSearchParams();
+  const params = useLocalSearchParams();
   const habitIdParam = params.habitId;
   const habitId = Array.isArray(habitIdParam) ? habitIdParam[0] : habitIdParam;
 
@@ -40,7 +41,6 @@ export default function HabitDetailScreen() {
   const { theme } = useTheme();
   const colors = Colors[theme];
   const { selectionFeedback, mediumFeedback } = useHaptics();
-  const { getRoutinesForHabit } = useRoutines();
   const { activeHabitId, isRunning: isFocusRunning } = useFocusTime();
 
   // Initialize with passed params to avoid loading state
@@ -65,7 +65,9 @@ export default function HabitDetailScreen() {
   const [completionRate, setCompletionRate] = useState(0);
   const [totalCompletions, setTotalCompletions] = useState(0);
   const [history, setHistory] = useState<{ date: string; completed: boolean }[]>([]);
-  const [currentPage, setCurrentPage] = useState(0);
+  const [showEditor, setShowEditor] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showMusic, setShowMusic] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [counterValue, setCounterValue] = useState(0);
 
@@ -140,9 +142,7 @@ export default function HabitDetailScreen() {
       setTotalCompletions(stats.totalCompletions);
 
       // Set initial counter value for counter-based habits
-      if (currentHabit && completed) {
-        setCounterValue(currentHabit.goalValue || 1);
-      }
+      if (currentHabit) setCounterValue(completions[habitId] ? currentHabit.goalValue || 1 : 0);
     } finally {
       setLoading(false);
     }
@@ -226,7 +226,6 @@ export default function HabitDetailScreen() {
   // Last 7 days for quick view
   const last7Days = history.slice(-7);
   const habitColor = habit.color || colors.primary;
-  const linkedRoutines = habit ? getRoutinesForHabit(habit.id) : [];
   const isFocusActiveForHabit = activeHabitId === habit.id && isFocusRunning;
 
   return (
@@ -240,19 +239,11 @@ export default function HabitDetailScreen() {
           <Ionicons name="arrow-back" size={s(24)} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', gap: s(12) }}>
+          <ShareButton variant="friend" onPress={() => setShowShareModal(true)} />
           <TouchableOpacity
             onPress={() => {
               selectionFeedback();
-              setShowShareModal(true);
-            }}
-            style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
-          >
-            <Ionicons name="share-outline" size={s(20)} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              selectionFeedback();
-              DeviceEventEmitter.emit('show_habit_modal', { initialHabit: habit, goalId: habit.goalId });
+              setShowEditor(true);
             }}
             style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
           >
@@ -261,20 +252,8 @@ export default function HabitDetailScreen() {
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) => {
-          const page = Math.round(event.nativeEvent.contentOffset.x / width);
-          setCurrentPage(page);
-        }}
-        contentContainerStyle={{ flexGrow: 1 }}
-      >
-        {/* PAGE 1: Focus & Stats */}
-        <ScrollView style={{ width: width }} contentContainerStyle={styles.pageContent}>
-
-          <ScreenHeader title={habit.name.toUpperCase()} subtitle="PROTOCOL DETAILS" />
+      <ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
+          <ScreenHeader title={habit.name} subtitle="HABIT" />
 
           <VoidCard style={styles.contextCard}>
             <View style={styles.contextRow}>
@@ -290,17 +269,6 @@ export default function HabitDetailScreen() {
                   {isFocusActiveForHabit ? 'Running now' : 'Idle'}
                 </Text>
               </View>
-            </View>
-            <View style={[styles.routinePills, { marginTop: vs(14) }]}>
-              {linkedRoutines.length > 0 ? linkedRoutines.map((routine) => (
-                <View key={routine.id} style={[styles.routinePill, { backgroundColor: habitColor + '14', borderColor: habitColor + '28' }]}>
-                  <Text style={[styles.routinePillText, { color: colors.textPrimary }]}>{routine.emoji} {routine.name}</Text>
-                </View>
-              )) : (
-                <View style={[styles.routinePill, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
-                  <Text style={[styles.routinePillText, { color: colors.textSecondary }]}>Not inside a routine yet</Text>
-                </View>
-              )}
             </View>
           </VoidCard>
 
@@ -397,7 +365,7 @@ export default function HabitDetailScreen() {
               >
                 <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={s(20)} color="white" style={{ marginRight: s(8) }} />
                 <Text style={styles.actionButtonText}>
-                  {completed ? 'PROTOCOL COMPLETE' : 'EXECUTE PROTOCOL'}
+                  {completed ? 'Completed today' : 'Mark complete'}
                 </Text>
               </TouchableOpacity>
             </VoidCard>
@@ -461,6 +429,10 @@ export default function HabitDetailScreen() {
             </View>
           </View>
 
+          <TouchableOpacity onPress={() => setShowHistory(!showHistory)} style={{ paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: colors.text, fontFamily: 'Lexend_500Medium' }}>Progress history</Text><Ionicons name={showHistory ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+          {showHistory && <>
           {/* === VISUALIZATION === */}
           <View style={{ marginBottom: vs(24) }}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
@@ -484,25 +456,15 @@ export default function HabitDetailScreen() {
             />
           </VoidCard>
 
-          {/* === DESCRIPTION === */}
-          <VoidCard style={styles.descCard}>
-            <Text style={[styles.descTitle, { color: colors.textPrimary }]}>DIRECTIVE</Text>
-            <Text style={[styles.descText, { color: colors.textSecondary }]}>
-              {`Consistency is key. You've set this protocol to improve your ${habit.category}.`}
-              Maintain your streak to achieve optimal results.
-            </Text>
-          </VoidCard>
-
-          {/* Bottom Padding for scroll */}
-          <View style={{ height: vs(100) }} />
-        </ScrollView>
-
-        {/* PAGE 2: Spotify / Audio */}
-        <View style={{ width: width, flex: 1 }}>
-          <SpotifyPage habitId={habitId} />
-        </View>
-
+          </>}
+          {habit.description ? <Text style={{ color: colors.textSecondary, lineHeight: 21, marginBottom: 20 }}>{habit.description}</Text> : null}
+          <TouchableOpacity onPress={() => setShowMusic(!showMusic)} style={{ paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: colors.textSecondary }}>Focus music</Text><Ionicons name={showMusic ? 'chevron-up' : 'musical-notes-outline'} size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+          {showMusic && <View style={{ height: 500 }}><SpotifyPage habitId={habitId} /></View>}
+          <View style={{ height: 40 }} />
       </ScrollView>
+      {showEditor && <HabitCreationModal visible onClose={() => setShowEditor(false)} initialHabit={habit} goalId={habit.goalId} listenToGlobalEvents={false} onSuccess={loadHabitDetails} />}
 
       {/* Share Modal */}
       <ShareHabitModal

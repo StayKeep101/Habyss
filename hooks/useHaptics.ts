@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 
@@ -11,6 +12,7 @@ export const useHaptics = () => {
     // Context not available, default to enabled
   }
 
+  return useMemo(() => {
   const lightFeedback = () => {
     if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
@@ -53,4 +55,5 @@ export const useHaptics = () => {
     errorFeedback,
     selectionFeedback,
   };
+  }, [hapticsEnabled]);
 };

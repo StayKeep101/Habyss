@@ -66,7 +66,7 @@ const SignUp = () => {
                 <View style={[styles.localOnlyCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
                   <Text style={[styles.localOnlyTitle, { color: colors.textPrimary }]}>This app stays local</Text>
                   <Text style={[styles.localOnlyBody, { color: colors.textSecondary }]}>
-                    No cloud account. No hosted database. Your profile, habits, routines, and personal AI stay on this device.
+                    No cloud account. No hosted database. Your profile, habits, and personal AI stay on this device.
                   </Text>
                 </View>
 

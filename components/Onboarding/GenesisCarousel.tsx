@@ -13,13 +13,13 @@ const SLIDES = [
     {
         id: '1',
         title: 'Private by default',
-        desc: 'Your habits, focus sessions, routines, and AI stay on this device.',
+        desc: 'Your habits, focus sessions, and AI stay on this device.',
         icon: 'lock-closed'
     },
     {
         id: '2',
         title: 'Built for momentum',
-        desc: 'Roadmaps, routines, timers, and streaks line up into one clean system.',
+        desc: 'Roadmaps, timers, and streaks line up into one clean system.',
         icon: 'flash'
     },
     {

@@ -12,6 +12,8 @@ import { DeviceEventEmitter } from 'react-native';
 import { NotificationService } from './notificationService';
 import SharedDefaults from './SharedDefaults';
 import { SiriService } from './siriService';
+import { isHabitScheduledForDate } from './habitSchedule';
+export { isHabitScheduledForDate } from './habitSchedule';
 
 // Widget Sync Helper
 async function syncWidgets() {
@@ -106,49 +108,6 @@ export async function getUserId(): Promise<string | undefined> {
 
 const todayString = (d = new Date()) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
-export const isHabitScheduledForDate = (habit: Habit, date: Date): boolean => {
-    const habitStart = new Date(habit.startDate || habit.createdAt);
-    const dateStr = date.toISOString().split('T')[0];
-    const startStr = habitStart.toISOString().split('T')[0];
-
-    if (dateStr < startStr) return false;
-
-    if (habit.targetDate) {
-        const targetStr = new Date(habit.targetDate).toISOString().split('T')[0];
-        if (dateStr > targetStr) return false;
-    }
-
-    if (habit.weekInterval && habit.weekInterval > 1) {
-        const getWeekNumber = (d: Date): number => {
-            const date = new Date(d);
-            date.setHours(0, 0, 0, 0);
-            const jan1st = new Date(date.getFullYear(), 0, 1);
-            const days = Math.floor((date.getTime() - jan1st.getTime()) / (24 * 60 * 60 * 1000));
-            return Math.ceil((days + jan1st.getDay() + 1) / 7);
-        };
-
-        const startWeek = getWeekNumber(habitStart);
-        const currentWeek = getWeekNumber(date);
-        const weeksDiff = currentWeek - startWeek;
-
-        if (weeksDiff % habit.weekInterval !== 0) return false;
-    }
-
-    if (habit.frequency === 'monthly') {
-        const startDay = parseInt(habit.startDate.split('-')[2], 10);
-        const currentDay = parseInt(dateStr.split('-')[2], 10);
-        if (startDay !== currentDay) return false;
-        return true;
-    }
-
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-    if (habit.taskDays && habit.taskDays.length > 0) {
-        return habit.taskDays.map(d => d.toLowerCase()).includes(dayName);
-    }
-
-    return true;
 };
 
 // --- Subscription ---
@@ -363,7 +322,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
 
 export async function updateHabit(updatedHabit: Partial<Habit> & { id: string }): Promise<void> {
     const uid = await getUserId();
-    if (!uid) return;
+    if (!uid) throw new Error('Your local profile is unavailable. Please reopen Habyss.');
 
     const now = new Date().toISOString();
 
@@ -382,13 +341,13 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.icon !== undefined) { setClauses.push('icon = ?'); params.push(updatedHabit.icon); }
                 if (updatedHabit.isGoal !== undefined) { setClauses.push('is_goal = ?'); params.push(updatedHabit.isGoal ? 1 : 0); }
                 if (updatedHabit.targetDate !== undefined) { setClauses.push('target_date = ?'); params.push(updatedHabit.targetDate); }
-                if (updatedHabit.goalId !== undefined) { setClauses.push('goal_id = ?'); params.push(updatedHabit.goalId); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'goalId')) { setClauses.push('goal_id = ?'); params.push(updatedHabit.goalId ?? null); }
                 if (updatedHabit.taskDays !== undefined) { setClauses.push('task_days = ?'); params.push(JSON.stringify(updatedHabit.taskDays)); }
                 if (updatedHabit.reminders !== undefined) { setClauses.push('reminders = ?'); params.push(JSON.stringify(updatedHabit.reminders)); }
                 if (updatedHabit.isArchived !== undefined) { setClauses.push('is_archived = ?'); params.push(updatedHabit.isArchived ? 1 : 0); }
-                if (updatedHabit.durationMinutes !== undefined) { setClauses.push('duration_minutes = ?'); params.push(updatedHabit.durationMinutes); }
-                if (updatedHabit.startTime !== undefined) { setClauses.push('start_time = ?'); params.push(updatedHabit.startTime); }
-                if (updatedHabit.endTime !== undefined) { setClauses.push('end_time = ?'); params.push(updatedHabit.endTime); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'durationMinutes')) { setClauses.push('duration_minutes = ?'); params.push(updatedHabit.durationMinutes ?? null); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'startTime')) { setClauses.push('start_time = ?'); params.push(updatedHabit.startTime ?? null); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'endTime')) { setClauses.push('end_time = ?'); params.push(updatedHabit.endTime ?? null); }
                 if (updatedHabit.type !== undefined) { setClauses.push('type = ?'); params.push(updatedHabit.type); }
                 if (updatedHabit.color !== undefined) { setClauses.push('color = ?'); params.push(updatedHabit.color); }
                 if (updatedHabit.goalPeriod !== undefined) { setClauses.push('goal_period = ?'); params.push(updatedHabit.goalPeriod); }
@@ -397,25 +356,27 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.chartType !== undefined) { setClauses.push('chart_type = ?'); params.push(updatedHabit.chartType); }
                 if (updatedHabit.showMemo !== undefined) { setClauses.push('show_memo = ?'); params.push(updatedHabit.showMemo ? 1 : 0); }
                 if (updatedHabit.frequency !== undefined) { setClauses.push('frequency = ?'); params.push(updatedHabit.frequency); }
-                if (updatedHabit.weekInterval !== undefined) { setClauses.push('week_interval = ?'); params.push(updatedHabit.weekInterval); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'weekInterval')) { setClauses.push('week_interval = ?'); params.push(updatedHabit.weekInterval ?? null); }
                 if (updatedHabit.timeOfDay !== undefined) { setClauses.push('time_of_day = ?'); params.push(updatedHabit.timeOfDay); }
                 if (updatedHabit.startDate !== undefined) { setClauses.push('start_date = ?'); params.push(updatedHabit.startDate); }
-                if (updatedHabit.endDate !== undefined) { setClauses.push('end_date = ?'); params.push(updatedHabit.endDate); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'endDate')) { setClauses.push('end_date = ?'); params.push(updatedHabit.endDate ?? null); }
                 if (updatedHabit.graphStyle !== undefined) { setClauses.push('graph_style = ?'); params.push(updatedHabit.graphStyle); }
                 if (updatedHabit.trackingMethod !== undefined) { setClauses.push('tracking_method = ?'); params.push(updatedHabit.trackingMethod); }
                 if (updatedHabit.ringtone !== undefined) { setClauses.push('ringtone = ?'); params.push(updatedHabit.ringtone); }
-                if (updatedHabit.reminderOffset !== undefined) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'reminderOffset')) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset ?? null); }
                 if (updatedHabit.locationReminders !== undefined) { setClauses.push('location_reminders = ?'); params.push(JSON.stringify(updatedHabit.locationReminders)); }
-                if (updatedHabit.healthKitMetric !== undefined) { setClauses.push('health_kit_metric = ?'); params.push(updatedHabit.healthKitMetric); }
-                if (updatedHabit.healthKitTarget !== undefined) { setClauses.push('health_kit_target = ?'); params.push(updatedHabit.healthKitTarget); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'healthKitMetric')) { setClauses.push('health_kit_metric = ?'); params.push(updatedHabit.healthKitMetric ?? null); }
+                if (Object.prototype.hasOwnProperty.call(updatedHabit, 'healthKitTarget')) { setClauses.push('health_kit_target = ?'); params.push(updatedHabit.healthKitTarget ?? null); }
 
                 params.push(updatedHabit.id, uid);
 
-                await db.runAsync(
+                const result = await db.runAsync(
                     `UPDATE habits SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`,
                     ...params
                 );
 
+
+                if (result.changes === 0) throw new Error('This habit no longer exists.');
 
                 // Update cache
                 if (cachedHabits) {
@@ -425,7 +386,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
 
                 const fullHabit = cachedHabits?.find(h => h.id === updatedHabit.id);
                 if (fullHabit) {
-                    await NotificationService.scheduleHabitReminder(fullHabit);
+                    void NotificationService.scheduleHabitReminder(fullHabit).catch(error => console.warn('[Habits] Reminder update failed:', error));
                 }
 
                 DeviceEventEmitter.emit('habit_updated', { habitId: updatedHabit.id });
@@ -434,8 +395,10 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
             }
         } catch (e) {
             console.error('[Habits] SQLite update failed:', e);
+            throw e;
         }
     }
+    throw new Error('Habit storage is unavailable. Your changes were not saved.');
 }
 
 export async function removeHabitEverywhere(habitId: string): Promise<void> {

@@ -30,7 +30,7 @@ import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useFocusTime } from '@/constants/FocusTimeContext';
-import { useRoutines } from '@/constants/RoutineContext';
+import { RoadmapFilters } from '@/components/Home/RoadmapFilters';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
@@ -70,7 +70,6 @@ const CalendarScreen = () => {
     const { lightFeedback, selectionFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
     const { activeHabitId, activeHabitName, isRunning: isFocusRunning, startTimer, timeLeft, totalDuration } = useFocusTime();
-    const { getRoutinesForHabit } = useRoutines();
     const { horizontalPadding, tabBarClearance, isCompactHeight } = useResponsiveLayout();
 
     // Data State
@@ -88,6 +87,7 @@ const CalendarScreen = () => {
     const [showFilter, setShowFilter] = useState(false);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
     const [activeSort, setActiveSort] = useState<SortType>('default');
+    const [sortDirection, setSortDirection] = useState<1 | -1>(-1);
     const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>('all');
     const [selectedGoalFilter, setSelectedGoalFilter] = useState<string | null>(null); // Filter by specific goal ID
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null); // Filter by life pillar
@@ -95,7 +95,8 @@ const CalendarScreen = () => {
     const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
     const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
     const [draggingHabit, setDraggingHabit] = useState<Habit | null>(null);
-    const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+    const dragY = useSharedValue(0);
+    const dragPreviewStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value - 28 }] }));
     const [hoveredGoalId, setHoveredGoalId] = useState<string | null>(null);
     const goalRefs = useRef<Record<string, View | null>>({});
     const goalDropLayouts = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
@@ -105,34 +106,8 @@ const CalendarScreen = () => {
     const filterTriggered = useSharedValue(false);
     const wasAtTop = useSharedValue(true); // Track if user was at top before pulling
 
-    // Filter Modal Animation
-    const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-    const FILTER_SHEET_HEIGHT = SCREEN_HEIGHT * 0.55;
-    const FILTER_DRAG_THRESHOLD = 60;
-    const filterTranslateY = useSharedValue(FILTER_SHEET_HEIGHT);
-
-    const closeFilterModal = useCallback(() => {
-        filterTranslateY.value = withTiming(FILTER_SHEET_HEIGHT, { duration: 280, easing: Easing.in(Easing.cubic) });
-        setTimeout(() => setShowFilter(false), 280);
-    }, [FILTER_SHEET_HEIGHT]);
-
-    const openFilterModal = useCallback(() => {
-        setShowFilter(true);
-        // Use spring for smoother, more natural entrance
-        filterTranslateY.value = withSpring(0, { damping: 20, stiffness: 90 });
-    }, []);
-
-    const filterPanGesture = Gesture.Pan()
-        .onUpdate((event) => { if (event.translationY > 0) filterTranslateY.value = event.translationY; })
-        .onEnd((event) => {
-            if (event.translationY > FILTER_DRAG_THRESHOLD || event.velocityY > 500) runOnJS(closeFilterModal)();
-            else filterTranslateY.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
-        });
-
-    const filterSheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: filterTranslateY.value }] }));
-    const filterBackdropStyle = useAnimatedStyle(() => ({
-        opacity: interpolate(filterTranslateY.value, [0, FILTER_SHEET_HEIGHT], [1, 0], Extrapolation.CLAMP)
-    }));
+    const closeFilterModal = useCallback(() => setShowFilter(false), []);
+    const openFilterModal = useCallback(() => setShowFilter(true), []);
 
     const scrollHandler = useAnimatedScrollHandler({
         onScroll: (event) => {
@@ -253,7 +228,7 @@ const CalendarScreen = () => {
     useEffect(() => {
         if (historyData.length === 0) return; // Wait for history to load
 
-        const goals = habitsStore.filter(h => h.isGoal);
+        const goals = habitsStore.filter(h => h.isGoal && !h.isArchived);
         if (goals.length === 0) return;
 
         // Defer heavy calculation to after navigation animation
@@ -388,15 +363,6 @@ const CalendarScreen = () => {
         });
     };
 
-    const getRoutineMeta = useCallback((habitId: string) => {
-        const routines = getRoutinesForHabit(habitId);
-        if (routines.length === 0) return null;
-        const primaryRoutine = routines[0];
-        return {
-            name: primaryRoutine.name,
-            emoji: primaryRoutine.emoji,
-        };
-    }, [getRoutinesForHabit]);
 
     const isHabitFocusableNow = useCallback((habit: Habit) => {
         if (!habit.startTime) return false;
@@ -477,14 +443,14 @@ const CalendarScreen = () => {
     const handleHabitDragStart = useCallback(async (habit: Habit, x: number, y: number) => {
         selectionFeedback();
         setDraggingHabit(habit);
-        setDragPosition({ x, y });
+        dragY.value = y;
         const currentGoals = habitsStore.filter((item) => item.isGoal) as Habit[];
         await measureGoalDropTargets(currentGoals);
         setHoveredGoalId(getHoveredGoalAtPoint(x, y));
     }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore]);
 
     const handleHabitDragMove = useCallback((habit: Habit, x: number, y: number) => {
-        setDragPosition({ x, y });
+        dragY.value = y;
         setHoveredGoalId(getHoveredGoalAtPoint(x, y));
     }, [getHoveredGoalAtPoint]);
 
@@ -499,9 +465,15 @@ const CalendarScreen = () => {
         }
 
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        await updateHabit({ id: habit.id, goalId: targetGoalId });
-        setExpandedGoals((prev) => ({ ...prev, [targetGoalId]: true }));
+        setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: targetGoalId } : item));
+        setExpandedGoals(prev => ({ ...prev, [targetGoalId]: true }));
         lightFeedback();
+        try {
+            await updateHabit({ id: habit.id, goalId: targetGoalId });
+        } catch {
+            setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
+            Alert.alert('Could not move habit', 'Your habit is still in its original goal. Please try again.');
+        }
     }, [getHoveredGoalAtPoint, lightFeedback]);
 
     const toggleGoalExpansion = (goalId: string) => {
@@ -535,6 +507,11 @@ const CalendarScreen = () => {
             filtered = filtered.filter(h => getTimeCategory(h.startTime) === activeTimeFilter);
         }
 
+        filtered.sort((a, b) => {
+            if (activeSort === 'name') return sortDirection * a.name.localeCompare(b.name);
+            if (activeSort === 'progress') return sortDirection * (Number(!!completions[a.id]) - Number(!!completions[b.id]));
+            return sortDirection * a.createdAt.localeCompare(b.createdAt);
+        });
         const byGoal: Record<string, Habit[]> = {};
 
         filtered.forEach(h => {
@@ -545,7 +522,7 @@ const CalendarScreen = () => {
         });
 
         return { allHabits: filtered, habitsByGoal: byGoal };
-    }, [habitsStore, selectedDate, selectedGoalFilter, selectedCategoryFilter, activeTimeFilter]);
+    }, [habitsStore, selectedDate, selectedGoalFilter, selectedCategoryFilter, activeTimeFilter, activeSort, sortDirection, completions]);
 
     // Loose habits are those not linked to any goal, or linked to a non-existent goal
     const looseHabits = useMemo(() => {
@@ -575,21 +552,19 @@ const CalendarScreen = () => {
         selectionFeedback();
         setActiveFilter('all');
         setActiveSort('default');
+        setSortDirection(-1);
         setSelectedGoalFilter(null);
         setSelectedCategoryFilter(null);
         setActiveTimeFilter('all');
     }, [selectionFeedback]);
 
-    // Sorting Logic
-    const sortedGoals = useMemo(() => {
-        return [...goals].sort((a, b) => {
-            if (activeSort === 'name') return a.name.localeCompare(b.name);
-            if (activeSort === 'progress') {
-                return (goalProgress[b.id] || 0) - (goalProgress[a.id] || 0);
-            }
-            return 0; // Default (Creation order usually)
-        });
-    }, [goals, activeSort, goalProgress]);
+    const sortedGoals = useMemo(() => goals
+        .filter(goal => (!selectedGoalFilter || goal.id === selectedGoalFilter) && (activeTimeFilter === 'all' || (habitsByGoal[goal.id] || []).length > 0))
+        .sort((a, b) => {
+            if (activeSort === 'name') return sortDirection * a.name.localeCompare(b.name);
+            if (activeSort === 'progress') return sortDirection * ((goalProgress[a.id] || 0) - (goalProgress[b.id] || 0));
+            return sortDirection * a.createdAt.localeCompare(b.createdAt);
+        }), [goals, activeSort, sortDirection, goalProgress, selectedGoalFilter, activeTimeFilter, habitsByGoal]);
 
     return (
         <VoidShell>
@@ -787,9 +762,16 @@ const CalendarScreen = () => {
                             {/* GOALS SECTION */}
                             {!isHabitFilter && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
-                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2, marginBottom: 10 }}>
-                                        GOALS
-                                    </Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                        <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2 }}>GOALS</Text>
+                                        <TouchableOpacity onPress={() => {
+                                            const allExpanded = sortedGoals.every(goal => expandedGoals[goal.id]);
+                                            setExpandedGoals(allExpanded ? {} : Object.fromEntries(sortedGoals.map(goal => [goal.id, true])));
+                                        }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8 }}>
+                                            <Ionicons name={sortedGoals.every(goal => expandedGoals[goal.id]) ? 'contract-outline' : 'expand-outline'} size={14} color={colors.textSecondary} />
+                                            <Text style={{ color: colors.textSecondary, fontSize: 11 }}>{sortedGoals.every(goal => expandedGoals[goal.id]) ? 'Collapse all' : 'Expand all'}</Text>
+                                        </TouchableOpacity>
+                                    </View>
 
                                     {sortedGoals.length > 0 ? (
                                         sortedGoals.map(goal => {
@@ -836,8 +818,6 @@ const CalendarScreen = () => {
                                                                         isActive={habit.id === activeHabitId}
                                                                         timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
                                                                         totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
-                                                                        routineName={getRoutineMeta(habit.id)?.name}
-                                                                        routineEmoji={getRoutineMeta(habit.id)?.emoji}
                                                                         canFocusNow={isHabitFocusableNow(habit)}
                                                                         onFocusPress={handleFocusHabit}
                                                                         onDragStart={handleHabitDragStart}
@@ -887,8 +867,6 @@ const CalendarScreen = () => {
                                                 isActive={habit.id === activeHabitId}
                                                 timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
                                                 totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
-                                                routineName={getRoutineMeta(habit.id)?.name}
-                                                routineEmoji={getRoutineMeta(habit.id)?.emoji}
                                                 canFocusNow={isHabitFocusableNow(habit)}
                                                 onFocusPress={handleFocusHabit}
                                                 goalName={activeFilter === 'habits_only' && associatedGoal ? associatedGoal.name : undefined}
@@ -927,11 +905,12 @@ const CalendarScreen = () => {
 
                         {draggingHabit ? (
                             <View pointerEvents="none" style={styles.dragOverlay}>
-                                <View
+                                <Animated.View
                                     style={[
                                         styles.dragPreview,
+                                        dragPreviewStyle,
                                         {
-                                            top: dragPosition.y - 28,
+                                            top: 0,
                                             left: 20,
                                             right: 20,
                                             borderColor: hoveredGoalId ? accentColor : colors.border,
@@ -943,7 +922,7 @@ const CalendarScreen = () => {
                                     <Text style={[styles.dragPreviewText, { color: colors.text }]} numberOfLines={1}>
                                         {`Move "${draggingHabit.name}" into ${hoveredGoalId ? goals.find((goal) => goal.id === hoveredGoalId)?.name || 'goal' : 'a goal'}`}
                                     </Text>
-                                </View>
+                                </Animated.View>
                             </View>
                         ) : null}
                     </View>
@@ -954,245 +933,12 @@ const CalendarScreen = () => {
                         onSuccess={() => {/* refresh */ }}
                     />
 
-                    {/* Filter Modal - Compact & Swipeable */}
-                    {showFilter && (
-                        <Modal
-                            visible={true}
-                            transparent
-                            animationType="none"
-                            onRequestClose={closeFilterModal}
-                            statusBarTranslucent
-                        >
-                            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-                                <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }, filterBackdropStyle]}>
-                                    <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeFilterModal} />
-                                </Animated.View>
+                    <RoadmapFilters visible={showFilter} onClose={closeFilterModal} goals={goals}
+                        show={activeFilter} onShow={setActiveFilter} focus={activeTimeFilter} onFocus={setActiveTimeFilter}
+                        goal={selectedGoalFilter} onGoal={setSelectedGoalFilter} order={activeSort} direction={sortDirection}
+                        onOrder={value => { if (value === activeSort) setSortDirection(direction => direction === 1 ? -1 : 1); else { setActiveSort(value); setSortDirection(1); } }}
+                        onReset={resetFilters} />
 
-                                <GestureDetector gesture={filterPanGesture}>
-                                    <Animated.View style={[{
-                                        height: FILTER_SHEET_HEIGHT,
-                                        borderTopLeftRadius: 24,
-                                        borderTopRightRadius: 24,
-                                        overflow: 'hidden',
-                                        backgroundColor: isLight ? '#ffffff' : '#0a0c10',
-                                    }, filterSheetStyle]}>
-
-                                        {/* Handle Bar */}
-                                        <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 8 }}>
-                                            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)' }} />
-                                        </View>
-
-                                        <View style={{ paddingHorizontal: 20, paddingBottom: 14 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <View style={{ flex: 1, paddingRight: 12 }}>
-                                                    <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', fontFamily: 'Lexend' }}>Shape Your Roadmap</Text>
-                                                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4, fontFamily: 'Lexend_400Regular' }}>
-                                                        {visibleHabitCount} habit{visibleHabitCount === 1 ? '' : 's'}{activeFilter !== 'habits_only' ? ` • ${visibleGoalCount} goal${visibleGoalCount === 1 ? '' : 's'}` : ''}
-                                                    </Text>
-                                                </View>
-                                                {activeFilterCount > 0 && (
-                                                    <TouchableOpacity
-                                                        onPress={resetFilters}
-                                                        style={{
-                                                            paddingHorizontal: 12,
-                                                            paddingVertical: 8,
-                                                            borderRadius: 14,
-                                                            backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)'
-                                                        }}
-                                                    >
-                                                        <Text style={{ color: accentColor, fontSize: 12, fontWeight: '700', fontFamily: 'Lexend_500Medium' }}>Clear</Text>
-                                                    </TouchableOpacity>
-                                                )}
-                                            </View>
-
-                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-                                                <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: accentColor + '18' }}>
-                                                    <Text style={{ color: accentColor, fontSize: 11, fontFamily: 'Lexend_500Medium' }}>
-                                                        {activeFilter === 'all' ? 'Everything' : activeFilter === 'goals_only' ? 'Goals only' : 'Habits only'}
-                                                    </Text>
-                                                </View>
-                                                {activeGoalName && (
-                                                    <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)' }}>
-                                                        <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: 'Lexend_500Medium' }} numberOfLines={1}>
-                                                            Goal: {activeGoalName}
-                                                        </Text>
-                                                    </View>
-                                                )}
-                                                {activeTimeFilter !== 'all' && (
-                                                    <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)' }}>
-                                                        <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: 'Lexend_500Medium' }}>
-                                                            {activeTimeFilter.charAt(0).toUpperCase() + activeTimeFilter.slice(1)}
-                                                        </Text>
-                                                    </View>
-                                                )}
-                                                {activeSort !== 'default' && (
-                                                    <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)' }}>
-                                                        <Text style={{ color: colors.textSecondary, fontSize: 11, fontFamily: 'Lexend_500Medium' }}>
-                                                            Sort: {activeSort === 'name' ? 'A-Z' : 'Momentum'}
-                                                        </Text>
-                                                    </View>
-                                                )}
-                                            </View>
-                                        </View>
-
-                                        <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}>
-
-                                            <View style={{ marginBottom: 18 }}>
-                                                <Text style={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600', letterSpacing: 1.2, marginBottom: 10, marginLeft: 2 }}>SHOW</Text>
-                                                <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                    {[
-                                                        { id: 'all', label: 'Everything', icon: 'layers-outline', hint: 'Goals and habits together' },
-                                                        { id: 'goals_only', label: 'Goals', icon: 'flag-outline', hint: 'Outcome-first view' },
-                                                        { id: 'habits_only', label: 'Habits', icon: 'checkbox-outline', hint: 'Execution-only view' },
-                                                    ].map((item) => (
-                                                        <TouchableOpacity
-                                                            key={item.id}
-                                                            onPress={() => { selectionFeedback(); setActiveFilter(item.id as FilterType); }}
-                                                            style={{
-                                                                flex: 1,
-                                                                paddingVertical: 14,
-                                                                paddingHorizontal: 12,
-                                                                borderRadius: 18,
-                                                                backgroundColor: activeFilter === item.id ? accentColor : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)'),
-                                                            }}
-                                                        >
-                                                            <Ionicons name={item.icon as any} size={16} color={activeFilter === item.id ? 'white' : colors.textSecondary} />
-                                                            <Text style={{ color: activeFilter === item.id ? 'white' : colors.text, fontSize: 13, fontWeight: '700', marginTop: 8, fontFamily: 'Lexend_500Medium' }}>{item.label}</Text>
-                                                            <Text style={{ color: activeFilter === item.id ? 'rgba(255,255,255,0.78)' : colors.textTertiary, fontSize: 10, marginTop: 4, fontFamily: 'Lexend_400Regular' }}>{item.hint}</Text>
-                                                        </TouchableOpacity>
-                                                    ))}
-                                                </View>
-                                            </View>
-
-                                            <View style={{ marginBottom: 18 }}>
-                                                <Text style={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600', letterSpacing: 1.2, marginBottom: 10, marginLeft: 2 }}>FOCUS</Text>
-                                                <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                    {[
-                                                        { id: 'all', label: 'Any time', icon: 'sparkles-outline' },
-                                                        { id: 'morning', label: 'Morning', icon: 'sunny-outline' },
-                                                        { id: 'afternoon', label: 'Afternoon', icon: 'partly-sunny-outline' },
-                                                        { id: 'evening', label: 'Evening', icon: 'moon-outline' },
-                                                    ].map((time) => (
-                                                        <TouchableOpacity
-                                                            key={time.id}
-                                                            onPress={() => { selectionFeedback(); setActiveTimeFilter(time.id as TimeFilter); }}
-                                                            style={{
-                                                                flex: 1,
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                paddingVertical: 12,
-                                                                borderRadius: 16,
-                                                                backgroundColor: activeTimeFilter === time.id ? accentColor : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)'),
-                                                            }}
-                                                        >
-                                                            <Ionicons name={time.icon as any} size={18} color={activeTimeFilter === time.id ? 'white' : colors.textSecondary} />
-                                                            <Text style={{ color: activeTimeFilter === time.id ? 'white' : colors.textSecondary, fontSize: 11, marginTop: 6, fontFamily: 'Lexend_500Medium' }}>{time.label}</Text>
-                                                        </TouchableOpacity>
-                                                    ))}
-                                                </View>
-                                            </View>
-
-                                            {goals.length > 0 && (
-                                                <View style={{ marginBottom: 18 }}>
-                                                    <Text style={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600', letterSpacing: 1.2, marginBottom: 10, marginLeft: 2 }}>GOAL</Text>
-                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, paddingHorizontal: 16 }}>
-                                                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                            <TouchableOpacity
-                                                                onPress={() => { selectionFeedback(); setSelectedGoalFilter(null); }}
-                                                                style={{
-                                                                    paddingHorizontal: 14,
-                                                                    paddingVertical: 10,
-                                                                    borderRadius: 18,
-                                                                    backgroundColor: selectedGoalFilter === null ? accentColor : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)'),
-                                                                }}
-                                                            >
-                                                                <Text style={{ color: selectedGoalFilter === null ? 'white' : colors.textSecondary, fontSize: 12, fontWeight: '600', fontFamily: 'Lexend_500Medium' }}>All goals</Text>
-                                                            </TouchableOpacity>
-                                                            {goals.map((goal) => (
-                                                                <TouchableOpacity
-                                                                    key={goal.id}
-                                                                    onPress={() => { selectionFeedback(); setSelectedGoalFilter(selectedGoalFilter === goal.id ? null : goal.id); }}
-                                                                    style={{
-                                                                        flexDirection: 'row',
-                                                                        alignItems: 'center',
-                                                                        gap: 6,
-                                                                        paddingHorizontal: 14,
-                                                                        paddingVertical: 10,
-                                                                        borderRadius: 18,
-                                                                        backgroundColor: selectedGoalFilter === goal.id ? (goal.color || accentColor) : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)'),
-                                                                    }}
-                                                                >
-                                                                    <Ionicons name={(goal.icon as any) || 'flag-outline'} size={13} color={selectedGoalFilter === goal.id ? 'white' : colors.textSecondary} />
-                                                                    <Text style={{ color: selectedGoalFilter === goal.id ? 'white' : colors.textSecondary, fontSize: 12, fontWeight: '600', fontFamily: 'Lexend_500Medium' }} numberOfLines={1}>
-                                                                        {goal.name.length > 14 ? `${goal.name.slice(0, 14)}…` : goal.name}
-                                                                    </Text>
-                                                                </TouchableOpacity>
-                                                            ))}
-                                                        </View>
-                                                    </ScrollView>
-                                                </View>
-                                            )}
-
-                                            <View style={{ marginBottom: 18 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginLeft: 2 }}>
-                                                    <Text style={{ color: colors.textSecondary, fontSize: 10, fontWeight: '600', letterSpacing: 1.2 }}>ORDER</Text>
-                                                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                                                        <TouchableOpacity onPress={() => { selectionFeedback(); const all: Record<string, boolean> = {}; goals.forEach(g => all[g.id] = true); setExpandedGoals(all); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                                            <Ionicons name="chevron-expand-outline" size={16} color={colors.textSecondary} />
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity onPress={() => { selectionFeedback(); setExpandedGoals({}); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                                            <Ionicons name="contract-outline" size={16} color={colors.textSecondary} />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </View>
-                                                <View style={{ flexDirection: 'row', gap: 8 }}>
-                                                    {[
-                                                        { id: 'default', label: 'Natural', icon: 'layers-outline' },
-                                                        { id: 'name', label: 'A-Z', icon: 'text-outline' },
-                                                        { id: 'progress', label: 'Momentum', icon: 'trending-up-outline' },
-                                                    ].map((item) => (
-                                                        <TouchableOpacity
-                                                            key={item.id}
-                                                            onPress={() => { selectionFeedback(); setActiveSort(item.id as SortType); }}
-                                                            style={{
-                                                                flex: 1,
-                                                                flexDirection: 'row',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                gap: 6,
-                                                                paddingVertical: 12,
-                                                                borderRadius: 16,
-                                                                backgroundColor: activeSort === item.id ? accentColor : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)'),
-                                                            }}
-                                                        >
-                                                            <Ionicons name={item.icon as any} size={14} color={activeSort === item.id ? 'white' : colors.textSecondary} />
-                                                            <Text style={{ color: activeSort === item.id ? 'white' : colors.textSecondary, fontSize: 12, fontWeight: '700', fontFamily: 'Lexend_500Medium' }}>{item.label}</Text>
-                                                        </TouchableOpacity>
-                                                    ))}
-                                                </View>
-                                            </View>
-
-                                            <TouchableOpacity
-                                                onPress={closeFilterModal}
-                                                style={{
-                                                    marginTop: 8,
-                                                    backgroundColor: accentColor,
-                                                    borderRadius: 18,
-                                                    paddingVertical: 15,
-                                                    alignItems: 'center',
-                                                }}
-                                            >
-                                                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700', fontFamily: 'Lexend_500Medium' }}>
-                                                    See My Roadmap
-                                                </Text>
-                                            </TouchableOpacity>
-
-                                        </ScrollView>
-                                    </Animated.View>
-                                </GestureDetector>
-                            </View>
-                        </Modal>
-                    )}
                 </View>
             </SafeAreaView>
 

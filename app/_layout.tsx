@@ -24,7 +24,6 @@ import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 import { AppSettingsProvider } from '@/constants/AppSettingsContext';
 import { AccentProvider } from '@/constants/AccentContext';
 import { FocusTimeProvider, useFocusTime } from '@/constants/FocusTimeContext';
-import { RoutineProvider } from '@/constants/RoutineContext';
 import { CreationModal } from '@/components/CreationModal';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
 import RevenueCatService from '@/lib/RevenueCat';
@@ -149,13 +148,11 @@ export default function MobileLayout() {
           <AIPersonalityProvider>
             <AccentProvider>
               <FocusTimeProvider>
-                <RoutineProvider>
                   <GestureHandlerRootView style={{ flex: 1 }}>
                     <BiometricGuard>
                       <InnerLayout />
                     </BiometricGuard>
                   </GestureHandlerRootView>
-                </RoutineProvider>
               </FocusTimeProvider>
             </AccentProvider>
           </AIPersonalityProvider>

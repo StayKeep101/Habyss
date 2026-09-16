@@ -1,23 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, TouchableOpacity, Modal, StyleSheet, Dimensions, StyleProp, ViewStyle } from 'react-native';
+import React from 'react';
+import { View, Pressable, Modal, StyleSheet, useWindowDimensions, StyleProp, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withTiming,
-    withDelay,
-    Easing,
-    runOnJS,
-    interpolate,
-    Extrapolation,
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
-import { s, vs } from '@/constants/Layout';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const DRAG_THRESHOLD = 100;
 
 interface VoidModalProps {
     visible: boolean;
@@ -27,131 +15,39 @@ interface VoidModalProps {
     style?: StyleProp<ViewStyle>;
 }
 
-export const VoidModal: React.FC<VoidModalProps> = ({
-    visible,
-    onClose,
-    children,
-    heightPercentage = 0.75,
-    style
-}) => {
+export const VoidModal: React.FC<VoidModalProps> = ({ visible, onClose, children, heightPercentage = 0.75, style }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
+    const { height } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
+    const background: [string, string] = theme === 'light' ? ['#FFFFFF', '#F7FAFF'] : theme === 'trueDark' ? ['#030303', '#000000'] : ['#0f1218', '#080a0e'];
+    const dismissGesture = Gesture.Pan().onEnd(event => {
+        if (event.translationY > 60 || event.velocityY > 500) runOnJS(onClose)();
+    });
 
-    const SHEET_HEIGHT = SCREEN_HEIGHT * heightPercentage;
-    const [isOpen, setIsOpen] = useState(false);
-
-    const translateY = useSharedValue(SHEET_HEIGHT);
-    const backdropOpacity = useSharedValue(0);
-    const contentOpacity = useSharedValue(0);
-
-    const openModal = useCallback(() => {
-        setIsOpen(true);
-        translateY.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
-        backdropOpacity.value = withTiming(1, { duration: 300 });
-        contentOpacity.value = withDelay(200, withTiming(1, { duration: 400 }));
-    }, [SHEET_HEIGHT]);
-
-    const closeModal = useCallback(() => {
-        contentOpacity.value = withTiming(0, { duration: 150 });
-        translateY.value = withTiming(SHEET_HEIGHT, { duration: 300, easing: Easing.in(Easing.cubic) });
-        backdropOpacity.value = withTiming(0, { duration: 250 });
-        setTimeout(() => { setIsOpen(false); onClose(); }, 300);
-    }, [onClose, SHEET_HEIGHT]);
-
-    useEffect(() => {
-        if (visible && !isOpen) openModal();
-        else if (!visible && isOpen) closeModal();
-    }, [visible]);
-
-    const panGesture = Gesture.Pan()
-        .onUpdate((event) => { if (event.translationY > 0) translateY.value = event.translationY; })
-        .onEnd((event) => {
-            if (event.translationY > DRAG_THRESHOLD || event.velocityY > 500) runOnJS(closeModal)();
-            else translateY.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
-        });
-
-    const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
-    const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(translateY.value, [0, SHEET_HEIGHT], [1, 0], Extrapolation.CLAMP) }));
-    const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
-
-    // Determine Gradient Colors based on Theme
-    let bgColors: string[] = ['#0f1218', '#080a0e'];
-    if (isLight) {
-        bgColors = ['#FFFFFF', '#F7FAFF'];
-    } else if (isTrueDark) {
-        bgColors = ['#030303', '#000000'];
-    }
-
-    if (!isOpen && !visible) return null;
-
+    // A single controlled native modal owns presentation. No delayed close callback
+    // can reopen the sheet or leave a transparent view intercepting touches.
     return (
-        <Modal visible={isOpen || visible} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
-            <View style={styles.container}>
-                <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
-                    <TouchableOpacity style={[StyleSheet.absoluteFill, { backgroundColor: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.7)' }]} activeOpacity={1} onPress={closeModal} />
-                </Animated.View>
-
-                <GestureDetector gesture={panGesture}>
-                    <Animated.View style={[styles.sheet, { height: SHEET_HEIGHT }, sheetStyle, style]}>
-                        <LinearGradient colors={bgColors as [string, string, ...string[]]} style={StyleSheet.absoluteFill} />
-                        <LinearGradient
-                            colors={
-                                isLight
-                                    ? ['rgba(59,130,246,0.08)', 'transparent']
-                                    : ['rgba(139,173,214,0.08)', 'transparent']
-                            }
-                            style={[StyleSheet.absoluteFill, { height: 140 }]}
-                            start={{ x: 0.5, y: 0 }}
-                            end={{ x: 0.5, y: 1 }}
-                        />
-                        <View
-                            style={[
-                                StyleSheet.absoluteFill,
-                                styles.sheetBorder,
-                                { borderColor: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.08)' }
-                            ]}
-                        />
-                        <View style={[styles.dragHandle, { backgroundColor: isLight ? 'rgba(15,23,42,0.14)' : 'rgba(255,255,255,0.16)' }]} />
-
-                        <Animated.View style={[{ flex: 1 }, contentStyle]}>
-                            {children}
-                        </Animated.View>
-                    </Animated.View>
-                </GestureDetector>
-            </View>
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+            <GestureHandlerRootView style={styles.container}>
+                <Pressable accessibilityLabel="Close sheet" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.55)' }]} onPress={onClose} />
+                <View accessibilityViewIsModal style={[styles.sheet, { height: Math.min(height * heightPercentage, height - insets.top - 8), paddingBottom: Math.max(insets.bottom, 12), borderColor: colors.border }, style]}>
+                    <LinearGradient colors={background} style={StyleSheet.absoluteFill} />
+                    <GestureDetector gesture={dismissGesture}>
+                        <View style={styles.handleArea}>
+                            <View style={[styles.handle, { backgroundColor: colors.textTertiary }]} />
+                        </View>
+                    </GestureDetector>
+                    <View style={{ flex: 1 }}>{children}</View>
+                </View>
+            </GestureHandlerRootView>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, justifyContent: 'flex-end' },
-    sheet: {
-        width: '100%',
-        borderTopLeftRadius: s(24),
-        borderTopRightRadius: s(24),
-        overflow: 'hidden',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.16,
-        shadowRadius: s(20),
-        elevation: 10,
-    },
-    sheetBorder: {
-        borderTopLeftRadius: s(24),
-        borderTopRightRadius: s(24),
-        borderWidth: 1,
-        borderBottomWidth: 0,
-        pointerEvents: 'none'
-    },
-    dragHandle: {
-        position: 'absolute',
-        top: vs(10),
-        alignSelf: 'center',
-        width: s(42),
-        height: vs(5),
-        borderRadius: s(999),
-        zIndex: 2,
-    },
+    sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', borderWidth: 1, borderBottomWidth: 0 },
+    handleArea: { height: 20, alignItems: 'center', justifyContent: 'center' },
+    handle: { width: 40, height: 4, borderRadius: 2, opacity: 0.45 },
 });

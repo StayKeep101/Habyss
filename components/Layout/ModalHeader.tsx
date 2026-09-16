@@ -1,4 +1,5 @@
 import React from 'react';
+import { ShareButton, ShareSummary } from '@/components/Common/ShareButton';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
@@ -10,6 +11,7 @@ interface ModalHeaderProps {
     subtitle?: string;
     onBack?: () => void;
     onAction?: () => void;
+    shareSummary?: ShareSummary;
     actionIcon?: keyof typeof Ionicons.glyphMap;
 }
 
@@ -18,7 +20,8 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
     subtitle,
     onBack,
     onAction,
-    actionIcon = 'share-social',
+    actionIcon = 'share-outline',
+    shareSummary,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -33,10 +36,8 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
                 <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
                 {subtitle ? <Text style={[styles.subtitle, { color: accentColor }]}>{subtitle}</Text> : null}
             </View>
-            {onAction ? (
-                <TouchableOpacity onPress={onAction} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
-                    <Ionicons name={actionIcon} size={20} color={accentColor} />
-                </TouchableOpacity>
+            {onAction || shareSummary ? (
+                <ShareButton onPress={onAction} summary={shareSummary} variant={actionIcon === 'person-add-outline' ? 'friend' : 'share'} />
             ) : (
                 <View style={styles.iconButtonPlaceholder} />
             )}
@@ -49,7 +50,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: 20,
+        paddingTop: 4,
         paddingBottom: 16,
         borderBottomWidth: 1,
     },
@@ -69,7 +70,7 @@ const styles = StyleSheet.create({
         height: 40,
     },
     title: {
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: '900',
         letterSpacing: 1,
         fontFamily: 'Lexend',

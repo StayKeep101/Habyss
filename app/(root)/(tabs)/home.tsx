@@ -66,7 +66,6 @@ const FREE_PROMOS = [
   "Upgrade to Pro for unlimited goals",
   "Pro: Advanced stats & AI motivation",
   "Unlock your full potential with Pro",
-  "Pro users see 3x better habit retention",
   "Get AI-powered habit suggestions with Pro",
 ];
 
@@ -77,10 +76,11 @@ import { StreakCard } from '@/components/Home/StreakCard';
 import { StreakSuccessModal } from '@/components/Home/StreakSuccessModal';
 import { ConsistencyCard } from '@/components/Home/ConsistencyCard';
 import { StreakModal } from '@/components/Home/StreakModal';
-import { AnalyticsDashboard } from '@/components/Home/AnalyticsDashboard';
+import { goalActivityDays, activityStreaks } from '@/lib/goalActivity';
+import { localDateKey } from '@/lib/habitSchedule';
+import { LifeAreaMatrixCard } from '@/components/Home/LifeAreaMatrixCard';
 import { ConsistencyModal } from '@/components/Home/ConsistencyModal';
 import { FocusTimeCard } from '@/components/Home/FocusTimeCard';
-import { RoutineCard } from '@/components/Home/RoutineCard';
 import { TodaysCompletionCard } from '@/components/Home/TodaysCompletionCard';
 import { CompletionModal } from '@/components/Home/CompletionModal';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -459,65 +459,23 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
   }, [goals, goals.length, goalProgressMap]);
 
   // Calculate streak (goal-based: streak++ if ALL habits for ANY goal completed)
-  const { streak, completionTier, completedDaysPerGoal } = useMemo(() => {
-    let currentStreak = 0;
+  const { streak, completionTier, completedDaysPerGoal, streakDates } = useMemo(() => {
+    const today = localDateKey(new Date());
     const completedDaysPerGoal: Record<string, string[]> = {};
-
-    // Initialize
-    goals.forEach(g => { completedDaysPerGoal[g.id] = []; });
-
-    // Check each day for goal completion
-    // MERGE TODAY'S COMPLETIONS INTO HISTORY for instant updates
-    const todayStr = new Date().toISOString().split('T')[0];
-    const sortedHistory = historyData.map(d => {
-      if (d.date === todayStr) {
-        // Use current 'completions' state for today to ensure we have latest data
-        const todayCompletedIds = Object.keys(completions).filter(id => completions[id]);
-        return { ...d, completedIds: todayCompletedIds };
-      }
-      return d;
-    }).sort((a, b) => b.date.localeCompare(a.date));
-
-    for (const dayData of sortedHistory) {
-      let anyGoalComplete = false;
-
-      goals.forEach(goal => {
-        const goalHabits = habits.filter(h => h.goalId === goal.id);
-        if (goalHabits.length === 0) return;
-
-        const allDone = goalHabits.every(h => dayData.completedIds?.includes(h.id));
-        if (allDone) {
-          anyGoalComplete = true;
-          completedDaysPerGoal[goal.id].push(dayData.date);
-        }
-      });
-
-      if (anyGoalComplete) {
-        currentStreak++;
-      } else {
-        break; // Streak broken
-      }
-    }
-
-    // Calculate completion tier for today
-    let goalsCompleteToday = 0;
-    goals.forEach(goal => {
-      const goalHabits = habits.filter(h => h.goalId === goal.id);
-      if (goalHabits.length === 0) return;
-      const allDone = goalHabits.every(h => completions[h.id]);
-      if (allDone) goalsCompleteToday++;
+    const allDays = goals.map(goal => {
+      const days = goalActivityDays(habits.filter(h => h.goalId === goal.id), historyData, completions);
+      completedDaysPerGoal[goal.id] = days.filter(day => day.complete).map(day => day.date);
+      return days;
     });
-
-    let tier = 0;
-    if (goals.length > 0) {
-      const ratio = goalsCompleteToday / goals.length;
-      if (ratio >= 1) tier = 4;
-      else if (ratio >= 0.75) tier = 3;
-      else if (ratio >= 0.5) tier = 2;
-      else if (ratio >= 0.25) tier = 1;
-    }
-
-    return { streak: currentStreak, completionTier: tier, completedDaysPerGoal };
+    if (!goals.length) allDays.push(goalActivityDays(habits, historyData, completions));
+    const dates = [...new Set(allDays.flatMap(days => days.map(day => day.date)))].sort();
+    const combined = dates.map(date => {
+      const days = allDays.flatMap(group => group.filter(day => day.date === date));
+      return { date, scheduledIds: days.flatMap(day => day.scheduledIds), completedIds: days.flatMap(day => day.completedIds), complete: days.some(day => day.complete) };
+    });
+    const goalsDone = allDays.filter(days => days.find(day => day.date === today)?.complete).length;
+    return { streak: activityStreaks(combined, today).current, completionTier: allDays.length ? Math.floor(goalsDone / allDays.length * 4) : 0,
+      completedDaysPerGoal, streakDates: combined.filter(day => day.complete).map(day => day.date) };
   }, [goals, habits, historyData, completions]);
 
   // Calculate consistency score per goal
@@ -542,7 +500,7 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
       let scheduledDays = 0;
 
       historyData.forEach(day => {
-        const dayDate = new Date(day.date);
+        const dayDate = new Date(day.date + 'T12:00:00');
 
         // Filter habits that were actually scheduled for this specific historical date
         const scheduledHabits = goalHabits.filter(h => isHabitScheduledForDate(h, dayDate));
@@ -840,14 +798,9 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
             <FocusTimeCard />
           </Animated.View>
 
-          {/* Routines Section */}
-          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={{ marginTop: sectionGap }}>
-            <RoutineCard />
-          </Animated.View>
-
           {/* Analytics Dashboard (Life Balance Matrix) */}
           <View style={{ marginTop: sectionGap }}>
-            <AnalyticsDashboard habits={habits} completions={completions} history={historyData} />
+            <LifeAreaMatrixCard habits={habits} completions={completions} history={historyData} />
           </View>
 
         </ScrollView>
@@ -856,13 +809,15 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
           visible={showStreakModal}
           onClose={() => setShowStreakModal(false)}
           goals={goals}
-          completedDays={completedDaysPerGoal}
-          streak={streak}
+          habits={habits}
+          history={historyData}
+          completions={completions}
         />
 
         <StreakSuccessModal
           visible={showStreakSuccessModal}
           streak={streak}
+          completedDates={streakDates}
           onClose={() => setShowStreakSuccessModal(false)}
         />
         <ConsistencyModal
@@ -870,8 +825,8 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
           onClose={() => setShowConsistencyModal(false)}
           goals={goals}
           habits={habits} // Pass habits for graph calculation
-          goalConsistency={goalConsistency}
-          avgConsistency={avgConsistency}
+          history={historyData}
+          completions={completions}
         />
         <CompletionModal
           visible={showCompletionModal}

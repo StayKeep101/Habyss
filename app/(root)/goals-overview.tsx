@@ -13,6 +13,7 @@ import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { GoalProgressGraph } from '@/components/Goal/GoalProgressGraph';
+import { ShareButton } from '@/components/Common/ShareButton';
 import { GoalStats } from '@/components/Goal/GoalStats';
 
 const { width } = Dimensions.get('window');
@@ -49,7 +50,7 @@ const GoalsOverview = () => {
         load();
     }, []);
 
-    const goals = useMemo(() => allHabits.filter(h => h.isGoal), [allHabits]);
+    const goals = useMemo(() => allHabits.filter(h => h.isGoal && !h.isArchived), [allHabits]);
     const habits = useMemo(() => allHabits.filter(h => !h.isGoal), [allHabits]);
     const selectedGoal = useMemo(
         () => goals.find((goal) => goal.id === selectedGoalId) || goals[0] || null,
@@ -132,9 +133,7 @@ const GoalsOverview = () => {
                         <Text style={[styles.title, { color: colors.text }]}>GOAL PROGRESS</Text>
                         <Text style={[styles.subtitle, { color: accentColor }]}>OVERVIEW</Text>
                     </View>
-                    <TouchableOpacity onPress={() => setShowShare(true)} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
-                        <Ionicons name="share-social" size={20} color={accentColor} />
-                    </TouchableOpacity>
+                    <ShareButton summary={{ title: 'Goal progress', value: avgProgress + '%', subtitle: goals.length + ' active goals' }} />
                 </View>
 
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -148,15 +147,6 @@ const GoalsOverview = () => {
                             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GOALS</Text>
                         </VoidCard>
                         <VoidCard glass style={[styles.statCard, { padding: 0, overflow: 'hidden' }]}>
-                            {/* Background Graph */}
-                            <View style={StyleSheet.absoluteFill}>
-                                <GoalProgressGraph
-                                    height={100}
-                                    width={(width - 50) / 2}
-                                    color="#10B981"
-                                />
-                            </View>
-
                             {/* Overlay Content */}
                             <View style={{ padding: 16, alignItems: 'center', justifyContent: 'center', flex: 1 }}>
                                 <Text style={[styles.statValue, { color: colors.text, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }]}>{avgProgress}%</Text>
@@ -164,72 +154,6 @@ const GoalsOverview = () => {
                             </View>
                         </VoidCard>
                     </Animated.View>
-
-                    {selectedGoal && (
-                        <>
-                            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>MISSION CONTROL</Text>
-                            <VoidCard glass style={[styles.featuredGoalCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
-                                <View style={styles.featuredGoalHeader}>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.featuredGoalEyebrow, { color: colors.textTertiary }]}>ACTIVE GOAL</Text>
-                                        <Text style={[styles.featuredGoalTitle, { color: colors.textPrimary }]} numberOfLines={2}>
-                                            {selectedGoal.name}
-                                        </Text>
-                                        <Text style={[styles.featuredGoalMeta, { color: colors.textSecondary }]}>
-                                            {selectedGoalHabits.length} linked habits
-                                            {selectedGoal.targetDate ? ` • due ${new Date(selectedGoal.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
-                                        </Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        onPress={() => handleGoalPress(selectedGoal.id)}
-                                        style={[styles.openButton, { backgroundColor: accentColor + '18' }]}
-                                    >
-                                        <Ionicons name="open-outline" size={18} color={accentColor} />
-                                    </TouchableOpacity>
-                                </View>
-
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.goalChipRow}
-                                >
-                                    {goals.map((goal) => {
-                                        const isActive = goal.id === selectedGoal.id;
-                                        return (
-                                            <TouchableOpacity
-                                                key={goal.id}
-                                                onPress={() => setSelectedGoalId(goal.id)}
-                                                style={[
-                                                    styles.goalChip,
-                                                    {
-                                                        backgroundColor: isActive ? accentColor + '18' : (theme === 'light' ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
-                                                        borderColor: isActive ? accentColor + '55' : colors.border,
-                                                    }
-                                                ]}
-                                            >
-                                                <Ionicons
-                                                    name={(goal.icon as any) || 'flag'}
-                                                    size={13}
-                                                    color={isActive ? accentColor : colors.textTertiary}
-                                                />
-                                                <Text
-                                                    style={[
-                                                        styles.goalChipText,
-                                                        { color: isActive ? accentColor : colors.textSecondary }
-                                                    ]}
-                                                    numberOfLines={1}
-                                                >
-                                                    {goal.name}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </ScrollView>
-
-                                <GoalStats goal={selectedGoal} habits={selectedGoalHabits} />
-                            </VoidCard>
-                        </>
-                    )}
 
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ALL GOALS</Text>
                     <View style={styles.grid}>

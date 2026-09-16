@@ -1,6 +1,8 @@
+import { ShareButton } from '@/components/Common/ShareButton';
+import { HabitCreationModal } from '@/components/HabitCreationModal';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Alert, Dimensions, ImageBackground, StyleSheet, StatusBar } from 'react-native';
-import { useGlobalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -41,7 +43,7 @@ const HEADER_HEIGHT = 380; // Taller header for better visual
 
 const GoalDetail = () => {
   const router = useRouter();
-  const params = useGlobalSearchParams();
+  const params = useLocalSearchParams();
   const goalIdParam = params.goalId;
   const goalId = Array.isArray(goalIdParam) ? goalIdParam[0] : goalIdParam;
   const { theme } = useTheme();
@@ -55,6 +57,7 @@ const GoalDetail = () => {
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [isSharedGoal, setIsSharedGoal] = useState(false);
 
   const { selectionFeedback, lightFeedback, mediumFeedback } = useHaptics();
@@ -332,35 +335,6 @@ const GoalDetail = () => {
         contentContainerStyle={{ paddingTop: HEADER_HEIGHT - 60, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={[styles.heroOverlay, headerStyle]}>
-          <View style={styles.heroContent}>
-            <View style={[styles.heroEyebrow, { backgroundColor: (goal.color || accentColor) + '18', borderColor: (goal.color || accentColor) + '30' }]}>
-              <Ionicons name={(goal.icon as any) || 'flag'} size={14} color={goal.color || accentColor} />
-              <Text style={[styles.heroEyebrowText, { color: goal.color || accentColor }]}>{goal.category.toUpperCase()}</Text>
-            </View>
-
-            <Text style={styles.heroTitle}>{goal.name}</Text>
-            <Text style={styles.heroSubtitle}>
-              {goal.description || 'Track the outcome, monitor momentum, and steer the supporting habits from one place.'}
-            </Text>
-
-            <View style={styles.heroStatsRow}>
-              <View style={styles.heroStatPill}>
-                <Text style={styles.heroStatValue}>{associatedHabits.length}</Text>
-                <Text style={styles.heroStatLabel}>habits</Text>
-              </View>
-              <View style={styles.heroStatPill}>
-                <Text style={styles.heroStatValue}>{progress}%</Text>
-                <Text style={styles.heroStatLabel}>progress</Text>
-              </View>
-              <View style={styles.heroStatPill}>
-                <Text style={styles.heroStatValue}>{daysLeft > 0 ? daysLeft : 'Now'}</Text>
-                <Text style={styles.heroStatLabel}>{daysLeft > 0 ? 'days left' : 'deadline'}</Text>
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-
         {/* Main Content Area */}
         <Animated.View entering={FadeIn.duration(500)} style={[styles.contentContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
 
@@ -380,9 +354,9 @@ const GoalDetail = () => {
 
           {/* Dashboard Header */}
           <View style={{ marginTop: 50, paddingHorizontal: 20 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ gap: 14 }}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.dashboardLabel, { color: colors.textTertiary }]}>GOAL DASHBOARD</Text>
+                <Text style={[styles.dashboardLabel, { color: colors.textTertiary }]}>GOAL</Text>
                 <Text style={[styles.goalTitle, { color: colors.text }]}>{goal.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} style={{ marginRight: 4 }} />
@@ -393,11 +367,9 @@ const GoalDetail = () => {
               {/* Edit/Delete Actions - Only show for owned goals */}
               {!isSharedGoal ? (
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity onPress={() => setShowShareModal(true)} style={[styles.miniActionBtn, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                    <Ionicons name="share-social" size={16} color="#3B82F6" />
-                  </TouchableOpacity>
+                  <ShareButton variant="friend" onPress={() => setShowShareModal(true)} />
                   <TouchableOpacity onPress={handleEditGoal} style={[styles.miniActionBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                    <Ionicons name="pencil" size={16} color="white" />
+                    <Ionicons name="pencil" size={18} color={colors.text} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleDeleteGoal} style={[styles.miniActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
                     <Ionicons name="trash" size={16} color="#EF4444" />
@@ -416,54 +388,11 @@ const GoalDetail = () => {
             )}
           </View>
 
-          <View style={styles.dashboardGrid}>
-            <VoidCard glass style={[styles.dashboardCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
-              <Text style={[styles.dashboardCardLabel, { color: colors.textTertiary }]}>Completion</Text>
-              <Text style={[styles.dashboardCardValue, { color: goal.color || accentColor }]}>{progress}%</Text>
-              <Text style={[styles.dashboardCardHint, { color: colors.textSecondary }]}>live goal score</Text>
-            </VoidCard>
-            <VoidCard glass style={[styles.dashboardCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
-              <Text style={[styles.dashboardCardLabel, { color: colors.textTertiary }]}>Attached Habits</Text>
-              <Text style={[styles.dashboardCardValue, { color: colors.text }]}>{associatedHabits.length}</Text>
-              <Text style={[styles.dashboardCardHint, { color: colors.textSecondary }]}>systems driving this goal</Text>
-            </VoidCard>
-            <VoidCard glass style={[styles.dashboardCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
-              <Text style={[styles.dashboardCardLabel, { color: colors.textTertiary }]}>Completed Today</Text>
-              <Text style={[styles.dashboardCardValue, { color: colors.text }]}>{associatedHabits.filter(habit => completions[habit.id]).length}</Text>
-              <Text style={[styles.dashboardCardHint, { color: colors.textSecondary }]}>checked habits now</Text>
-            </VoidCard>
-            <VoidCard glass style={[styles.dashboardCard, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
-              <Text style={[styles.dashboardCardLabel, { color: colors.textTertiary }]}>Runway</Text>
-              <Text style={[styles.dashboardCardValue, { color: colors.text }]}>{goal.targetDate ? daysLeft : 'Open'}</Text>
-              <Text style={[styles.dashboardCardHint, { color: colors.textSecondary }]}>{goal.targetDate ? 'days remaining' : 'no deadline set'}</Text>
-            </VoidCard>
-          </View>
-
-
-          {/* Void Tabs */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity onPress={() => { mediumFeedback(); setActiveTab('habits'); }} style={{ flex: 1 }}>
-              <VoidCard glass intensity={activeTab === 'habits' ? 50 : 10} style={[styles.tab, activeTab === 'habits' && { backgroundColor: colors.surfaceSecondary }]}>
-                <Text style={[styles.tabText, activeTab === 'habits' ? { color: colors.text } : { color: colors.textTertiary }]}>Habits</Text>
-              </VoidCard>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { mediumFeedback(); setActiveTab('stats'); }} style={{ flex: 1 }}>
-              <VoidCard glass intensity={activeTab === 'stats' ? 50 : 10} style={[styles.tab, activeTab === 'stats' && { backgroundColor: colors.surfaceSecondary }]}>
-                <Text style={[styles.tabText, activeTab === 'stats' ? { color: colors.text } : { color: colors.textTertiary }]}>Dashboard</Text>
-              </VoidCard>
-            </TouchableOpacity>
-          </View>
-
           {/* Content Switching */}
           <VoidCard glass style={[styles.mainPanel, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
-            {activeTab === 'stats' ? (
-              <Animated.View entering={FadeInDown}>
-                <GoalStats goal={goal} habits={associatedHabits} />
-              </Animated.View>
-            ) : (
               <Animated.View entering={FadeIn}>
                 <View style={{ marginBottom: 16 }}>
-                  <Text style={styles.sectionTitle}>Checklist</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Habits</Text>
                 </View>
 
                 {associatedHabits.length > 0 ? (
@@ -476,7 +405,7 @@ const GoalDetail = () => {
                           habit={{ ...habit, completed: !!completions[habit.id] }}
                           onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
                           onToggle={() => handleHabitPress(habit)}
-                          onEdit={(h) => router.push({ pathname: '/create', params: { id: h.id, goalId: goalId as string } })}
+                          onEdit={setEditingHabit}
                           onDelete={handleDeleteHabit}
                           size="standard"
                         />
@@ -497,11 +426,11 @@ const GoalDetail = () => {
                   </VoidCard>
                 )}
               </Animated.View>
-            )}
           </VoidCard>
 
         </Animated.View>
       </Animated.ScrollView>
+      {editingHabit && <HabitCreationModal visible initialHabit={editingHabit} goalId={editingHabit.goalId} listenToGlobalEvents={false} onClose={() => setEditingHabit(null)} />}
       <ShareGoalModal
         visible={showShareModal}
         onClose={() => setShowShareModal(false)}
