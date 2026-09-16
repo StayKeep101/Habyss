@@ -170,7 +170,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     };
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.75}>
+        <VoidModal visible={visible} onClose={onClose}>
             <View style={styles.content}>
                 <ModalHeader
                     title="Notifications"

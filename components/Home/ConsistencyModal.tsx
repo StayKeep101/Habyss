@@ -24,7 +24,7 @@ export const ConsistencyModal = ({ visible, onClose, goals, habits, history, com
     }), [goals, habits, history, completions]);
     const tracked = breakdown.filter(item => item.scheduled > 0);
     const average = tracked.length ? Math.round(tracked.reduce((sum, item) => sum + item.score, 0) / tracked.length) : 0;
-    return <VoidModal visible={visible} onClose={onClose} heightPercentage={0.78}>
+    return <VoidModal visible={visible} onClose={onClose}>
         <ModalHeader title="CONSISTENCY" onBack={onClose} shareSummary={{ title: 'Consistency', value: average + '%', subtitle: 'Average goal consistency · last 90 days' }} />
         <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
             <Text style={{ color: colors.textSecondary, fontSize: 11, letterSpacing: 1, fontFamily: 'Lexend_500Medium' }}>MISSION BREAKDOWN</Text>

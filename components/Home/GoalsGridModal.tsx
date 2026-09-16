@@ -36,7 +36,7 @@ export const GoalsGridModal: React.FC<GoalsGridModalProps> = ({ visible, onClose
     const avgProgress = goals.length > 0 ? Math.round(goals.reduce((sum, g) => sum + (goalProgress[g.id] || 0), 0) / goals.length) : 0;
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.75}>
+        <VoidModal visible={visible} onClose={onClose}>
             <View style={{ flex: 1 }}>
                 {/* Header */}
                 <View style={[styles.header, { borderBottomColor: colors.border }]}>

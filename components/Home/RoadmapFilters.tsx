@@ -27,7 +27,7 @@ export const RoadmapFilters = (props: Props) => {
             {arrow && <Ionicons name={props.direction === 1 ? 'arrow-up' : 'arrow-down'} size={14} color={primary} />}
         </TouchableOpacity>;
     const label = (title: string, hint: string) => <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}><Text style={{ color: colors.text, fontSize: 12, fontFamily: 'Lexend_500Medium' }}>{title}</Text><Text style={{ color: colors.textTertiary, fontSize: 11 }}>{hint}</Text></View>;
-    return <VoidModal visible={props.visible} onClose={props.onClose} heightPercentage={0.64}>
+    return <VoidModal visible={props.visible} onClose={props.onClose}>
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 14 }}>
             <Text style={{ flex: 1, color: colors.text, fontSize: 18, fontFamily: 'Lexend_600SemiBold' }}>Filter roadmap</Text>
             <TouchableOpacity onPress={props.onReset} style={{ padding: 10 }}><Text style={{ color: primary, fontSize: 13 }}>Reset</Text></TouchableOpacity>

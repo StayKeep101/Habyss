@@ -834,7 +834,7 @@ USER REQUEST: ${content}
     };
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.92} style={styles.modalShell}>
+        <VoidModal visible={visible} onClose={onClose}>
             <View style={styles.contentOverlay}>
                 <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
                     <Animated.View style={[styles.glowEffect, glowStyle]}>
@@ -1064,10 +1064,6 @@ USER REQUEST: ${content}
 };
 
 const styles = StyleSheet.create({
-    modalShell: {
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-    },
     contentOverlay: {
         flex: 1,
         overflow: 'hidden',

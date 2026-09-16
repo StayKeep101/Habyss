@@ -85,7 +85,7 @@ export const FocusHistoryModal: React.FC<Props> = ({ visible, onClose }) => {
     })();
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.86}>
+        <VoidModal visible={visible} onClose={onClose}>
             <View style={{ flex: 1 }}>
                 <ModalHeader
                     title="FOCUS"

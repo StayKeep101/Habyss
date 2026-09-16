@@ -99,7 +99,7 @@ export const ShareParticipantsSheet: React.FC<ShareParticipantsSheetProps> = ({
     };
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.7}>
+        <VoidModal visible={visible} onClose={onClose}>
             <View style={{ flex: 1 }}>
                 <ModalHeader title={title} subtitle={subtitle.toUpperCase()} onBack={onClose} />
 

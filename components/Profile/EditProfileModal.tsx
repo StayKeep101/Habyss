@@ -186,7 +186,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     };
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.85}>
+        <VoidModal visible={visible} onClose={onClose}>
             <View style={{ flex: 1, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
                 <ModalHeader
                     title="Edit Profile"

@@ -20,7 +20,7 @@ export const StreakSuccessModal = ({ visible, streak, onClose, completedDates = 
         const date = new Date(today); date.setDate(today.getDate() - today.getDay() + index);
         return { date, key: localDateKey(date) };
     });
-    return <VoidModal visible={visible} onClose={onClose} heightPercentage={0.62}>
+    return <VoidModal visible={visible} onClose={onClose}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }} bounces={false}>
             <Animated.View entering={ZoomIn.springify()} style={{ width: 90, height: 90, borderRadius: 28, backgroundColor: '#F9731620', alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="flame" size={62} color="#FF9D23" />

@@ -239,7 +239,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     };
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.85}>
+        <VoidModal visible={visible} onClose={onClose}>
             <View style={{ flex: 1 }}>
                 <ModalHeader title="Add Crew" subtitle="INVITE FRIENDS" onBack={onClose} />
 

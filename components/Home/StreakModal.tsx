@@ -54,7 +54,7 @@ export const StreakModal = ({ visible, onClose, goals, habits, history, completi
         const first = new Date(); first.setDate(1); first.setMonth(first.getMonth() + offset);
         setSelectedDate(offset === 0 ? today : localDateKey(first));
     };
-    return <VoidModal visible={visible} onClose={onClose} heightPercentage={0.86}>
+    return <VoidModal visible={visible} onClose={onClose}>
         <ModalHeader title="STREAK" onBack={onClose} shareSummary={{ title: goal ? goal.name + ' streak' : 'Streak', value: streaks.current + ' days', subtitle: checkIns + ' completed days · ' + monthLabel }} />
         {!goal ? <View style={styles.empty}><Ionicons name="flag-outline" size={32} color={primary} /><Text style={{ color: colors.textSecondary, textAlign: 'center' }}>Create a goal and link habits to track its streak.</Text></View> :
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

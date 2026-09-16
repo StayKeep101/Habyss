@@ -23,7 +23,7 @@ export const CompletionModal = ({ visible, onClose, habits, completions, onToggl
     const done = today.filter(h => completions[h.id]).length;
     const percent = today.length ? Math.round(done / today.length * 100) : 0;
     const shown = today.filter(h => filter === 'all' || (filter === 'done' ? completions[h.id] : !completions[h.id]));
-    return <VoidModal visible={visible} onClose={onClose} heightPercentage={0.78}>
+    return <VoidModal visible={visible} onClose={onClose}>
         <ModalHeader title="TODAY'S HABITS" onBack={onClose} shareSummary={{ title: "Today's progress", value: percent + '%', subtitle: done + ' of ' + today.length + ' habits completed' }} />
         <View style={{ paddingHorizontal: 20, paddingVertical: 16 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>

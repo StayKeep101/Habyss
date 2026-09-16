@@ -118,7 +118,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
     const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.88}>
+        <VoidModal visible={visible} onClose={onClose}>
             <View style={{ flex: 1 }}>
                 {/* Background Atmosphere */}
                 <View style={StyleSheet.absoluteFill} pointerEvents="none">

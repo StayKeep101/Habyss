@@ -22,7 +22,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose, 
     if (!visible) return null;
 
     return (
-        <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
             <View style={styles.container}>
                 {/* Backdrop */}
                 <Animated.View
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     },
     backdrop: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        backgroundColor: 'rgba(0,0,0,0.42)',
     },
     modalWrapper: {
         borderTopLeftRadius: 24,

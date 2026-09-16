@@ -136,7 +136,7 @@ export const UnifiedInputModal: React.FC<UnifiedInputModalProps> = ({
     );
 
     return (
-        <VoidModal visible={visible} onClose={onClose} heightPercentage={0.55}>
+        <VoidModal visible={visible} onClose={onClose}>
             <View style={styles.container}>
                 <ModalHeader title={title} subtitle="EDIT VALUE" onBack={onClose} />
 
