@@ -149,7 +149,7 @@ export default function ProfileScreen() {
                             }
                         } catch (error: any) {
                             console.error('Camera error:', error);
-                            Alert.alert('Camera Error', error?.message || 'Could not access camera. If using Expo Go, please create a development build.');
+                            Alert.alert('Camera unavailable', 'Habyss could not open the camera. Check camera access in Settings and try again.');
                         }
                     }
                 },
@@ -182,7 +182,7 @@ export default function ProfileScreen() {
                             }
                         } catch (error: any) {
                             console.error('Library error:', error);
-                            Alert.alert('Photo Library Error', error?.message || 'Could not access photo library. If using Expo Go, please create a development build.');
+                            Alert.alert('Photos unavailable', 'Habyss could not open your photo library. Check photo access in Settings and try again.');
                         }
                     }
                 },
