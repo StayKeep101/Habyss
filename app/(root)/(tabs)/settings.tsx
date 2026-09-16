@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
+import { hasAnyIntegration, integrationsSummary } from '@/lib/integrationAvailability';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -225,43 +226,6 @@ export default function ProfileScreen() {
         </TouchableOpacity>
     );
 
-    // DEV ONLY: Premium Toggle Component
-    const DevPremiumToggle = ({ colors }: { colors: any }) => {
-        const [devPremium, setDevPremium] = useState(false);
-
-        useEffect(() => {
-            AsyncStorage.getItem('HABYSS_DEV_PREMIUM_OVERRIDE').then(val => setDevPremium(val === 'true'));
-        }, []);
-
-        const toggleDevPremium = async () => {
-            const newValue = !devPremium;
-            setDevPremium(newValue);
-            await AsyncStorage.setItem('HABYSS_DEV_PREMIUM_OVERRIDE', newValue ? 'true' : 'false');
-            DeviceEventEmitter.emit('dev_premium_update');
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        };
-
-        return (
-            <View style={styles.settingItem}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                    <View style={[styles.iconBox, { borderColor: '#F59E0B' }]}>
-                        <Ionicons name="diamond" size={20} color="#F59E0B" />
-                    </View>
-                    <View>
-                        <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>Force Premium</Text>
-                        <Text style={{ color: colors.textSecondary, fontSize: 10 }}>Simulate Pro status for testing</Text>
-                    </View>
-                </View>
-                <Switch
-                    trackColor={{ false: '#3e3e3e', true: '#F59E0B' }}
-                    thumbColor={colors.textPrimary}
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={toggleDevPremium}
-                    value={devPremium}
-                />
-            </View>
-        );
-    };
 
     const handleLogout = async () => {
         // Clear all cached user data
@@ -411,20 +375,13 @@ export default function ProfileScreen() {
                                             <Text style={{ fontSize: 12, fontWeight: '600', color: hapticsEnabled ? accentColor : colors.textTertiary }}>Haptics</Text>
                                         </TouchableOpacity>
                                     </View>
-
-                                    <TouchableOpacity
-                                        onPress={() => Alert.alert('Coming Soon', 'Custom sound packs (Void, Modern, Classic) coming in next update.')}
-                                        style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-                                    >
-                                        <Text style={{ fontSize: 11, color: colors.textSecondary }}>Sound Pack: Void (Default)</Text>
-                                        <Text style={{ fontSize: 11, color: accentColor, fontWeight: '600' }}>Change</Text>
-                                    </TouchableOpacity>
                                 </View>
                             </View>
                         </VoidCard>
                     </View>
 
                     {/* CONNECTIONS */}
+                    {hasAnyIntegration() && (
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>CONNECTIONS</Text>
                         <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
@@ -434,12 +391,13 @@ export default function ProfileScreen() {
                                 </LinearGradient>
                                 <View style={styles.settingContent}>
                                     <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Integrations</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Calendar, Health (Coming Soon)</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>{integrationsSummary()}</Text>
                                 </View>
                                 <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                             </TouchableOpacity>
                         </VoidCard>
                     </View>
+                    )}
 
                     {/* ACCOUNT */}
                     <View style={styles.settingsSection}>

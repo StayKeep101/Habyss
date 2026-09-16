@@ -23,9 +23,6 @@ const Privacy = () => {
   const { lightFeedback } = useHaptics();
   const { isAppLockEnabled, setIsAppLockEnabled } = useAppSettings();
 
-  const [analytics, setAnalytics] = useState(true);
-  const [crashReports, setCrashReports] = useState(true);
-
   const [deleting, setDeleting] = useState(false);
 
   const handleDeleteAccount = () => {
@@ -95,34 +92,14 @@ const Privacy = () => {
           >
             <View style={styles.row}>
               <View style={styles.rowContent}>
-                <Ionicons name="analytics-outline" size={22} color={colors.textSecondary} />
+                <Ionicons name="phone-portrait-outline" size={22} color={colors.textSecondary} />
                 <View style={styles.textContent}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>Usage Analytics</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Help improve the app</Text>
+                  <Text style={[styles.label, { color: colors.textPrimary }]}>Everything stays on this device</Text>
+                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                    Habyss has no analytics or tracking, and your habits are never uploaded to us.
+                  </Text>
                 </View>
               </View>
-              <Switch
-                value={analytics}
-                onValueChange={(v) => { lightFeedback(); setAnalytics(v); }}
-                trackColor={{ false: colors.border, true: colors.success }}
-              />
-            </View>
-
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-            <View style={styles.row}>
-              <View style={styles.rowContent}>
-                <Ionicons name="bug-outline" size={22} color={colors.textSecondary} />
-                <View style={styles.textContent}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>Crash Reports</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Send anonymous crash data</Text>
-                </View>
-              </View>
-              <Switch
-                value={crashReports}
-                onValueChange={(v) => { lightFeedback(); setCrashReports(v); }}
-                trackColor={{ false: colors.border, true: colors.success }}
-              />
             </View>
           </VoidCard>
 

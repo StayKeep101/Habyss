@@ -12,6 +12,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { IntegrationService, Integration } from '@/lib/integrationService';
 import { SpotifyService } from '@/lib/spotifyService';
+import { isHealthAvailable, isSpotifyConfigured } from '@/lib/integrationAvailability';
 import { HealthKitService } from '@/lib/healthKit';
 // import * as Calendar from 'expo-calendar'; // Removed static import
 
@@ -25,44 +26,28 @@ interface IntegrationItem {
     badge?: string;
 }
 
-const INTEGRATIONS: IntegrationItem[] = [
+const ALL_INTEGRATIONS: IntegrationItem[] = [
+    {
+        id: 'health',
+        name: 'Apple Health',
+        description: 'Save focus sessions as mindful minutes',
+        icon: 'heart-outline',
+        service: 'apple_health',
+        available: isHealthAvailable(),
+    },
     {
         id: 'spotify',
         name: 'Spotify',
         description: 'Play music while building habits',
         icon: 'musical-notes',
         service: 'spotify',
-        available: true,
+        available: isSpotifyConfigured(),
         badge: 'Beta',
     },
-    {
-        id: 'calendar',
-        name: 'Calendar',
-        description: 'Sync habits with your calendar events',
-        icon: 'calendar-outline',
-        service: 'apple_calendar',
-        available: false,
-        badge: 'Soon',
-    },
-    {
-        id: 'reminders',
-        name: 'Reminders',
-        description: 'Create reminders for your habits',
-        icon: 'notifications-outline',
-        service: 'apple_reminders',
-        available: false,
-        badge: 'Soon',
-    },
-    {
-        id: 'health',
-        name: 'Apple Health',
-        description: 'Auto-complete fitness habits from Health data',
-        icon: 'heart-outline',
-        service: 'apple_health',
-        available: Platform.OS === 'ios',
-        badge: Platform.OS === 'ios' ? undefined : 'iOS only',
-    },
 ];
+
+// Anything unavailable is filtered out rather than shown as a dead switch.
+const INTEGRATIONS: IntegrationItem[] = ALL_INTEGRATIONS.filter(item => item.available);
 
 export default function IntegrationsScreen() {
     const { theme } = useTheme();
@@ -127,10 +112,6 @@ export default function IntegrationsScreen() {
         };
     }, [loadIntegrations, successFeedback]);
 
-    const showUnavailableNotice = (name: string) => {
-        Alert.alert('Not available yet', `${name} is not ready in the app yet.`);
-    };
-
     const handleHealthToggle = async (enabled: boolean) => {
         setLoading(prev => ({ ...prev, apple_health: true }));
         try {
@@ -167,16 +148,6 @@ export default function IntegrationsScreen() {
         setLoading(prev => ({ ...prev, spotify: true }));
         try {
             if (enabled) {
-                const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID;
-                if (!clientId) {
-                    Alert.alert(
-                        'Configuration Required',
-                        'Add EXPO_PUBLIC_SPOTIFY_CLIENT_ID to your .env file.\n\n' +
-                        'Get it from: https://developer.spotify.com/dashboard'
-                    );
-                    setLoading(prev => ({ ...prev, spotify: false }));
-                    return;
-                }
                 await SpotifyService.connect();
                 Alert.alert('Spotify', 'Complete the login in your browser, then return to the app.');
             } else {
@@ -256,14 +227,8 @@ export default function IntegrationsScreen() {
                                     </View>
                                     <Switch
                                         value={integrations[item.service] || false}
-                                        onValueChange={(v) => {
-                                            if (!item.available) {
-                                                showUnavailableNotice(item.name);
-                                                return;
-                                            }
-                                            getToggleHandler(item.service)(v);
-                                        }}
-                                        disabled={loading[item.service] || !item.available}
+                                        onValueChange={(v) => getToggleHandler(item.service)(v)}
+                                        disabled={loading[item.service]}
                                         trackColor={{ false: colors.border, true: accentColor }}
                                     />
                                 </View>
