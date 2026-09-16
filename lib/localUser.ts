@@ -54,6 +54,17 @@ export async function isOnboardingComplete(): Promise<boolean> {
 /**
  * Mark onboarding as complete
  */
+/**
+ * Forgets the in-memory user id.
+ *
+ * The id is cached in module scope, so clearing storage alone would leave the
+ * deleted user's identity live until the next launch and new data would be
+ * written under it.
+ */
+export function resetLocalUserCache(): void {
+    cachedUserId = null;
+}
+
 export async function setOnboardingComplete(): Promise<void> {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
 }

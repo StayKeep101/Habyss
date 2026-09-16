@@ -7,6 +7,8 @@ import { ScrollPickerModal } from './ScrollPickerModal';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidModal } from '@/components/Layout/VoidModal';
+import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion';
+import { router } from 'expo-router';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SettingsModal } from '@/components/SettingsModal';
@@ -161,23 +163,30 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 
     const handleDeleteAccount = () => {
         Alert.alert(
-            "Delete All Data",
-            "This will clear all your local data. This action cannot be undone.",
+            "Delete account",
+            "This permanently removes your habits, streaks, history, settings and the downloaded AI model from this device. It cannot be undone, and we hold no copy to restore.\n\nAny subscription stays with your Apple ID; cancel it in Settings if you no longer want it.",
             [
                 { text: "Cancel", style: "cancel" },
                 {
                     text: "Delete",
                     style: 'destructive',
                     onPress: async () => {
-                        try {
-                            setLoading(true);
-                            await AsyncStorage.clear();
-                            Alert.alert("Data Cleared", "All local data has been deleted. The app will restart.");
-                            onClose();
-                        } catch (e) {
-                            Alert.alert("Error", "Failed to clear data.");
-                        } finally {
-                            setLoading(false);
+                        setLoading(true);
+                        const report = await deleteAllLocalData();
+                        setLoading(false);
+                        onClose();
+
+                        if (report.ok) {
+                            Alert.alert('Account deleted', 'Everything stored on this device has been removed.', [
+                                { text: 'OK', onPress: async () => { if (!(await restartAfterDeletion())) router.replace('/(auth)/welcome'); } },
+                            ]);
+                        } else {
+                            Alert.alert(
+                                'Partly deleted',
+                                `Your data was removed, except: ${report.failed.map(step => step.label).join(', ')}. ` +
+                                'Deleting the app from your device removes anything left.',
+                                [{ text: 'OK', onPress: async () => { if (!(await restartAfterDeletion())) router.replace('/(auth)/welcome'); } }],
+                            );
                         }
                     }
                 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -12,6 +12,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
 
 import { useAppSettings } from '@/constants/AppSettingsContext';
+import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion';
 
 const Privacy = () => {
   // const colorScheme = useColorScheme();
@@ -25,17 +26,42 @@ const Privacy = () => {
   const [analytics, setAnalytics] = useState(true);
   const [crashReports, setCrashReports] = useState(true);
 
+  const [deleting, setDeleting] = useState(false);
+
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Delete Account',
-      'This will permanently delete your account and all data. This cannot be undone.',
+      'Delete account',
+      'This permanently removes your habits, streaks, history, settings and the downloaded AI model from this device. It cannot be undone, and we hold no copy to restore.\n\nAny subscription stays with your Apple ID; cancel it in Settings if you no longer want it.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Delete everything',
           style: 'destructive',
-          onPress: () => Alert.alert('Account Deleted', 'Your account has been deleted.')
-        }
+          onPress: async () => {
+            setDeleting(true);
+            const report = await deleteAllLocalData();
+            setDeleting(false);
+
+            // Onboarding state is gone with the rest, so send the user back to the start.
+            const restart = async () => {
+              // A reload clears contexts and cached ids; navigation is the fallback.
+              if (!(await restartAfterDeletion())) router.replace('/(auth)/welcome');
+            };
+
+            if (report.ok) {
+              Alert.alert('Account deleted', 'Everything stored on this device has been removed.', [
+                { text: 'OK', onPress: restart },
+              ]);
+            } else {
+              Alert.alert(
+                'Partly deleted',
+                `Your data was removed, except: ${report.failed.map(step => step.label).join(', ')}. ` +
+                'Deleting the app from your device removes anything left.',
+                [{ text: 'OK', onPress: restart }],
+              );
+            }
+          },
+        },
       ]
     );
   };
@@ -134,9 +160,16 @@ const Privacy = () => {
           <TouchableOpacity
             style={[styles.dangerBtn, { backgroundColor: colors.error + '15' }]}
             onPress={handleDeleteAccount}
+            disabled={deleting}
           >
-            <Ionicons name="trash-outline" size={20} color={colors.error} />
-            <Text style={[styles.dangerText, { color: colors.error }]}>Delete Account</Text>
+            {deleting ? (
+              <ActivityIndicator size="small" color={colors.error} />
+            ) : (
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+            )}
+            <Text style={[styles.dangerText, { color: colors.error }]}>
+              {deleting ? 'Deleting…' : 'Delete Account'}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
