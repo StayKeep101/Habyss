@@ -281,7 +281,7 @@ export const AIAgentModal: React.FC<AIAgentModalProps> = ({ visible, onClose }) 
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images, // Correct enum usage
+            mediaTypes: 'images',
             allowsEditing: true,
             quality: 0.8,
             base64: true,

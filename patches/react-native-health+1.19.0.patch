@@ -1,0 +1,16 @@
+diff --git a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit.m b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit.m
+index e8ddce1..ccfd70c 100644
+--- a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit.m
++++ b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit.m
+@@ -840,8 +840,9 @@ -(void)startObserving {
+ 
+ - (void)emitEventInternal:(NSNotification *)notification {
+   if (self.hasListeners) {
+-    self.callableJSModules = [RCTAppleHealthKit sharedJsModule];
+-    [self.callableJSModules setBridge:self.bridge];
++    // RN 0.86: RCTCallableJSModules only declares setBridge: for the legacy architecture,
++    // which SDK 55+ removed. RCTEventEmitter already holds RN's injected callableJSModules,
++    // and overwriting it with a fresh unwired instance also broke event delivery.
+     [self sendEventWithName:notification.name
+                    body:notification.userInfo];
+   }

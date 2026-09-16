@@ -83,7 +83,7 @@ export const GoalCreationWizard: React.FC<GoalCreationWizardProps> = ({ visible,
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: 'images',
             allowsEditing: true,
             aspect: [1, 1],
             quality: 1,
