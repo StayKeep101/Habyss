@@ -12,7 +12,6 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
-import { GoalProgressGraph } from '@/components/Goal/GoalProgressGraph';
 import { ShareButton } from '@/components/Common/ShareButton';
 import { GoalStats } from '@/components/Goal/GoalStats';
 
@@ -146,12 +145,12 @@ const GoalsOverview = () => {
                             <Text style={[styles.statValue, { color: colors.text }]}>{goals.length}</Text>
                             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GOALS</Text>
                         </VoidCard>
-                        <VoidCard glass style={[styles.statCard, { padding: 0, overflow: 'hidden' }]}>
-                            {/* Overlay Content */}
-                            <View style={{ padding: 16, alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-                                <Text style={[styles.statValue, { color: colors.text, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 }]}>{avgProgress}%</Text>
-                                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>AVG PROGRESS</Text>
+                        <VoidCard glass style={styles.statCard}>
+                            <View style={[styles.statIcon, { backgroundColor: accentColor + '20' }]}>
+                                <Ionicons name="trending-up" size={22} color={accentColor} />
                             </View>
+                            <Text style={[styles.statValue, { color: colors.text }]}>{avgProgress}%</Text>
+                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>AVG PROGRESS</Text>
                         </VoidCard>
                     </Animated.View>
 
