@@ -178,14 +178,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 
                         if (report.ok) {
                             Alert.alert('Account deleted', 'Everything stored on this device has been removed.', [
-                                { text: 'OK', onPress: async () => { if (!(await restartAfterDeletion())) router.replace('/(auth)/welcome'); } },
+                                { text: 'OK', onPress: async () => { if (!(await restartAfterDeletion())) router.replace('/(auth)/onboarding'); } },
                             ]);
                         } else {
                             Alert.alert(
                                 'Partly deleted',
                                 `Your data was removed, except: ${report.failed.map(step => step.label).join(', ')}. ` +
                                 'Deleting the app from your device removes anything left.',
-                                [{ text: 'OK', onPress: async () => { if (!(await restartAfterDeletion())) router.replace('/(auth)/welcome'); } }],
+                                [{ text: 'OK', onPress: async () => { if (!(await restartAfterDeletion())) router.replace('/(auth)/onboarding'); } }],
                             );
                         }
                     }

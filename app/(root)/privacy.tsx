@@ -42,7 +42,7 @@ const Privacy = () => {
             // Onboarding state is gone with the rest, so send the user back to the start.
             const restart = async () => {
               // A reload clears contexts and cached ids; navigation is the fallback.
-              if (!(await restartAfterDeletion())) router.replace('/(auth)/welcome');
+              if (!(await restartAfterDeletion())) router.replace('/(auth)/onboarding');
             };
 
             if (report.ok) {

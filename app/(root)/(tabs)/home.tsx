@@ -23,6 +23,7 @@ import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { UserGreetingData } from '@/lib/deepseek';
+import { coachHomeMessage, coachNotLogged } from '@/lib/coachMessages';
 import { LinearGradient } from 'expo-linear-gradient';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 
@@ -171,16 +172,23 @@ const Home = () => {
       topHabit: bestHabitName, // Fallback
     };
 
-    // ONLY call API if greetingStyle is 'ai' - otherwise use static quotes
+    // Written coaching, grounded in what was actually recorded. No API call, so
+    // it works offline and before the on-device model is downloaded. Random
+    // quotes ignored the user's data entirely.
     if (greetingStyle !== 'ai') {
-      // Use static quotes - NO API CALLS
-      if (isPremium) {
-        const personality = normalizeAIPersonality(aiPersonality || 'normal');
-        const quotes = PRO_QUOTES[personality] || PRO_QUOTES.normal;
-        return quotes[Math.floor(Math.random() * quotes.length)];
-      } else {
-        return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
+      const coach = normalizeAIPersonality(aiPersonality || 'normal');
+      const unlogged = scheduledForToday.find(habit => !completions[habit.id]);
+      const context = {
+        habitName: unlogged?.name ?? scheduledForToday[0]?.name ?? 'your habits',
+        // Only pass a streak once there is one; the voices omit what is absent.
+        currentStreak: currentStreak > 0 ? currentStreak : undefined,
+      };
+
+      if (scheduledForToday.length === 0) {
+        return isPremium ? '' : FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
       }
+      // "Not logged" is not a claim that the user skipped it.
+      return unlogged ? coachNotLogged(coach, context) : coachHomeMessage(coach, context);
     }
 
     // AI mode - try smart greeting (API-powered or Local)

@@ -2,6 +2,16 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PERSONALITY_MODES, PersonalityModeId } from './AIPersonalities';
 
+/**
+ * Legacy store.
+ *
+ * The app reads the coach from `app_settings.aiPersonality` via AppSettings;
+ * this context kept a second copy under `ai_personality_mode` that nothing
+ * consumed, so writing here had no effect on coaching. It now mirrors into the
+ * same key AppSettings uses, so any remaining caller stays consistent.
+ */
+const APP_SETTINGS_KEY = 'app_settings';
+
 type AIPersonalityContextType = {
     personalityId: PersonalityModeId;
     setPersonalityId: (id: PersonalityModeId) => Promise<void>;
@@ -38,6 +48,10 @@ export const AIPersonalityProvider: React.FC<{ children: React.ReactNode }> = ({
     const setPersonalityId = async (id: PersonalityModeId) => {
         try {
             await AsyncStorage.setItem('ai_personality_mode', id);
+            // Mirror into the settings blob the rest of the app reads.
+            const raw = await AsyncStorage.getItem(APP_SETTINGS_KEY);
+            const settings = raw ? JSON.parse(raw) : {};
+            await AsyncStorage.setItem(APP_SETTINGS_KEY, JSON.stringify({ ...settings, aiPersonality: id }));
             setPersonalityIdState(id);
         } catch (e) {
             console.error('Failed to save personality', e);

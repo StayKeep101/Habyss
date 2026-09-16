@@ -231,7 +231,7 @@ export default function ProfileScreen() {
         // Clear all cached user data
         clearHabitsCache();
         await AsyncStorage.clear();
-        router.replace('/(auth)/welcome');
+        router.replace('/(auth)/onboarding');
     };
 
     return (
