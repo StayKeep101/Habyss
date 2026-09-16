@@ -50,13 +50,6 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
-          name="data-storage"
-          options={{
-            headerShown: false,
-            presentation: 'modal'
-          }}
-        />
-        <Stack.Screen
           name="create"
           options={{
             headerShown: false,

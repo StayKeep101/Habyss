@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SQLite from 'expo-sqlite';
-import { closeDatabase } from './database';
+import { closeDatabase, getDatabase } from './database';
 import { SecureTokenService } from './secureStorage';
 import SharedDefaults from './SharedDefaults';
 import { resetLocalUserCache } from './localUser';
@@ -86,10 +86,34 @@ export async function deleteAllLocalData(): Promise<DeletionReport> {
         }
     }));
 
-    // Close the cached handle first; deleting an open database fails on iOS.
     steps.push(await run('database', 'Habits and history', async () => {
+        // Empty every table first. sqlite_master is used rather than a hardcoded
+        // list so tables left by older versions are cleared too, and so the user's
+        // data is gone even if the file itself cannot be removed.
+        let clearedRows = false;
+        try {
+            const db = await getDatabase();
+            if (db) {
+                const tables: { name: string }[] = await db.getAllAsync(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+                );
+                for (const table of tables) {
+                    await db.execAsync(`DELETE FROM "${table.name}";`);
+                }
+            }
+            clearedRows = true;
+        } catch {
+            // Fall through: removing the file below also removes the data.
+        }
+
+        // Close the cached handle; deleting an open database fails on iOS.
         await closeDatabase();
-        await SQLite.deleteDatabaseAsync(DATABASE_NAME);
+        try {
+            await SQLite.deleteDatabaseAsync(DATABASE_NAME);
+        } catch (error) {
+            // Only a real failure if the rows are still there.
+            if (!clearedRows) throw error;
+        }
     }));
 
     steps.push(await run('tokens', 'Connected accounts', async () => {

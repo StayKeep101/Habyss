@@ -193,8 +193,6 @@ export const SCREEN_MAP: Record<string, string> = {
     'contact': '/(root)/contact',
     'about': '/(root)/about',
     'paywall': '/(root)/paywall',
-    'data_storage': '/(root)/data-storage',
-    'accomplishments': '/(root)/accomplishments',
 };
 
 // Modal mapping

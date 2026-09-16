@@ -424,21 +424,10 @@ export default function ProfileScreen() {
                         </VoidCard>
                     </View>
 
-                    {/* DATA & SYNC */}
+                    {/* CONNECTIONS */}
                     <View style={styles.settingsSection}>
-                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>DATA & SYNC</Text>
+                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>CONNECTIONS</Text>
                         <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/data-storage'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="cloud-upload-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Backup & Restore</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Cloud sync and data export</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/integrations'); }}>
                                 <LinearGradient colors={accentColors} style={styles.settingIcon}>
                                     <Ionicons name="link-outline" size={20} color="white" />

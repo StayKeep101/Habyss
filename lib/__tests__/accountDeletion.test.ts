@@ -1,12 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SQLite from 'expo-sqlite';
 import { deleteAllLocalData } from '../accountDeletion';
-import { closeDatabase } from '../database';
+import { closeDatabase, getDatabase } from '../database';
 import { SecureTokenService } from '../secureStorage';
 import SharedDefaults from '../SharedDefaults';
 
 jest.mock('expo-sqlite', () => ({ deleteDatabaseAsync: jest.fn(async () => undefined) }));
-jest.mock('../database', () => ({ closeDatabase: jest.fn(async () => undefined) }));
+const mockDb = {
+    getAllAsync: jest.fn(async () => [
+        { name: 'habits' }, { name: 'completions' }, { name: 'schema_version' }, { name: 'sync_queue' },
+    ]),
+    execAsync: jest.fn(async (_sql: string) => undefined),
+};
+jest.mock('../database', () => ({
+    closeDatabase: jest.fn(async () => undefined),
+    getDatabase: jest.fn(async () => mockDb),
+}));
 jest.mock('../secureStorage', () => ({
     SecureTokenService: { clearServiceTokens: jest.fn(async () => undefined) },
 }));
@@ -22,6 +31,10 @@ const STEP_KEYS = ['purchases', 'aiModel', 'shared', 'database', 'tokens', 'sett
 describe('deleteAllLocalData', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        mockDb.getAllAsync.mockResolvedValue([
+            { name: 'habits' }, { name: 'completions' }, { name: 'schema_version' }, { name: 'sync_queue' },
+        ]);
+        mockDb.execAsync.mockResolvedValue(undefined);
     });
 
     it('clears every local store', async () => {
@@ -36,6 +49,46 @@ describe('deleteAllLocalData', () => {
         expect(AsyncStorage.clear).toHaveBeenCalled();
         expect(SecureTokenService.clearServiceTokens).toHaveBeenCalledTimes(4);
         expect(SharedDefaults.remove).toHaveBeenCalledTimes(5);
+    });
+
+    it('empties every table found in the database', async () => {
+        await deleteAllLocalData();
+
+        expect(getDatabase).toHaveBeenCalled();
+        const statements = mockDb.execAsync.mock.calls.map(call => call[0]);
+        expect(statements).toEqual([
+            'DELETE FROM "habits";',
+            'DELETE FROM "completions";',
+            'DELETE FROM "schema_version";',
+            'DELETE FROM "sync_queue";',
+        ]);
+    });
+
+    it('clears tables left behind by older versions too', async () => {
+        mockDb.getAllAsync.mockResolvedValue([{ name: 'habits' }, { name: 'routines' }]);
+
+        await deleteAllLocalData();
+
+        expect(mockDb.execAsync).toHaveBeenCalledWith('DELETE FROM "routines";');
+    });
+
+    it('counts the wipe as done when rows are cleared but the file cannot be removed', async () => {
+        (SQLite.deleteDatabaseAsync as jest.Mock).mockRejectedValueOnce(new Error('file busy'));
+
+        const report = await deleteAllLocalData();
+
+        // The data is gone, which is what the user was promised.
+        expect(report.ok).toBe(true);
+    });
+
+    it('reports failure when neither the rows nor the file could be removed', async () => {
+        mockDb.execAsync.mockRejectedValueOnce(new Error('disk I/O error'));
+        (SQLite.deleteDatabaseAsync as jest.Mock).mockRejectedValueOnce(new Error('file busy'));
+
+        const report = await deleteAllLocalData();
+
+        expect(report.ok).toBe(false);
+        expect(report.failed.map(step => step.key)).toContain('database');
     });
 
     it('closes the database before deleting it', async () => {
@@ -60,18 +113,18 @@ describe('deleteAllLocalData', () => {
     });
 
     it('keeps going when a step fails and reports which one', async () => {
-        (SQLite.deleteDatabaseAsync as jest.Mock).mockRejectedValueOnce(new Error('database is locked'));
+        (SecureTokenService.clearServiceTokens as jest.Mock).mockRejectedValueOnce(new Error('keychain locked'));
 
         const report = await deleteAllLocalData();
 
         expect(report.ok).toBe(false);
         expect(report.failed).toHaveLength(1);
-        expect(report.failed[0].key).toBe('database');
-        expect(report.failed[0].detail).toContain('database is locked');
+        expect(report.failed[0].key).toBe('tokens');
+        expect(report.failed[0].detail).toContain('keychain locked');
 
         // The remaining stores are still cleared rather than left behind.
         expect(AsyncStorage.clear).toHaveBeenCalled();
-        expect(SecureTokenService.clearServiceTokens).toHaveBeenCalled();
+        expect(SQLite.deleteDatabaseAsync).toHaveBeenCalled();
         expect(report.steps).toHaveLength(STEP_KEYS.length);
     });
 
