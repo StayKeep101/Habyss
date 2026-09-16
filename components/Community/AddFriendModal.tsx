@@ -7,6 +7,8 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { FriendsService } from '@/lib/friendsService';
 import * as Haptics from 'expo-haptics';
 import { VoidModal } from '@/components/Layout/VoidModal';
+import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { SheetSection } from '@/components/Layout/SheetSection';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
@@ -181,8 +183,12 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                         style={{ flex: 1 }}
                     >
                         <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                            {/* Your Code Section */}
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>YOUR IDENTIFIER</Text>
+                            <SheetSection
+                                first
+                                title="Your identifier"
+                                description="Share this code so someone can add you to their crew."
+                                style={{ marginBottom: 10 }}
+                            />
                             <VoidCard style={styles.codeCard}>
                                 <Text style={[styles.code, { color: colors.primary }]}>{userCode || 'LOADING...'}</Text>
                                 <TouchableOpacity onPress={handleShare} style={[styles.copyBtn, { backgroundColor: colors.surfaceSecondary }]}>
@@ -193,8 +199,11 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
 
                             <View style={{ height: 20 }} />
 
-                            {/* Enter Friend Code */}
-                            <Text style={[styles.label, { color: colors.textSecondary }]}>ENTER FRIEND CODE</Text>
+                            <SheetSection
+                                title="Enter friend code"
+                                description="Paste the code a friend shared with you."
+                                style={{ marginTop: 0, marginBottom: 10 }}
+                            />
                             <TextInput
                                 style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
                                 placeholder="Code or username..."
@@ -232,16 +241,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     return (
         <VoidModal visible={visible} onClose={onClose} heightPercentage={0.85}>
             <View style={{ flex: 1 }}>
-                {/* Header - styled like StreakModal */}
-                <View style={styles.modalHeader}>
-                    <TouchableOpacity onPress={onClose} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}>
-                        <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={[styles.title, { color: colors.text }]}>ADD CREW</Text>
-                        <Text style={[styles.subtitle, { color: colors.primary }]}>INVITE FRIENDS</Text>
-                    </View>
-                </View>
+                <ModalHeader title="Add Crew" subtitle="INVITE FRIENDS" onBack={onClose} />
 
                 {/* Tabs */}
                 <View style={[styles.tabContainer, { borderColor: colors.border }]}>
@@ -272,13 +272,6 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
 };
 
 const styles = StyleSheet.create({
-    modalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 16,
-    },
     iconButton: {
         width: 40,
         height: 40,
@@ -291,26 +284,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         paddingTop: 16,
         paddingBottom: 40,
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '900',
-        letterSpacing: 1,
-        fontFamily: 'Lexend',
-    },
-    subtitle: {
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 1.5,
-        fontFamily: 'Lexend_400Regular',
-        marginTop: 2,
-    },
-    label: {
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 1,
-        marginBottom: 8,
-        fontFamily: 'Lexend_400Regular',
     },
     codeCard: {
         padding: 20,

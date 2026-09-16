@@ -7,6 +7,8 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { Friend, FriendsService } from '@/lib/friendsService';
 import Svg, { Circle } from 'react-native-svg';
 import { VoidModal } from '@/components/Layout/VoidModal';
+import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { SheetSection } from '@/components/Layout/SheetSection';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing, withSpring } from 'react-native-reanimated';
 
@@ -128,16 +130,14 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                     />
                 </View>
 
-                {/* Header with Menu */}
-                <View style={styles.modalHeader}>
-                    <TouchableOpacity onPress={onClose} style={[styles.iconButton, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                        <Ionicons name="close" size={20} color={colors.textPrimary} />
-                    </TouchableOpacity>
-
-                    {/* More Menu (Remove Friend) */}
-                    {friend.username !== 'You' && (
+                <ModalHeader
+                    title={friend.username}
+                    onBack={onClose}
+                    backIcon="close"
+                    rightSlot={friend.username !== 'You' ? (
                         <TouchableOpacity
                             style={[styles.iconButton, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                            accessibilityLabel="Manage friendship"
                             onPress={() => {
                                 Alert.alert(
                                     'Manage Friendship',
@@ -158,8 +158,8 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                         >
                             <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
                         </TouchableOpacity>
-                    )}
-                </View>
+                    ) : undefined}
+                />
 
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     {/* Immersive Profile Header */}
@@ -243,7 +243,12 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
 
                     {/* Weekly Heatmap Strip */}
                     <View style={styles.activitySection}>
-                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>RECENT ACTIVITY</Text>
+                        <SheetSection
+                            first
+                            title="Recent activity"
+                            description="Days checked in over the past week."
+                            style={{ marginBottom: 10 }}
+                        />
                         <View style={styles.heatmapStrip}>
                             {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
                                 const isActive = detailedStats?.weeklyActivity?.[i] ?? false;
@@ -292,13 +297,6 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        zIndex: 10,
-    },
     iconButton: {
         width: 36,
         height: 36,
@@ -417,13 +415,6 @@ const styles = StyleSheet.create({
     activitySection: {
         paddingHorizontal: 24,
         marginBottom: 40,
-    },
-    sectionTitle: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        letterSpacing: 1.5,
-        marginBottom: 12,
-        fontFamily: 'Lexend_400Regular',
     },
     heatmapStrip: {
         flexDirection: 'row',

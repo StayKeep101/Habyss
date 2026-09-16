@@ -9,6 +9,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { NotificationService, InAppNotification } from '@/lib/notificationService';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { VoidModal } from '@/components/Layout/VoidModal';
+import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { FriendsService } from '@/lib/friendsService';
 
@@ -171,30 +172,25 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
     return (
         <VoidModal visible={visible} onClose={onClose} heightPercentage={0.75}>
             <View style={styles.content}>
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: colors.border }]}>
-                    <TouchableOpacity onPress={onClose} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}>
-                        <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={[styles.title, { color: colors.text }]}>NOTIFICATIONS</Text>
-                        <Text style={[styles.subtitle, { color: accentColor }]}>
-                            {unreadCount > 0 ? `${unreadCount} UNREAD` : 'ALL CAUGHT UP'}
-                        </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {unreadCount > 0 && (
-                            <TouchableOpacity onPress={handleMarkAllRead} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
-                                <Ionicons name="checkmark-done" size={20} color={accentColor} />
-                            </TouchableOpacity>
-                        )}
-                        {notifications.length > 0 && (
-                            <TouchableOpacity onPress={handleClearAll} style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                                <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </View>
+                <ModalHeader
+                    title="Notifications"
+                    subtitle={unreadCount > 0 ? `${unreadCount} UNREAD` : 'ALL CAUGHT UP'}
+                    onBack={onClose}
+                    rightSlot={
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                            {unreadCount > 0 && (
+                                <TouchableOpacity onPress={handleMarkAllRead} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
+                                    <Ionicons name="checkmark-done" size={20} color={accentColor} />
+                                </TouchableOpacity>
+                            )}
+                            {notifications.length > 0 && (
+                                <TouchableOpacity onPress={handleClearAll} style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    }
+                />
 
                 {/* List */}
                 <ScrollView style={styles.listContainer} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -327,13 +323,6 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 16,
-    },
     iconButton: {
         width: 40,
         height: 40,
@@ -346,13 +335,6 @@ const styles = StyleSheet.create({
         fontWeight: '900',
         letterSpacing: 1,
         fontFamily: 'Lexend',
-    },
-    subtitle: {
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 1.5,
-        fontFamily: 'Lexend_400Regular',
-        marginTop: 2,
     },
     sectionHeader: {
         flexDirection: 'row',

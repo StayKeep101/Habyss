@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { ModalHeader } from '@/components/Layout/ModalHeader';
 
 export const CreationModal = () => {
     const { theme } = useTheme();
@@ -36,7 +37,8 @@ export const CreationModal = () => {
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
             <Pressable accessibilityLabel="Close creation menu" onPress={() => setVisible(false)} style={{ flex: 1 }} />
             <View style={{ backgroundColor: colors.surface, padding: 24, paddingBottom: Math.max(insets.bottom, 24), borderTopLeftRadius: 26, borderTopRightRadius: 26 }}>
-                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.textTertiary, alignSelf: 'center', marginBottom: 24, opacity: 0.4 }} />
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.textTertiary, alignSelf: 'center', marginBottom: 8, opacity: 0.4 }} />
+                <ModalHeader title="Create" onBack={() => setVisible(false)} backIcon="close" />
                 <View style={{ flexDirection: 'row', gap: 14 }}>
                     {([{ id: 'habit', label: 'Habit', icon: 'repeat', color: '#10B981' }, { id: 'goal', label: 'Goal', icon: 'flag-outline', color: colors.primary }] as const).map(item =>
                         <TouchableOpacity key={item.id} accessibilityRole="button" onPress={() => choose(item.id)} style={{ flex: 1, alignItems: 'center', paddingVertical: 24, gap: 12, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary }}>

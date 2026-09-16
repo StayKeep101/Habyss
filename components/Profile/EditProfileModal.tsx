@@ -7,6 +7,7 @@ import { ScrollPickerModal } from './ScrollPickerModal';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidModal } from '@/components/Layout/VoidModal';
+import { ModalHeader } from '@/components/Layout/ModalHeader';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SettingsModal } from '@/components/SettingsModal';
 
@@ -187,26 +188,25 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     return (
         <VoidModal visible={visible} onClose={onClose} heightPercentage={0.85}>
             <View style={{ flex: 1, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
-                <View style={styles.headerRow}>
-                    <TouchableOpacity
-                        onPress={onClose}
-                        style={[styles.headerCircleBtn, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)' }]}
-                    >
-                        <Ionicons name="close" size={20} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>EDIT PROFILE</Text>
-                    <TouchableOpacity
-                        onPress={handleSave}
-                        disabled={saving}
-                        style={[styles.headerCircleBtn, { backgroundColor: colors.primary }]}
-                    >
-                        {saving ? (
-                            <ActivityIndicator size="small" color="#000" />
-                        ) : (
-                            <Ionicons name="checkmark" size={20} color="#000" />
-                        )}
-                    </TouchableOpacity>
-                </View>
+                <ModalHeader
+                    title="Edit Profile"
+                    onBack={onClose}
+                    backIcon="close"
+                    rightSlot={
+                        <TouchableOpacity
+                            onPress={handleSave}
+                            disabled={saving}
+                            accessibilityLabel="Save profile"
+                            style={[styles.headerCircleBtn, { backgroundColor: colors.primary }]}
+                        >
+                            {saving ? (
+                                <ActivityIndicator size="small" color="#000" />
+                            ) : (
+                                <Ionicons name="checkmark" size={20} color="#000" />
+                            )}
+                        </TouchableOpacity>
+                    }
+                />
 
                 <KeyboardAvoidingView
                     style={{ flex: 1 }}
@@ -350,14 +350,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 };
 
 const styles = StyleSheet.create({
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingTop: 6,
-        paddingBottom: 10,
-    },
     headerCircleBtn: {
         width: 40,
         height: 40,
