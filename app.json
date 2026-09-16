@@ -99,6 +99,15 @@
             "minSdkVersion": 21
           }
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Habyss uses your saved places to remind you about habits when you arrive, even when the app is closed.",
+          "locationWhenInUsePermission": "Save your current location for an optional habit arrival reminder.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
       ]
     ],
     "experiments": {

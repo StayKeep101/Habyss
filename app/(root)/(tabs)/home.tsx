@@ -12,7 +12,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { NotificationService } from '@/lib/notificationService';
 import { NotificationsModal } from '@/components/NotificationsModal';
-import { AIAgentModal } from '@/components/AIAgentModal';
+import { QuickAddModal } from '@/components/Home/QuickAddModal';
+import { InsightsCard } from '@/components/Home/InsightsCard';
 import { CelebrationAnimation } from '@/components/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
@@ -110,7 +111,7 @@ const Home = () => {
 
   // UI state
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showAIAgent, setShowAIAgent] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [showStreakSuccessModal, setShowStreakSuccessModal] = useState(false);
@@ -726,14 +727,9 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
             {/* Right: Action Buttons */}
             <View style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: vs(4) }}>
               <TouchableOpacity
-                onPress={() => {
-                  mediumFeedback();
-                  if (isPremium) {
-                    setShowAIAgent(true);
-                  } else {
-                    router.push('/paywall');
-                  }
-                }}
+                accessibilityRole="button"
+                accessibilityLabel="Quick add a habit"
+                onPress={() => { mediumFeedback(); setShowQuickAdd(true); }}
                 style={{ width: s(40), height: s(40), borderRadius: s(20), overflow: 'hidden' }}
               >
                 <LinearGradient
@@ -742,7 +738,7 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
                   end={{ x: 1, y: 1 }}
                   style={{ width: s(40), height: s(40), alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <Ionicons name="sparkles" size={s(18)} color="#fff" />
+                  <Ionicons name="flash" size={s(18)} color="#fff" />
                 </LinearGradient>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => { lightFeedback(); setShowNotifications(true); }} style={{ width: s(40), height: s(40), borderRadius: s(20), backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
@@ -781,6 +777,12 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
               goalsCount={goals.length}
               onPress={() => router.push('/goals-overview')}
             />
+          </Animated.View>
+
+          {/* What the recorded data actually shows, plus any suggestion the
+              user can accept. Renders nothing until there is enough evidence. */}
+          <Animated.View entering={FadeInDown.delay(150).duration(500)} style={{ marginTop: sectionGap }}>
+            <InsightsCard habits={allHabits} history={historyData} onChanged={onRefresh} />
           </Animated.View>
 
           {/* 3-Column Stats Row: Streak | Consistency | Completion */}
@@ -873,7 +875,7 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
             setUnreadCount(count);
           }}
         />
-        <AIAgentModal visible={showAIAgent} onClose={() => setShowAIAgent(false)} />
+        <QuickAddModal visible={showQuickAdd} onClose={() => setShowQuickAdd(false)} onCreated={onRefresh} />
         <CelebrationAnimation visible={showCelebration} onComplete={() => setShowCelebration(false)} />
       </SafeAreaView>
     </VoidShell>

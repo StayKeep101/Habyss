@@ -19,7 +19,6 @@ import { View, AppState } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import '@/lib/LocationService'; // Register background tasks
-import { LocationService } from '@/lib/LocationService';
 import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 import { AppSettingsProvider } from '@/constants/AppSettingsContext';
 import { AccentProvider } from '@/constants/AccentContext';
@@ -54,9 +53,9 @@ export default function MobileLayout() {
           // Initialize notifications sequence safely
           try {
             await NotificationService.init();
-            await NotificationService.registerForPushNotificationsAsync();
+            // Permissions are requested when the user enables a reminder.
+            void NotificationService.refreshHabitReminders().catch(error => console.warn('Reminder refresh failed', error));
             await RevenueCatService.init();
-            await LocationService.refreshGeofences();
             await SiriService.syncTodayProgress();
             // Initialize Local LLM in background to avoid blocking startup too much
             // We catch errors internally so it doesn't crash the app if model is missing
@@ -195,20 +194,14 @@ function InnerLayout() {
           await SharedDefaults.remove('intent_start_focus_duration');
         }
 
-        // 3. Check for Log Habit Intent
-        const pendingLogs = await SharedDefaults.getArray('pending_habit_logs');
-        if (pendingLogs && pendingLogs.length > 0) {
-          console.log('[AppIntents] Processing pending logs:', pendingLogs);
-          const { toggleCompletion, getHabits } = require('@/lib/habitsSQLite');
-          const habits = await getHabits();
-
-          for (const habitName of pendingLogs) {
-            const habit = habits.find((h: any) => h.name.toLowerCase() === habitName.toLowerCase());
-            if (habit) {
-              await toggleCompletion(habit.id, new Date().toISOString().split('T')[0]);
-            }
-          }
-          await SharedDefaults.remove('pending_habit_logs');
+        // 3. Completions arriving from Siri Shortcuts.
+        // Previously this toggled unconditionally, so logging an already
+        // completed habit switched it back off, and it keyed the completion by
+        // UTC date, which lands on tomorrow in western timezones late in the day.
+        const { drainPendingShortcutLogs } = require('@/lib/shortcutsInbox');
+        const drained = await drainPendingShortcutLogs();
+        if (drained.logged.length || drained.unmatched.length) {
+          console.log('[AppIntents] Shortcut logs applied:', drained);
         }
 
         const pendingWidgetToggles = await SharedDefaults.getArray('pending_widget_toggles');
@@ -235,6 +228,7 @@ function InnerLayout() {
     const subscription = AppState.addEventListener('change', nextAppState => {
       if (nextAppState === 'active') {
         checkIntents();
+        void NotificationService.refreshHabitReminders().catch(error => console.warn('Reminder refresh failed', error));
       }
     });
 

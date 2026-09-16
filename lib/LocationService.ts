@@ -1,8 +1,41 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
 
 const LOCATION_TASK_NAME = 'HABYSS_GEOFENCING_TASK';
+const REGIONS_KEY = 'habyss_geofence_regions';
+let arrivalQueue: Promise<void> = Promise.resolve();
+
+async function notifyArrival(identifier: string) {
+    // Defer loading because habit persistence also imports the notification service.
+    const { getHabits, getCompletions }: typeof import('./habitsSQLite') = require('./habitsSQLite');
+    const [habitId, index] = identifier.split('::');
+    if (!/^\d+$/.test(index || '')) return;
+    const habit = (await getHabits()).find(item => item.id === habitId);
+    const now = new Date();
+    const date = localDateKey(now);
+    if (!habit || habit.isArchived || habit.isGoal || !isHabitScheduledForDate(habit, now)) return;
+    if ((await getCompletions(date))[habitId]) return;
+    const place = habit.locationReminders?.[Number(index)];
+    if (!place) return;
+    const dedupeKey = 'habyss_arrival_' + habitId;
+    if (await AsyncStorage.getItem(dedupeKey) === date) return;
+    const permission = await Notifications.getPermissionsAsync();
+    if (!permission.granted && permission.ios?.status !== Notifications.IosAuthorizationStatus.PROVISIONAL) return;
+    await Notifications.scheduleNotificationAsync({
+        content: {
+            title: 'Arrived at ' + place.name,
+            body: 'Time for ' + habit.name,
+            sound: habit.ringtone === 'silent' || habit.ringtone === 'vibrate' ? false : 'default',
+            data: { habitId, url: '/habit-detail?habitId=' + encodeURIComponent(habitId) },
+        },
+        trigger: null,
+    });
+    await AsyncStorage.setItem(dedupeKey, date);
+}
 
 // Define the background task in the global scope
 try {
@@ -14,22 +47,10 @@ try {
         if (data) {
             const { eventType, region } = data;
             if (eventType === Location.GeofencingEventType.Enter) {
-                // Identifier format: "habitId::HabitName::LocationName"
-                const parts = region.identifier.split('::');
-                if (parts.length >= 3) {
-                    const [habitId, habitName, locationName] = parts;
-                    console.log('[Geofencing] Entered region:', region.identifier);
-
-                    await Notifications.scheduleNotificationAsync({
-                        content: {
-                            title: "Arrived at " + locationName,
-                            body: `Time to ${habitName}!`,
-                            sound: 'default',
-                            data: { habitId, url: `/home?habitId=${habitId}` }
-                        },
-                        trigger: null, // Immediate
-                    });
-                }
+                // Native events can arrive together; serialize the daily dedupe check.
+                arrivalQueue = arrivalQueue.then(() => notifyArrival(String(region?.identifier)))
+                    .catch(taskError => console.warn('[Geofencing] Arrival reminder failed:', taskError));
+                await arrivalQueue;
             }
         }
     });
@@ -40,6 +61,7 @@ try {
 export class LocationService {
     static async requestPermissions(): Promise<boolean> {
         try {
+            if (!await TaskManager.isAvailableAsync()) return false;
             const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
             if (fgStatus !== 'granted') return false;
 
@@ -64,8 +86,8 @@ export class LocationService {
 
     /**
      * Refreshes all geofences based on current habits.
-     * This is the source of truth - it stops everything and re-registers active reminders.
-     * This handles addition, removal, and updates in one go.
+     * Only re-register when places change, avoiding repeated initial-region events
+     * and unnecessary native work on every app foreground or habit completion.
      */
     static async refreshGeofences(options?: { requestPermissions?: boolean }) {
         try {
@@ -79,21 +101,22 @@ export class LocationService {
 
             // 1. Get all active habits
             // Import dynamically to avoid circular dependency issues if any (though LocationService is leaf mostly)
-            const { getHabits } = require('./habitsSQLite');
+            const { getHabits }: typeof import('./habitsSQLite') = require('./habitsSQLite');
             const habits = await getHabits();
-            const activeHabits = habits.filter((h: any) => !h.isArchived && !h.deleted);
+            const activeHabits = habits.filter(h => !h.isArchived && !h.isGoal);
 
             // 2. Collect all regions
             const regions: Location.LocationRegion[] = [];
 
             for (const habit of activeHabits) {
                 if (habit.locationReminders && habit.locationReminders.length > 0) {
-                    habit.locationReminders.forEach((loc: any) => {
+                    habit.locationReminders.forEach((loc, index) => {
+                        if (!Number.isFinite(loc.latitude) || !Number.isFinite(loc.longitude) || Math.abs(loc.latitude) > 90 || Math.abs(loc.longitude) > 180) return;
                         regions.push({
-                            identifier: `${habit.id}::${habit.name}::${loc.name}`,
+                            identifier: `${habit.id}::${index}`,
                             latitude: loc.latitude,
                             longitude: loc.longitude,
-                            radius: loc.radius || 100, // Default 100m
+                            radius: Number.isFinite(loc.radius) ? Math.max(100, loc.radius!) : 150,
                             notifyOnEnter: true,
                             notifyOnExit: false,
                         });
@@ -101,25 +124,20 @@ export class LocationService {
                 }
             }
 
-            // 3. Stop existing task to clear old regions? 
-            // According to docs, startGeofencingAsync REPLACES regions for the task?
-            // "You can call this function multiple times with the same task name to monitor different regions."
-            // Wait, does it replace or append? 
-            // "Monitoring a region with the same identifier... will replace it."
-            // But what about removing ones that are no longer in the list?
-            // Valid strategy: Stop the task completely, then start if we have regions.
-
+            const monitoredRegions = regions.slice(0, Platform.OS === 'ios' ? 20 : 100);
+            const signature = JSON.stringify(monitoredRegions);
             const hasStarted = await Location.hasStartedGeofencingAsync(LOCATION_TASK_NAME);
+            if (hasStarted && await AsyncStorage.getItem(REGIONS_KEY) === signature) return;
+
+            // Remove regions that no longer belong to an active habit.
             if (hasStarted) {
                 await Location.stopGeofencingAsync(LOCATION_TASK_NAME);
             }
 
-            if (regions.length > 0) {
-                await Location.startGeofencingAsync(LOCATION_TASK_NAME, regions);
-                console.log(`[Geofencing] Refreshed: Monitoring ${regions.length} regions`);
-            } else {
-                console.log('[Geofencing] No regions to monitor.');
+            if (monitoredRegions.length > 0) {
+                await Location.startGeofencingAsync(LOCATION_TASK_NAME, monitoredRegions);
             }
+            await AsyncStorage.setItem(REGIONS_KEY, signature);
 
         } catch (e) {
             console.warn('[Geofencing] Error refreshing geofences:', e);

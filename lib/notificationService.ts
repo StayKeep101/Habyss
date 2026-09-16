@@ -1,17 +1,17 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
-import * as TaskManager from 'expo-task-manager';
-import * as Location from 'expo-location';
+import { Platform, DeviceEventEmitter } from 'react-native';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { ThemeMode } from '@/constants/themeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DeviceEventEmitter } from 'react-native';
 
 // LOCATION_TASK_NAME is now defined in LocationService.ts
 // We import it in _layout.tsx to ensure it's registered.
 
 import { LocationService } from './LocationService';
+import type { Habit } from './habitsSQLite';
+import { buildHabitReminderPlan } from './habitReminders';
+import { localDateKey } from './habitSchedule';
+let reminderQueue: Promise<void> = Promise.resolve();
 
 // IMPORTANT: Do NOT call Notifications APIs at module scope - it crashes iOS!
 // setNotificationHandler is now called inside init()
@@ -117,6 +117,7 @@ export class NotificationService {
   }
 
   static async requestPermissions() {
+    await this.init();
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
@@ -135,78 +136,71 @@ export class NotificationService {
     }
   }
 
-  static async scheduleHabitReminder(habit: any) {
-    // Clear existing for this habit to avoid duplicates
-    await this.cancelHabitReminder(habit.id);
+  static async scheduleHabitReminder(_habit: Pick<Habit, 'id'>) {
+    await this.refreshHabitReminders();
+  }
 
-    // 1. Schedule Time-based Reminders
-    if (habit.reminders && habit.reminders.length > 0) {
-      const hasPermission = await this.requestPermissions();
-      if (hasPermission) {
-        for (const timeStr of habit.reminders) {
-          // timeStr is "HH:MM"
-          const [hours, minutes] = timeStr.split(':').map(Number);
-
-          let triggerHour = hours;
-          let triggerMinute = minutes;
-          let title = "Habyss Reminder";
-          let body = `Time to ${habit.name}!`;
-
-          if (habit.reminderOffset && habit.reminderOffset > 0) {
-            const totalMinutes = hours * 60 + minutes - habit.reminderOffset;
-            // Normalize for day wrap-around (00:00 - 30min -> 23:30)
-            const normalized = (totalMinutes + 24 * 60) % (24 * 60);
-            triggerHour = Math.floor(normalized / 60);
-            triggerMinute = normalized % 60;
-
-            title = `Upcoming: ${habit.name}`;
-            body = `${habit.name} starts in ${habit.reminderOffset} minutes.`;
-          }
-
-          // Fix trigger type error by using any or correct interface, but simpler is to rely on simple object
+  static refreshHabitReminders(): Promise<void> {
+    // Serialize refreshes so rapid edits cannot create duplicate notification queues.
+    const refresh = async () => {
+      // Defer loading to avoid the SQLite ↔ notification service dependency cycle.
+      const { getHabits, getCompletions }: typeof import('./habitsSQLite') = require('./habitsSQLite');
+      try {
+        const habits = await getHabits();
+        const pending = await Notifications.getAllScheduledNotificationsAsync();
+        const isHabitReminder = (item: Notifications.NotificationRequest) =>
+          item.content.data?.kind === 'habit-reminder' || (typeof item.content.data?.habitId === 'string' && typeof item.content.data?.url === 'string');
+        const oldReminders = pending.filter(isHabitReminder);
+        const permission = await Notifications.getPermissionsAsync();
+        const allowed = permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+        const today = await getCompletions(localDateKey(new Date()));
+        const budget = Math.max(0, 56 - pending.filter(item => !isHabitReminder(item)).length);
+        const plan = allowed ? buildHabitReminderPlan(habits, new Date(), today, Math.min(48, budget)) : [];
+        const desired = new Set(plan.map(item => 'habit:' + item.habit.id + ':' + item.date.getTime()));
+        const existing = new Set(oldReminders.map(item => item.identifier));
+        for (const notification of oldReminders) {
+          if (!desired.has(notification.identifier)) await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+        }
+        for (const { habit, date, scheduledDate } of plan) {
+          const identifier = 'habit:' + habit.id + ':' + date.getTime();
+          // Replace matching IDs too: name, sound, and other content may have changed.
+          if (existing.has(identifier)) await Notifications.cancelScheduledNotificationAsync(identifier);
           await Notifications.scheduleNotificationAsync({
+            identifier,
             content: {
-              title,
-              body,
-              sound: 'default',
-              data: { habitId: habit.id, url: `/home?habitId=${habit.id}` }
+              title: habit.name,
+              body: habit.reminderOffset ? 'Your habit starts in ' + habit.reminderOffset + ' minutes.' : 'A little progress starts here.',
+              sound: habit.ringtone === 'silent' || habit.ringtone === 'vibrate' ? false : 'default',
+              data: { kind: 'habit-reminder', habitId: habit.id, scheduledDate, url: '/habit-detail?habitId=' + encodeURIComponent(habit.id) },
             },
-            trigger: {
-              type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-              hour: triggerHour,
-              minute: triggerMinute,
-              repeats: true,
-            },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: 'default' },
           });
         }
+      } finally {
+        // Arrival reminders are independent of time reminders, including on failure.
+        await LocationService.refreshGeofences();
       }
-    }
-
-    // 2. Schedule Location-based Reminders
-    if (habit.locationReminders && habit.locationReminders.length > 0) {
-      // We just trigger a full refresh. 
-      // In a real app we might want to be more surgical, but given the API limitations, 
-      // a full refresh ensures we are always in sync with DB state.
-      await LocationService.refreshGeofences();
-    }
+    };
+    reminderQueue = reminderQueue.catch(() => undefined).then(refresh);
+    return reminderQueue;
   }
 
   static async cancelHabitReminder(habitId: string) {
-    // Cancel Time-based
-    const pending = await Notifications.getAllScheduledNotificationsAsync();
-    for (const n of pending) {
-      if (n.content.data?.habitId === habitId) {
-        await Notifications.cancelScheduledNotificationAsync(n.identifier);
+    const cancel = async () => {
+      const pending = await Notifications.getAllScheduledNotificationsAsync();
+      for (const notification of pending) {
+        if (notification.content.data?.habitId === habitId) await Notifications.cancelScheduledNotificationAsync(notification.identifier);
       }
-    }
-
-    await LocationService.refreshGeofences();
+      await LocationService.refreshGeofences();
+    };
+    reminderQueue = reminderQueue.catch(() => undefined).then(cancel);
+    return reminderQueue;
   }
 
   static async sendCompletionNotification(habitName: string) {
     try {
-      const hasPermission = await this.requestPermissions();
-      if (!hasPermission) return;
+      const permission = await Notifications.getPermissionsAsync();
+      if (!permission.granted && permission.ios?.status !== Notifications.IosAuthorizationStatus.PROVISIONAL) return;
 
       await Notifications.scheduleNotificationAsync({
         content: {

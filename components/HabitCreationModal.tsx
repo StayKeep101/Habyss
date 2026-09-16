@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -14,16 +14,15 @@ import {
     Alert,
     Pressable,
     Keyboard,
-    ActivityIndicator
+    ActivityIndicator,
+    Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withTiming,
-    withDelay,
     Easing,
     runOnJS,
     interpolate,
@@ -31,17 +30,16 @@ import Animated, {
     FadeIn,
     FadeOut,
     SlideInDown,
-    SlideOutDown,
-    Layout
+    SlideOutDown
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { DateTimeField } from '@/components/Common/DateTimeField';
+import { parseHabitDate } from '@/lib/habitSchedule';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { addHabit, updateHabit, HabitCategory, HabitFrequency, subscribeToHabits, Habit, getGoals, getHabits } from '@/lib/habitsSQLite'; // Static import including getGoals
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { addHabit, updateHabit, HabitFrequency, subscribeToHabits, Habit, getGoals, getHabits } from '@/lib/habitsSQLite'; // Static import including getGoals
 import { TopDragHandle } from './TopDragHandle';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CalendarService } from '@/lib/calendarService';
@@ -286,16 +284,18 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [title, setTitle] = useState('');
     const [selectedIcon, setSelectedIcon] = useState('fitness');
     const [selectedColor, setSelectedColor] = useState('#10B981');
-    const [lifePillar, setLifePillar] = useState('body'); // 6 Pillars: body, wealth, heart, mind, soul, play
+    const [lifePillar, setLifePillar] = useState('personal'); // 6 Pillars: body, wealth, heart, mind, soul, play
     const [goalId, setGoalId] = useState<string | undefined>(propGoalId);
     const [frequency, setFrequency] = useState<HabitFrequency>('daily');
     const [selectedDays, setSelectedDays] = useState<string[]>(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
     const [weekInterval, setWeekInterval] = useState(1); // New: every N weeks
-    const [startTime, setStartTime] = useState(new Date());
-    const [endTime, setEndTime] = useState(new Date(Date.now() + 30 * 60 * 1000));
+    const [startTime, setStartTime] = useState(() => new Date());
+    const [endTime, setEndTime] = useState(() => new Date(Date.now() + 30 * 60 * 1000));
     const [useFreeTime, setUseFreeTime] = useState(true);
     const [habitStartDate, setHabitStartDate] = useState(new Date());
     const [saving, setSaving] = useState(false);
+    const [locating, setLocating] = useState(false);
+    const locationLockRef = useRef(false);
 
     // Advanced fields
     const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -313,13 +313,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [suggestedSlots, setSuggestedSlots] = useState<{ start: Date; end: Date }[]>([]);
     const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
-    // Wizard step state
-    const [currentStep, setCurrentStep] = useState(1);
+    // Optional details stay collapsed for quick creation.
     const [showAdvanced, setShowAdvanced] = useState(false);
-    const stepDirection = useSharedValue(0); // -1 = back, 1 = forward
-    const stepProgress = useSharedValue(0);
-    const STEP_LABELS = ['Name', 'Style', 'Schedule', 'Target', 'Finish'];
-    const TOTAL_STEPS = 5;
 
     // Active Overlay (Replacing nested modals)
     type OverlayType = 'none' | 'icon' | 'color' | 'time' | 'reminder' | 'ringtone' | 'measurement' | 'graph' | 'startDate' | 'templates' | 'healthKit';
@@ -328,7 +323,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const [customColor, setCustomColor] = useState('');
     const [showPillarInfo, setShowPillarInfo] = useState(false);
     const [targetInputValue, setTargetInputValue] = useState('1'); // String state for input display
-    const [monthDay, setMonthDay] = useState(1); // For monthly frequency - which day of month
+    const [monthDay, setMonthDay] = useState(new Date().getDate()); // For monthly frequency - which day of month
     const [customColors, setCustomColors] = useState<string[]>([]); // User's saved custom colors (max 10)
 
     // Animations
@@ -336,8 +331,8 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     const backdropOpacity = useSharedValue(0);
     const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const transitionLockRef = useRef(false);
+    const saveLockRef = useRef(false);
 
-    const linkedGoal = useMemo(() => availableGoals.find(g => g.id === goalId), [availableGoals, goalId]);
 
     // --- EFFECTS ---
 
@@ -367,7 +362,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             setFrequency(habitToEdit.frequency || 'daily');
             if (habitToEdit.taskDays) setSelectedDays(habitToEdit.taskDays);
             setWeekInterval(habitToEdit.weekInterval || 1);
-            setHabitStartDate(habitToEdit.startDate ? new Date(habitToEdit.startDate) : new Date());
+            setHabitStartDate(parseHabitDate(habitToEdit.startDate) || new Date());
 
             if (habitToEdit.startTime) {
                 const [h, m] = habitToEdit.startTime.split(':').map(Number);
@@ -395,7 +390,6 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             setRingtone(habitToEdit.ringtone || 'default');
 
             setMeasurementValue(habitToEdit.goalValue || 1);
-            setMeasurementUnit(habitToEdit.unit || 'times');
             setMeasurementUnit(habitToEdit.unit || 'times');
             setGraphStyle((habitToEdit.graphStyle as any) || 'progress');
             setHealthKitMetric(habitToEdit.healthKitMetric);
@@ -425,7 +419,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             setAvailableGoals(habits.filter(h => h.isGoal));
         });
         // Also fetch initial state immediately
-        getGoals().then(setAvailableGoals);
+        getGoals().then(setAvailableGoals).catch(error => console.warn('Could not load goals', error));
         return () => { unsub.then(fn => fn()) };
     }, []);
 
@@ -483,6 +477,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
     }, [isOpen]);
 
     const closeModal = useCallback(() => {
+        if (saving || saveLockRef.current || locationLockRef.current) return;
         if (activeOverlay !== 'none') {
             setActiveOverlay('none');
             return;
@@ -500,7 +495,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             resetForm();
             transitionLockRef.current = false;
         }, 350);
-    }, [propOnClose, activeOverlay, isOpen, propGoalId]);
+    }, [propOnClose, activeOverlay, isOpen, propGoalId, saving]);
 
     const closeModalImmediately = useCallback(() => {
         if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -518,7 +513,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setTitle('');
         setSelectedIcon('fitness');
         setSelectedColor('#10B981');
-        setLifePillar('body');
+        setLifePillar('personal');
         setGoalId(propGoalId);
         setFrequency('daily');
         setSelectedDays(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
@@ -534,71 +529,23 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         setRingtone('default');
         setMeasurementValue(1);
         setMeasurementUnit('times');
-        setMeasurementUnit('times');
         setGraphStyle('progress');
         setHealthKitMetric(undefined);
         setHealthKitTarget(undefined);
         setSuggestedSlots([]);
-        setMonthDay(1);
+        setMonthDay(new Date().getDate());
         setShowPillarInfo(false);
         setTargetInputValue('1');
         setActiveOverlay('none');
-        setCurrentStep(1);
         setShowAdvanced(false);
-    };
-
-    // --- WIZARD NAVIGATION ---
-    const goToStep = (step: number) => {
-        if (step < 1 || step > TOTAL_STEPS) return;
-        selectionFeedback();
-        stepDirection.value = step > currentStep ? 1 : -1;
-        setCurrentStep(step);
-    };
-
-    const handleNext = () => {
-        if (currentStep === 1 && !title.trim()) {
-            Alert.alert('Missing Title', 'Please enter a name for your habit.');
-            return;
-        }
-        if (currentStep === 3 && frequency === 'weekly' && selectedDays.length === 0) {
-            Alert.alert('Select Days', 'Please select at least one day.');
-            return;
-        }
-        if (currentStep < TOTAL_STEPS) {
-            goToStep(currentStep + 1);
-        } else {
-            handleSave();
-        }
-    };
-
-    const handleBack = () => {
-        if (currentStep > 1) goToStep(currentStep - 1);
     };
 
     // --- ACTIONS ---
     const handleSave = async () => {
-        if (saving) return;
+        if (saving || saveLockRef.current || locationLockRef.current) return;
         if (!title.trim()) {
             Alert.alert('Missing Title', 'Please enter a title for your habit.');
             return;
-        }
-
-        // --- PRO LIMIT CHECK ---
-        if (!habitToEdit && !isPremium) {
-            const currentHabits = await getHabits();
-            const activeHabits = currentHabits.filter(h => !h.isGoal && !h.isArchived);
-
-            if (activeHabits.length >= 3) {
-                Alert.alert(
-                    'Limit Reached',
-                    'Free users can only track up to 3 habits. Upgrade to Pro for unlimited habits!',
-                    [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Upgrade', onPress: () => router.push('/(root)/paywall') }
-                    ]
-                );
-                return;
-            }
         }
 
         // Goal is now optional
@@ -609,10 +556,33 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             return;
         }
 
+        if (!Number.isFinite(measurementValue) || measurementValue <= 0) {
+            Alert.alert('Choose a target', 'Use a number greater than zero.');
+            return;
+        }
+        saveLockRef.current = true;
         setSaving(true);
         mediumFeedback();
 
         try {
+            // Preserve the existing free-plan limit before creating a new habit.
+            if (!habitToEdit && !isPremium) {
+                const currentHabits = await getHabits();
+                const activeHabits = currentHabits.filter(h => !h.isGoal && !h.isArchived);
+
+                if (activeHabits.length >= 3) {
+                    Alert.alert(
+                        'Limit Reached',
+                        'Free users can only track up to 3 habits. Upgrade to Pro for unlimited habits!',
+                        [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Upgrade', onPress: () => router.push('/(root)/paywall') }
+                        ]
+                    );
+                    return;
+                }
+            }
+
             const fmtTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
             const fmtDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const derivedTimeOfDay =
@@ -635,6 +605,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 startDate: frequency === 'monthly'
                     ? (() => {
                         const d = new Date(habitStartDate);
+                        d.setDate(1);
+                        if (monthDay < habitStartDate.getDate()) d.setMonth(d.getMonth() + 1);
+                        while (new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() < monthDay) d.setMonth(d.getMonth() + 1);
                         d.setDate(monthDay);
                         return fmtDate(d);
                     })()
@@ -648,8 +621,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 timeOfDay: derivedTimeOfDay as any,
                 trackingMethod: (measurementUnit === 'times' ? 'boolean' : 'numeric') as any,
                 ringtone,
-                reminderOffset,
+                reminderOffset: reminderEnabled ? reminderOffset : undefined,
                 locationReminders,
+                durationMinutes: ['minutes', 'hours', 'seconds'].includes(measurementUnit) ? measurementValue * (measurementUnit === 'hours' ? 60 : measurementUnit === 'seconds' ? 1 / 60 : 1) : undefined,
                 healthKitMetric: healthKitMetric,
                 healthKitTarget: healthKitMetric ? measurementValue : undefined, // Use main goal value as target
             };
@@ -662,17 +636,21 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             }
 
             successFeedback();
-            closeModal();
-            if (propOnSuccess) propOnSuccess();
+            Keyboard.dismiss();
+            closeModalImmediately();
+            propOnClose?.();
+            propOnSuccess?.();
         } catch (e: any) {
             console.error('Error adding habit:', e);
             Alert.alert('Error', e.message || 'Failed to create habit');
         } finally {
+            saveLockRef.current = false;
             setSaving(false);
         }
     };
 
-    const toggleLocationReminder = useCallback(async (label: 'Home' | 'Work') => {
+    const toggleLocationReminder = useCallback(async (label: 'Home' | 'Work' | 'Gym') => {
+        if (locationLockRef.current) return;
         selectionFeedback();
 
         if (locationReminders.some((location) => location.name === label)) {
@@ -680,16 +658,32 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
             return;
         }
 
-        const granted = await NotificationService.requestLocationPermissions();
-        if (!granted) {
-            Alert.alert('Location Permission Needed', 'Enable location permissions to use arrival reminders.');
-            return;
-        }
-
+        locationLockRef.current = true;
+        setLocating(true);
         try {
-            const position = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-            });
+            const allHabits = await getHabits();
+            const savedPlaces = allHabits.filter(h => h.id !== habitToEdit?.id && !h.isArchived).reduce((sum, h) => sum + (h.locationReminders?.length || 0), 0);
+            if (savedPlaces + locationReminders.length >= 20) {
+                Alert.alert('Location limit reached', 'Remove an existing place before adding another arrival reminder.');
+                return;
+            }
+            if (!await NotificationService.requestPermissions()) {
+                Alert.alert('Notifications are off', 'Enable notifications in Settings to use arrival reminders.', [{ text: 'Not now', style: 'cancel' }, { text: 'Open Settings', onPress: () => Linking.openSettings() }]);
+                return;
+            }
+            const granted = await NotificationService.requestLocationPermissions();
+            if (!granted) {
+                Alert.alert('Location access needed', 'Allow background location in Settings to use arrival reminders. You can still save the habit without a place.', [{ text: 'Not now', style: 'cancel' }, { text: 'Open Settings', onPress: () => Linking.openSettings() }]);
+                return;
+            }
+
+            let locationTimeout: ReturnType<typeof setTimeout> | undefined;
+            const position = await Promise.race([
+                Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+                new Promise<never>((_, reject) => {
+                    locationTimeout = setTimeout(() => reject(new Error('Location timed out')), 20000);
+                }),
+            ]).finally(() => { if (locationTimeout) clearTimeout(locationTimeout); });
 
             setLocationReminders((prev) => [
                 ...prev,
@@ -697,14 +691,17 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                     name: label,
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
-                    radius: 120,
+                    radius: 150,
                 },
             ]);
         } catch (error) {
             console.error('Failed to capture location reminder:', error);
-            Alert.alert('Location Unavailable', 'Could not capture your current location. Try again outside or with GPS enabled.');
+            Alert.alert('Location unavailable', 'Could not save this place. Check location access and try again.');
+        } finally {
+            locationLockRef.current = false;
+            setLocating(false);
         }
-    }, [locationReminders, selectionFeedback]);
+    }, [locationReminders, selectionFeedback, habitToEdit?.id]);
 
     const toggleDay = (dayId: string) => {
         selectionFeedback();
@@ -713,18 +710,12 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
         );
     };
 
-    const repeatText = useMemo(() => {
-        if (frequency !== 'weekly') return '';
-        const days = WEEKDAYS.filter(d => selectedDays.includes(d.id)).map(d => d.label);
-        if (days.length === 7) return 'Every day';
-        if (days.length === 0) return 'Select days';
-        return `Every ${days.join(', ')}`;
-    }, [frequency, selectedDays]);
 
     const formatTime = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     // --- GESTURES ---
     const panGesture = Gesture.Pan()
+        .enabled(!saving && !locating)
         .onUpdate((event) => {
             if (event.translationY > 0) {
                 translateY.value = event.translationY;
@@ -759,7 +750,6 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                 </Animated.View>
 
                 {/* BOTTOM SHEET */}
-                <GestureDetector gesture={activeOverlay === 'none' ? panGesture : Gesture.Native()}>
                     <Animated.View style={[styles.sheet, sheetAnimatedStyle]}>
                         <LinearGradient
                             colors={theme === 'light' ? [colors.background, colors.surface] : ['#050510', '#0a0a1a']}
@@ -769,6 +759,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                         />
                         {/* Glass Border */}
                         <SafeAreaView style={styles.sheetLayout} edges={['top']}>
+                            <GestureDetector gesture={panGesture}>
                             <View style={styles.header}>
                                 <TouchableOpacity accessibilityLabel="Close habit editor" onPress={closeModal} style={styles.headerBtn}>
                                     <Ionicons name="close" size={24} color={colors.text} />
@@ -776,6 +767,7 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                 <Text style={{ flex: 1, textAlign: 'center', color: colors.text, fontSize: 18, fontFamily: 'Lexend_600SemiBold' }}>{habitToEdit ? 'Edit habit' : 'New habit'}</Text>
                                 <View style={styles.headerBtn} />
                             </View>
+                            </GestureDetector>
                             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                                 <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, gap: 14 }} showsVerticalScrollIndicator={false}>
                                     <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
@@ -790,29 +782,9 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     </View>
                                     {!habitToEdit && <TouchableOpacity onPress={() => setActiveOverlay('templates')}><Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Lexend_400Regular' }}>Choose from habit ideas</Text></TouchableOpacity>}
                                     <View>
-                                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8, fontFamily: 'Lexend_500Medium' }}>Life area</Text>
-                                        <View style={{ flexDirection: 'row', gap: 5 }}>
-                                            {LIFE_PILLARS.map(pillar => <TouchableOpacity key={pillar.id} accessibilityRole="button" accessibilityState={{ selected: lifePillar === pillar.id }} onPress={() => setLifePillar(pillar.id)}
-                                                style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 12, backgroundColor: lifePillar === pillar.id ? pillar.color + '20' : colors.surfaceSecondary }}>
-                                                <Ionicons name={pillar.icon as any} size={18} color={lifePillar === pillar.id ? pillar.color : colors.textTertiary} />
-                                                <Text style={{ fontSize: 10, color: lifePillar === pillar.id ? colors.text : colors.textSecondary, marginTop: 4 }}>{pillar.label}</Text>
-                                            </TouchableOpacity>)}
-                                        </View>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                                        <TouchableOpacity onPress={() => { setTargetInputValue(String(measurementValue)); setActiveOverlay('measurement'); }} style={{ flex: 1, padding: 13, borderRadius: 14, backgroundColor: colors.surfaceSecondary }}>
-                                            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 5 }}>Target per check-in</Text>
-                                            <Text style={{ color: colors.text, fontSize: 15, fontFamily: 'Lexend_500Medium' }}>{measurementValue} {measurementUnit} <Ionicons name="chevron-down" size={12} /></Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => setActiveOverlay('time')} style={{ flex: 1, padding: 13, borderRadius: 14, backgroundColor: colors.surfaceSecondary }}>
-                                            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 5 }}>Time of day</Text>
-                                            <Text style={{ color: colors.text, fontSize: 14, fontFamily: 'Lexend_500Medium' }}>{useFreeTime ? 'Any time' : formatTime(startTime)} <Ionicons name="chevron-down" size={12} /></Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View>
                                         <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Repeat</Text>
                                         <View style={{ flexDirection: 'row', gap: 6 }}>
-                                            {(['daily', 'weekly', 'monthly', 'yearly'] as const).map(value => <TouchableOpacity key={value} onPress={() => setFrequency(value)} accessibilityRole="button" accessibilityState={{ selected: frequency === value }}
+                                            {(['daily', 'weekly', 'monthly', ...(showAdvanced || frequency === 'yearly' ? ['yearly' as const] : [])] as const).map(value => <TouchableOpacity key={value} onPress={() => setFrequency(value)} accessibilityRole="button" accessibilityState={{ selected: frequency === value }}
                                                 style={{ flex: 1, paddingVertical: 11, alignItems: 'center', borderRadius: 12, backgroundColor: frequency === value ? selectedColor + '20' : colors.surfaceSecondary }}>
                                                 <Text style={{ color: frequency === value ? selectedColor : colors.textSecondary, fontSize: 12 }}>{value[0].toUpperCase() + value.slice(1)}</Text>
                                             </TouchableOpacity>)}
@@ -836,6 +808,38 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             <TouchableOpacity accessibilityLabel="Later day" onPress={() => setMonthDay(Math.min(31, monthDay + 1))} style={{ padding: 8 }}><Ionicons name="add" size={20} color={colors.text} /></TouchableOpacity>
                                         </View>}
                                     </View>
+                                    <TouchableOpacity onPress={() => setActiveOverlay('time')} style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, backgroundColor: colors.surfaceSecondary, gap: 10 }}>
+                                        <Ionicons name="time-outline" size={19} color={colors.primary} />
+                                        <Text style={{ flex: 1, color: colors.text, fontSize: 14 }}>{useFreeTime ? 'Any time of day' : formatTime(startTime) + ' – ' + formatTime(endTime)}</Text>
+                                        <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setActiveOverlay('reminder')} style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, backgroundColor: colors.surfaceSecondary, gap: 10 }}>
+                                        <Ionicons name="notifications-outline" size={19} color={colors.primary} />
+                                        <Text style={{ flex: 1, color: colors.text, fontSize: 14 }}>{reminderEnabled ? 'Remind me at ' + formatTime(reminderTime) : locationReminders.length ? 'Arrival reminder set' : 'Add a reminder'}</Text>
+                                        <Text style={{ color: colors.textTertiary, fontSize: 11 }}>{!reminderEnabled && !locationReminders.length ? 'Optional' : ''}</Text>
+                                        <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 }}>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Customize habit</Text>
+                                        <Ionicons name={showAdvanced ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                    {showAdvanced && <View style={{ gap: 12 }}>
+                                    <View>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8, fontFamily: 'Lexend_500Medium' }}>Life area</Text>
+                                        <View style={{ flexDirection: 'row', gap: 5 }}>
+                                            {LIFE_PILLARS.map(pillar => <TouchableOpacity key={pillar.id} accessibilityRole="button" accessibilityState={{ selected: lifePillar === pillar.id }} onPress={() => setLifePillar(pillar.id)}
+                                                style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 12, backgroundColor: lifePillar === pillar.id ? pillar.color + '20' : colors.surfaceSecondary }}>
+                                                <Ionicons name={pillar.icon as any} size={18} color={lifePillar === pillar.id ? pillar.color : colors.textTertiary} />
+                                                <Text style={{ fontSize: 10, color: lifePillar === pillar.id ? colors.text : colors.textSecondary, marginTop: 4 }}>{pillar.label}</Text>
+                                            </TouchableOpacity>)}
+                                        </View>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                                        <TouchableOpacity onPress={() => { setTargetInputValue(String(measurementValue)); setActiveOverlay('measurement'); }} style={{ flex: 1, padding: 13, borderRadius: 14, backgroundColor: colors.surfaceSecondary }}>
+                                            <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 5 }}>Target per check-in</Text>
+                                            <Text style={{ color: colors.text, fontSize: 15, fontFamily: 'Lexend_500Medium' }}>{measurementValue} {measurementUnit} <Ionicons name="chevron-down" size={12} /></Text>
+                                        </TouchableOpacity>
+                                    </View>
                                     {availableGoals.length > 0 && <View>
                                         <Text style={{ color: colors.textSecondary, fontSize: 11, marginBottom: 8 }}>Goal · optional</Text>
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
@@ -845,17 +849,12 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                             </TouchableOpacity>)}
                                         </ScrollView>
                                     </View>}
-                                    <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 }}>
-                                        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Reminders & more</Text>
-                                        <Ionicons name={showAdvanced ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
-                                    </TouchableOpacity>
-                                    {showAdvanced && <View style={{ gap: 12 }}>
+
                                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <Text style={{ color: colors.textSecondary, fontSize: 13 }}>{frequency === 'yearly' ? 'Repeat each year on' : 'Start date'}</Text>
-                                            <DateTimePicker value={habitStartDate} mode="date" display="compact" onChange={(_, date) => date && setHabitStartDate(date)} themeVariant={isLight ? 'light' : 'dark'} />
+                                            <DateTimeField label="Habit start date" value={habitStartDate} mode="date" onChange={setHabitStartDate} />
                                         </View>
                                         {[
-                                            { overlay: 'reminder' as const, label: 'Reminder', value: reminderEnabled ? formatTime(reminderTime) : 'Off' },
                                             { overlay: 'graph' as const, label: 'Progress chart', value: GRAPH_STYLES.find(g => g.id === graphStyle)?.label || 'Progress' },
                                             ...(lifePillar === 'body' ? [{ overlay: 'healthKit' as const, label: 'Apple Health', value: healthKitMetric || 'Not connected' }] : []),
                                         ].map(row => <TouchableOpacity key={row.overlay} onPress={() => setActiveOverlay(row.overlay)} style={{ flexDirection: 'row', padding: 13, borderRadius: 12, backgroundColor: colors.surfaceSecondary }}>
@@ -864,15 +863,15 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                                     </View>}
                                 </ScrollView>
                                 <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 28 }}>
-                                    <TouchableOpacity onPress={handleSave} disabled={saving || !title.trim()} accessibilityRole="button"
-                                        style={{ paddingVertical: 16, borderRadius: 16, alignItems: 'center', backgroundColor: selectedColor, opacity: saving || !title.trim() ? 0.5 : 1 }}>
+                                    <Text style={{ textAlign: 'center', color: colors.textTertiary, fontSize: 11, marginBottom: 10 }}>{frequency === 'weekly' ? 'On ' + WEEKDAYS.filter(day => selectedDays.includes(day.id)).map(day => day.label).join(', ') : frequency === 'monthly' ? 'Monthly · day ' + monthDay : frequency === 'yearly' ? 'Yearly · ' + habitStartDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Every day'} · {measurementValue === 1 && measurementUnit === 'times' ? 'One check-in' : measurementValue + ' ' + measurementUnit}</Text>
+                                    <TouchableOpacity onPress={handleSave} disabled={saving || locating || !title.trim()} accessibilityRole="button"
+                                        style={{ paddingVertical: 16, borderRadius: 16, alignItems: 'center', backgroundColor: selectedColor, opacity: saving || locating || !title.trim() ? 0.5 : 1 }}>
                                         {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 16, fontFamily: 'Lexend_600SemiBold' }}>{habitToEdit ? 'Save changes' : 'Create habit'}</Text>}
                                     </TouchableOpacity>
                                 </View>
                             </KeyboardAvoidingView>
                         </SafeAreaView>
                     </Animated.View>
-                </GestureDetector>
             </View>
 
             {/* --- OVERLAYS (Simulated Modals) --- */}
@@ -974,37 +973,21 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                     <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}>
                         <OverlayHeader title="Set Schedule" onClose={() => setActiveOverlay('none')} />
 
-                        {/* Time Pickers - Always Visible */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 20, marginBottom: 24 }}>
-                            <View style={{ flex: 1, alignItems: 'center' }}>
-                                <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>START</Text>
-                                <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
-                                    <DateTimePicker
-                                        value={startTime}
-                                        mode="time"
-                                        display="spinner"
-                                        onChange={(_, d) => d && setStartTime(d)}
-                                        textColor={isLight ? '#000' : '#fff'}
-                                        style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
-                                    />
-                                </View>
+                        <TouchableOpacity onPress={() => setUseFreeTime(!useFreeTime)} style={[styles.toggleRow, { marginBottom: 16, backgroundColor: colors.surfaceSecondary }]}>
+                            <Text style={{ color: colors.text }}>Any time of day</Text>
+                            <Ionicons name={useFreeTime ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={useFreeTime ? selectedColor : colors.textTertiary} />
+                        </TouchableOpacity>
+                        {!useFreeTime && <View style={{ gap: 12, marginBottom: 20 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={{ color: colors.textSecondary }}>Start</Text>
+                                <DateTimeField label="Habit start time" mode="time" value={startTime} onChange={setStartTime} />
                             </View>
-                            <View style={{ flex: 1, alignItems: 'center' }}>
-                                <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>END</Text>
-                                <View style={{ height: 100, overflow: 'hidden', justifyContent: 'center' }}>
-                                    <DateTimePicker
-                                        value={endTime}
-                                        mode="time"
-                                        display="spinner"
-                                        onChange={(_, d) => d && setEndTime(d)}
-                                        textColor={isLight ? '#000' : '#fff'}
-                                        style={{ height: 120, width: '100%', transform: [{ scale: 0.8 }] }}
-                                    />
-                                </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={{ color: colors.textSecondary }}>End</Text>
+                                <DateTimeField label="Habit end time" mode="time" value={endTime} onChange={setEndTime} />
                             </View>
-                        </View>
-
-                        {/* Anytime Toggle Removed */}
+                            <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Use a time window that fits your day. Reminders are set separately.</Text>
+                        </View>}
 
                         {/* Automatic Scheduling Button */}
                         <TouchableOpacity
@@ -1088,92 +1071,48 @@ export const HabitCreationModal: React.FC<HabitCreationModalProps> = ({
                     </Animated.View>
                 )}
 
-                {/* REMINDER OVERLAY */}
                 {activeOverlay === 'reminder' && (
-                    <Animated.View entering={SlideInDown.duration(300).easing(Easing.out(Easing.cubic))} exiting={SlideOutDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.8, backgroundColor: isLight ? colors.surface : colors.surfaceSecondary }]}>
-                        <OverlayHeader title="Notifications" onClose={() => setActiveOverlay('none')} />
-
-                        {/* Toggle */}
-                        <TouchableOpacity
-                            onPress={() => { selectionFeedback(); setReminderEnabled(!reminderEnabled); }}
-                            style={[styles.toggleRow, { marginBottom: 24, backgroundColor: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.05)' }]}
-                        >
-                            <Text style={{ color: colors.text, fontWeight: '600' }}>Enable Reminders</Text>
-                            <Ionicons name={reminderEnabled ? "notifications" : "notifications-off"} size={24} color={reminderEnabled ? selectedColor : colors.textTertiary} />
-                        </TouchableOpacity>
-
-                        {reminderEnabled && (
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                                {/* Time Picker */}
-                                <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                                    <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>REMINDER TIME</Text>
-                                    <DateTimePicker
-                                        value={reminderTime}
-                                        mode="time"
-                                        display="spinner"
-                                        onChange={(_, d) => d && setReminderTime(d)}
-                                        textColor="#fff"
-                                        style={{ height: 120 }}
-                                    />
+                    <Animated.View entering={SlideInDown.duration(250)} style={[styles.overlayPanel, { maxHeight: height * 0.82, backgroundColor: colors.surface }]}>
+                        <OverlayHeader title="Reminders" onClose={() => setActiveOverlay('none')} />
+                        <ScrollView contentContainerStyle={{ gap: 18, paddingBottom: 14 }} showsVerticalScrollIndicator={false}>
+                            <TouchableOpacity onPress={async () => {
+                                if (reminderEnabled) { setReminderEnabled(false); return; }
+                                try {
+                                    if (await NotificationService.requestPermissions()) setReminderEnabled(true);
+                                    else Alert.alert('Notifications are off', 'You can still create this habit. Enable notifications in Settings to add reminders.', [{ text: 'Not now', style: 'cancel' }, { text: 'Open Settings', onPress: () => Linking.openSettings() }]);
+                                } catch { Alert.alert('Notifications unavailable', 'Your habit can be saved without a reminder.'); }
+                            }} style={[styles.toggleRow, { backgroundColor: colors.surfaceSecondary }]}>
+                                <Text style={{ color: colors.text, fontFamily: 'Lexend_500Medium' }}>At a time</Text>
+                                <Ionicons name={reminderEnabled ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={reminderEnabled ? selectedColor : colors.textTertiary} />
+                            </TouchableOpacity>
+                            {reminderEnabled && <View style={{ gap: 12 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Text style={{ color: colors.textSecondary }}>{reminderOffset ? 'Reference time' : 'Remind me at'}</Text>
+                                    <DateTimeField label="Reminder time" value={reminderTime} mode="time" onChange={date => { setReminderTime(date); setReminderOffset(undefined); }} />
                                 </View>
-
-                                {/* Relative Time Reminder */}
-                                <View style={{ marginBottom: 24 }}>
-                                    <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>REMIND ME BEFORE</Text>
-                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                                        {[undefined, 5, 15, 30, 60].map((mins) => (
-                                            <TouchableOpacity
-                                                key={mins === undefined ? 'none' : mins}
-                                                onPress={() => { selectionFeedback(); setReminderOffset(mins); }}
-                                                style={[
-                                                    styles.unitChip,
-                                                    reminderOffset === mins && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
-                                                ]}
-                                            >
-                                                <Text style={{ color: reminderOffset === mins ? selectedColor : colors.textSecondary, fontSize: 13, fontWeight: '600' }}>
-                                                    {mins === undefined ? 'At time' : `${mins} min before`}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
+                                {!!reminderOffset && <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Reminds {reminderOffset} minutes before this time. Choosing a new time removes the offset.</Text>}
+                                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Only on scheduled days. No reminder after you complete the habit.</Text>
+                            </View>}
+                            <View>
+                                <Text style={{ color: colors.text, fontFamily: 'Lexend_500Medium', marginBottom: 6 }}>When I arrive</Text>
+                                <Text style={{ color: colors.textTertiary, fontSize: 12, lineHeight: 18, marginBottom: 12 }}>Save a place while you are there. Habyss will remind you when you return, on scheduled days.</Text>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                    {(['Home', 'Work', 'Gym'] as const).map(place => {
+                                        const enabled = locationReminders.some(location => location.name === place);
+                                        return <TouchableOpacity key={place} disabled={locating} onPress={() => {
+                                            if (enabled) { setLocationReminders(items => items.filter(location => location.name !== place)); return; }
+                                            Alert.alert('Save ' + place + ' here?', 'Use your current location as ' + place + '. Arrival reminders need background location and notification permission. Your saved place stays on this device.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Use this location', onPress: () => toggleLocationReminder(place) }]);
+                                        }} style={{ padding: 12, borderRadius: 12, backgroundColor: enabled ? selectedColor + '20' : colors.surfaceSecondary, flexDirection: 'row', gap: 6 }}>
+                                            <Ionicons name={enabled ? 'checkmark-circle' : 'location-outline'} size={16} color={enabled ? selectedColor : colors.textSecondary} />
+                                            <Text style={{ color: enabled ? selectedColor : colors.textSecondary }}>{place}</Text>
+                                        </TouchableOpacity>;
+                                    })}
                                 </View>
-
-                                {/* Location Reminder */}
-                                <View style={{ marginBottom: 24 }}>
-                                    <Text style={[styles.pickerLabel, { color: colors.textTertiary }]}>LOCATION TRIGGER</Text>
-                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                                        <TouchableOpacity
-                                            onPress={() => toggleLocationReminder('Home')}
-                                            style={[
-                                                styles.unitChip,
-                                                locationReminders.some(l => l.name === 'Home') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
-                                            ]}
-                                        >
-                                            <Ionicons name="home" size={14} color={locationReminders.some(l => l.name === 'Home') ? selectedColor : colors.textSecondary} style={{ marginRight: 6 }} />
-                                            <Text style={{ color: locationReminders.some(l => l.name === 'Home') ? selectedColor : colors.textSecondary, fontSize: 13, fontWeight: '600' }}>Arriving Home</Text>
-                                        </TouchableOpacity>
-
-                                        <TouchableOpacity
-                                            onPress={() => toggleLocationReminder('Work')}
-                                            style={[
-                                                styles.unitChip,
-                                                locationReminders.some(l => l.name === 'Work') && { backgroundColor: selectedColor + '20', borderColor: selectedColor }
-                                            ]}
-                                        >
-                                            <Ionicons name="business" size={14} color={locationReminders.some(l => l.name === 'Work') ? selectedColor : colors.textSecondary} style={{ marginRight: 6 }} />
-                                            <Text style={{ color: locationReminders.some(l => l.name === 'Work') ? selectedColor : colors.textSecondary, fontSize: 13, fontWeight: '600' }}>Arriving Work</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 8, lineHeight: 16, fontFamily: 'Lexend_400Regular' }}>
-                                        Choosing Home or Work saves your current position for an arrival reminder.
-                                    </Text>
-                                </View>
-                            </ScrollView>
-                        )}
-
-                        <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 'auto' }]}>
-                            <Text style={styles.doneButtonText}>Done</Text>
-                        </TouchableOpacity>
+                                {locating && <View style={{ flexDirection: 'row', gap: 8, paddingTop: 12 }}><ActivityIndicator color={selectedColor} /><Text style={{ color: colors.textSecondary }}>Saving your location…</Text></View>}
+                                {locationReminders.length > 0 && <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 10 }}>Within about 150 m · at most once per day</Text>}
+                            </View>
+                        </ScrollView>
+                        <TouchableOpacity onPress={() => setActiveOverlay('none')} style={[styles.doneButton, { backgroundColor: selectedColor, marginTop: 12 }]}><Text style={styles.doneButtonText}>Done</Text></TouchableOpacity>
                     </Animated.View>
                 )}
 

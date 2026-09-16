@@ -298,7 +298,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                 };
 
                 if ((created.reminders && created.reminders.length > 0) || (created.locationReminders && created.locationReminders.length > 0)) {
-                    await NotificationService.scheduleHabitReminder(created);
+                    void NotificationService.scheduleHabitReminder(created).catch(error => console.warn('[Habits] Reminder scheduling failed:', error));
                 }
 
                 if (cachedHabits) {
@@ -384,10 +384,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                     habitsListeners.forEach(l => l(cachedHabits!));
                 }
 
-                const fullHabit = cachedHabits?.find(h => h.id === updatedHabit.id);
-                if (fullHabit) {
-                    void NotificationService.scheduleHabitReminder(fullHabit).catch(error => console.warn('[Habits] Reminder update failed:', error));
-                }
+                void NotificationService.refreshHabitReminders().catch(error => console.warn('[Habits] Reminder update failed:', error));
 
                 DeviceEventEmitter.emit('habit_updated', { habitId: updatedHabit.id });
                 syncWidgets(); // Sync to widget
@@ -547,6 +544,7 @@ export async function toggleCompletion(habitId: string, dateISO?: string): Promi
                     }
                 }
 
+                void NotificationService.refreshHabitReminders().catch(error => console.warn('[Habits] Reminder refresh failed:', error));
                 DeviceEventEmitter.emit('habit_completion_updated', { habitId, date: dateStr, completed: newCompleted });
                 syncWidgets();
                 return optimisticResult;

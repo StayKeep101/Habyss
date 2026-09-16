@@ -1,27 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, DeviceEventEmitter } from 'react-native';
+import { View, Text, TouchableOpacity, DeviceEventEmitter, Modal, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { VoidModal } from '@/components/Layout/VoidModal';
-import { ModalHeader } from '@/components/Layout/ModalHeader';
-import { SheetSection } from '@/components/Layout/SheetSection';
+import { useAccentGradient } from '@/constants/AccentContext';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 export const CreationModal = () => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary } = useAccentGradient();
+    const { horizontalPadding, floatingButtonSize, tabBarBottomOffset } = useResponsiveLayout();
     const router = useRouter();
     const [visible, setVisible] = useState(false);
     const pending = useRef<'habit' | 'goal' | null>(null);
     const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
-
     useEffect(() => {
         const open = DeviceEventEmitter.addListener('show_creation_modal', () => setVisible(true));
         const close = DeviceEventEmitter.addListener('close_creation_modal', () => setVisible(false));
         return () => { open.remove(); close.remove(); if (fallback.current) clearTimeout(fallback.current); };
     }, []);
-
     const openSelection = () => {
         const selection = pending.current;
         pending.current = null;
@@ -29,67 +28,30 @@ export const CreationModal = () => {
         if (selection === 'habit') DeviceEventEmitter.emit('show_habit_modal');
         if (selection === 'goal') router.push('/create');
     };
-
     const choose = (selection: 'habit' | 'goal') => {
+        if (pending.current) return;
         pending.current = selection;
         setVisible(false);
-        // Android does not deliver onDismiss; also tolerate interrupted native transitions.
-        fallback.current = setTimeout(openSelection, 400);
+        // Android does not deliver onDismiss.
+        fallback.current = setTimeout(openSelection, 350);
     };
-
-    const options = [
-        { id: 'habit', label: 'Habit', icon: 'repeat', color: '#10B981', blurb: 'Something you repeat on a schedule.' },
-        { id: 'goal', label: 'Goal', icon: 'flag-outline', color: colors.primary, blurb: 'An outcome your habits build toward.' },
-    ] as const;
-
-    return (
-        <VoidModal visible={visible} onClose={() => setVisible(false)} onDismiss={openSelection}>
-            <View style={{ flex: 1 }}>
-                <ModalHeader title="Create" onBack={() => setVisible(false)} backIcon="close" />
-
-                <View style={{ paddingHorizontal: 16 }}>
-                    <SheetSection first title="What are you adding?" description="Habits are the work. Goals are what the work adds up to." />
-
-                    <View style={{ gap: 14, marginTop: 14 }}>
-                        {options.map(item => (
-                            <TouchableOpacity
-                                key={item.id}
-                                accessibilityRole="button"
-                                activeOpacity={0.85}
-                                onPress={() => choose(item.id)}
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 16,
-                                    paddingVertical: 20,
-                                    paddingHorizontal: 18,
-                                    borderRadius: 20,
-                                    borderWidth: 1,
-                                    borderColor: colors.border,
-                                    backgroundColor: colors.surfaceSecondary,
-                                }}
-                            >
-                                <View style={{
-                                    width: 52, height: 52, borderRadius: 16,
-                                    alignItems: 'center', justifyContent: 'center',
-                                    backgroundColor: item.color + '1A',
-                                }}>
-                                    <Ionicons name={item.icon} size={26} color={item.color} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: colors.textPrimary, fontSize: 18, fontFamily: 'Lexend_600SemiBold' }}>
-                                        {item.label}
-                                    </Text>
-                                    <Text style={{ color: colors.textTertiary, fontSize: 13, marginTop: 3, fontFamily: 'Lexend_400Regular' }}>
-                                        {item.blurb}
-                                    </Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
+    return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)} onDismiss={openSelection} statusBarTranslucent>
+        <View style={{ flex: 1 }}>
+            <Pressable accessibilityLabel="Close creation menu" onPress={() => setVisible(false)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+            <View accessibilityViewIsModal style={{ position: 'absolute', right: horizontalPadding, bottom: tabBarBottomOffset, gap: 14, alignItems: 'flex-end' }}>
+                {([{ id: 'goal', label: 'Goal', icon: 'flag-outline', color: primary }, { id: 'habit', label: 'Habit', icon: 'repeat', color: '#10B981' }] as const).map(item =>
+                    <TouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={'Create ' + item.label.toLowerCase()} onPress={() => choose(item.id)}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: floatingButtonSize / 2, paddingLeft: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}>
+                        <Text style={{ color: colors.text, fontSize: 16, fontFamily: 'Lexend_500Medium' }}>{item.label}</Text>
+                        <View style={{ width: floatingButtonSize, height: floatingButtonSize, borderRadius: floatingButtonSize / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: item.color }}>
+                            <Ionicons name={item.icon} size={26} color="#fff" />
+                        </View>
+                    </TouchableOpacity>)}
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close creation menu" onPress={() => setVisible(false)}
+                    style={{ width: floatingButtonSize, height: floatingButtonSize, borderRadius: floatingButtonSize / 2, backgroundColor: colors.surfaceSecondary, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}>
+                    <Ionicons name="close" size={28} color={colors.text} />
+                </TouchableOpacity>
             </View>
-        </VoidModal>
-    );
+        </View>
+    </Modal>;
 };
