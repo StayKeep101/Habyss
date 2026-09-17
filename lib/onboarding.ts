@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Habit, HabitCategory, TimeOfDay } from './habitsSQLite';
 import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
 import type { PersonalityModeId } from '@/constants/AIPersonalities';
+import type { ParsedHabit } from './habitParser';
 
 /**
  * Onboarding data model.
@@ -135,6 +136,8 @@ export interface OnboardingDraft {
     supportId?: SupportId;
     /** Suggestion id, or 'custom'. */
     suggestionId?: string;
+    /** The sentence the user typed, kept so the step resumes as they left it. */
+    habitText?: string;
     habitName?: string;
     targetValue?: number;
     targetUnit?: string;
@@ -147,6 +150,8 @@ export interface OnboardingDraft {
     taskDays?: string[];
     startDate?: string;
     cue?: string;
+    /** "HH:MM" when the user said a time, e.g. "gym at 6". */
+    startTime?: string;
     timeOfDay?: TimeOfDay;
     coachId?: PersonalityModeId;
     reminderTime?: string;
@@ -228,6 +233,42 @@ export const obstacleResponse = (obstacleId?: ObstacleId): string | null =>
 /*  Schedule                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/** Which recurrence control matches a parsed day list. */
+export function recurrenceFromTaskDays(days: string[]): { recurrence: RecurrenceId; taskDays: string[] } {
+    if (days.length === 0) return { recurrence: 'daily', taskDays: [] };
+    const weekdays = ['mon', 'tue', 'wed', 'thu', 'fri'];
+    const isWeekdays = days.length === weekdays.length && weekdays.every(day => days.includes(day));
+    if (isWeekdays) return { recurrence: 'weekdays', taskDays: [] };
+    return { recurrence: 'custom', taskDays: days };
+}
+
+/**
+ * Turns one parsed line into the draft fields for every later step.
+ *
+ * Typing is the source of truth while the user is typing, so this overwrites
+ * the target rather than preserving a manual edit; the schedule and confirm
+ * steps stay editable afterwards.
+ */
+export function draftFromParsedHabit(parsed: ParsedHabit): Partial<OnboardingDraft> {
+    const { recurrence, taskDays } = recurrenceFromTaskDays(parsed.taskDays);
+    return {
+        habitName: parsed.name,
+        targetValue: parsed.targetValue,
+        targetUnit: parsed.targetUnit,
+        trackingMethod: parsed.trackingMethod,
+        recurrence,
+        taskDays,
+        startTime: parsed.startTime,
+    };
+}
+
+/** An example sentence for a suggestion, so tapping one teaches the syntax. */
+export function suggestionToSentence(suggestion: HabitSuggestion, obstacleId?: ObstacleId): string {
+    const target = recommendedTarget(suggestion, obstacleId);
+    const amount = suggestion.trackingMethod === 'boolean' ? '' : `${target.value} ${target.unit} `;
+    return `${suggestion.name} ${amount}every day`.replace(/\s+/g, ' ').trim();
+}
+
 /** Days the draft actually runs on. Empty means every day. */
 export function draftTaskDays(draft: OnboardingDraft): string[] {
     if (draft.recurrence === 'weekdays') return ['mon', 'tue', 'wed', 'thu', 'fri'];
@@ -254,6 +295,7 @@ export function draftToHabit(draft: OnboardingDraft): Partial<Habit> {
         unit: draft.targetUnit ?? 'time',
         trackingMethod: draft.trackingMethod ?? 'boolean',
         description: draft.cue?.trim() ? draft.cue.trim() : undefined,
+        startTime: draft.startTime,
         timeOfDay: draft.timeOfDay,
         reminders: draft.reminderTime ? [draft.reminderTime] : [],
     };

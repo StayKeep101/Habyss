@@ -14,6 +14,8 @@ import { useAppSettings } from '@/constants/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { hasAnyIntegration, integrationsSummary } from '@/lib/integrationAvailability';
+import { APP_SLOGAN } from '@/constants/brand';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -478,8 +480,8 @@ export default function ProfileScreen() {
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={[styles.quote, { color: colors.textSecondary }]}>Descend into discipline</Text>
-                        <Text style={[styles.version, { color: colors.textTertiary }]}>v1.0.0</Text>
+                        <Text style={[styles.quote, { color: colors.textSecondary }]}>{APP_SLOGAN}</Text>
+                        <Text style={[styles.version, { color: colors.textTertiary }]}>v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
                     </View>
 
                 </ScrollView>

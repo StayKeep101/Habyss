@@ -18,19 +18,25 @@ import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { HabyssBootScreen } from '@/components/Loading/HabyssBootScreen';
+import { SpinningLogo } from '@/components/SpinningLogo';
+import { APP_NAME, APP_SLOGAN } from '@/constants/brand';
 import { HabitGesturesTour } from '@/components/Onboarding/HabitGesturesTour';
 import { addHabit, updateHabit } from '@/lib/habitsSQLite';
 import { NotificationService } from '@/lib/notificationService';
 import { setLocalProfileName, setOnboardingComplete } from '@/lib/localUser';
 import { localDateKey } from '@/lib/habitSchedule';
 import { coachPlanIntro, coachPreview } from '@/lib/coachMessages';
+import { describeParsed, parseHabitText } from '@/lib/habitParser';
 import {
     AREAS, MAX_AREAS, OBSTACLES, SUPPORTS, WEEKDAY_KEYS, clearDraft, coachForSupport,
     describeRecurrence, draftToHabit, hasValidSchedule, loadDraft, nextOccurrence,
-    obstacleResponse, prefersNumericTracking, rankSuggestions, recommendedTarget,
-    saveDraft, shouldOfferReminder, shouldSuggestCue,
+    obstacleResponse, prefersNumericTracking, rankSuggestions,
+    draftFromParsedHabit, saveDraft, shouldOfferReminder, shouldSuggestCue, suggestionToSentence,
     type AreaId, type OnboardingDraft, type RecurrenceId, type SupportId,
 } from '@/lib/onboarding';
+
+/** Just long enough for the selected state to paint before the step changes. */
+const SELECT_ADVANCE_MS = 180;
 
 const STEPS = [
     'welcome', 'name', 'direction', 'obstacle', 'support',
@@ -94,13 +100,14 @@ export default function OnboardingScreen() {
     }, [cancelAdvance, update]);
 
     /**
-     * Applies a single-choice answer and moves on by itself.
+     * Applies a single-choice answer and moves straight on.
      *
-     * The delay lets the selection register, and on the obstacle step lets the
-     * response be read. Deselecting cancels instead of advancing, and the
-     * Continue button still works for anyone who does not want to wait.
+     * The delay is only long enough for the selected state to paint, so the tap
+     * feels acknowledged rather than ignored; anything longer reads as lag.
+     * Single-choice steps have no Continue button, so every tap advances,
+     * including a tap on the option that is already selected.
      */
-    const chooseAndAdvance = useCallback((patch: Partial<OnboardingDraft>, nextStep: number, delay: number) => {
+    const chooseAndAdvance = useCallback((patch: Partial<OnboardingDraft>, nextStep: number, delay = SELECT_ADVANCE_MS) => {
         cancelAdvance();
         update(patch);
         advanceRef.current = setTimeout(() => {
@@ -267,10 +274,12 @@ export default function OnboardingScreen() {
 
     const renderWelcome = () => (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <Text style={[styles.hero, { color: colors.textPrimary }]}>Build habits with a coach that fits you.</Text>
-            <Text style={[styles.heroSub, { color: colors.textSecondary }]}>
-                One habit, a schedule that suits you, and a coach whose tone you actually want to hear. Everything stays on this device.
-            </Text>
+            <View style={styles.brand}>
+                <SpinningLogo size={92} glow />
+                <Text style={[styles.brandName, { color: colors.textPrimary }]}>{APP_NAME}</Text>
+                <Text style={[styles.brandSlogan, { color: colors.textSecondary }]}>{APP_SLOGAN}</Text>
+            </View>
+
 
             <View style={styles.previewBadgeRow}>
                 <View style={[styles.previewBadge, { borderColor: accent + '55', backgroundColor: accent + '12' }]}>
@@ -312,7 +321,7 @@ export default function OnboardingScreen() {
 
     const renderName = () => (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <SectionTitle description="Your first name or nickname.">What should we call you?</SectionTitle>
+            <SectionTitle>What should we call you?</SectionTitle>
 
             <TextInput
                 value={draft.name ?? ''}
@@ -357,7 +366,7 @@ export default function OnboardingScreen() {
             // This step allows two answers, so it only moves on by itself once
             // both are chosen. One area plus Continue is still the quick path.
             if (next.length >= MAX_AREAS) {
-                chooseAndAdvance({ areaIds: next }, STEP.obstacle, 520);
+                chooseAndAdvance({ areaIds: next }, STEP.obstacle);
                 return;
             }
             update({ areaIds: next });
@@ -365,7 +374,7 @@ export default function OnboardingScreen() {
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle description="Choose up to two. You can explore more later.">
+                <SectionTitle>
                     {firstName ? `What would you like to make more time for, ${firstName}?` : 'What would you like to make more time for?'}
                 </SectionTitle>
 
@@ -395,9 +404,7 @@ export default function OnboardingScreen() {
         const response = obstacleResponse(draft.obstacleId);
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle description="Choose the one that feels most familiar.">
-                    When you try to build a habit, what usually gets in the way?
-                </SectionTitle>
+                <SectionTitle>What usually gets in the way?</SectionTitle>
 
                 <View style={{ gap: 8 }}>
                     {OBSTACLES.map(obstacle => (
@@ -405,38 +412,29 @@ export default function OnboardingScreen() {
                             key={obstacle.id}
                             selected={draft.obstacleId === obstacle.id}
                             title={obstacle.label}
-                            onPress={() => {
-                                if (draft.obstacleId === obstacle.id) {
-                                    // Deselecting is not a choice, so nothing advances.
-                                    cancelAdvance();
-                                    update({ obstacleId: undefined });
-                                    return;
-                                }
-                                // Long enough to read the matching response first.
-                                chooseAndAdvance({ obstacleId: obstacle.id }, STEP.support, 1150);
-                            }}
+                            onPress={() => chooseAndAdvance({ obstacleId: obstacle.id }, STEP.support)}
                         />
                     ))}
                 </View>
 
-                {response ? (
-                    <View style={[styles.nextCard, { borderColor: accent + '44', backgroundColor: accent + '10' }]}>
-                        <Ionicons name="sparkles-outline" size={18} color={accent} />
-                        <Text style={[styles.nextText, { color: colors.textPrimary }]}>{response}</Text>
-                    </View>
-                ) : null}
-
-                <View style={{ height: 14 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(STEP.support)} disabled={!draft.obstacleId} />
             </ScrollView>
         );
     };
 
-    const renderSupport = () => (
+    const renderSupport = () => {
+        // The response to the previous answer lands here, where it can be read,
+        // rather than flashing past on the step that produced it.
+        const response = obstacleResponse(draft.obstacleId);
+        return (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <SectionTitle description="Choose what would make the biggest difference.">
-                What kind of support would help you most?
-            </SectionTitle>
+            {response ? (
+                <View style={[styles.nextCard, { marginTop: 0, marginBottom: 20, borderColor: accent + '44', backgroundColor: accent + '10' }]}>
+                    <Ionicons name="sparkles-outline" size={18} color={accent} />
+                    <Text style={[styles.nextText, { color: colors.textPrimary }]}>{response}</Text>
+                </View>
+            ) : null}
+
+            <SectionTitle>What would help you most?</SectionTitle>
 
             <View style={{ gap: 8 }}>
                 {SUPPORTS.map(support => (
@@ -444,144 +442,87 @@ export default function OnboardingScreen() {
                         key={support.id}
                         selected={draft.supportId === support.id}
                         title={support.label}
-                        subtitle={support.blurb}
-                        onPress={() => {
-                            if (draft.supportId === support.id) {
-                                cancelAdvance();
-                                update({ supportId: undefined });
-                                return;
-                            }
-                            // The coach follows this answer until the user picks one themselves.
-                            chooseAndAdvance({ supportId: support.id }, STEP.habit, 420);
-                        }}
+                        // The coach follows this answer until the user picks one themselves.
+                        onPress={() => chooseAndAdvance({ supportId: support.id }, STEP.habit)}
                     />
                 ))}
             </View>
 
-            <View style={{ height: 20 }} />
-            <PrimaryButton label="Find my first habit" onPress={() => goTo(STEP.habit)} disabled={!draft.supportId} />
         </ScrollView>
-    );
-
-    const applySuggestion = (id: string) => {
-        const suggestion = suggestions.find(item => item.id === id);
-        if (!suggestion) {
-            update({ suggestionId: 'custom', icon: 'ellipse-outline' });
-            return;
-        }
-        const target = recommendedTarget(suggestion, draft.obstacleId);
-        update({
-            suggestionId: suggestion.id,
-            habitName: suggestion.name,
-            icon: suggestion.icon,
-            category: suggestion.category,
-            trackingMethod: prefersNumericTracking(draft.supportId) && suggestion.standard.value > 1
-                ? 'numeric'
-                : suggestion.trackingMethod,
-            // A manual edit is preserved when the recommendation changes.
-            targetValue: draft.targetEdited ? draft.targetValue : target.value,
-            targetUnit: draft.targetEdited ? draft.targetUnit : target.unit,
-            cue: shouldSuggestCue(draft.obstacleId) ? (draft.cue ?? suggestion.suggestedCue) : draft.cue,
-        });
+        );
     };
 
     const renderHabit = () => {
-        const isCustom = draft.suggestionId === 'custom';
-        const numeric = draft.trackingMethod !== 'boolean';
-        const canContinue = !!draft.habitName?.trim() && (!numeric || (draft.targetValue ?? 0) > 0);
+        const text = draft.habitText ?? '';
+        const parsed = text.trim() ? parseHabitText(text) : null;
+        const canContinue = !!parsed?.name.trim();
+
+        // Typing is the whole input. Days, times and targets are read out of the
+        // sentence and carried into the schedule and confirm steps.
+        const onChangeText = (value: string) => {
+            const next = value.trim() ? parseHabitText(value) : null;
+            update(next
+                ? { habitText: value, ...draftFromParsedHabit(next) }
+                : { habitText: value, habitName: undefined, targetValue: undefined, targetUnit: undefined });
+        };
+
+        // Tapping a suggestion writes the sentence, so the syntax is learned by
+        // seeing it rather than being explained.
+        const useSuggestion = (suggestion: typeof suggestions[number]) => {
+            lightFeedback();
+            const sentence = suggestionToSentence(suggestion, draft.obstacleId);
+            update({
+                habitText: sentence,
+                ...draftFromParsedHabit(parseHabitText(sentence)),
+                icon: suggestion.icon,
+                category: suggestion.category,
+                suggestionId: suggestion.id,
+                cue: shouldSuggestCue(draft.obstacleId) ? (draft.cue ?? suggestion.suggestedCue) : draft.cue,
+            });
+        };
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <SectionTitle description="Start with one. You can add more once you are set up.">Your first habit</SectionTitle>
+                <SectionTitle>Your first habit</SectionTitle>
 
-                <View style={{ gap: 8 }}>
-                    {suggestions.slice(0, 3).map(suggestion => {
-                        const target = recommendedTarget(suggestion, draft.obstacleId);
-                        return (
+                <TextInput
+                    value={text}
+                    onChangeText={onChangeText}
+                    autoFocus
+                    multiline
+                    placeholder="Gym Monday, Wednesday, Friday at 6, 45 minutes"
+                    placeholderTextColor={colors.textTertiary}
+                    accessibilityLabel="Describe your habit"
+                    style={[styles.input, styles.habitInput, {
+                        color: colors.textPrimary, borderColor: parsed ? accent + '55' : colors.border,
+                        backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
+                    }]}
+                />
+
+                {parsed ? (
+                    <VoidCard style={styles.parsedCard}>
+                        <Text style={[styles.parsedName, { color: colors.textPrimary }]}>{parsed.name || 'Name it'}</Text>
+                        <Text style={[styles.parsedLine, { color: accent }]}>{describeParsed(parsed)}</Text>
+                        {parsed.assumptions.map(note => (
+                            <Text key={note} style={[styles.hint, { color: colors.textTertiary }]}>{note}</Text>
+                        ))}
+                    </VoidCard>
+                ) : (
+                    <View style={{ gap: 8 }}>
+                        {suggestions.slice(0, 3).map(suggestion => (
                             <Choice
                                 key={suggestion.id}
-                                selected={draft.suggestionId === suggestion.id}
-                                title={suggestion.name}
-                                subtitle={suggestion.trackingMethod === 'boolean' ? 'Done or not done' : `${target.value} ${target.unit} to start`}
+                                selected={false}
+                                title={suggestionToSentence(suggestion, draft.obstacleId)}
                                 icon={suggestion.icon}
-                                onPress={() => applySuggestion(suggestion.id)}
+                                onPress={() => useSuggestion(suggestion)}
+                                trailing={<Ionicons name="arrow-forward" size={18} color={colors.textTertiary} />}
                             />
-                        );
-                    })}
-                    <Choice
-                        selected={isCustom}
-                        title="Something else"
-                        subtitle="Name it yourself"
-                        icon="create-outline"
-                        onPress={() => applySuggestion('custom')}
-                    />
-                </View>
-
-                {(draft.suggestionId || isCustom) ? (
-                    <View style={{ marginTop: 22, gap: 14 }}>
-                        <View>
-                            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>HABIT NAME</Text>
-                            <TextInput
-                                value={draft.habitName ?? ''}
-                                onChangeText={text => update({ habitName: text })}
-                                placeholder="e.g. Walk"
-                                placeholderTextColor={colors.textTertiary}
-                                style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}
-                            />
-                        </View>
-
-                        <View>
-                            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>COMPLETION TARGET</Text>
-                            <View style={styles.targetRow}>
-                                <TouchableOpacity
-                                    accessibilityLabel="Track as done or not done"
-                                    onPress={() => update({ trackingMethod: 'boolean', targetValue: 1, targetEdited: true })}
-                                    style={[styles.trackChip, {
-                                        backgroundColor: !numeric ? accent + '20' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                        borderColor: !numeric ? accent : 'transparent',
-                                    }]}
-                                >
-                                    <Text style={{ color: !numeric ? accent : colors.textSecondary, fontFamily: 'Lexend_500Medium', fontSize: 13 }}>Done / not done</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    accessibilityLabel="Track with an amount"
-                                    onPress={() => update({ trackingMethod: 'numeric', targetEdited: true })}
-                                    style={[styles.trackChip, {
-                                        backgroundColor: numeric ? accent + '20' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                        borderColor: numeric ? accent : 'transparent',
-                                    }]}
-                                >
-                                    <Text style={{ color: numeric ? accent : colors.textSecondary, fontFamily: 'Lexend_500Medium', fontSize: 13 }}>An amount</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            {numeric ? (
-                                <View style={[styles.targetRow, { marginTop: 10 }]}>
-                                    <TextInput
-                                        value={String(draft.targetValue ?? '')}
-                                        onChangeText={text => {
-                                            const value = Number(text.replace(/[^0-9]/g, ''));
-                                            update({ targetValue: Number.isFinite(value) ? value : 0, targetEdited: true });
-                                        }}
-                                        keyboardType="number-pad"
-                                        accessibilityLabel="Target amount"
-                                        style={[styles.input, styles.targetValue, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}
-                                    />
-                                    <TextInput
-                                        value={draft.targetUnit ?? ''}
-                                        onChangeText={text => update({ targetUnit: text, targetEdited: true })}
-                                        placeholder="min"
-                                        placeholderTextColor={colors.textTertiary}
-                                        accessibilityLabel="Target unit"
-                                        style={[styles.input, { flex: 1, color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}
-                                    />
-                                </View>
-                            ) : null}
-                        </View>
+                        ))}
                     </View>
-                ) : null}
+                )}
 
-                <View style={{ height: 20 }} />
+                <View style={{ height: 18 }} />
                 <PrimaryButton label="Continue" onPress={() => goTo(STEP.schedule)} disabled={!canContinue} />
             </ScrollView>
         );
@@ -598,7 +539,7 @@ export default function OnboardingScreen() {
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <SectionTitle description="You can change this later without redoing setup.">When will you do it?</SectionTitle>
+                <SectionTitle>When will you do it?</SectionTitle>
 
                 <View style={styles.chipRow}>
                     {recurrences.map(option => (
@@ -678,7 +619,7 @@ export default function OnboardingScreen() {
                     style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}
                 />
                 <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                    A cue is a note on your habit card to anchor it to something you already do. Habyss cannot detect it — a timed reminder is a separate, optional setting.
+                    A note on your card, not a detected trigger.
                 </Text>
 
                 <View style={[styles.nextCard, { borderColor: accent + '44', backgroundColor: accent + '10' }]}>
@@ -701,7 +642,7 @@ export default function OnboardingScreen() {
         const habitName = draft.habitName?.trim() || 'this habit';
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle description={`Here is how each one would talk to you about ${habitName}.`}>Choose your coach</SectionTitle>
+                <SectionTitle>Choose your coach</SectionTitle>
 
                 <View style={{ gap: 10 }}>
                     {PERSONALITY_MODES.map(mode => {
@@ -714,7 +655,7 @@ export default function OnboardingScreen() {
                                 activeOpacity={0.85}
                                 onPress={() => {
                                     lightFeedback();
-                                    chooseAndAdvance({ coachId: mode.id }, STEP.confirm, 480);
+                                    chooseAndAdvance({ coachId: mode.id }, STEP.confirm);
                                 }}
                                 style={[styles.coachCard, {
                                     backgroundColor: on ? accent + '14' : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
@@ -739,11 +680,9 @@ export default function OnboardingScreen() {
                 </View>
 
                 <Text style={[styles.hint, { color: colors.textTertiary, marginTop: 14 }]}>
-                    These are written examples, not AI output. You can change your coach any time in Settings.
+                    Written examples. Changeable later.
                 </Text>
 
-                <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => { if (!draft.coachId) update({ coachId: defaultCoach }); goTo(STEP.confirm); }} />
             </ScrollView>
         );
     };
@@ -807,7 +746,8 @@ export default function OnboardingScreen() {
     };
 
     const renderReminder = () => {
-        const time = draft.reminderTime ?? '08:00';
+        // If they wrote "at 6", that is already the time they meant.
+        const time = draft.reminderTime ?? draft.startTime ?? '08:00';
         const [hour, minute] = time.split(':').map(Number);
         const pickerValue = new Date();
         pickerValue.setHours(hour || 8, minute || 0, 0, 0);
@@ -823,11 +763,7 @@ export default function OnboardingScreen() {
                 </View>
 
                 <View style={{ height: 18 }} />
-                <SectionTitle description={recommended
-                    ? 'You said you forget, so a reminder may help. It is optional.'
-                    : 'Optional. A reminder is separate from your routine cue.'}>
-                    Want a reminder?
-                </SectionTitle>
+                <SectionTitle>{recommended ? 'A reminder might help' : 'Want a reminder?'}</SectionTitle>
 
                 <View style={{ alignItems: 'center' }}>
                     <DateTimePicker
@@ -852,7 +788,7 @@ export default function OnboardingScreen() {
 
                 <View style={{ height: 14, gap: 10 }} />
                 <View style={{ gap: 10 }}>
-                    <PrimaryButton label={`Remind me at ${draft.reminderTime ?? '08:00'}`} onPress={() => enableReminder(draft.reminderTime ?? '08:00')} />
+                    <PrimaryButton label={`Remind me at ${time}`} onPress={() => enableReminder(time)} />
                     <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); goTo(STEP.tour); }} style={styles.secondaryBtn}>
                         <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
                             {reminderNote ? 'Done' : 'Not now'}
@@ -936,8 +872,10 @@ const styles = StyleSheet.create({
     progressRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingBottom: 10 },
     progressDot: { height: 8, borderRadius: 4 },
     content: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 6 },
-    hero: { fontSize: 30, lineHeight: 38, fontFamily: 'Lexend_600SemiBold', letterSpacing: -0.5, marginTop: 10 },
-    heroSub: { fontSize: 15, lineHeight: 22, fontFamily: 'Lexend_400Regular', marginTop: 12 },
+    brand: { alignItems: 'center', marginTop: 18, gap: 2 },
+    brandName: { marginTop: 18, fontSize: 32, letterSpacing: 8, fontFamily: 'SpaceGrotesk_700Bold' },
+    brandSlogan: { marginTop: 10, fontSize: 15, lineHeight: 22, fontFamily: 'Lexend_400Regular', textAlign: 'center' },
+    heroSub: { fontSize: 13, lineHeight: 19, fontFamily: 'Lexend_400Regular', marginTop: 22, textAlign: 'center' },
     previewBadgeRow: { flexDirection: 'row', marginTop: 26, marginBottom: 8 },
     previewBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
     previewBadgeText: { fontSize: 9, letterSpacing: 1.2, fontFamily: 'Lexend_600SemiBold' },
@@ -953,6 +891,10 @@ const styles = StyleSheet.create({
     choiceSub: { fontSize: 12, lineHeight: 17, fontFamily: 'Lexend_400Regular', marginTop: 2 },
     fieldLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: 'Lexend_500Medium', marginBottom: 8 },
     input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: 'Lexend_400Regular' },
+    habitInput: { minHeight: 88, paddingTop: 14, fontSize: 17, lineHeight: 24, textAlignVertical: 'top' },
+    parsedCard: { padding: 16, gap: 6 },
+    parsedName: { fontSize: 18, fontFamily: 'Lexend_600SemiBold' },
+    parsedLine: { fontSize: 14, fontFamily: 'Lexend_500Medium' },
     targetRow: { flexDirection: 'row', gap: 10 },
     targetValue: { width: 96, textAlign: 'center' },
     trackChip: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1 },

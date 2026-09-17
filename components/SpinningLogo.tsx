@@ -6,7 +6,8 @@ import Animated, {
     withRepeat,
     withTiming,
     Easing,
-    cancelAnimation
+    cancelAnimation,
+    useReducedMotion
 } from 'react-native-reanimated';
 
 interface SpinningLogoProps {
@@ -18,8 +19,17 @@ interface SpinningLogoProps {
 export const SpinningLogo: React.FC<SpinningLogoProps> = ({ size = 80, glow = false }) => {
     const rotation = useSharedValue(0);
     const scale = useSharedValue(1);
+    const reduceMotion = useReducedMotion();
 
     useEffect(() => {
+        // A logo that spins forever is exactly what reduced motion is asking us
+        // not to do. It still renders, just still.
+        if (reduceMotion) {
+            rotation.value = 0;
+            scale.value = 1;
+            return;
+        }
+
         rotation.value = withRepeat(
             withTiming(360, {
                 duration: 2600,
@@ -42,7 +52,7 @@ export const SpinningLogo: React.FC<SpinningLogoProps> = ({ size = 80, glow = fa
             cancelAnimation(rotation);
             cancelAnimation(scale);
         };
-    }, []);
+    }, [reduceMotion]);
 
     const animatedStyle = useAnimatedStyle(() => {
         return {

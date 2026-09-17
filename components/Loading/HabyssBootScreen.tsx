@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SpinningLogo } from '@/components/SpinningLogo';
+import { APP_NAME, APP_SLOGAN } from '@/constants/brand';
 
 interface HabyssBootScreenProps {
     subtitle?: string;
@@ -22,8 +23,9 @@ export const HabyssBootScreen: React.FC<HabyssBootScreenProps> = ({
             <View style={styles.orbitSmall} />
             <View style={styles.content}>
                 <SpinningLogo size={112} glow />
-                <Text style={styles.title}>HABYSS</Text>
-                <Text style={styles.subtitle}>{subtitle}</Text>
+                <Text style={styles.title}>{APP_NAME}</Text>
+                <Text style={styles.slogan}>{APP_SLOGAN}</Text>
+                {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
             </View>
         </View>
     );
@@ -48,10 +50,19 @@ const styles = StyleSheet.create({
         letterSpacing: 8,
         fontFamily: 'SpaceGrotesk_700Bold',
     },
+    slogan: {
+        marginTop: 12,
+        color: 'rgba(226,232,240,0.92)',
+        fontSize: 14,
+        lineHeight: 20,
+        letterSpacing: 0.3,
+        fontFamily: 'Lexend_400Regular',
+        textAlign: 'center',
+    },
     subtitle: {
-        marginTop: 10,
-        color: 'rgba(226,232,240,0.72)',
-        fontSize: 13,
+        marginTop: 18,
+        color: 'rgba(226,232,240,0.55)',
+        fontSize: 11,
         letterSpacing: 1.2,
         textTransform: 'uppercase',
         fontFamily: 'Lexend_400Regular',

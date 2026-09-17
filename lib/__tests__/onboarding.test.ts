@@ -1,5 +1,7 @@
+import { parseHabitText } from '../habitParser';
 import {
-    AREAS, MAX_AREAS, OBSTACLES, SUGGESTIONS, SUPPORTS,
+    AREAS, MAX_AREAS, OBSTACLES, SUGGESTIONS, SUPPORTS, draftFromParsedHabit,
+    recurrenceFromTaskDays, suggestionToSentence,
     coachForSupport, describeRecurrence, draftTaskDays, draftToHabit, hasValidSchedule,
     nextOccurrence, obstacleResponse, prefersNumericTracking, rankSuggestions,
     recommendedTarget, shouldOfferReminder, shouldSuggestCue,
@@ -236,5 +238,63 @@ describe('describeRecurrence', () => {
         expect(describeRecurrence({ ...base, recurrence: 'weekdays' })).toBe('Weekdays');
         expect(describeRecurrence({ ...base, recurrence: 'custom', taskDays: ['mon', 'wed'] })).toBe('Mon, Wed');
         expect(describeRecurrence({ ...base, recurrence: 'custom', taskDays: [] })).toBe('No days chosen');
+    });
+});
+
+
+describe('what the user types flows into the later steps', () => {
+    it('maps a parsed day list onto the schedule controls', () => {
+        expect(recurrenceFromTaskDays([])).toEqual({ recurrence: 'daily', taskDays: [] });
+        expect(recurrenceFromTaskDays(['mon', 'tue', 'wed', 'thu', 'fri']))
+            .toEqual({ recurrence: 'weekdays', taskDays: [] });
+        expect(recurrenceFromTaskDays(['mon', 'wed', 'fri']))
+            .toEqual({ recurrence: 'custom', taskDays: ['mon', 'wed', 'fri'] });
+    });
+
+    it('fills the whole plan from one sentence', () => {
+        const draft = draftFromParsedHabit(parseHabitText('Gym Monday, Wednesday, Friday at 6, 45 minutes'));
+        expect(draft).toMatchObject({
+            habitName: 'Gym',
+            targetValue: 45,
+            targetUnit: 'min',
+            trackingMethod: 'numeric',
+            recurrence: 'custom',
+            taskDays: ['mon', 'wed', 'fri'],
+            startTime: '18:00',
+        });
+    });
+
+    it('sends a weekday sentence to the weekdays control', () => {
+        expect(draftFromParsedHabit(parseHabitText('Read 10 pages weekdays')))
+            .toMatchObject({ recurrence: 'weekdays', targetValue: 10, targetUnit: 'pages' });
+    });
+
+    it('leaves the time unset when none was said', () => {
+        expect(draftFromParsedHabit(parseHabitText('Stretch every day')).startTime).toBeUndefined();
+    });
+
+    it('produces a schedule the app agrees with', () => {
+        const parsed = parseHabitText('Gym Monday, Wednesday, Friday at 6, 45 minutes');
+        const draft = { ...base, ...draftFromParsedHabit(parsed), startDate: '2026-09-16' };
+        const next = nextOccurrence(draft, new Date(2026, 8, 20))!;
+        // 2026-09-20 is a Sunday, so the next Gym day is Monday the 21st.
+        expect(next.getDay()).toBe(1);
+        expect(draftToHabit(draft).startTime).toBe('18:00');
+    });
+
+    it('writes an example sentence that the parser can read back', () => {
+        for (const suggestion of SUGGESTIONS.slice(0, 6)) {
+            const sentence = suggestionToSentence(suggestion);
+            const parsed = parseHabitText(sentence);
+            expect(parsed.name.toLowerCase()).toContain(suggestion.name.split(' ')[0].toLowerCase());
+            if (suggestion.trackingMethod === 'numeric') {
+                expect(parsed.targetValue).toBe(suggestion.standard.value);
+            }
+        }
+    });
+
+    it('uses the smaller target in the example when the obstacle calls for it', () => {
+        const read = SUGGESTIONS.find(s => s.id === 'read')!;
+        expect(suggestionToSentence(read, 'overwhelmed')).toContain(String(read.small.value));
     });
 });

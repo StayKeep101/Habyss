@@ -25,15 +25,14 @@ export type GestureId = 'complete' | 'actions' | 'open' | 'move';
 interface Lesson {
     id: GestureId;
     title: string;
-    detail: string;
     icon: string;
 }
 
 const LESSONS: Lesson[] = [
-    { id: 'complete', title: 'Swipe right to complete', detail: 'Swipe back the other way to undo it.', icon: 'checkmark-circle-outline' },
-    { id: 'actions', title: 'Swipe left for edit and delete', detail: 'The quickest way to change a target or remove a habit.', icon: 'options-outline' },
-    { id: 'open', title: 'Tap to open it', detail: 'Full history, streak and settings for that habit.', icon: 'open-outline' },
-    { id: 'move', title: 'Hold, then drag to move it', detail: 'Reorder your day, or drop a habit into another goal. Roadmap tab.', icon: 'move-outline' },
+    { id: 'complete', title: 'Swipe right to complete', icon: 'checkmark-circle-outline' },
+    { id: 'actions', title: 'Swipe left to edit or delete', icon: 'options-outline' },
+    { id: 'open', title: 'Tap to open', icon: 'open-outline' },
+    { id: 'move', title: 'Hold, then drag to move', icon: 'move-outline' },
 ];
 
 interface Props {
@@ -109,9 +108,6 @@ export const HabitGesturesTour: React.FC<Props> = ({
     return (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <Text style={[styles.heading, { color: colors.textPrimary }]}>Try it on this card</Text>
-            <Text style={[styles.sub, { color: colors.textSecondary }]}>
-                Your habit cards do more than tick off. Give each one a go — this card is for practice, so nothing here is saved.
-            </Text>
 
             <View style={styles.badgeRow}>
                 <View style={[styles.badge, { borderColor: accent + '55', backgroundColor: accent + '12' }]}>
@@ -181,17 +177,14 @@ export const HabitGesturesTour: React.FC<Props> = ({
                                 size={20}
                                 color={done ? accent : colors.textSecondary}
                             />
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.lessonTitle, { color: colors.textPrimary }]}>{lesson.title}</Text>
-                                <Text style={[styles.lessonDetail, { color: colors.textTertiary }]}>{lesson.detail}</Text>
-                            </View>
+                            <Text style={[styles.lessonTitle, { color: colors.textPrimary, flex: 1 }]}>{lesson.title}</Text>
                         </View>
                     );
                 })}
             </View>
 
             <Text style={[styles.footnote, { color: colors.textTertiary }]}>
-                Swiping and tapping work on the Roadmap tab and inside a goal. Dragging and the focus timer are on Roadmap.
+                On Roadmap and inside a goal. Dragging is Roadmap only.
             </Text>
 
             <TouchableOpacity
@@ -210,7 +203,6 @@ export const HabitGesturesTour: React.FC<Props> = ({
 const styles = StyleSheet.create({
     content: { paddingHorizontal: 20, paddingBottom: 40, gap: 14 },
     heading: { fontSize: 22, fontFamily: 'Lexend_600SemiBold', marginTop: 4 },
-    sub: { fontSize: 14, lineHeight: 20, fontFamily: 'Lexend_400Regular' },
     badgeRow: { flexDirection: 'row', marginTop: 2 },
     badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
     badgeText: { fontSize: 9, letterSpacing: 1.2, fontFamily: 'Lexend_600SemiBold' },
@@ -226,7 +218,6 @@ const styles = StyleSheet.create({
     lessons: { gap: 8, marginTop: 4 },
     lesson: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: 14, borderWidth: 1 },
     lessonTitle: { fontSize: 14, fontFamily: 'Lexend_500Medium' },
-    lessonDetail: { fontSize: 12, lineHeight: 17, fontFamily: 'Lexend_400Regular', marginTop: 2 },
     footnote: { fontSize: 11, lineHeight: 16, fontFamily: 'Lexend_400Regular' },
     primaryBtn: { paddingVertical: 16, borderRadius: 999, alignItems: 'center', marginTop: 4 },
     primaryText: { color: '#000', fontSize: 15, fontFamily: 'Lexend_600SemiBold' },
