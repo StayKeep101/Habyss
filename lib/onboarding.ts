@@ -6,54 +6,85 @@ import type { PersonalityModeId } from '@/constants/AIPersonalities';
 /**
  * Onboarding data model.
  *
- * Every answer here changes something the user can see afterwards: the area
- * ranks suggestions, the obstacle changes which target is recommended and
- * whether a cue and reminder are offered, and the rest is saved directly onto
- * the habit. Nothing is collected for its own sake.
+ * Every answer here changes something the user can see afterwards:
+ * - name         personalises the questions and is saved to the profile
+ * - areas        filter which habits are suggested
+ * - obstacle     decides the recommended target, the routine cue and whether a
+ *                reminder is offered
+ * - support      sets the default coach, and for two of the options changes the
+ *                reminder offer or how the habit is tracked
+ *
+ * Nothing is collected for its own sake. If an option cannot be given a real
+ * effect it does not belong on the list.
  */
 
 export const DRAFT_KEY = 'habyss_onboarding_draft';
 
-export type AreaId = 'body' | 'mind' | 'soul' | 'wealth' | 'heart';
-export type ObstacleId = 'forgetting' | 'too_big' | 'no_time' | 'unsure';
+export type AreaId = 'body' | 'focus' | 'learning' | 'calm' | 'routine' | 'other';
+
+export type ObstacleId =
+    | 'putting_off' | 'momentum' | 'forgetting'
+    | 'overwhelmed' | 'accountability' | 'restarting';
+
+export type SupportId = 'clear_plan' | 'consistency' | 'accountability' | 'progress' | 'fresh_start';
+
+/** Areas the user can pick. At most two, so suggestions stay focused. */
+export const MAX_AREAS = 2;
 
 export interface Area {
     id: AreaId;
     label: string;
-    blurb: string;
     icon: string;
     category: HabitCategory;
 }
 
 export const AREAS: Area[] = [
-    { id: 'body', label: 'Move more', blurb: 'Training, walking, stretching', icon: 'barbell-outline', category: 'body' },
-    { id: 'mind', label: 'Focus and learn', blurb: 'Reading, studying, deep work', icon: 'book-outline', category: 'mind' },
-    { id: 'soul', label: 'Feel calmer', blurb: 'Breathing, journalling, rest', icon: 'leaf-outline', category: 'soul' },
-    { id: 'wealth', label: 'Work and money', blurb: 'Planning, saving, admin', icon: 'trending-up-outline', category: 'wealth' },
-    { id: 'heart', label: 'People I care about', blurb: 'Staying in touch, showing up', icon: 'heart-outline', category: 'heart' },
+    { id: 'body', label: 'Moving my body and feeling healthier.', icon: 'walk-outline', category: 'body' },
+    { id: 'focus', label: 'Focusing on work or personal projects.', icon: 'timer-outline', category: 'productivity' },
+    { id: 'learning', label: 'Learning and building new skills.', icon: 'book-outline', category: 'learning' },
+    { id: 'calm', label: 'Taking care of myself and feeling calmer.', icon: 'leaf-outline', category: 'soul' },
+    { id: 'routine', label: 'Sleeping better and building a daily routine.', icon: 'moon-outline', category: 'health' },
+    { id: 'other', label: 'Something else.', icon: 'ellipsis-horizontal-outline', category: 'personal' },
 ];
 
 export interface Obstacle {
     id: ObstacleId;
     label: string;
-    /** Shown so the effect of the answer is never a surprise. */
-    effect: string;
+    /** Shown once selected, so the user sees how Habyss will respond. */
+    response: string;
 }
 
 export const OBSTACLES: Obstacle[] = [
-    { id: 'forgetting', label: 'I forget', effect: 'Adds a routine cue and offers a reminder' },
-    { id: 'too_big', label: 'I start too big', effect: 'Recommends the smaller target' },
-    { id: 'no_time', label: 'I run out of time', effect: 'Puts the shortest habits first' },
-    { id: 'unsure', label: 'Not sure yet', effect: 'Starts small, nothing added' },
+    { id: 'putting_off', label: 'I keep saying, “I’ll start tomorrow.”', response: 'Let’s find a first step that feels easy to start.' },
+    { id: 'momentum', label: 'I start strong, but lose momentum.', response: 'Let’s build a routine that also fits your low-motivation days.' },
+    { id: 'forgetting', label: 'I forget when life gets busy.', response: 'Let’s connect your habit to something you already do.' },
+    { id: 'overwhelmed', label: 'I set big goals and feel overwhelmed.', response: 'Let’s start with one manageable habit.' },
+    { id: 'accountability', label: 'I struggle without someone checking in.', response: 'Let’s find a way to check in that works for you.' },
+    { id: 'restarting', label: 'I miss a day, then find it hard to restart.', response: 'Let’s make returning part of the plan.' },
+];
+
+export interface Support {
+    id: SupportId;
+    label: string;
+    blurb: string;
+}
+
+export const SUPPORTS: Support[] = [
+    { id: 'clear_plan', label: 'A clear plan', blurb: 'Help me know what to do each day.' },
+    { id: 'consistency', label: 'More consistency', blurb: 'Help me follow through when motivation fades.' },
+    { id: 'accountability', label: 'Accountability', blurb: 'Help me check in on what I committed to.' },
+    { id: 'progress', label: 'Visible progress', blurb: 'Help me see how my small efforts add up.' },
+    { id: 'fresh_start', label: 'A fresh start', blurb: 'Help me return after missing a few days.' },
 ];
 
 export interface HabitSuggestion {
     id: string;
     name: string;
     icon: string;
-    area: AreaId;
+    /** A habit can belong to more than one area. */
+    areas: AreaId[];
     category: HabitCategory;
-    /** Minutes the activity takes, used to rank when time is the obstacle. */
+    /** Minutes the activity takes, used to put the easiest starts first. */
     minutes: number;
     /** Deliberate per-activity targets rather than a blanket reduction. */
     standard: { value: number; unit: string };
@@ -67,34 +98,41 @@ export interface HabitSuggestion {
  * not half a walk, so the small option always stays a sensible unit of work.
  */
 export const SUGGESTIONS: HabitSuggestion[] = [
-    // Body
-    { id: 'walk', name: 'Walk', icon: 'walk-outline', area: 'body', category: 'body', minutes: 15, standard: { value: 15, unit: 'min' }, small: { value: 5, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After lunch' },
-    { id: 'strength', name: 'Strength training', icon: 'barbell-outline', area: 'body', category: 'body', minutes: 30, standard: { value: 30, unit: 'min' }, small: { value: 10, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After work' },
-    { id: 'stretch', name: 'Stretch', icon: 'body-outline', area: 'body', category: 'body', minutes: 5, standard: { value: 10, unit: 'min' }, small: { value: 3, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'Before bed' },
-    // Mind
-    { id: 'read', name: 'Read', icon: 'book-outline', area: 'mind', category: 'mind', minutes: 20, standard: { value: 10, unit: 'pages' }, small: { value: 2, unit: 'pages' }, trackingMethod: 'numeric', suggestedCue: 'With morning coffee' },
-    { id: 'deep_work', name: 'Deep work', icon: 'timer-outline', area: 'mind', category: 'mind', minutes: 25, standard: { value: 25, unit: 'min' }, small: { value: 10, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'First thing at my desk' },
-    { id: 'study', name: 'Study', icon: 'school-outline', area: 'mind', category: 'learning', minutes: 20, standard: { value: 20, unit: 'min' }, small: { value: 5, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After dinner' },
-    // Soul
-    { id: 'meditate', name: 'Meditate', icon: 'leaf-outline', area: 'soul', category: 'soul', minutes: 10, standard: { value: 10, unit: 'min' }, small: { value: 3, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After waking up' },
-    { id: 'journal', name: 'Journal', icon: 'create-outline', area: 'soul', category: 'soul', minutes: 10, standard: { value: 1, unit: 'entry' }, small: { value: 1, unit: 'entry' }, trackingMethod: 'boolean', suggestedCue: 'Before bed' },
-    { id: 'breathe', name: 'Breathing break', icon: 'cloud-outline', area: 'soul', category: 'mindfulness', minutes: 3, standard: { value: 3, unit: 'min' }, small: { value: 1, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'Mid-afternoon' },
-    // Wealth
-    { id: 'plan_day', name: 'Plan tomorrow', icon: 'list-outline', area: 'wealth', category: 'productivity', minutes: 5, standard: { value: 5, unit: 'min' }, small: { value: 2, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'End of the workday' },
-    { id: 'track_spend', name: 'Log spending', icon: 'wallet-outline', area: 'wealth', category: 'finance', minutes: 5, standard: { value: 1, unit: 'check' }, small: { value: 1, unit: 'check' }, trackingMethod: 'boolean', suggestedCue: 'After dinner' },
-    { id: 'inbox', name: 'Clear inbox', icon: 'mail-outline', area: 'wealth', category: 'work', minutes: 15, standard: { value: 15, unit: 'min' }, small: { value: 5, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'Before lunch' },
-    // Heart
-    { id: 'reach_out', name: 'Message someone', icon: 'chatbubble-outline', area: 'heart', category: 'social', minutes: 5, standard: { value: 1, unit: 'person' }, small: { value: 1, unit: 'person' }, trackingMethod: 'boolean', suggestedCue: 'On my commute' },
-    { id: 'call', name: 'Call family', icon: 'call-outline', area: 'heart', category: 'family', minutes: 15, standard: { value: 10, unit: 'min' }, small: { value: 5, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After dinner' },
-    { id: 'gratitude', name: 'Note one good thing', icon: 'sparkles-outline', area: 'heart', category: 'heart', minutes: 3, standard: { value: 1, unit: 'note' }, small: { value: 1, unit: 'note' }, trackingMethod: 'boolean', suggestedCue: 'Before bed' },
+    // Moving my body
+    { id: 'walk', name: 'Walk', icon: 'walk-outline', areas: ['body'], category: 'body', minutes: 15, standard: { value: 15, unit: 'min' }, small: { value: 5, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After lunch' },
+    { id: 'strength', name: 'Strength training', icon: 'barbell-outline', areas: ['body'], category: 'body', minutes: 30, standard: { value: 30, unit: 'min' }, small: { value: 10, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After work' },
+    { id: 'stretch', name: 'Stretch', icon: 'body-outline', areas: ['body', 'routine'], category: 'body', minutes: 5, standard: { value: 10, unit: 'min' }, small: { value: 3, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'Before bed' },
+    // Work and personal projects
+    { id: 'deep_work', name: 'Deep work', icon: 'timer-outline', areas: ['focus'], category: 'work', minutes: 25, standard: { value: 25, unit: 'min' }, small: { value: 10, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'First thing at my desk' },
+    { id: 'plan_day', name: 'Plan tomorrow', icon: 'list-outline', areas: ['focus', 'routine'], category: 'productivity', minutes: 5, standard: { value: 5, unit: 'min' }, small: { value: 2, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'End of the workday' },
+    { id: 'inbox', name: 'Clear inbox', icon: 'mail-outline', areas: ['focus'], category: 'work', minutes: 15, standard: { value: 15, unit: 'min' }, small: { value: 5, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'Before lunch' },
+    // Learning and skills
+    { id: 'read', name: 'Read', icon: 'book-outline', areas: ['learning'], category: 'mind', minutes: 20, standard: { value: 10, unit: 'pages' }, small: { value: 2, unit: 'pages' }, trackingMethod: 'numeric', suggestedCue: 'With morning coffee' },
+    { id: 'study', name: 'Study', icon: 'school-outline', areas: ['learning'], category: 'learning', minutes: 20, standard: { value: 20, unit: 'min' }, small: { value: 5, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After dinner' },
+    { id: 'practice', name: 'Practise a skill', icon: 'musical-notes-outline', areas: ['learning'], category: 'creativity', minutes: 15, standard: { value: 15, unit: 'min' }, small: { value: 5, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After dinner' },
+    // Taking care of myself
+    { id: 'meditate', name: 'Meditate', icon: 'leaf-outline', areas: ['calm'], category: 'soul', minutes: 10, standard: { value: 10, unit: 'min' }, small: { value: 3, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'After waking up' },
+    { id: 'journal', name: 'Journal', icon: 'create-outline', areas: ['calm', 'routine'], category: 'soul', minutes: 10, standard: { value: 1, unit: 'entry' }, small: { value: 1, unit: 'entry' }, trackingMethod: 'boolean', suggestedCue: 'Before bed' },
+    { id: 'breathe', name: 'Breathing break', icon: 'cloud-outline', areas: ['calm'], category: 'mindfulness', minutes: 3, standard: { value: 3, unit: 'min' }, small: { value: 1, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'Mid-afternoon' },
+    // Sleep and daily routine
+    { id: 'wind_down', name: 'Wind down', icon: 'moon-outline', areas: ['routine'], category: 'health', minutes: 15, standard: { value: 15, unit: 'min' }, small: { value: 5, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'An hour before bed' },
+    { id: 'lights_out', name: 'Lights out on time', icon: 'bed-outline', areas: ['routine'], category: 'health', minutes: 1, standard: { value: 1, unit: 'night' }, small: { value: 1, unit: 'night' }, trackingMethod: 'boolean', suggestedCue: 'After winding down' },
+    { id: 'morning', name: 'Morning routine', icon: 'sunny-outline', areas: ['routine'], category: 'health', minutes: 10, standard: { value: 10, unit: 'min' }, small: { value: 3, unit: 'min' }, trackingMethod: 'numeric', suggestedCue: 'Right after waking up' },
+    // Something else
+    { id: 'reach_out', name: 'Message someone', icon: 'chatbubble-outline', areas: ['other'], category: 'social', minutes: 5, standard: { value: 1, unit: 'person' }, small: { value: 1, unit: 'person' }, trackingMethod: 'boolean', suggestedCue: 'On my commute' },
+    { id: 'gratitude', name: 'Note one good thing', icon: 'sparkles-outline', areas: ['other', 'calm'], category: 'heart', minutes: 3, standard: { value: 1, unit: 'note' }, small: { value: 1, unit: 'note' }, trackingMethod: 'boolean', suggestedCue: 'Before bed' },
+    { id: 'water', name: 'Drink water', icon: 'water-outline', areas: ['other', 'body'], category: 'health', minutes: 1, standard: { value: 6, unit: 'glasses' }, small: { value: 3, unit: 'glasses' }, trackingMethod: 'numeric', suggestedCue: 'With every meal' },
 ];
 
 export type RecurrenceId = 'daily' | 'weekdays' | 'custom';
 
 export interface OnboardingDraft {
     step: number;
-    areaId?: AreaId;
+    /** Empty or absent means the user skipped it. */
+    name?: string;
+    areaIds?: AreaId[];
     obstacleId?: ObstacleId;
+    supportId?: SupportId;
     /** Suggestion id, or 'custom'. */
     suggestionId?: string;
     habitName?: string;
@@ -118,24 +156,77 @@ export interface OnboardingDraft {
 
 export const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
-/** Ranks suggestions for the chosen area; time pressure puts the shortest first. */
-export function rankSuggestions(areaId: AreaId | undefined, obstacleId?: ObstacleId): HabitSuggestion[] {
-    if (!areaId) return [];
-    const forArea = SUGGESTIONS.filter(item => item.area === areaId);
-    if (obstacleId === 'no_time') {
-        return [...forArea].sort((a, b) => a.minutes - b.minutes);
+/* -------------------------------------------------------------------------- */
+/*  What each answer does                                                      */
+/* -------------------------------------------------------------------------- */
+
+/** Obstacles where the user's problem is scale, so the smaller target is right. */
+const SMALL_TARGET_OBSTACLES: ObstacleId[] = ['putting_off', 'momentum', 'overwhelmed', 'restarting'];
+
+/** Obstacles where an easy start matters most, so the quickest habits come first. */
+const EASIEST_FIRST_OBSTACLES: ObstacleId[] = ['putting_off', 'overwhelmed'];
+
+/** Suggestions for the chosen areas, ordered by what the obstacle calls for. */
+export function rankSuggestions(areaIds: AreaId[] | undefined, obstacleId?: ObstacleId): HabitSuggestion[] {
+    if (!areaIds || areaIds.length === 0) return [];
+    const chosen = SUGGESTIONS.filter(item => item.areas.some(area => areaIds.includes(area)));
+
+    if (obstacleId && EASIEST_FIRST_OBSTACLES.includes(obstacleId)) {
+        return [...chosen].sort((a, b) => a.minutes - b.minutes);
     }
-    return forArea;
+
+    // With two areas, alternate so the second choice is not buried underneath the first.
+    if (areaIds.length > 1) {
+        const buckets = areaIds.map(area => chosen.filter(item => item.areas.includes(area)));
+        const interleaved: HabitSuggestion[] = [];
+        for (let i = 0; i < Math.max(...buckets.map(bucket => bucket.length)); i += 1) {
+            for (const bucket of buckets) {
+                const item = bucket[i];
+                if (item && !interleaved.includes(item)) interleaved.push(item);
+            }
+        }
+        return interleaved;
+    }
+    return chosen;
 }
 
 /** The obstacle decides which of the two prepared targets is recommended. */
 export function recommendedTarget(suggestion: HabitSuggestion, obstacleId?: ObstacleId) {
-    if (obstacleId === 'too_big' || obstacleId === 'unsure') return suggestion.small;
+    if (obstacleId && SMALL_TARGET_OBSTACLES.includes(obstacleId)) return suggestion.small;
     return suggestion.standard;
 }
 
+/** Only forgetting is solved by anchoring the habit to something already done. */
 export const shouldSuggestCue = (obstacleId?: ObstacleId): boolean => obstacleId === 'forgetting';
-export const shouldOfferReminder = (obstacleId?: ObstacleId): boolean => obstacleId === 'forgetting';
+
+/** A reminder is offered when the user said they forget, or asked to be checked in on. */
+export const shouldOfferReminder = (obstacleId?: ObstacleId, supportId?: SupportId): boolean =>
+    obstacleId === 'forgetting' || obstacleId === 'accountability' || supportId === 'accountability';
+
+/**
+ * Wanting visible progress means a tick is not enough; an amount is what adds up.
+ * Only applied when the activity has a real amount to count.
+ */
+export const prefersNumericTracking = (supportId?: SupportId): boolean => supportId === 'progress';
+
+/** The kind of support asked for picks the coach that behaves that way. */
+export const coachForSupport = (supportId?: SupportId): PersonalityModeId => {
+    switch (supportId) {
+        case 'consistency': return 'dad_mode';
+        case 'accountability': return 'dad_mode';
+        case 'fresh_start': return 'friendly';
+        case 'clear_plan':
+        case 'progress':
+        default: return 'normal';
+    }
+};
+
+export const obstacleResponse = (obstacleId?: ObstacleId): string | null =>
+    OBSTACLES.find(item => item.id === obstacleId)?.response ?? null;
+
+/* -------------------------------------------------------------------------- */
+/*  Schedule                                                                   */
+/* -------------------------------------------------------------------------- */
 
 /** Days the draft actually runs on. Empty means every day. */
 export function draftTaskDays(draft: OnboardingDraft): string[] {
@@ -210,9 +301,12 @@ export function describeRecurrence(draft: OnboardingDraft): string {
 
 export function formatTarget(value: number | undefined, unit: string | undefined, tracking?: string): string {
     if (tracking === 'boolean') return 'Done or not done';
-    const amount = value ?? 1;
-    return `${amount} ${unit ?? 'time'}${amount === 1 || unit === 'min' ? '' : ''}`.trim();
+    return `${value ?? 1} ${unit ?? 'time'}`.trim();
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Persistence                                                                */
+/* -------------------------------------------------------------------------- */
 
 /** Draft persistence. Failures are swallowed: losing a draft must not crash setup. */
 export async function loadDraft(): Promise<OnboardingDraft | null> {

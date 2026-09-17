@@ -14,26 +14,34 @@ import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAppSettings } from '@/constants/AppSettingsContext';
-import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
+import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { HabyssBootScreen } from '@/components/Loading/HabyssBootScreen';
 import { addHabit, updateHabit } from '@/lib/habitsSQLite';
 import { NotificationService } from '@/lib/notificationService';
-import { setOnboardingComplete } from '@/lib/localUser';
+import { setLocalProfileName, setOnboardingComplete } from '@/lib/localUser';
 import { localDateKey } from '@/lib/habitSchedule';
 import { coachPlanIntro, coachPreview } from '@/lib/coachMessages';
 import {
-    AREAS, OBSTACLES, WEEKDAY_KEYS, clearDraft, describeRecurrence, draftToHabit,
-    hasValidSchedule, loadDraft, nextOccurrence, rankSuggestions, recommendedTarget,
+    AREAS, MAX_AREAS, OBSTACLES, SUPPORTS, WEEKDAY_KEYS, clearDraft, coachForSupport,
+    describeRecurrence, draftToHabit, hasValidSchedule, loadDraft, nextOccurrence,
+    obstacleResponse, prefersNumericTracking, rankSuggestions, recommendedTarget,
     saveDraft, shouldOfferReminder, shouldSuggestCue,
-    type ObstacleId, type OnboardingDraft, type RecurrenceId,
+    type AreaId, type OnboardingDraft, type RecurrenceId, type SupportId,
 } from '@/lib/onboarding';
 
-const STEPS = ['welcome', 'direction', 'habit', 'schedule', 'coach', 'confirm', 'reminder'] as const;
-const LAST_SETUP_STEP = 5;
+const STEPS = [
+    'welcome', 'name', 'direction', 'obstacle', 'support',
+    'habit', 'schedule', 'coach', 'confirm', 'reminder',
+] as const;
+/** Confirm is the last step of setup; the reminder comes after the habit is saved. */
+const LAST_SETUP_STEP = 8;
 
-const DEFAULT_COACH: PersonalityModeId = 'normal';
+const STEP = {
+    welcome: 0, name: 1, direction: 2, obstacle: 3, support: 4,
+    habit: 5, schedule: 6, coach: 7, confirm: 8, reminder: 9,
+} as const;
 
 export default function OnboardingScreen() {
     const router = useRouter();
@@ -77,7 +85,10 @@ export default function OnboardingScreen() {
 
     const enter = reduceMotion ? undefined : FadeIn.duration(220);
     const stepIndex = Math.min(draft.step, STEPS.length - 1);
-    const suggestions = rankSuggestions(draft.areaId, draft.obstacleId);
+    const suggestions = rankSuggestions(draft.areaIds, draft.obstacleId);
+    // The support answer chooses the coach unless the user picks another one.
+    const defaultCoach = coachForSupport(draft.supportId);
+    const firstName = draft.name?.trim() ?? '';
 
     /* ---------------------------------------------------------------- saving */
 
@@ -85,7 +96,7 @@ export default function OnboardingScreen() {
         // Guard both the ref and the stored id: a double tap or a retry after a
         // partial failure must never create a second habit.
         if (savingRef.current) return;
-        if (draft.createdHabitId) { goTo(6); return; }
+        if (draft.createdHabitId) { goTo(STEP.reminder); return; }
         savingRef.current = true;
         setSaving(true);
         setError(null);
@@ -94,8 +105,10 @@ export default function OnboardingScreen() {
             // failure is handled separately so it cannot lose the saved habit.
             const created = await addHabit(draftToHabit(draft));
             if (!created?.id) throw new Error('Habit was not saved');
-            setAIPersonality(draft.coachId ?? DEFAULT_COACH);
-            update({ createdHabitId: created.id, step: 6 });
+            // The name is only stored once there is a plan to attach it to.
+            if (firstName) await setLocalProfileName(firstName);
+            setAIPersonality(draft.coachId ?? defaultCoach);
+            update({ createdHabitId: created.id, step: STEP.reminder });
             successFeedback();
         } catch {
             setError('Could not save your plan. Nothing was lost — try again.');
@@ -254,10 +267,10 @@ export default function OnboardingScreen() {
             </VoidCard>
 
             <View style={{ gap: 10, marginTop: 8 }}>
-                <PrimaryButton label="Get started" onPress={() => goTo(1)} />
+                <PrimaryButton label="Get started" onPress={() => goTo(STEP.name)} />
                 <TouchableOpacity
                     accessibilityRole="button"
-                    onPress={() => { lightFeedback(); update({ step: 2, suggestionId: 'custom', habitName: draft.habitName ?? '' }); }}
+                    onPress={() => { lightFeedback(); update({ step: STEP.habit, suggestionId: 'custom', habitName: draft.habitName ?? '' }); }}
                     style={styles.secondaryBtn}
                 >
                     <Text style={[styles.secondaryBtnText, { color: accent }]}>I already know my habit</Text>
@@ -266,40 +279,137 @@ export default function OnboardingScreen() {
         </ScrollView>
     );
 
-    const renderDirection = () => (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <SectionTitle description="This decides which habits we suggest next.">What do you want to improve?</SectionTitle>
-            <View style={{ gap: 8 }}>
-                {AREAS.map(area => (
-                    <Choice
-                        key={area.id}
-                        selected={draft.areaId === area.id}
-                        title={area.label}
-                        subtitle={area.blurb}
-                        icon={area.icon}
-                        onPress={() => update({ areaId: area.id })}
-                    />
-                ))}
-            </View>
+    const renderName = () => (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <SectionTitle description="Your first name or nickname.">What should we call you?</SectionTitle>
 
-            <View style={{ height: 26 }} />
-            <SectionTitle description="Optional. Each answer changes the recommendation.">What usually gets in the way?</SectionTitle>
+            <TextInput
+                value={draft.name ?? ''}
+                onChangeText={text => update({ name: text })}
+                autoFocus
+                autoCapitalize="words"
+                autoComplete="given-name"
+                returnKeyType="done"
+                onSubmitEditing={() => goTo(STEP.direction)}
+                placeholder="Your name"
+                placeholderTextColor={colors.textTertiary}
+                accessibilityLabel="Your name"
+                style={[styles.input, {
+                    color: colors.textPrimary, borderColor: colors.border,
+                    backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
+                }]}
+            />
+
+            <View style={{ height: 20 }} />
+            <PrimaryButton label="Continue" onPress={() => goTo(STEP.direction)} disabled={!firstName} />
+            <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => { lightFeedback(); update({ name: '', step: STEP.direction }); }}
+                style={styles.secondaryBtn}
+            >
+                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Skip for now</Text>
+            </TouchableOpacity>
+        </ScrollView>
+    );
+
+    const renderDirection = () => {
+        const chosen = draft.areaIds ?? [];
+        const toggleArea = (id: AreaId) => {
+            if (chosen.includes(id)) {
+                update({ areaIds: chosen.filter(area => area !== id) });
+                return;
+            }
+            // Oldest choice drops out once two are picked, so a third tap still works.
+            const next = chosen.length >= MAX_AREAS ? [...chosen.slice(1), id] : [...chosen, id];
+            update({ areaIds: next });
+        };
+
+        return (
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SectionTitle description="Choose up to two. You can explore more later.">
+                    {firstName ? `What would you like to make more time for, ${firstName}?` : 'What would you like to make more time for?'}
+                </SectionTitle>
+
+                <View style={{ gap: 8 }}>
+                    {AREAS.map(area => (
+                        <Choice
+                            key={area.id}
+                            selected={chosen.includes(area.id)}
+                            title={area.label}
+                            icon={area.icon}
+                            onPress={() => toggleArea(area.id)}
+                        />
+                    ))}
+                </View>
+
+                <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                    {chosen.length}/{MAX_AREAS} selected
+                </Text>
+
+                <View style={{ height: 14 }} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.obstacle)} disabled={chosen.length === 0} />
+            </ScrollView>
+        );
+    };
+
+    const renderObstacle = () => {
+        const response = obstacleResponse(draft.obstacleId);
+        return (
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SectionTitle description="Choose the one that feels most familiar.">
+                    When you try to build a habit, what usually gets in the way?
+                </SectionTitle>
+
+                <View style={{ gap: 8 }}>
+                    {OBSTACLES.map(obstacle => (
+                        <Choice
+                            key={obstacle.id}
+                            selected={draft.obstacleId === obstacle.id}
+                            title={obstacle.label}
+                            onPress={() => update({
+                                obstacleId: draft.obstacleId === obstacle.id ? undefined : obstacle.id,
+                            })}
+                        />
+                    ))}
+                </View>
+
+                {response ? (
+                    <View style={[styles.nextCard, { borderColor: accent + '44', backgroundColor: accent + '10' }]}>
+                        <Ionicons name="sparkles-outline" size={18} color={accent} />
+                        <Text style={[styles.nextText, { color: colors.textPrimary }]}>{response}</Text>
+                    </View>
+                ) : null}
+
+                <View style={{ height: 14 }} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.support)} disabled={!draft.obstacleId} />
+            </ScrollView>
+        );
+    };
+
+    const renderSupport = () => (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <SectionTitle description="Choose what would make the biggest difference.">
+                What kind of support would help you most?
+            </SectionTitle>
+
             <View style={{ gap: 8 }}>
-                {OBSTACLES.map(obstacle => (
+                {SUPPORTS.map(support => (
                     <Choice
-                        key={obstacle.id}
-                        selected={draft.obstacleId === obstacle.id}
-                        title={obstacle.label}
-                        subtitle={obstacle.effect}
+                        key={support.id}
+                        selected={draft.supportId === support.id}
+                        title={support.label}
+                        subtitle={support.blurb}
                         onPress={() => update({
-                            obstacleId: draft.obstacleId === obstacle.id ? undefined : (obstacle.id as ObstacleId),
+                            supportId: draft.supportId === support.id ? undefined : support.id,
+                            // The coach follows this answer until the user picks one themselves.
+                            coachId: draft.coachId,
                         })}
                     />
                 ))}
             </View>
 
             <View style={{ height: 20 }} />
-            <PrimaryButton label="Continue" onPress={() => goTo(2)} disabled={!draft.areaId} />
+            <PrimaryButton label="Find my first habit" onPress={() => goTo(STEP.habit)} disabled={!draft.supportId} />
         </ScrollView>
     );
 
@@ -315,7 +425,9 @@ export default function OnboardingScreen() {
             habitName: suggestion.name,
             icon: suggestion.icon,
             category: suggestion.category,
-            trackingMethod: suggestion.trackingMethod,
+            trackingMethod: prefersNumericTracking(draft.supportId) && suggestion.standard.value > 1
+                ? 'numeric'
+                : suggestion.trackingMethod,
             // A manual edit is preserved when the recommendation changes.
             targetValue: draft.targetEdited ? draft.targetValue : target.value,
             targetUnit: draft.targetEdited ? draft.targetUnit : target.unit,
@@ -420,7 +532,7 @@ export default function OnboardingScreen() {
                 ) : null}
 
                 <View style={{ height: 20 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(3)} disabled={!canContinue} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.schedule)} disabled={!canContinue} />
             </ScrollView>
         );
     };
@@ -529,13 +641,13 @@ export default function OnboardingScreen() {
                 </View>
 
                 <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(4)} disabled={!hasValidSchedule(draft)} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.coach)} disabled={!hasValidSchedule(draft)} />
             </ScrollView>
         );
     };
 
     const renderCoach = () => {
-        const selected = draft.coachId ?? DEFAULT_COACH;
+        const selected = draft.coachId ?? defaultCoach;
         const habitName = draft.habitName?.trim() || 'this habit';
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -559,7 +671,7 @@ export default function OnboardingScreen() {
                                 <View style={styles.coachHead}>
                                     <Text style={{ fontSize: 20 }}>{mode.icon}</Text>
                                     <Text style={[styles.choiceTitle, { color: colors.textPrimary, flex: 1 }]}>{mode.name}</Text>
-                                    {mode.id === DEFAULT_COACH ? (
+                                    {mode.id === defaultCoach ? (
                                         <Text style={[styles.defaultTag, { color: colors.textTertiary }]}>DEFAULT</Text>
                                     ) : null}
                                     <Ionicons name={on ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={on ? accent : colors.textTertiary} />
@@ -578,13 +690,13 @@ export default function OnboardingScreen() {
                 </Text>
 
                 <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => { if (!draft.coachId) update({ coachId: DEFAULT_COACH }); goTo(5); }} />
+                <PrimaryButton label="Continue" onPress={() => { if (!draft.coachId) update({ coachId: defaultCoach }); goTo(STEP.confirm); }} />
             </ScrollView>
         );
     };
 
     const renderConfirm = () => {
-        const coach = draft.coachId ?? DEFAULT_COACH;
+        const coach = draft.coachId ?? defaultCoach;
         const mode = PERSONALITY_MODES.find(item => item.id === coach)!;
         const next = nextOccurrence(draft);
         const targetText = draft.trackingMethod === 'boolean'
@@ -621,16 +733,16 @@ export default function OnboardingScreen() {
                 </VoidCard>
 
                 <View style={{ marginTop: 14 }}>
-                    <Row label="Habit" value={draft.habitName?.trim() || '—'} onEdit={() => goTo(2)} />
-                    <Row label="Target" value={targetText} onEdit={() => goTo(2)} />
-                    <Row label="Repeats" value={describeRecurrence(draft)} onEdit={() => goTo(3)} />
+                    <Row label="Habit" value={draft.habitName?.trim() || '—'} onEdit={() => goTo(STEP.habit)} />
+                    <Row label="Target" value={targetText} onEdit={() => goTo(STEP.habit)} />
+                    <Row label="Repeats" value={describeRecurrence(draft)} onEdit={() => goTo(STEP.schedule)} />
                     <Row
                         label="Starts"
                         value={next ? next.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }) : 'No day chosen'}
-                        onEdit={() => goTo(3)}
+                        onEdit={() => goTo(STEP.schedule)}
                     />
-                    <Row label="Routine cue" value={draft.cue?.trim() || 'None'} onEdit={() => goTo(3)} />
-                    <Row label="Coach" value={mode.name} onEdit={() => goTo(4)} />
+                    <Row label="Routine cue" value={draft.cue?.trim() || 'None'} onEdit={() => goTo(STEP.schedule)} />
+                    <Row label="Coach" value={mode.name} onEdit={() => goTo(STEP.coach)} />
                 </View>
 
                 <ErrorNote />
@@ -646,7 +758,7 @@ export default function OnboardingScreen() {
         const [hour, minute] = time.split(':').map(Number);
         const pickerValue = new Date();
         pickerValue.setHours(hour || 8, minute || 0, 0, 0);
-        const recommended = shouldOfferReminder(draft.obstacleId);
+        const recommended = shouldOfferReminder(draft.obstacleId, draft.supportId);
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -699,22 +811,34 @@ export default function OnboardingScreen() {
     };
 
     const screens: Record<number, () => React.ReactNode> = {
-        0: renderWelcome,
-        1: renderDirection,
-        2: renderHabit,
-        3: renderSchedule,
-        4: renderCoach,
-        5: renderConfirm,
-        6: renderReminder,
+        [STEP.welcome]: renderWelcome,
+        [STEP.name]: renderName,
+        [STEP.direction]: renderDirection,
+        [STEP.obstacle]: renderObstacle,
+        [STEP.support]: renderSupport,
+        [STEP.habit]: renderHabit,
+        [STEP.schedule]: renderSchedule,
+        [STEP.coach]: renderCoach,
+        [STEP.confirm]: renderConfirm,
+        [STEP.reminder]: renderReminder,
     };
 
     const backFor = (step: number): (() => void) | undefined => {
-        if (step === 0 || step === 6) return undefined; // nothing behind; habit already saved
+        // Nothing behind welcome, and the habit is already saved by the reminder step.
+        if (step === STEP.welcome || step === STEP.reminder) return undefined;
         return () => goTo(step - 1);
     };
 
     const titles: Record<number, string> = {
-        1: 'Direction', 2: 'First habit', 3: 'Schedule', 4: 'Coach', 5: 'Confirm', 6: 'Reminder',
+        [STEP.name]: 'About you',
+        [STEP.direction]: 'Direction',
+        [STEP.obstacle]: 'What gets in the way',
+        [STEP.support]: 'Support',
+        [STEP.habit]: 'First habit',
+        [STEP.schedule]: 'Schedule',
+        [STEP.coach]: 'Coach',
+        [STEP.confirm]: 'Confirm',
+        [STEP.reminder]: 'Reminder',
     };
 
     return (
