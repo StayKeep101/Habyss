@@ -65,5 +65,17 @@ target 'Habyss' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    # RevenueCat 5.58.0 does not compile under Swift 6.4 / Xcode 27. Pods are
+    # gitignored and regenerated, so the fix is reapplied on every install.
+    require_relative 'patches/revenuecat_paywallcolor'
+    result = patch_paywall_color(installer.sandbox.root.to_s)
+    case result
+    when :applied then Pod::UI.puts '[Habyss] Patched RevenueCat PaywallColor for Swift 6.4'.green
+    when :present then Pod::UI.puts '[Habyss] RevenueCat PaywallColor patch already present'
+    else Pod::UI.warn "[Habyss] Could not patch RevenueCat PaywallColor (#{result}). " \
+                      'If the build fails on init(stringRepresentation:), the pod version changed ' \
+                      'and ios/patches/revenuecat_paywallcolor.rb needs updating or removing.'
+    end
   end
 end
