@@ -155,6 +155,8 @@ export interface OnboardingDraft {
     timeOfDay?: TimeOfDay;
     coachId?: PersonalityModeId;
     reminderTime?: string;
+    /** Label of the place saved as an arrival reminder, if any. */
+    arrivalPlace?: string;
     /** Set once the habit row exists, so a retry cannot create a second one. */
     createdHabitId?: string;
 }

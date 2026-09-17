@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet,
-    Text, TextInput, TouchableOpacity, View,
+    ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, Pressable,
+    ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeInUp, useReducedMotion } from 'react-native-reanimated';
 
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -20,15 +21,15 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { HabyssBootScreen } from '@/components/Loading/HabyssBootScreen';
 import { SpinningLogo } from '@/components/SpinningLogo';
 import { APP_NAME, APP_SLOGAN } from '@/constants/brand';
-import { HabitGesturesTour } from '@/components/Onboarding/HabitGesturesTour';
 import { addHabit, updateHabit } from '@/lib/habitsSQLite';
 import { NotificationService } from '@/lib/notificationService';
+import { LocationService } from '@/lib/LocationService';
 import { setLocalProfileName, setOnboardingComplete } from '@/lib/localUser';
-import { localDateKey } from '@/lib/habitSchedule';
+import { isHabitScheduledForDate, localDateKey } from '@/lib/habitSchedule';
 import { coachPlanIntro, coachPreview } from '@/lib/coachMessages';
 import { describeParsed, parseHabitText } from '@/lib/habitParser';
 import {
-    AREAS, MAX_AREAS, OBSTACLES, SUPPORTS, WEEKDAY_KEYS, clearDraft, coachForSupport,
+    AREAS, MAX_AREAS, OBSTACLES, SUPPORTS, clearDraft, coachForSupport,
     describeRecurrence, draftToHabit, hasValidSchedule, loadDraft, nextOccurrence,
     obstacleResponse, prefersNumericTracking, rankSuggestions,
     draftFromParsedHabit, saveDraft, shouldOfferReminder, shouldSuggestCue, suggestionToSentence,
@@ -40,14 +41,14 @@ const SELECT_ADVANCE_MS = 180;
 
 const STEPS = [
     'welcome', 'name', 'direction', 'obstacle', 'support',
-    'habit', 'schedule', 'coach', 'confirm', 'reminder', 'tour',
+    'habit', 'coach', 'confirm', 'reminder', 'friends',
 ] as const;
-/** Confirm is the last step of setup; the reminder comes after the habit is saved. */
-const LAST_SETUP_STEP = 8;
+/** Confirm is the last step of setup; everything after it follows the saved habit. */
+const LAST_SETUP_STEP = 7;
 
 const STEP = {
     welcome: 0, name: 1, direction: 2, obstacle: 3, support: 4,
-    habit: 5, schedule: 6, coach: 7, confirm: 8, reminder: 9, tour: 10,
+    habit: 5, coach: 6, confirm: 7, reminder: 8, friends: 9,
 } as const;
 
 export default function OnboardingScreen() {
@@ -65,6 +66,8 @@ export default function OnboardingScreen() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [reminderNote, setReminderNote] = useState<string | null>(null);
+    const [locating, setLocating] = useState(false);
+    const locationLockRef = useRef(false);
     const savingRef = useRef(false);
     // Auto-advance after a single choice; held so a second tap can cancel it.
     const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -122,6 +125,9 @@ export default function OnboardingScreen() {
     if (!draft) return <HabyssBootScreen subtitle="Getting things ready" />;
 
     const enter = reduceMotion ? undefined : FadeIn.duration(220);
+    /** Options fall in one after another, so a list reads as arriving. */
+    const stagger = (index: number) =>
+        reduceMotion ? undefined : FadeInDown.delay(60 + index * 55).duration(360).springify().damping(17);
     const stepIndex = Math.min(draft.step, STEPS.length - 1);
     const suggestions = rankSuggestions(draft.areaIds, draft.obstacleId);
     // The support answer chooses the coach unless the user picks another one.
@@ -153,6 +159,62 @@ export default function OnboardingScreen() {
         } finally {
             savingRef.current = false;
             setSaving(false);
+        }
+    };
+
+    const inviteFriend = async () => {
+        lightFeedback();
+        try {
+            // The system sheet is the whole action. Habyss has no server, so it
+            // cannot know whether anyone accepted, and nothing is recorded here.
+            await Share.share({
+                message: `I'm building a habit in Habyss — ${APP_SLOGAN.toLowerCase()}. Come do it with me.`,
+            });
+        } catch {
+            // Dismissing the sheet is not an error worth interrupting setup for.
+        }
+    };
+
+    const addArrivalReminder = async (label: 'Home' | 'Work' | 'Gym') => {
+        if (!draft.createdHabitId || locationLockRef.current) return;
+        locationLockRef.current = true;
+        setLocating(true);
+        setReminderNote(null);
+        try {
+            if (!(await NotificationService.requestPermissions())) {
+                setReminderNote('Notifications are off, so an arrival reminder cannot be delivered. Your habit is saved.');
+                return;
+            }
+            // Geofencing needs background location, which is a separate grant.
+            if (!(await NotificationService.requestLocationPermissions())) {
+                setReminderNote('Arrival reminders need background location access. Your habit is saved; you can allow it later in Settings.');
+                return;
+            }
+
+            let timeout: ReturnType<typeof setTimeout> | undefined;
+            const position = await Promise.race([
+                Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+                new Promise<never>((_, reject) => {
+                    timeout = setTimeout(() => reject(new Error('Location timed out')), 20000);
+                }),
+            ]).finally(() => { if (timeout) clearTimeout(timeout); });
+
+            const place = {
+                name: label,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                radius: 150,
+            };
+            await updateHabit({ id: draft.createdHabitId, locationReminders: [place] });
+            await LocationService.refreshGeofences();
+            update({ arrivalPlace: label });
+            setReminderNote(`Saved this spot as ${label}. Habyss will nudge you when you arrive back here.`);
+            successFeedback();
+        } catch {
+            setReminderNote('Could not save this place. Your habit is saved.');
+        } finally {
+            locationLockRef.current = false;
+            setLocating(false);
         }
     };
 
@@ -273,50 +335,30 @@ export default function OnboardingScreen() {
     /* ----------------------------------------------------------------- steps */
 
     const renderWelcome = () => (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.brand}>
-                <SpinningLogo size={92} glow />
-                <Text style={[styles.brandName, { color: colors.textPrimary }]}>{APP_NAME}</Text>
-                <Text style={[styles.brandSlogan, { color: colors.textSecondary }]}>{APP_SLOGAN}</Text>
-            </View>
-
-
-            <View style={styles.previewBadgeRow}>
-                <View style={[styles.previewBadge, { borderColor: accent + '55', backgroundColor: accent + '12' }]}>
-                    <Text style={[styles.previewBadgeText, { color: accent }]}>EXAMPLE — NOT YOUR DATA</Text>
-                </View>
-            </View>
-
-            <VoidCard style={styles.previewCard}>
-                <View style={styles.previewHabitRow}>
-                    <View style={[styles.choiceIcon, { backgroundColor: accent + '22' }]}>
-                        <Ionicons name="walk-outline" size={20} color={accent} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.choiceTitle, { color: colors.textPrimary }]}>Walk</Text>
-                        <Text style={[styles.choiceSub, { color: colors.textTertiary }]}>15 min · Weekdays · After lunch</Text>
-                    </View>
-                    <Ionicons name="ellipse-outline" size={22} color={colors.textTertiary} />
-                </View>
-                <View style={[styles.previewCoach, { borderTopColor: colors.border }]}>
-                    <Text style={{ fontSize: 18 }}>🙂</Text>
-                    <Text style={[styles.previewCoachText, { color: colors.textSecondary }]}>
-                        {coachPreview('normal', 'Walk')}
-                    </Text>
-                </View>
-            </VoidCard>
-
-            <View style={{ gap: 10, marginTop: 8 }}>
-                <PrimaryButton label="Get started" onPress={() => goTo(STEP.name)} />
-                <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => { lightFeedback(); update({ step: STEP.habit, suggestionId: 'custom', habitName: draft.habitName ?? '' }); }}
-                    style={styles.secondaryBtn}
+        // Just the mark and the line. Anywhere on the screen moves on, and it
+        // moves on by itself so nobody is left looking at a dead end.
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${APP_NAME}. ${APP_SLOGAN}. Tap to begin.`}
+            onPress={() => goTo(STEP.name)}
+            style={styles.splash}
+        >
+            <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(700)} style={styles.splashInner}>
+                <SpinningLogo size={124} glow />
+                <Animated.Text
+                    entering={reduceMotion ? undefined : FadeInDown.delay(320).duration(650)}
+                    style={[styles.brandName, { color: colors.textPrimary }]}
                 >
-                    <Text style={[styles.secondaryBtnText, { color: accent }]}>I already know my habit</Text>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
+                    {APP_NAME}
+                </Animated.Text>
+                <Animated.Text
+                    entering={reduceMotion ? undefined : FadeInDown.delay(620).duration(700)}
+                    style={[styles.brandSlogan, { color: colors.textSecondary }]}
+                >
+                    {APP_SLOGAN}
+                </Animated.Text>
+            </Animated.View>
+        </Pressable>
     );
 
     const renderName = () => (
@@ -329,8 +371,10 @@ export default function OnboardingScreen() {
                 autoFocus
                 autoCapitalize="words"
                 autoComplete="given-name"
-                returnKeyType="done"
-                onSubmitEditing={() => goTo(STEP.direction)}
+                returnKeyType="next"
+                blurOnSubmit
+                // The keyboard's Next is the only way forward here, plus Skip.
+                onSubmitEditing={() => { if (firstName) goTo(STEP.direction); }}
                 placeholder="Your name"
                 placeholderTextColor={colors.textTertiary}
                 accessibilityLabel="Your name"
@@ -340,8 +384,7 @@ export default function OnboardingScreen() {
                 }]}
             />
 
-            <View style={{ height: 20 }} />
-            <PrimaryButton label="Continue" onPress={() => goTo(STEP.direction)} disabled={!firstName} />
+            <View style={{ height: 10 }} />
             <TouchableOpacity
                 accessibilityRole="button"
                 onPress={() => { lightFeedback(); update({ name: '', step: STEP.direction }); }}
@@ -379,14 +422,15 @@ export default function OnboardingScreen() {
                 </SectionTitle>
 
                 <View style={{ gap: 8 }}>
-                    {AREAS.map(area => (
-                        <Choice
-                            key={area.id}
-                            selected={chosen.includes(area.id)}
-                            title={area.label}
-                            icon={area.icon}
-                            onPress={() => toggleArea(area.id)}
-                        />
+                    {AREAS.map((area, index) => (
+                        <Animated.View key={area.id} entering={stagger(index)}>
+                            <Choice
+                                selected={chosen.includes(area.id)}
+                                title={area.label}
+                                icon={area.icon}
+                                onPress={() => toggleArea(area.id)}
+                            />
+                        </Animated.View>
                     ))}
                 </View>
 
@@ -407,13 +451,14 @@ export default function OnboardingScreen() {
                 <SectionTitle>What usually gets in the way?</SectionTitle>
 
                 <View style={{ gap: 8 }}>
-                    {OBSTACLES.map(obstacle => (
-                        <Choice
-                            key={obstacle.id}
-                            selected={draft.obstacleId === obstacle.id}
-                            title={obstacle.label}
-                            onPress={() => chooseAndAdvance({ obstacleId: obstacle.id }, STEP.support)}
-                        />
+                    {OBSTACLES.map((obstacle, index) => (
+                        <Animated.View key={obstacle.id} entering={stagger(index)}>
+                            <Choice
+                                selected={draft.obstacleId === obstacle.id}
+                                title={obstacle.label}
+                                onPress={() => chooseAndAdvance({ obstacleId: obstacle.id }, STEP.support)}
+                            />
+                        </Animated.View>
                     ))}
                 </View>
 
@@ -437,14 +482,15 @@ export default function OnboardingScreen() {
             <SectionTitle>What would help you most?</SectionTitle>
 
             <View style={{ gap: 8 }}>
-                {SUPPORTS.map(support => (
-                    <Choice
-                        key={support.id}
-                        selected={draft.supportId === support.id}
-                        title={support.label}
-                        // The coach follows this answer until the user picks one themselves.
-                        onPress={() => chooseAndAdvance({ supportId: support.id }, STEP.habit)}
-                    />
+                {SUPPORTS.map((support, index) => (
+                    <Animated.View key={support.id} entering={stagger(index)}>
+                        <Choice
+                            selected={draft.supportId === support.id}
+                            title={support.label}
+                            // The coach follows this answer until the user picks one themselves.
+                            onPress={() => chooseAndAdvance({ supportId: support.id }, STEP.habit)}
+                        />
+                    </Animated.View>
                 ))}
             </View>
 
@@ -509,130 +555,42 @@ export default function OnboardingScreen() {
                     </VoidCard>
                 ) : (
                     <View style={{ gap: 8 }}>
-                        {suggestions.slice(0, 3).map(suggestion => (
+                        {suggestions.slice(0, 3).map((suggestion, index) => (
+                            <Animated.View key={suggestion.id} entering={stagger(index)}>
                             <Choice
-                                key={suggestion.id}
                                 selected={false}
                                 title={suggestionToSentence(suggestion, draft.obstacleId)}
                                 icon={suggestion.icon}
                                 onPress={() => useSuggestion(suggestion)}
                                 trailing={<Ionicons name="arrow-forward" size={18} color={colors.textTertiary} />}
                             />
+                            </Animated.View>
                         ))}
                     </View>
                 )}
 
-                <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(STEP.schedule)} disabled={!canContinue} />
-            </ScrollView>
-        );
-    };
-
-    const renderSchedule = () => {
-        const next = nextOccurrence(draft);
-        const recurrences: { id: RecurrenceId; label: string }[] = [
-            { id: 'daily', label: 'Every day' },
-            { id: 'weekdays', label: 'Weekdays' },
-            { id: 'custom', label: 'Pick days' },
-        ];
-        const days = draft.taskDays ?? [];
-
-        return (
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <SectionTitle>When will you do it?</SectionTitle>
-
-                <View style={styles.chipRow}>
-                    {recurrences.map(option => (
-                        <TouchableOpacity
-                            key={option.id}
-                            accessibilityRole="radio"
-                            accessibilityState={{ selected: draft.recurrence === option.id }}
-                            onPress={() => { lightFeedback(); update({ recurrence: option.id }); }}
-                            style={[styles.chip, {
-                                backgroundColor: draft.recurrence === option.id ? accent + '20' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                borderColor: draft.recurrence === option.id ? accent : 'transparent',
+                {shouldSuggestCue(draft.obstacleId) ? (
+                    <View style={{ marginTop: 4 }}>
+                        <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>ANCHOR IT TO SOMETHING</Text>
+                        <TextInput
+                            value={draft.cue ?? ''}
+                            onChangeText={value => update({ cue: value })}
+                            placeholder="After breakfast"
+                            placeholderTextColor={colors.textTertiary}
+                            accessibilityLabel="Routine cue"
+                            style={[styles.input, {
+                                color: colors.textPrimary, borderColor: colors.border,
+                                backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
                             }]}
-                        >
-                            <Text style={{ color: draft.recurrence === option.id ? accent : colors.textSecondary, fontFamily: 'Lexend_500Medium', fontSize: 13 }}>
-                                {option.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {draft.recurrence === 'custom' ? (
-                    <View style={[styles.chipRow, { marginTop: 12 }]}>
-                        {WEEKDAY_KEYS.map(day => {
-                            const on = days.includes(day);
-                            return (
-                                <TouchableOpacity
-                                    key={day}
-                                    accessibilityRole="checkbox"
-                                    accessibilityState={{ checked: on }}
-                                    accessibilityLabel={day}
-                                    onPress={() => {
-                                        lightFeedback();
-                                        update({ taskDays: on ? days.filter(d => d !== day) : [...days, day] });
-                                    }}
-                                    style={[styles.dayChip, {
-                                        backgroundColor: on ? accent : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                    }]}
-                                >
-                                    <Text style={{ color: on ? '#000' : colors.textSecondary, fontFamily: 'Lexend_600SemiBold', fontSize: 12 }}>
-                                        {day.charAt(0).toUpperCase()}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
+                        />
+                        <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                            A note on your card, not a detected trigger.
+                        </Text>
                     </View>
                 ) : null}
 
-                <View style={{ height: 22 }} />
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>START DATE</Text>
-                <View style={styles.chipRow}>
-                    {[
-                        { label: 'Today', value: localDateKey(new Date()) },
-                        { label: 'Tomorrow', value: localDateKey(new Date(Date.now() + 86400000)) },
-                    ].map(option => (
-                        <TouchableOpacity
-                            key={option.label}
-                            onPress={() => { lightFeedback(); update({ startDate: option.value }); }}
-                            style={[styles.chip, {
-                                backgroundColor: draft.startDate === option.value ? accent + '20' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                borderColor: draft.startDate === option.value ? accent : 'transparent',
-                            }]}
-                        >
-                            <Text style={{ color: draft.startDate === option.value ? accent : colors.textSecondary, fontFamily: 'Lexend_500Medium', fontSize: 13 }}>
-                                {option.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <View style={{ height: 22 }} />
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>ROUTINE CUE (OPTIONAL)</Text>
-                <TextInput
-                    value={draft.cue ?? ''}
-                    onChangeText={text => update({ cue: text })}
-                    placeholder="After breakfast"
-                    placeholderTextColor={colors.textTertiary}
-                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}
-                />
-                <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                    A note on your card, not a detected trigger.
-                </Text>
-
-                <View style={[styles.nextCard, { borderColor: accent + '44', backgroundColor: accent + '10' }]}>
-                    <Ionicons name="calendar-outline" size={18} color={accent} />
-                    <Text style={[styles.nextText, { color: colors.textPrimary }]}>
-                        {next
-                            ? `Next: ${next.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}`
-                            : 'Pick at least one day to see the next occurrence'}
-                    </Text>
-                </View>
-
                 <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(STEP.coach)} disabled={!hasValidSchedule(draft)} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.coach)} disabled={!canContinue} />
             </ScrollView>
         );
     };
@@ -645,11 +603,11 @@ export default function OnboardingScreen() {
                 <SectionTitle>Choose your coach</SectionTitle>
 
                 <View style={{ gap: 10 }}>
-                    {PERSONALITY_MODES.map(mode => {
+                    {PERSONALITY_MODES.map((mode, index) => {
                         const on = selected === mode.id;
                         return (
+                            <Animated.View key={mode.id} entering={stagger(index)}>
                             <TouchableOpacity
-                                key={mode.id}
                                 accessibilityRole="radio"
                                 accessibilityState={{ selected: on }}
                                 activeOpacity={0.85}
@@ -675,6 +633,7 @@ export default function OnboardingScreen() {
                                     <Text style={[styles.coachWarning, { color: '#F59E0B' }]}>{mode.warning}</Text>
                                 ) : null}
                             </TouchableOpacity>
+                            </Animated.View>
                         );
                     })}
                 </View>
@@ -691,6 +650,20 @@ export default function OnboardingScreen() {
         const coach = draft.coachId ?? defaultCoach;
         const mode = PERSONALITY_MODES.find(item => item.id === coach)!;
         const next = nextOccurrence(draft);
+        // Built from the same scheduler the rest of the app uses, so the strip
+        // cannot promise a day Home would disagree with. It shows the schedule,
+        // never progress: nothing here is a completion.
+        const nextSevenDays = Array.from({ length: 7 }, (_, offset) => {
+            const date = new Date();
+            date.setDate(date.getDate() + offset);
+            date.setHours(12, 0, 0, 0);
+            return {
+                key: date.toISOString(),
+                label: ['S', 'M', 'T', 'W', 'T', 'F', 'S'][date.getDay()],
+                scheduled: isHabitScheduledForDate(draftToHabit(draft) as any, date),
+            };
+        });
+
         const targetText = draft.trackingMethod === 'boolean'
             ? 'Done or not done'
             : `${draft.targetValue ?? 1} ${draft.targetUnit ?? 'time'}`;
@@ -724,16 +697,39 @@ export default function OnboardingScreen() {
                     </Text>
                 </VoidCard>
 
+                <Animated.View entering={reduceMotion ? undefined : FadeInUp.delay(120).duration(420)}>
+                    <View style={styles.weekStrip}>
+                        {nextSevenDays.map((day, index) => (
+                            <Animated.View
+                                key={day.key}
+                                entering={reduceMotion ? undefined : FadeInDown.delay(200 + index * 60).duration(360).springify().damping(15)}
+                                style={[styles.weekDay, {
+                                    backgroundColor: day.scheduled ? accent : (isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.07)'),
+                                }]}
+                            >
+                                <Text style={{
+                                    fontSize: 11,
+                                    fontFamily: 'Lexend_600SemiBold',
+                                    color: day.scheduled ? '#000' : colors.textTertiary,
+                                }}>{day.label}</Text>
+                            </Animated.View>
+                        ))}
+                    </View>
+                    <Text style={[styles.hint, { color: colors.textTertiary, textAlign: 'center' }]}>
+                        Your next seven days
+                    </Text>
+                </Animated.View>
+
                 <View style={{ marginTop: 14 }}>
                     <Row label="Habit" value={draft.habitName?.trim() || '—'} onEdit={() => goTo(STEP.habit)} />
                     <Row label="Target" value={targetText} onEdit={() => goTo(STEP.habit)} />
-                    <Row label="Repeats" value={describeRecurrence(draft)} onEdit={() => goTo(STEP.schedule)} />
+                    <Row label="Repeats" value={describeRecurrence(draft)} onEdit={() => goTo(STEP.habit)} />
                     <Row
                         label="Starts"
                         value={next ? next.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }) : 'No day chosen'}
-                        onEdit={() => goTo(STEP.schedule)}
+                        onEdit={() => goTo(STEP.habit)}
                     />
-                    <Row label="Routine cue" value={draft.cue?.trim() || 'None'} onEdit={() => goTo(STEP.schedule)} />
+                    <Row label="Routine cue" value={draft.cue?.trim() || 'None'} onEdit={() => goTo(STEP.habit)} />
                     <Row label="Coach" value={mode.name} onEdit={() => goTo(STEP.coach)} />
                 </View>
 
@@ -786,10 +782,37 @@ export default function OnboardingScreen() {
                     </View>
                 ) : null}
 
-                <View style={{ height: 14, gap: 10 }} />
+                <View style={{ height: 18 }} />
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>OR WHEN YOU ARRIVE SOMEWHERE</Text>
+                <View style={styles.chipRow}>
+                    {(['Home', 'Work', 'Gym'] as const).map(label => (
+                        <TouchableOpacity
+                            key={label}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remind me when I arrive at ${label}`}
+                            disabled={locating}
+                            onPress={() => addArrivalReminder(label)}
+                            style={[styles.chip, {
+                                backgroundColor: draft.arrivalPlace === label ? accent + '20' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
+                                borderColor: draft.arrivalPlace === label ? accent : 'transparent',
+                            }]}
+                        >
+                            {locating ? <ActivityIndicator size="small" color={accent} /> : (
+                                <Text style={{ color: draft.arrivalPlace === label ? accent : colors.textSecondary, fontFamily: 'Lexend_500Medium', fontSize: 13 }}>
+                                    {label}
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                    Uses where you are right now as that place.
+                </Text>
+
+                <View style={{ height: 14 }} />
                 <View style={{ gap: 10 }}>
                     <PrimaryButton label={`Remind me at ${time}`} onPress={() => enableReminder(time)} />
-                    <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); goTo(STEP.tour); }} style={styles.secondaryBtn}>
+                    <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); goTo(STEP.friends); }} style={styles.secondaryBtn}>
                         <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
                             {reminderNote ? 'Done' : 'Not now'}
                         </Text>
@@ -799,20 +822,26 @@ export default function OnboardingScreen() {
         );
     };
 
-    const renderTour = () => (
-        <HabitGesturesTour
-            habitName={draft.habitName?.trim() || 'Your habit'}
-            targetLabel={[
-                draft.trackingMethod === 'boolean'
-                    ? 'Done or not done'
-                    : `${draft.targetValue ?? 1} ${draft.targetUnit ?? 'time'}`,
-                describeRecurrence(draft),
-                draft.cue?.trim(),
-            ].filter(Boolean).join(' · ')}
-            icon={draft.icon}
-            onDone={finish}
-            doneLabel="Go to my habits"
-        />
+    const renderFriends = () => (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <SectionTitle>Do it with someone</SectionTitle>
+
+            <Animated.View entering={enter}>
+                <VoidCard style={styles.introCard}>
+                    <Ionicons name="people-outline" size={22} color={accent} />
+                    <Text style={[styles.introText, { color: colors.textPrimary }]}>
+                        People who start with someone else keep going for longer. Invite one person and you will both see
+                        each other in Habyss.
+                    </Text>
+                </VoidCard>
+            </Animated.View>
+
+            <View style={{ height: 18 }} />
+            <PrimaryButton label="Invite a friend" onPress={inviteFriend} />
+            <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); finish(); }} style={styles.secondaryBtn}>
+                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Maybe later</Text>
+            </TouchableOpacity>
+        </ScrollView>
     );
 
     const screens: Record<number, () => React.ReactNode> = {
@@ -822,17 +851,16 @@ export default function OnboardingScreen() {
         [STEP.obstacle]: renderObstacle,
         [STEP.support]: renderSupport,
         [STEP.habit]: renderHabit,
-        [STEP.schedule]: renderSchedule,
         [STEP.coach]: renderCoach,
         [STEP.confirm]: renderConfirm,
         [STEP.reminder]: renderReminder,
-        [STEP.tour]: renderTour,
+        [STEP.friends]: renderFriends,
     };
 
     const backFor = (step: number): (() => void) | undefined => {
         // Nothing behind welcome, and the habit is already saved from the reminder
         // step onwards, so going back there would offer to create it twice.
-        if (step === STEP.welcome || step === STEP.reminder || step === STEP.tour) return undefined;
+        if (step === STEP.welcome || step === STEP.reminder || step === STEP.friends) return undefined;
         return () => goTo(step - 1);
     };
 
@@ -842,11 +870,10 @@ export default function OnboardingScreen() {
         [STEP.obstacle]: 'What gets in the way',
         [STEP.support]: 'Support',
         [STEP.habit]: 'First habit',
-        [STEP.schedule]: 'Schedule',
         [STEP.coach]: 'Coach',
         [STEP.confirm]: 'Confirm',
         [STEP.reminder]: 'Reminder',
-        [STEP.tour]: 'Your habit cards',
+        [STEP.friends]: 'Friends',
     };
 
     return (
@@ -872,6 +899,10 @@ const styles = StyleSheet.create({
     progressRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingBottom: 10 },
     progressDot: { height: 8, borderRadius: 4 },
     content: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 6 },
+    weekStrip: { flexDirection: 'row', gap: 6, justifyContent: 'space-between', marginTop: 6 },
+    weekDay: { flex: 1, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    splash: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+    splashInner: { alignItems: 'center' },
     brand: { alignItems: 'center', marginTop: 18, gap: 2 },
     brandName: { marginTop: 18, fontSize: 32, letterSpacing: 8, fontFamily: 'SpaceGrotesk_700Bold' },
     brandSlogan: { marginTop: 10, fontSize: 15, lineHeight: 22, fontFamily: 'Lexend_400Regular', textAlign: 'center' },
