@@ -18,6 +18,7 @@ import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { HabyssBootScreen } from '@/components/Loading/HabyssBootScreen';
+import { HabitGesturesTour } from '@/components/Onboarding/HabitGesturesTour';
 import { addHabit, updateHabit } from '@/lib/habitsSQLite';
 import { NotificationService } from '@/lib/notificationService';
 import { setLocalProfileName, setOnboardingComplete } from '@/lib/localUser';
@@ -33,14 +34,14 @@ import {
 
 const STEPS = [
     'welcome', 'name', 'direction', 'obstacle', 'support',
-    'habit', 'schedule', 'coach', 'confirm', 'reminder',
+    'habit', 'schedule', 'coach', 'confirm', 'reminder', 'tour',
 ] as const;
 /** Confirm is the last step of setup; the reminder comes after the habit is saved. */
 const LAST_SETUP_STEP = 8;
 
 const STEP = {
     welcome: 0, name: 1, direction: 2, obstacle: 3, support: 4,
-    habit: 5, schedule: 6, coach: 7, confirm: 8, reminder: 9,
+    habit: 5, schedule: 6, coach: 7, confirm: 8, reminder: 9, tour: 10,
 } as const;
 
 export default function OnboardingScreen() {
@@ -59,6 +60,8 @@ export default function OnboardingScreen() {
     const [error, setError] = useState<string | null>(null);
     const [reminderNote, setReminderNote] = useState<string | null>(null);
     const savingRef = useRef(false);
+    // Auto-advance after a single choice; held so a second tap can cancel it.
+    const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -79,7 +82,35 @@ export default function OnboardingScreen() {
         });
     }, []);
 
-    const goTo = useCallback((step: number) => { setError(null); update({ step }); }, [update]);
+    const cancelAdvance = useCallback(() => {
+        if (advanceRef.current) { clearTimeout(advanceRef.current); advanceRef.current = null; }
+    }, []);
+
+    const goTo = useCallback((step: number) => {
+        // Tapping Continue, or going back, beats any pending auto-advance.
+        cancelAdvance();
+        setError(null);
+        update({ step });
+    }, [cancelAdvance, update]);
+
+    /**
+     * Applies a single-choice answer and moves on by itself.
+     *
+     * The delay lets the selection register, and on the obstacle step lets the
+     * response be read. Deselecting cancels instead of advancing, and the
+     * Continue button still works for anyone who does not want to wait.
+     */
+    const chooseAndAdvance = useCallback((patch: Partial<OnboardingDraft>, nextStep: number, delay: number) => {
+        cancelAdvance();
+        update(patch);
+        advanceRef.current = setTimeout(() => {
+            advanceRef.current = null;
+            setError(null);
+            update({ step: nextStep });
+        }, delay);
+    }, [cancelAdvance, update]);
+
+    useEffect(() => cancelAdvance, [cancelAdvance]);
 
     if (!draft) return <HabyssBootScreen subtitle="Getting things ready" />;
 
@@ -316,11 +347,19 @@ export default function OnboardingScreen() {
         const chosen = draft.areaIds ?? [];
         const toggleArea = (id: AreaId) => {
             if (chosen.includes(id)) {
+                cancelAdvance();
                 update({ areaIds: chosen.filter(area => area !== id) });
                 return;
             }
             // Oldest choice drops out once two are picked, so a third tap still works.
             const next = chosen.length >= MAX_AREAS ? [...chosen.slice(1), id] : [...chosen, id];
+
+            // This step allows two answers, so it only moves on by itself once
+            // both are chosen. One area plus Continue is still the quick path.
+            if (next.length >= MAX_AREAS) {
+                chooseAndAdvance({ areaIds: next }, STEP.obstacle, 520);
+                return;
+            }
             update({ areaIds: next });
         };
 
@@ -366,9 +405,16 @@ export default function OnboardingScreen() {
                             key={obstacle.id}
                             selected={draft.obstacleId === obstacle.id}
                             title={obstacle.label}
-                            onPress={() => update({
-                                obstacleId: draft.obstacleId === obstacle.id ? undefined : obstacle.id,
-                            })}
+                            onPress={() => {
+                                if (draft.obstacleId === obstacle.id) {
+                                    // Deselecting is not a choice, so nothing advances.
+                                    cancelAdvance();
+                                    update({ obstacleId: undefined });
+                                    return;
+                                }
+                                // Long enough to read the matching response first.
+                                chooseAndAdvance({ obstacleId: obstacle.id }, STEP.support, 1150);
+                            }}
                         />
                     ))}
                 </View>
@@ -399,11 +445,15 @@ export default function OnboardingScreen() {
                         selected={draft.supportId === support.id}
                         title={support.label}
                         subtitle={support.blurb}
-                        onPress={() => update({
-                            supportId: draft.supportId === support.id ? undefined : support.id,
+                        onPress={() => {
+                            if (draft.supportId === support.id) {
+                                cancelAdvance();
+                                update({ supportId: undefined });
+                                return;
+                            }
                             // The coach follows this answer until the user picks one themselves.
-                            coachId: draft.coachId,
-                        })}
+                            chooseAndAdvance({ supportId: support.id }, STEP.habit, 420);
+                        }}
                     />
                 ))}
             </View>
@@ -662,7 +712,10 @@ export default function OnboardingScreen() {
                                 accessibilityRole="radio"
                                 accessibilityState={{ selected: on }}
                                 activeOpacity={0.85}
-                                onPress={() => { lightFeedback(); update({ coachId: mode.id }); }}
+                                onPress={() => {
+                                    lightFeedback();
+                                    chooseAndAdvance({ coachId: mode.id }, STEP.confirm, 480);
+                                }}
                                 style={[styles.coachCard, {
                                     backgroundColor: on ? accent + '14' : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
                                     borderColor: on ? accent : 'transparent',
@@ -800,7 +853,7 @@ export default function OnboardingScreen() {
                 <View style={{ height: 14, gap: 10 }} />
                 <View style={{ gap: 10 }}>
                     <PrimaryButton label={`Remind me at ${draft.reminderTime ?? '08:00'}`} onPress={() => enableReminder(draft.reminderTime ?? '08:00')} />
-                    <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); finish(); }} style={styles.secondaryBtn}>
+                    <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); goTo(STEP.tour); }} style={styles.secondaryBtn}>
                         <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
                             {reminderNote ? 'Done' : 'Not now'}
                         </Text>
@@ -809,6 +862,22 @@ export default function OnboardingScreen() {
             </ScrollView>
         );
     };
+
+    const renderTour = () => (
+        <HabitGesturesTour
+            habitName={draft.habitName?.trim() || 'Your habit'}
+            targetLabel={[
+                draft.trackingMethod === 'boolean'
+                    ? 'Done or not done'
+                    : `${draft.targetValue ?? 1} ${draft.targetUnit ?? 'time'}`,
+                describeRecurrence(draft),
+                draft.cue?.trim(),
+            ].filter(Boolean).join(' · ')}
+            icon={draft.icon}
+            onDone={finish}
+            doneLabel="Go to my habits"
+        />
+    );
 
     const screens: Record<number, () => React.ReactNode> = {
         [STEP.welcome]: renderWelcome,
@@ -821,11 +890,13 @@ export default function OnboardingScreen() {
         [STEP.coach]: renderCoach,
         [STEP.confirm]: renderConfirm,
         [STEP.reminder]: renderReminder,
+        [STEP.tour]: renderTour,
     };
 
     const backFor = (step: number): (() => void) | undefined => {
-        // Nothing behind welcome, and the habit is already saved by the reminder step.
-        if (step === STEP.welcome || step === STEP.reminder) return undefined;
+        // Nothing behind welcome, and the habit is already saved from the reminder
+        // step onwards, so going back there would offer to create it twice.
+        if (step === STEP.welcome || step === STEP.reminder || step === STEP.tour) return undefined;
         return () => goTo(step - 1);
     };
 
@@ -839,6 +910,7 @@ export default function OnboardingScreen() {
         [STEP.coach]: 'Coach',
         [STEP.confirm]: 'Confirm',
         [STEP.reminder]: 'Reminder',
+        [STEP.tour]: 'Your habit cards',
     };
 
     return (
