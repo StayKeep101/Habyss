@@ -8,7 +8,9 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { FriendsService, Friend, FriendRequest, FriendActivity, ReactionType } from '@/lib/friendsService';
+import { FriendsService, Friend, FriendRequest, FriendActivity, ReactionType, getMyUsername, inviteMessage } from '@/lib/friendsService';
+import { onAccountChange } from '@/lib/account';
+import { FriendsGate } from '@/components/Community/FriendsGate';
 import { addHabit } from '@/lib/habitsSQLite';
 import { FriendStatsModal } from '@/components/FriendStatsModal';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
@@ -45,6 +47,8 @@ export default function CommunityScreen() {
     const [showFriendStats, setShowFriendStats] = useState(false);
     const [showAddFriendModal, setShowAddFriendModal] = useState(false);
     const [userCode, setUserCode] = useState('');
+    // Friends need an account and a username; until then the tab says so.
+    const [gate, setGate] = useState<'signed_out' | 'needs_username' | null>(null);
     const [leaderboardPeriod, setLeaderboardPeriod] = useState<'week' | 'month' | 'year' | 'all'>('week');
 
     const isLoadingRef = useRef(false);
@@ -65,10 +69,18 @@ export default function CommunityScreen() {
         }
 
         try {
-            const user = await FriendsService.getCurrentUser();
-            if (user) {
-                setUserCode(user.id.substring(0, 8).toUpperCase());
+            if (!(await FriendsService.isAvailable())) {
+                setGate('signed_out');
+                setFriends([]);
+                setFriendRequests([]);
+                setLeaderboard([]);
+                setFriendsFeed([]);
+                hasLoadedOnce.current = true;
+                return;
             }
+            const username = await getMyUsername();
+            setUserCode(username ?? '');
+            setGate(username ? null : 'needs_username');
 
             await FriendsService.repairFriendshipsFromAcceptedRequests();
 
@@ -103,8 +115,12 @@ export default function CommunityScreen() {
         const subscription = DeviceEventEmitter.addListener('social_state_updated', () => {
             loadData(true);
         });
+        const stopWatchingAccount = onAccountChange(() => loadData(true));
 
-        return () => subscription.remove();
+        return () => {
+            subscription.remove();
+            stopWatchingAccount();
+        };
     }, [loadData]);
 
     // Reload leaderboard when period changes
@@ -206,7 +222,7 @@ export default function CommunityScreen() {
         try {
             lightFeedback();
             await Share.share({
-                message: `Join my crew on Habyss! Add me with my Friend Code: ${userCode}`,
+                message: inviteMessage(userCode),
             });
         } catch (error) {
             console.error(error);
@@ -267,7 +283,7 @@ export default function CommunityScreen() {
                         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COMMUNITY</Text>
                         <Text style={[styles.headerSubtitle, { color: accentColor }]}>CREW STATUS</Text>
                     </View>
-                    <TouchableOpacity
+                    {!gate && <TouchableOpacity
                         onPress={() => {
                             mediumFeedback();
                             setShowAddFriendModal(true);
@@ -280,12 +296,15 @@ export default function CommunityScreen() {
                         }}
                     >
                         <Ionicons name="person-add" size={20} color={accentColor} />
-                    </TouchableOpacity>
+                    </TouchableOpacity>}
                 </View>
 
 
 
 
+                {gate ? (
+                    <FriendsGate needsUsername={gate === 'needs_username'} onReady={() => loadData(true)} />
+                ) : (<>
                 {/* Friend Requests */}
                 {friendRequests.length > 0 && (
                     <View style={{ marginBottom: 24 }}>
@@ -325,6 +344,7 @@ export default function CommunityScreen() {
                     onFriendPress={handleFriendPress}
                 />
 
+                </>)}
             </ScrollView>
 
             {/* Friend Stats Modal */}

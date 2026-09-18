@@ -408,6 +408,13 @@ export default function OnboardingScreen() {
                     {APP_SLOGAN}
                 </Text>
             </View>
+            <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => { lightFeedback(); router.push('/(root)/account?restore=1'); }}
+                style={styles.returning}
+            >
+                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>I already have an account</Text>
+            </TouchableOpacity>
         </Pressable>
     );
 
@@ -993,6 +1000,7 @@ const styles = StyleSheet.create({
     weekStrip: { flexDirection: 'row', gap: 6, justifyContent: 'space-between', marginTop: 6 },
     weekDay: { flex: 1, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     splash: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+    returning: { position: 'absolute', bottom: 48, paddingVertical: 12, paddingHorizontal: 24 },
     splashInner: { alignItems: 'center' },
     brand: { alignItems: 'center', marginTop: 18, gap: 2 },
     brandName: { marginTop: 18, fontSize: 32, letterSpacing: 8, fontFamily: 'SpaceGrotesk_700Bold' },

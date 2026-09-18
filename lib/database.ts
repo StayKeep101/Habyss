@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 let dbInstance: any = null;
 /**
@@ -115,6 +115,7 @@ async function runMigrations(db: any): Promise<void> {
         [5, migrateToV5],
         [6, migrateToV6],
         [7, migrateToV7],
+        [8, migrateToV8],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -170,6 +171,18 @@ async function migrateToV7(db: any): Promise<void> {
     await db.execAsync('CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_external ON tasks (external_id) WHERE external_id IS NOT NULL;');
 
     console.log('[Database] Migrated to schema v7');
+}
+
+/**
+ * Migration to version 8 - tasks take part in backup.
+ *
+ * Habits and completions already mark every change as not yet uploaded; tasks
+ * did not, so a backup would have had no way to know which ones had changed.
+ */
+async function migrateToV8(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'tasks', 'synced', 'INTEGER DEFAULT 0');
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_tasks_unsynced ON tasks (synced) WHERE synced = 0;');
+    console.log('[Database] Migrated to schema v8');
 }
 
 /**

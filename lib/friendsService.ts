@@ -1,7 +1,21 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DeviceEventEmitter } from 'react-native';
-import { addHabit, getCompletions, getGoals, getHabits, getLastNDaysCompletions, getStreakData, Habit } from './habitsSQLite';
-import { getLocalUserId } from './localUser';
+import { getSupabase } from './supabase';
+import { localDateKey } from './habitSchedule';
+
+/**
+ * Friends, backed by real accounts.
+ *
+ * This used to be a local simulation with three invented people (aurora, milo
+ * and nova) and made-up activity. That was harmless while there was no real
+ * social feature, but with accounts it would let someone try to befriend a
+ * person who does not exist. Friends are now other Habyss accounts, found by
+ * username, and nothing is shown to someone who is not signed in.
+ *
+ * What friends can see of each other is decided on the server:
+ * - numbers only, through friend_stats(): logged today, the week, the streak;
+ * - a habit or goal in full only once its owner shares it with them.
+ *
+ * The public API is unchanged, so the screens built on it keep working.
+ */
 
 export type ReactionType = 'fire' | 'clap' | 'heart' | 'star' | 'muscle';
 
@@ -40,922 +54,566 @@ export interface FriendActivity {
     reactions?: Record<string, number>;
 }
 
-type ShareStatus = 'pending' | 'accepted' | 'declined';
+/* -------------------------------------------------------------------------- */
+/*  Plumbing                                                                   */
+/* -------------------------------------------------------------------------- */
 
-interface SocialUserRecord {
-    id: string;
-    username: string;
-    email: string;
-    avatarUrl?: string;
-    currentStreak: number;
-    bestStreak: number;
-    completedToday: number;
-    totalToday: number;
-    weeklyActivity: number[];
-    totalHabits: number;
-    totalGoals: number;
+interface Context { sb: NonNullable<ReturnType<typeof getSupabase>>; me: string }
+
+/** The signed-in context, or null when there is no account to act as. */
+async function signedIn(): Promise<Context | null> {
+    const sb = getSupabase();
+    if (!sb) return null;
+    const { data } = await sb.auth.getSession();
+    const me = data.session?.user?.id;
+    return me ? { sb, me } : null;
 }
 
-interface SocialRequestRecord {
-    id: string;
-    fromUserId: string;
-    toUserId: string;
-    status: 'pending' | 'accepted' | 'rejected';
-    createdAt: string;
+interface StatsRow {
+    user_id: string;
+    username: string | null;
+    avatar_url: string | null;
+    today_done: number;
+    active_habits: number;
+    week_done: number[];
+    current_streak: number;
 }
 
-interface SocialShareRecord {
-    id: string;
-    type: 'habit' | 'goal';
-    itemId: string;
-    ownerId: string;
-    sharedWithId: string;
-    status: ShareStatus;
-    createdAt: string;
-    snapshot: Partial<Habit> & { isGoal?: boolean };
-    localCopyId?: string;
-}
-
-interface SocialActivityRecord {
-    id: string;
-    userId: string;
-    username: string;
-    type: string;
-    message: string;
-    createdAt: string;
-    reactions: Record<string, number>;
-}
-
-interface SocialState {
-    seedVersion: number;
-    users: SocialUserRecord[];
-    friendIds: string[];
-    requests: SocialRequestRecord[];
-    activities: SocialActivityRecord[];
-    shares: SocialShareRecord[];
-}
-
-const SOCIAL_STATE_KEY = 'habyss_social_state_v3';
-const PROFILE_NICKNAME_KEY = 'profile_nickname';
-const PROFILE_AVATAR_KEY = 'profile_avatar';
-const SEED_VERSION = 3;
-
-const SEED_USERS: SocialUserRecord[] = [
-    {
-        id: 'crew_aurora_9c1',
-        username: 'aurora',
-        email: 'aurora@habyss.local',
-        currentStreak: 18,
-        bestStreak: 32,
-        completedToday: 4,
-        totalToday: 5,
-        weeklyActivity: [80, 100, 80, 60, 100, 100, 80],
-        totalHabits: 5,
-        totalGoals: 2,
-    },
-    {
-        id: 'crew_milo_3e8',
-        username: 'milo',
-        email: 'milo@habyss.local',
-        currentStreak: 11,
-        bestStreak: 21,
-        completedToday: 3,
-        totalToday: 4,
-        weeklyActivity: [75, 50, 75, 100, 75, 75, 50],
-        totalHabits: 4,
-        totalGoals: 2,
-    },
-    {
-        id: 'crew_nova_22f',
-        username: 'nova',
-        email: 'nova@habyss.local',
-        currentStreak: 26,
-        bestStreak: 41,
-        completedToday: 5,
-        totalToday: 6,
-        weeklyActivity: [83, 83, 100, 83, 66, 83, 100],
-        totalHabits: 6,
-        totalGoals: 3,
-    },
-    {
-        id: 'crew_rhea_71a',
-        username: 'rhea',
-        email: 'rhea@habyss.local',
-        currentStreak: 7,
-        bestStreak: 15,
-        completedToday: 2,
-        totalToday: 4,
-        weeklyActivity: [50, 50, 75, 25, 75, 50, 50],
-        totalHabits: 4,
-        totalGoals: 1,
-    },
-    {
-        id: 'crew_sage_0bf',
-        username: 'sage',
-        email: 'sage@habyss.local',
-        currentStreak: 31,
-        bestStreak: 48,
-        completedToday: 6,
-        totalToday: 6,
-        weeklyActivity: [100, 83, 100, 83, 100, 100, 83],
-        totalHabits: 6,
-        totalGoals: 3,
-    },
-    {
-        id: 'crew_iris_8bd',
-        username: 'iris',
-        email: 'iris@habyss.local',
-        currentStreak: 14,
-        bestStreak: 19,
-        completedToday: 4,
-        totalToday: 5,
-        weeklyActivity: [80, 60, 80, 80, 100, 80, 60],
-        totalHabits: 5,
-        totalGoals: 2,
-    },
-];
-
-function generateId(prefix: string) {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function sortByRecent<T extends { createdAt: string }>(items: T[]) {
-    return [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-}
-
-function normalizeTaskDays(taskDays?: string[]) {
-    if (!taskDays || taskDays.length === 0) {
-        return ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+async function stats(ctx: Context): Promise<StatsRow[]> {
+    const { data, error } = await ctx.sb.rpc('friend_stats', { p_today: localDateKey(new Date()) });
+    if (error) {
+        console.warn('[Friends] stats unavailable:', error.message);
+        return [];
     }
-
-    return taskDays.map((day) => day.slice(0, 3).toLowerCase());
+    return (data ?? []) as StatsRow[];
 }
 
-function cloneShareableHabit(habit: Habit | (Partial<Habit> & { isGoal?: boolean })) {
+/** Share of active habits logged, as a percentage the charts expect. */
+const percent = (done: number, active: number) =>
+    active > 0 ? Math.min(100, Math.round((done / active) * 100)) : 0;
+
+function toFriend(row: StatsRow, me: string): Friend {
     return {
-        name: habit.name || 'Untitled',
-        description: habit.description,
-        icon: habit.icon,
-        category: habit.category || 'misc',
-        taskDays: normalizeTaskDays(habit.taskDays),
-        reminders: habit.reminders || [],
-        type: habit.type || 'build',
-        color: habit.color || '#6B46C1',
-        goalPeriod: habit.goalPeriod || 'daily',
-        goalValue: habit.goalValue || 1,
-        unit: habit.unit || 'count',
-        chartType: habit.chartType || 'bar',
-        startDate: habit.startDate || new Date().toISOString().split('T')[0],
-        endDate: habit.endDate,
-        durationMinutes: habit.durationMinutes,
-        startTime: habit.startTime,
-        endTime: habit.endTime,
-        isGoal: !!habit.isGoal,
-        targetDate: habit.targetDate,
-        frequency: habit.frequency,
-        weekInterval: habit.weekInterval,
-        graphStyle: habit.graphStyle,
-        timeOfDay: habit.timeOfDay,
-        trackingMethod: habit.trackingMethod || 'boolean',
-        reminderOffset: habit.reminderOffset,
-        ringtone: habit.ringtone || 'default',
-        locationReminders: habit.locationReminders || [],
+        id: row.user_id,
+        userId: row.user_id,
+        username: row.username ?? 'New member',
+        avatarUrl: row.avatar_url ?? undefined,
+        streak: row.current_streak,
+        currentStreak: row.current_streak,
+        bestStreak: row.current_streak,
+        todayCompleted: row.today_done,
+        todayTotal: row.active_habits,
+        todayCompletion: percent(row.today_done, row.active_habits),
+        // The charts read these as percentages of the day, not raw counts.
+        weeklyActivity: (row.week_done ?? []).map(done => percent(done, row.active_habits)),
+        isCurrentUser: row.user_id === me,
     };
 }
 
-async function getProfile() {
-    const [userId, nickname, avatarUrl] = await Promise.all([
-        getLocalUserId(),
-        AsyncStorage.getItem(PROFILE_NICKNAME_KEY),
-        AsyncStorage.getItem(PROFILE_AVATAR_KEY),
-    ]);
+async function profiles(ctx: Context, ids: string[]) {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (unique.length === 0) return new Map<string, { username: string | null; avatar_url: string | null }>();
+    const { data } = await ctx.sb.from('profiles').select('id, username, avatar_url').in('id', unique);
+    return new Map((data ?? []).map((row: any) => [row.id, row]));
+}
 
+/** Habit rows the server returns, in the shape the app's views read. */
+function toHabit(row: any) {
     return {
-        userId,
-        username: nickname || 'You',
-        avatarUrl: avatarUrl || undefined,
+        id: row.id,
+        name: row.name,
+        description: row.description ?? undefined,
+        icon: row.icon ?? undefined,
+        color: row.color ?? '#6B46C1',
+        category: row.category ?? 'personal',
+        isGoal: !!row.is_goal,
+        goalId: row.goal_id ?? undefined,
+        goalValue: Number(row.goal_value ?? 1),
+        unit: row.unit ?? 'count',
+        trackingMethod: row.tracking_method === 'boolean' ? 'boolean' : 'numeric',
+        targetDate: row.target_date ?? undefined,
+        startDate: row.start_date ?? undefined,
+        taskDays: Array.isArray(row.task_days) ? row.task_days : [],
+        createdAt: row.created_at,
+        isArchived: !!row.is_archived,
     };
 }
 
-async function getCurrentUserSnapshot(): Promise<Friend> {
-    const profile = await getProfile();
-    const [habits, goals, streakData, history, completions] = await Promise.all([
-        getHabits(),
-        getGoals(),
-        getStreakData(),
-        getLastNDaysCompletions(7),
-        getCompletions(),
-    ]);
-
-    const activeHabits = habits.filter((habit) => !habit.isGoal && !habit.isArchived);
-    const totalToday = activeHabits.length;
-    const completedToday = activeHabits.filter((habit) => completions[habit.id]).length;
-    const todayCompletion = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
-    const weeklyActivity = history.map((entry) => {
-        if (totalToday === 0) return 0;
-        const completedIds = entry.completedIds.filter((id) => activeHabits.some((habit) => habit.id === id));
-        return Math.round((completedIds.length / totalToday) * 100);
-    });
-
-    return {
-        id: profile.userId,
-        userId: profile.userId,
-        username: profile.username,
-        avatarUrl: profile.avatarUrl,
-        currentStreak: streakData.currentStreak,
-        bestStreak: streakData.bestStreak,
-        streak: streakData.currentStreak,
-        todayCompleted: completedToday,
-        todayTotal: totalToday,
-        todayCompletion,
-        weeklyActivity,
-        isCurrentUser: true,
-    };
+async function friendIds(ctx: Context): Promise<string[]> {
+    const { data } = await ctx.sb.from('friendships')
+        .select('user_id, friend_id')
+        .is('deleted_at', null)
+        .or(`user_id.eq.${ctx.me},friend_id.eq.${ctx.me}`);
+    return (data ?? []).map((row: any) => (row.user_id === ctx.me ? row.friend_id : row.user_id));
 }
 
-function mapSeedUserToFriend(user: SocialUserRecord): Friend {
-    const todayCompletion = user.totalToday > 0 ? Math.round((user.completedToday / user.totalToday) * 100) : 0;
-
-    return {
-        id: user.id,
-        userId: user.id,
-        username: user.username,
-        email: user.email,
-        avatarUrl: user.avatarUrl,
-        currentStreak: user.currentStreak,
-        bestStreak: user.bestStreak,
-        streak: user.currentStreak,
-        todayCompleted: user.completedToday,
-        todayTotal: user.totalToday,
-        todayCompletion,
-        weeklyActivity: user.weeklyActivity,
-    };
+/** Makes sure a habit exists on the server before it is shared. */
+async function ensureBackedUp(): Promise<void> {
+    const { syncNow } = require('./cloudSync');
+    await syncNow();
 }
 
-function getScoreForPeriod(friend: Friend, period: string) {
-    const weeklyAverage = friend.weeklyActivity && friend.weeklyActivity.length > 0
-        ? Math.round(friend.weeklyActivity.reduce((sum, value) => sum + value, 0) / friend.weeklyActivity.length)
-        : 0;
+/* -------------------------------------------------------------------------- */
+/*  Usernames                                                                  */
+/* -------------------------------------------------------------------------- */
 
-    switch (period) {
-        case 'month':
-            return (friend.bestStreak || 0) * 3 + weeklyAverage * 2 + (friend.todayCompletion || 0);
-        case 'year':
-            return (friend.bestStreak || 0) * 4 + weeklyAverage;
-        case 'all':
-            return (friend.bestStreak || 0) * 5 + (friend.currentStreak || 0) * 2 + weeklyAverage;
-        case 'week':
-        default:
-            return (friend.currentStreak || 0) * 4 + weeklyAverage * 2 + (friend.todayCompletion || 0);
+export const USERNAME_RULE = /^[a-z0-9_.]{3,20}$/;
+
+export type UsernameResult = { ok: true } | { ok: false; error: string };
+
+export async function getMyUsername(): Promise<string | null> {
+    const ctx = await signedIn();
+    if (!ctx) return null;
+    const { data } = await ctx.sb.from('profiles').select('username').eq('id', ctx.me).maybeSingle();
+    return data?.username ?? null;
+}
+
+/** Friends find each other by username, so a new account needs one. */
+export async function setMyUsername(raw: string): Promise<UsernameResult> {
+    const ctx = await signedIn();
+    if (!ctx) return { ok: false, error: 'Sign in first.' };
+    const username = raw.trim().toLowerCase();
+    if (!USERNAME_RULE.test(username)) {
+        return { ok: false, error: '3 to 20 characters: letters, numbers, dots and underscores.' };
     }
-}
-
-async function buildInitialState(currentUserId: string): Promise<SocialState> {
-    const acceptedFriends = [SEED_USERS[0].id, SEED_USERS[2].id];
-    const requests: SocialRequestRecord[] = [
-        {
-            id: 'seed_req_rhea',
-            fromUserId: SEED_USERS[3].id,
-            toUserId: currentUserId,
-            status: 'pending',
-            createdAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
-        },
-    ];
-    const activities: SocialActivityRecord[] = [
-        {
-            id: 'seed_act_nova_1',
-            userId: SEED_USERS[2].id,
-            username: SEED_USERS[2].username,
-            type: 'competition',
-            message: 'Nova just closed every habit on today’s stack.',
-            createdAt: new Date(Date.now() - 55 * 60 * 1000).toISOString(),
-            reactions: { fire: 2, clap: 1 },
-        },
-        {
-            id: 'seed_act_aurora_1',
-            userId: SEED_USERS[0].id,
-            username: SEED_USERS[0].username,
-            type: 'streak',
-            message: 'Aurora extended a streak to 18 days.',
-            createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-            reactions: { muscle: 2, heart: 1 },
-        },
-    ];
-
-    return {
-        seedVersion: SEED_VERSION,
-        users: SEED_USERS,
-        friendIds: acceptedFriends,
-        requests,
-        activities,
-        shares: [],
-    };
-}
-
-async function readState(): Promise<SocialState> {
-    const currentUserId = await getLocalUserId();
-    const raw = await AsyncStorage.getItem(SOCIAL_STATE_KEY);
-
-    if (!raw) {
-        const initial = await buildInitialState(currentUserId);
-        await AsyncStorage.setItem(SOCIAL_STATE_KEY, JSON.stringify(initial));
-        return initial;
+    const { error } = await ctx.sb.from('profiles').update({ username }).eq('id', ctx.me);
+    if (error) {
+        return { ok: false, error: error.code === '23505' ? 'That username is taken.' : 'Could not save your username.' };
     }
+    return { ok: true };
+}
 
+/** The link a friend opens to add you; also what the QR code holds. */
+export function inviteLink(username: string): string {
+    return `habyss://add-friend?u=${encodeURIComponent(username)}`;
+}
+
+export function inviteMessage(username: string): string {
+    return `Join me on Habyss. Add me as @${username}: ${inviteLink(username)}`;
+}
+
+/** Reads a username out of whatever was typed, pasted or scanned. */
+export function usernameFrom(input: string): string | null {
+    let text = input.trim();
     try {
-        const parsed = JSON.parse(raw) as SocialState;
-        if (!parsed || parsed.seedVersion !== SEED_VERSION || !Array.isArray(parsed.users)) {
-            const reset = await buildInitialState(currentUserId);
-            await AsyncStorage.setItem(SOCIAL_STATE_KEY, JSON.stringify(reset));
-            return reset;
-        }
-
-        return {
-            ...parsed,
-            activities: parsed.activities || [],
-            friendIds: parsed.friendIds || [],
-            requests: parsed.requests || [],
-            shares: parsed.shares || [],
-        };
-    } catch {
-        const reset = await buildInitialState(currentUserId);
-        await AsyncStorage.setItem(SOCIAL_STATE_KEY, JSON.stringify(reset));
-        return reset;
-    }
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed.code === 'string') text = parsed.code;
+    } catch { /* not JSON */ }
+    const fromLink = text.match(/[?&]u=([^&\s]+)/);
+    if (fromLink) text = decodeURIComponent(fromLink[1]);
+    const username = text.replace(/^@/, '').toLowerCase();
+    return USERNAME_RULE.test(username) ? username : null;
 }
 
-async function writeState(state: SocialState) {
-    await AsyncStorage.setItem(SOCIAL_STATE_KEY, JSON.stringify(state));
-    DeviceEventEmitter.emit('social_state_updated');
+export type AddFriendResult =
+    | { ok: true; username: string; nowFriends: boolean }
+    | { ok: false; error: string };
+
+/**
+ * Adds a friend by exact username. Never falls back to a near match: sending a
+ * request to the wrong person is worse than saying "not found".
+ */
+export async function addFriendByUsername(input: string): Promise<AddFriendResult> {
+    const ctx = await signedIn();
+    if (!ctx) return { ok: false, error: 'Sign in first.' };
+    const username = usernameFrom(input);
+    if (!username) return { ok: false, error: 'That is not a Habyss username.' };
+
+    const { data: target } = await ctx.sb.from('profiles')
+        .select('id, username').eq('username', username).maybeSingle();
+    if (!target) return { ok: false, error: `Nobody is called @${username}.` };
+    if (target.id === ctx.me) return { ok: false, error: 'That is you.' };
+
+    const sent = await FriendsService.sendFriendRequest(target.id);
+    if (!sent) return { ok: false, error: 'Could not send the request. Try again.' };
+    const nowFriends = (await friendIds(ctx)).includes(target.id);
+    return { ok: true, username, nowFriends };
 }
 
-function findSeedUser(state: SocialState, userId: string) {
-    return state.users.find((user) => user.id === userId);
-}
-
-async function addActivity(state: SocialState, activity: Omit<SocialActivityRecord, 'id' | 'createdAt' | 'reactions'> & Partial<Pick<SocialActivityRecord, 'reactions'>>) {
-    state.activities = sortByRecent([
-        {
-            id: generateId('activity'),
-            createdAt: new Date().toISOString(),
-            reactions: activity.reactions || {},
-            ...activity,
-        },
-        ...state.activities,
-    ]).slice(0, 40);
-}
-
-async function getShareParticipants(state: SocialState, itemId: string, itemType: 'habit' | 'goal') {
-    const currentUser = await getCurrentUserSnapshot();
-    const relevantShares = state.shares.filter(
-        (share) => share.type === itemType && share.itemId === itemId && share.status === 'accepted'
-    );
-    const ownerIsCurrentUser = relevantShares.some((share) => share.ownerId === currentUser.id);
-
-    const friendIds = ownerIsCurrentUser
-        ? relevantShares.map((share) => share.sharedWithId)
-        : relevantShares.map((share) => share.ownerId);
-
-    const participants = await Promise.all(
-        friendIds.map(async (friendId) => {
-            const user = findSeedUser(state, friendId);
-            if (!user) return null;
-            return {
-                userId: user.id,
-                username: user.username,
-                avatarUrl: user.avatarUrl,
-                completedToday: user.completedToday >= Math.max(1, Math.floor(user.totalToday / 2)),
-                isOwner: !ownerIsCurrentUser,
-            };
-        })
-    );
-
-    return [
-        {
-            userId: currentUser.id,
-            username: currentUser.username,
-            avatarUrl: currentUser.avatarUrl,
-            completedToday: (currentUser.todayCompleted || 0) > 0,
-            isOwner: ownerIsCurrentUser,
-        },
-        ...participants.filter(Boolean),
-    ];
-}
+/* -------------------------------------------------------------------------- */
+/*  The service                                                                */
+/* -------------------------------------------------------------------------- */
 
 export class FriendsService {
+    static async isAvailable(): Promise<boolean> {
+        return !!(await signedIn());
+    }
+
     static async getCurrentUser(): Promise<Friend | null> {
-        return await getCurrentUserSnapshot();
+        const ctx = await signedIn();
+        if (!ctx) return null;
+        const row = (await stats(ctx)).find(item => item.user_id === ctx.me);
+        return row ? toFriend(row, ctx.me) : null;
     }
 
     static async getFriends(): Promise<Friend[]> {
-        const state = await readState();
-        return state.friendIds
-            .map((friendId) => findSeedUser(state, friendId))
-            .filter(Boolean)
-            .map((friend) => mapSeedUserToFriend(friend!))
-            .sort((a, b) => (b.currentStreak || 0) - (a.currentStreak || 0));
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        return (await stats(ctx)).filter(row => row.user_id !== ctx.me).map(row => toFriend(row, ctx.me));
     }
 
     static async getFriendsWithProgress(): Promise<Friend[]> {
-        return await this.getFriends();
+        return this.getFriends();
+    }
+
+    static async getFriendProfile(friendId: string): Promise<Friend | null> {
+        const ctx = await signedIn();
+        if (!ctx) return null;
+        const row = (await stats(ctx)).find(item => item.user_id === friendId);
+        return row ? toFriend(row, ctx.me) : null;
+    }
+
+    static async getFriendDetailedStats(friendId: string): Promise<any | null> {
+        const ctx = await signedIn();
+        if (!ctx) return null;
+        const row = (await stats(ctx)).find(item => item.user_id === friendId);
+        if (!row) return null;
+
+        // Only what friend_stats exposes; a friend's goals are theirs unless shared.
+        const { count } = await ctx.sb.from('shared_goals')
+            .select('id', { count: 'exact', head: true })
+            .eq('owner_id', friendId).eq('shared_with_id', ctx.me).eq('status', 'accepted');
+
+        return {
+            totalHabits: row.active_habits,
+            completedToday: row.today_done,
+            totalGoals: count ?? 0,
+            weeklyActivity: (row.week_done ?? []).map(done => done > 0),
+            longestStreak: row.current_streak,
+        };
+    }
+
+    static async getLeaderboard(_period = 'week'): Promise<{ rank: number; friend: Friend }[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        const everyone = (await stats(ctx)).map(row => ({
+            friend: toFriend(row, ctx.me),
+            week: (row.week_done ?? []).reduce((sum, done) => sum + done, 0),
+        }));
+        return everyone
+            .sort((a, b) => b.week - a.week || (b.friend.currentStreak ?? 0) - (a.friend.currentStreak ?? 0))
+            .map((entry, index) => ({ rank: index + 1, friend: entry.friend }));
+    }
+
+    /* ---------------------------------------------------------------- finding */
+
+    static async searchUsers(query: string): Promise<Friend[]> {
+        const ctx = await signedIn();
+        const term = query.trim().toLowerCase().replace(/^@/, '');
+        if (!ctx || term.length < 2) return [];
+
+        // Escape the pattern characters so a search for "a_b" matches literally.
+        const pattern = `${term.replace(/[\\%_]/g, char => `\\${char}`)}%`;
+        const { data } = await ctx.sb.from('profiles')
+            .select('id, username, avatar_url')
+            .ilike('username', pattern)
+            .neq('id', ctx.me)
+            .limit(20);
+
+        return (data ?? []).map((row: any) => ({
+            id: row.id,
+            userId: row.id,
+            username: row.username,
+            avatarUrl: row.avatar_url ?? undefined,
+        }));
+    }
+
+    /* --------------------------------------------------------------- requests */
+
+    static async sendFriendRequest(userId: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx || userId === ctx.me) return false;
+
+        if ((await friendIds(ctx)).includes(userId)) return true;
+
+        const { data: existing } = await ctx.sb.from('friend_requests')
+            .select('id, from_user_id, status')
+            .is('deleted_at', null)
+            .eq('status', 'pending')
+            .or(`and(from_user_id.eq.${ctx.me},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${ctx.me})`);
+
+        // They already asked us: asking back is the same as saying yes.
+        const theirs = (existing ?? []).find((row: any) => row.from_user_id === userId);
+        if (theirs) return this.acceptFriendRequest(theirs.id);
+        if ((existing ?? []).length > 0) return true;
+
+        const { error } = await ctx.sb.from('friend_requests')
+            .insert({ from_user_id: ctx.me, to_user_id: userId, status: 'pending' });
+        return !error;
     }
 
     static async getFriendRequests(): Promise<FriendRequest[]> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        const { data } = await ctx.sb.from('friend_requests')
+            .select('id, from_user_id, status, created_at')
+            .eq('to_user_id', ctx.me)
+            .eq('status', 'pending')
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false });
 
-        return sortByRecent(
-            state.requests
-                .filter((request) => request.toUserId === currentUserId && request.status === 'pending')
-                .map((request) => {
-                    const sender = findSeedUser(state, request.fromUserId);
-                    return {
-                        id: request.id,
-                        fromUserId: request.fromUserId,
-                        fromUsername: sender?.username || 'Friend',
-                        fromAvatarUrl: sender?.avatarUrl,
-                        status: request.status,
-                        createdAt: request.createdAt,
-                    };
-                })
-        );
-    }
-
-    static async sendFriendRequest(userId: string): Promise<boolean> {
-        const currentUser = await getCurrentUserSnapshot();
-        const state = await readState();
-
-        if (userId === currentUser.id || state.friendIds.includes(userId)) {
-            return false;
-        }
-
-        const incomingRequest = state.requests.find(
-            (request) => request.fromUserId === userId && request.toUserId === currentUser.id && request.status === 'pending'
-        );
-        if (incomingRequest) {
-            return await this.acceptFriendRequest(incomingRequest.id);
-        }
-
-        const existingOutgoing = state.requests.find(
-            (request) => request.fromUserId === currentUser.id && request.toUserId === userId && request.status === 'pending'
-        );
-        if (existingOutgoing) {
-            return false;
-        }
-
-        state.requests.push({
-            id: generateId('request'),
-            fromUserId: currentUser.id,
-            toUserId: userId,
-            status: 'accepted',
-            createdAt: new Date().toISOString(),
-        });
-        state.friendIds = Array.from(new Set([...state.friendIds, userId]));
-
-        const target = findSeedUser(state, userId);
-        await addActivity(state, {
-            userId: currentUser.id,
-            username: currentUser.username,
-            type: 'friendship',
-            message: `${currentUser.username} connected with ${target?.username || 'a new friend'}.`,
-        });
-
-        await writeState(state);
-        return true;
+        const people = await profiles(ctx, (data ?? []).map((row: any) => row.from_user_id));
+        return (data ?? []).map((row: any) => ({
+            id: row.id,
+            fromUserId: row.from_user_id,
+            fromUsername: people.get(row.from_user_id)?.username ?? 'Someone',
+            fromAvatarUrl: people.get(row.from_user_id)?.avatar_url ?? undefined,
+            status: 'pending' as const,
+            createdAt: row.created_at,
+        }));
     }
 
     static async acceptFriendRequest(requestId: string): Promise<boolean> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-        const request = state.requests.find((item) => item.id === requestId && item.toUserId === currentUserId);
+        const ctx = await signedIn();
+        if (!ctx) return false;
+
+        const { data: request } = await ctx.sb.from('friend_requests')
+            .select('id, from_user_id, to_user_id')
+            .eq('id', requestId).eq('to_user_id', ctx.me).maybeSingle();
         if (!request) return false;
 
-        request.status = 'accepted';
-        state.friendIds = Array.from(new Set([...state.friendIds, request.fromUserId]));
+        const { error } = await ctx.sb.from('friend_requests')
+            .update({ status: 'accepted' }).eq('id', requestId);
+        if (error) return false;
 
-        const sender = findSeedUser(state, request.fromUserId);
-        await addActivity(state, {
-            userId: request.fromUserId,
-            username: sender?.username || 'Friend',
-            type: 'friendship',
-            message: `${sender?.username || 'Friend'} joined your crew.`,
-        });
-
-        await writeState(state);
+        if (!(await friendIds(ctx)).includes(request.from_user_id)) {
+            const { error: linkError } = await ctx.sb.from('friendships')
+                .insert({ user_id: ctx.me, friend_id: request.from_user_id });
+            if (linkError) return false;
+        }
         return true;
     }
 
     static async declineFriendRequest(requestId: string): Promise<boolean> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-        const request = state.requests.find((item) => item.id === requestId && item.toUserId === currentUserId);
-        if (!request) return false;
-
-        request.status = 'rejected';
-        await writeState(state);
-        return true;
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('friend_requests')
+            .update({ status: 'declined' }).eq('id', requestId).eq('to_user_id', ctx.me);
+        return !error;
     }
 
     static async rejectFriendRequest(requestId: string): Promise<boolean> {
-        return await this.declineFriendRequest(requestId);
+        return this.declineFriendRequest(requestId);
+    }
+
+    /** Accepted requests that never became a friendship, from an interrupted accept. */
+    static async repairFriendshipsFromAcceptedRequests(): Promise<void> {
+        const ctx = await signedIn();
+        if (!ctx) return;
+        const { data } = await ctx.sb.from('friend_requests')
+            .select('from_user_id').eq('to_user_id', ctx.me).eq('status', 'accepted').is('deleted_at', null);
+        const linked = new Set(await friendIds(ctx));
+        for (const row of data ?? []) {
+            if (!linked.has(row.from_user_id)) {
+                await ctx.sb.from('friendships').insert({ user_id: ctx.me, friend_id: row.from_user_id });
+            }
+        }
     }
 
     static async removeFriend(friendId: string): Promise<boolean> {
-        const state = await readState();
-        if (!state.friendIds.includes(friendId)) return false;
-
-        state.friendIds = state.friendIds.filter((id) => id !== friendId);
-        state.shares = state.shares.filter((share) => share.sharedWithId !== friendId && share.ownerId !== friendId);
-        await writeState(state);
-        return true;
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('friendships').delete()
+            .or(`and(user_id.eq.${ctx.me},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${ctx.me})`);
+        return !error;
     }
 
-    static async repairFriendshipsFromAcceptedRequests(): Promise<void> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-        const acceptedRequestFriendIds = state.requests
-            .filter(
-                (request) =>
-                    request.status === 'accepted' &&
-                    (request.fromUserId === currentUserId || request.toUserId === currentUserId)
-            )
-            .map((request) => (request.fromUserId === currentUserId ? request.toUserId : request.fromUserId));
+    /* ----------------------------------------------------------- nudges, feed */
 
-        state.friendIds = Array.from(new Set([...state.friendIds, ...acceptedRequestFriendIds]));
-        await writeState(state);
+    static async nudgeFriend(friendId: string, username?: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const me = (await profiles(ctx, [ctx.me])).get(ctx.me)?.username ?? 'A friend';
+        const { error } = await ctx.sb.from('notifications').insert({
+            user_id: friendId,
+            from_user_id: ctx.me,
+            type: 'nudge',
+            title: `${me} nudged you`,
+            body: `${username ? `${username}, ` : ''}keep your streak going today.`,
+        });
+        return !error;
+    }
+
+    /**
+     * There is no shared activity feed yet. An empty list is the truth; the old
+     * version filled it with invented events.
+     */
+    static async getFriendsFeed(): Promise<FriendActivity[]> {
+        return [];
     }
 
     static async getFriendActivity(): Promise<FriendActivity[]> {
-        return await this.getFriendsFeed();
+        return [];
     }
 
-    static async getFriendsFeed(): Promise<FriendActivity[]> {
-        const state = await readState();
-        const currentUserId = await getLocalUserId();
-        return sortByRecent(
-            state.activities.filter((activity) => activity.userId !== currentUserId)
-        ).map((activity) => ({
-            id: activity.id,
-            userId: activity.userId,
-            username: activity.username,
-            type: activity.type,
-            message: activity.message,
-            createdAt: activity.createdAt,
-            reactions: activity.reactions,
-        }));
+    /** Reactions need a feed to react to; see getFriendsFeed. */
+    static async addReaction(_activityId: string, _reaction: ReactionType): Promise<boolean> {
+        return false;
     }
 
-    static async searchUsers(query: string): Promise<Friend[]> {
-        if (!query.trim()) return [];
-
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-        const normalized = query.trim().toLowerCase();
-
-        return state.users
-            .filter((user) => user.id !== currentUserId)
-            .filter((user) => {
-                const friendCode = user.id.substring(0, 8).toLowerCase();
-                const matchesCode = user.id.toLowerCase().includes(normalized);
-                const matchesFriendCode = friendCode === normalized || friendCode.includes(normalized);
-                const matchesName = user.username.toLowerCase().includes(normalized);
-                const matchesEmail = user.email.toLowerCase().includes(normalized);
-                return matchesCode || matchesFriendCode || matchesName || matchesEmail;
-            })
-            .map((user) => mapSeedUserToFriend(user))
-            .sort((a, b) => (b.currentStreak || 0) - (a.currentStreak || 0));
+    static async sendReaction(_activityId: string, _reaction: ReactionType): Promise<boolean> {
+        return false;
     }
 
-    static async addReaction(activityId: string, reaction: ReactionType): Promise<boolean> {
-        return await this.sendReaction(activityId, reaction);
+    static async removeReaction(_activityId: string, _reaction: ReactionType): Promise<boolean> {
+        return false;
     }
 
-    static async sendReaction(activityId: string, reaction: ReactionType): Promise<boolean> {
-        const state = await readState();
-        const activity = state.activities.find((item) => item.id === activityId);
-        if (!activity) return false;
+    /* ---------------------------------------------------------------- sharing */
 
-        activity.reactions[reaction] = (activity.reactions[reaction] || 0) + 1;
-        await writeState(state);
-        return true;
-    }
-
-    static async removeReaction(activityId: string, reaction: ReactionType): Promise<boolean> {
-        const state = await readState();
-        const activity = state.activities.find((item) => item.id === activityId);
-        if (!activity || !activity.reactions[reaction]) return false;
-
-        activity.reactions[reaction] = Math.max(0, activity.reactions[reaction] - 1);
-        if (activity.reactions[reaction] === 0) {
-            delete activity.reactions[reaction];
-        }
-        await writeState(state);
-        return true;
-    }
-
-    static async getLeaderboard(period = 'week'): Promise<{ rank: number; friend: Friend }[]> {
-        const currentUser = await getCurrentUserSnapshot();
-        const friends = await this.getFriends();
-        return [currentUser, ...friends]
-            .sort((a, b) => getScoreForPeriod(b, period) - getScoreForPeriod(a, period))
-            .map((friend, index) => ({
-                rank: index + 1,
-                friend,
-            }));
-    }
-
-    static async getFriendProfile(friendId: string): Promise<Friend | null> {
-        const currentUser = await getCurrentUserSnapshot();
-        if (friendId === currentUser.id) return currentUser;
-
-        const state = await readState();
-        const user = findSeedUser(state, friendId);
-        return user ? mapSeedUserToFriend(user) : null;
-    }
-
-    static async getFriendDetailedStats(friendId: string): Promise<any | null> {
-        const currentUser = await getCurrentUserSnapshot();
-        if (friendId === currentUser.id) {
-            const goals = await getGoals();
-            return {
-                totalHabits: currentUser.todayTotal || 0,
-                completedToday: currentUser.todayCompleted || 0,
-                totalGoals: goals.length,
-                weeklyActivity: (currentUser.weeklyActivity || []).map((value) => value >= 50),
-                longestStreak: currentUser.bestStreak || 0,
-            };
-        }
-
-        const state = await readState();
-        const user = findSeedUser(state, friendId);
-        if (!user) return null;
-
-        return {
-            totalHabits: user.totalHabits,
-            completedToday: user.completedToday,
-            totalGoals: user.totalGoals,
-            weeklyActivity: user.weeklyActivity.map((value) => value >= 50),
-            longestStreak: user.bestStreak,
-        };
-    }
-
-    static async nudgeFriend(friendId: string, username?: string): Promise<boolean> {
-        const currentUser = await getCurrentUserSnapshot();
-        const state = await readState();
-        const target = findSeedUser(state, friendId);
-        if (!target) return false;
-
-        await addActivity(state, {
-            userId: currentUser.id,
-            username: currentUser.username,
-            type: 'nudge',
-            message: `${currentUser.username} nudged ${username || target.username} to stay on pace.`,
-        });
-        await writeState(state);
-        return true;
-    }
-
+    /**
+     * Shares a habit with a friend. They are already mutual friends, so the
+     * share is accepted straight away rather than waiting on a second yes.
+     */
     static async shareHabitWithFriend(habitId: string, friendId: string): Promise<boolean> {
-        const currentUser = await getCurrentUserSnapshot();
-        const state = await readState();
-        const habit = (await getHabits()).find((item) => item.id === habitId && !item.isGoal);
-        if (!habit) return false;
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        await ensureBackedUp();
 
-        const existing = state.shares.find(
-            (share) => share.type === 'habit' && share.itemId === habitId && share.ownerId === currentUser.id && share.sharedWithId === friendId
-        );
-        if (existing) {
-            existing.status = 'accepted';
-            await writeState(state);
-            return true;
-        }
+        const { data: existing } = await ctx.sb.from('shared_habits').select('id')
+            .eq('habit_id', habitId).eq('owner_id', ctx.me).eq('shared_with_id', friendId).is('deleted_at', null);
+        if ((existing ?? []).length > 0) return true;
 
-        state.shares.push({
-            id: generateId('share_habit'),
-            type: 'habit',
-            itemId: habitId,
-            ownerId: currentUser.id,
-            sharedWithId: friendId,
-            status: 'accepted',
-            createdAt: new Date().toISOString(),
-            snapshot: cloneShareableHabit(habit),
+        const { error } = await ctx.sb.from('shared_habits').insert({
+            habit_id: habitId, owner_id: ctx.me, shared_with_id: friendId, status: 'accepted',
         });
-
-        const friend = findSeedUser(state, friendId);
-        await addActivity(state, {
-            userId: currentUser.id,
-            username: currentUser.username,
-            type: 'shared_habit',
-            message: `${currentUser.username} shared "${habit.name}" with ${friend?.username || 'a friend'}.`,
-        });
-
-        await writeState(state);
-        return true;
+        return !error;
     }
 
     static async unshareHabit(habitId: string, friendId: string): Promise<boolean> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-        const nextShares = state.shares.filter(
-            (share) =>
-                !(
-                    share.type === 'habit' &&
-                    share.itemId === habitId &&
-                    share.ownerId === currentUserId &&
-                    share.sharedWithId === friendId
-                )
-        );
-
-        if (nextShares.length === state.shares.length) return false;
-        state.shares = nextShares;
-        await writeState(state);
-        return true;
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('shared_habits').delete()
+            .eq('habit_id', habitId).eq('owner_id', ctx.me).eq('shared_with_id', friendId);
+        return !error;
     }
 
     static async getHabitSharedWith(habitId: string): Promise<Friend[]> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-
-        return state.shares
-            .filter(
-                (share) =>
-                    share.type === 'habit' &&
-                    share.itemId === habitId &&
-                    share.ownerId === currentUserId &&
-                    share.status === 'accepted'
-            )
-            .map((share) => findSeedUser(state, share.sharedWithId))
-            .filter(Boolean)
-            .map((user) => mapSeedUserToFriend(user!));
+        return this.sharedWith('shared_habits', 'habit_id', habitId);
     }
 
     static async getGoalSharedWith(goalId: string): Promise<Friend[]> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
+        return this.sharedWith('shared_goals', 'goal_id', goalId);
+    }
 
-        return state.shares
-            .filter(
-                (share) =>
-                    share.type === 'goal' &&
-                    share.itemId === goalId &&
-                    share.ownerId === currentUserId &&
-                    share.status === 'accepted'
-            )
-            .map((share) => findSeedUser(state, share.sharedWithId))
-            .filter(Boolean)
-            .map((user) => mapSeedUserToFriend(user!));
+    private static async sharedWith(table: string, column: string, itemId: string): Promise<Friend[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        const { data } = await ctx.sb.from(table).select('shared_with_id')
+            .eq(column, itemId).eq('owner_id', ctx.me).is('deleted_at', null);
+        const people = await profiles(ctx, (data ?? []).map((row: any) => row.shared_with_id));
+        return (data ?? []).map((row: any) => ({
+            id: row.shared_with_id,
+            userId: row.shared_with_id,
+            username: people.get(row.shared_with_id)?.username ?? 'Friend',
+            avatarUrl: people.get(row.shared_with_id)?.avatar_url ?? undefined,
+        }));
     }
 
     static async batchShareGoal(goalId: string, friendIds: string[]): Promise<boolean> {
-        const currentUser = await getCurrentUserSnapshot();
-        const state = await readState();
-        const goal = (await getHabits()).find((item) => item.id === goalId && item.isGoal);
-        if (!goal) return false;
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        await ensureBackedUp();
 
-        friendIds.forEach((friendId) => {
-            const existing = state.shares.find(
-                (share) => share.type === 'goal' && share.itemId === goalId && share.ownerId === currentUser.id && share.sharedWithId === friendId
-            );
-
-            if (existing) {
-                existing.status = 'accepted';
-                return;
-            }
-
-            state.shares.push({
-                id: generateId('share_goal'),
-                type: 'goal',
-                itemId: goalId,
-                ownerId: currentUser.id,
-                sharedWithId: friendId,
-                status: 'accepted',
-                createdAt: new Date().toISOString(),
-                snapshot: cloneShareableHabit(goal),
-            });
-        });
-
-        if (friendIds.length > 0) {
-            await addActivity(state, {
-                userId: currentUser.id,
-                username: currentUser.username,
-                type: 'shared_goal',
-                message: `${currentUser.username} launched a shared goal challenge.`,
-            });
-        }
-
-        await writeState(state);
-        return true;
+        const current = new Set((await this.getGoalSharedWith(goalId)).map(friend => friend.id));
+        const rows = friendIds.filter(id => !current.has(id))
+            .map(id => ({ goal_id: goalId, owner_id: ctx.me, shared_with_id: id, status: 'accepted' }));
+        if (rows.length === 0) return true;
+        const { error } = await ctx.sb.from('shared_goals').insert(rows);
+        return !error;
     }
 
     static async batchUnshareGoal(goalId: string, friendIds: string[]): Promise<boolean> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-        state.shares = state.shares.filter(
-            (share) =>
-                !(
-                    share.type === 'goal' &&
-                    share.itemId === goalId &&
-                    share.ownerId === currentUserId &&
-                    friendIds.includes(share.sharedWithId)
-                )
-        );
-        await writeState(state);
-        return true;
+        const ctx = await signedIn();
+        if (!ctx || friendIds.length === 0) return !!ctx;
+        const { error } = await ctx.sb.from('shared_goals').delete()
+            .eq('goal_id', goalId).eq('owner_id', ctx.me).in('shared_with_id', friendIds);
+        return !error;
     }
 
     static async getHabitsSharedWithMe(): Promise<any[]> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-
-        return state.shares
-            .filter(
-                (share) =>
-                    share.type === 'habit' &&
-                    share.sharedWithId === currentUserId &&
-                    share.status === 'accepted' &&
-                    !share.localCopyId
-            )
-            .map((share) => ({
-                habit: {
-                    id: share.itemId,
-                    ...share.snapshot,
-                },
-                owner: mapSeedUserToFriend(findSeedUser(state, share.ownerId)!),
-            }));
+        return this.sharedWithMe('shared_habits', 'habit_id', 'habit');
     }
 
     static async getGoalsSharedWithMe(): Promise<any[]> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-        const habits = await getHabits();
+        return this.sharedWithMe('shared_goals', 'goal_id', 'goal');
+    }
 
-        return state.shares
-            .filter(
-                (share) =>
-                    share.type === 'goal' &&
-                    share.sharedWithId === currentUserId &&
-                    share.status === 'accepted'
-            )
-            .map((share) => {
-                const localGoal = share.localCopyId ? habits.find((habit) => habit.id === share.localCopyId) : null;
+    private static async sharedWithMe(table: string, column: string, key: 'habit' | 'goal'): Promise<any[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        const { data: shares } = await ctx.sb.from(table).select(`${column}, owner_id`)
+            .eq('shared_with_id', ctx.me).eq('status', 'accepted').is('deleted_at', null);
+        if (!shares?.length) return [];
+
+        const ids = shares.map((row: any) => row[column]);
+        const [{ data: items }, people] = await Promise.all([
+            ctx.sb.from('habits').select('*').in('id', ids).is('deleted_at', null),
+            profiles(ctx, shares.map((row: any) => row.owner_id)),
+        ]);
+        const byId = new Map((items ?? []).map((row: any) => [row.id, row]));
+
+        return shares
+            .filter((share: any) => byId.has(share[column]))
+            .map((share: any) => {
+                const owner = people.get(share.owner_id);
                 return {
-                    goal: {
-                        id: localGoal?.id || share.itemId,
-                        ...share.snapshot,
-                        ...(localGoal || {}),
-                    },
-                    owner: mapSeedUserToFriend(findSeedUser(state, share.ownerId)!),
+                    [key]: toHabit(byId.get(share[column])),
+                    owner: {
+                        id: share.owner_id,
+                        userId: share.owner_id,
+                        username: owner?.username ?? 'Friend',
+                        avatarUrl: owner?.avatar_url ?? undefined,
+                    } as Friend,
                 };
             });
     }
 
     static async getSharedItemParticipants(itemId: string, itemType: string = 'habit'): Promise<any[]> {
-        const state = await readState();
-        return await getShareParticipants(state, itemId, itemType as 'habit' | 'goal');
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        const table = itemType === 'goal' ? 'shared_goals' : 'shared_habits';
+        const column = itemType === 'goal' ? 'goal_id' : 'habit_id';
+
+        const { data } = await ctx.sb.from(table).select('owner_id, shared_with_id')
+            .eq(column, itemId).eq('status', 'accepted').is('deleted_at', null);
+        const ids = new Set<string>([ctx.me]);
+        let ownerId = ctx.me;
+        for (const row of data ?? []) {
+            ids.add(row.owner_id);
+            ids.add(row.shared_with_id);
+            ownerId = row.owner_id;
+        }
+
+        const rows = await stats(ctx);
+        const people = await profiles(ctx, [...ids]);
+        return [...ids].map(id => {
+            const row = rows.find(item => item.user_id === id);
+            return {
+                userId: id,
+                username: people.get(id)?.username ?? 'Friend',
+                avatarUrl: people.get(id)?.avatar_url ?? undefined,
+                completedToday: (row?.today_done ?? 0) > 0,
+                isOwner: id === ownerId,
+            };
+        });
     }
 
     static async acceptShareRequest(type: string, itemId: string, ownerId: string): Promise<boolean> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-        const share = state.shares.find(
-            (item) =>
-                item.type === type &&
-                item.itemId === itemId &&
-                item.ownerId === ownerId &&
-                item.sharedWithId === currentUserId
-        );
-
-        if (!share) return false;
-
-        share.status = 'accepted';
-        if (!share.localCopyId) {
-            const created = await addHabit({
-                ...cloneShareableHabit(share.snapshot),
-                isGoal: share.type === 'goal',
-            });
-            if (created) {
-                share.localCopyId = created.id;
-            }
-        }
-
-        await writeState(state);
-        return true;
+        return this.answerShare(type, itemId, ownerId, 'accepted');
     }
 
     static async declineShareRequest(type: string, itemId: string, ownerId: string): Promise<boolean> {
-        const currentUserId = await getLocalUserId();
-        const state = await readState();
-        const share = state.shares.find(
-            (item) =>
-                item.type === type &&
-                item.itemId === itemId &&
-                item.ownerId === ownerId &&
-                item.sharedWithId === currentUserId
-        );
-        if (!share) return false;
+        return this.answerShare(type, itemId, ownerId, 'declined');
+    }
 
-        share.status = 'declined';
-        await writeState(state);
-        return true;
+    private static async answerShare(type: string, itemId: string, ownerId: string, status: 'accepted' | 'declined') {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const table = type === 'goal' ? 'shared_goals' : 'shared_habits';
+        const column = type === 'goal' ? 'goal_id' : 'habit_id';
+        const { error } = await ctx.sb.from(table).update({ status })
+            .eq(column, itemId).eq('owner_id', ownerId).eq('shared_with_id', ctx.me);
+        return !error;
     }
 }

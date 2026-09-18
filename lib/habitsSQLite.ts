@@ -129,6 +129,19 @@ export function clearHabitsCache() {
     habitsListeners.clear();
 }
 
+/**
+ * Re-reads habits from storage and tells every screen already subscribed.
+ *
+ * For when rows change underneath the app, such as a restore from backup.
+ * clearHabitsCache would also drop the subscribers, silently disconnecting
+ * every open screen, so this keeps them.
+ */
+export async function reloadHabitsFromStorage(): Promise<void> {
+    cachedHabits = null;
+    const habits = await getHabits();
+    habitsListeners.forEach(listener => listener(habits));
+}
+
 // --- CRUD Operations (SQLite-first when available, Supabase fallback) ---
 
 export async function getHabits(): Promise<Habit[]> {

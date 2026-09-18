@@ -44,6 +44,18 @@ export async function getLocalUserId(): Promise<string> {
 }
 
 /**
+ * Makes an account's id the local id.
+ *
+ * Every local query is scoped by user id, so once someone signs in, the rows on
+ * this phone and anything restored from their backup have to share the
+ * account's id. Callers re-key existing rows first; see lib/account.ts.
+ */
+export async function adoptUserId(userId: string): Promise<void> {
+    await AsyncStorage.setItem(LOCAL_USER_KEY, userId);
+    cachedUserId = userId;
+}
+
+/**
  * Check if onboarding has been completed
  */
 export async function isOnboardingComplete(): Promise<boolean> {

@@ -48,6 +48,22 @@ ok   "alice can notify her friend bob"              authenticated $A "insert int
 is   "bob can read it"                              authenticated $B "select count(*) from public.notifications" "1"
 is   "alice cannot read bob's inbox"                authenticated $A "select count(*) from public.notifications where user_id='$B'" "0"
 
+echo "-- what friends can see of each other"
+CAROL=cccccccc-0000-4000-8000-000000000003
+# The sign-up trigger creates the profile without a username, as a real
+# sign-up would; carol then picks one.
+"$Q" -d replica -tAc "insert into auth.users (id,email) values ('$CAROL','carol@example.com') on conflict do nothing; update public.profiles set username='carol' where id='$CAROL';" >/dev/null
+is   "a new sign-up gets a profile automatically"    postgres - "select count(*) from public.profiles where id='$CAROL'" "1"
+"$Q" -d replica -tAc "insert into public.habit_completions (user_id,habit_id,date,value) values ('$B','22222222-0000-4000-8000-000000000001','2026-09-16',1),('$B','22222222-0000-4000-8000-000000000001','2026-09-18',1) on conflict do nothing;" >/dev/null
+is   "alice sees herself and her friend bob"          authenticated $A "select string_agg(username, ',' order by username) from public.friend_stats('2026-09-18')" "alice,bob"
+is   "a stranger does not appear"                    authenticated $A "select count(*) from public.friend_stats('2026-09-18') where username='carol'" "0"
+is   "bob's day is counted from his own completions" authenticated $A "select today_done from public.friend_stats('2026-09-18') where username='bob'" "1"
+is   "a streak counts back from today"               authenticated $A "select current_streak from public.friend_stats('2026-09-18') where username='bob'" "3"
+is   "the week is seven days, oldest first"          authenticated $A "select array_length(week_done,1) from public.friend_stats('2026-09-18') where username='bob'" "7"
+is   "carol, with no friends, sees only herself"     authenticated $CAROL "select string_agg(username, ',') from public.friend_stats('2026-09-18')" "carol"
+deny "anonymous cannot call friend_stats"            anon - "select * from public.friend_stats('2026-09-18')"
+is   "friends get numbers only, never habit details" postgres - "select count(*) from unnest((select proargnames from pg_proc where proname='friend_stats')) n where n in ('name','description','goal_value','unit','memo','goal_spec')" "0"
+
 echo "-- account deletion"
 deny "anonymous cannot call delete_my_account"      anon - "select public.delete_my_account()"
 ok   "alice deletes her own account"                authenticated $A "select public.delete_my_account()"

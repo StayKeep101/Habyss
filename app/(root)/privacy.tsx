@@ -13,6 +13,7 @@ import { useTheme } from '@/constants/themeContext';
 
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion';
+import { currentAccount, deleteAccount } from '@/lib/account';
 
 const Privacy = () => {
   // const colorScheme = useColorScheme();
@@ -36,7 +37,17 @@ const Privacy = () => {
           style: 'destructive',
           onPress: async () => {
             setDeleting(true);
-            const report = await deleteAllLocalData();
+            // Signed in: delete the account and its backup on the server too, or they
+                        // would outlive what the user was told was deleted.
+                        const signedIn = await currentAccount().catch(() => null);
+                        if (signedIn) {
+                            const serverResult = await deleteAccount();
+                            if (!serverResult.ok) {
+                                Alert.alert('Account not deleted', `${serverResult.error} Nothing was deleted.`);
+                                return;
+                            }
+                        }
+                        const report = signedIn ? { ok: true, failed: [] as { label: string }[] } : await deleteAllLocalData();
             setDeleting(false);
 
             // Onboarding state is gone with the rest, so send the user back to the start.

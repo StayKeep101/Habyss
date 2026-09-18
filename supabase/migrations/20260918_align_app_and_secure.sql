@@ -507,4 +507,74 @@ $$;
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
 
+-- -----------------------------------------------------------------------------
+-- 10. What friends can see of each other: numbers, never habits.
+--
+--     Friends see how consistent you are, not what you are working on. This
+--     returns aggregates only, for the caller and their friends, and never a
+--     habit name, target or note. Habits a friend was explicitly shared remain
+--     readable through the rules above.
+--
+--     p_today is the caller's local date, because "today" in UTC is the wrong
+--     day for anyone far from Greenwich.
+-- -----------------------------------------------------------------------------
+create or replace function public.friend_stats(p_today date)
+returns table (
+    user_id uuid,
+    username text,
+    avatar_url text,
+    today_done integer,
+    active_habits integer,
+    week_done integer[],
+    current_streak integer
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    with people as (
+        select (select auth.uid()) as id
+        union
+        select case when f.user_id = (select auth.uid()) then f.friend_id else f.user_id end
+        from public.friendships f
+        where f.deleted_at is null
+          and (f.user_id = (select auth.uid()) or f.friend_id = (select auth.uid()))
+    ),
+    days as (
+        select c.user_id, c.date, count(*)::integer as done
+        from public.habit_completions c
+        join people p on p.id = c.user_id
+        where c.deleted_at is null
+          and c.completed is not false
+          and c.date between p_today - 400 and p_today
+        group by c.user_id, c.date
+    )
+    select
+        p.id,
+        pr.username,
+        pr.avatar_url,
+        coalesce((select d.done from days d where d.user_id = p.id and d.date = p_today), 0),
+        (select count(*)::integer from public.habits h
+          where h.user_id = p.id and not h.is_goal and not h.is_archived and h.deleted_at is null),
+        array(select coalesce((select d.done from days d where d.user_id = p.id and d.date = p_today - g), 0)
+              from generate_series(6, 0, -1) as g),
+        -- Consecutive days with something logged, counting back from today, or
+        -- from yesterday if today is not logged yet: an open day is not a break.
+        (select count(*)::integer from (
+            select d.date, row_number() over (order by d.date desc) as n
+            from days d
+            where d.user_id = p.id
+              and d.date <= p_today
+        ) run
+        where run.date = (case when exists (select 1 from days t where t.user_id = p.id and t.date = p_today)
+                               then p_today else p_today - 1 end) - (run.n - 1)::integer)
+    from people p
+    join public.profiles pr on pr.id = p.id
+    where (select auth.uid()) is not null;
+$$;
+
+revoke all on function public.friend_stats(date) from public, anon;
+grant execute on function public.friend_stats(date) to authenticated;
+
 commit;

@@ -38,6 +38,28 @@ import { SiriService } from '@/lib/siriService';
 
 SplashScreen.preventAutoHideAsync().catch(() => { });
 
+/**
+ * Backs up when the app comes to the foreground, if signed in.
+ *
+ * At most every few minutes, so switching apps does not upload each time. A
+ * failure is silent here: the data is safe on the phone, the next attempt
+ * retries, and the Account screen reports the state honestly.
+ */
+const BACKUP_INTERVAL_MS = 3 * 60 * 1000;
+let lastBackgroundBackup = 0;
+async function backUpInBackground() {
+    if (Date.now() - lastBackgroundBackup < BACKUP_INTERVAL_MS) return;
+    lastBackgroundBackup = Date.now();
+    try {
+        const { currentAccount } = require('@/lib/account');
+        if (!(await currentAccount())) return;
+        const { syncNow } = require('@/lib/cloudSync');
+        await syncNow();
+    } catch (error) {
+        console.warn('[Backup] background sync failed', error);
+    }
+}
+
 export default function MobileLayout() {
   const [loaded] = useFonts({
     'Lexend': Lexend_700Bold,
@@ -232,6 +254,7 @@ function InnerLayout() {
       if (nextAppState === 'active') {
         checkIntents();
         void NotificationService.refreshHabitReminders().catch(error => console.warn('Reminder refresh failed', error));
+        void backUpInBackground();
       }
     });
 

@@ -111,8 +111,8 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
-            priority, goal_id, status, source, external_id, created_at, updated_at, deleted
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, 0)`,
+            priority, goal_id, status, source, external_id, created_at, updated_at, deleted, synced
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, 0, 0)`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
         input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
         input.source ?? 'app', input.externalId ?? null, now, now,
@@ -141,7 +141,7 @@ export async function updateTask(id: string, patch: Partial<TaskInput>): Promise
     }
     if (sets.length === 0) return;
 
-    sets.push('updated_at = ?');
+    sets.push('updated_at = ?', 'synced = 0');
     params.push(nowISO(), id);
     await db.runAsync(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`, ...params);
 }
@@ -153,7 +153,7 @@ export async function setTaskStatus(id: string, status: TaskStatus): Promise<voi
     if (!db) return;
     const now = nowISO();
     await db.runAsync(
-        'UPDATE tasks SET status = ?, completed_at = ?, updated_at = ? WHERE id = ?',
+        'UPDATE tasks SET status = ?, completed_at = ?, updated_at = ?, synced = 0 WHERE id = ?',
         status, status === 'done' ? now : null, now, id,
     );
 }
@@ -162,7 +162,7 @@ export async function deleteTask(id: string): Promise<void> {
     if (!isSQLiteAvailable()) return;
     const db = await getDatabase();
     if (!db) return;
-    await db.runAsync('UPDATE tasks SET deleted = 1, updated_at = ? WHERE id = ?', nowISO(), id);
+    await db.runAsync('UPDATE tasks SET deleted = 1, updated_at = ?, synced = 0 WHERE id = ?', nowISO(), id);
 }
 
 /* -------------------------------------------------------------------------- */

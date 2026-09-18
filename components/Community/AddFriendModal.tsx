@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { FriendsService } from '@/lib/friendsService';
+import { addFriendByUsername, inviteLink, inviteMessage, usernameFrom } from '@/lib/friendsService';
 import * as Haptics from 'expo-haptics';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
@@ -43,44 +43,32 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     }, [visible, activeTab]);
 
     const handleAddFriend = async (friendCode: string = code) => {
-        const trimmed = friendCode.trim();
-        if (trimmed.length < 3) {
-            Alert.alert('Invalid Code', 'Enter a friend code or username (at least 3 characters).');
+        if (!usernameFrom(friendCode)) {
+            Alert.alert('Not a username', 'Usernames are 3 to 20 letters, numbers, dots or underscores.');
+            if (activeTab === 'scan') setTimeout(() => setScanned(false), 2000);
             return;
         }
 
         setLoading(true);
         try {
-            const results = await FriendsService.searchUsers(trimmed);
-            const normalizedQuery = trimmed.toLowerCase();
-            const target = results.find((user) => {
-                const friendCodeValue = user.id.slice(0, 8).toLowerCase();
-                return (
-                    user.id.toLowerCase() === normalizedQuery ||
-                    friendCodeValue === normalizedQuery ||
-                    user.username.toLowerCase() === normalizedQuery
-                );
-            }) || results[0];
-
-            if (!target) {
-                Alert.alert('Not Found', 'No one found with that code or username. Try searching by name instead.');
-                setLoading(false);
+            const result = await addFriendByUsername(friendCode);
+            if (!result.ok) {
+                Alert.alert('Not added', result.error);
                 return;
             }
-
-            const success = await FriendsService.sendFriendRequest(target.id);
-            if (success) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert('Connected!', `You and ${target.username} are now friends.`);
-                setCode('');
-                onFriendAdded();
-                onClose();
-            } else {
-                Alert.alert('Already Connected', 'You are already friends or have a pending request.');
-            }
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert(
+                result.nowFriends ? 'Friends' : 'Request sent',
+                result.nowFriends
+                    ? `You and @${result.username} are now friends.`
+                    : `@${result.username} will see your request next time they open Habyss.`,
+            );
+            setCode('');
+            onFriendAdded();
+            onClose();
         } catch (e) {
             console.error(e);
-            Alert.alert('Error', 'Could not search for friend.');
+            Alert.alert('Error', 'Could not reach Habyss. Check your connection.');
         } finally {
             setLoading(false);
             if (activeTab === 'scan') {
@@ -92,7 +80,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     const handleShare = async () => {
         try {
             await Share.share({
-                message: `Join my crew on Habyss! Add me with my Friend Code: ${userCode}`,
+                message: inviteMessage(userCode),
             });
         } catch (error) {
             console.error(error);
@@ -104,20 +92,11 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
         setScanned(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        // Try parsing JSON if it's our format, otherwise treat as raw code
-        let friendCode = data;
-        try {
-            const parsed = JSON.parse(data);
-            if (parsed.type === 'friend' && parsed.code) {
-                friendCode = parsed.code;
-            }
-        } catch (e) {
-            // Not JSON, assume raw code
-        }
+        const friendCode = usernameFrom(data) ?? data;
 
         Alert.alert(
             "Friend Detected",
-            `Add friend with code: ${friendCode}?`,
+            `Add @${friendCode}?`,
             [
                 { text: "Cancel", onPress: () => setScanned(false), style: "cancel" },
                 { text: "Add Friend", onPress: () => handleAddFriend(friendCode) }
@@ -132,7 +111,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                     <View style={styles.qrContainer}>
                         <View style={[styles.qrWrapper, { backgroundColor: 'white' }]}>
                             <QRCode
-                                value={JSON.stringify({ type: 'friend', code: userCode })}
+                                value={inviteLink(userCode)}
                                 size={200}
                                 color="black"
                                 backgroundColor="white"
@@ -185,12 +164,12 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                         <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                             <SheetSection
                                 first
-                                title="Your identifier"
-                                description="Share this code so someone can add you to their crew."
+                                title="Your username"
+                                description="Friends add you with it."
                                 style={{ marginBottom: 10 }}
                             />
                             <VoidCard style={styles.codeCard}>
-                                <Text style={[styles.code, { color: colors.primary }]}>{userCode || 'LOADING...'}</Text>
+                                <Text style={[styles.code, { color: colors.primary }]}>{userCode ? `@${userCode}` : '…'}</Text>
                                 <TouchableOpacity onPress={handleShare} style={[styles.copyBtn, { backgroundColor: colors.surfaceSecondary }]}>
                                     <Ionicons name="share-outline" size={16} color={colors.textPrimary} />
                                     <Text style={[styles.copyText, { color: colors.textPrimary }]}>SHARE</Text>
@@ -200,18 +179,19 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                             <View style={{ height: 20 }} />
 
                             <SheetSection
-                                title="Enter friend code"
-                                description="Paste the code a friend shared with you."
+                                title="Add a friend"
+                                description="Their username or invite link."
                                 style={{ marginTop: 0, marginBottom: 10 }}
                             />
                             <TextInput
                                 style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                                placeholder="Code or username..."
+                                placeholder="username"
                                 placeholderTextColor={colors.textTertiary}
                                 value={code}
-                                onChangeText={text => setCode(text.toUpperCase())}
-                                autoCapitalize="characters"
-                                maxLength={36}
+                                onChangeText={setCode}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                maxLength={120}
                             />
 
                             {/* Action Button */}
@@ -249,7 +229,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                         style={[styles.tab, activeTab === 'code' && { backgroundColor: colors.surfaceSecondary }]}
                         onPress={() => setActiveTab('code')}
                     >
-                        <Text style={[styles.tabText, { color: activeTab === 'code' ? colors.text : colors.textTertiary }]}>Enter Code</Text>
+                        <Text style={[styles.tabText, { color: activeTab === 'code' ? colors.text : colors.textTertiary }]}>Username</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.tab, activeTab === 'qr' && { backgroundColor: colors.surfaceSecondary }]}

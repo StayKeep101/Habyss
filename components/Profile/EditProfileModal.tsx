@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion';
+import { currentAccount, deleteAccount } from '@/lib/account';
 import { router } from 'expo-router';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -172,7 +173,17 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                     style: 'destructive',
                     onPress: async () => {
                         setLoading(true);
-                        const report = await deleteAllLocalData();
+                        // Signed in: delete the account and its backup on the server too, or they
+                        // would outlive what the user was told was deleted.
+                        const signedIn = await currentAccount().catch(() => null);
+                        if (signedIn) {
+                            const serverResult = await deleteAccount();
+                            if (!serverResult.ok) {
+                                Alert.alert('Account not deleted', `${serverResult.error} Nothing was deleted.`);
+                                return;
+                            }
+                        }
+                        const report = signedIn ? { ok: true, failed: [] as { label: string }[] } : await deleteAllLocalData();
                         setLoading(false);
                         onClose();
 

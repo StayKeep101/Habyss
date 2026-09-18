@@ -87,11 +87,19 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="account"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
           name="all-habits"
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
           name="goal-roadmap"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="add-friend"
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen

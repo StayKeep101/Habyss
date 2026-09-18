@@ -15,6 +15,7 @@ import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { hasAnyIntegration, integrationsSummary } from '@/lib/integrationAvailability';
 import { APP_SLOGAN } from '@/constants/brand';
+import { currentAccount, onAccountChange } from '@/lib/account';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EditProfileModal } from '@/components/Profile/EditProfileModal';
@@ -229,12 +230,14 @@ export default function ProfileScreen() {
     );
 
 
-    const handleLogout = async () => {
-        // Clear all cached user data
-        clearHabitsCache();
-        await AsyncStorage.clear();
-        router.replace('/(auth)/onboarding');
-    };
+    // Signed-in state for the Account row. Signing out lives on the Account
+    // screen, where it backs up first; the old button here cleared storage with
+    // no confirmation and left every habit orphaned under a discarded id.
+    const [accountEmail, setAccountEmail] = useState<string | null>(null);
+    useEffect(() => {
+        currentAccount().then(account => setAccountEmail(account?.email ?? null)).catch(() => undefined);
+        return onAccountChange(account => setAccountEmail(account?.email ?? null));
+    }, []);
 
     return (
         <VoidShell>
@@ -318,6 +321,19 @@ export default function ProfileScreen() {
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>APP PREFERENCES</Text>
                         <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/account'); }}>
+                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
+                                    <Ionicons name={accountEmail ? 'cloud-done-outline' : 'cloud-upload-outline'} size={20} color="white" />
+                                </LinearGradient>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Account & backup</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+                                        {accountEmail ?? 'Sign in to back up and add friends'}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/goal-roadmap'); }}>
                                 <LinearGradient colors={accentColors} style={styles.settingIcon}>
                                     <Ionicons name="git-branch-outline" size={20} color="white" />
@@ -490,16 +506,6 @@ export default function ProfileScreen() {
                         </VoidCard>
                     </View>
 
-                    {/* Sign Out */}
-                    <View style={styles.settingsSection}>
-                        <TouchableOpacity
-                            style={[styles.signOutButton, { backgroundColor: colors.error + '20' }]}
-                            onPress={handleLogout}
-                        >
-                            <Ionicons name="log-out-outline" size={20} color={colors.error} />
-                            <Text style={[styles.signOutText, { color: colors.error }]}>Sign Out</Text>
-                        </TouchableOpacity>
-                    </View>
 
                     <View style={styles.footer}>
                         <Text style={[styles.quote, { color: colors.textSecondary }]}>{APP_SLOGAN}</Text>
