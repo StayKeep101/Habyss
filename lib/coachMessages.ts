@@ -141,6 +141,38 @@ export const coachNotLogged = (id: PersonalityModeId, context: CoachContext): st
 export const coachHomeMessage = (id: PersonalityModeId, context: CoachContext): string =>
     voiceFor(id).home(context);
 
+/**
+ * Reminds the user what they said giving up would cost, in their own words.
+ *
+ * Only ever called with a quote the user wrote during setup, and only when a
+ * habit they have a run going on is scheduled today and not logged yet. It
+ * quotes them rather than characterising them, and never asserts they failed:
+ * the habit is "still open", because an unlogged habit is not a broken one.
+ *
+ * Returns null when nothing was written, so the caller shows nothing rather
+ * than inventing a reason to care.
+ */
+export function coachStakes(
+    id: PersonalityModeId,
+    context: { habitName: string; stakes?: string | null },
+): string | null {
+    const quote = context.stakes?.trim();
+    if (!quote) return null;
+    const name = context.habitName;
+
+    switch (id) {
+        case 'friendly':
+            return `${name} is still open today. You wrote that giving up would cost you: “${quote}”. You have time. 💙`;
+        case 'dad_mode':
+            return `${name} is still open. You wrote this down yourself: “${quote}”. Keep your word.`;
+        case 'bully_mode':
+            return `${name}. Still open. Your words: “${quote}”. Go.`;
+        case 'normal':
+        default:
+            return `${name} is not logged yet today. In your words, giving up would cost: “${quote}”.`;
+    }
+}
+
 /** One line per personality about the same habit, for the comparison step. */
 export const coachPreview = (id: PersonalityModeId, habitName: string): string =>
     voiceFor(id).preview(habitName || 'this habit');

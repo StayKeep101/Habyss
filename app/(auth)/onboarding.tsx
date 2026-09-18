@@ -8,7 +8,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import Animated, { FadeIn, FadeInDown, FadeInUp, useReducedMotion } from 'react-native-reanimated';
 
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -29,26 +28,30 @@ import { isHabitScheduledForDate, localDateKey } from '@/lib/habitSchedule';
 import { coachPlanIntro, coachPreview } from '@/lib/coachMessages';
 import { describeParsed, parseHabitText } from '@/lib/habitParser';
 import {
-    AREAS, MAX_AREAS, OBSTACLES, SUPPORTS, clearDraft, coachForSupport,
-    describeRecurrence, draftToHabit, hasValidSchedule, loadDraft, nextOccurrence,
-    obstacleResponse, prefersNumericTracking, rankSuggestions,
-    draftFromParsedHabit, saveDraft, shouldOfferReminder, shouldSuggestCue, suggestionToSentence,
-    type AreaId, type OnboardingDraft, type RecurrenceId, type SupportId,
+    clearDraft, describeRecurrence, draftToHabit, hasValidSchedule,
+    loadDraft, nextOccurrence, saveDraft,
+    type OnboardingDraft,
 } from '@/lib/onboarding';
+import {
+    ATTEMPTS, KILLERS, TIME_BUDGETS, TONES, coachForTone, dailyTargetMinutes,
+    payoffHeadline, planFor, saveStakes, shouldOfferReminder, shouldSuggestSharing,
+    wantsExplicitCue, type KillerId,
+} from '@/lib/onboardingAnswers';
+import { parseGoalText } from '@/lib/goalParser';
 
 /** Just long enough for the selected state to paint before the step changes. */
 const SELECT_ADVANCE_MS = 180;
 
 const STEPS = [
-    'welcome', 'name', 'direction', 'obstacle', 'support',
-    'habit', 'coach', 'confirm', 'reminder', 'friends',
+    'welcome', 'goal', 'attempts', 'killers', 'stakes',
+    'tone', 'time', 'measurable', 'payoff', 'reminder', 'friends',
 ] as const;
-/** Confirm is the last step of setup; everything after it follows the saved habit. */
-const LAST_SETUP_STEP = 7;
+/** The payoff is the last step of setup; everything after follows the saved plan. */
+const LAST_SETUP_STEP = 8;
 
 const STEP = {
-    welcome: 0, name: 1, direction: 2, obstacle: 3, support: 4,
-    habit: 5, coach: 6, confirm: 7, reminder: 8, friends: 9,
+    welcome: 0, goal: 1, attempts: 2, killers: 3, stakes: 4,
+    tone: 5, time: 6, measurable: 7, payoff: 8, reminder: 9, friends: 10,
 } as const;
 
 export default function OnboardingScreen() {
@@ -59,7 +62,6 @@ export default function OnboardingScreen() {
     const { primary: accent } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
     const { setAIPersonality } = useAppSettings();
-    const reduceMotion = useReducedMotion();
 
     // null while hydrating: persisted data decides what the user sees, not a guess.
     const [draft, setDraftState] = useState<OnboardingDraft | null>(null);
@@ -124,34 +126,61 @@ export default function OnboardingScreen() {
 
     if (!draft) return <HabyssBootScreen subtitle="Getting things ready" />;
 
-    const enter = reduceMotion ? undefined : FadeIn.duration(220);
-    /** Options fall in one after another, so a list reads as arriving. */
-    const stagger = (index: number) =>
-        reduceMotion ? undefined : FadeInDown.delay(60 + index * 55).duration(360).springify().damping(17);
     const stepIndex = Math.min(draft.step, STEPS.length - 1);
-    const suggestions = rankSuggestions(draft.areaIds, draft.obstacleId);
-    // The support answer chooses the coach unless the user picks another one.
-    const defaultCoach = coachForSupport(draft.supportId);
-    const firstName = draft.name?.trim() ?? '';
 
     /* ---------------------------------------------------------------- saving */
 
     const startPlan = async () => {
-        // Guard both the ref and the stored id: a double tap or a retry after a
-        // partial failure must never create a second habit.
+        // Guard the ref and the stored ids: a double tap or a retry after a
+        // partial failure must never create a second goal or habit.
         if (savingRef.current) return;
         if (draft.createdHabitId) { goTo(STEP.reminder); return; }
         savingRef.current = true;
         setSaving(true);
         setError(null);
         try {
-            // The reminder is deliberately not part of this write. Notification
-            // failure is handled separately so it cannot lose the saved habit.
-            const created = await addHabit(draftToHabit(draft));
+            const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
+            const parsed = parseGoalText(goalText, { today: new Date(), habits: [] });
+            const spec = parsed.goal;
+            const minutes = dailyTargetMinutes(draft.timeBudget, draft.killers);
+            const today = localDateKey(new Date());
+
+            // The goal carries the measurable target; the habit is the daily
+            // action that feeds it. The reminder is deliberately not part of
+            // either write, so a notification failure cannot lose the plan.
+            let goalId = draft.createdGoalId;
+            if (!goalId) {
+                const goal = await addHabit({
+                    name: spec.title, isGoal: true, type: 'build', category: 'personal',
+                    icon: 'flag-outline',
+                    goalValue: spec.metric_unit === 'percent'
+                        ? Math.round((spec.target ?? 0) * 100)
+                        : (spec.target ?? 1),
+                    unit: spec.metric_unit ?? 'sessions',
+                    goalPeriod: spec.window?.kind === 'recurring'
+                        ? (spec.window.period === 'day' ? 'daily' : spec.window.period === 'week' ? 'weekly' : 'monthly')
+                        : 'daily',
+                    startDate: spec.window?.kind === 'fixed' ? spec.window.start : today,
+                    targetDate: spec.window?.kind === 'fixed' ? spec.window.end : undefined,
+                    goalSpec: JSON.stringify(spec),
+                });
+                if (!goal?.id) throw new Error('Goal was not saved');
+                goalId = goal.id;
+                update({ createdGoalId: goalId });
+            }
+
+            const habitName = spec.suggested_habit?.name ?? spec.title;
+            const created = await addHabit({
+                ...draftToHabit({ ...draft, habitName, targetValue: minutes, targetUnit: 'min', trackingMethod: 'numeric', startDate: today }),
+                goalId,
+                icon: 'ellipse-outline',
+            });
             if (!created?.id) throw new Error('Habit was not saved');
-            // The name is only stored once there is a plan to attach it to.
-            if (firstName) await setLocalProfileName(firstName);
-            setAIPersonality(draft.coachId ?? defaultCoach);
+
+            // Answer 5 sets the coach; answer 4 is kept for the coach to quote.
+            setAIPersonality(coachForTone(draft.tone));
+            if (draft.stakesText?.trim()) await saveStakes(draft.stakesText);
+
             update({ createdHabitId: created.id, step: STEP.reminder });
             successFeedback();
         } catch {
@@ -340,406 +369,245 @@ export default function OnboardingScreen() {
         <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${APP_NAME}. ${APP_SLOGAN}. Tap to begin.`}
-            onPress={() => goTo(STEP.name)}
+            onPress={() => goTo(STEP.goal)}
             style={styles.splash}
         >
-            <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(700)} style={styles.splashInner}>
+            <View style={styles.splashInner}>
                 <SpinningLogo size={124} glow />
-                <Animated.Text
-                    entering={reduceMotion ? undefined : FadeInDown.delay(320).duration(650)}
-                    style={[styles.brandName, { color: colors.textPrimary }]}
+                <Text style={[styles.brandName, { color: colors.textPrimary }]}
                 >
                     {APP_NAME}
-                </Animated.Text>
-                <Animated.Text
-                    entering={reduceMotion ? undefined : FadeInDown.delay(620).duration(700)}
-                    style={[styles.brandSlogan, { color: colors.textSecondary }]}
+                </Text>
+                <Text style={[styles.brandSlogan, { color: colors.textSecondary }]}
                 >
                     {APP_SLOGAN}
-                </Animated.Text>
-            </Animated.View>
+                </Text>
+            </View>
         </Pressable>
     );
 
-    const renderName = () => (
+    /* ------------------------------------------------------- the seven answers */
+
+    const renderGoal = () => (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <SectionTitle>What should we call you?</SectionTitle>
+            <SectionTitle>What’s the one goal that would change how you see yourself if you hit it in the next 90 days?</SectionTitle>
 
             <TextInput
-                value={draft.name ?? ''}
-                onChangeText={text => update({ name: text })}
+                value={draft.identityGoal ?? ''}
+                onChangeText={text => update({ identityGoal: text })}
                 autoFocus
-                autoCapitalize="words"
-                autoComplete="given-name"
-                returnKeyType="next"
-                blurOnSubmit
-                // The keyboard's Next is the only way forward here, plus Skip.
-                onSubmitEditing={() => { if (firstName) goTo(STEP.direction); }}
-                placeholder="Your name"
+                multiline
+                placeholder="Run a 10K without stopping"
                 placeholderTextColor={colors.textTertiary}
-                accessibilityLabel="Your name"
-                style={[styles.input, {
+                accessibilityLabel="Your goal"
+                style={[styles.input, styles.habitInput, {
                     color: colors.textPrimary, borderColor: colors.border,
                     backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
                 }]}
             />
 
-            <View style={{ height: 10 }} />
+            <View style={{ height: 18 }} />
+            <PrimaryButton label="Continue" onPress={() => goTo(STEP.attempts)} disabled={!draft.identityGoal?.trim()} />
+        </ScrollView>
+    );
+
+    const renderAttempts = () => (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <SectionTitle>How many times have you tried to start this before?</SectionTitle>
+            <View style={{ gap: 8 }}>
+                {ATTEMPTS.map(option => (
+                    <Choice
+                        key={option.id}
+                        selected={draft.attempts === option.id}
+                        title={option.label}
+                        onPress={() => chooseAndAdvance({ attempts: option.id }, STEP.killers)}
+                    />
+                ))}
+            </View>
+        </ScrollView>
+    );
+
+    const renderKillers = () => {
+        const chosen = draft.killers ?? [];
+        const toggle = (id: KillerId) => {
+            cancelAdvance();
+            update({ killers: chosen.includes(id) ? chosen.filter(k => k !== id) : [...chosen, id] });
+        };
+        return (
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SectionTitle>What usually kills your momentum?</SectionTitle>
+                <View style={{ gap: 8 }}>
+                    {KILLERS.map(killer => (
+                        <Choice
+                            key={killer.id}
+                            selected={chosen.includes(killer.id)}
+                            title={killer.label}
+                            onPress={() => toggle(killer.id)}
+                        />
+                    ))}
+                </View>
+                <View style={{ height: 18 }} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.stakes)} disabled={chosen.length === 0} />
+            </ScrollView>
+        );
+    };
+
+    const renderStakes = () => (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <SectionTitle>If a year from now you’ve given up again, what did it cost you?</SectionTitle>
+
+            <TextInput
+                value={draft.stakesText ?? ''}
+                onChangeText={text => update({ stakesText: text })}
+                autoFocus
+                multiline
+                placeholder="Another year of feeling the same way"
+                placeholderTextColor={colors.textTertiary}
+                accessibilityLabel="What giving up would cost"
+                style={[styles.input, styles.habitInput, {
+                    color: colors.textPrimary, borderColor: colors.border,
+                    backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
+                }]}
+            />
+            <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                Your coach will quote this back when it matters.
+            </Text>
+
+            <View style={{ height: 14 }} />
+            <PrimaryButton label="Continue" onPress={() => goTo(STEP.tone)} disabled={!draft.stakesText?.trim()} />
             <TouchableOpacity
                 accessibilityRole="button"
-                onPress={() => { lightFeedback(); update({ name: '', step: STEP.direction }); }}
+                onPress={() => { lightFeedback(); update({ stakesText: '', step: STEP.tone }); }}
                 style={styles.secondaryBtn}
             >
-                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Skip for now</Text>
+                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Skip</Text>
             </TouchableOpacity>
         </ScrollView>
     );
 
-    const renderDirection = () => {
-        const chosen = draft.areaIds ?? [];
-        const toggleArea = (id: AreaId) => {
-            if (chosen.includes(id)) {
-                cancelAdvance();
-                update({ areaIds: chosen.filter(area => area !== id) });
-                return;
-            }
-            // Oldest choice drops out once two are picked, so a third tap still works.
-            const next = chosen.length >= MAX_AREAS ? [...chosen.slice(1), id] : [...chosen, id];
-
-            // This step allows two answers, so it only moves on by itself once
-            // both are chosen. One area plus Continue is still the quick path.
-            if (next.length >= MAX_AREAS) {
-                chooseAndAdvance({ areaIds: next }, STEP.obstacle);
-                return;
-            }
-            update({ areaIds: next });
-        };
-
-        return (
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle>
-                    {firstName ? `What would you like to make more time for, ${firstName}?` : 'What would you like to make more time for?'}
-                </SectionTitle>
-
-                <View style={{ gap: 8 }}>
-                    {AREAS.map((area, index) => (
-                        <Animated.View key={area.id} entering={stagger(index)}>
-                            <Choice
-                                selected={chosen.includes(area.id)}
-                                title={area.label}
-                                icon={area.icon}
-                                onPress={() => toggleArea(area.id)}
-                            />
-                        </Animated.View>
-                    ))}
-                </View>
-
-                <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                    {chosen.length}/{MAX_AREAS} selected
-                </Text>
-
-                <View style={{ height: 14 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(STEP.obstacle)} disabled={chosen.length === 0} />
-            </ScrollView>
-        );
-    };
-
-    const renderObstacle = () => {
-        const response = obstacleResponse(draft.obstacleId);
-        return (
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle>What usually gets in the way?</SectionTitle>
-
-                <View style={{ gap: 8 }}>
-                    {OBSTACLES.map((obstacle, index) => (
-                        <Animated.View key={obstacle.id} entering={stagger(index)}>
-                            <Choice
-                                selected={draft.obstacleId === obstacle.id}
-                                title={obstacle.label}
-                                onPress={() => chooseAndAdvance({ obstacleId: obstacle.id }, STEP.support)}
-                            />
-                        </Animated.View>
-                    ))}
-                </View>
-
-            </ScrollView>
-        );
-    };
-
-    const renderSupport = () => {
-        // The response to the previous answer lands here, where it can be read,
-        // rather than flashing past on the step that produced it.
-        const response = obstacleResponse(draft.obstacleId);
-        return (
+    const renderTone = () => (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            {response ? (
-                <View style={[styles.nextCard, { marginTop: 0, marginBottom: 20, borderColor: accent + '44', backgroundColor: accent + '10' }]}>
-                    <Ionicons name="sparkles-outline" size={18} color={accent} />
-                    <Text style={[styles.nextText, { color: colors.textPrimary }]}>{response}</Text>
-                </View>
-            ) : null}
-
-            <SectionTitle>What would help you most?</SectionTitle>
-
+            <SectionTitle>How do you want to be coached?</SectionTitle>
             <View style={{ gap: 8 }}>
-                {SUPPORTS.map((support, index) => (
-                    <Animated.View key={support.id} entering={stagger(index)}>
-                        <Choice
-                            selected={draft.supportId === support.id}
-                            title={support.label}
-                            // The coach follows this answer until the user picks one themselves.
-                            onPress={() => chooseAndAdvance({ supportId: support.id }, STEP.habit)}
-                        />
-                    </Animated.View>
+                {TONES.map(option => (
+                    <Choice
+                        key={option.id}
+                        selected={draft.tone === option.id}
+                        title={option.label}
+                        subtitle={option.blurb}
+                        onPress={() => chooseAndAdvance({ tone: option.id }, STEP.time)}
+                    />
                 ))}
             </View>
-
         </ScrollView>
-        );
-    };
+    );
 
-    const renderHabit = () => {
-        const text = draft.habitText ?? '';
-        const parsed = text.trim() ? parseHabitText(text) : null;
-        const canContinue = !!parsed?.name.trim();
+    const renderTime = () => (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <SectionTitle>Honestly, how much time can you give this every day?</SectionTitle>
+            <View style={{ gap: 8 }}>
+                {TIME_BUDGETS.map(option => (
+                    <Choice
+                        key={option.id}
+                        selected={draft.timeBudget === option.id}
+                        title={option.label}
+                        onPress={() => chooseAndAdvance({ timeBudget: option.id }, STEP.measurable)}
+                    />
+                ))}
+            </View>
+        </ScrollView>
+    );
 
-        // Typing is the whole input. Days, times and targets are read out of the
-        // sentence and carried into the schedule and confirm steps.
-        const onChangeText = (value: string) => {
-            const next = value.trim() ? parseHabitText(value) : null;
-            update(next
-                ? { habitText: value, ...draftFromParsedHabit(next) }
-                : { habitText: value, habitName: undefined, targetValue: undefined, targetUnit: undefined });
-        };
-
-        // Tapping a suggestion writes the sentence, so the syntax is learned by
-        // seeing it rather than being explained.
-        const useSuggestion = (suggestion: typeof suggestions[number]) => {
-            lightFeedback();
-            const sentence = suggestionToSentence(suggestion, draft.obstacleId);
-            update({
-                habitText: sentence,
-                ...draftFromParsedHabit(parseHabitText(sentence)),
-                icon: suggestion.icon,
-                category: suggestion.category,
-                suggestionId: suggestion.id,
-                cue: shouldSuggestCue(draft.obstacleId) ? (draft.cue ?? suggestion.suggestedCue) : draft.cue,
-            });
-        };
+    const renderMeasurable = () => {
+        const text = draft.measurableText ?? draft.identityGoal ?? '';
+        const parsed = text.trim() ? parseGoalText(text, { today: new Date(), habits: [] }) : null;
+        const spec = parsed?.goal;
+        const ready = parsed?.status === 'complete';
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <SectionTitle>Your first habit</SectionTitle>
+                <SectionTitle>How will you know you’ve made it?</SectionTitle>
 
                 <TextInput
                     value={text}
-                    onChangeText={onChangeText}
-                    autoFocus
+                    onChangeText={value => update({ measurableText: value })}
                     multiline
-                    placeholder="Gym Monday, Wednesday, Friday at 6, 45 minutes"
+                    placeholder="Run 50 km this month"
                     placeholderTextColor={colors.textTertiary}
-                    accessibilityLabel="Describe your habit"
+                    accessibilityLabel="Your measurable goal"
                     style={[styles.input, styles.habitInput, {
-                        color: colors.textPrimary, borderColor: parsed ? accent + '55' : colors.border,
+                        color: colors.textPrimary, borderColor: ready ? accent + '55' : colors.border,
                         backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
                     }]}
                 />
 
-                {parsed ? (
+                {spec ? (
                     <VoidCard style={styles.parsedCard}>
-                        <Text style={[styles.parsedName, { color: colors.textPrimary }]}>{parsed.name || 'Name it'}</Text>
-                        <Text style={[styles.parsedLine, { color: accent }]}>{describeParsed(parsed)}</Text>
-                        {parsed.assumptions.map(note => (
-                            <Text key={note} style={[styles.hint, { color: colors.textTertiary }]}>{note}</Text>
-                        ))}
-                    </VoidCard>
-                ) : (
-                    <View style={{ gap: 8 }}>
-                        {suggestions.slice(0, 3).map((suggestion, index) => (
-                            <Animated.View key={suggestion.id} entering={stagger(index)}>
-                            <Choice
-                                selected={false}
-                                title={suggestionToSentence(suggestion, draft.obstacleId)}
-                                icon={suggestion.icon}
-                                onPress={() => useSuggestion(suggestion)}
-                                trailing={<Ionicons name="arrow-forward" size={18} color={colors.textTertiary} />}
-                            />
-                            </Animated.View>
-                        ))}
-                    </View>
-                )}
-
-                {shouldSuggestCue(draft.obstacleId) ? (
-                    <View style={{ marginTop: 4 }}>
-                        <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>ANCHOR IT TO SOMETHING</Text>
-                        <TextInput
-                            value={draft.cue ?? ''}
-                            onChangeText={value => update({ cue: value })}
-                            placeholder="After breakfast"
-                            placeholderTextColor={colors.textTertiary}
-                            accessibilityLabel="Routine cue"
-                            style={[styles.input, {
-                                color: colors.textPrimary, borderColor: colors.border,
-                                backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                            }]}
-                        />
-                        <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                            A note on your card, not a detected trigger.
+                        <Text style={[styles.parsedName, { color: colors.textPrimary }]}>{spec.title}</Text>
+                        <Text style={[styles.parsedLine, { color: ready ? accent : colors.textTertiary }]}>
+                            {ready && spec.target !== null
+                                ? `${spec.direction === 'at_most' ? 'At most ' : ''}${spec.metric_unit === 'percent'
+                                    ? `${Math.round(spec.target * 100)}% of days`
+                                    : `${spec.target} ${spec.metric_unit}`}`
+                                : 'Not measurable yet'}
                         </Text>
-                    </View>
+                        {parsed?.clarifying_question ? (
+                            <Text style={[styles.hint, { color: colors.textTertiary }]}>{parsed.clarifying_question}</Text>
+                        ) : null}
+                    </VoidCard>
                 ) : null}
 
                 <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(STEP.coach)} disabled={!canContinue} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.payoff)} disabled={!ready} />
             </ScrollView>
         );
     };
 
-    const renderCoach = () => {
-        const selected = draft.coachId ?? defaultCoach;
-        const habitName = draft.habitName?.trim() || 'this habit';
+    /* --------------------------------------------------------------- the payoff */
+
+    const renderPayoff = () => {
+        const plan = planFor(draft.killers);
+        const minutes = dailyTargetMinutes(draft.timeBudget, draft.killers);
+        const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
+        const parsed = goalText ? parseGoalText(goalText, { today: new Date(), habits: [] }) : null;
+
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle>Choose your coach</SectionTitle>
-
-                <View style={{ gap: 10 }}>
-                    {PERSONALITY_MODES.map((mode, index) => {
-                        const on = selected === mode.id;
-                        return (
-                            <Animated.View key={mode.id} entering={stagger(index)}>
-                            <TouchableOpacity
-                                accessibilityRole="radio"
-                                accessibilityState={{ selected: on }}
-                                activeOpacity={0.85}
-                                onPress={() => {
-                                    lightFeedback();
-                                    chooseAndAdvance({ coachId: mode.id }, STEP.confirm);
-                                }}
-                                style={[styles.coachCard, {
-                                    backgroundColor: on ? accent + '14' : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
-                                    borderColor: on ? accent : 'transparent',
-                                }]}
-                            >
-                                <View style={styles.coachHead}>
-                                    <Text style={{ fontSize: 20 }}>{mode.icon}</Text>
-                                    <Text style={[styles.choiceTitle, { color: colors.textPrimary, flex: 1 }]}>{mode.name}</Text>
-                                    {mode.id === defaultCoach ? (
-                                        <Text style={[styles.defaultTag, { color: colors.textTertiary }]}>DEFAULT</Text>
-                                    ) : null}
-                                    <Ionicons name={on ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={on ? accent : colors.textTertiary} />
-                                </View>
-                                <Text style={[styles.coachQuote, { color: colors.textSecondary }]}>“{coachPreview(mode.id, habitName)}”</Text>
-                                {mode.warning ? (
-                                    <Text style={[styles.coachWarning, { color: '#F59E0B' }]}>{mode.warning}</Text>
-                                ) : null}
-                            </TouchableOpacity>
-                            </Animated.View>
-                        );
-                    })}
-                </View>
-
-                <Text style={[styles.hint, { color: colors.textTertiary, marginTop: 14 }]}>
-                    Written examples. Changeable later.
+                <Text style={[styles.payoffHead, { color: colors.textPrimary }]}>
+                    {payoffHeadline(draft.attempts, draft.killers)}
                 </Text>
+                <Text style={[styles.payoffSub, { color: colors.textSecondary }]}>So here’s how we handle it.</Text>
 
-            </ScrollView>
-        );
-    };
-
-    const renderConfirm = () => {
-        const coach = draft.coachId ?? defaultCoach;
-        const mode = PERSONALITY_MODES.find(item => item.id === coach)!;
-        const next = nextOccurrence(draft);
-        // Built from the same scheduler the rest of the app uses, so the strip
-        // cannot promise a day Home would disagree with. It shows the schedule,
-        // never progress: nothing here is a completion.
-        const nextSevenDays = Array.from({ length: 7 }, (_, offset) => {
-            const date = new Date();
-            date.setDate(date.getDate() + offset);
-            date.setHours(12, 0, 0, 0);
-            return {
-                key: date.toISOString(),
-                label: ['S', 'M', 'T', 'W', 'T', 'F', 'S'][date.getDay()],
-                scheduled: isHabitScheduledForDate(draftToHabit(draft) as any, date),
-            };
-        });
-
-        const targetText = draft.trackingMethod === 'boolean'
-            ? 'Done or not done'
-            : `${draft.targetValue ?? 1} ${draft.targetUnit ?? 'time'}`;
-
-        const Row = ({ label, value, onEdit }: { label: string; value: string; onEdit: () => void }) => (
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Edit ${label}`} onPress={() => { lightFeedback(); onEdit(); }} style={[styles.planRow, { borderBottomColor: colors.border }]}>
-                <View style={{ flex: 1 }}>
-                    <Text style={[styles.planLabel, { color: colors.textTertiary }]}>{label.toUpperCase()}</Text>
-                    <Text style={[styles.planValue, { color: colors.textPrimary }]}>{value}</Text>
+                <View style={{ gap: 8, marginTop: 16 }}>
+                    {plan.map(line => (
+                        <View key={line} style={[styles.planRowItem, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)' }]}>
+                            <Ionicons name="checkmark-circle-outline" size={18} color={accent} />
+                            <Text style={[styles.planText, { color: colors.textPrimary }]}>{line}</Text>
+                        </View>
+                    ))}
                 </View>
-                <Text style={[styles.editText, { color: accent }]}>Edit</Text>
-            </TouchableOpacity>
-        );
 
-        return (
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle>Your plan</SectionTitle>
-
-                <VoidCard style={styles.introCard}>
-                    <View style={styles.coachHead}>
-                        <Text style={{ fontSize: 18 }}>{mode.icon}</Text>
-                        <Text style={[styles.choiceSub, { color: colors.textTertiary }]}>{mode.name}</Text>
-                    </View>
-                    <Text style={[styles.introText, { color: colors.textPrimary }]}>
-                        {coachPlanIntro(coach, {
-                            habitName: draft.habitName?.trim() || 'your habit',
-                            target: targetText,
-                            recurrence: describeRecurrence(draft),
-                            cue: draft.cue?.trim() || undefined,
-                        })}
-                    </Text>
-                </VoidCard>
-
-                <Animated.View entering={reduceMotion ? undefined : FadeInUp.delay(120).duration(420)}>
-                    <View style={styles.weekStrip}>
-                        {nextSevenDays.map((day, index) => (
-                            <Animated.View
-                                key={day.key}
-                                entering={reduceMotion ? undefined : FadeInDown.delay(200 + index * 60).duration(360).springify().damping(15)}
-                                style={[styles.weekDay, {
-                                    backgroundColor: day.scheduled ? accent : (isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.07)'),
-                                }]}
-                            >
-                                <Text style={{
-                                    fontSize: 11,
-                                    fontFamily: 'Lexend_600SemiBold',
-                                    color: day.scheduled ? '#000' : colors.textTertiary,
-                                }}>{day.label}</Text>
-                            </Animated.View>
-                        ))}
-                    </View>
-                    <Text style={[styles.hint, { color: colors.textTertiary, textAlign: 'center' }]}>
-                        Your next seven days
-                    </Text>
-                </Animated.View>
-
-                <View style={{ marginTop: 14 }}>
-                    <Row label="Habit" value={draft.habitName?.trim() || '—'} onEdit={() => goTo(STEP.habit)} />
-                    <Row label="Target" value={targetText} onEdit={() => goTo(STEP.habit)} />
-                    <Row label="Repeats" value={describeRecurrence(draft)} onEdit={() => goTo(STEP.habit)} />
-                    <Row
-                        label="Starts"
-                        value={next ? next.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }) : 'No day chosen'}
-                        onEdit={() => goTo(STEP.habit)}
-                    />
-                    <Row label="Routine cue" value={draft.cue?.trim() || 'None'} onEdit={() => goTo(STEP.habit)} />
-                    <Row label="Coach" value={mode.name} onEdit={() => goTo(STEP.coach)} />
+                <View style={{ marginTop: 18 }}>
+                    <Row2 label="Goal" value={parsed?.goal.title ?? goalText} />
+                    <Row2 label="Every day" value={`${minutes} min`} />
+                    <Row2 label="Coach" value={TONES.find(t => t.id === draft.tone)?.label ?? 'Straight up'} />
                 </View>
 
                 <ErrorNote />
 
                 <View style={{ height: 18 }} />
-                <PrimaryButton label="Start my plan" onPress={startPlan} busy={saving} disabled={!draft.habitName?.trim() || !hasValidSchedule(draft)} />
+                <PrimaryButton label="Start my plan" onPress={startPlan} busy={saving} disabled={!goalText} />
             </ScrollView>
         );
     };
+
+    const Row2 = ({ label, value }: { label: string; value: string }) => (
+        <View style={[styles.planRow, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.planLabel, { color: colors.textTertiary }]}>{label.toUpperCase()}</Text>
+            <Text style={[styles.planValue, { color: colors.textPrimary, flex: 1, textAlign: 'right' }]} numberOfLines={2}>{value}</Text>
+        </View>
+    );
+
 
     const renderReminder = () => {
         // If they wrote "at 6", that is already the time they meant.
@@ -747,7 +615,7 @@ export default function OnboardingScreen() {
         const [hour, minute] = time.split(':').map(Number);
         const pickerValue = new Date();
         pickerValue.setHours(hour || 8, minute || 0, 0, 0);
-        const recommended = shouldOfferReminder(draft.obstacleId, draft.supportId);
+        const recommended = shouldOfferReminder(draft.killers);
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -826,7 +694,7 @@ export default function OnboardingScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <SectionTitle>Do it with someone</SectionTitle>
 
-            <Animated.View entering={enter}>
+            <View>
                 <VoidCard style={styles.introCard}>
                     <Ionicons name="people-outline" size={22} color={accent} />
                     <Text style={[styles.introText, { color: colors.textPrimary }]}>
@@ -834,7 +702,7 @@ export default function OnboardingScreen() {
                         each other in Habyss.
                     </Text>
                 </VoidCard>
-            </Animated.View>
+            </View>
 
             <View style={{ height: 18 }} />
             <PrimaryButton label="Invite a friend" onPress={inviteFriend} />
@@ -846,13 +714,14 @@ export default function OnboardingScreen() {
 
     const screens: Record<number, () => React.ReactNode> = {
         [STEP.welcome]: renderWelcome,
-        [STEP.name]: renderName,
-        [STEP.direction]: renderDirection,
-        [STEP.obstacle]: renderObstacle,
-        [STEP.support]: renderSupport,
-        [STEP.habit]: renderHabit,
-        [STEP.coach]: renderCoach,
-        [STEP.confirm]: renderConfirm,
+        [STEP.goal]: renderGoal,
+        [STEP.attempts]: renderAttempts,
+        [STEP.killers]: renderKillers,
+        [STEP.stakes]: renderStakes,
+        [STEP.tone]: renderTone,
+        [STEP.time]: renderTime,
+        [STEP.measurable]: renderMeasurable,
+        [STEP.payoff]: renderPayoff,
         [STEP.reminder]: renderReminder,
         [STEP.friends]: renderFriends,
     };
@@ -865,13 +734,14 @@ export default function OnboardingScreen() {
     };
 
     const titles: Record<number, string> = {
-        [STEP.name]: 'About you',
-        [STEP.direction]: 'Direction',
-        [STEP.obstacle]: 'What gets in the way',
-        [STEP.support]: 'Support',
-        [STEP.habit]: 'First habit',
-        [STEP.coach]: 'Coach',
-        [STEP.confirm]: 'Confirm',
+        [STEP.goal]: 'Your goal',
+        [STEP.attempts]: 'History',
+        [STEP.killers]: 'What gets in the way',
+        [STEP.stakes]: 'The cost',
+        [STEP.tone]: 'Your coach',
+        [STEP.time]: 'Your time',
+        [STEP.measurable]: 'Make it measurable',
+        [STEP.payoff]: 'Your plan',
         [STEP.reminder]: 'Reminder',
         [STEP.friends]: 'Friends',
     };
@@ -882,9 +752,9 @@ export default function OnboardingScreen() {
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                     <Header onBack={backFor(draft.step)} title={titles[draft.step]} />
                     {draft.step > 0 && draft.step <= LAST_SETUP_STEP ? <Progress /> : null}
-                    <Animated.View key={draft.step} entering={enter} style={{ flex: 1 }}>
+                    <View key={draft.step} style={{ flex: 1 }}>
                         {(screens[draft.step] ?? renderWelcome)()}
-                    </Animated.View>
+                    </View>
                 </KeyboardAvoidingView>
             </SafeAreaView>
         </VoidShell>
@@ -924,6 +794,10 @@ const styles = StyleSheet.create({
     input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: 'Lexend_400Regular' },
     habitInput: { minHeight: 88, paddingTop: 14, fontSize: 17, lineHeight: 24, textAlignVertical: 'top' },
     parsedCard: { padding: 16, gap: 6 },
+    payoffHead: { fontSize: 24, lineHeight: 32, fontFamily: 'Lexend_600SemiBold', marginTop: 4 },
+    payoffSub: { fontSize: 14, lineHeight: 20, fontFamily: 'Lexend_400Regular', marginTop: 8 },
+    planRowItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 13, borderRadius: 14 },
+    planText: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: 'Lexend_400Regular' },
     parsedName: { fontSize: 18, fontFamily: 'Lexend_600SemiBold' },
     parsedLine: { fontSize: 14, fontFamily: 'Lexend_500Medium' },
     targetRow: { flexDirection: 'row', gap: 10 },

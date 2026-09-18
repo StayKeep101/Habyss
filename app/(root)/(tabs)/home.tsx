@@ -23,7 +23,8 @@ import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { UserGreetingData } from '@/lib/deepseek';
-import { coachHomeMessage, coachNotLogged } from '@/lib/coachMessages';
+import { coachHomeMessage, coachNotLogged, coachStakes } from '@/lib/coachMessages';
+import { readStakes } from '@/lib/onboardingAnswers';
 import { LinearGradient } from 'expo-linear-gradient';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 
@@ -186,6 +187,16 @@ const Home = () => {
       if (scheduledForToday.length === 0) {
         return isPremium ? '' : FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
       }
+
+      // A run going and today still open is the moment the user said they wanted
+      // to be reminded what giving up would cost, so quote them rather than the
+      // generic line. Nothing is shown if they skipped that question.
+      if (unlogged && currentStreak >= 2) {
+        const stakes = await readStakes();
+        const line = coachStakes(coach, { habitName: context.habitName, stakes });
+        if (line) return line;
+      }
+
       // "Not logged" is not a claim that the user skipped it.
       return unlogged ? coachNotLogged(coach, context) : coachHomeMessage(coach, context);
     }
