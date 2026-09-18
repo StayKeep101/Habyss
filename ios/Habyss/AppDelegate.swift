@@ -3,7 +3,7 @@ import React
 import ReactAppDependencyProvider
 
 @main
-class AppDelegate: ExpoAppDelegate {
+class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
   var window: UIWindow?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
@@ -20,13 +20,10 @@ class AppDelegate: ExpoAppDelegate {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
 
-#if os(iOS) || os(tvOS)
-    window = UIWindow(frame: UIScreen.main.bounds)
-    factory.startReactNative(
-      withModuleName: "main",
-      in: window,
-      launchOptions: launchOptions)
-#endif
+    // No window here. iOS 27 requires the scene life cycle, so the window is
+    // created by ExpoAppSceneDelegate when the scene connects, and it starts
+    // React Native into it. Creating one here as well would leave a second,
+    // detached window and swallow cold-start deep links.
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

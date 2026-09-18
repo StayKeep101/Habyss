@@ -20,6 +20,15 @@ const DATABASE_NAME = 'habyss.db';
 const SCHEMA_VERSION = 6;
 
 let dbInstance: any = null;
+/**
+ * The in-flight open, shared by every caller.
+ *
+ * getDatabase is called from many places at startup. Because it only assigned
+ * dbInstance after awaiting, each concurrent caller opened the database and ran
+ * the migrations at the same time, and their version writes interleaved into
+ * "UNIQUE constraint failed: schema_version.version".
+ */
+let openPromise: Promise<any | null> | null = null;
 
 /**
  * Check if SQLite is available
@@ -34,7 +43,12 @@ export function isSQLiteAvailable(): boolean {
 export async function getDatabase(): Promise<any | null> {
     if (!sqliteAvailable) return null;
     if (dbInstance) return dbInstance;
+    // Everyone waits on the same open, so migrations run exactly once.
+    if (!openPromise) openPromise = openDatabase();
+    return openPromise;
+}
 
+async function openDatabase(): Promise<any | null> {
     try {
         dbInstance = await SQLite.openDatabaseAsync(DATABASE_NAME);
 
@@ -53,7 +67,13 @@ export async function getDatabase(): Promise<any | null> {
         return dbInstance;
     } catch (error) {
         console.error('[Database] Failed to open database:', error);
-        sqliteAvailable = false;
+        // A failed attempt is not proof that SQLite is unusable. sqliteAvailable
+        // means "the module loaded"; turning it off here permanently disabled
+        // local storage for the whole session after one transient failure, and
+        // silently stopped saving habits. Clear the attempt so the next call
+        // retries instead.
+        dbInstance = null;
+        openPromise = null;
         return null;
     }
 }
@@ -105,8 +125,11 @@ async function runMigrations(db: any): Promise<void> {
     for (const [version, migrate] of migrations) {
         if (currentVersion >= version) continue;
         await migrate(db);
-        await db.runAsync('DELETE FROM schema_version');
-        await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
+        // One transaction, so the table can never be seen empty or hold two rows.
+        await db.withTransactionAsync(async () => {
+            await db.runAsync('DELETE FROM schema_version');
+            await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
+        });
     }
 }
 
@@ -257,6 +280,8 @@ async function migrateToV6(db: any): Promise<void> {
  * Close the database connection
  */
 export async function closeDatabase(): Promise<void> {
+    // Drop the shared open too, or the next caller receives the closed handle.
+    openPromise = null;
     if (dbInstance) {
         await dbInstance.closeAsync();
         dbInstance = null;
