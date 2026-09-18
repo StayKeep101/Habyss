@@ -13,6 +13,7 @@ import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgr
 import { NotificationService } from '@/lib/notificationService';
 import { NotificationsModal } from '@/components/NotificationsModal';
 import { InsightsCard } from '@/components/Home/InsightsCard';
+import { TodayTasksCard } from '@/components/Home/TodayTasksCard';
 import { CelebrationAnimation } from '@/components/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
@@ -771,6 +772,12 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
               goalsCount={goals.length}
               onPress={() => router.push('/goals-overview')}
             />
+          </Animated.View>
+
+          {/* The few things that matter today. Renders nothing when there is
+              nothing due, rather than an empty shell. */}
+          <Animated.View entering={FadeInDown.delay(120).duration(500)} style={{ marginTop: sectionGap }}>
+            <TodayTasksCard limit={3} />
           </Animated.View>
 
           {/* What the recorded data actually shows, plus any suggestion the

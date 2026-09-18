@@ -27,6 +27,7 @@ import { CreationModal } from '@/components/CreationModal';
 import { HabitCreationModal } from '@/components/HabitCreationModal';
 import { QuickAddModal } from '@/components/Home/QuickAddModal';
 import { GoalQuickAddModal } from '@/components/Home/GoalQuickAddModal';
+import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
 import RevenueCatService from '@/lib/RevenueCat';
 // import { SuperwallProvider, SuperwallExpoModule } from 'expo-superwall';
 // import * as Linking from 'expo-linking';
@@ -328,6 +329,7 @@ function InnerLayout() {
         <HabitCreationModal />
         <QuickAddModal listenToGlobalEvents />
         <GoalQuickAddModal listenToGlobalEvents />
+        <TaskFormModal listenToGlobalEvents />
         <StatusBar style={isDark ? "light" : "dark"} />
       </VoidShell>
     </View>

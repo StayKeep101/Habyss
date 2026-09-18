@@ -14,7 +14,7 @@ export const CreationModal = () => {
     const { horizontalPadding, floatingButtonSize, tabBarBottomOffset } = useResponsiveLayout();
     const router = useRouter();
     const [visible, setVisible] = useState(false);
-    const pending = useRef<'habit' | 'goal' | null>(null);
+    const pending = useRef<'habit' | 'goal' | 'task' | null>(null);
     const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
         const open = DeviceEventEmitter.addListener('show_creation_modal', () => setVisible(true));
@@ -29,8 +29,9 @@ export const CreationModal = () => {
         // reachable from quick add's More options.
         if (selection === 'habit') DeviceEventEmitter.emit('show_quick_add');
         if (selection === 'goal') DeviceEventEmitter.emit('show_goal_quick_add');
+        if (selection === 'task') DeviceEventEmitter.emit('show_task_form');
     };
-    const choose = (selection: 'habit' | 'goal') => {
+    const choose = (selection: 'habit' | 'goal' | 'task') => {
         if (pending.current) return;
         pending.current = selection;
         setVisible(false);
@@ -41,7 +42,7 @@ export const CreationModal = () => {
         <View style={{ flex: 1 }}>
             <Pressable accessibilityLabel="Close creation menu" onPress={() => setVisible(false)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
             <View accessibilityViewIsModal style={{ position: 'absolute', right: horizontalPadding, bottom: tabBarBottomOffset, gap: 14, alignItems: 'flex-end' }}>
-                {([{ id: 'goal', label: 'Goal', icon: 'flag-outline', color: primary }, { id: 'habit', label: 'Habit', icon: 'repeat', color: '#10B981' }] as const).map(item =>
+                {([{ id: 'goal', label: 'Goal', icon: 'flag-outline', color: primary }, { id: 'habit', label: 'Habit', icon: 'repeat', color: '#10B981' }, { id: 'task', label: 'Task', icon: 'checkmark-circle-outline', color: '#F59E0B' }] as const).map(item =>
                     <TouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={'Create ' + item.label.toLowerCase()} onPress={() => choose(item.id)}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: floatingButtonSize / 2, paddingLeft: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 5 }}>
                         <Text style={{ color: colors.text, fontSize: 16, fontFamily: 'Lexend_500Medium' }}>{item.label}</Text>

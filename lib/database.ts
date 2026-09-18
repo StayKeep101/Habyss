@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 let dbInstance: any = null;
 /**
@@ -114,6 +114,7 @@ async function runMigrations(db: any): Promise<void> {
         [4, migrateToV4],
         [5, migrateToV5],
         [6, migrateToV6],
+        [7, migrateToV7],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -131,6 +132,44 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 7 - tasks.
+ *
+ * Habits repeat; tasks happen once and then they are done. A plan built
+ * elsewhere is mostly tasks, so they need a real home rather than being forced
+ * into the habit table, where a due date and a one-off completion do not fit.
+ *
+ * external_id is what makes importing a plan idempotent: re-importing the same
+ * plan updates the same rows instead of duplicating them.
+ */
+async function migrateToV7(db: any): Promise<void> {
+    await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            title TEXT NOT NULL,
+            description TEXT,
+            due_date TEXT,
+            due_time TEXT,
+            estimated_minutes INTEGER,
+            priority INTEGER DEFAULT 2,
+            goal_id TEXT,
+            status TEXT DEFAULT 'open',
+            completed_at TEXT,
+            source TEXT DEFAULT 'app',
+            external_id TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            deleted INTEGER DEFAULT 0
+        );
+    `);
+    await db.execAsync('CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks (due_date, status);');
+    // One row per imported task, so a re-import updates rather than duplicates.
+    await db.execAsync('CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_external ON tasks (external_id) WHERE external_id IS NOT NULL;');
+
+    console.log('[Database] Migrated to schema v7');
 }
 
 /**
