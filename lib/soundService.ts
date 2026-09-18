@@ -18,20 +18,37 @@ export type SoundEffect =
     | 'toggle'        // Toggle on/off
     | 'celebrate';    // Celebration/confetti
 
-// Sound URLs - Using free sound effects from online sources
-// These are placeholder URLs - replace with your own hosted sounds or local assets
-const SOUND_URLS: Record<SoundEffect, string> = {
-    complete: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3', // Pop sound
-    tap: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3', // Soft click
-    success: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // Success chime
-    error: 'https://assets.mixkit.co/active_storage/sfx/2955/2955-preview.mp3', // Error buzz
-    streak: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3', // Achievement
-    levelUp: 'https://assets.mixkit.co/active_storage/sfx/1997/1997-preview.mp3', // Level up
-    notification: 'https://assets.mixkit.co/active_storage/sfx/2309/2309-preview.mp3', // Notification ping
-    swipe: 'https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3', // Swipe whoosh
-    toggle: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3', // Toggle click
-    celebrate: 'https://assets.mixkit.co/active_storage/sfx/1978/1978-preview.mp3', // Celebration fanfare
+/**
+ * Bundled sound effects.
+ *
+ * Every effect used to stream from assets.mixkit.co. That meant no sound
+ * offline in an offline-first app, which is what the FigFilePlayer -12864 and
+ * -1102 load failures in the device log were; it hotlinked a third party's
+ * preview files from a shipped app; and it put a network request behind a tap
+ * in an app whose privacy policy says nothing leaves the device.
+ *
+ * Sound is therefore off until the audio ships inside the app. To turn it back
+ * on, drop licensed files into assets/sounds/ and map them here. Nothing else
+ * needs to change: every function below already no-ops on a missing entry.
+ */
+const SOUND_ASSETS: Partial<Record<SoundEffect, number>> = {
+    // complete: require('../assets/sounds/complete.mp3'),
+    // tap: require('../assets/sounds/tap.mp3'),
 };
+
+let warnedAboutMissingSounds = false;
+
+function sourceFor(effect: SoundEffect): number | null {
+    const asset = SOUND_ASSETS[effect];
+    if (asset === undefined) {
+        if (__DEV__ && !warnedAboutMissingSounds) {
+            warnedAboutMissingSounds = true;
+            console.log('[Sound] No bundled audio, so sound effects are silent. See lib/soundService.ts.');
+        }
+        return null;
+    }
+    return asset;
+}
 
 // Cache for audio players
 const playerCache: Map<SoundEffect, AudioPlayer | null> = new Map();
@@ -54,10 +71,10 @@ export async function initializeAudio(): Promise<void> {
  */
 export async function preloadSound(effect: SoundEffect): Promise<void> {
     try {
-        const url = SOUND_URLS[effect];
-        if (!url) return;
+        const source = sourceFor(effect);
+        if (source === null) return;
 
-        const player = createAudioPlayer({ uri: url });
+        const player = createAudioPlayer(source);
         playerCache.set(effect, player);
     } catch (error) {
         console.warn(`Failed to preload sound ${effect}:`, error);
@@ -77,15 +94,15 @@ export async function preloadCommonSounds(): Promise<void> {
  */
 export async function playSound(effect: SoundEffect, volume: number = 0.7): Promise<void> {
     try {
-        const url = SOUND_URLS[effect];
-        if (!url) return;
+        const source = sourceFor(effect);
+        if (source === null) return;
 
         // Try to use cached player
         let player = playerCache.get(effect);
 
         if (!player) {
             // Create new player if not cached
-            player = createAudioPlayer({ uri: url });
+            player = createAudioPlayer(source);
             playerCache.set(effect, player);
         }
 
@@ -122,5 +139,3 @@ export function cleanupSounds(): void {
     playerCache.clear();
 }
 
-// Export sound URLs for custom usage
-export { SOUND_URLS };

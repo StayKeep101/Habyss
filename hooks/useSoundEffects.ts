@@ -1,33 +1,30 @@
 import { useCallback } from 'react';
 import { useAppSettings } from '@/constants/AppSettingsContext';
+import { playSound, type SoundEffect } from '@/lib/soundService';
 
-// Using remote URLs for immediate demonstration.
-// For production, download these files to assets/sounds/ and require() them.
-const SOUNDS = {
-    click: 'https://www.soundjay.com/buttons/sounds/button-16.mp3',
-    success: 'https://www.soundjay.com/buttons/sounds/button-3.mp3',
-    complete: 'https://www.soundjay.com/misc/sounds/magic-chime-01.mp3',
-    pop: 'https://www.soundjay.com/buttons/sounds/button-09.mp3',
-};
-
+/**
+ * Sound effects for screens that were written against this older hook.
+ *
+ * There used to be two sound implementations: this one, with its own remote
+ * soundjay.com URLs and playback commented out, and lib/soundService.ts, which
+ * streamed different remote files and was wired into Home. Keeping both meant
+ * the same tap could behave differently depending on the screen.
+ *
+ * This now delegates to soundService, which plays bundled audio and stays
+ * silent until any is added, so every screen behaves the same way.
+ */
 export const useSoundEffects = () => {
     const { soundsEnabled } = useAppSettings();
 
-    const playSound = useCallback(async (soundUrl: string) => {
+    const play = useCallback((effect: SoundEffect, volume?: number) => {
         if (!soundsEnabled) return;
-        // Playback stays disabled until these sounds are bundled locally (remote URLs caused -1102 errors).
-        // When enabling, play soundUrl through lib/soundService.ts, which already uses expo-audio.
+        void playSound(effect, volume);
     }, [soundsEnabled]);
 
-    const playClick = () => playSound(SOUNDS.click);
-    const playSuccess = () => playSound(SOUNDS.success);
-    const playComplete = () => playSound(SOUNDS.complete);
-    const playPop = () => playSound(SOUNDS.pop);
-
     return {
-        playClick,
-        playSuccess,
-        playComplete,
-        playPop
+        playClick: useCallback(() => play('tap', 0.5), [play]),
+        playSuccess: useCallback(() => play('success'), [play]),
+        playComplete: useCallback(() => play('complete'), [play]),
+        playPop: useCallback(() => play('toggle', 0.5), [play]),
     };
 };
