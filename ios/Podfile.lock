@@ -190,7 +190,7 @@ PODS:
     - ExpoModulesCore
   - ExpoBlur (57.0.3):
     - ExpoModulesCore
-  - ExpoCalendar (57.0.3):
+  - ExpoCalendar (57.0.4):
     - ExpoModulesCore
   - ExpoCamera (57.0.5):
     - ExpoModulesCore
@@ -3059,7 +3059,7 @@ SPEC CHECKSUMS:
   ExpoAsset: b3999ffb3d4049b6c870708c60ea2209ace9f170
   ExpoAudio: edc9230b788be6f65238a53907d5c176b57a7ce0
   ExpoBlur: 975b78b65b3c8f475c44bd8f8b53948146b1ff9b
-  ExpoCalendar: c1154af2fce6106addd0360455673ddcfe830b40
+  ExpoCalendar: 2d0aaa0c93607371508e504015b6edd8e8e3c1cf
   ExpoCamera: c4c16b83b6db376e5a0e538fe2a04deafbb5b6d8
   ExpoCameraBarcodeScanning: 69275ab8ecd76f338da22df825c59405bcf36472
   ExpoDevice: 5c638e530304a51992263ab5c1cab726f992b9dc

@@ -35,6 +35,12 @@ export interface OnboardingDraft {
     measurableText?: string;
     /** 7. Current value, for a goal like "lose 5 kg" that needs a starting point. */
     baselineText?: string;
+    /**
+     * 8. The path: checkpoints between today and the goal, seeded from the
+     * confirmed target and then edited. Undefined means not built yet; an empty
+     * array means the user removed them all, which is their choice to keep.
+     */
+    roadmapSteps?: { id: string; title: string; dueDate: string }[];
 
     /* The habit those answers produce. */
     habitName?: string;

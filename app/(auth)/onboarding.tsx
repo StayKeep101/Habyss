@@ -38,20 +38,22 @@ import {
     wantsExplicitCue, type KillerId,
 } from '@/lib/onboardingAnswers';
 import { parseGoalText } from '@/lib/goalParser';
+import { buildRoadmap } from '@/lib/roadmapPlan';
+import { createTask } from '@/lib/tasks';
 
 /** Just long enough for the selected state to paint before the step changes. */
 const SELECT_ADVANCE_MS = 180;
 
 const STEPS = [
     'welcome', 'goal', 'attempts', 'killers', 'stakes',
-    'tone', 'time', 'measurable', 'payoff', 'reminder', 'friends',
+    'tone', 'time', 'measurable', 'roadmap', 'payoff', 'reminder', 'friends',
 ] as const;
 /** The payoff is the last step of setup; everything after follows the saved plan. */
-const LAST_SETUP_STEP = 8;
+const LAST_SETUP_STEP = 9;
 
 const STEP = {
     welcome: 0, goal: 1, attempts: 2, killers: 3, stakes: 4,
-    tone: 5, time: 6, measurable: 7, payoff: 8, reminder: 9, friends: 10,
+    tone: 5, time: 6, measurable: 7, roadmap: 8, payoff: 9, reminder: 10, friends: 11,
 } as const;
 
 export default function OnboardingScreen() {
@@ -73,6 +75,7 @@ export default function OnboardingScreen() {
     const savingRef = useRef(false);
     // Auto-advance after a single choice; held so a second tap can cancel it.
     const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const seededRoadmapRef = useRef(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -123,6 +126,35 @@ export default function OnboardingScreen() {
     }, [cancelAdvance, update]);
 
     useEffect(() => cancelAdvance, [cancelAdvance]);
+
+    /**
+     * Seeds the roadmap once, from the goal the user confirmed.
+     *
+     * Guarded by a ref as well as the draft, because the draft updates
+     * asynchronously and a second pass would overwrite an edit made in between.
+     * An empty array is a real answer — the user removed every checkpoint — so
+     * only undefined counts as "not built yet".
+     */
+    useEffect(() => {
+        if (!draft || draft.step !== STEP.roadmap) return;
+        if (draft.roadmapSteps !== undefined || seededRoadmapRef.current) return;
+
+        const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
+        if (!goalText) return;
+
+        seededRoadmapRef.current = true;
+        const built = buildRoadmap(
+            parseGoalText(goalText, { today: new Date(), habits: [] }).goal,
+            { today: new Date(), minutesPerDay: dailyTargetMinutes(draft.timeBudget, draft.killers) },
+        );
+        update({
+            roadmapSteps: built.steps.map(step => ({ id: step.id, title: step.title, dueDate: step.dueDate })),
+            habitName: draft.habitName ?? built.habit.name,
+            targetValue: draft.targetValue ?? built.habit.targetValue,
+            targetUnit: draft.targetUnit ?? built.habit.targetUnit,
+            trackingMethod: draft.trackingMethod ?? built.habit.trackingMethod,
+        });
+    }, [draft, update]);
 
     if (!draft) return <HabyssBootScreen subtitle="Getting things ready" />;
 
@@ -186,6 +218,22 @@ export default function OnboardingScreen() {
                 icon: 'ellipse-outline',
             });
             if (!created?.id) throw new Error('Habit was not saved');
+
+            // The checkpoints become tasks under the goal, so the path is in the
+            // app rather than only in the user's head. Each carries a stable
+            // external id, so a retry after a partial failure updates the same
+            // rows instead of creating a second set.
+            for (const step of draft.roadmapSteps ?? []) {
+                const title = step.title.trim();
+                if (!title) continue;
+                await createTask({
+                    title,
+                    dueDate: step.dueDate,
+                    goalId,
+                    priority: 2,
+                    externalId: `onboarding:${goalId}:${step.id}`,
+                });
+            }
 
             // Answer 5 sets the coach; answer 4 is kept for the coach to quote.
             setAIPersonality(coachForTone(draft.tone));
@@ -593,7 +641,119 @@ export default function OnboardingScreen() {
                 ) : null}
 
                 <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(STEP.payoff)} disabled={!ready} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.roadmap)} disabled={!ready} />
+            </ScrollView>
+        );
+    };
+
+    /* -------------------------------------------------------------- the roadmap */
+
+    const renderRoadmap = () => {
+        const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
+        const parsed = goalText ? parseGoalText(goalText, { today: new Date(), habits: [] }) : null;
+        const spec = parsed?.goal;
+        const minutes = dailyTargetMinutes(draft.timeBudget, draft.killers);
+
+        const steps = draft.roadmapSteps ?? [];
+        const habitLabel = `${draft.targetValue ?? minutes} ${draft.targetUnit ?? 'min'}`;
+
+        const removeStep = (id: string) => {
+            lightFeedback();
+            update({ roadmapSteps: steps.filter(step => step.id !== id) });
+        };
+
+        const addStep = () => {
+            lightFeedback();
+            // A new step lands halfway to the deadline, which is the most likely
+            // place to want one, and is editable afterwards.
+            const end = spec?.window?.kind === 'fixed' ? new Date(`${spec.window.end}T12:00:00`) : new Date();
+            const half = new Date((Date.now() + end.getTime()) / 2);
+            update({
+                roadmapSteps: [...steps, {
+                    id: `step_${Date.now()}`,
+                    title: '',
+                    dueDate: localDateKey(half),
+                }],
+            });
+        };
+
+        const editStep = (id: string, title: string) => {
+            update({ roadmapSteps: steps.map(step => (step.id === id ? { ...step, title } : step)) });
+        };
+
+        return (
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <SectionTitle>What gets you there?</SectionTitle>
+
+                <VoidCard style={styles.introCard}>
+                    <View style={styles.coachHead}>
+                        <Ionicons name="flag-outline" size={18} color={accent} />
+                        <Text style={[styles.choiceTitle, { color: colors.textPrimary, flex: 1 }]} numberOfLines={2}>
+                            {spec?.title ?? goalText}
+                        </Text>
+                    </View>
+                </VoidCard>
+
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 18 }]}>EVERY DAY</Text>
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={`Daily habit: ${draft.habitName ?? ''}, ${habitLabel}. Tap to edit the amount.`}
+                    onPress={() => { lightFeedback(); goTo(STEP.time); }}
+                    style={[styles.roadRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}
+                >
+                    <Ionicons name="repeat" size={18} color="#10B981" />
+                    <Text style={[styles.roadText, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {draft.habitName ?? 'Your habit'}
+                    </Text>
+                    <Text style={[styles.roadMeta, { color: colors.textTertiary }]}>{habitLabel}</Text>
+                </TouchableOpacity>
+
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 18 }]}>CHECKPOINTS</Text>
+                <View style={{ gap: 8 }}>
+                    {steps.map(step => (
+                        <View
+                            key={step.id}
+                            style={[styles.roadRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}
+                        >
+                            <Ionicons name="square-outline" size={18} color="#F59E0B" />
+                            <TextInput
+                                value={step.title}
+                                onChangeText={text => editStep(step.id, text)}
+                                placeholder="What has to be true by then"
+                                placeholderTextColor={colors.textTertiary}
+                                accessibilityLabel="Checkpoint"
+                                style={[styles.roadText, { color: colors.textPrimary, paddingVertical: 0 }]}
+                            />
+                            <Text style={[styles.roadMeta, { color: colors.textTertiary }]}>
+                                {new Date(`${step.dueDate}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                            </Text>
+                            <TouchableOpacity
+                                accessibilityRole="button"
+                                accessibilityLabel={`Remove ${step.title || 'checkpoint'}`}
+                                onPress={() => removeStep(step.id)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <Ionicons name="close" size={16} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        onPress={addStep}
+                        style={[styles.roadRow, { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, backgroundColor: 'transparent' }]}
+                    >
+                        <Ionicons name="add" size={18} color={accent} />
+                        <Text style={[styles.roadText, { color: accent }]}>Add a checkpoint</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                    Checkpoints become tasks under this goal. The habit is what you do about it daily.
+                </Text>
+
+                <View style={{ height: 18 }} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.payoff)} disabled={!draft.habitName?.trim()} />
             </ScrollView>
         );
     };
@@ -605,6 +765,8 @@ export default function OnboardingScreen() {
         const minutes = dailyTargetMinutes(draft.timeBudget, draft.killers);
         const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
         const parsed = goalText ? parseGoalText(goalText, { today: new Date(), habits: [] }) : null;
+        // Only checkpoints the user actually named; a blank row is not a step.
+        const namedSteps = (draft.roadmapSteps ?? []).filter(step => step.title.trim());
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -624,9 +786,29 @@ export default function OnboardingScreen() {
 
                 <View style={{ marginTop: 18 }}>
                     <Row2 label="Goal" value={parsed?.goal.title ?? goalText} />
-                    <Row2 label="Every day" value={`${minutes} min`} />
+                    <Row2
+                        label="Every day"
+                        value={draft.habitName?.trim()
+                            ? `${draft.habitName.trim()} · ${draft.targetValue ?? minutes} ${draft.targetUnit ?? 'min'}`
+                            : `${minutes} min`}
+                    />
                     <Row2 label="Coach" value={TONES.find(t => t.id === draft.tone)?.label ?? 'Straight up'} />
                 </View>
+
+                {namedSteps.length > 0 ? (
+                    <View style={{ marginTop: 18, gap: 8 }}>
+                        <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>THE PATH</Text>
+                        {namedSteps.map(step => (
+                            <View key={step.id} style={[styles.roadRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
+                                <Ionicons name="square-outline" size={16} color="#F59E0B" />
+                                <Text style={[styles.roadText, { color: colors.textPrimary }]} numberOfLines={1}>{step.title}</Text>
+                                <Text style={[styles.roadMeta, { color: colors.textTertiary }]}>
+                                    {new Date(`${step.dueDate}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
+                ) : null}
 
                 <ErrorNote />
 
@@ -756,6 +938,7 @@ export default function OnboardingScreen() {
         [STEP.tone]: renderTone,
         [STEP.time]: renderTime,
         [STEP.measurable]: renderMeasurable,
+        [STEP.roadmap]: renderRoadmap,
         [STEP.payoff]: renderPayoff,
         [STEP.reminder]: renderReminder,
         [STEP.friends]: renderFriends,
@@ -776,6 +959,7 @@ export default function OnboardingScreen() {
         [STEP.tone]: 'Your coach',
         [STEP.time]: 'Your time',
         [STEP.measurable]: 'Make it measurable',
+        [STEP.roadmap]: 'Your roadmap',
         [STEP.payoff]: 'Your plan',
         [STEP.reminder]: 'Reminder',
         [STEP.friends]: 'Friends',
@@ -829,6 +1013,9 @@ const styles = StyleSheet.create({
     input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: 'Lexend_400Regular' },
     habitInput: { minHeight: 88, paddingTop: 14, fontSize: 17, lineHeight: 24, textAlignVertical: 'top' },
     parsedCard: { padding: 16, gap: 6 },
+    roadRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 14 },
+    roadText: { flex: 1, fontSize: 14, fontFamily: 'Lexend_500Medium' },
+    roadMeta: { fontSize: 12, fontFamily: 'Lexend_400Regular' },
     payoffHead: { fontSize: 24, lineHeight: 32, fontFamily: 'Lexend_600SemiBold', marginTop: 4 },
     payoffSub: { fontSize: 14, lineHeight: 20, fontFamily: 'Lexend_400Regular', marginTop: 8 },
     planRowItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 13, borderRadius: 14 },
