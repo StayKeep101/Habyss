@@ -87,6 +87,14 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="all-habits"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="goal-roadmap"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
           name="integrations"
           options={{
             headerShown: false,

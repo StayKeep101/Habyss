@@ -318,6 +318,28 @@ export default function ProfileScreen() {
                     <View style={styles.settingsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>APP PREFERENCES</Text>
                         <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/goal-roadmap'); }}>
+                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
+                                    <Ionicons name="git-branch-outline" size={20} color="white" />
+                                </LinearGradient>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Full roadmap</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Every goal, habit and task</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/all-habits'); }}>
+                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
+                                    <Ionicons name="list-outline" size={20} color="white" />
+                                </LinearGradient>
+                                <View style={styles.settingContent}>
+                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>All habits</Text>
+                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Including archived</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
                             <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/ai-settings'); }}>
                                 <LinearGradient colors={accentColors} style={styles.settingIcon}>
                                     <Ionicons name="sparkles-outline" size={20} color="white" />

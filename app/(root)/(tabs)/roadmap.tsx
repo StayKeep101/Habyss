@@ -21,6 +21,8 @@ import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { GoalCreationWizard } from '@/components/GoalCreationWizard';
+import { TaskItem } from '@/components/Roadmap/TaskItem';
+import { getTasks, setTaskStatus, deleteTask as removeTask, todayKey, type Task } from '@/lib/tasks';
 
 import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { FriendsService } from '@/lib/friendsService';
@@ -67,7 +69,7 @@ const CalendarScreen = () => {
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: accentColor } = useAccentGradient();
-    const { lightFeedback, selectionFeedback } = useHaptics();
+    const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
     const { activeHabitId, activeHabitName, isRunning: isFocusRunning, startTimer, timeLeft, totalDuration } = useFocusTime();
     const { horizontalPadding, tabBarClearance, isCompactHeight } = useResponsiveLayout();
@@ -76,6 +78,8 @@ const CalendarScreen = () => {
     const [habitsStore, setHabitsStore] = useState<StoreHabit[]>([]);
     // habits state removed - usage replaced by memoized derivation
     const [completions, setCompletions] = useState<Record<string, boolean>>({});
+    // Tasks live here too, so the roadmap is the whole plan rather than only rhythms.
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [todayCompletions, setTodayCompletions] = useState<Record<string, boolean>>({});
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [goalProgress, setGoalProgress] = useState<Record<string, number>>({});
@@ -139,6 +143,12 @@ const CalendarScreen = () => {
     // --- Subscriptions & Effects ---
 
     useEffect(() => {
+        const loadTasks = () => {
+            getTasks({ includeDone: true }).then(setTasks).catch(() => setTasks([]));
+        };
+        loadTasks();
+        const taskSub = DeviceEventEmitter.addListener('tasks_changed', loadTasks);
+
         const unsubPromise = subscribeToHabits((newHabits) => {
             setHabitsStore(newHabits);
         });
@@ -339,6 +349,29 @@ const CalendarScreen = () => {
 
         setTimeout(() => { isNavigating.current = false; }, 300);
     }, [selectedDate, completions, playComplete, selectionFeedback, lightFeedback]);
+
+    const handleTaskToggle = useCallback(async (task: Task) => {
+        await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
+        successFeedback();
+        DeviceEventEmitter.emit('tasks_changed');
+    }, [successFeedback]);
+
+    const handleTaskDelete = useCallback((task: Task) => {
+        Alert.alert('Delete task', `Delete "${task.title}"?`, [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete', style: 'destructive',
+                onPress: async () => {
+                    await removeTask(task.id);
+                    DeviceEventEmitter.emit('tasks_changed');
+                },
+            },
+        ]);
+    }, []);
+
+    const openTask = useCallback((task: Task) => {
+        DeviceEventEmitter.emit('show_task_form', { task });
+    }, []);
 
     const handleDelete = (habit: Habit) => {
         Alert.alert(
@@ -842,11 +875,26 @@ const CalendarScreen = () => {
                                                                         onDelete={handleDelete}
                                                                     />
                                                                 ))
-                                                            ) : (
+                                                            ) : null}
+
+                                                            {/* A goal is reached through rhythms and one-off work alike. */}
+                                                            {tasks.filter(task => task.goalId === goal.id && task.status !== 'cancelled').map(task => (
+                                                                <TaskItem
+                                                                    key={task.id}
+                                                                    task={task}
+                                                                    today={todayKey()}
+                                                                    onToggle={handleTaskToggle}
+                                                                    onPress={openTask}
+                                                                    onEdit={openTask}
+                                                                    onDelete={handleTaskDelete}
+                                                                />
+                                                            ))}
+
+                                                            {linkedHabits.length === 0 && !tasks.some(task => task.goalId === goal.id && task.status !== 'cancelled') ? (
                                                                 <Text style={{ color: colors.textSecondary, fontSize: 12, fontStyle: 'italic', paddingVertical: 8 }}>
-                                                                    No linked habits yet.
+                                                                    Nothing linked yet.
                                                                 </Text>
-                                                            )}
+                                                            ) : null}
                                                         </View>
                                                     )}
                                                     </View>
@@ -858,6 +906,28 @@ const CalendarScreen = () => {
                                             <Text style={{ color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>NO ACTIVE GOALS</Text>
                                         </VoidCard>
                                     )}
+                                </View>
+                            )}
+
+                            {/* TASKS SECTION — one-off work, kept apart from the rhythms. */}
+                            {!isGoalFilter && tasks.some(task => !task.goalId && task.status !== 'cancelled') && (
+                                <View style={{ marginBottom: 16 }}>
+                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2, marginBottom: 10 }}>
+                                        TASKS
+                                    </Text>
+                                    {tasks
+                                        .filter(task => !task.goalId && task.status !== 'cancelled')
+                                        .map(task => (
+                                            <TaskItem
+                                                key={task.id}
+                                                task={task}
+                                                today={todayKey()}
+                                                onToggle={handleTaskToggle}
+                                                onPress={openTask}
+                                                onEdit={openTask}
+                                                onDelete={handleTaskDelete}
+                                            />
+                                        ))}
                                 </View>
                             )}
 
