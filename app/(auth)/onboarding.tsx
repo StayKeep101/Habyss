@@ -23,22 +23,22 @@ import { APP_NAME, APP_SLOGAN } from '@/constants/brand';
 import { addHabit, updateHabit } from '@/lib/habitsSQLite';
 import { NotificationService } from '@/lib/notificationService';
 import { LocationService } from '@/lib/LocationService';
-import { setLocalProfileName, setOnboardingComplete } from '@/lib/localUser';
+import { setOnboardingComplete } from '@/lib/localUser';
 import { isHabitScheduledForDate, localDateKey } from '@/lib/habitSchedule';
 import { coachPlanIntro, coachPreview } from '@/lib/coachMessages';
 import { describeParsed, parseHabitText } from '@/lib/habitParser';
 import {
-    clearDraft, describeRecurrence, draftToHabit, hasValidSchedule,
-    loadDraft, nextOccurrence, saveDraft,
+    clearDraft, describeRecurrence, draftToHabit, loadDraft, saveDraft,
     type OnboardingDraft,
 } from '@/lib/onboarding';
 import {
-    ATTEMPTS, KILLERS, TIME_BUDGETS, TONES, coachForTone, dailyTargetMinutes,
+    ATTEMPTS, KILLERS, TIME_BUDGETS, TONES, dailyTargetMinutes,
     payoffHeadline, planFor, saveStakes, shouldOfferReminder, shouldSuggestSharing,
     wantsExplicitCue, type KillerId,
 } from '@/lib/onboardingAnswers';
 import { parseGoalText } from '@/lib/goalParser';
-import { buildRoadmap } from '@/lib/roadmapPlan';
+import { buildRoadmap, tidy } from '@/lib/roadmapPlan';
+import { planFromDraft } from '@/lib/onboardingPlan';
 import { createTask } from '@/lib/tasks';
 
 /** Just long enough for the selected state to paint before the step changes. */
@@ -171,73 +171,40 @@ export default function OnboardingScreen() {
         setSaving(true);
         setError(null);
         try {
-            const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
-            const parsedGoal = parseGoalText(goalText, { today: new Date(), habits: [] });
-            const baseline = (draft.baselineText ?? '').trim() !== '' && Number.isFinite(Number(draft.baselineText))
-                ? Number(draft.baselineText)
-                : parsedGoal.goal.baseline;
-            // "Lose 5 kg" only becomes a number once the starting point is known.
-            const spec = {
-                ...parsedGoal.goal,
-                baseline,
-                target: parsedGoal.goal.delta_from_baseline !== null && baseline !== null
-                    ? baseline - parsedGoal.goal.delta_from_baseline
-                    : parsedGoal.goal.target,
-            };
-            const minutes = dailyTargetMinutes(draft.timeBudget, draft.killers);
-            const today = localDateKey(new Date());
+            // Worked out in full first, by the same function the tests check, so
+            // the plan shown on the payoff is the plan that gets stored.
+            const plan = planFromDraft(draft);
 
             // The goal carries the measurable target; the habit is the daily
             // action that feeds it. The reminder is deliberately not part of
             // either write, so a notification failure cannot lose the plan.
             let goalId = draft.createdGoalId;
             if (!goalId) {
-                const goal = await addHabit({
-                    name: spec.title, isGoal: true, type: 'build', category: 'personal',
-                    icon: 'flag-outline',
-                    goalValue: spec.metric_unit === 'percent'
-                        ? Math.round((spec.target ?? 0) * 100)
-                        : Math.round(spec.target ?? 1),
-                    unit: spec.metric_unit ?? 'sessions',
-                    goalPeriod: spec.window?.kind === 'recurring'
-                        ? (spec.window.period === 'day' ? 'daily' : spec.window.period === 'week' ? 'weekly' : 'monthly')
-                        : 'daily',
-                    startDate: spec.window?.kind === 'fixed' ? spec.window.start : today,
-                    targetDate: spec.window?.kind === 'fixed' ? spec.window.end : undefined,
-                    goalSpec: JSON.stringify(spec),
-                });
+                const goal = await addHabit(plan.goal);
                 if (!goal?.id) throw new Error('Goal was not saved');
                 goalId = goal.id;
                 update({ createdGoalId: goalId });
             }
 
-            const habitName = spec.suggested_habit?.name ?? spec.title;
-            const created = await addHabit({
-                ...draftToHabit({ ...draft, habitName, targetValue: minutes, targetUnit: 'min', trackingMethod: 'numeric', startDate: today }),
-                goalId,
-                icon: 'ellipse-outline',
-            });
+            const created = await addHabit({ ...plan.habit, goalId });
             if (!created?.id) throw new Error('Habit was not saved');
 
-            // The checkpoints become tasks under the goal, so the path is in the
-            // app rather than only in the user's head. Each carries a stable
+            // Checkpoints become tasks under the goal. Each carries a stable
             // external id, so a retry after a partial failure updates the same
             // rows instead of creating a second set.
-            for (const step of draft.roadmapSteps ?? []) {
-                const title = step.title.trim();
-                if (!title) continue;
+            for (const task of plan.tasks) {
                 await createTask({
-                    title,
-                    dueDate: step.dueDate,
+                    title: task.title,
+                    dueDate: task.dueDate,
                     goalId,
                     priority: 2,
-                    externalId: `onboarding:${goalId}:${step.id}`,
+                    externalId: `onboarding:${goalId}:${task.stepId}`,
                 });
             }
 
             // Answer 5 sets the coach; answer 4 is kept for the coach to quote.
-            setAIPersonality(coachForTone(draft.tone));
-            if (draft.stakesText?.trim()) await saveStakes(draft.stakesText);
+            setAIPersonality(plan.coach);
+            if (plan.stakes) await saveStakes(plan.stakes);
 
             update({ createdHabitId: created.id, step: STEP.reminder });
             successFeedback();
@@ -656,6 +623,12 @@ export default function OnboardingScreen() {
 
         const steps = draft.roadmapSteps ?? [];
         const habitLabel = `${draft.targetValue ?? minutes} ${draft.targetUnit ?? 'min'}`;
+        // Minutes move in fives; anything counted moves by about a tenth, so the
+        // buttons are useful whether the target is 3 km or 300 pages.
+        const current = draft.targetValue ?? minutes;
+        const stepSize = (draft.targetUnit ?? 'min') === 'min'
+            ? 5
+            : Math.max(current >= 10 ? 1 : 0.5, tidy(current * 0.1));
 
         const removeStep = (id: string) => {
             lightFeedback();
@@ -695,18 +668,37 @@ export default function OnboardingScreen() {
                 </VoidCard>
 
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 18 }]}>EVERY DAY</Text>
-                <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={`Daily habit: ${draft.habitName ?? ''}, ${habitLabel}. Tap to edit the amount.`}
-                    onPress={() => { lightFeedback(); goTo(STEP.time); }}
-                    style={[styles.roadRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}
-                >
+                <View style={[styles.roadRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
                     <Ionicons name="repeat" size={18} color="#10B981" />
-                    <Text style={[styles.roadText, { color: colors.textPrimary }]} numberOfLines={1}>
-                        {draft.habitName ?? 'Your habit'}
-                    </Text>
-                    <Text style={[styles.roadMeta, { color: colors.textTertiary }]}>{habitLabel}</Text>
-                </TouchableOpacity>
+                    <TextInput
+                        value={draft.habitName ?? ''}
+                        onChangeText={text => update({ habitName: text })}
+                        placeholder="Your daily habit"
+                        placeholderTextColor={colors.textTertiary}
+                        accessibilityLabel="Daily habit"
+                        style={[styles.roadText, { color: colors.textPrimary, paddingVertical: 0 }]}
+                    />
+                    {/* The amount is adjusted here, in place. Sending the user back
+                        to the time question bounced them two steps and never
+                        applied the change, because this was already seeded. */}
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Less each day"
+                        onPress={() => { lightFeedback(); update({ targetValue: Math.max(1, tidy((draft.targetValue ?? minutes) - stepSize)) }); }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+                    >
+                        <Ionicons name="remove-circle-outline" size={22} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.roadMeta, { color: colors.textPrimary, minWidth: 54, textAlign: 'center' }]}>{habitLabel}</Text>
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="More each day"
+                        onPress={() => { lightFeedback(); update({ targetValue: tidy((draft.targetValue ?? minutes) + stepSize) }); }}
+                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                    >
+                        <Ionicons name="add-circle-outline" size={22} color={accent} />
+                    </TouchableOpacity>
+                </View>
 
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 18 }]}>CHECKPOINTS</Text>
                 <View style={{ gap: 8 }}>
@@ -897,7 +889,17 @@ export default function OnboardingScreen() {
                 <View style={{ height: 14 }} />
                 <View style={{ gap: 10 }}>
                     <PrimaryButton label={`Remind me at ${time}`} onPress={() => enableReminder(time)} />
-                    <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); goTo(STEP.friends); }} style={styles.secondaryBtn}>
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        onPress={() => {
+                            lightFeedback();
+                            // Inviting someone answers "nobody holds me accountable" and
+                            // nothing else; showing it to everyone made that answer decorative.
+                            if (shouldSuggestSharing(draft.killers)) goTo(STEP.friends);
+                            else finish();
+                        }}
+                        style={styles.secondaryBtn}
+                    >
                         <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
                             {reminderNote ? 'Done' : 'Not now'}
                         </Text>
