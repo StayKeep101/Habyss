@@ -29,6 +29,11 @@ export interface GoalSpec {
     direction: Direction | null;
     target: number | null;
     baseline: number | null;
+    /**
+     * For "lose 5 kg": the amount to move from the baseline, since the target
+     * weight is not known until the user says what they weigh now.
+     */
+    delta_from_baseline: number | null;
     window: GoalWindow | null;
     linked_habits: string[];
     suggested_habit: { name: string; unit: string } | null;
@@ -78,6 +83,24 @@ const MEASUREMENT_UNITS = ['kg', 'lb'];
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july',
     'august', 'september', 'october', 'november', 'december'];
 
+/** Contexts where "5k" means five kilometres rather than five thousand. */
+const DISTANCE_CONTEXT = /\b(run|running|ran|jog|jogging|walk|walking|cycle|cycling|ride|riding|swim|swimming|marathon|race)\b/i;
+
+/**
+ * Expands "10k" to 10000, except where the sentence is about distance.
+ *
+ * "Make 10k dollars" is ten thousand; "run a 5k" is five kilometres. Guessing
+ * wrong either way produces a target that is off by a factor of a thousand, so
+ * the surrounding words decide.
+ */
+function expandThousands(text: string): string {
+    if (!/\b\d+(?:\.\d+)?k\b/i.test(text)) return text;
+    if (DISTANCE_CONTEXT.test(text)) {
+        return text.replace(/\b(\d+(?:\.\d+)?)k\b/gi, '$1 km');
+    }
+    return text.replace(/\b(\d+(?:\.\d+)?)k\b/gi, (_match, amount) => String(Math.round(Number(amount) * 1000)));
+}
+
 const VAGUE = /\b(get (fit|healthy|in shape|better)|be healthier|read more|exercise more|do more|eat better|sleep better|lose weight|get strong(er)?|be more productive)\b/i;
 
 const dateKey = (date: Date): string =>
@@ -98,11 +121,34 @@ const STOP_WORDS = new Set([
     'this', 'that', 'per', 'each', 'every', 'and', 'get', 'down', 'do', 'go', 'goal',
     'more', 'than', 'no', 'less', 'under', 'max', 'maximum', 'least', 'most', 'by',
     'days', 'day', 'week', 'weeks', 'month', 'months', 'year', 'years', 'time', 'times',
+    'next', 'want', 'like', 'would',
 ]);
 
+/** Unit words, which belong in the target rather than the subject. */
+const UNIT_WORDS = new Set([
+    'hour', 'hours', 'hr', 'hrs', 'minute', 'minutes', 'min', 'mins',
+    'page', 'pages', 'pg', 'pgs', 'kilometer', 'kilometers', 'kilometre', 'kilometres',
+    'km', 'kms', 'mile', 'miles', 'mi', 'step', 'steps', 'kilo', 'kilos',
+    'kilogram', 'kilograms', 'kg', 'kgs', 'pound', 'pounds', 'lb', 'lbs',
+    'glass', 'glasses', 'liter', 'liters', 'litre', 'litres', 'l',
+    'dollar', 'dollars', 'usd', 'buck', 'bucks', 'word', 'words',
+    'rep', 'reps', 'repetition', 'repetitions', 'percent', 'session', 'sessions',
+    'workout', 'workouts', 'x',
+]);
+
+/**
+ * What the goal is about, with the measurable parts taken out.
+ *
+ * The amount, its unit and the period all appear elsewhere in the title, so
+ * leaving them here produced titles like "Save dollars 3000 dollars in
+ * September". Anything numeric or unit-shaped is dropped.
+ */
 const subjectFrom = (text: string): string => {
     const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
-    const kept = words.filter(word => !STOP_WORDS.has(word) && !/^\d+$/.test(word));
+    const kept = words.filter(word =>
+        !STOP_WORDS.has(word)
+        && !UNIT_WORDS.has(word)
+        && !/^\d+(?:\.\d+)?$/.test(word));
     return kept.join(' ').trim();
 };
 
@@ -124,13 +170,16 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     const raw = (input ?? '').trim();
     // "50km" has no word boundary between the digit and the unit, so \bkm\b
     // would never match. Splitting them first keeps every unit pattern simple.
-    const text = ` ${raw.toLowerCase().replace(/(\d)\s*([a-z])/g, '$1 $2')} `;
+    // Expand "10k" before splitting digits from letters, which would otherwise
+    // turn it into "10 k" and leave the k stranded.
+    const text = ` ${expandThousands(raw.toLowerCase()).replace(/(\d)\s*([a-z])/g, '$1 $2')} `;
 
     const missing: string[] = [];
     const spec: GoalSpec = {
         title: raw ? titleCase(raw) : '',
         type: null, metric_unit: null, aggregation: null, direction: null,
-        target: null, baseline: null, window: null, linked_habits: [], suggested_habit: null,
+        target: null, baseline: null, delta_from_baseline: null,
+        window: null, linked_habits: [], suggested_habit: null,
     };
 
     const incomplete = (question: string | null): GoalParseResult => ({
@@ -166,6 +215,18 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     else if (/\bthis month\b/i.test(text)) window = { kind: 'fixed', start: dateKey(today), end: dateKey(endOfMonth(today)) };
     else if (/\bthis week\b/i.test(text)) window = { kind: 'fixed', start: dateKey(today), end: dateKey(addDays(today, 6 - today.getDay())) };
     else if (/\bthis year\b/i.test(text)) window = { kind: 'fixed', start: dateKey(today), end: `${today.getFullYear()}-12-31` };
+    // "next month" runs over that month, so it starts then rather than today.
+    else if (/\bnext month\b/i.test(text)) {
+        const first = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        window = { kind: 'fixed', start: dateKey(first), end: dateKey(endOfMonth(first)) };
+    }
+    else if (/\bnext week\b/i.test(text)) {
+        const first = addDays(today, 7 - today.getDay());
+        window = { kind: 'fixed', start: dateKey(first), end: dateKey(addDays(first, 6)) };
+    }
+    else if (/\bnext year\b/i.test(text)) {
+        window = { kind: 'fixed', start: `${today.getFullYear() + 1}-01-01`, end: `${today.getFullYear() + 1}-12-31` };
+    }
     else {
         const inDays = text.match(/\bin\s+(\d{1,3})\s*days?\b/i);
         const byChristmas = /\b(christmas|xmas)\b/i.test(text);
@@ -224,6 +285,15 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
         spec.type = 'target_value';
         spec.aggregation = 'latest';
         spec.direction = 'reach';
+
+        // "Lose 5 kg" names how far to move, not where to land. The target is
+        // only knowable once the user says what they weigh now, so the amount is
+        // kept as a delta and the target stays null rather than claiming 5 kg is
+        // the goal weight.
+        if (/\b(lose|losing|drop|shed|cut)\b/i.test(text) && target !== null) {
+            spec.delta_from_baseline = target;
+            target = null;
+        }
     } else if (frequencyMatch || (unit === 'sessions' && target !== null)) {
         spec.type = 'frequency';
         spec.aggregation = 'count_days';
@@ -240,7 +310,7 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     spec.window = window;
 
     /* -------------------------------------------------------- subject + links */
-    const subject = subjectFrom(raw);
+    const subject = subjectFrom(text);
     spec.linked_habits = linkHabits(subject, unit, habits);
     if (spec.linked_habits.length === 0 && subject && unit) {
         spec.suggested_habit = { name: titleCase(subject), unit };
@@ -262,7 +332,8 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     }
 
     if (spec.type === 'target_value' && spec.baseline === null) missing.push('baseline');
-    if (spec.target === null) missing.push('target');
+    // A delta goal already knows the amount; what it lacks is the baseline.
+    if (spec.target === null && spec.delta_from_baseline === null) missing.push('target');
     if (!spec.metric_unit) missing.push('metric_unit');
     if (!spec.window) missing.push('window');
 
@@ -278,8 +349,13 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
 
 function questionFor(field: string, spec: GoalSpec): string {
     switch (field) {
-        case 'baseline':
-            return `What's your current ${spec.metric_unit === 'lb' ? 'weight in lb' : `${spec.metric_unit}`}? I need it to track your progress toward ${spec.target}${spec.metric_unit ? ` ${spec.metric_unit}` : ''}.`;
+        case 'baseline': {
+            const where = spec.metric_unit === 'lb' ? 'weight in lb' : `${spec.metric_unit}`;
+            if (spec.delta_from_baseline !== null) {
+                return `What's your current ${where}? I'll set the target ${spec.delta_from_baseline} ${spec.metric_unit} below it.`;
+            }
+            return `What's your current ${where}? I need it to track your progress toward ${spec.target}${spec.metric_unit ? ` ${spec.metric_unit}` : ''}.`;
+        }
         case 'target':
             return 'How much are you aiming for? Give me a number, for example 50 km, 300 pages, or 3 sessions.';
         case 'metric_unit':
@@ -292,7 +368,9 @@ function questionFor(field: string, spec: GoalSpec): string {
 
 function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date): string {
     const name = subject ? titleCase(subject) : titleCase(raw);
-    if (spec.target === null || !spec.metric_unit) return titleCase(raw);
+    if (spec.delta_from_baseline === null && (spec.target === null || !spec.metric_unit)) {
+        return titleCase(raw);
+    }
 
     const amount = spec.metric_unit === 'percent'
         ? `${Math.round((spec.target ?? 0) * 100)}%`
@@ -310,7 +388,12 @@ function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date): 
     }
 
     if (spec.type === 'limit') return `Max ${amount} of ${name}${when}`;
-    if (spec.type === 'target_value') return `Reach ${amount}${when}`;
+    if (spec.type === 'target_value') {
+        if (spec.delta_from_baseline !== null) {
+            return `Lose ${spec.delta_from_baseline} ${spec.metric_unit}${when}`;
+        }
+        return `Reach ${amount}${when}`;
+    }
     if (spec.type === 'consistency') return `${name} ${amount} of days${when}`;
     return `${name} ${amount}${when}`;
 }

@@ -140,8 +140,18 @@ export default function OnboardingScreen() {
         setError(null);
         try {
             const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
-            const parsed = parseGoalText(goalText, { today: new Date(), habits: [] });
-            const spec = parsed.goal;
+            const parsedGoal = parseGoalText(goalText, { today: new Date(), habits: [] });
+            const baseline = (draft.baselineText ?? '').trim() !== '' && Number.isFinite(Number(draft.baselineText))
+                ? Number(draft.baselineText)
+                : parsedGoal.goal.baseline;
+            // "Lose 5 kg" only becomes a number once the starting point is known.
+            const spec = {
+                ...parsedGoal.goal,
+                baseline,
+                target: parsedGoal.goal.delta_from_baseline !== null && baseline !== null
+                    ? baseline - parsedGoal.goal.delta_from_baseline
+                    : parsedGoal.goal.target,
+            };
             const minutes = dailyTargetMinutes(draft.timeBudget, draft.killers);
             const today = localDateKey(new Date());
 
@@ -155,7 +165,7 @@ export default function OnboardingScreen() {
                     icon: 'flag-outline',
                     goalValue: spec.metric_unit === 'percent'
                         ? Math.round((spec.target ?? 0) * 100)
-                        : (spec.target ?? 1),
+                        : Math.round(spec.target ?? 1),
                     unit: spec.metric_unit ?? 'sessions',
                     goalPeriod: spec.window?.kind === 'recurring'
                         ? (spec.window.period === 'day' ? 'daily' : spec.window.period === 'week' ? 'weekly' : 'monthly')
@@ -522,7 +532,15 @@ export default function OnboardingScreen() {
         const text = draft.measurableText ?? draft.identityGoal ?? '';
         const parsed = text.trim() ? parseGoalText(text, { today: new Date(), habits: [] }) : null;
         const spec = parsed?.goal;
-        const ready = parsed?.status === 'complete';
+
+        // A goal like "lose 5 kg" is measurable, it just needs a starting point,
+        // so the step asks for that here instead of refusing to continue.
+        const needsBaseline = parsed?.missing_fields.includes('baseline') ?? false;
+        const baselineValue = Number(draft.baselineText);
+        const baselineReady = !needsBaseline
+            || ((draft.baselineText ?? '').trim() !== '' && Number.isFinite(baselineValue));
+        const otherMissing = (parsed?.missing_fields ?? []).filter(field => field !== 'baseline');
+        const ready = !!parsed && otherMissing.length === 0 && baselineReady;
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -545,14 +563,31 @@ export default function OnboardingScreen() {
                     <VoidCard style={styles.parsedCard}>
                         <Text style={[styles.parsedName, { color: colors.textPrimary }]}>{spec.title}</Text>
                         <Text style={[styles.parsedLine, { color: ready ? accent : colors.textTertiary }]}>
-                            {ready && spec.target !== null
+                            {spec.delta_from_baseline !== null
+                                ? `${spec.delta_from_baseline} ${spec.metric_unit} to lose`
+                                : ready && spec.target !== null
                                 ? `${spec.direction === 'at_most' ? 'At most ' : ''}${spec.metric_unit === 'percent'
                                     ? `${Math.round(spec.target * 100)}% of days`
                                     : `${spec.target} ${spec.metric_unit}`}`
-                                : 'Not measurable yet'}
+                                    : 'Not measurable yet'}
                         </Text>
                         {parsed?.clarifying_question ? (
                             <Text style={[styles.hint, { color: colors.textTertiary }]}>{parsed.clarifying_question}</Text>
+                        ) : null}
+                        {needsBaseline ? (
+                            <TextInput
+                                value={draft.baselineText ?? ''}
+                                onChangeText={value => update({ baselineText: value })}
+                                keyboardType="decimal-pad"
+                                placeholder={`Current ${spec?.metric_unit ?? 'value'}`}
+                                placeholderTextColor={colors.textTertiary}
+                                accessibilityLabel="Current value"
+                                style={[styles.input, {
+                                    marginTop: 4,
+                                    color: colors.textPrimary, borderColor: colors.border,
+                                    backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
+                                }]}
+                            />
                         ) : null}
                     </VoidCard>
                 ) : null}

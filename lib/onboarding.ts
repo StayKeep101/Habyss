@@ -33,6 +33,8 @@ export interface OnboardingDraft {
     timeBudget?: TimeBudget;
     /** 7. The measurable sentence, seeded from 1 and editable. */
     measurableText?: string;
+    /** 7. Current value, for a goal like "lose 5 kg" that needs a starting point. */
+    baselineText?: string;
 
     /* The habit those answers produce. */
     habitName?: string;

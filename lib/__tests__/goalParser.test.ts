@@ -191,8 +191,8 @@ describe('output shape', () => {
             const result = parse(input);
             expect(Object.keys(result).sort()).toEqual(['clarifying_question', 'goal', 'missing_fields', 'status']);
             expect(Object.keys(result.goal).sort()).toEqual([
-                'aggregation', 'baseline', 'direction', 'linked_habits', 'metric_unit',
-                'suggested_habit', 'target', 'title', 'type', 'window',
+                'aggregation', 'baseline', 'delta_from_baseline', 'direction', 'linked_habits',
+                'metric_unit', 'suggested_habit', 'target', 'title', 'type', 'window',
             ]);
         }
     });
@@ -203,5 +203,81 @@ describe('output shape', () => {
         expect(result.goal.target).not.toBeNull();
         expect(result.goal.metric_unit).not.toBeNull();
         expect(result.goal.window).not.toBeNull();
+    });
+});
+
+describe('shorthand amounts and relative periods', () => {
+    it('reads "10k dollars" as ten thousand, not ten', () => {
+        const result = parse('Make 10k dollars next month');
+        expect(result.goal.target).toBe(10000);
+        expect(result.goal.metric_unit).toBe('dollars');
+    });
+
+    it('understands "next month"', () => {
+        const window = parse('Make 10k dollars next month').goal.window as { start: string; end: string };
+        expect(window).toEqual({ kind: 'fixed', start: '2026-10-01', end: '2026-10-31' });
+    });
+
+    it('understands "next week" and "next year"', () => {
+        const week = parse('Read 100 pages next week').goal.window as { kind: string; start: string; end: string };
+        expect(week.kind).toBe('fixed');
+        expect(new Date(`${week.end}T12:00:00`) > new Date(`${week.start}T12:00:00`)).toBe(true);
+
+        const year = parse('Save 20k dollars next year').goal.window as { start: string; end: string };
+        expect(year).toEqual({ kind: 'fixed', start: '2027-01-01', end: '2027-12-31' });
+    });
+
+    it('completes the goal rather than asking for a period', () => {
+        const result = parse('Make 10k dollars next month');
+        expect(result.status).toBe('complete');
+        expect(result.clarifying_question).toBeNull();
+    });
+
+    it('still reads a 5k run as five kilometres', () => {
+        const result = parse('Run a 5k this month');
+        expect(result.goal.target).toBe(5);
+        expect(result.goal.metric_unit).toBe('km');
+    });
+
+    it('builds a title without repeating the amount back as nonsense', () => {
+        const title = parse('Make 10k dollars next month').goal.title;
+        expect(title).not.toMatch(/next 10 dollars/i);
+        expect(title).toContain('10000 dollars');
+        expect(title.toLowerCase()).not.toContain('next month');
+    });
+
+    it('keeps the subject clean in the title', () => {
+        expect(parse('Save 3000 dollars this month').goal.title).toMatch(/^Save 3000 dollars/);
+    });
+});
+
+
+describe('losing an amount is a change, not a destination', () => {
+    it('keeps the amount as a delta rather than claiming it is the goal weight', () => {
+        const result = parse('Lose 5kg by christmas');
+        expect(result.goal.delta_from_baseline).toBe(5);
+        // 5 kg is how far to move, not where to land, so the target waits for a baseline.
+        expect(result.goal.target).toBeNull();
+        expect(result.goal.type).toBe('target_value');
+    });
+
+    it('says lose in the title rather than reach', () => {
+        const title = parse('Lose 5kg by christmas').goal.title;
+        expect(title).toContain('Lose 5 kg');
+        expect(title).not.toContain('Reach');
+    });
+
+    it('asks for the current weight and says what it will do with it', () => {
+        const result = parse('Lose 5kg by christmas');
+        expect(result.missing_fields).toContain('baseline');
+        expect(result.clarifying_question).toContain('current');
+        expect(result.clarifying_question).toContain('5 kg below');
+    });
+
+    it('still reads a destination weight as a destination', () => {
+        const result = parse('Get down to 75kg by christmas');
+        expect(result.goal.target).toBe(75);
+        expect(result.goal.delta_from_baseline).toBeNull();
+        expect(result.goal.title).toContain('Reach 75 kg');
     });
 });

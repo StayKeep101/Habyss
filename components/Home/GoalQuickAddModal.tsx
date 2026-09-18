@@ -94,10 +94,12 @@ export const GoalQuickAddModal: React.FC<Props> = ({ visible, onClose, onCreated
         setSaving(true);
         setError(null);
         try {
-            const spec: GoalSpec = {
-                ...result.goal,
-                baseline: needsBaseline ? baselineValue : result.goal.baseline,
-            };
+            const baseline = needsBaseline ? baselineValue : result.goal.baseline;
+            // "Lose 5 kg" only becomes a number once we know the starting weight.
+            const target = result.goal.delta_from_baseline !== null && baseline !== null
+                ? baseline - result.goal.delta_from_baseline
+                : result.goal.target;
+            const spec: GoalSpec = { ...result.goal, baseline, target };
             const window = spec.window;
             const created = await addHabit({
                 name: spec.title,
@@ -106,7 +108,9 @@ export const GoalQuickAddModal: React.FC<Props> = ({ visible, onClose, onCreated
                 category: 'personal',
                 icon: 'flag-outline',
                 // percent targets are stored 0-1 in the spec; goal_value is an integer.
-                goalValue: spec.metric_unit === 'percent' ? Math.round((spec.target ?? 0) * 100) : (spec.target ?? 1),
+                goalValue: spec.metric_unit === 'percent'
+                    ? Math.round((spec.target ?? 0) * 100)
+                    : Math.round(spec.target ?? 1),
                 unit: spec.metric_unit ?? 'sessions',
                 goalPeriod: window?.kind === 'recurring'
                     ? (window.period === 'day' ? 'daily' : window.period === 'week' ? 'weekly' : 'monthly')
