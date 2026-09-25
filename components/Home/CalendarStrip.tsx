@@ -1,6 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
@@ -141,7 +142,7 @@ const DateButtonComponent = ({
             {isDeadline && !selected ? (
               <Ionicons name="flag" size={14} color={deadlineColor} />
             ) : (
-              <Text style={{ color: selected ? 'white' : (isLight ? 'black' : colors.textSecondary), fontSize: 14, fontWeight: '700' }}>
+              <Text style={{ color: selected ? 'white' : (isLight ? 'black' : colors.textSecondary), fontSize: 14, fontFamily: FontFamily.bold }}>
                 {item.dayNumber}
               </Text>
             )}
@@ -151,7 +152,7 @@ const DateButtonComponent = ({
         <Text
           style={{
             color: selected ? (isLight ? 'black' : 'white') : (isDeadline ? deadlineColor : (isLight ? 'rgba(0,0,0,0.6)' : colors.textTertiary)),
-            fontWeight: isDeadline ? '700' : '500',
+            fontFamily: isDeadline ? FontFamily.bold : FontFamily.medium,
             fontSize: 12,
           }}
         >
@@ -309,10 +310,10 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
 
         <View style={{ alignItems: 'center' }}>
           <TouchableOpacity onPress={() => onSelectDate(new Date())} style={{ alignItems: 'center' }}>
-            <Text style={{ fontSize: 24, color: colors.textPrimary, fontFamily: 'Lexend_600SemiBold' }}>
+            <Text style={{ fontSize: 24, color: colors.textPrimary, fontFamily: FontFamily.semibold }}>
               {headerTitle}
             </Text>
-            <Text style={{ fontSize: 14, color: colors.primary, fontFamily: 'Lexend_500Medium' }}>
+            <Text style={{ fontSize: 14, color: colors.primary, fontFamily: FontFamily.medium }}>
               {headerDate}
             </Text>
           </TouchableOpacity>

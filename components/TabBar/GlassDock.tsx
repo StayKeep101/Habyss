@@ -1,22 +1,25 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform, DeviceEventEmitter } from 'react-native';
+import {View, TouchableOpacity, StyleSheet, Platform} from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
+import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { emit } from '@/lib/appEvents';
 
 interface TabIconProps {
     routeName: string;
     focused: boolean;
     colors: [string, string]; // Accent gradient colors
     isDark: boolean;
+    foreground: string;
 }
 
-const TabIcon = ({ routeName, focused, colors, isDark }: TabIconProps) => {
+const TabIcon = ({ routeName, focused, colors, isDark, foreground }: TabIconProps) => {
     const scale = useSharedValue(focused ? 1 : 1);
 
     React.useEffect(() => {
@@ -45,7 +48,7 @@ const TabIcon = ({ routeName, focused, colors, isDark }: TabIconProps) => {
 
     // When focused, use accent color; otherwise white for dark mode, dark for light mode
     const iconColor = focused
-        ? colors[0]
+        ? foreground
         : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)');
 
     return (
@@ -58,9 +61,11 @@ const TabIcon = ({ routeName, focused, colors, isDark }: TabIconProps) => {
 
 export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { theme } = useTheme();
-    const { colors: accentColors, shadowColor } = useAccentGradient();
+    const { colors: accentColors, shadowColor, foreground, buttonColors } = useAccentGradient();
+    const palette = Colors[theme];
     const { mediumFeedback } = useHaptics();
     const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth } = useResponsiveLayout();
+    const orbRef = React.useRef<any>(null);
 
     return (
         <View style={[
@@ -81,7 +86,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                     paddingHorizontal: isCompactWidth ? 12 : 16,
                     maxWidth: isCompactWidth ? 236 : 260,
                 },
-                { backgroundColor: theme === 'light' ? 'rgba(255, 255, 255, 0.75)' : (Platform.OS === 'android' ? 'rgba(10, 15, 20, 0.95)' : 'rgba(10, 15, 20, 0.75)') }
+                { backgroundColor: theme === 'light' ? 'rgba(255, 255, 255, 0.75)' : (theme === 'trueDark' ? palette.background : (Platform.OS === 'android' ? 'rgba(10, 15, 20, 0.95)' : 'rgba(10, 15, 20, 0.75)')) }
             ]}>
                 <View style={[styles.glassBorder, { borderRadius: tabBarHeight / 2, borderColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)' }]} />
 
@@ -106,6 +111,9 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         return (
                             <TouchableOpacity
                                 key={route.key}
+                                accessibilityRole="tab"
+                                accessibilityLabel={options.title ?? route.name}
+                                accessibilityState={{ selected: isFocused }}
                                 activeOpacity={0.7}
                                 onPress={onPress}
                                 style={[
@@ -121,6 +129,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                     focused={isFocused}
                                     colors={accentColors}
                                     isDark={theme !== 'light'}
+                                    foreground={foreground}
                                 />
                             </TouchableOpacity>
                         );
@@ -130,10 +139,17 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
 
             {/* 2. Creation Orb (Plus Button) - Uses accent gradient */}
             <TouchableOpacity
+                ref={orbRef}
+                accessibilityRole="button"
+                accessibilityLabel="Create a habit, goal, or task"
                 activeOpacity={0.8}
                 onPress={() => {
                     mediumFeedback();
-                    DeviceEventEmitter.emit('show_creation_modal');
+                    // The menu opens exactly on top of this button, wherever the
+                    // phone puts it, so the plus can turn into the close button.
+                    orbRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                        emit('show_creation_modal', { x, y, size: width || floatingButtonSize, height });
+                    });
                 }}
                 style={[
                     styles.orbContainer,
@@ -146,7 +162,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 ]}
             >
                 <LinearGradient
-                    colors={accentColors}
+                    colors={buttonColors}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[styles.orbGradient, { borderRadius: floatingButtonSize / 2 }]}

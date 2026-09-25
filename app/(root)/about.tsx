@@ -1,15 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { APP_NAME, APP_SLOGAN } from '@/constants/brand';
+import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Linking, Image } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
 
@@ -24,34 +22,28 @@ const About = () => {
     const version = Constants.expoConfig?.version || '1.0.0';
 
     return (
-        <VoidShell>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>About</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <SheetScreen title="About Habyss" onBack={() => router.back()}>
 
                 {/* Content */}
-                <View style={styles.content}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                     {/* Logo & Name */}
                     <View style={styles.logoSection}>
-                        <LinearGradient
-                            colors={['#3B82F6', '#8B5CF6', '#EC4899']}
-                            style={styles.logoGradient}
-                        >
-                            <Ionicons name="infinite" size={40} color="#fff" />
-                        </LinearGradient>
-                        <Text style={[styles.appName, { color: colors.textPrimary }]}>Habyss</Text>
+                        {/* The app's own mark, not a stand-in glyph. */}
+                        <View style={styles.logoMark}>
+                            <Image
+                                source={require('@/assets/images/Habyss Logo.png')}
+                                style={styles.logoImage}
+                                resizeMode="cover"
+                                accessibilityIgnoresInvertColors
+                            />
+                        </View>
+                        <Text style={[styles.appName, { color: colors.textPrimary }]}>{APP_NAME}</Text>
                         <Text style={[styles.version, { color: colors.textSecondary }]}>Version {version}</Text>
                     </View>
 
                     {/* Tagline */}
                     <Text style={[styles.tagline, { color: colors.textSecondary }]}>
-                        Descend into Discipline
+                        {APP_SLOGAN}
                     </Text>
 
                     {/* Links */}
@@ -91,9 +83,8 @@ const About = () => {
                     <Text style={[styles.footer, { color: colors.textTertiary }]}>
                         Made with ♥ for habit builders
                     </Text>
-                </View>
-            </SafeAreaView>
-        </VoidShell>
+                </ScrollView>
+            </SheetScreen>
     );
 };
 
@@ -101,59 +92,43 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    header: {
-        flexDirection: 'row',
+    content: { ...UIStyles.screenContent,
+
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-    },
-    content: {
-        padding: 16,
-        alignItems: 'center',
-    },
+     },
     logoSection: {
         alignItems: 'center',
         marginTop: 24,
         marginBottom: 16,
     },
-    logoGradient: {
-        width: 80,
-        height: 80,
-        borderRadius: 24,
+    logoMark: {
+        width: 84,
+        height: 84,
+        borderRadius: 42,
+        backgroundColor: '#FFFFFF',
         alignItems: 'center',
         justifyContent: 'center',
+        overflow: 'hidden',
         marginBottom: 16,
     },
+    logoImage: { width: 134, height: 134 },
     appName: {
         fontSize: 28,
-        fontWeight: '800',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     version: {
         fontSize: 13,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         marginTop: 4,
     },
     tagline: {
         fontSize: 15,
-        fontStyle: 'italic',
-        fontFamily: 'Lexend_400Regular',
+        textAlign: 'center',
+        fontFamily: FontFamily.regular,
         marginBottom: 32,
     },
     card: {
-        borderRadius: 16,
+        borderRadius: Radius.card,
         borderWidth: 1,
         overflow: 'hidden',
         width: '100%',
@@ -167,7 +142,7 @@ const styles = StyleSheet.create({
     linkText: {
         flex: 1,
         fontSize: 15,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     divider: {
         height: 1,
@@ -175,7 +150,7 @@ const styles = StyleSheet.create({
     },
     footer: {
         fontSize: 12,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         marginTop: 32,
     },
 });

@@ -1,8 +1,9 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { VoidCard } from '../Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -25,7 +26,12 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
     const animatedWidth = useSharedValue(0);
 
     React.useEffect(() => {
-        animatedWidth.value = withSpring(progress, { damping: 15 });
+        // A progress bar that springs past its value and settles back reads as
+        // if the number changed twice. It eases into place instead.
+        animatedWidth.value = withTiming(Math.max(0, Math.min(100, progress)), {
+            duration: 650,
+            easing: Easing.out(Easing.cubic),
+        });
     }, [progress]);
 
     const progressStyle = useAnimatedStyle(() => ({
@@ -83,9 +89,8 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: ms(14),
-        fontWeight: '900',
         letterSpacing: 1.5,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     badge: {
         flexDirection: 'row',
@@ -97,8 +102,7 @@ const styles = StyleSheet.create({
     },
     badgeText: {
         fontSize: ms(12),
-        fontWeight: 'bold',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     progressContainer: {
         flexDirection: 'row',
@@ -118,14 +122,13 @@ const styles = StyleSheet.create({
     },
     progressText: {
         fontSize: ms(24),
-        fontWeight: '900',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
         width: s(60),
         textAlign: 'right',
     },
     subtitle: {
         fontSize: ms(10),
         letterSpacing: 1,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
 });

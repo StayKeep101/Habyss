@@ -1,5 +1,5 @@
 import {
-    combinedGoalProgress, describeDay, goalTaskProgress, onTimeRate, taskStatsForDay,
+    describeDay, onTimeRate, taskStatsForDay,
 } from '../taskStats';
 import type { Task } from '../tasks';
 
@@ -89,33 +89,5 @@ describe('habits and tasks are never blended', () => {
 
     it('says so plainly when the day asked for nothing', () => {
         expect(describeDay({ done: 0, scheduled: 0 }, { due: 0, done: 0, overdue: 0 })).toBe('Nothing scheduled');
-    });
-});
-
-describe('a goal counts both kinds of work', () => {
-    it('counts only its own tasks', () => {
-        const tasks = [
-            task({ goalId: 'g1', status: 'done' }),
-            task({ goalId: 'g1' }),
-            task({ goalId: 'g2', status: 'done' }),
-        ];
-        expect(goalTaskProgress(tasks, 'g1')).toEqual({ done: 1, total: 2 });
-    });
-
-    it('ignores cancelled tasks in a goal', () => {
-        expect(goalTaskProgress([task({ goalId: 'g1', status: 'cancelled' })], 'g1')).toEqual({ done: 0, total: 0 });
-    });
-
-    it('weights habits and tasks by how much of the goal each is', () => {
-        expect(combinedGoalProgress({ done: 1, total: 2 }, { done: 1, total: 2 })).toBe(50);
-        expect(combinedGoalProgress({ done: 3, total: 3 }, { done: 0, total: 1 })).toBe(75);
-    });
-
-    it('reports a goal made only of tasks honestly', () => {
-        expect(combinedGoalProgress({ done: 0, total: 0 }, { done: 2, total: 4 })).toBe(50);
-    });
-
-    it('says nothing rather than zero when a goal has nothing attached', () => {
-        expect(combinedGoalProgress({ done: 0, total: 0 }, { done: 0, total: 0 })).toBeNull();
     });
 });

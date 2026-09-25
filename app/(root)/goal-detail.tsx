@@ -1,45 +1,49 @@
-import { ShareButton } from '@/components/Common/ShareButton';
-import { HabitCreationModal } from '@/components/HabitCreationModal';
+import { FontFamily } from '@/constants/DesignSystem';
+import { HabitSheet } from '@/components/Create/HabitSheet';
+import { ViewSwitcher } from '@/components/Common/ViewSwitcher';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Alert, Dimensions, ImageBackground, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
-import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
-import { subscribeToHabits, Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, calculateGoalProgressInstant, getLastNDaysCompletions } from '@/lib/habitsSQLite';
+import { PanelCap } from '@/components/Goal/PanelCap';
+import { Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DeviceEventEmitter, LayoutAnimation } from 'react-native';
-import { GoalStats } from '@/components/Goal/GoalStats';
+import { DeviceEventEmitter } from 'react-native';
 import { ShareGoalModal } from '@/components/ShareGoalModal';
-import { getCompletions, toggleCompletion } from '@/lib/habitsSQLite';
+import { useGoalInsights } from '@/hooks/useGoalInsights';
+import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
+import { GoalStatsView } from '@/components/Goal/GoalStatsView';
+import { GoalPlanView } from '@/components/Goal/GoalPlanView';
+import { dateAt, friendlyDate } from '@/lib/goalInsights';
+import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
+import { setTaskStatus, deleteTask, type Task } from '@/lib/tasks';
 
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import Animated, {
-  useAnimatedScrollHandler,
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  withRepeat,
-  Easing,
-  SlideInDown,
-  FadeInDown,
-  FadeIn
+    useAnimatedScrollHandler,
+    useSharedValue,
+    useAnimatedStyle, FadeIn,
 } from 'react-native-reanimated';
 import { VoidCard } from '@/components/Layout/VoidCard';
+import { emit } from '@/lib/appEvents';
 
 let ImagePicker: any = null;
 try { ImagePicker = require('expo-image-picker'); } catch (e) { }
 
 const { height, width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380; // Taller header for better visual
+/** How far the panel's dome rises over the progress arc. */
+const BUMP = 86;
+/** HalfCircleProgress leaves this much box below its arc's baseline. */
+const ARC_BASELINE = 5;
 
 const GoalDetail = () => {
   const router = useRouter();
@@ -50,18 +54,17 @@ const GoalDetail = () => {
   const colors = Colors[theme];
   const { primary: accentColor } = useAccentGradient();
 
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [goal, setGoal] = useState<Habit | null>(null);
+  const { goal, completions, setCompletion, insights, today } = useGoalInsights(goalId);
   const [bgImage, setBgImage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'habits' | 'stats'>('stats');
-  const [completions, setCompletions] = useState<Record<string, boolean>>({});
-  const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-  const [isSharedGoal, setIsSharedGoal] = useState(false);
+  const [view, setView] = useState<'today' | 'stats' | 'plan'>('today');
+  // Shared goals are not available yet; kept so the owner-only actions stay gated.
+  const [isSharedGoal] = useState(false);
 
-  const { selectionFeedback, lightFeedback, mediumFeedback } = useHaptics();
+  const { selectionFeedback, lightFeedback } = useHaptics();
   const { playComplete } = useSoundEffects();
+  const insets = useSafeAreaInsets();
 
   const scrollY = useSharedValue(0);
 
@@ -75,103 +78,31 @@ const GoalDetail = () => {
 
   useEffect(() => {
     if (!goalId) return;
-
     let isActive = true;
-
-    const loadBackground = async () => {
-      const stored = await AsyncStorage.getItem(`goal_bg_${goalId}`);
-      if (stored && isActive) setBgImage(stored);
-    };
-    loadBackground();
-
-    const unsubPromise = subscribeToHabits((allHabits) => {
-      if (!isActive) return;
-      setHabits(allHabits);
-      const foundGoal = allHabits.find(h => h.id === goalId);
-      if (foundGoal) {
-        setGoal(foundGoal);
-        setIsSharedGoal(false);
-      }
-    });
-
-    // Shared goals disabled in local-only mode
-
-    const loadCompletions = async () => {
-      const now = new Date();
-      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const c = await getCompletions(dateStr);
-      if (isActive) setCompletions(c);
-    };
-    loadCompletions();
-
-    // Load history data for accurate progress calculation
-    const loadHistory = async () => {
-      const data = await getLastNDaysCompletions(90);
-      if (isActive) setHistoryData(data);
-    };
-    loadHistory();
-
-    const sub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId, date, completed }) => {
-      const now = new Date();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      if (date === todayStr) {
-        setCompletions(prev => ({ ...prev, [habitId]: completed }));
-      }
-    });
-
-    return () => {
-      isActive = false;
-      unsubPromise.then(unsub => unsub());
-      sub.remove();
-    };
+    AsyncStorage.getItem(`goal_bg_${goalId}`).then(stored => { if (stored && isActive) setBgImage(stored); });
+    return () => { isActive = false; };
   }, [goalId]);
 
-  const associatedHabits = useMemo(() => habits.filter(h => h.goalId === goalId), [habits, goalId]);
+  const progress = insights?.progress ?? 0;
 
-  // Optimized History Map
-  const historyMap = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    historyData.forEach(d => map[d.date] = d.completedIds);
-    return map;
-  }, [historyData]);
-
-  // Helper: Calculate required completions for a habit until target date
-  const calculateRequiredCompletions = (habit: Habit): number => {
-    if (!goal?.targetDate) return 0;
-    const today = new Date();
-    const target = new Date(goal.targetDate);
-    if (target <= today) return 0;
-
-    const diffTime = target.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (habit.frequency === 'daily') {
-      return diffDays;
-    } else if (habit.frequency === 'weekly') {
-      const weeks = Math.ceil(diffDays / 7);
-      const daysPerWeek = habit.taskDays?.length || 7;
-      return Math.ceil(weeks * daysPerWeek);
-    } else if (habit.frequency === 'monthly') {
-      const months = Math.ceil(diffDays / 30);
-      return months;
-    }
-    return diffDays;
-  };
-
-  // Count completions for a habit from history
-  const getHabitCompletionCount = (habitId: string): number => {
-    return historyData.filter(day => day.completedIds.includes(habitId)).length;
-  };
-
-  const [progress, setProgress] = useState(0);
-
-  // Calculate progress using instant method with history data
-  useEffect(() => {
-    if (goal && habits.length > 0 && historyData.length > 0) {
-      const p = calculateGoalProgressInstant(goal, habits, completions, historyMap);
-      setProgress(p);
-    }
-  }, [goal, habits, completions, historyMap]);
+  // What this goal asks of today: habits scheduled today, tasks due today
+  // (kept after ticking, so the list does not jump), and anything overdue.
+  const todayHabits = useMemo(
+    () => (insights?.habits ?? []).filter(summary => summary.scheduledToday || summary.doneToday),
+    [insights],
+  );
+  const todayTasks = useMemo(
+    () => (insights ? [
+      ...insights.tasks.upcoming.filter(task => task.dueDate === today),
+      ...insights.tasks.completed.filter(task => task.dueDate === today),
+    ] : []),
+    [insights, today],
+  );
+  const overdueTasks = insights?.tasks.overdue ?? [];
+  const todayTotal = todayHabits.length + todayTasks.length;
+  const todayDone = todayHabits.filter(summary => summary.doneToday).length
+    + todayTasks.filter(task => task.status === 'done').length;
+  const nextUp = insights?.upNext.find(item => item.date > today) ?? null;
 
   const scrollHandler = useAnimatedScrollHandler(event => {
     scrollY.value = event.contentOffset.y;
@@ -179,14 +110,85 @@ const GoalDetail = () => {
 
   const handleEditGoal = () => {
     if (!goal) return;
-    router.push({
-      pathname: '/create',
-      params: { id: goal.id, name: goal.name, description: goal.description || '', category: goal.category, icon: goal.icon, isGoal: 'true' }
-    });
+    // The same sheet the goal was created in, so editing asks the same questions.
+    emit('show_goal_quick_add', { goal });
+  };
+
+
+  const toggleTask = async (task: Task) => {
+    selectionFeedback();
+    await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
+    emit('tasks_changed');
+  };
+
+  const removeTask = (task: Task) => {
+    Alert.alert('Delete task', `Delete "${task.title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          await deleteTask(task.id);
+          emit('tasks_changed');
+        },
+      },
+    ]);
+  };
+
+  const openTask = (task?: Task) => {
+    lightFeedback();
+    emit('show_task_form', task ? { task } : { goalId: goal?.id });
+  };
+
+  const addHabitToGoal = () => {
+    lightFeedback();
+    emit('show_habit_modal', { goalId: goal?.id });
+  };
+
+  /**
+   * One menu instead of four buttons competing with the goal's own name.
+   * A shared goal is someone else's, so it only offers what it can do.
+   */
+  const openGoalMenu = () => {
+    lightFeedback();
+    const actions: { label: string; destructive?: boolean; run: () => void }[] = [
+      { label: 'Change cover photo', run: handleChangeBackground },
+    ];
+    if (!isSharedGoal) {
+      actions.push(
+        { label: 'Share with a friend', run: () => setShowShareModal(true) },
+        { label: 'Edit goal', run: handleEditGoal },
+        { label: 'Delete goal', destructive: true, run: handleDeleteGoal },
+      );
+    }
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions({
+        title: goal?.name,
+        options: [...actions.map(action => action.label), 'Cancel'],
+        cancelButtonIndex: actions.length,
+        destructiveButtonIndex: actions.findIndex(action => action.destructive),
+        userInterfaceStyle: theme === 'light' ? 'light' : 'dark',
+      }, index => actions[index]?.run());
+      return;
+    }
+
+    Alert.alert(goal?.name ?? 'Goal', undefined, [
+      ...actions.map(action => ({ text: action.label, style: action.destructive ? 'destructive' as const : undefined, onPress: action.run })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ], { cancelable: true });
+  };
+
+  /**
+   * The two buttons change what this page is showing rather than opening
+   * another one: Today, the numbers, or the whole plan. Tapping the button
+   * you are already on brings Today back.
+   */
+  const showView = (next: 'today' | 'stats' | 'plan') => {
+    lightFeedback();
+    setView(next);
   };
 
   const handleDeleteGoal = () => {
-    Alert.alert("Delete Goal", "This will delete the goal AND all habits linked to it. Continue?", [
+    Alert.alert("Delete Goal", "This deletes the goal and its habits and tasks. Continue?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete All", style: "destructive",
@@ -209,17 +211,9 @@ const GoalDetail = () => {
     } else {
       lightFeedback();
     }
-    setCompletions(prev => ({ ...prev, [habit.id]: isCompleted }));
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    setCompletion(habit.id, isCompleted);
     // Fire and forget for instant response
-    toggleCompletion(habit.id, dateStr).catch(console.error);
-  };
-
-  const handleAddHabit = () => {
-    selectionFeedback();
-    // Directly emit without timeout for snappier response
-    DeviceEventEmitter.emit('show_quick_add', { goalId: goalId as string });
+    toggleCompletion(habit.id, today).catch(console.error);
   };
 
   const handleDeleteHabit = (habit: Habit) => {
@@ -268,16 +262,8 @@ const GoalDetail = () => {
     ]);
   };
 
-  const daysLeft = useMemo(() => {
-    if (!goal?.targetDate) return 0;
-    const target = new Date(goal.targetDate);
-    const today = new Date();
-    // Reset times to midnight for accurate day difference
-    target.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    const diff = target.getTime() - today.getTime();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }, [goal?.targetDate]);
+  // Same count as Stats and Roadmap; date-only targets stay on their calendar day.
+  const daysLeft = insights?.daysLeft ?? 0;
 
   if (!goalId) {
     return (
@@ -294,10 +280,9 @@ const GoalDetail = () => {
 
   // Header Animation moved to top
 
-
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
-      <StatusBar barStyle="light-content" />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
 
       {/* Background Image with Overlay */}
       <View style={StyleSheet.absoluteFill}>
@@ -310,7 +295,7 @@ const GoalDetail = () => {
           <LinearGradient
             colors={theme === 'light'
               ? ['rgba(255,255,255,0.22)', 'rgba(255,255,255,0.74)', colors.background]
-              : ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.38)', '#040507']}
+              : ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.38)', colors.background]}
             style={StyleSheet.absoluteFill}
             locations={[0, 0.38, 0.95]}
           />
@@ -319,68 +304,68 @@ const GoalDetail = () => {
 
       {/* Navigation Header */}
       <SafeAreaView style={styles.navHeader} edges={['top']}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.blurBtn}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.blurBtn}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
           <Ionicons name="chevron-back" size={24} color="white" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleChangeBackground} style={styles.blurBtn}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Goal options" onPress={openGoalMenu} style={styles.blurBtn}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <Ionicons name="camera-outline" size={20} color="white" />
+          <Ionicons name="ellipsis-horizontal" size={20} color="white" />
         </TouchableOpacity>
       </SafeAreaView>
 
       <Animated.ScrollView
         onScroll={scrollHandler}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingTop: HEADER_HEIGHT - 60, paddingBottom: 100 }}
+        // The dome takes the space the arc used to overlap into, sitting a
+        // little lower than the old floating arc did.
+        contentContainerStyle={{ paddingTop: HEADER_HEIGHT - 46 - BUMP, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Main Content Area */}
-        <Animated.View entering={FadeIn.duration(500)} style={[styles.contentContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        {/* Main Content Area. The panel's top edge domes up around the progress
+            arc, so nothing shows through the gap inside it. */}
+        <Animated.View entering={FadeIn.duration(500)} style={styles.panelWrap}>
+          <PanelCap width={width} bump={BUMP} corner={40} color={colors.background} border={colors.border} />
 
-          {/* Floating Progress */}
-          <View style={styles.progressBadgeContainer}>
-            <HalfCircleProgress
-              progress={progress}
-              size={140}
-              strokeWidth={12}
-              color={goal.color || accentColor}
-              backgroundColor={colors.surfaceSecondary}
-              textColor={colors.text}
-              fontSize={28}
-              showPercentage={true}
-            />
+          <View style={[styles.progressBadgeContainer, { height: BUMP }]}>
+            {/* The arc's own baseline sits 5 points above its box, so the box
+                hangs that far past the panel edge: both semicircles then share
+                one centre and the ring of background around the arc is even. */}
+            <View style={{ marginBottom: -ARC_BASELINE }}>
+              <HalfCircleProgress
+                progress={progress}
+                size={140}
+                strokeWidth={12}
+                color={goal.color || accentColor}
+                backgroundColor={colors.surfaceSecondary}
+                textColor={colors.text}
+                fontSize={28}
+                showPercentage={true}
+              />
+            </View>
           </View>
 
+          <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
+
           {/* Dashboard Header */}
-          <View style={{ marginTop: 50, paddingHorizontal: 20 }}>
+          <View style={{ marginTop: 24, paddingHorizontal: 20 }}>
             <View style={{ gap: 14 }}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.dashboardLabel, { color: colors.textTertiary }]}>GOAL</Text>
                 <Text style={[styles.goalTitle, { color: colors.text }]}>{goal.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} style={{ marginRight: 4 }} />
-                  <Text style={[styles.goalTarget, { color: colors.textTertiary }]}>Target: {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Ongoing'}</Text>
+                  <Text style={[styles.goalTarget, { color: colors.textTertiary }]}>Target: {insights && goal.targetDate ? dateAt(insights.endDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : 'Ongoing'}</Text>
                   {daysLeft > 0 && <View style={[styles.daysTag, { backgroundColor: (goal.color || accentColor) + '20' }]}><Text style={[styles.daysTagText, { color: goal.color || accentColor }]}>{daysLeft} days left</Text></View>}
                 </View>
               </View>
-              {/* Edit/Delete Actions - Only show for owned goals */}
-              {!isSharedGoal ? (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <ShareButton variant="friend" onPress={() => setShowShareModal(true)} />
-                  <TouchableOpacity onPress={handleEditGoal} style={[styles.miniActionBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
-                    <Ionicons name="pencil" size={18} color={colors.text} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleDeleteGoal} style={[styles.miniActionBtn, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                    <Ionicons name="trash" size={16} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              ) : (
+              {/* Everything a goal can do lives behind the ⋯ in the header. */}
+              {isSharedGoal ? (
                 <View style={[styles.sharedBadge, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
                   <Ionicons name="people" size={14} color="#10B981" />
-                  <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '600', marginLeft: 4, fontFamily: 'Lexend' }}>Shared</Text>
+                  <Text style={{ color: '#10B981', fontSize: 11,  marginLeft: 4, fontFamily: FontFamily.semibold }}>Shared</Text>
                 </View>
-              )}
+              ) : null}
             </View>
 
             {goal.description && (
@@ -388,49 +373,117 @@ const GoalDetail = () => {
             )}
           </View>
 
-          {/* Content Switching */}
+          {view !== 'today' ? (
+            <Animated.View key={view} entering={FadeIn.duration(220)} style={styles.swapped}>
+              {view === 'stats'
+                ? <GoalStatsView goalId={goal.id} embedded />
+                : <GoalPlanView goalId={goal.id} embedded />}
+            </Animated.View>
+          ) : (
+          /* Today: only what this goal asks of the user today. The numbers and
+             the whole plan replace it in place, from the buttons below. */
+          <Animated.View key="today" entering={FadeIn.duration(220)}>
           <VoidCard glass style={[styles.mainPanel, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
-              <Animated.View entering={FadeIn}>
-                <View style={{ marginBottom: 16 }}>
-                  <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Habits</Text>
+            <View style={styles.todayHeader}>
+              <View>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Today</Text>
+                <Text style={[styles.todayDate, { color: colors.textTertiary }]}>
+                  {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+                </Text>
+              </View>
+              {todayTotal > 0 ? (
+                <View style={[styles.todayCount, { backgroundColor: (goal.color || accentColor) + '1F' }]}>
+                  <Text style={[styles.todayCountText, { color: goal.color || accentColor }]}>{todayDone}/{todayTotal} done</Text>
                 </View>
+              ) : null}
+            </View>
 
-                {associatedHabits.length > 0 ? (
-                  associatedHabits.map(habit => {
-                    const required = calculateRequiredCompletions(habit);
-                    const completed = getHabitCompletionCount(habit.id);
-                    return (
-                      <View key={habit.id}>
-                        <SwipeableHabitItem
-                          habit={{ ...habit, completed: !!completions[habit.id] }}
-                          onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: habit.id } })}
-                          onToggle={() => handleHabitPress(habit)}
-                          onEdit={setEditingHabit}
-                          onDelete={handleDeleteHabit}
-                          size="standard"
-                        />
-                        {goal?.targetDate && required > 0 && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 16, marginTop: -4, marginBottom: 8 }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>
-                              {completed}/{required} completions
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })
-                ) : (
-                  <VoidCard glass style={styles.emptyCard}>
-                    <Ionicons name="add-circle-outline" size={32} color="rgba(255,255,255,0.4)" />
-                    <Text style={{ color: 'rgba(255,255,255,0.6)', marginTop: 8, fontFamily: 'Lexend' }}>Create your first habit</Text>
-                  </VoidCard>
-                )}
-              </Animated.View>
+            {overdueTasks.length > 0 ? (
+              <>
+                <SectionLabel tone={colors.error}>Overdue</SectionLabel>
+                {overdueTasks.map(task => (
+                  <TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} />
+                ))}
+              </>
+            ) : null}
+
+            {todayHabits.length > 0 ? (
+              <>
+                <SectionLabel>Habits</SectionLabel>
+                {todayHabits.map(summary => (
+                  <GoalHabitRow
+                    key={summary.habit.id}
+                    summary={summary}
+                    color={goal.color || accentColor}
+                    detail={summary.streak > 1 ? `${summary.schedule} · ${summary.streak} in a row` : summary.schedule}
+                    onToggle={() => handleHabitPress(summary.habit)}
+                    onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: summary.habit.id } })}
+                    onLongPress={() => setEditingHabit(summary.habit)}
+                  />
+                ))}
+              </>
+            ) : null}
+
+            {todayTasks.length > 0 ? (
+              <>
+                <SectionLabel>Tasks</SectionLabel>
+                {todayTasks.map(task => (
+                  <TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} />
+                ))}
+              </>
+            ) : null}
+
+            {todayTotal === 0 && overdueTasks.length === 0 ? (
+              <View style={styles.restDay}>
+                <Ionicons name={insights?.status === 'empty' ? 'map-outline' : 'moon-outline'} size={26} color={colors.textTertiary} />
+                <Text style={[styles.restTitle, { color: colors.textPrimary }]}>
+                  {insights?.status === 'empty' ? 'Build the plan' : 'Nothing due today'}
+                </Text>
+                <Text style={[styles.restBody, { color: colors.textTertiary }]}>
+                  {insights?.status === 'empty'
+                    ? 'Add the habits you will repeat and the tasks you must finish to reach this goal.'
+                    : nextUp
+                      ? `Next: ${nextUp.title}, ${friendlyDate(nextUp.date, today).toLowerCase()}${nextUp.time ? ` at ${nextUp.time}` : ''}.`
+                      : 'Your plan has nothing scheduled. Add a habit or task in Roadmap.'}
+                </Text>
+              </View>
+            ) : null}
+
+            {!isSharedGoal ? (
+              <View style={styles.addRow}>
+                <TouchableOpacity accessibilityRole="button" onPress={addHabitToGoal} style={[styles.addPill, { borderColor: colors.border }]}>
+                  <Ionicons name="repeat" size={15} color={goal.color || accentColor} />
+                  <Text style={[styles.addText, { color: colors.textSecondary }]}>Habit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" onPress={() => openTask()} style={[styles.addPill, { borderColor: colors.border }]}>
+                  <Ionicons name="checkbox-outline" size={15} color={TASK_COLOR} />
+                  <Text style={[styles.addText, { color: colors.textSecondary }]}>Task</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </VoidCard>
+          </Animated.View>
+          )}
 
+          </View>
         </Animated.View>
       </Animated.ScrollView>
-      {editingHabit && <HabitCreationModal visible initialHabit={editingHabit} goalId={editingHabit.goalId} listenToGlobalEvents={false} onClose={() => setEditingHabit(null)} />}
+      {/* Today, the numbers, or the whole plan — without leaving the page. */}
+      <View pointerEvents="box-none" style={[styles.floatingRow, { bottom: insets.bottom + 16 }]}>
+        <ViewSwitcher
+          options={[
+            { id: 'today', label: 'Today', icon: 'today-outline' },
+            { id: 'stats', label: 'Stats', icon: 'stats-chart-outline' },
+            { id: 'plan', label: 'Roadmap', icon: 'map-outline' },
+          ]}
+          value={view}
+          onChange={showView}
+          accent={goal.color || accentColor}
+        />
+      </View>
+
+
+      {editingHabit && <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />}
       <ShareGoalModal
         visible={showShareModal}
         onClose={() => setShowShareModal(false)}
@@ -484,7 +537,7 @@ const styles = StyleSheet.create({
   heroEyebrowText: {
     fontSize: 10,
     letterSpacing: 1.2,
-    fontFamily: 'Lexend_600SemiBold',
+    fontFamily: FontFamily.semibold,
   },
   heroSubtitle: {
     color: 'rgba(255,255,255,0.78)',
@@ -492,7 +545,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 10,
     maxWidth: '88%',
-    fontFamily: 'Lexend_400Regular',
+    fontFamily: FontFamily.regular,
   },
   heroStatsRow: {
     flexDirection: 'row',
@@ -511,7 +564,7 @@ const styles = StyleSheet.create({
   heroStatValue: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontFamily: 'Lexend_700Bold',
+    fontFamily: FontFamily.bold,
   },
   heroStatLabel: {
     color: 'rgba(255,255,255,0.64)',
@@ -519,39 +572,38 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: 'uppercase',
     letterSpacing: 1,
-    fontFamily: 'Lexend_500Medium',
+    fontFamily: FontFamily.medium,
+  },
+  panelWrap: {
+    marginTop: 20,
   },
   contentContainer: {
     minHeight: height,
-    // backgroundColor set inline
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
-    marginTop: 20,
-    paddingTop: 40,
-    // Add a top border for glass Separation
-    borderTopWidth: 1,
-    // borderTopColor set inline
+    // backgroundColor set inline; the cap above draws the rounded top edge.
+    paddingTop: 8,
   },
   progressBadgeContainer: {
+    // Sits inside the dome, sharing its centre. Above the panel, so the ends
+    // of the arc rest on its edge instead of being cut off by it.
     alignItems: 'center',
-    marginTop: -80, // Pull up to overlap with header image
-    marginBottom: 0,
+    justifyContent: 'flex-end',
+    zIndex: 2,
+    elevation: 2,
   },
   goalTitle: {
     fontSize: 28,
-    fontWeight: '900',
-    fontFamily: 'Lexend',
+    fontFamily: FontFamily.bold,
     letterSpacing: -0.5,
   },
   dashboardLabel: {
     fontSize: 10,
     letterSpacing: 1.6,
     marginBottom: 8,
-    fontFamily: 'Lexend_500Medium',
+    fontFamily: FontFamily.medium,
   },
   goalTarget: {
     fontSize: 13,
-    fontFamily: 'Lexend_400Regular',
+    fontFamily: FontFamily.regular,
   },
   daysTag: {
     marginLeft: 8,
@@ -561,14 +613,13 @@ const styles = StyleSheet.create({
   },
   daysTagText: {
     fontSize: 10,
-    fontWeight: '700',
-    fontFamily: 'Lexend',
+    fontFamily: FontFamily.bold,
   },
   goalDescription: {
     marginTop: 12,
     fontSize: 14,
     lineHeight: 20,
-    fontFamily: 'Lexend_400Regular',
+    fontFamily: FontFamily.regular,
   },
   dashboardGrid: {
     flexDirection: 'row',
@@ -587,18 +638,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 1.1,
-    fontFamily: 'Lexend_500Medium',
+    fontFamily: FontFamily.medium,
   },
   dashboardCardValue: {
     fontSize: 28,
     marginTop: 8,
-    fontFamily: 'Lexend_700Bold',
+    fontFamily: FontFamily.bold,
   },
   dashboardCardHint: {
     fontSize: 12,
     marginTop: 6,
     lineHeight: 17,
-    fontFamily: 'Lexend_400Regular',
+    fontFamily: FontFamily.regular,
   },
   miniActionBtn: {
     width: 36, height: 36,
@@ -619,15 +670,25 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '600',
     color: 'rgba(255,255,255,0.4)',
-    fontFamily: 'Lexend',
+    fontFamily: FontFamily.semibold,
   },
+  todayHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  todayDate: { fontSize: 13, fontFamily: FontFamily.regular, marginTop: 2 },
+  todayCount: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  todayCountText: { fontSize: 12, fontFamily: FontFamily.semibold },
+  restDay: { alignItems: 'center', paddingVertical: 26, gap: 6 },
+  restTitle: { fontSize: 16, fontFamily: FontFamily.semibold },
+  restBody: { fontSize: 13, lineHeight: 19, fontFamily: FontFamily.regular, textAlign: 'center', paddingHorizontal: 12 },
+  addRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  addPill: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 999, borderWidth: 1, borderStyle: 'dashed' },
+  addText: { fontSize: 13, fontFamily: FontFamily.medium },
+  floatingRow: { position: 'absolute', left: 20, right: 20 },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    fontFamily: 'Lexend',
+    fontFamily: FontFamily.bold,
   },
+  swapped: { paddingBottom: 8 },
   mainPanel: {
     margin: 20,
     marginTop: 18,

@@ -12,3 +12,5 @@
 export const APP_NAME = 'HABYSS';
 
 export const APP_SLOGAN = 'Descend into discipline, Rise through Time';
+/** The slogan as the welcome screen sets it, one half per line. */
+export const APP_SLOGAN_LINES = ['Descend into Discipline', 'Rise Through Time'] as const;

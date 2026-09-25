@@ -1,18 +1,19 @@
+import { FontFamily, Typography } from '@/constants/DesignSystem';
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, DeviceEventEmitter, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import {View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { ScrollPickerModal } from './ScrollPickerModal';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidModal } from '@/components/Layout/VoidModal';
-import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion';
-import { currentAccount, deleteAccount } from '@/lib/account';
-import { router } from 'expo-router';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { IconButton } from '@/components/Common/IconButton';
+import { AppTextField } from '@/components/Common/AppTextField';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SettingsModal } from '@/components/SettingsModal';
+import { emit } from '@/lib/appEvents';
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
@@ -141,7 +142,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 
             if (avatarUri) {
                 await AsyncStorage.setItem('profile_avatar', avatarUri);
-                DeviceEventEmitter.emit('profile_avatar_changed', avatarUri);
+                emit('profile_avatar_changed', avatarUri);
             }
             if (description) await AsyncStorage.setItem('profile_bio', description);
             if (birthday) {
@@ -162,168 +163,118 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
         }
     };
 
-    const handleDeleteAccount = () => {
-        Alert.alert(
-            "Delete account",
-            "This permanently removes your habits, streaks, history, settings and the downloaded AI model from this device. It cannot be undone, and we hold no copy to restore.\n\nAny subscription stays with your Apple ID; cancel it in Settings if you no longer want it.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: 'destructive',
-                    onPress: async () => {
-                        setLoading(true);
-                        // Signed in: delete the account and its backup on the server too, or they
-                        // would outlive what the user was told was deleted.
-                        const signedIn = await currentAccount().catch(() => null);
-                        if (signedIn) {
-                            const serverResult = await deleteAccount();
-                            if (!serverResult.ok) {
-                                Alert.alert('Account not deleted', `${serverResult.error} Nothing was deleted.`);
-                                return;
-                            }
-                        }
-                        const report = signedIn ? { ok: true, failed: [] as { label: string }[] } : await deleteAllLocalData();
-                        setLoading(false);
-                        onClose();
-
-                        if (report.ok) {
-                            Alert.alert('Account deleted', 'Everything stored on this device has been removed.', [
-                                { text: 'OK', onPress: async () => { if (!(await restartAfterDeletion())) router.replace('/(auth)/onboarding'); } },
-                            ]);
-                        } else {
-                            Alert.alert(
-                                'Partly deleted',
-                                `Your data was removed, except: ${report.failed.map(step => step.label).join(', ')}. ` +
-                                'Deleting the app from your device removes anything left.',
-                                [{ text: 'OK', onPress: async () => { if (!(await restartAfterDeletion())) router.replace('/(auth)/onboarding'); } }],
-                            );
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
     return (
         <VoidModal visible={visible} onClose={onClose}>
-            <View style={{ flex: 1, overflow: 'hidden', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
+            <View style={styles.flex}>
                 <ModalHeader
-                    title="Edit Profile"
+                    title="Your profile"
                     onBack={onClose}
                     backIcon="close"
                     rightSlot={
-                        <TouchableOpacity
+                        <IconButton
+                            icon="checkmark"
+                            label="Save profile"
+                            variant="accent"
+                            loading={saving}
                             onPress={handleSave}
-                            disabled={saving}
-                            accessibilityLabel="Save profile"
-                            style={[styles.headerCircleBtn, { backgroundColor: colors.primary }]}
-                        >
-                            {saving ? (
-                                <ActivityIndicator size="small" color="#000" />
-                            ) : (
-                                <Ionicons name="checkmark" size={20} color="#000" />
-                            )}
-                        </TouchableOpacity>
+                        />
                     }
                 />
 
-                <KeyboardAvoidingView
-                    style={{ flex: 1 }}
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-                >
+                <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                     <ScrollView
-                        contentContainerStyle={{ paddingBottom: 40 }}
+                        contentContainerStyle={styles.content}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
+                        alwaysBounceVertical={false}
                     >
-                        <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
-                            {loading && <ActivityIndicator style={{ marginBottom: 20 }} />}
+                        {loading ? <ActivityIndicator color={colors.primary} /> : null}
 
-                            {/* Profile Photo - Overlapping Header */}
-                            <TouchableOpacity onPress={handleChangeAvatar} style={styles.avatarSection}>
-                                <View style={[styles.avatarContainer, { borderColor: colors.background }]}>
+                        {/* The badge sits outside the clipped circle, so it is a
+                            whole button rather than the half-moon it was. */}
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Change your photo"
+                            activeOpacity={0.85}
+                            onPress={handleChangeAvatar}
+                            style={styles.avatarSection}
+                        >
+                            <View style={styles.avatarFrame}>
+                                <View style={[styles.avatarContainer, { borderColor: colors.border }]}>
                                     {avatarUri ? (
                                         <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
                                     ) : (
                                         <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceTertiary }]}>
-                                            <Ionicons name="person" size={40} color={colors.textTertiary} />
+                                            <Ionicons name="person" size={38} color={colors.textTertiary} />
                                         </View>
                                     )}
-                                    <View style={[styles.cameraIcon, { backgroundColor: colors.primary }]}>
-                                        <Ionicons name="camera" size={14} color="black" />
-                                    </View>
                                 </View>
-                                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>Tap to change photo</Text>
-                            </TouchableOpacity>
-
-                            <View style={styles.fieldGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>NICKNAME</Text>
-                                <TextInput
-                                    style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                                    value={nickname}
-                                    onChangeText={setNickname}
-                                    placeholder="Your codename"
-                                    placeholderTextColor={colors.textTertiary}
-                                />
+                                <View style={[styles.cameraIcon, { backgroundColor: colors.primary, borderColor: colors.background }]}>
+                                    <Ionicons name="camera" size={13} color="#000" />
+                                </View>
                             </View>
+                            <Text style={[styles.avatarHint, { color: colors.textTertiary }]}>Tap to change</Text>
+                        </TouchableOpacity>
 
-                            <View style={styles.fieldGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>BIRTHDAY</Text>
-                                <TouchableOpacity
-                                    style={[styles.input, styles.inputRow, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                                    onPress={() => setShowBirthdayPicker(true)}
-                                >
-                                    <Text style={{ color: birthday ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
-                                        {birthday ? formatBirthday(birthday) : 'Add your birthday'}
-                                    </Text>
-                                    {displayedAge ? (
-                                        <View style={[styles.agePill, { backgroundColor: colors.primary + '1A' }]}>
-                                            <Text style={{ color: colors.primary, fontFamily: 'Lexend_600SemiBold', fontSize: 12 }}>
-                                                {displayedAge} yrs
-                                            </Text>
-                                        </View>
-                                    ) : (
-                                        <Ionicons name="calendar-outline" size={18} color={colors.textTertiary} />
-                                    )}
-                                </TouchableOpacity>
-                            </View>
+                        <AppTextField
+                            label="Name"
+                            value={nickname}
+                            onChangeText={setNickname}
+                            autoCapitalize="words"
+                            maxLength={40}
+                            placeholder="What friends see"
+                            placeholderTextColor={colors.textTertiary}
+                            accessibilityLabel="Your name"
+                        />
 
-                            <View style={styles.fieldGroup}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>GENDER</Text>
-                                <TouchableOpacity
-                                    style={[styles.input, styles.inputRow, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                                    onPress={() => setShowGenderPicker(true)}
-                                >
-                                    <Text style={{ color: gender ? colors.textPrimary : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontSize: 16 }}>
-                                        {gender || 'Identity'}
-                                    </Text>
-                                    <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={[styles.fieldGroup, { marginTop: 16 }]}>
-                                <Text style={[styles.label, { color: colors.textSecondary }]}>DESCRIPTION</Text>
-                                <TextInput
-                                    style={[styles.inputTextArea, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                                    value={description}
-                                    onChangeText={setDescription}
-                                    placeholder="Your mission briefing..."
-                                    placeholderTextColor={colors.textTertiary}
-                                    multiline
-                                    numberOfLines={4}
-                                    textAlignVertical="top"
-                                />
-                            </View>
-
+                        <View style={styles.group}>
+                            <Text style={[Typography.label, { color: colors.textSecondary }]}>BIRTHDAY</Text>
                             <TouchableOpacity
-                                onPress={handleDeleteAccount}
-                                style={[styles.deleteBtn, { borderColor: colors.error }]}
+                                accessibilityRole="button"
+                                accessibilityLabel={birthday ? `Birthday, ${formatBirthday(birthday)}` : 'Add your birthday'}
+                                activeOpacity={0.8}
+                                onPress={() => setShowBirthdayPicker(true)}
+                                style={[styles.pickerRow, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
                             >
-                                <Text style={{ color: colors.error, fontFamily: 'Lexend_600SemiBold' }}>Delete Account</Text>
+                                <Text style={[styles.pickerText, { color: birthday ? colors.textPrimary : colors.textTertiary }]}>
+                                    {birthday ? formatBirthday(birthday) : 'Add your birthday'}
+                                </Text>
+                                {displayedAge ? (
+                                    <View style={[styles.agePill, { backgroundColor: colors.primary + '1a' }]}>
+                                        <Text style={[styles.ageText, { color: colors.primary }]}>{displayedAge}</Text>
+                                    </View>
+                                ) : (
+                                    <Ionicons name="calendar-outline" size={18} color={colors.textTertiary} />
+                                )}
                             </TouchableOpacity>
                         </View>
+
+                        <View style={styles.group}>
+                            <Text style={[Typography.label, { color: colors.textSecondary }]}>GENDER</Text>
+                            <TouchableOpacity
+                                accessibilityRole="button"
+                                accessibilityLabel={gender ? `Gender, ${gender}` : 'Choose a gender'}
+                                activeOpacity={0.8}
+                                onPress={() => setShowGenderPicker(true)}
+                                style={[styles.pickerRow, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                            >
+                                <Text style={[styles.pickerText, { color: gender ? colors.textPrimary : colors.textTertiary }]}>
+                                    {gender || 'Rather not say'}
+                                </Text>
+                                <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <AppTextField
+                            label="About you"
+                            value={description}
+                            onChangeText={setDescription}
+                            multiline
+                            maxLength={280}
+                            placeholder="A line about what you are working on"
+                            placeholderTextColor={colors.textTertiary}
+                            accessibilityLabel="About you"
+                        />
                     </ScrollView>
                 </KeyboardAvoidingView>
             </View>
@@ -351,7 +302,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                             onPress={() => setShowBirthdayPicker(false)}
                             style={[styles.doneBtn, { backgroundColor: colors.primary }]}
                         >
-                            <Text style={{ color: '#000', fontFamily: 'Lexend_600SemiBold', fontSize: 15 }}>Done</Text>
+                            <Text style={{ color: '#000', fontFamily: FontFamily.semibold, fontSize: 15 }}>Done</Text>
                         </TouchableOpacity>
                     ) : null}
                 </View>
@@ -370,114 +321,28 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 };
 
 const styles = StyleSheet.create({
-    headerCircleBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    inputRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    agePill: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 999,
-    },
-    doneBtn: {
-        marginTop: 12,
-        paddingHorizontal: 28,
-        paddingVertical: 12,
-        borderRadius: 999,
-    },
-    contentContainer: {
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 20,
-        minHeight: 500,
-    },
-    headerBtn: {
-        padding: 4,
-        minWidth: 60,
-        alignItems: 'center',
-    },
-    title: {
-        fontSize: 16,
-        fontWeight: '900',
-        letterSpacing: 1,
-        fontFamily: 'Lexend',
-    },
-    fieldGroup: {
-        marginBottom: 16,
-    },
-    row: {
-        flexDirection: 'row',
-    },
-    label: {
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 1,
-        marginBottom: 8,
-        fontFamily: 'Lexend_400Regular',
-    },
-    input: {
-        height: 50,
-        borderRadius: 12,
-        borderWidth: 1,
-        paddingHorizontal: 16,
-        fontSize: 16,
-        fontFamily: 'Lexend_400Regular',
-    },
-    inputTextArea: {
-        minHeight: 100,
-        borderRadius: 12,
-        borderWidth: 1,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        fontSize: 16,
-        fontFamily: 'Lexend_400Regular',
-    },
-    avatarSection: {
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    avatarContainer: {
-        width: 90,
-        height: 90,
-        borderRadius: 45,
-        borderWidth: 2,
-        overflow: 'hidden',
-        position: 'relative',
-    },
-    avatarImage: {
-        width: '100%',
-        height: '100%',
-    },
-    avatarPlaceholder: {
-        width: '100%',
-        height: '100%',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+    flex: { flex: 1 },
+    content: { paddingHorizontal: 20, paddingBottom: 32, gap: 18 },
+    avatarSection: { alignItems: 'center', gap: 8, paddingVertical: 8 },
+    // Not clipped: the frame holds the badge, the circle inside holds the photo.
+    avatarFrame: { width: 92, height: 92 },
+    avatarContainer: { width: 92, height: 92, borderRadius: 46, borderWidth: 1, overflow: 'hidden' },
+    avatarImage: { width: '100%', height: '100%' },
+    avatarPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     cameraIcon: {
-        position: 'absolute',
-        bottom: 2,
-        right: 2,
-        width: 26,
-        height: 26,
-        borderRadius: 13,
-        alignItems: 'center',
-        justifyContent: 'center',
+        position: 'absolute', bottom: 0, right: 0,
+        width: 30, height: 30, borderRadius: 15, borderWidth: 2,
+        alignItems: 'center', justifyContent: 'center',
     },
-    deleteBtn: {
-        marginTop: 24,
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
+    avatarHint: { fontSize: 12, fontFamily: FontFamily.regular },
+    group: { gap: 8 },
+    pickerRow: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        minHeight: 54, borderRadius: 18, borderWidth: 1, paddingHorizontal: 16,
     },
+    pickerText: { fontSize: 15, fontFamily: FontFamily.regular },
+    agePill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+    ageText: { fontSize: 12, fontFamily: FontFamily.semibold },
+    doneBtn: { marginTop: 12, paddingVertical: 14, paddingHorizontal: 40, borderRadius: 999, alignItems: 'center' },
 });
+

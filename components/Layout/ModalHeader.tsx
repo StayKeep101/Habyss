@@ -1,10 +1,12 @@
 import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { ShareButton, ShareSummary } from '@/components/Common/ShareButton';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { IconButton } from '@/components/Common/IconButton';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
+import { Control, Spacing, Typography } from '@/constants/DesignSystem';
 
 interface ModalHeaderProps {
     title: string;
@@ -13,101 +15,42 @@ interface ModalHeaderProps {
     onAction?: () => void;
     shareSummary?: ShareSummary;
     actionIcon?: keyof typeof Ionicons.glyphMap;
-    /** Chevron for a pushed screen, close for a sheet that dismisses. */
+    actionLabel?: string;
     backIcon?: 'chevron-back' | 'close';
-    /** Custom right-hand control, used when the action is not a share. */
     rightSlot?: React.ReactNode;
 }
 
-/**
- * Shared sheet header.
- *
- * Matches the AI Configuration screen: a plain back control, a centred title and
- * a balanced slot on the right so the title stays optically centred whether or
- * not an action is present.
- */
+/** Equal side columns keep the heading centered, including with multiple actions. */
 export const ModalHeader: React.FC<ModalHeaderProps> = ({
-    title,
-    subtitle,
-    onBack,
-    onAction,
-    actionIcon = 'share-outline',
-    shareSummary,
-    backIcon = 'chevron-back',
-    rightSlot,
+    title, subtitle, onBack, onAction, actionIcon = 'share-outline', actionLabel,
+    shareSummary, backIcon = 'chevron-back', rightSlot,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { primary: accentColor } = useAccentGradient();
-
-    const right = rightSlot
-        ?? (onAction || shareSummary
-            ? <ShareButton onPress={onAction} summary={shareSummary} variant={actionIcon === 'person-add-outline' ? 'friend' : 'share'} />
-            : <View style={styles.slot} />);
+    const { foreground } = useAccentGradient();
+    const [actionWidth, setActionWidth] = React.useState<number>(Control.hitTarget);
+    const right = rightSlot ?? (onAction
+        ? <IconButton icon={actionIcon} label={actionLabel ?? (actionIcon === 'person-add-outline' ? 'Add friend' : 'Share')} onPress={onAction} variant="accent" />
+        : shareSummary ? <ShareButton summary={shareSummary} /> : null);
 
     return (
         <View style={styles.header}>
-            {onBack ? (
-                <TouchableOpacity
-                    onPress={onBack}
-                    accessibilityRole="button"
-                    accessibilityLabel={backIcon === 'close' ? 'Close' : 'Back'}
-                    style={styles.slot}
-                >
-                    <Ionicons name={backIcon} size={backIcon === 'close' ? 22 : 26} color={colors.textPrimary} />
-                </TouchableOpacity>
-            ) : (
-                <View style={styles.slot} />
-            )}
-
-            <View style={styles.copy}>
-                <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>{title}</Text>
-                {subtitle ? (
-                    <Text style={[styles.subtitle, { color: accentColor }]} numberOfLines={1}>{subtitle}</Text>
-                ) : null}
+            <View style={{ width: actionWidth }}>
+                {onBack ? <IconButton icon={backIcon} label={backIcon === 'close' ? 'Close' : 'Back'} onPress={onBack} size={backIcon === 'close' ? 22 : 26} /> : null}
             </View>
-
-            <View style={styles.rightSlot}>{right}</View>
+            <View style={styles.copy}>
+                <Text accessibilityRole="header" numberOfLines={1} style={[Typography.title, styles.centered, { color: colors.textPrimary }]}>{title}</Text>
+                {subtitle ? <Text numberOfLines={1} style={[Typography.label, styles.subtitle, { color: foreground }]}>{subtitle}</Text> : null}
+            </View>
+            <View onLayout={event => setActionWidth(Math.max(Control.hitTarget, event.nativeEvent.layout.width))} style={styles.rightSlot}>{right}</View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingTop: 6,
-        paddingBottom: 12,
-    },
-    copy: {
-        flex: 1,
-        alignItems: 'center',
-        paddingHorizontal: 4,
-    },
-    slot: {
-        width: 44,
-        height: 44,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    rightSlot: {
-        minWidth: 44,
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-        textAlign: 'center',
-    },
-    subtitle: {
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 1.5,
-        fontFamily: 'Lexend_400Regular',
-        marginTop: 3,
-        textAlign: 'center',
-    },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, paddingBottom: Spacing.md },
+    copy: { flex: 1, alignItems: 'center', paddingHorizontal: Spacing.xs },
+    rightSlot: { minWidth: Control.hitTarget, minHeight: Control.hitTarget, alignItems: 'flex-end', justifyContent: 'center' },
+    centered: { textAlign: 'center' },
+    subtitle: { marginTop: Spacing.xs, textAlign: 'center' },
 });

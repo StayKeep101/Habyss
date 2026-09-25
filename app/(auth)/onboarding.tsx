@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FontFamily } from '@/constants/DesignSystem';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, Pressable,
-    ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View,
+    ActivityIndicator, Image, KeyboardAvoidingView, Platform,
+    ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
-import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { useFocusEffect, useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { Colors } from '@/constants/Colors';
@@ -14,47 +14,102 @@ import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAppSettings } from '@/constants/AppSettingsContext';
-import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { HabyssBootScreen } from '@/components/Loading/HabyssBootScreen';
-import { SpinningLogo } from '@/components/SpinningLogo';
-import { APP_NAME, APP_SLOGAN } from '@/constants/brand';
-import { addHabit, updateHabit } from '@/lib/habitsSQLite';
-import { NotificationService } from '@/lib/notificationService';
-import { LocationService } from '@/lib/LocationService';
+import { QuietLoading } from '@/components/Loading/QuietLoading';
+import { APP_NAME, APP_SLOGAN, APP_SLOGAN_LINES } from '@/constants/brand';
 import { setOnboardingComplete } from '@/lib/localUser';
-import { isHabitScheduledForDate, localDateKey } from '@/lib/habitSchedule';
-import { coachPlanIntro, coachPreview } from '@/lib/coachMessages';
-import { describeParsed, parseHabitText } from '@/lib/habitParser';
+import { localDateKey } from '@/lib/habitSchedule';
+import { FLOW_VERSION, clearDraft, loadDraft, saveDraft, type OnboardingDraft } from '@/lib/onboarding';
 import {
-    clearDraft, describeRecurrence, draftToHabit, loadDraft, saveDraft,
-    type OnboardingDraft,
-} from '@/lib/onboarding';
-import {
-    ATTEMPTS, KILLERS, TIME_BUDGETS, TONES, dailyTargetMinutes,
-    payoffHeadline, planFor, saveStakes, shouldOfferReminder, shouldSuggestSharing,
-    wantsExplicitCue, type KillerId,
-} from '@/lib/onboardingAnswers';
-import { parseGoalText } from '@/lib/goalParser';
-import { buildRoadmap, tidy } from '@/lib/roadmapPlan';
-import { planFromDraft } from '@/lib/onboardingPlan';
-import { createTask } from '@/lib/tasks';
+    BLOCKERS, CHRONOTYPES, HOPES, SLEEP_AMOUNTS, SOURCES, TIMINGS,
+    dayWindowFor, shouldOfferFriends, suggestEcho,
+    type BlockerId, type HopeId,
+} from '@/lib/onboardingProfile';
+import { contrastRatio } from '@/lib/colorContrast';
+import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
+import { coachHello } from '@/lib/coachMessages';
+import { ECHO_NAME, hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
+import { currentAccount, onAccountChange } from '@/lib/account';
+import { getName } from '@/lib/echo';
+import { SignInOptions } from '@/components/Auth/SignInOptions';
+import type { SyncReport } from '@/lib/cloudSync';
 
 /** Just long enough for the selected state to paint before the step changes. */
 const SELECT_ADVANCE_MS = 180;
 
+/**
+ * Who you are, not what you have failed at.
+ *
+ * The old flow asked about the goal, the history of giving up on it and what
+ * that would cost, before it knew the person's name. These questions are
+ * gentler and more useful: they are answerable honestly on a bad day, and each
+ * one changes something the app actually does.
+ */
 const STEPS = [
-    'welcome', 'goal', 'attempts', 'killers', 'stakes',
-    'tone', 'time', 'measurable', 'roadmap', 'payoff', 'reminder', 'friends',
+    'welcome', 'name', 'source', 'hope', 'sleep', 'timing', 'blockers',
+    'meetEcho', 'echo', 'friends', 'account',
 ] as const;
-/** The payoff is the last step of setup; everything after follows the saved plan. */
-const LAST_SETUP_STEP = 9;
+/** Choosing Echo's voice ends setup; the rest is backup and friends. */
+const LAST_SETUP_STEP = 8;
 
 const STEP = {
-    welcome: 0, goal: 1, attempts: 2, killers: 3, stakes: 4,
-    tone: 5, time: 6, measurable: 7, roadmap: 8, payoff: 9, reminder: 10, friends: 11,
+    welcome: 0, name: 1, source: 2, hope: 3, sleep: 4, timing: 5, blockers: 6,
+    meetEcho: 7, echo: 8, friends: 9, account: 10,
 } as const;
+
+/**
+ * The bar across the top of every question.
+ *
+ * Declared here rather than inside the screen: a component made during render
+ * is a new type on every render, which threw the header away and rebuilt it
+ * each time an answer changed.
+ */
+const Header = ({ onBack, title, onSkip }: { onBack?: () => void; title?: string; onSkip?: () => void }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const { lightFeedback } = useHaptics();
+    return (
+        <View style={styles.header}>
+            <View style={styles.headerSide}>
+                {onBack ? (
+                    <TouchableOpacity onPress={() => { lightFeedback(); onBack(); }} accessibilityLabel="Back" style={styles.backBtn}>
+                        <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                ) : null}
+            </View>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>{title ?? ''}</Text>
+            <View style={[styles.headerSide, { alignItems: 'flex-end' }]}>
+                {/* Every question can be passed over; nothing here is required. */}
+                {onSkip ? (
+                    <TouchableOpacity onPress={() => { lightFeedback(); onSkip(); }} accessibilityLabel="Skip this question" style={styles.skipBtn}>
+                        <Text style={[styles.skipText, { color: colors.textTertiary }]}>Skip</Text>
+                    </TouchableOpacity>
+                ) : null}
+            </View>
+        </View>
+    );
+};
+
+/** How far through setup this is, as a row of dots. */
+const Progress = ({ index, total }: { index: number; total: number }) => {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
+    const { primary: accent } = useAccentGradient();
+    return (
+        <View style={styles.progressRow} accessibilityLabel={`Step ${index} of ${total}`}>
+            {Array.from({ length: total }, (_, dot) => (
+                <View
+                    key={dot}
+                    style={[styles.progressDot, {
+                        backgroundColor: dot < index ? accent : (isLight ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.14)'),
+                        width: dot === index - 1 ? 22 : 8,
+                    }]}
+                />
+            ))}
+        </View>
+    );
+};
 
 export default function OnboardingScreen() {
     const router = useRouter();
@@ -62,26 +117,60 @@ export default function OnboardingScreen() {
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: accent } = useAccentGradient();
-    const { lightFeedback, successFeedback } = useHaptics();
+    const { lightFeedback } = useHaptics();
     const { setAIPersonality } = useAppSettings();
 
     // null while hydrating: persisted data decides what the user sees, not a guess.
     const [draft, setDraftState] = useState<OnboardingDraft | null>(null);
-    const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [reminderNote, setReminderNote] = useState<string | null>(null);
-    const [locating, setLocating] = useState(false);
-    const locationLockRef = useRef(false);
-    const savingRef = useRef(false);
     // Auto-advance after a single choice; held so a second tap can cancel it.
     const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const seededRoadmapRef = useRef(false);
+    const [signedIn, setSignedIn] = useState(false);
+
+    // Whether this phone already has an account decides if the backup step shows.
+    useEffect(() => {
+        currentAccount().then(account => setSignedIn(!!account));
+        return onAccountChange(account => setSignedIn(!!account));
+    }, []);
+
+    // Signed in on the backup step, by any route, moves on, but only while this
+    // screen is in front. Otherwise an email sign-in on the account screen
+    // would navigate away underneath it.
+    const [focused, setFocused] = useState(true);
+    useFocusEffect(useCallback(() => {
+        setFocused(true);
+        return () => setFocused(false);
+    }, []));
+    /** Done is done: someone who skipped setup lands in the app, not back at
+     *  the first question on the next launch. */
+    const finish = useCallback(async () => {
+        await setOnboardingComplete();
+        await clearDraft();
+        router.replace('/(root)/(tabs)/home');
+    }, [router]);
+
+    /** Inviting someone answers "nobody notices either way", and nothing else. */
+    const afterAccount = useCallback(() => {
+        if (draft && shouldOfferFriends(draft)) setDraftState(current => {
+            const next = { ...current!, step: STEP.friends };
+            saveDraft(next);
+            return next;
+        });
+        else void finish();
+    }, [draft, finish]);
+
+    const advancedRef = useRef(false);
+    useEffect(() => {
+        if (draft?.step !== STEP.account || !signedIn || !focused || advancedRef.current) return;
+        advancedRef.current = true;
+        afterAccount();
+    }, [draft?.step, signedIn, focused, afterAccount]);
 
     useEffect(() => {
         let cancelled = false;
         loadDraft().then(stored => {
             if (cancelled) return;
-            setDraftState(stored ?? { step: 0, startDate: localDateKey(new Date()), recurrence: 'daily' });
+            setDraftState(stored ?? { step: 0, flow: FLOW_VERSION, startDate: localDateKey(new Date()), recurrence: 'daily' });
         });
         return () => { cancelled = true; };
     }, []);
@@ -127,94 +216,11 @@ export default function OnboardingScreen() {
 
     useEffect(() => cancelAdvance, [cancelAdvance]);
 
-    /**
-     * Seeds the roadmap once, from the goal the user confirmed.
-     *
-     * Guarded by a ref as well as the draft, because the draft updates
-     * asynchronously and a second pass would overwrite an edit made in between.
-     * An empty array is a real answer — the user removed every checkpoint — so
-     * only undefined counts as "not built yet".
-     */
-    useEffect(() => {
-        if (!draft || draft.step !== STEP.roadmap) return;
-        if (draft.roadmapSteps !== undefined || seededRoadmapRef.current) return;
-
-        const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
-        if (!goalText) return;
-
-        seededRoadmapRef.current = true;
-        const built = buildRoadmap(
-            parseGoalText(goalText, { today: new Date(), habits: [] }).goal,
-            { today: new Date(), minutesPerDay: dailyTargetMinutes(draft.timeBudget, draft.killers) },
-        );
-        update({
-            roadmapSteps: built.steps.map(step => ({ id: step.id, title: step.title, dueDate: step.dueDate })),
-            habitName: draft.habitName ?? built.habit.name,
-            targetValue: draft.targetValue ?? built.habit.targetValue,
-            targetUnit: draft.targetUnit ?? built.habit.targetUnit,
-            trackingMethod: draft.trackingMethod ?? built.habit.trackingMethod,
-        });
-    }, [draft, update]);
-
-    if (!draft) return <HabyssBootScreen subtitle="Getting things ready" />;
+    if (!draft) return <QuietLoading />;
 
     const stepIndex = Math.min(draft.step, STEPS.length - 1);
 
     /* ---------------------------------------------------------------- saving */
-
-    const startPlan = async () => {
-        // Guard the ref and the stored ids: a double tap or a retry after a
-        // partial failure must never create a second goal or habit.
-        if (savingRef.current) return;
-        if (draft.createdHabitId) { goTo(STEP.reminder); return; }
-        savingRef.current = true;
-        setSaving(true);
-        setError(null);
-        try {
-            // Worked out in full first, by the same function the tests check, so
-            // the plan shown on the payoff is the plan that gets stored.
-            const plan = planFromDraft(draft);
-
-            // The goal carries the measurable target; the habit is the daily
-            // action that feeds it. The reminder is deliberately not part of
-            // either write, so a notification failure cannot lose the plan.
-            let goalId = draft.createdGoalId;
-            if (!goalId) {
-                const goal = await addHabit(plan.goal);
-                if (!goal?.id) throw new Error('Goal was not saved');
-                goalId = goal.id;
-                update({ createdGoalId: goalId });
-            }
-
-            const created = await addHabit({ ...plan.habit, goalId });
-            if (!created?.id) throw new Error('Habit was not saved');
-
-            // Checkpoints become tasks under the goal. Each carries a stable
-            // external id, so a retry after a partial failure updates the same
-            // rows instead of creating a second set.
-            for (const task of plan.tasks) {
-                await createTask({
-                    title: task.title,
-                    dueDate: task.dueDate,
-                    goalId,
-                    priority: 2,
-                    externalId: `onboarding:${goalId}:${task.stepId}`,
-                });
-            }
-
-            // Answer 5 sets the coach; answer 4 is kept for the coach to quote.
-            setAIPersonality(plan.coach);
-            if (plan.stakes) await saveStakes(plan.stakes);
-
-            update({ createdHabitId: created.id, step: STEP.reminder });
-            successFeedback();
-        } catch {
-            setError('Could not save your plan. Nothing was lost — try again.');
-        } finally {
-            savingRef.current = false;
-            setSaving(false);
-        }
-    };
 
     const inviteFriend = async () => {
         lightFeedback();
@@ -229,108 +235,31 @@ export default function OnboardingScreen() {
         }
     };
 
-    const addArrivalReminder = async (label: 'Home' | 'Work' | 'Gym') => {
-        if (!draft.createdHabitId || locationLockRef.current) return;
-        locationLockRef.current = true;
-        setLocating(true);
-        setReminderNote(null);
-        try {
-            if (!(await NotificationService.requestPermissions())) {
-                setReminderNote('Notifications are off, so an arrival reminder cannot be delivered. Your habit is saved.');
-                return;
-            }
-            // Geofencing needs background location, which is a separate grant.
-            if (!(await NotificationService.requestLocationPermissions())) {
-                setReminderNote('Arrival reminders need background location access. Your habit is saved; you can allow it later in Settings.');
-                return;
-            }
-
-            let timeout: ReturnType<typeof setTimeout> | undefined;
-            const position = await Promise.race([
-                Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-                new Promise<never>((_, reject) => {
-                    timeout = setTimeout(() => reject(new Error('Location timed out')), 20000);
-                }),
-            ]).finally(() => { if (timeout) clearTimeout(timeout); });
-
-            const place = {
-                name: label,
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                radius: 150,
-            };
-            await updateHabit({ id: draft.createdHabitId, locationReminders: [place] });
-            await LocationService.refreshGeofences();
-            update({ arrivalPlace: label });
-            setReminderNote(`Saved this spot as ${label}. Habyss will nudge you when you arrive back here.`);
-            successFeedback();
-        } catch {
-            setReminderNote('Could not save this place. Your habit is saved.');
-        } finally {
-            locationLockRef.current = false;
-            setLocating(false);
-        }
+    /** After choosing a voice: back this phone up, unless it already is. */
+    const afterEcho = () => {
+        if (signedIn) afterAccount();
+        else goTo(STEP.account);
     };
 
-    const finish = async () => {
-        // Only mark onboarding done once the habit actually exists.
-        if (draft.createdHabitId) await setOnboardingComplete();
-        await clearDraft();
-        router.replace('/(root)/(tabs)/home');
-    };
-
-    const enableReminder = async (time: string) => {
-        if (!draft.createdHabitId) return;
-        setReminderNote(null);
-        const granted = await NotificationService.requestPermissions();
-        if (!granted) {
-            // The true result, not the toggle state.
-            setReminderNote('Notifications are turned off for Habyss, so no reminder was scheduled. Your habit is saved and you can turn reminders on later in Settings.');
+    /**
+     * Signing in from the welcome screen: an account with a backup goes
+     * straight to it, a new one carries on with setup, already linked.
+     */
+    const afterWelcomeSignIn = async (report: SyncReport) => {
+        if (report.downloaded > 0) {
+            await setOnboardingComplete();
+            await clearDraft();
+            router.replace('/(root)/(tabs)/home');
             return;
         }
-        try {
-            const habit = { ...draftToHabit(draft), id: draft.createdHabitId, reminders: [time] };
-            await updateHabit({ id: draft.createdHabitId, reminders: [time] });
-            // scheduleHabitReminder cancels this habit's existing reminders first,
-            // so changing the time cannot leave a duplicate behind.
-            await NotificationService.scheduleHabitReminder(habit);
-            update({ reminderTime: time });
-            setReminderNote(`Reminder set for ${time}, ${describeRecurrence(draft).toLowerCase()}.`);
-            successFeedback();
-        } catch {
-            setReminderNote('The reminder could not be scheduled. Your habit is saved.');
-        }
+        const known = await getName();
+        update({ name: draft.name ?? known ?? undefined, step: STEP.name });
     };
 
     /* ------------------------------------------------------------ shared bits */
 
-    const Header = ({ onBack, title }: { onBack?: () => void; title?: string }) => (
-        <View style={styles.header}>
-            <View style={styles.headerSide}>
-                {onBack ? (
-                    <TouchableOpacity onPress={() => { lightFeedback(); onBack(); }} accessibilityLabel="Back" style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                ) : null}
-            </View>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>{title ?? ''}</Text>
-            <View style={styles.headerSide} />
-        </View>
-    );
-
-    const Progress = () => (
-        <View style={styles.progressRow} accessibilityLabel={`Step ${stepIndex} of ${LAST_SETUP_STEP}`}>
-            {STEPS.slice(1, LAST_SETUP_STEP + 1).map((_, index) => (
-                <View
-                    key={index}
-                    style={[styles.progressDot, {
-                        backgroundColor: index < stepIndex ? accent : (isLight ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.14)'),
-                        width: index === stepIndex - 1 ? 22 : 8,
-                    }]}
-                />
-            ))}
-        </View>
-    );
+    // Black or white, whichever reads better on the user's accent colour.
+    const onAccent = contrastRatio(accent, '#000000') >= contrastRatio(accent, '#FFFFFF') ? '#000000' : '#FFFFFF';
 
     const PrimaryButton = ({ label, onPress, disabled, busy }: { label: string; onPress: () => void; disabled?: boolean; busy?: boolean }) => (
         <TouchableOpacity
@@ -340,8 +269,8 @@ export default function OnboardingScreen() {
             onPress={() => { lightFeedback(); onPress(); }}
             style={[styles.primaryBtn, { backgroundColor: disabled ? (isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)') : accent }]}
         >
-            {busy ? <ActivityIndicator color="#000" /> : (
-                <Text style={[styles.primaryBtnText, { color: disabled ? colors.textTertiary : '#000' }]}>{label}</Text>
+            {busy ? <ActivityIndicator color={onAccent} /> : (
+                <Text style={[styles.primaryBtnText, { color: disabled ? colors.textTertiary : onAccent }]}>{label}</Text>
             )}
         </TouchableOpacity>
     );
@@ -379,539 +308,359 @@ export default function OnboardingScreen() {
         </TouchableOpacity>
     );
 
-    const ErrorNote = () => error ? (
-        <View style={[styles.note, { backgroundColor: colors.error + '18', borderColor: colors.error + '44' }]}>
-            <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
-            <Text style={[styles.noteText, { color: colors.error }]}>{error}</Text>
-        </View>
-    ) : null;
-
     /* ----------------------------------------------------------------- steps */
 
     const renderWelcome = () => (
-        // Just the mark and the line. Anywhere on the screen moves on, and it
-        // moves on by itself so nobody is left looking at a dead end.
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${APP_NAME}. ${APP_SLOGAN}. Tap to begin.`}
-            onPress={() => goTo(STEP.goal)}
-            style={styles.splash}
-        >
+        // The mark, the line, and the two-second way in. Signing in here brings
+        // a previous phone's data back, and a new account carries on with setup.
+        <View style={styles.splash}>
             <View style={styles.splashInner}>
-                <SpinningLogo size={124} glow />
-                <Text style={[styles.brandName, { color: colors.textPrimary }]}
+                {/* The mark, exactly as the launch screen leaves it: no white
+                    disc to swap in, so the app simply continues from the splash
+                    instead of restating itself differently. */}
+                <View
+                    accessible
+                    accessibilityRole="image"
+                    accessibilityLabel={`${APP_NAME} logo`}
+                    style={styles.logoMark}
                 >
-                    {APP_NAME}
-                </Text>
-                <Text style={[styles.brandSlogan, { color: colors.textSecondary }]}
-                >
-                    {APP_SLOGAN}
+                    <Image source={require('@/assets/images/habyss-mark.png')} style={styles.logoImage} resizeMode="contain" />
+                </View>
+                <Text style={[styles.brandSlogan, { color: colors.textPrimary }]}>
+                    {APP_SLOGAN_LINES[0]}{'\n'}{APP_SLOGAN_LINES[1]}
                 </Text>
             </View>
-            <TouchableOpacity
-                accessibilityRole="button"
-                onPress={() => { lightFeedback(); router.push('/(root)/account?restore=1'); }}
-                style={styles.returning}
-            >
-                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>I already have an account</Text>
-            </TouchableOpacity>
-        </Pressable>
+
+            <View style={styles.welcomeActions}>
+                <PrimaryButton label="Start Now" onPress={() => goTo(STEP.name)} />
+
+                <View style={styles.welcomeOr}>
+                    <View style={[styles.welcomeRule, { backgroundColor: colors.border }]} />
+                    <Text style={[styles.welcomeOrText, { color: colors.textTertiary }]}>or</Text>
+                    <View style={[styles.welcomeRule, { backgroundColor: colors.border }]} />
+                </View>
+
+                <SignInOptions onSignedIn={afterWelcomeSignIn} />
+
+                <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => { lightFeedback(); router.push('/(root)/account?restore=1'); }}
+                    style={styles.secondaryBtn}
+                >
+                    <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Sign in with email</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 
-    /* ------------------------------------------------------- the seven answers */
+    /* --------------------------------------------------- who you are, not what
+       you have failed at. Every one of these can be skipped. */
 
-    const renderGoal = () => (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <SectionTitle>What’s the one goal that would change how you see yourself if you hit it in the next 90 days?</SectionTitle>
-
-            <TextInput
-                value={draft.identityGoal ?? ''}
-                onChangeText={text => update({ identityGoal: text })}
-                autoFocus
-                multiline
-                placeholder="Run a 10K without stopping"
-                placeholderTextColor={colors.textTertiary}
-                accessibilityLabel="Your goal"
-                style={[styles.input, styles.habitInput, {
-                    color: colors.textPrimary, borderColor: colors.border,
-                    backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                }]}
-            />
-
-            <View style={{ height: 18 }} />
-            <PrimaryButton label="Continue" onPress={() => goTo(STEP.attempts)} disabled={!draft.identityGoal?.trim()} />
-        </ScrollView>
-    );
-
-    const renderAttempts = () => (
+    const renderSource = () => (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <SectionTitle>How many times have you tried to start this before?</SectionTitle>
+            <SectionTitle>How did you find us?</SectionTitle>
             <View style={{ gap: 8 }}>
-                {ATTEMPTS.map(option => (
+                {SOURCES.map(option => (
                     <Choice
                         key={option.id}
-                        selected={draft.attempts === option.id}
+                        selected={draft.source === option.id}
                         title={option.label}
-                        onPress={() => chooseAndAdvance({ attempts: option.id }, STEP.killers)}
+                        icon={option.icon}
+                        onPress={() => chooseAndAdvance({ source: option.id }, STEP.hope)}
                     />
                 ))}
             </View>
         </ScrollView>
     );
 
-    const renderKillers = () => {
-        const chosen = draft.killers ?? [];
-        const toggle = (id: KillerId) => {
-            cancelAdvance();
-            update({ killers: chosen.includes(id) ? chosen.filter(k => k !== id) : [...chosen, id] });
+    const renderHope = () => {
+        const chosen = draft.hope ?? [];
+        const toggle = (id: HopeId) => {
+            lightFeedback();
+            update({ hope: chosen.includes(id) ? chosen.filter(item => item !== id) : [...chosen, id] });
         };
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <SectionTitle>What usually kills your momentum?</SectionTitle>
+                <SectionTitle description="Pick as many as are true.">What do you hope to get from this?</SectionTitle>
                 <View style={{ gap: 8 }}>
-                    {KILLERS.map(killer => (
+                    {HOPES.map(option => (
                         <Choice
-                            key={killer.id}
-                            selected={chosen.includes(killer.id)}
-                            title={killer.label}
-                            onPress={() => toggle(killer.id)}
+                            key={option.id}
+                            selected={chosen.includes(option.id)}
+                            title={option.label}
+                            icon={option.icon}
+                            onPress={() => toggle(option.id)}
                         />
                     ))}
                 </View>
                 <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(STEP.stakes)} disabled={chosen.length === 0} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.sleep)} disabled={chosen.length === 0} />
             </ScrollView>
         );
     };
 
-    const renderStakes = () => (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <SectionTitle>If a year from now you’ve given up again, what did it cost you?</SectionTitle>
-
-            <TextInput
-                value={draft.stakesText ?? ''}
-                onChangeText={text => update({ stakesText: text })}
-                autoFocus
-                multiline
-                placeholder="Another year of feeling the same way"
-                placeholderTextColor={colors.textTertiary}
-                accessibilityLabel="What giving up would cost"
-                style={[styles.input, styles.habitInput, {
-                    color: colors.textPrimary, borderColor: colors.border,
-                    backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                }]}
-            />
-            <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                Your coach will quote this back when it matters.
-            </Text>
-
-            <View style={{ height: 14 }} />
-            <PrimaryButton label="Continue" onPress={() => goTo(STEP.tone)} disabled={!draft.stakesText?.trim()} />
-            <TouchableOpacity
-                accessibilityRole="button"
-                onPress={() => { lightFeedback(); update({ stakesText: '', step: STEP.tone }); }}
-                style={styles.secondaryBtn}
-            >
-                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Skip</Text>
-            </TouchableOpacity>
-        </ScrollView>
-    );
-
-    const renderTone = () => (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <SectionTitle>How do you want to be coached?</SectionTitle>
-            <View style={{ gap: 8 }}>
-                {TONES.map(option => (
-                    <Choice
-                        key={option.id}
-                        selected={draft.tone === option.id}
-                        title={option.label}
-                        subtitle={option.blurb}
-                        onPress={() => chooseAndAdvance({ tone: option.id }, STEP.time)}
-                    />
-                ))}
-            </View>
-        </ScrollView>
-    );
-
-    const renderTime = () => (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <SectionTitle>Honestly, how much time can you give this every day?</SectionTitle>
-            <View style={{ gap: 8 }}>
-                {TIME_BUDGETS.map(option => (
-                    <Choice
-                        key={option.id}
-                        selected={draft.timeBudget === option.id}
-                        title={option.label}
-                        onPress={() => chooseAndAdvance({ timeBudget: option.id }, STEP.measurable)}
-                    />
-                ))}
-            </View>
-        </ScrollView>
-    );
-
-    const renderMeasurable = () => {
-        const text = draft.measurableText ?? draft.identityGoal ?? '';
-        const parsed = text.trim() ? parseGoalText(text, { today: new Date(), habits: [] }) : null;
-        const spec = parsed?.goal;
-
-        // A goal like "lose 5 kg" is measurable, it just needs a starting point,
-        // so the step asks for that here instead of refusing to continue.
-        const needsBaseline = parsed?.missing_fields.includes('baseline') ?? false;
-        const baselineValue = Number(draft.baselineText);
-        const baselineReady = !needsBaseline
-            || ((draft.baselineText ?? '').trim() !== '' && Number.isFinite(baselineValue));
-        const otherMissing = (parsed?.missing_fields ?? []).filter(field => field !== 'baseline');
-        const ready = !!parsed && otherMissing.length === 0 && baselineReady;
+    const renderSleep = () => {
+        const window = { wake: draft.wake, sleep: draft.sleep, ...(draft.wake && draft.sleep ? {} : dayWindowFor(draft.chronotype)) };
+        const wake = draft.wake ?? window.wake!;
+        const sleep = draft.sleep ?? window.sleep!;
+        const asDate = (time: string) => {
+            const [hour, minute] = time.split(':').map(Number);
+            const date = new Date();
+            date.setHours(hour, minute, 0, 0);
+            return date;
+        };
+        const asTime = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
         return (
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <SectionTitle>How will you know you’ve made it?</SectionTitle>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SectionTitle>When are you at your best?</SectionTitle>
+                <View style={{ gap: 8 }}>
+                    {CHRONOTYPES.map(option => (
+                        <Choice
+                            key={option.id}
+                            selected={draft.chronotype === option.id}
+                            title={option.label}
+                            subtitle={option.detail}
+                            icon={option.icon}
+                            // Choosing a kind of person sets the hours it implies,
+                            // which the user can then correct below.
+                            onPress={() => update({ chronotype: option.id, ...dayWindowFor(option.id) })}
+                        />
+                    ))}
+                </View>
 
+                <View style={{ height: 22 }} />
+                <SectionTitle>And your hours?</SectionTitle>
+                <View style={{ gap: 10 }}>
+                    {([['I wake up', 'sunny-outline', wake, 'wake'], ['I go to sleep', 'moon-outline', sleep, 'sleep']] as const).map(([label, icon, value, key]) => (
+                        <View key={key} style={[styles.dayRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
+                            <Ionicons name={icon as any} size={18} color={accent} />
+                            <Text style={[styles.choiceTitle, { color: colors.textPrimary, flex: 1 }]}>{label}</Text>
+                            <DateTimePicker
+                                value={asDate(value)}
+                                mode="time"
+                                display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                                themeVariant={isLight ? 'light' : 'dark'}
+                                accentColor={accent}
+                                onChange={(_event, selected) => { if (selected) update({ [key]: asTime(selected) }); }}
+                            />
+                        </View>
+                    ))}
+                </View>
+                <Text style={[styles.hint, { color: colors.textTertiary, marginTop: 10 }]}>
+                    {hoursAwake({ wake, sleep })} hours awake. Echo keeps its voice inside them.
+                </Text>
+
+                <View style={{ height: 22 }} />
+                <SectionTitle>How much sleep do you actually get?</SectionTitle>
+                <View style={{ gap: 8 }}>
+                    {SLEEP_AMOUNTS.map(option => (
+                        <Choice
+                            key={option.id}
+                            selected={draft.sleepAmount === option.id}
+                            title={option.label}
+                            onPress={() => update({ sleepAmount: option.id })}
+                        />
+                    ))}
+                </View>
+
+                <View style={{ height: 18 }} />
+                <PrimaryButton
+                    label="Continue"
+                    onPress={() => {
+                        saveDayWindow({ wake, sleep }).catch(() => undefined);
+                        update({ wake, sleep });
+                        goTo(STEP.timing);
+                    }}
+                />
+            </ScrollView>
+        );
+    };
+
+    const renderTiming = () => (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <SectionTitle description="However you answer, Echo adapts to it.">When do things actually get done?</SectionTitle>
+            <View style={{ gap: 8 }}>
+                {TIMINGS.map(option => (
+                    <Choice
+                        key={option.id}
+                        selected={draft.timing === option.id}
+                        title={option.label}
+                        subtitle={option.detail}
+                        icon={option.icon}
+                        onPress={() => chooseAndAdvance({ timing: option.id }, STEP.blockers)}
+                    />
+                ))}
+            </View>
+        </ScrollView>
+    );
+
+    const renderBlockers = () => {
+        const chosen = draft.blockers ?? [];
+        const toggle = (id: BlockerId) => {
+            lightFeedback();
+            update({ blockers: chosen.includes(id) ? chosen.filter(item => item !== id) : [...chosen, id] });
+        };
+        return (
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SectionTitle description="Be honest. Nothing here is judged, and it is only used to help.">
+                    What stops you?
+                </SectionTitle>
+                <View style={{ gap: 8 }}>
+                    {BLOCKERS.map(option => (
+                        <Choice
+                            key={option.id}
+                            selected={chosen.includes(option.id)}
+                            title={option.label}
+                            icon={option.icon}
+                            onPress={() => toggle(option.id)}
+                        />
+                    ))}
+                </View>
+                <View style={{ height: 18 }} />
+                <PrimaryButton label="Continue" onPress={() => goTo(STEP.meetEcho)} disabled={chosen.length === 0} />
+            </ScrollView>
+        );
+    };
+
+    /**
+     * What the name means, and who Echo is.
+     *
+     * The one page in the flow that asks nothing. It is here because a voice
+     * that turns up in your notifications for the next year should be
+     * introduced properly, and because the name of the app is a promise worth
+     * explaining: the abyss is the long dark stretch between who you are and
+     * who you said you would be, and an echo is the only thing that comes back
+     * out of one.
+     */
+    const renderMeetEcho = () => (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.meetMark}>
+                <View style={[styles.meetGlow, { backgroundColor: accent + '1a', shadowColor: accent }]}>
+                    <Ionicons name="sparkles" size={26} color={accent} />
+                </View>
+            </View>
+
+            <Text style={[styles.meetTitle, { color: colors.textPrimary }]}>
+                Every habit has an abyss.
+            </Text>
+
+            <Text style={[styles.meetBody, { color: colors.textSecondary }]}>
+                It is the stretch between the person you are and the person you said you would be. The first week is
+                loud. After that it goes quiet, and the quiet is where most of it is lost.
+            </Text>
+            <Text style={[styles.meetBody, { color: colors.textSecondary }]}>
+                {ECHO_NAME} is what comes back.
+            </Text>
+            <Text style={[styles.meetBody, { color: colors.textSecondary }]}>
+                A voice in the morning when starting would be easy to skip. A word in the evening when one small thing
+                is still undone. Something on the days nobody is watching and nobody claps — which, in the end, is most
+                of them.
+            </Text>
+            <Text style={[styles.meetBody, styles.meetLast, { color: colors.textPrimary }]}>
+                It knows your name{draft.name?.trim() ? `, ${draft.name.trim()}` : ''}. Now choose how it should sound.
+            </Text>
+
+            <View style={{ height: 22 }} />
+            <PrimaryButton label={`Meet ${ECHO_NAME}`} onPress={() => goTo(STEP.echo)} />
+        </ScrollView>
+    );
+
+    const renderName = () => {
+        const name = draft.name ?? '';
+        const next = () => {
+            if (!name.trim()) return;
+            saveName(name).catch(() => undefined);
+            goTo(STEP.source);
+        };
+        return (
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <SectionTitle>What’s your name?</SectionTitle>
                 <TextInput
-                    value={text}
-                    onChangeText={value => update({ measurableText: value })}
-                    multiline
-                    placeholder="Run 50 km this month"
+                    value={name}
+                    onChangeText={text => update({ name: text })}
+                    autoFocus
+                    autoCapitalize="words"
+                    autoComplete="given-name"
+                    textContentType="givenName"
+                    returnKeyType="next"
+                    maxLength={40}
+                    onSubmitEditing={next}
+                    placeholder="Your first name"
                     placeholderTextColor={colors.textTertiary}
-                    accessibilityLabel="Your measurable goal"
-                    style={[styles.input, styles.habitInput, {
-                        color: colors.textPrimary, borderColor: ready ? accent + '55' : colors.border,
+                    accessibilityLabel="Your name"
+                    style={[styles.input, {
+                        color: colors.textPrimary, borderColor: colors.border,
                         backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
                     }]}
                 />
-
-                {spec ? (
-                    <VoidCard style={styles.parsedCard}>
-                        <Text style={[styles.parsedName, { color: colors.textPrimary }]}>{spec.title}</Text>
-                        <Text style={[styles.parsedLine, { color: ready ? accent : colors.textTertiary }]}>
-                            {spec.delta_from_baseline !== null
-                                ? `${spec.delta_from_baseline} ${spec.metric_unit} to lose`
-                                : ready && spec.target !== null
-                                ? `${spec.direction === 'at_most' ? 'At most ' : ''}${spec.metric_unit === 'percent'
-                                    ? `${Math.round(spec.target * 100)}% of days`
-                                    : `${spec.target} ${spec.metric_unit}`}`
-                                    : 'Not measurable yet'}
-                        </Text>
-                        {parsed?.clarifying_question ? (
-                            <Text style={[styles.hint, { color: colors.textTertiary }]}>{parsed.clarifying_question}</Text>
-                        ) : null}
-                        {needsBaseline ? (
-                            <TextInput
-                                value={draft.baselineText ?? ''}
-                                onChangeText={value => update({ baselineText: value })}
-                                keyboardType="decimal-pad"
-                                placeholder={`Current ${spec?.metric_unit ?? 'value'}`}
-                                placeholderTextColor={colors.textTertiary}
-                                accessibilityLabel="Current value"
-                                style={[styles.input, {
-                                    marginTop: 4,
-                                    color: colors.textPrimary, borderColor: colors.border,
-                                    backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
-                                }]}
-                            />
-                        ) : null}
-                    </VoidCard>
-                ) : null}
-
                 <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(STEP.roadmap)} disabled={!ready} />
+                <PrimaryButton label="Continue" onPress={next} disabled={!name.trim()} />
             </ScrollView>
         );
     };
 
-    /* -------------------------------------------------------------- the roadmap */
-
-    const renderRoadmap = () => {
-        const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
-        const parsed = goalText ? parseGoalText(goalText, { today: new Date(), habits: [] }) : null;
-        const spec = parsed?.goal;
-        const minutes = dailyTargetMinutes(draft.timeBudget, draft.killers);
-
-        const steps = draft.roadmapSteps ?? [];
-        const habitLabel = `${draft.targetValue ?? minutes} ${draft.targetUnit ?? 'min'}`;
-        // Minutes move in fives; anything counted moves by about a tenth, so the
-        // buttons are useful whether the target is 3 km or 300 pages.
-        const current = draft.targetValue ?? minutes;
-        const stepSize = (draft.targetUnit ?? 'min') === 'min'
-            ? 5
-            : Math.max(current >= 10 ? 1 : 0.5, tidy(current * 0.1));
-
-        const removeStep = (id: string) => {
-            lightFeedback();
-            update({ roadmapSteps: steps.filter(step => step.id !== id) });
-        };
-
-        const addStep = () => {
-            lightFeedback();
-            // A new step lands halfway to the deadline, which is the most likely
-            // place to want one, and is editable afterwards.
-            const end = spec?.window?.kind === 'fixed' ? new Date(`${spec.window.end}T12:00:00`) : new Date();
-            const half = new Date((Date.now() + end.getTime()) / 2);
-            update({
-                roadmapSteps: [...steps, {
-                    id: `step_${Date.now()}`,
-                    title: '',
-                    dueDate: localDateKey(half),
-                }],
-            });
-        };
-
-        const editStep = (id: string, title: string) => {
-            update({ roadmapSteps: steps.map(step => (step.id === id ? { ...step, title } : step)) });
-        };
-
-        return (
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <SectionTitle>What gets you there?</SectionTitle>
-
-                <VoidCard style={styles.introCard}>
-                    <View style={styles.coachHead}>
-                        <Ionicons name="flag-outline" size={18} color={accent} />
-                        <Text style={[styles.choiceTitle, { color: colors.textPrimary, flex: 1 }]} numberOfLines={2}>
-                            {spec?.title ?? goalText}
-                        </Text>
-                    </View>
-                </VoidCard>
-
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 18 }]}>EVERY DAY</Text>
-                <View style={[styles.roadRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
-                    <Ionicons name="repeat" size={18} color="#10B981" />
-                    <TextInput
-                        value={draft.habitName ?? ''}
-                        onChangeText={text => update({ habitName: text })}
-                        placeholder="Your daily habit"
-                        placeholderTextColor={colors.textTertiary}
-                        accessibilityLabel="Daily habit"
-                        style={[styles.roadText, { color: colors.textPrimary, paddingVertical: 0 }]}
-                    />
-                    {/* The amount is adjusted here, in place. Sending the user back
-                        to the time question bounced them two steps and never
-                        applied the change, because this was already seeded. */}
-                    <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityLabel="Less each day"
-                        onPress={() => { lightFeedback(); update({ targetValue: Math.max(1, tidy((draft.targetValue ?? minutes) - stepSize)) }); }}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
-                    >
-                        <Ionicons name="remove-circle-outline" size={22} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.roadMeta, { color: colors.textPrimary, minWidth: 54, textAlign: 'center' }]}>{habitLabel}</Text>
-                    <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityLabel="More each day"
-                        onPress={() => { lightFeedback(); update({ targetValue: tidy((draft.targetValue ?? minutes) + stepSize) }); }}
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
-                    >
-                        <Ionicons name="add-circle-outline" size={22} color={accent} />
-                    </TouchableOpacity>
-                </View>
-
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 18 }]}>CHECKPOINTS</Text>
-                <View style={{ gap: 8 }}>
-                    {steps.map(step => (
-                        <View
-                            key={step.id}
-                            style={[styles.roadRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}
-                        >
-                            <Ionicons name="square-outline" size={18} color="#F59E0B" />
-                            <TextInput
-                                value={step.title}
-                                onChangeText={text => editStep(step.id, text)}
-                                placeholder="What has to be true by then"
-                                placeholderTextColor={colors.textTertiary}
-                                accessibilityLabel="Checkpoint"
-                                style={[styles.roadText, { color: colors.textPrimary, paddingVertical: 0 }]}
-                            />
-                            <Text style={[styles.roadMeta, { color: colors.textTertiary }]}>
-                                {new Date(`${step.dueDate}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                            </Text>
-                            <TouchableOpacity
-                                accessibilityRole="button"
-                                accessibilityLabel={`Remove ${step.title || 'checkpoint'}`}
-                                onPress={() => removeStep(step.id)}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                                <Ionicons name="close" size={16} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-
-                    <TouchableOpacity
-                        accessibilityRole="button"
-                        onPress={addStep}
-                        style={[styles.roadRow, { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, backgroundColor: 'transparent' }]}
-                    >
-                        <Ionicons name="add" size={18} color={accent} />
-                        <Text style={[styles.roadText, { color: accent }]}>Add a checkpoint</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                    Checkpoints become tasks under this goal. The habit is what you do about it daily.
-                </Text>
-
-                <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={() => goTo(STEP.payoff)} disabled={!draft.habitName?.trim()} />
-            </ScrollView>
-        );
-    };
-
-    /* --------------------------------------------------------------- the payoff */
-
-    const renderPayoff = () => {
-        const plan = planFor(draft.killers);
-        const minutes = dailyTargetMinutes(draft.timeBudget, draft.killers);
-        const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
-        const parsed = goalText ? parseGoalText(goalText, { today: new Date(), habits: [] }) : null;
-        // Only checkpoints the user actually named; a blank row is not a step.
-        const namedSteps = (draft.roadmapSteps ?? []).filter(step => step.title.trim());
+    const renderEcho = () => {
+        // What they told us, turned into a starting voice and a sentence
+        // saying why. The suggestion is only a default; every voice is here.
+        const suggestion = suggestEcho(draft);
+        const chosen = draft.echo ?? suggestion.id;
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <Text style={[styles.payoffHead, { color: colors.textPrimary }]}>
-                    {payoffHeadline(draft.attempts, draft.killers)}
-                </Text>
-                <Text style={[styles.payoffSub, { color: colors.textSecondary }]}>So here’s how we handle it.</Text>
+                <Text style={[styles.echoTitle, { color: colors.textPrimary }]}>How should {ECHO_NAME} sound?</Text>
+                <Text style={[styles.echoIntro, { color: colors.textSecondary }]}>{suggestion.reason}</Text>
 
-                <View style={{ gap: 8, marginTop: 16 }}>
-                    {plan.map(line => (
-                        <View key={line} style={[styles.planRowItem, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)' }]}>
-                            <Ionicons name="checkmark-circle-outline" size={18} color={accent} />
-                            <Text style={[styles.planText, { color: colors.textPrimary }]}>{line}</Text>
-                        </View>
-                    ))}
-                </View>
-
-                <View style={{ marginTop: 18 }}>
-                    <Row2 label="Goal" value={parsed?.goal.title ?? goalText} />
-                    <Row2
-                        label="Every day"
-                        value={draft.habitName?.trim()
-                            ? `${draft.habitName.trim()} · ${draft.targetValue ?? minutes} ${draft.targetUnit ?? 'min'}`
-                            : `${minutes} min`}
-                    />
-                    <Row2 label="Coach" value={TONES.find(t => t.id === draft.tone)?.label ?? 'Straight up'} />
-                </View>
-
-                {namedSteps.length > 0 ? (
-                    <View style={{ marginTop: 18, gap: 8 }}>
-                        <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>THE PATH</Text>
-                        {namedSteps.map(step => (
-                            <View key={step.id} style={[styles.roadRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
-                                <Ionicons name="square-outline" size={16} color="#F59E0B" />
-                                <Text style={[styles.roadText, { color: colors.textPrimary }]} numberOfLines={1}>{step.title}</Text>
-                                <Text style={[styles.roadMeta, { color: colors.textTertiary }]}>
-                                    {new Date(`${step.dueDate}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                                </Text>
-                            </View>
-                        ))}
-                    </View>
-                ) : null}
-
-                <ErrorNote />
-
-                <View style={{ height: 18 }} />
-                <PrimaryButton label="Start my plan" onPress={startPlan} busy={saving} disabled={!goalText} />
-            </ScrollView>
-        );
-    };
-
-    const Row2 = ({ label, value }: { label: string; value: string }) => (
-        <View style={[styles.planRow, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.planLabel, { color: colors.textTertiary }]}>{label.toUpperCase()}</Text>
-            <Text style={[styles.planValue, { color: colors.textPrimary, flex: 1, textAlign: 'right' }]} numberOfLines={2}>{value}</Text>
-        </View>
-    );
-
-
-    const renderReminder = () => {
-        // If they wrote "at 6", that is already the time they meant.
-        const time = draft.reminderTime ?? draft.startTime ?? '08:00';
-        const [hour, minute] = time.split(':').map(Number);
-        const pickerValue = new Date();
-        pickerValue.setHours(hour || 8, minute || 0, 0, 0);
-        const recommended = shouldOfferReminder(draft.killers);
-
-        return (
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <View style={[styles.savedBanner, { borderColor: accent + '44', backgroundColor: accent + '10' }]}>
-                    <Ionicons name="checkmark-circle" size={18} color={accent} />
-                    <Text style={[styles.nextText, { color: colors.textPrimary }]}>
-                        {draft.habitName?.trim()} is saved.
-                    </Text>
-                </View>
-
-                <View style={{ height: 18 }} />
-                <SectionTitle>{recommended ? 'A reminder might help' : 'Want a reminder?'}</SectionTitle>
-
-                <View style={{ alignItems: 'center' }}>
-                    <DateTimePicker
-                        value={pickerValue}
-                        mode="time"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        themeVariant={isLight ? 'light' : 'dark'}
-                        onChange={(_event, selected) => {
-                            if (!selected) return;
-                            const next = `${String(selected.getHours()).padStart(2, '0')}:${String(selected.getMinutes()).padStart(2, '0')}`;
-                            setDraftState(current => current ? { ...current, reminderTime: next } : current);
-                        }}
-                    />
-                </View>
-
-                {reminderNote ? (
-                    <View style={[styles.note, { backgroundColor: (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)'), borderColor: colors.border }]}>
-                        <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
-                        <Text style={[styles.noteText, { color: colors.textSecondary }]}>{reminderNote}</Text>
-                    </View>
-                ) : null}
-
-                <View style={{ height: 18 }} />
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>OR WHEN YOU ARRIVE SOMEWHERE</Text>
-                <View style={styles.chipRow}>
-                    {(['Home', 'Work', 'Gym'] as const).map(label => (
-                        <TouchableOpacity
-                            key={label}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Remind me when I arrive at ${label}`}
-                            disabled={locating}
-                            onPress={() => addArrivalReminder(label)}
-                            style={[styles.chip, {
-                                backgroundColor: draft.arrivalPlace === label ? accent + '20' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                borderColor: draft.arrivalPlace === label ? accent : 'transparent',
-                            }]}
-                        >
-                            {locating ? <ActivityIndicator size="small" color={accent} /> : (
-                                <Text style={{ color: draft.arrivalPlace === label ? accent : colors.textSecondary, fontFamily: 'Lexend_500Medium', fontSize: 13 }}>
-                                    {label}
-                                </Text>
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </View>
-                <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                    Uses where you are right now as that place.
-                </Text>
-
-                <View style={{ height: 14 }} />
                 <View style={{ gap: 10 }}>
-                    <PrimaryButton label={`Remind me at ${time}`} onPress={() => enableReminder(time)} />
-                    <TouchableOpacity
-                        accessibilityRole="button"
-                        onPress={() => {
-                            lightFeedback();
-                            // Inviting someone answers "nobody holds me accountable" and
-                            // nothing else; showing it to everyone made that answer decorative.
-                            if (shouldSuggestSharing(draft.killers)) goTo(STEP.friends);
-                            else finish();
-                        }}
-                        style={styles.secondaryBtn}
-                    >
-                        <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>
-                            {reminderNote ? 'Done' : 'Not now'}
-                        </Text>
-                    </TouchableOpacity>
+                    {PERSONALITY_MODES.map(mode => {
+                        const selected = chosen === mode.id;
+                        const suggested = mode.id === suggestion.id;
+                        return (
+                            <TouchableOpacity
+                                key={mode.id}
+                                accessibilityRole="radio"
+                                accessibilityState={{ selected }}
+                                accessibilityLabel={`${mode.name}${suggested ? ', suggested for you' : ''}. ${coachHello(mode.id, draft.name)}`}
+                                activeOpacity={0.85}
+                                onPress={() => { lightFeedback(); update({ echo: mode.id }); }}
+                                style={[styles.echoCard, {
+                                    backgroundColor: selected ? accent + '14' : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
+                                    borderColor: selected ? accent : 'transparent',
+                                }]}
+                            >
+                                <View style={styles.echoHead}>
+                                    <Ionicons name={mode.icon as any} size={18} color={selected ? accent : colors.textSecondary} />
+                                    <Text style={[styles.choiceTitle, { color: colors.textPrimary, flex: 1 }]}>{mode.name}</Text>
+                                    {suggested ? (
+                                        <View style={[styles.suggestedTag, { backgroundColor: accent + '1f', borderColor: accent + '55' }]}>
+                                            <Text style={[styles.suggestedText, { color: accent }]}>FOR YOU</Text>
+                                        </View>
+                                    ) : null}
+                                    <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={selected ? accent : colors.textTertiary} />
+                                </View>
+                                {/* What Echo would actually say, so the choice is felt, not described. */}
+                                <Text style={[styles.echoQuote, { color: colors.textSecondary }]}>“{coachHello(mode.id, draft.name)}”</Text>
+                                {mode.warning ? (
+                                    <Text style={[styles.echoWarning, { color: colors.textTertiary }]}>Harsh language.</Text>
+                                ) : null}
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
+
+                <Text style={[styles.hint, { color: colors.textTertiary, textAlign: 'center', marginTop: 14 }]}>
+                    You can change this any time in Settings.
+                </Text>
+
+                <View style={{ height: 16 }} />
+                <PrimaryButton
+                    label="This one"
+                    onPress={() => {
+                        setAIPersonality(chosen);
+                        update({ echo: chosen });
+                        afterEcho();
+                    }}
+                />
             </ScrollView>
         );
     };
@@ -938,48 +687,79 @@ export default function OnboardingScreen() {
         </ScrollView>
     );
 
+
+    const renderAccount = () => (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <SectionTitle>Keep your plan safe</SectionTitle>
+            <VoidCard style={styles.introCard}>
+                <Ionicons name="cloud-upload-outline" size={22} color={accent} />
+                <Text style={[styles.introText, { color: colors.textPrimary }]}>
+                    Back it up, and a new phone brings everything back. It is also how friends find you.
+                </Text>
+            </VoidCard>
+
+            <View style={{ height: 18 }} />
+            <SignInOptions
+                onSignedIn={() => afterAccount()}
+                onEmail={() => router.push('/(root)/account')}
+            />
+
+            <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); afterAccount(); }} style={styles.secondaryBtn}>
+                <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Not now</Text>
+            </TouchableOpacity>
+        </ScrollView>
+    );
+
     const screens: Record<number, () => React.ReactNode> = {
         [STEP.welcome]: renderWelcome,
-        [STEP.goal]: renderGoal,
-        [STEP.attempts]: renderAttempts,
-        [STEP.killers]: renderKillers,
-        [STEP.stakes]: renderStakes,
-        [STEP.tone]: renderTone,
-        [STEP.time]: renderTime,
-        [STEP.measurable]: renderMeasurable,
-        [STEP.roadmap]: renderRoadmap,
-        [STEP.payoff]: renderPayoff,
-        [STEP.reminder]: renderReminder,
+        [STEP.name]: renderName,
+        [STEP.source]: renderSource,
+        [STEP.hope]: renderHope,
+        [STEP.sleep]: renderSleep,
+        [STEP.timing]: renderTiming,
+        [STEP.blockers]: renderBlockers,
+        [STEP.meetEcho]: renderMeetEcho,
+        [STEP.echo]: renderEcho,
         [STEP.friends]: renderFriends,
+        [STEP.account]: renderAccount,
+    };
+
+    /**
+     * Any question can be passed over. Skipping never costs anything: the app
+     * works without a single answer, and every one of them can be given later
+     * in Settings.
+     */
+    const skipFor = (step: number): (() => void) | undefined => {
+        if (step === STEP.welcome || step > STEP.echo) return undefined;
+        if (step === STEP.echo) return () => afterEcho();
+        return () => goTo(step + 1);
     };
 
     const backFor = (step: number): (() => void) | undefined => {
-        // Nothing behind welcome, and the habit is already saved from the reminder
-        // step onwards, so going back there would offer to create it twice.
-        if (step === STEP.welcome || step === STEP.reminder || step === STEP.friends) return undefined;
+        // Nothing behind welcome; backup and friends come after setup is done.
+        if (step === STEP.welcome || step === STEP.friends || step === STEP.account) return undefined;
         return () => goTo(step - 1);
     };
 
     const titles: Record<number, string> = {
-        [STEP.goal]: 'Your goal',
-        [STEP.attempts]: 'History',
-        [STEP.killers]: 'What gets in the way',
-        [STEP.stakes]: 'The cost',
-        [STEP.tone]: 'Your coach',
-        [STEP.time]: 'Your time',
-        [STEP.measurable]: 'Make it measurable',
-        [STEP.roadmap]: 'Your roadmap',
-        [STEP.payoff]: 'Your plan',
-        [STEP.reminder]: 'Reminder',
+        [STEP.name]: 'You',
+        [STEP.source]: 'Hello',
+        [STEP.hope]: 'What you want',
+        [STEP.sleep]: 'Your day',
+        [STEP.timing]: 'How you work',
+        [STEP.blockers]: 'What gets in the way',
+        [STEP.meetEcho]: '',
+        [STEP.echo]: '',
         [STEP.friends]: 'Friends',
+        [STEP.account]: 'Backup',
     };
 
     return (
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                    <Header onBack={backFor(draft.step)} title={titles[draft.step]} />
-                    {draft.step > 0 && draft.step <= LAST_SETUP_STEP ? <Progress /> : null}
+                    <Header onBack={backFor(draft.step)} title={titles[draft.step]} onSkip={skipFor(draft.step)} />
+                    {draft.step > 0 && draft.step <= LAST_SETUP_STEP ? <Progress index={stepIndex} total={LAST_SETUP_STEP} /> : null}
                     <View key={draft.step} style={{ flex: 1 }}>
                         {(screens[draft.step] ?? renderWelcome)()}
                     </View>
@@ -990,73 +770,106 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
+    providerBtn: { height: 50, alignSelf: 'stretch' },
+    providerOutline: { borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    providerText: { fontSize: 16, fontFamily: FontFamily.medium },
+    echoTitle: { fontSize: 28, fontFamily: FontFamily.bold, marginTop: 4 },
+    suggestedTag: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
+    suggestedText: { fontSize: 9, letterSpacing: 1, fontFamily: FontFamily.semibold },
+    meetMark: { alignItems: 'center', marginTop: 6, marginBottom: 22 },
+    meetGlow: {
+        width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center',
+        shadowOpacity: 0.5, shadowRadius: 22, shadowOffset: { width: 0, height: 0 },
+    },
+    meetTitle: { fontSize: 27, lineHeight: 34, fontFamily: FontFamily.bold, letterSpacing: -0.6, marginBottom: 16 },
+    meetBody: { fontSize: 15, lineHeight: 24, fontFamily: FontFamily.regular, marginBottom: 14 },
+    meetLast: { fontFamily: FontFamily.medium },
+    echoIntro: { fontSize: 15, lineHeight: 22, fontFamily: FontFamily.regular, marginTop: 6, marginBottom: 18 },
+    echoCard: { padding: 16, borderRadius: 16, borderWidth: 1, gap: 8 },
+    echoHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    echoQuote: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, fontStyle: 'italic' },
+    echoWarning: { fontSize: 11, fontFamily: FontFamily.medium },
+    dayRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, minHeight: 58 },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8 },
-    headerSide: { width: 44, height: 44, justifyContent: 'center' },
+    headerSide: { width: 56, height: 44, justifyContent: 'center' },
+    addHalf: { flex: 1, justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', backgroundColor: 'transparent' },
+    skipBtn: { paddingHorizontal: 8, paddingVertical: 10 },
+    skipText: { fontSize: 14, fontFamily: FontFamily.medium },
     backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', fontFamily: 'Lexend' },
+    headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontFamily: FontFamily.bold },
     progressRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingBottom: 10 },
     progressDot: { height: 8, borderRadius: 4 },
     content: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 6 },
     weekStrip: { flexDirection: 'row', gap: 6, justifyContent: 'space-between', marginTop: 6 },
     weekDay: { flex: 1, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    splash: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-    returning: { position: 'absolute', bottom: 48, paddingVertical: 12, paddingHorizontal: 24 },
-    splashInner: { alignItems: 'center' },
+    splash: { flex: 1, paddingHorizontal: 24 },
+    splashInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    // Nothing behind the mark. A tinted disc fought the logo's own colour, and
+    // a white one was the loudest thing on a near-black screen. The source art
+    // is 60% empty canvas, so this uses the trimmed copy and the number here is
+    // the size the mark actually is.
+    logoMark: { width: 124, height: 124, alignItems: 'center', justifyContent: 'center' },
+    logoImage: { width: 124, height: 124 },
+    welcomeActions: { paddingBottom: 24, gap: 10 },
+    welcomeOr: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+    welcomeRule: { flex: 1, height: StyleSheet.hairlineWidth },
+    welcomeOrText: { fontSize: 12, fontFamily: FontFamily.regular },
+    welcomeError: { fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular, textAlign: 'center' },
     brand: { alignItems: 'center', marginTop: 18, gap: 2 },
-    brandName: { marginTop: 18, fontSize: 32, letterSpacing: 8, fontFamily: 'SpaceGrotesk_700Bold' },
-    brandSlogan: { marginTop: 10, fontSize: 15, lineHeight: 22, fontFamily: 'Lexend_400Regular', textAlign: 'center' },
-    heroSub: { fontSize: 13, lineHeight: 19, fontFamily: 'Lexend_400Regular', marginTop: 22, textAlign: 'center' },
+    brandName: { marginTop: 18, fontSize: 32, letterSpacing: 8, fontFamily: FontFamily.display },
+    brandSlogan: { marginTop: 32, fontSize: 20, lineHeight: 30, fontFamily: FontFamily.medium, textAlign: 'center', letterSpacing: 0.2 },
+    heroSub: { fontSize: 13, lineHeight: 19, fontFamily: FontFamily.regular, marginTop: 22, textAlign: 'center' },
     previewBadgeRow: { flexDirection: 'row', marginTop: 26, marginBottom: 8 },
     previewBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
-    previewBadgeText: { fontSize: 9, letterSpacing: 1.2, fontFamily: 'Lexend_600SemiBold' },
+    previewBadgeText: { fontSize: 9, letterSpacing: 1.2, fontFamily: FontFamily.semibold },
     previewCard: { padding: 16 },
     previewHabitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     previewCoach: { flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
-    previewCoachText: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: 'Lexend_400Regular' },
-    sectionTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, fontFamily: 'Lexend', marginBottom: 4 },
-    sectionDesc: { fontSize: 13, lineHeight: 18, fontFamily: 'Lexend_400Regular' },
+    previewCoachText: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: FontFamily.regular },
+    sectionTitle: { fontSize: 11,  letterSpacing: 1.5, fontFamily: FontFamily.bold, marginBottom: 4 },
+    sectionDesc: { fontSize: 13, lineHeight: 18, fontFamily: FontFamily.regular },
     choice: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1 },
     choiceIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-    choiceTitle: { fontSize: 15, fontFamily: 'Lexend_600SemiBold' },
-    choiceSub: { fontSize: 12, lineHeight: 17, fontFamily: 'Lexend_400Regular', marginTop: 2 },
-    fieldLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: 'Lexend_500Medium', marginBottom: 8 },
-    input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: 'Lexend_400Regular' },
+    choiceTitle: { fontSize: 15, fontFamily: FontFamily.semibold },
+    choiceSub: { fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular, marginTop: 2 },
+    fieldLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: FontFamily.medium, marginBottom: 8 },
+    input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: FontFamily.regular },
     habitInput: { minHeight: 88, paddingTop: 14, fontSize: 17, lineHeight: 24, textAlignVertical: 'top' },
     parsedCard: { padding: 16, gap: 6 },
     roadRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 14 },
-    roadText: { flex: 1, fontSize: 14, fontFamily: 'Lexend_500Medium' },
-    roadMeta: { fontSize: 12, fontFamily: 'Lexend_400Regular' },
-    payoffHead: { fontSize: 24, lineHeight: 32, fontFamily: 'Lexend_600SemiBold', marginTop: 4 },
-    payoffSub: { fontSize: 14, lineHeight: 20, fontFamily: 'Lexend_400Regular', marginTop: 8 },
+    roadText: { flex: 1, fontSize: 14, fontFamily: FontFamily.medium },
+    roadMeta: { fontSize: 12, fontFamily: FontFamily.regular },
+    payoffHead: { fontSize: 24, lineHeight: 32, fontFamily: FontFamily.semibold, marginTop: 4 },
+    payoffSub: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, marginTop: 8 },
     planRowItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 13, borderRadius: 14 },
-    planText: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: 'Lexend_400Regular' },
-    parsedName: { fontSize: 18, fontFamily: 'Lexend_600SemiBold' },
-    parsedLine: { fontSize: 14, fontFamily: 'Lexend_500Medium' },
+    planText: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: FontFamily.regular },
+    parsedName: { fontSize: 18, fontFamily: FontFamily.semibold },
+    parsedLine: { fontSize: 14, fontFamily: FontFamily.medium },
     targetRow: { flexDirection: 'row', gap: 10 },
     targetValue: { width: 96, textAlign: 'center' },
     trackChip: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
     chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
     chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, borderWidth: 1 },
     dayChip: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-    hint: { fontSize: 12, lineHeight: 17, fontFamily: 'Lexend_400Regular', marginTop: 8 },
+    hint: { fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular, marginTop: 8 },
     nextCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, marginTop: 20 },
-    nextText: { flex: 1, fontSize: 14, fontFamily: 'Lexend_500Medium' },
+    nextText: { flex: 1, fontSize: 14, fontFamily: FontFamily.medium },
     savedBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, marginTop: 8 },
     coachCard: { padding: 16, borderRadius: 16, borderWidth: 1, gap: 10 },
     coachHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    coachQuote: { fontSize: 13, lineHeight: 20, fontFamily: 'Lexend_400Regular', fontStyle: 'italic' },
-    coachWarning: { fontSize: 11, lineHeight: 16, fontFamily: 'Lexend_400Regular' },
-    defaultTag: { fontSize: 9, letterSpacing: 1, fontFamily: 'Lexend_600SemiBold' },
+    coachQuote: { fontSize: 13, lineHeight: 20, fontFamily: FontFamily.regular, fontStyle: 'italic' },
+    coachWarning: { fontSize: 11, lineHeight: 16, fontFamily: FontFamily.regular },
+    defaultTag: { fontSize: 9, letterSpacing: 1, fontFamily: FontFamily.semibold },
     introCard: { padding: 16, gap: 10 },
-    introText: { fontSize: 15, lineHeight: 22, fontFamily: 'Lexend_400Regular' },
+    introText: { fontSize: 15, lineHeight: 22, fontFamily: FontFamily.regular },
     planRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
-    planLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: 'Lexend_500Medium' },
-    planValue: { fontSize: 15, fontFamily: 'Lexend_500Medium', marginTop: 3 },
-    editText: { fontSize: 13, fontFamily: 'Lexend_600SemiBold' },
+    planLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: FontFamily.medium },
+    planValue: { fontSize: 15, fontFamily: FontFamily.medium, marginTop: 3 },
+    editText: { fontSize: 13, fontFamily: FontFamily.semibold },
     primaryBtn: { paddingVertical: 16, borderRadius: 999, alignItems: 'center' },
-    primaryBtnText: { fontSize: 15, fontFamily: 'Lexend_600SemiBold' },
+    primaryBtnText: { fontSize: 15, fontFamily: FontFamily.semibold },
     secondaryBtn: { paddingVertical: 14, alignItems: 'center' },
-    secondaryBtnText: { fontSize: 14, fontFamily: 'Lexend_500Medium' },
+    secondaryBtnText: { fontSize: 14, fontFamily: FontFamily.medium },
     note: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', padding: 12, borderRadius: 12, borderWidth: 1, marginTop: 14 },
-    noteText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: 'Lexend_400Regular' },
+    noteText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },
 });

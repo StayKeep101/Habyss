@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from './themeContext';
+import { Colors } from './Colors';
+import { readableAccent } from '@/lib/colorContrast';
 
 // Beautiful gradient presets for app accent
 export const ACCENT_GRADIENTS = [
@@ -86,10 +89,14 @@ export function useAccent() {
 // Helper hook to get gradient colors for components
 export function useAccentGradient() {
     const { accentGradient } = useAccent();
-    return {
+    const { theme } = useTheme();
+    return useMemo(() => ({
         colors: accentGradient.colors as [string, string],
         shadowColor: accentGradient.shadowColor,
         primary: accentGradient.colors[0],
         secondary: accentGradient.colors[1],
-    };
+        foreground: readableAccent(accentGradient.colors[0], Colors[theme].background),
+        // White button labels remain readable even on the brightest presets.
+        buttonColors: accentGradient.colors.map(color => readableAccent(color, '#ffffff')) as [string, string],
+    }), [accentGradient, theme]);
 }

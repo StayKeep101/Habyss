@@ -1,3 +1,4 @@
+import { Typography, Spacing } from '@/constants/DesignSystem';
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/Colors';
@@ -12,7 +13,7 @@ interface ScreenHeaderProps {
 export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, subtitle }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { primary: accentColor } = useAccentGradient();
+    const { foreground: accentColor } = useAccentGradient();
 
     return (
         <View style={styles.container}>
@@ -32,22 +33,13 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, subtitle }) =
 
 const styles = StyleSheet.create({
     container: {
-        marginBottom: 28,
+        marginBottom: Spacing.xxl,
     },
     content: {
     },
-    title: {
-        fontSize: 30,
-        fontWeight: '900',
-        letterSpacing: -0.8,
-        fontFamily: 'Lexend',
-    },
+    title: Typography.screenTitle,
     subtitle: {
-        marginTop: 6,
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 1.5,
-        fontFamily: 'Lexend_400Regular',
-        textTransform: 'uppercase',
-    }
+        ...Typography.label,
+        marginTop: Spacing.xs,
+    },
 });

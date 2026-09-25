@@ -108,3 +108,37 @@ describe('the rest of the answers', () => {
         expect(planFromDraft({ ...completed, stakesText: undefined }, NOW).stakes).toBeNull();
     });
 });
+
+describe('a plan of habits and tasks', () => {
+    const withItems = (items: { id: string; kind: 'habit' | 'task'; title: string; dueDate?: string }[]) => ({
+        ...completed,
+        planItems: items,
+    });
+
+    it('creates every habit the user added, the first one carrying the amount', () => {
+        const plan = planFromDraft(withItems([
+            { id: 'h1', kind: 'habit', title: 'Evening run' },
+            { id: 'h2', kind: 'habit', title: 'Stretch' },
+        ]), NOW);
+        expect(plan.habits.map(habit => habit.name)).toEqual(['Evening run', 'Stretch']);
+        expect(plan.habits[0].goalValue).toBeDefined();
+        expect(plan.habits[1].trackingMethod).toBe('boolean');
+    });
+
+    it('turns the dated items into tasks and leaves blank ones out', () => {
+        const plan = planFromDraft(withItems([
+            { id: 'h1', kind: 'habit', title: 'Evening run' },
+            { id: 't1', kind: 'task', title: 'Sign up for the race', dueDate: '2026-10-01' },
+            { id: 't2', kind: 'task', title: '   ', dueDate: '2026-10-15' },
+        ]), NOW);
+        expect(plan.tasks).toEqual([{ stepId: 't1', title: 'Sign up for the race', dueDate: '2026-10-01' }]);
+    });
+
+    it('accepts a goal made only of tasks', () => {
+        const plan = planFromDraft(withItems([
+            { id: 't1', kind: 'task', title: 'Book the venue', dueDate: '2026-10-01' },
+        ]), NOW);
+        expect(plan.tasks).toHaveLength(1);
+        expect(plan.habits.filter(habit => habit.name?.trim())).toHaveLength(1); // the fallback habit only
+    });
+});

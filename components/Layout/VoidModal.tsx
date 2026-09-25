@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, StyleProp, View, ViewStyle } from 'react-native';
+import { Modal, Platform, StyleProp, View, ViewStyle } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VoidShell } from '@/components/Layout/VoidShell';
@@ -42,7 +42,7 @@ export const VoidModal: React.FC<VoidModalProps> = ({ visible, onClose, children
                 <VoidShell>
                     {/* The sheet already starts below the status bar, so only the
                         bottom edge needs insetting. */}
-                    <View style={[{ flex: 1, paddingBottom: insets.bottom }, style]}>
+                    <View style={[{ flex: 1, paddingBottom: insets.bottom, paddingTop: Platform.OS === 'ios' ? 0 : insets.top, paddingLeft: insets.left, paddingRight: insets.right }, style]}>
                         {children}
                     </View>
                 </VoidShell>

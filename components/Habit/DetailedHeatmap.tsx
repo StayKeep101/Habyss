@@ -1,8 +1,10 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import Svg, { Rect, G, Text as SvgText } from 'react-native-svg';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
+import { localDateKey } from '@/lib/habitSchedule';
 
 const CELL_SIZE = 12; // Size of each square
 const CELL_GAP = 3;   // Gap between squares
@@ -13,6 +15,10 @@ interface DayData {
     date: string;
     completed: boolean;
     value?: number;
+    /** Deliberately skipped — not a failure. */
+    skipped?: boolean;
+    /** Whether the schedule asked for it. Absent means it did. */
+    scheduled?: boolean;
 }
 
 interface DetailedHeatmapProps {
@@ -50,7 +56,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
         const totalWeeks = 53;
         const totalDays = totalWeeks * 7;
 
-        const filledData: { date: string, completed: boolean, value: number, dayIndex: number, weekIndex: number }[] = [];
+        const filledData: { date: string, completed: boolean, value: number, skipped: boolean, scheduled: boolean, dayIndex: number, weekIndex: number }[] = [];
 
         // Calculate the start date of the grid
         // The grid ends on Saturday of the current week (or ensures today is in the last column)
@@ -66,7 +72,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                 const date = new Date(gridEndDate);
                 date.setDate(gridEndDate.getDate() - daysFromEnd);
 
-                const dateStr = date.toISOString().split('T')[0];
+                const dateStr = localDateKey(date);
                 const existing = dataMap.get(dateStr);
 
                 // Only add if date is not in future relative to today
@@ -75,6 +81,8 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                         date: dateStr,
                         completed: existing?.completed || false,
                         value: existing?.value || 0,
+                        skipped: existing?.skipped || false,
+                        scheduled: existing?.scheduled !== false,
                         dayIndex: d,
                         weekIndex: w
                     });
@@ -100,7 +108,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                 if (w > 0 && w < totalWeeks - 2) {
                     labels.push({
                         x: w * WEEK_WIDTH,
-                        text: date.toLocaleDateString('en-US', { month: 'short' })
+                        text: date.toLocaleDateString(undefined, { month: 'short' })
                     });
                 }
                 currentMonth = month;
@@ -119,7 +127,6 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
             }, 100);
         }
     }, [scrolled]);
-
 
     return (
         <View style={styles.container}>
@@ -156,9 +163,14 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                     {/* Grid */}
                     <G y={MONTH_LABEL_HEIGHT}>
                         {gridData.map((d) => {
-                            const intensity = d.completed ? 1 : (d.value ? Math.min(d.value / 5, 1) : 0); // basic intensity logic
-                            const opacity = intensity > 0 ? 0.3 + (intensity * 0.7) : 0.08;
-                            const fillColor = intensity > 0 ? color : colors.textTertiary;
+                            // Kept, deliberately skipped, missed, or never due —
+                            // four different facts that used to render as two.
+                            const kept = d.completed || (d.value ?? 0) > 0;
+                            const intensity = d.completed ? 1 : Math.min((d.value ?? 0) / 5, 1);
+                            const fillColor = kept ? color : colors.textTertiary;
+                            const opacity = kept ? 0.3 + intensity * 0.7
+                                : d.skipped ? 0.22
+                                    : d.scheduled ? 0.1 : 0.03;
 
                             return (
                                 <Rect
@@ -178,7 +190,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
             </ScrollView>
 
             <View style={styles.footer}>
-                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>
+                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
                     Less
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 3, alignItems: 'center', marginHorizontal: 4 }}>
@@ -195,7 +207,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                         />
                     ))}
                 </View>
-                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>
+                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
                     More
                 </Text>
             </View>
@@ -216,12 +228,11 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 14,
-        fontFamily: 'Lexend_500Medium',
-        fontWeight: '600',
+        fontFamily: FontFamily.semibold,
     },
     subtitle: {
         fontSize: 10,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     footer: {
         flexDirection: 'row',

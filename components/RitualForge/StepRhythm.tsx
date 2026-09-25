@@ -1,7 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface StepRhythmProps {
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 32,
-        fontWeight: 'bold',
+        fontFamily: FontFamily.bold,
         marginBottom: 40,
         textAlign: 'center',
     },
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 12,
-        fontWeight: '700',
+        fontFamily: FontFamily.bold,
         letterSpacing: 1,
         marginBottom: 16,
     },
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     dayText: {
-        fontWeight: '700',
+        fontFamily: FontFamily.bold,
     },
     timeBox: {
         borderRadius: 24,

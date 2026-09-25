@@ -1,3 +1,4 @@
+import { FontFamily } from '@/constants/DesignSystem';
 /**
  * AI Action Feed Component
  * 
@@ -5,7 +6,7 @@
  * with step-by-step progress animation.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -16,7 +17,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { ActionStep } from '@/lib/aiAgentService';
@@ -153,7 +154,7 @@ export const AIActionFeed: React.FC<AIActionFeedProps> = ({
                                                     color: index <= currentStepIndex
                                                         ? colors.textPrimary
                                                         : colors.textTertiary,
-                                                    fontWeight: index === currentStepIndex ? '600' : '400',
+                                                    fontFamily: index === currentStepIndex ? FontFamily.semibold : FontFamily.regular,
                                                 },
                                             ]}
                                         >
@@ -227,8 +228,7 @@ const styles = StyleSheet.create({
     },
     headerText: {
         fontSize: 16,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     stepsContainer: {
         gap: 12,
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     },
     stepText: {
         fontSize: 14,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     progressContainer: {
         height: 4,

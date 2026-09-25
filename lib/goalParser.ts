@@ -209,6 +209,10 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
 
     /* ---------------------------------------------------------------- window */
     let window: GoalWindow | null = null;
+    // The words that set the date, removed before reading the amount and the
+    // subject: otherwise "by January 1, 2027" made the target 1 and put
+    // "january" into the title.
+    let datePhrase = '';
     if (/\b(a|per|each|every)\s*day\b|\bdaily\b/i.test(text)) window = { kind: 'recurring', period: 'day' };
     else if (/\b(a|per|each|every)\s*week\b|\bweekly\b/i.test(text)) window = { kind: 'recurring', period: 'week' };
     else if (/\b(a|per|each|every)\s*month\b|\bmonthly\b/i.test(text)) window = { kind: 'recurring', period: 'month' };
@@ -229,33 +233,50 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     }
     else {
         const inDays = text.match(/\bin\s+(\d{1,3})\s*days?\b/i);
-        const byChristmas = /\b(christmas|xmas)\b/i.test(text);
-        const byMonthDay = text.match(new RegExp(`\\bby\\s+(${MONTHS.join('|')}|${MONTHS.map(m => m.slice(0, 3)).join('|')})\\.?\\s*(\\d{1,2})?\\b`, 'i'));
+        const byChristmas = text.match(/\b(by\s+)?(christmas|xmas)\b/i);
+        const isoDate = text.match(/\b(?:by|before|until|on)\s+(\d{4})-(\d{2})-(\d{2})\b/i);
+        // "by january 1", "by jan 1 st, 2027", "before march 2027"
+        const byMonthDay = text.match(new RegExp(
+            `\\b(?:by|before|until|on)\\s+(${MONTHS.join('|')}|${MONTHS.map(m => m.slice(0, 3)).join('|')})\\.?`
+            + `(?:\\s*(\\d{1,2})(?!\\d)(?:\\s*(?:st|nd|rd|th)\\b)?)?(?:\\s*,?\\s*(\\d{4}))?\\b`, 'i'));
 
         if (inDays) {
             window = { kind: 'fixed', start: dateKey(today), end: dateKey(addDays(today, Number(inDays[1]))) };
+            datePhrase = inDays[0];
         } else if (byChristmas) {
             const year = today.getMonth() === 11 && today.getDate() > 25 ? today.getFullYear() + 1 : today.getFullYear();
             window = { kind: 'fixed', start: dateKey(today), end: `${year}-12-25` };
+            datePhrase = byChristmas[0];
+        } else if (isoDate) {
+            const end = new Date(Number(isoDate[1]), Number(isoDate[2]) - 1, Number(isoDate[3]));
+            if (dateKey(end) === `${isoDate[1]}-${isoDate[2]}-${isoDate[3]}`) {
+                window = { kind: 'fixed', start: dateKey(today), end: dateKey(end) };
+                datePhrase = isoDate[0];
+            }
         } else if (byMonthDay) {
             const name = byMonthDay[1].toLowerCase();
             const monthIndex = MONTHS.findIndex(month => month.startsWith(name.slice(0, 3)));
             if (monthIndex >= 0) {
                 const day = byMonthDay[2] ? Number(byMonthDay[2]) : undefined;
-                const year = monthIndex < today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
+                const year = byMonthDay[3]
+                    ? Number(byMonthDay[3])
+                    : monthIndex < today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
                 const end = day
                     ? new Date(year, monthIndex, day)
                     : endOfMonth(new Date(year, monthIndex, 1));
                 window = { kind: 'fixed', start: dateKey(today), end: dateKey(end) };
+                datePhrase = byMonthDay[0];
             }
         }
     }
 
+    const body = datePhrase ? text.replace(datePhrase, ' ') : text;
+
     /* ---------------------------------------------------------------- amount */
     // "3x a week" and "3 times a week" both give 3 sessions.
-    const frequencyMatch = text.match(/\b(\d{1,3})\s*(x|times?)\b/i);
-    const percentMatch = text.match(/\b(\d{1,3})\s*%|\b(\d{1,3})\s*percent\b/i);
-    const amountMatch = text.match(/\b(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|pages?|kilometers?|kilometres?|kms?|km|miles?|mi|steps?|kilos?|kilograms?|kgs?|kg|pounds?|lbs?|lb|glasses|glass|liters?|litres?|dollars?|words?|reps?)\b/i);
+    const frequencyMatch = body.match(/\b(\d{1,3})\s*(x|times?)\b/i);
+    const percentMatch = body.match(/\b(\d{1,3})\s*%|\b(\d{1,3})\s*percent\b/i);
+    const amountMatch = body.match(/\b(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|pages?|kilometers?|kilometres?|kms?|km|miles?|mi|steps?|kilos?|kilograms?|kgs?|kg|pounds?|lbs?|lb|glasses|glass|liters?|litres?|dollars?|words?|reps?)\b/i);
 
     let target: number | null = null;
     if (percentMatch) {
@@ -265,7 +286,7 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     } else if (frequencyMatch) {
         target = Number(frequencyMatch[1]);
     } else {
-        const bare = text.match(/\b(\d+(?:\.\d+)?)\b/);
+        const bare = body.match(/\b(\d+(?:\.\d+)?)\b/);
         if (bare) target = Number(bare[1]);
     }
 
@@ -310,7 +331,7 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     spec.window = window;
 
     /* -------------------------------------------------------- subject + links */
-    const subject = subjectFrom(text);
+    const subject = subjectFrom(body);
     spec.linked_habits = linkHabits(subject, unit, habits);
     if (spec.linked_habits.length === 0 && subject && unit) {
         spec.suggested_habit = { name: titleCase(subject), unit };
@@ -382,9 +403,10 @@ function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date): 
     } else if (spec.window?.kind === 'fixed') {
         const end = new Date(`${spec.window.end}T12:00:00`);
         const sameMonth = end.getFullYear() === today.getFullYear() && end.getMonth() === today.getMonth();
-        when = sameMonth
-            ? ` in ${MONTHS[end.getMonth()].replace(/^./, char => char.toUpperCase())}`
-            : ` by ${MONTHS[end.getMonth()].replace(/^./, char => char.toUpperCase())} ${end.getDate()}`;
+        const month = MONTHS[end.getMonth()].replace(/^./, char => char.toUpperCase());
+        // The year only when it is not this one, so "by January 1, 2027" stays unambiguous.
+        const year = end.getFullYear() !== today.getFullYear() ? `, ${end.getFullYear()}` : '';
+        when = sameMonth ? ` in ${month}` : ` by ${month} ${end.getDate()}${year}`;
     }
 
     if (spec.type === 'limit') return `Max ${amount} of ${name}${when}`;

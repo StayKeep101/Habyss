@@ -176,10 +176,11 @@ export async function setMyUsername(raw: string): Promise<UsernameResult> {
     if (!USERNAME_RULE.test(username)) {
         return { ok: false, error: '3 to 20 characters: letters, numbers, dots and underscores.' };
     }
-    const { error } = await ctx.sb.from('profiles').update({ username }).eq('id', ctx.me);
+    const { data, error } = await ctx.sb.from('profiles').update({ username }).eq('id', ctx.me).select('username').single();
     if (error) {
         return { ok: false, error: error.code === '23505' ? 'That username is taken.' : 'Could not save your username.' };
     }
+    if (!data?.username) return { ok: false, error: 'Your profile is not ready yet. Please sign in again.' };
     return { ok: true };
 }
 

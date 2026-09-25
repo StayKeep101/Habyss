@@ -4,14 +4,15 @@ import { getSupabase } from './supabase';
 import { adoptUserId, getLocalUserId } from './localUser';
 import { resetSyncCursor, syncNow, type SyncReport } from './cloudSync';
 import { deleteAllLocalData } from './accountDeletion';
+import { emit } from './appEvents';
 
 /**
  * Accounts: signing in, out, and deleting.
  *
  * An account is optional. Habyss works fully on one phone without one; signing
- * in adds backup, restoring onto a new phone, and friends. Sign-in is by a
- * one-time code sent to the user's email, which needs no password and no
- * third-party login.
+ * in adds backup, restoring onto a new phone, and friends. Sign-in is with
+ * Apple or Google (lib/socialSignIn.ts), or a one-time code sent by email;
+ * none of them needs a password.
  */
 
 export interface Account {
@@ -33,8 +34,18 @@ export async function currentAccount(): Promise<Account | null> {
 export function onAccountChange(callback: (account: Account | null) => void): () => void {
     const sb = getSupabase();
     if (!sb) return () => undefined;
-    const { data } = sb.auth.onAuthStateChange((_event, session) => callback(toAccount(session)));
-    return () => data.subscription.unsubscribe();
+    let active = true;
+    // Auth callbacks run under Supabase's session lock. Defer listeners that
+    // read the session so Community cannot deadlock the sign-in that woke it.
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const { data } = sb.auth.onAuthStateChange((_event, session) => {
+        const timer = setTimeout(() => {
+            timers.delete(timer);
+            if (active) callback(toAccount(session));
+        }, 0);
+        timers.add(timer);
+    });
+    return () => { active = false; timers.forEach(clearTimeout); data.subscription.unsubscribe(); };
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -61,6 +72,69 @@ export async function requestCode(email: string): Promise<Result> {
 }
 
 /**
+ * Signs in with an email and a password.
+ *
+ * Kept alongside the emailed code because a code depends on an email actually
+ * arriving, and an email that does not arrive leaves someone locked out of
+ * their own backup with nothing they can do about it. A password needs no
+ * delivery at all.
+ *
+ * It ends in the same place as every other way in, so the phone and the
+ * account are merged identically however someone got here.
+ */
+export async function signInWithPassword(email: string, password: string): Promise<Result<SyncReport>> {
+    const sb = getSupabase();
+    if (!sb) return { ok: false, error: 'Accounts are not set up in this build.' };
+    if (!isEmail(email)) return { ok: false, error: 'That does not look like an email address.' };
+    if (!password) return { ok: false, error: 'Enter your password.' };
+
+    const { data, error } = await sb.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+    });
+    if (error || !data.session?.user) {
+        const message = String(error?.message ?? '');
+        if (/invalid login credentials/i.test(message)) {
+            return { ok: false, error: 'That email and password do not match an account. Use a code instead if you have never set one.' };
+        }
+        if (/email not confirmed/i.test(message)) {
+            return { ok: false, error: 'That account still needs its email confirmed before a password will work.' };
+        }
+        return { ok: false, error: friendly(message || 'That did not work.') };
+    }
+
+    return finishSignIn(data.session.user.id);
+}
+
+/**
+ * Creates an account with a password.
+ *
+ * Whether it signs in straight away depends on the server: with email
+ * confirmation on, there is no session until the link is followed, and saying
+ * so plainly is better than a spinner that never resolves.
+ */
+export async function signUpWithPassword(email: string, password: string): Promise<Result<SyncReport | null>> {
+    const sb = getSupabase();
+    if (!sb) return { ok: false, error: 'Accounts are not set up in this build.' };
+    if (!isEmail(email)) return { ok: false, error: 'That does not look like an email address.' };
+    if (password.length < 6) return { ok: false, error: 'Use at least 6 characters.' };
+
+    const { data, error } = await sb.auth.signUp({ email: email.trim().toLowerCase(), password });
+    if (error) {
+        const message = String(error.message);
+        if (/already registered/i.test(message)) {
+            return { ok: false, error: 'There is already an account with that email. Sign in instead.' };
+        }
+        return { ok: false, error: friendly(message) };
+    }
+    // No session means the server wants the email confirmed first.
+    if (!data.session?.user) return { ok: true, value: null };
+
+    const result = await finishSignIn(data.session.user.id);
+    return result.ok ? { ok: true, value: result.value } : result;
+}
+
+/**
  * Checks the code, then brings this phone and the account together.
  *
  * Whatever is on this phone is kept and uploaded, and whatever is already in
@@ -81,8 +155,38 @@ export async function verifyCode(email: string, code: string): Promise<Result<Sy
     });
     if (error || !data.session?.user) return { ok: false, error: friendly(error?.message ?? 'That code did not work.') };
 
-    await linkThisPhone(data.session.user.id);
-    return { ok: true, value: await syncNow() };
+    return finishSignIn(data.session.user.id);
+}
+
+/** Every way of signing in ends here, so they all restore and back up alike. */
+export async function finishSignIn(accountId: string): Promise<Result<SyncReport>> {
+    try {
+        await linkThisPhone(accountId);
+        await ensureProfile(accountId);
+        const report = await syncNow();
+        emit('social_state_updated');
+        return { ok: true, value: report };
+    } catch (error: any) {
+        return { ok: false, error: friendly(error?.message || 'Could not finish setting up your account. Please try again.') };
+    }
+}
+
+/**
+ * Makes sure the account has a profile row, which is what friends search and
+ * what a username is stored on.
+ *
+ * The database creates one by trigger when an account is made. This is the
+ * belt and braces for accounts made before that trigger existed, and it is
+ * verified before reporting that Community is ready.
+ */
+export async function ensureProfile(accountId: string): Promise<void> {
+    const sb = getSupabase();
+    if (!sb) return;
+    const { data, error } = await sb.from('profiles').select('id').eq('id', accountId).maybeSingle();
+    if (error) throw new Error('Your account is signed in, but its community profile could not be loaded. Please try again.');
+    if (data) return;
+    const { error: insertError } = await sb.from('profiles').insert({ id: accountId });
+    if (insertError && insertError.code !== '23505') throw new Error('Your community profile could not be created. Please try again.');
 }
 
 /**
@@ -96,11 +200,13 @@ export async function linkThisPhone(accountId: string): Promise<void> {
     const previous = await getLocalUserId();
     if (previous !== accountId) {
         const db = await getDatabase();
+        if (!db) throw new Error('Your local data could not be linked. Please try signing in again.');
         if (db) {
             await db.withTransactionAsync(async () => {
                 for (const table of ['habits', 'completions', 'tasks']) {
                     await db.runAsync(`UPDATE ${table} SET user_id = ?, synced = 0 WHERE user_id = ?`, accountId, previous);
                 }
+                await db.runAsync('UPDATE habit_measurements SET user_id = ? WHERE user_id = ?', accountId, previous);
             });
         }
     }
@@ -170,7 +276,7 @@ export async function deleteAccount(): Promise<Result> {
     return { ok: true, value: undefined };
 }
 
-function friendly(message: string): string {
+export function friendly(message: string): string {
     if (/rate limit|too many/i.test(message)) return 'Too many attempts. Wait a minute and try again.';
     if (/expired|invalid.*(otp|token)|token has expired/i.test(message)) return 'That code has expired or is wrong. Send a new one.';
     if (/network|fetch|timed out/i.test(message)) return 'No connection. Try again when you are online.';

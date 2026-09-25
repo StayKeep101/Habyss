@@ -1,6 +1,8 @@
+import { useAccentGradient } from '@/constants/AccentContext';
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -27,6 +29,7 @@ interface ScrollPickerModalProps {
 export const ScrollPickerModal: React.FC<ScrollPickerModalProps> = ({ visible, onClose, onSelect, title, items, selectedValue }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { foreground: accent } = useAccentGradient();
     const isLight = theme === 'light';
     const { selectionFeedback } = useHaptics();
 
@@ -45,9 +48,9 @@ export const ScrollPickerModal: React.FC<ScrollPickerModalProps> = ({ visible, o
                                 styles.row,
                                 {
                                     backgroundColor: isSelected
-                                        ? colors.primary + '1A'
+                                        ? accent + '1A'
                                         : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)',
-                                    borderColor: isSelected ? colors.primary + '55' : 'transparent',
+                                    borderColor: isSelected ? accent + '55' : 'transparent',
                                 },
                             ]}
                             onPress={() => {
@@ -58,13 +61,13 @@ export const ScrollPickerModal: React.FC<ScrollPickerModalProps> = ({ visible, o
                             <Text
                                 style={[
                                     styles.rowText,
-                                    { color: isSelected ? colors.primary : colors.textPrimary },
+                                    { color: isSelected ? accent : colors.textPrimary },
                                 ]}
                             >
                                 {item}
                             </Text>
                             {isSelected ? (
-                                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                                <Ionicons name="checkmark-circle" size={20} color={accent} />
                             ) : null}
                         </TouchableOpacity>
                     );
@@ -90,6 +93,6 @@ const styles = StyleSheet.create({
     },
     rowText: {
         fontSize: 16,
-        fontFamily: 'Lexend_500Medium',
+        fontFamily: FontFamily.medium,
     },
 });

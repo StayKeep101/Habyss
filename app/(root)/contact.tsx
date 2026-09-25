@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Linking } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { AppButton } from '@/components/Common/AppButton';
+import { AppTextField } from '@/components/Common/AppTextField';
+import { SheetSection } from '@/components/Layout/SheetSection';
+import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { useState } from 'react';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAccentGradient } from '@/constants/AccentContext';
 
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
 
@@ -19,7 +20,7 @@ const Contact = () => {
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const isTrueDark = theme === 'trueDark';
-    const { colors: accentColors } = useAccentGradient();
+    const { foreground: accentColor } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
     const [message, setMessage] = useState('');
@@ -40,19 +41,10 @@ const Contact = () => {
     };
 
     return (
-        <VoidShell>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>Contact</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <SheetScreen title="Contact support" onBack={() => router.back()}>
 
                 {/* Content */}
-                <View style={styles.content}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                     {/* Quick Links */}
                     <VoidCard
                         glass={!isTrueDark}
@@ -66,7 +58,7 @@ const Contact = () => {
                         ]}
                     >
                         <TouchableOpacity style={styles.linkRow} onPress={() => Linking.openURL('mailto:support@habyss.app')}>
-                            <Ionicons name="mail-outline" size={22} color={colors.primary} />
+                            <Ionicons name="mail-outline" size={22} color={accentColor} />
                             <Text style={[styles.linkText, { color: colors.textPrimary }]}>support@habyss.app</Text>
                         </TouchableOpacity>
                         <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -77,32 +69,13 @@ const Contact = () => {
                     </VoidCard>
 
                     {/* Message Form */}
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>SEND A MESSAGE</Text>
-                    <TextInput
-                        style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
-                        placeholder="What's on your mind?"
-                        placeholderTextColor={colors.textTertiary}
-                        value={message}
-                        onChangeText={setMessage}
-                        multiline
-                        numberOfLines={4}
-                        textAlignVertical="top"
-                    />
-
-                    <TouchableOpacity onPress={handleSend}>
-                        <LinearGradient
-                            colors={accentColors} // Use user accent colors
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.sendBtn}
-                        >
-                            <Ionicons name="send" size={18} color="#fff" />
-                            <Text style={styles.sendText}>Send</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
-        </VoidShell>
+                    <SheetSection title="Send a message">
+                        <AppTextField label="Message" placeholder="What's on your mind?" value={message}
+                            onChangeText={setMessage} multiline numberOfLines={4} />
+                        <AppButton label="Send" icon="send-outline" onPress={handleSend} disabled={!message.trim()} style={{ marginTop: 16 }} />
+                    </SheetSection>
+                </ScrollView>
+            </SheetScreen>
     );
 };
 
@@ -110,29 +83,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-    },
-    content: {
-        padding: 16,
-    },
+    content: { ...UIStyles.screenContent },
     card: {
-        borderRadius: 16,
+        borderRadius: Radius.card,
         borderWidth: 1,
         overflow: 'hidden',
     },
@@ -144,42 +97,11 @@ const styles = StyleSheet.create({
     },
     linkText: {
         fontSize: 15,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     divider: {
         height: 1,
         marginHorizontal: 16,
-    },
-    sectionTitle: {
-        fontSize: 11,
-        fontWeight: '600',
-        letterSpacing: 1,
-        marginBottom: 8,
-        marginLeft: 4,
-        fontFamily: 'Lexend_400Regular',
-    },
-    input: {
-        borderRadius: 16,
-        borderWidth: 1,
-        padding: 16,
-        fontSize: 15,
-        fontFamily: 'Lexend_400Regular',
-        minHeight: 120,
-        marginBottom: 16,
-    },
-    sendBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        borderRadius: 16,
-        gap: 8,
-    },
-    sendText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#fff',
-        fontFamily: 'Lexend',
     },
 });
 

@@ -1,280 +1,172 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, StatusBar } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { subscribeToHabits, Habit, getCompletions, getLastNDaysCompletions, isHabitScheduledForDate } from '@/lib/habitsSQLite';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { ShareStatsModal } from '@/components/Social/ShareStatsModal';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
+import { SectionLabel } from '@/components/Goal/GoalRows';
+import { Colors } from '@/constants/Colors';
+import { FontFamily } from '@/constants/DesignSystem';
+import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
-import { ShareButton } from '@/components/Common/ShareButton';
-import { GoalStats } from '@/components/Goal/GoalStats';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { dateAt, type GoalPoint, type GoalStatus } from '@/lib/goalInsights';
 
-const { width } = Dimensions.get('window');
+const STATUS_LABEL: Record<GoalStatus, string> = {
+    ahead: 'Ahead',
+    on_pace: 'On pace',
+    behind: 'Behind',
+    not_started: 'Not started',
+    empty: 'Nothing planned',
+};
 
-const GoalsOverview = () => {
+/**
+ * Every goal's progress, read like a portfolio: the combined number and line
+ * first, then each goal as a holding with its own figure, weekly move, pace
+ * and sparkline. Tapping a goal opens its full stats.
+ */
+export default function GoalsOverview() {
     const router = useRouter();
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { primary: accentColor } = useAccentGradient();
-    const [showShare, setShowShare] = useState(false);
-    const [allHabits, setAllHabits] = useState<Habit[]>([]);
-    const [completions, setCompletions] = useState<Record<string, boolean>>({});
-    const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
-    const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+    const isLight = theme === 'light';
+    const { primary: accent } = useAccentGradient();
+    const { lightFeedback } = useHaptics();
+    const { goals, insightsById, overall, overallSeries, loaded } = useGoalsInsights();
+    const [scrub, setScrub] = useState<GoalPoint | null>(null);
 
-    // Subscribe to habits
-    useEffect(() => {
-        const unsubPromise = subscribeToHabits(setAllHabits);
-        return () => { unsubPromise.then(unsub => unsub()); };
-    }, []);
+    const statusColor = (status: GoalStatus) =>
+        status === 'ahead' || status === 'on_pace' ? colors.success : status === 'behind' ? colors.error : colors.textTertiary;
 
-    // Load completions & history
-    useEffect(() => {
-        const load = async () => {
-            const now = new Date();
-            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-            const [c, h] = await Promise.all([
-                getCompletions(today),
-                getLastNDaysCompletions(90),
-            ]);
-            setCompletions(c);
-            setHistoryData(h);
-        };
-        load();
-    }, []);
+    const list = goals.map(goal => ({ goal, insights: insightsById[goal.id] })).filter(item => item.insights);
+    const change7 = list.length
+        ? Math.round(list.reduce((sum, item) => sum + item.insights.change7, 0) / list.length)
+        : 0;
+    const onTrack = list.filter(item => item.insights.status === 'ahead' || item.insights.status === 'on_pace').length;
+    const behind = list.filter(item => item.insights.status === 'behind').length;
+    const shown = scrub?.actual ?? overall;
 
-    const goals = useMemo(() => allHabits.filter(h => h.isGoal && !h.isArchived), [allHabits]);
-    const habits = useMemo(() => allHabits.filter(h => !h.isGoal), [allHabits]);
-    const selectedGoal = useMemo(
-        () => goals.find((goal) => goal.id === selectedGoalId) || goals[0] || null,
-        [goals, selectedGoalId]
-    );
-    const selectedGoalHabits = useMemo(
-        () => habits.filter((habit) => habit.goalId === selectedGoal?.id),
-        [habits, selectedGoal?.id]
-    );
-
-    useEffect(() => {
-        if (!goals.length) {
-            setSelectedGoalId(null);
-            return;
-        }
-
-        if (!selectedGoalId || !goals.some((goal) => goal.id === selectedGoalId)) {
-            setSelectedGoalId(goals[0].id);
-        }
-    }, [goals, selectedGoalId]);
-
-    // Calculate goal progress (same logic as home.tsx)
-    const goalProgress = useMemo(() => {
-        const map: Record<string, number> = {};
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        goals.forEach(goal => {
-            const linked = habits.filter(h => h.goalId === goal.id && !h.isArchived);
-            if (linked.length === 0) { map[goal.id] = 0; return; }
-
-            const startDate = new Date(goal.startDate || goal.createdAt);
-            const targetDate = goal.targetDate ? new Date(goal.targetDate) : new Date();
-            if (startDate > targetDate) { map[goal.id] = 0; return; }
-
-            let totalExpected = 0;
-            let totalCompleted = 0;
-            const current = new Date(startDate);
-
-            while (current <= targetDate) {
-                const dateStr = current.toISOString().split('T')[0];
-                const dayName = current.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-
-                linked.forEach(habit => {
-                    const createdStr = new Date(habit.createdAt).toISOString().split('T')[0];
-                    if (dateStr >= createdStr && habit.taskDays?.includes(dayName)) {
-                        totalExpected++;
-                        if (dateStr === todayStr) {
-                            if (completions[habit.id]) totalCompleted++;
-                        } else {
-                            const historyDay = historyData.find(d => d.date === dateStr);
-                            if (historyDay?.completedIds?.includes(habit.id)) totalCompleted++;
-                        }
-                    }
-                });
-                current.setDate(current.getDate() + 1);
-            }
-
-            map[goal.id] = totalExpected === 0 ? 0 : Math.round((totalCompleted / totalExpected) * 100);
-        });
-
-        return map;
-    }, [goals, habits, historyData, completions]);
-
-    const avgProgress = goals.length > 0 ? Math.round(goals.reduce((sum, g) => sum + (goalProgress[g.id] || 0), 0) / goals.length) : 0;
-
-    const handleGoalPress = (goalId: string) => {
-        router.push({ pathname: '/goal-detail', params: { goalId } });
-    };
+    const summary = [
+        onTrack ? `${onTrack} on pace` : null,
+        behind ? `${behind} behind` : null,
+    ].filter(Boolean).join(' · ') || `${goals.length} goal${goals.length === 1 ? '' : 's'}`;
 
     return (
-        <VoidShell>
-            <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: colors.border }]}>
-                    <TouchableOpacity onPress={() => router.back()} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}>
-                        <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={[styles.title, { color: colors.text }]}>GOAL PROGRESS</Text>
-                        <Text style={[styles.subtitle, { color: accentColor }]}>OVERVIEW</Text>
-                    </View>
-                    <ShareButton summary={{ title: 'Goal progress', value: avgProgress + '%', subtitle: goals.length + ' active goals' }} />
-                </View>
+        <SheetScreen
+            title="Goal progress"
+            onBack={() => router.back()}
+            shareSummary={{ title: 'Goal progress', value: `${overall}%`, subtitle: `${goals.length} active goal${goals.length === 1 ? '' : 's'}` }}
+        >
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!scrub}>
+                {!loaded ? <ActivityIndicator color={accent} style={{ marginTop: 40 }} /> : goals.length === 0 ? (
+                    <VoidCard style={styles.emptyCard}>
+                        <Ionicons name="flag-outline" size={32} color={colors.textTertiary} />
+                        <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No goals yet</Text>
+                        <Text style={[styles.emptyBody, { color: colors.textTertiary }]}>Create a goal and its progress shows up here.</Text>
+                    </VoidCard>
+                ) : (
+                    <>
+                        {/* All goals together. */}
+                        <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>ALL GOALS</Text>
+                        <View style={styles.headline}>
+                            <Text style={[styles.bigNumber, { color: colors.textPrimary }]}>{Math.round(shown)}%</Text>
+                            {!scrub ? (
+                                <View style={[styles.change, { backgroundColor: (change7 > 0 ? colors.success : colors.textTertiary) + '22' }]}>
+                                    <Ionicons name={change7 > 0 ? 'caret-up' : 'remove'} size={12} color={change7 > 0 ? colors.success : colors.textTertiary} />
+                                    <Text style={[styles.changeText, { color: change7 > 0 ? colors.success : colors.textTertiary }]}>
+                                        {change7 === 1 ? '1 pt' : `${change7} pts`} · 7d
+                                    </Text>
+                                </View>
+                            ) : null}
+                        </View>
+                        <Text style={[styles.subline, { color: colors.textSecondary }]}>
+                            {scrub
+                                ? `${dateAt(scrub.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} · pace ${Math.round(scrub.pace)}%`
+                                : summary}
+                        </Text>
 
-                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    {/* Stats Row */}
-                    <Animated.View entering={FadeInDown.duration(400)} style={styles.statsRow}>
-                        <VoidCard glass style={styles.statCard}>
-                            <View style={[styles.statIcon, { backgroundColor: accentColor + '20' }]}>
-                                <Ionicons name="planet" size={22} color={accentColor} />
+                        {overallSeries.length > 1 ? (
+                            <View style={{ marginTop: 16 }}>
+                                <GoalProgressChart series={overallSeries} color={accent} onScrub={setScrub} />
+                                <View style={styles.legend}>
+                                    <View style={[styles.legendLine, { backgroundColor: accent }]} />
+                                    <Text style={[styles.legendText, { color: colors.textTertiary }]}>Done</Text>
+                                    <View style={[styles.legendLine, styles.legendDashed, { borderColor: colors.textTertiary }]} />
+                                    <Text style={[styles.legendText, { color: colors.textTertiary }]}>Pace to finish on time</Text>
+                                </View>
                             </View>
-                            <Text style={[styles.statValue, { color: colors.text }]}>{goals.length}</Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>GOALS</Text>
-                        </VoidCard>
-                        <VoidCard glass style={styles.statCard}>
-                            <View style={[styles.statIcon, { backgroundColor: accentColor + '20' }]}>
-                                <Ionicons name="trending-up" size={22} color={accentColor} />
-                            </View>
-                            <Text style={[styles.statValue, { color: colors.text }]}>{avgProgress}%</Text>
-                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>AVG PROGRESS</Text>
-                        </VoidCard>
-                    </Animated.View>
+                        ) : null}
 
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ALL GOALS</Text>
-                    <View style={styles.grid}>
-                        {goals.length > 0 ? goals.map((goal, index) => {
-                            const progress = goalProgress[goal.id] || 0;
+                        {/* Each goal on its own. */}
+                        <SectionLabel>{`Goals · ${goals.length}`}</SectionLabel>
+                        {list.map(({ goal, insights }) => {
+                            const color = goal.color || accent;
+                            const up = insights.change7 > 0;
                             return (
-                                <Animated.View key={goal.id} entering={FadeInDown.delay(100 + index * 60).duration(400)}>
-                                    <TouchableOpacity onPress={() => handleGoalPress(goal.id)} activeOpacity={0.7}>
-                                        <VoidCard glass style={styles.goalCard}>
-                                            <View style={[styles.goalIcon, { backgroundColor: accentColor + '20' }]}>
-                                                <Ionicons name={(goal.icon as any) || 'flag'} size={24} color={accentColor} />
+                                <TouchableOpacity
+                                    key={goal.id}
+                                    activeOpacity={0.85}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`${goal.name}, ${insights.progress}% done, ${STATUS_LABEL[insights.status]}. Open stats.`}
+                                    onPress={() => { lightFeedback(); router.push({ pathname: '/goal-stats', params: { goalId: goal.id } }); }}
+                                    style={[styles.goalCard, { backgroundColor: isLight ? '#FFFFFF' : 'rgba(255,255,255,0.05)', borderColor: colors.border }]}
+                                >
+                                    <View style={styles.goalTop}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text numberOfLines={1} style={[styles.goalName, { color: colors.textPrimary }]}>{goal.name}</Text>
+                                            <View style={styles.statusRow}>
+                                                <View style={[styles.statusDot, { backgroundColor: statusColor(insights.status) }]} />
+                                                <Text style={[styles.goalMeta, { color: colors.textTertiary }]}>
+                                                    {STATUS_LABEL[insights.status]}
+                                                    {insights.daysLeft !== null ? ` · ${insights.daysLeft} days left` : ''}
+                                                </Text>
                                             </View>
-                                            <Text style={[styles.goalName, { color: colors.text }]} numberOfLines={2}>{goal.name}</Text>
-                                            <View style={{ marginVertical: 8 }}>
-                                                <HalfCircleProgress
-                                                    progress={progress}
-                                                    size={80}
-                                                    strokeWidth={6}
-                                                    color={accentColor}
-                                                    backgroundColor={theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}
-                                                    textColor={colors.text}
-                                                    fontSize={14}
-                                                    showPercentage={true}
-                                                />
-                                            </View>
-                                        </VoidCard>
-                                    </TouchableOpacity>
-                                </Animated.View>
+                                        </View>
+                                        <View style={{ alignItems: 'flex-end' }}>
+                                            <Text style={[styles.goalNumber, { color: colors.textPrimary }]}>{insights.progress}%</Text>
+                                            <Text style={[styles.goalChange, { color: up ? colors.success : colors.textTertiary }]}>
+                                                {up ? '▲ ' : ''}{insights.change7 === 1 ? '1 pt' : `${insights.change7} pts`} · 7d
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    {insights.series.length > 1 ? (
+                                        <View style={{ marginTop: 10 }}>
+                                            <GoalProgressChart series={insights.series} color={color} height={64} compact />
+                                        </View>
+                                    ) : null}
+                                </TouchableOpacity>
                             );
-                        }) : (
-                            <VoidCard glass style={styles.emptyCard}>
-                                <Ionicons name="planet-outline" size={40} color={colors.textTertiary} />
-                                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No goals yet</Text>
-                            </VoidCard>
-                        )}
-                    </View>
-                </ScrollView>
-            </SafeAreaView>
-            <ShareStatsModal
-                visible={showShare}
-                onClose={() => setShowShare(false)}
-                stats={{
-                    title: "GOAL PROGRESS",
-                    value: `${avgProgress}%`,
-                    subtitle: `${goals.length} Active Goals`,
-                    type: 'growth'
-                }}
-            />
-        </VoidShell>
+                        })}
+                    </>
+                )}
+            </ScrollView>
+        </SheetScreen>
     );
-};
+}
 
 const styles = StyleSheet.create({
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
-    iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: 18, fontWeight: '900', letterSpacing: 1, fontFamily: 'Lexend' },
-    subtitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1.5, fontFamily: 'Lexend_400Regular', marginTop: 2 },
-    scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 100 },
-    statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-    statCard: { flex: 1, alignItems: 'center', padding: 16 },
-    statIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-    statValue: { fontSize: 24, fontWeight: 'bold', fontFamily: 'Lexend' },
-    statLabel: { fontSize: 9, marginTop: 4, fontFamily: 'Lexend_400Regular', letterSpacing: 1 },
-    sectionTitle: { fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginBottom: 14, fontFamily: 'Lexend_400Regular' },
-    featuredGoalCard: {
-        padding: 18,
-        marginBottom: 24,
-    },
-    featuredGoalHeader: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: 12,
-        marginBottom: 14,
-    },
-    featuredGoalEyebrow: {
-        fontSize: 10,
-        letterSpacing: 1.4,
-        fontFamily: 'Lexend_500Medium',
-    },
-    featuredGoalTitle: {
-        marginTop: 6,
-        fontSize: 24,
-        lineHeight: 28,
-        fontFamily: 'Lexend_700Bold',
-    },
-    featuredGoalMeta: {
-        marginTop: 8,
-        fontSize: 13,
-        fontFamily: 'Lexend_400Regular',
-    },
-    openButton: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    goalChipRow: {
-        gap: 10,
-        paddingBottom: 14,
-    },
-    goalChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderRadius: 14,
-        borderWidth: 1,
-        maxWidth: 180,
-    },
-    goalChipText: {
-        fontSize: 12,
-        fontFamily: 'Lexend_500Medium',
-    },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    goalCard: { width: (width - 50) / 2, padding: 14, alignItems: 'center' },
-    goalIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-    goalName: { fontSize: 13, fontWeight: '600', textAlign: 'center', marginBottom: 10, height: 34, fontFamily: 'Lexend' },
-    emptyCard: { width: '100%', alignItems: 'center', padding: 40 },
-    emptyText: { marginTop: 12, fontSize: 14 },
+    content: { paddingHorizontal: 20, paddingBottom: 40 },
+    eyebrow: { fontSize: 11, letterSpacing: 1.2, fontFamily: FontFamily.semibold, marginTop: 4 },
+    headline: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+    bigNumber: { fontSize: 52, fontFamily: FontFamily.bold, letterSpacing: -1.5 },
+    change: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
+    changeText: { fontSize: 12, fontFamily: FontFamily.semibold },
+    subline: { fontSize: 14, fontFamily: FontFamily.regular },
+    legend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
+    legendLine: { width: 16, height: 2.5, borderRadius: 2, marginLeft: 6 },
+    legendDashed: { height: 0, borderTopWidth: 1.5, borderStyle: 'dashed', backgroundColor: 'transparent' },
+    legendText: { fontSize: 12, fontFamily: FontFamily.regular },
+    goalCard: { padding: 16, borderRadius: 18, borderWidth: 1, marginBottom: 10 },
+    goalTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    goalName: { fontSize: 16, fontFamily: FontFamily.semibold },
+    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+    statusDot: { width: 7, height: 7, borderRadius: 4 },
+    goalMeta: { fontSize: 12, fontFamily: FontFamily.regular },
+    goalNumber: { fontSize: 22, fontFamily: FontFamily.bold },
+    goalChange: { fontSize: 12, fontFamily: FontFamily.semibold, marginTop: 2 },
+    emptyCard: { alignItems: 'center', padding: 32, gap: 8, marginTop: 20 },
+    emptyTitle: { fontSize: 16, fontFamily: FontFamily.semibold },
+    emptyBody: { fontSize: 13, fontFamily: FontFamily.regular, textAlign: 'center' },
 });
-
-export default GoalsOverview;

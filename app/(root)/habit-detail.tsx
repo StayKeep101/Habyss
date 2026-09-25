@@ -1,639 +1,291 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, DeviceEventEmitter, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { Habit, getHabits, toggleCompletion, getCompletions, getLastNDaysCompletions, getHabitStats, inferTrackingStyle } from '@/lib/habitsSQLite';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { VoidShell } from '@/components/Layout/VoidShell';
-import { VoidCard } from '@/components/Layout/VoidCard';
-import { ScreenHeader } from '@/components/Layout/ScreenHeader';
-import { ShareHabitModal } from '@/components/ShareHabitModal';
-import { HabitCreationModal } from '@/components/HabitCreationModal';
+import Animated, { Easing, FadeIn, LinearTransition, ReduceMotion } from 'react-native-reanimated';
+import { AppIcon } from '@/components/Common/AppIcon';
+import { IconButton } from '@/components/Common/IconButton';
 import { ShareButton } from '@/components/Common/ShareButton';
-import { useFocusTime } from '@/constants/FocusTimeContext';
-
-import { useHaptics } from '@/hooks/useHaptics';
-import { PomodoroTimer } from '@/components/Habit/PomodoroTimer';
-import { SpotifyPage } from '@/components/Habit/SpotifyPage';
-import { SpinningLogo } from '@/components/SpinningLogo';
+import { ViewSwitcher, type SwitcherOption } from '@/components/Common/ViewSwitcher';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { HabitProgressCard } from '@/components/Habit/HabitProgressCard';
 import { HabitGraphRenderer } from '@/components/Habit/HabitGraphRenderer';
 import { DetailedHeatmap } from '@/components/Habit/DetailedHeatmap';
-import { s, vs, ms } from '@/constants/Layout';
+import { SpotifyPage } from '@/components/Habit/SpotifyPage';
+import { ShareHabitModal } from '@/components/ShareHabitModal';
+import { HabitSheet } from '@/components/Create/HabitSheet';
+import { Colors } from '@/constants/Colors';
+import { FontFamily, Typography } from '@/constants/DesignSystem';
+import { useTheme } from '@/constants/themeContext';
+import { useHaptics } from '@/hooks/useHaptics';
+import { Habit, getHabits, getHabitMeasurement, getHabitStats, getLastNDaysCompletions, saveHabitMeasurement } from '@/lib/habitsSQLite';
+import { localHabitDate, measurementFor } from '@/lib/habitMeasurement';
+import { isHabitScheduledForDate, parseHabitDate } from '@/lib/habitSchedule';
+import { readableAccent } from '@/lib/colorContrast';
+import { on } from '@/lib/appEvents';
 
-const { width } = Dimensions.get('window');
+// Timing rather than a spring, so nothing overshoots when the page
+// changes size under a tap.
+const transition = LinearTransition.duration(200).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
+const entering = FadeIn.duration(200).reduceMotion(ReduceMotion.System);
+const param = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
+const validDate = (value?: string) => !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && localHabitDate(new Date(value + 'T12:00:00')) === value;
+type HistoryDay = { date: string; completed: boolean; skipped: boolean; scheduled: boolean };
+type View3 = 'today' | 'stats' | 'music';
+
+const VIEWS: SwitcherOption<View3>[] = [
+    { id: 'today', label: 'Today', icon: 'today-outline' },
+    { id: 'stats', label: 'Stats', icon: 'stats-chart-outline' },
+    { id: 'music', label: 'Music', icon: 'musical-notes-outline' },
+];
 
 export default function HabitDetailScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams();
-  const habitIdParam = params.habitId;
-  const habitId = Array.isArray(habitIdParam) ? habitIdParam[0] : habitIdParam;
+    const router = useRouter();
+    const params = useLocalSearchParams<{ habitId?: string; date?: string }>();
+    const habitId = param(params.habitId);
+    const requestedDate = param(params.date);
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const { selectionFeedback, successFeedback, errorFeedback } = useHaptics();
+    const [today, setToday] = useState(localHabitDate);
+    const [date, setDate] = useState(validDate(requestedDate) ? requestedDate! : localHabitDate());
+    const [habit, setHabit] = useState<Habit | null>(null);
+    const [loading, setLoading] = useState(!!habitId);
+    const [loadedFor, setLoadedFor] = useState<string | null>(null);
+    const ready = loadedFor === `${habitId}:${date}`;
+    const [value, setValue] = useState(0);
+    const valueRef = useRef(0);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [history, setHistory] = useState<HistoryDay[]>([]);
+    const [stats, setStats] = useState({ currentStreak: 0, bestStreak: 0, completionRate: 0, totalCompletions: 0 });
+    const [undo, setUndo] = useState<number | null>(null);
+    const [showEditor, setShowEditor] = useState(false);
+    const [showShare, setShowShare] = useState(false);
+    const [view, setView] = useState<View3>('today');
+    const pending = useRef(0);
+    const generation = useRef(0);
+    const mounted = useRef(true);
 
-  // Use consistent LOCAL date format (not UTC)
-  const getLocalDateStr = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  };
-  const dateParam = params.date;
-  const dateStr = (Array.isArray(dateParam) ? dateParam[0] : dateParam) || getLocalDateStr();
-  const todayStr = getLocalDateStr();
+    useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
+    useEffect(() => {
+        const refreshDate = () => setToday(localHabitDate());
+        const timer = setInterval(refreshDate, 30000);
+        const sub = AppState.addEventListener('change', state => { if (state === 'active') refreshDate(); });
+        return () => { clearInterval(timer); sub.remove(); };
+    }, []);
 
-  const { theme } = useTheme();
-  const colors = Colors[theme];
-  const { selectionFeedback, mediumFeedback } = useHaptics();
-  const { activeHabitId, isRunning: isFocusRunning } = useFocusTime();
+    const load = useCallback(async () => {
+        if (!habitId) return;
+        const request = ++generation.current;
+        try {
+            const habits = await getHabits();
+            const found = habits.find(item => item.id === habitId) || null;
+            if (!mounted.current || request !== generation.current) return;
+            setHabit(found);
+            if (!found) return;
+            const [amount, days, metrics] = await Promise.all([
+                getHabitMeasurement(habitId, measurementFor(found).target, date),
+                getLastNDaysCompletions(366),
+                getHabitStats(habitId),
+            ]);
+            if (!mounted.current || request !== generation.current || pending.current) return;
+            valueRef.current = amount;
+            setValue(amount);
+            // Whether the day asked for the habit at all, so the charts can
+            // tell a day off from a day missed instead of drawing both as zero.
+            setHistory(days.map(day => {
+                const when = parseHabitDate(day.date);
+                return {
+                    date: day.date,
+                    completed: day.completedIds.includes(habitId),
+                    skipped: day.skippedIds.includes(habitId),
+                    scheduled: when ? isHabitScheduledForDate(found, when) : true,
+                };
+            }));
+            setStats(metrics);
+            setLoadedFor(`${habitId}:${date}`);
+            setError(null);
+        } catch {
+            if (mounted.current && request === generation.current) setError('Couldn’t load your progress. Tap retry to try again.');
+        } finally {
+            if (mounted.current && request === generation.current) setLoading(false);
+        }
+    }, [habitId, date]);
 
-  // Initialize with passed params to avoid loading state
-  const [habit, setHabit] = useState<Habit | null>(() => {
-    if (params.initialName) {
-      return {
-        id: habitId,
-        name: params.initialName as string,
-        category: params.initialCategory as any,
-        icon: params.initialIcon as string,
-        durationMinutes: params.initialDuration ? Number(params.initialDuration) : undefined,
-        createdAt: '',
-      } as Habit;
-    }
-    return null;
-  });
+    useEffect(() => {
+        // Fetch persisted state when the selected habit/day changes.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        void load();
+        const update = on('habit_completion_updated', ({ habitId: id }) => {
+            // No id means everything may have moved, so this habit too.
+            if ((id === undefined || id === habitId) && !pending.current) void load();
+        });
+        const edit = on('habit_updated', ({ habitId: id }) => { if (id === undefined || id === habitId) void load(); });
+        return () => { generation.current++; update.remove(); edit.remove(); };
+    }, [habitId, date, load]);
 
-  const [completed, setCompleted] = useState(params.initialCompleted === 'true');
-  const [loading, setLoading] = useState(!habit);
-  const [streak, setStreak] = useState(0);
-  const [bestStreak, setBestStreak] = useState(0);
-  const [completionRate, setCompletionRate] = useState(0);
-  const [totalCompletions, setTotalCompletions] = useState(0);
-  const [history, setHistory] = useState<{ date: string; completed: boolean }[]>([]);
-  const [showEditor, setShowEditor] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showMusic, setShowMusic] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [counterValue, setCounterValue] = useState(0);
-
-  useEffect(() => {
-    if (!habitId) return;
-    loadHabitDetails();
-
-    // Listen for completion updates from other screens for instant sync
-    const completionSub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId: updatedId, date, completed: isCompleted }) => {
-      if (updatedId === habitId && date === dateStr) {
-        setCompleted(isCompleted);
-        loadHabitDetails();
-      }
-    });
-
-    // Listen for habit updates (e.g., from the global edit modal)
-    const habitUpdateSub = DeviceEventEmitter.addListener('habit_updated', ({ habitId: updatedId }) => {
-      if (updatedId === habitId) {
-        loadHabitDetails(); // Reload all details for this habit
-      }
-    });
-
-    return () => {
-      completionSub.remove();
-      habitUpdateSub.remove();
+    const changeValue = async (next: number, isUndo = false) => {
+        if (!habit || !ready || date !== localHabitDate() || !Number.isFinite(next) || next < 0) return;
+        const previous = valueRef.current;
+        if (next === previous) return;
+        const target = measurementFor(habit).target;
+        selectionFeedback();
+        setUndo(isUndo ? null : previous);
+        valueRef.current = next;
+        setValue(next);
+        setError(null);
+        setSaving(true);
+        pending.current++;
+        generation.current++;
+        let failed = false;
+        try {
+            await saveHabitMeasurement(habit.id, next, date);
+            if (next >= target && previous < target) successFeedback();
+        } catch {
+            failed = true;
+            errorFeedback();
+            if (mounted.current) {
+                setError('That change wasn’t saved. Please try again.');
+                setUndo(null);
+                // Reload the actual saved amount once all queued writes have settled.
+                const stored = await getHabitMeasurement(habit.id, target, date).catch(() => previous);
+                if (pending.current === 1) { valueRef.current = stored; setValue(stored); }
+            }
+        } finally {
+            pending.current--;
+            if (mounted.current && !pending.current) {
+                setSaving(false);
+                await load();
+                if (failed && mounted.current) setError('That change wasn’t saved. Please try again.');
+            }
+        }
     };
-  }, [habitId, dateStr]);
 
-  const loadHabitDetails = async () => {
-    if (!habitId) {
-      setLoading(false);
-      return;
-    }
+    const selectDate = (next: string) => {
+        if (saving || next === date) return;
+        selectionFeedback();
+        setUndo(null);
+        setDate(next);
+    };
+    const accent = habit?.color || colors.primary;
+    const ink = readableAccent(accent, colors.surfaceSecondary);
+    const target = habit ? measurementFor(habit).target : 1;
+    const week = Array.from({ length: 7 }, (_, i) => {
+        const day = new Date(today + 'T12:00:00');
+        day.setDate(day.getDate() - 6 + i);
+        const key = localHabitDate(day);
+        const record = history.find(item => item.date === key);
+        return { date: key, day, completed: key === date && ready ? value >= target : !!record?.completed, skipped: !!record?.skipped };
+    });
+    const schedule = habit
+        ? `${habit.frequency === 'daily' || !habit.frequency ? 'Daily' : habit.frequency.charAt(0).toUpperCase() + habit.frequency.slice(1)}${habit.startTime ? ` · ${habit.startTime}` : ' · Anytime'}`
+        : undefined;
 
-    try {
-      let currentHabit = habit;
-      if (!currentHabit) {
-        const habits = await getHabits();
-        const found = habits.find(h => h.id === habitId);
-        if (found) {
-          setHabit(found);
-          currentHabit = found;
-        }
-      } else {
-        // Reload fresh data even if we had initial params
-        const habits = await getHabits();
-        const found = habits.find(h => h.id === habitId);
-        if (found) {
-          setHabit(found);
-          currentHabit = found;
-        }
-      }
-
-      const completions = await getCompletions(dateStr);
-      setCompleted(!!completions[habitId]);
-
-      // Fetch history for charts (366 days for full year heatmap)
-      const last366 = await getLastNDaysCompletions(366);
-      const habitHistory = last366.map(d => ({
-        date: d.date,
-        completed: d.completedIds.includes(habitId)
-      }));
-      // Sort by date ascending
-      habitHistory.sort((a, b) => a.date.localeCompare(b.date));
-      setHistory(habitHistory);
-
-      // Fetch real stats
-      const stats = await getHabitStats(habitId);
-      setStreak(stats.currentStreak);
-      setBestStreak(stats.bestStreak);
-      setCompletionRate(stats.completionRate);
-      setTotalCompletions(stats.totalCompletions);
-
-      // Set initial counter value for counter-based habits
-      if (currentHabit) setCounterValue(completions[habitId] ? currentHabit.goalValue || 1 : 0);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleToggle = () => {
-    if (!habit) return;
-
-    // Only allow completion for today
-    if (dateStr !== todayStr) {
-      Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
-      return;
-    }
-
-    // Haptic feedback for satisfying interaction
-    mediumFeedback();
-
-    setCompleted(prev => !prev);
-    // Fire and forget for instant response
-    toggleCompletion(habit.id, dateStr).catch(console.error);
-  };
-
-  const handleCounterIncrement = useCallback(() => {
-    if (!habit) return;
-    if (dateStr !== todayStr) return;
-
-    selectionFeedback();
-    const newValue = Math.min(counterValue + 1, habit.goalValue || 999);
-    setCounterValue(newValue);
-
-    // Mark complete when target is reached
-    if (newValue >= (habit.goalValue || 1) && !completed) {
-      setCompleted(true);
-      toggleCompletion(habit.id, dateStr).catch(console.error);
-    }
-  }, [habit, counterValue, completed, dateStr, todayStr]);
-
-  const handleCounterDecrement = useCallback(() => {
-    if (!habit) return;
-    if (dateStr !== todayStr) return;
-
-    selectionFeedback();
-    const newValue = Math.max(counterValue - 1, 0);
-    setCounterValue(newValue);
-
-    // Un-mark complete if below target
-    if (newValue < (habit.goalValue || 1) && completed) {
-      setCompleted(false);
-      toggleCompletion(habit.id, dateStr).catch(console.error);
-    }
-  }, [habit, counterValue, completed, dateStr, todayStr]);
-
-  // Determine tracking style
-  const trackingStyle = habit ? inferTrackingStyle(habit.unit, habit.goalValue) : 'boolean';
-
-  // Only show loading if habit truly isn't available yet (fallback case)
-  if (loading && !habit) return null;
-
-  if (!habitId) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        <Text style={{ color: colors.textSecondary }}>Habit is unavailable</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: vs(20) }}>
-          <Text style={{ color: colors.primary }}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (!habit) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        <Text style={{ color: colors.textSecondary }}>Habit not found</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: vs(20) }}>
-          <Text style={{ color: colors.primary }}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Last 7 days for quick view
-  const last7Days = history.slice(-7);
-  const habitColor = habit.color || colors.primary;
-  const isFocusActiveForHabit = activeHabitId === habit.id && isFocusRunning;
-
-  return (
-    <VoidShell>
-      {/* Header - Fixed */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
+        // The habit's own name and rhythm live in the header. Repeating them in
+        // the page cost a block of height this screen could not spare.
+        <SheetScreen
+            title={habit?.name || 'Habit'}
+            subtitle={schedule}
+            onBack={() => router.back()}
+            rightSlot={habit ? <View style={styles.headerActions}>
+                <ShareButton variant="friend" onPress={() => setShowShare(true)} />
+                <IconButton icon="pencil-outline" label="Edit habit" variant="accent" onPress={() => { selectionFeedback(); setShowEditor(true); }} />
+            </View> : undefined}
         >
-          <Ionicons name="arrow-back" size={s(24)} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={{ flexDirection: 'row', gap: s(12) }}>
-          <ShareButton variant="friend" onPress={() => setShowShareModal(true)} />
-          <TouchableOpacity
-            onPress={() => {
-              selectionFeedback();
-              setShowEditor(true);
-            }}
-            style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}
-          >
-            <Ionicons name="pencil" size={s(20)} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-      </View>
+            {!habit ? <View style={styles.empty}>
+                {loading ? <ActivityIndicator color={accent} /> : <><Text style={[Typography.body, { color: colors.textSecondary }]}>{error || 'This habit is unavailable.'}</Text><Pressable onPress={error ? load : () => router.back()} style={styles.retry} accessibilityRole="button"><Text style={[Typography.button, { color: ink }]}>{error ? 'Retry' : 'Go back'}</Text></Pressable></>}
+            </View> : <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                    {view === 'today' ? <>
+                        <HabitProgressCard key={`${habit.id}:${date}`} habit={habit} date={date} value={value} saving={saving} ready={ready} error={error} canUndo={undo !== null} onChange={next => void changeValue(next)} onAdd={amount => void changeValue(Math.round((valueRef.current + amount) * 1000) / 1000)} onUndo={() => { if (undo !== null) void changeValue(undo, true); }} onToday={() => selectDate(today)} />
+                        {!ready && error && <Pressable onPress={load} accessibilityRole="button" style={styles.retry}><Text style={[Typography.button, { color: ink }]}>Retry</Text></Pressable>}
 
-      <ScrollView contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
-          <ScreenHeader title={habit.name} subtitle="HABIT" />
+                        {/* The week and the three numbers it adds up to, in one
+                            card: they are the same story, and two cards cost a
+                            gap and a heading to say so. */}
+                        <Animated.View layout={transition}>
+                            <VoidCard style={styles.rhythm}>
+                                <View style={styles.week}>
+                                    {week.map(day => {
+                                        const scheduled = isHabitScheduledForDate(habit, day.day);
+                                        const selected = date === day.date;
+                                        return <Pressable key={day.date} onPress={() => selectDate(day.date)} disabled={saving} accessibilityRole="button" accessibilityState={{ selected, disabled: saving }} accessibilityLabel={`${day.day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}, ${day.completed ? 'completed' : day.skipped ? 'skipped' : scheduled ? 'not completed' : 'not scheduled'}`} style={[styles.day, { backgroundColor: selected ? accent + '14' : 'transparent', borderColor: selected ? accent + '66' : 'transparent' }]}>
+                                            <Text style={[styles.weekday, { color: selected ? ink : colors.textTertiary }]}>{day.day.toLocaleDateString(undefined, { weekday: 'narrow' })}</Text>
+                                            <View style={[styles.dayCircle, { backgroundColor: day.completed ? accent : colors.surfaceTertiary }]}>{day.completed ? <AppIcon name="checkmark" size={14} color={readableAccent('#FFFFFF', accent)} /> : <Text style={[styles.dayNumber, { color: colors.textSecondary }]}>{day.skipped || !scheduled ? '–' : day.day.getDate()}</Text>}</View>
+                                            <View style={[styles.todayDot, { backgroundColor: day.date === today ? accent : 'transparent' }]} />
+                                        </Pressable>;
+                                    })}
+                                </View>
+                                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                                <View style={styles.statRow}>
+                                    {[
+                                        { value: stats.currentStreak, label: 'Streak', icon: 'flame-outline' },
+                                        { value: `${stats.completionRate}%`, label: 'Consistency', icon: 'pulse-outline' },
+                                        { value: stats.totalCompletions, label: 'Check-ins', icon: 'checkmark-done-outline' },
+                                    ].map((stat, index) => (
+                                        <View key={stat.label} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
+                                            <View style={styles.statTop}>
+                                                <AppIcon name={stat.icon} size={13} color={ink} />
+                                                <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
+                                            </View>
+                                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </VoidCard>
+                        </Animated.View>
 
-          <VoidCard style={styles.contextCard}>
-            <View style={styles.contextRow}>
-              <View>
-                <Text style={[styles.contextLabel, { color: colors.textTertiary }]}>SCHEDULE</Text>
-                <Text style={[styles.contextValue, { color: colors.textPrimary }]}>
-                  {habit.startTime ? `${habit.startTime}${habit.durationMinutes ? ` · ${habit.durationMinutes} min` : ''}` : 'Anytime'}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.contextLabel, { color: colors.textTertiary }]}>FOCUS</Text>
-                <Text style={[styles.contextValue, { color: isFocusActiveForHabit ? habitColor : colors.textSecondary }]}>
-                  {isFocusActiveForHabit ? 'Running now' : 'Idle'}
-                </Text>
-              </View>
-            </View>
-          </VoidCard>
+                        {habit.description ? <Animated.View layout={transition} style={styles.note}><Text style={[Typography.label, { color: colors.textTertiary }]}>Your intention</Text><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{habit.description}</Text></Animated.View> : null}
+                    </> : view === 'stats' ? (
+                        /* The same numbers, in place of today rather than under it. */
+                        <Animated.View key="stats" entering={entering} style={styles.swapped}>
+                            <Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Your longest streak: {stats.bestStreak} {stats.bestStreak === 1 ? 'day' : 'days'}</Text>
+                            <HabitGraphRenderer graphStyle={habit.graphStyle || 'bar'} color={accent} goalValue={target} unit={habit.unit || 'times'} completionData={history} currentStreak={stats.currentStreak} todayValue={date === today ? value : undefined} />
+                            <VoidCard style={styles.heatmap}><DetailedHeatmap completionData={history} color={accent} description="YOUR YEAR IN CHECK-INS" /></VoidCard>
+                        </Animated.View>
+                    ) : (
+                        <Animated.View key="music" entering={entering} style={styles.swapped}>
+                            <SpotifyPage habitId={habit.id} />
+                        </Animated.View>
+                    )}
+                </ScrollView>
+            </KeyboardAvoidingView>}
 
-          {/* === CONTEXT-SENSITIVE PRIMARY INPUT === */}
-
-          {/* TIMER: Only for time-based habits */}
-          {trackingStyle === 'timer' && (
-            <View style={{ marginBottom: vs(24) }}>
-              <PomodoroTimer
-                defaultMinutes={habit.durationMinutes}
-                habitId={habit.id}
-                habitName={habit.name}
-                noCard
-                fullSizeRunning
-              />
-            </View>
-          )}
-
-          {/* COUNTER: For numeric/countable habits (glasses, pages, reps, etc.) */}
-          {trackingStyle === 'counter' && (
-            <VoidCard style={styles.counterCard}>
-              <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : habitColor + '15' }]}>
-                <Ionicons
-                  name={(habit.icon as any) || 'star'}
-                  size={s(40)}
-                  color={completed ? colors.success : habitColor}
-                />
-              </View>
-              <Text style={[styles.counterProgress, { color: colors.textPrimary }]}>
-                {counterValue}
-                <Text style={{ color: colors.textTertiary, fontSize: ms(20) }}> / {habit.goalValue || 1}</Text>
-              </Text>
-              <Text style={[styles.counterUnit, { color: colors.textSecondary }]}>
-                {habit.unit || 'count'}
-              </Text>
-
-              <View style={styles.counterControls}>
-                <TouchableOpacity
-                  onPress={handleCounterDecrement}
-                  style={[styles.counterBtn, { backgroundColor: colors.surfaceTertiary }]}
-                  disabled={counterValue <= 0}
-                >
-                  <Ionicons name="remove" size={s(28)} color={counterValue <= 0 ? colors.textTertiary : colors.textPrimary} />
-                </TouchableOpacity>
-
-                <View style={[styles.counterValueDisplay, { backgroundColor: completed ? colors.success + '15' : habitColor + '10', borderColor: completed ? colors.success + '40' : habitColor + '30' }]}>
-                  <Text style={[styles.counterValueText, { color: completed ? colors.success : habitColor }]}>
-                    {completed ? '✓ Complete' : `${Math.round((counterValue / (habit.goalValue || 1)) * 100)}%`}
-                  </Text>
+            {habit ? (
+                <View pointerEvents="box-none" style={styles.switcher}>
+                    <ViewSwitcher options={VIEWS} value={view} onChange={setView} accent={accent} />
                 </View>
+            ) : null}
 
-                <TouchableOpacity
-                  onPress={handleCounterIncrement}
-                  style={[styles.counterBtn, { backgroundColor: habitColor + '20' }]}
-                >
-                  <Ionicons name="add" size={s(28)} color={habitColor} />
-                </TouchableOpacity>
-              </View>
-            </VoidCard>
-          )}
-
-          {/* BOOLEAN: Simple toggle for yes/no habits */}
-          {trackingStyle === 'boolean' && (
-            <VoidCard style={styles.mainCard}>
-              <View style={[styles.iconLarge, { backgroundColor: completed ? colors.success + '20' : habitColor + '15' }]}>
-                <Ionicons
-                  name={(habit.icon as any) || 'star'}
-                  size={s(40)}
-                  color={completed ? colors.success : habitColor}
-                />
-              </View>
-              <Text style={[styles.habitName, { color: colors.textPrimary }]}>
-                {habit.name}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(8), marginBottom: vs(24) }}>
-                <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: s(10), paddingVertical: vs(4), borderRadius: s(8) }}>
-                    <Text style={{ fontSize: ms(10), fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
-                    {(habit.category || 'general').toUpperCase()}
-                  </Text>
-                </View>
-                {habit.frequency && (
-                  <View style={{ backgroundColor: colors.surfaceTertiary, paddingHorizontal: s(10), paddingVertical: vs(4), borderRadius: s(8) }}>
-                    <Text style={{ fontSize: ms(10), fontFamily: 'Lexend_400Regular', color: colors.textSecondary, letterSpacing: 1 }}>
-                      {habit.frequency.toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              <TouchableOpacity
-                onPress={handleToggle}
-                style={[styles.actionButton, { backgroundColor: completed ? colors.success : colors.primaryDark }]}
-                activeOpacity={0.8}
-              >
-                <Ionicons name={completed ? "checkmark-circle" : "ellipse-outline"} size={s(20)} color="white" style={{ marginRight: s(8) }} />
-                <Text style={styles.actionButtonText}>
-                  {completed ? 'Completed today' : 'Mark complete'}
-                </Text>
-              </TouchableOpacity>
-            </VoidCard>
-          )}
-
-          {/* === THIS WEEK — Quick 7-day view === */}
-          <View style={{ marginBottom: vs(20) }}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>THIS WEEK</Text>
-            <VoidCard style={{ padding: s(16) }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                {last7Days.map((day, i) => {
-                  const dayDate = new Date(day.date + 'T12:00:00');
-                  const dayLabel = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][dayDate.getDay()];
-                  const isToday = day.date === todayStr;
-                  return (
-                    <View key={day.date} style={{ alignItems: 'center', gap: vs(6) }}>
-                      <Text style={{ fontSize: ms(10), color: isToday ? habitColor : colors.textTertiary, fontFamily: 'Lexend_400Regular', fontWeight: isToday ? '700' : '400' }}>
-                        {dayLabel}
-                      </Text>
-                      <View style={{
-                        width: s(32), height: s(32), borderRadius: s(16),
-                        backgroundColor: day.completed ? habitColor + '20' : 'transparent',
-                        borderWidth: isToday ? 2 : 1,
-                        borderColor: day.completed ? habitColor : (isToday ? habitColor + '50' : colors.border),
-                        alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        {day.completed ? (
-                          <Ionicons name="checkmark" size={s(16)} color={habitColor} />
-                        ) : (
-                          <View style={{ width: s(4), height: s(4), borderRadius: s(2), backgroundColor: colors.textTertiary + '30' }} />
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </VoidCard>
-          </View>
-
-          {/* === PERFORMANCE STATS — Always visible === */}
-          <View style={{ marginBottom: vs(20) }}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>PERFORMANCE</Text>
-            <View style={styles.statsGrid}>
-              {[
-                { label: 'STREAK', value: `${streak}`, suffix: 'DAYS', icon: 'flame', color: '#FFD93D' },
-                { label: 'BEST', value: `${bestStreak}`, suffix: 'DAYS', icon: 'trophy', color: '#4ECDC4' },
-                { label: 'RATE', value: `${completionRate}`, suffix: '%', icon: 'trending-up', color: '#8BADD6' },
-                { label: 'TOTAL', value: `${totalCompletions}`, suffix: 'DONE', icon: 'checkmark-done', color: '#8B5CF6' }
-              ].map((stat, i) => (
-                <VoidCard key={i} style={styles.statCard}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: vs(8) }}>
-                    <Ionicons name={stat.icon as any} size={s(16)} color={stat.color} />
-                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
-                  </View>
-                  <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-                    {stat.value}
-                    <Text style={{ fontSize: ms(10), color: colors.textTertiary }}> {stat.suffix}</Text>
-                  </Text>
-                </VoidCard>
-              ))}
-            </View>
-          </View>
-
-          <TouchableOpacity onPress={() => setShowHistory(!showHistory)} style={{ paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ color: colors.text, fontFamily: 'Lexend_500Medium' }}>Progress history</Text><Ionicons name={showHistory ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-          {showHistory && <>
-          {/* === VISUALIZATION === */}
-          <View style={{ marginBottom: vs(24) }}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>VISUALIZATION</Text>
-            <HabitGraphRenderer
-              graphStyle={habit.graphStyle || 'bar'}
-              color={habitColor}
-              goalValue={habit.goalValue || 1}
-              unit={habit.unit || 'count'}
-              completionData={history}
-              currentStreak={streak}
-              todayValue={completed ? (habit.goalValue || 1) : 0}
-            />
-          </View>
-
-          {/* === HEATMAP === */}
-          <VoidCard style={{ padding: s(16), marginBottom: vs(24) }} glass intensity={20}>
-            <DetailedHeatmap
-              completionData={history}
-              color={habitColor}
-              description="YEARLY CONSISTENCY"
-            />
-          </VoidCard>
-
-          </>}
-          {habit.description ? <Text style={{ color: colors.textSecondary, lineHeight: 21, marginBottom: 20 }}>{habit.description}</Text> : null}
-          <TouchableOpacity onPress={() => setShowMusic(!showMusic)} style={{ paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ color: colors.textSecondary }}>Focus music</Text><Ionicons name={showMusic ? 'chevron-up' : 'musical-notes-outline'} size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-          {showMusic && <View style={{ height: 500 }}><SpotifyPage habitId={habitId} /></View>}
-          <View style={{ height: 40 }} />
-      </ScrollView>
-      {showEditor && <HabitCreationModal visible onClose={() => setShowEditor(false)} initialHabit={habit} goalId={habit.goalId} listenToGlobalEvents={false} onSuccess={loadHabitDetails} />}
-
-      {/* Share Modal */}
-      <ShareHabitModal
-        visible={showShareModal}
-        habitId={habitId}
-        habitName={habit.name}
-        onClose={() => setShowShareModal(false)}
-      />
-    </VoidShell>
-  );
+            {showEditor && habit && <HabitSheet visible onClose={() => setShowEditor(false)} habit={habit} goalId={habit.goalId} onSaved={load} />}
+            {habit && habitId && <ShareHabitModal visible={showShare} habitId={habitId} habitName={habit.name} onClose={() => setShowShare(false)} />}
+        </SheetScreen>
+    );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: vs(10),
-    marginTop: vs(40),
-    paddingHorizontal: s(20),
-    zIndex: 10,
-  },
-  pageContent: {
-    paddingHorizontal: s(20),
-    paddingTop: vs(10),
-  },
-  contextCard: {
-    padding: s(18),
-    marginBottom: vs(20),
-  },
-  contextRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: s(12),
-  },
-  contextLabel: {
-    fontSize: ms(10),
-    letterSpacing: 1.3,
-    fontFamily: 'Lexend_400Regular',
-  },
-  contextValue: {
-    fontSize: ms(15),
-    fontFamily: 'Lexend',
-    marginTop: vs(4),
-  },
-  iconButton: {
-    width: s(44),
-    height: s(44),
-    borderRadius: s(22),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mainCard: {
-    alignItems: 'center',
-    padding: s(32),
-    marginBottom: vs(24),
-  },
-  counterCard: {
-    alignItems: 'center',
-    padding: s(28),
-    marginBottom: vs(24),
-  },
-  iconLarge: {
-    width: s(80),
-    height: s(80),
-    borderRadius: s(40),
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: vs(16),
-  },
-  habitName: {
-    fontSize: ms(24),
-    fontWeight: '900',
-    marginBottom: vs(4),
-    textAlign: 'center',
-    fontFamily: 'Lexend',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: s(24),
-    paddingVertical: vs(12),
-    borderRadius: s(12),
-  },
-  actionButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: ms(14),
-    fontFamily: 'Lexend_400Regular',
-    letterSpacing: 0.5,
-  },
-  // Counter styles
-  counterProgress: {
-    fontSize: ms(48),
-    fontWeight: '900',
-    fontFamily: 'Lexend',
-    marginBottom: vs(4),
-  },
-  counterUnit: {
-    fontSize: ms(13),
-    fontFamily: 'Lexend_400Regular',
-    letterSpacing: 1,
-    marginBottom: vs(24),
-    textTransform: 'uppercase',
-  },
-  counterControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s(16),
-  },
-  counterBtn: {
-    width: s(56),
-    height: s(56),
-    borderRadius: s(28),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  counterValueDisplay: {
-    paddingHorizontal: s(20),
-    paddingVertical: vs(10),
-    borderRadius: s(12),
-    borderWidth: 1,
-  },
-  counterValueText: {
-    fontSize: ms(14),
-    fontWeight: '700',
-    fontFamily: 'Lexend',
-  },
-  // Stats
-  sectionTitle: {
-    fontSize: ms(14),
-    fontWeight: '900',
-    marginBottom: vs(16),
-    letterSpacing: 1,
-    fontFamily: 'Lexend_400Regular',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    width: '48%',
-    padding: s(16),
-    marginBottom: vs(16),
-  },
-  statLabel: {
-    fontSize: ms(10),
-    fontWeight: 'bold',
-    marginLeft: s(8),
-    letterSpacing: 1,
-    fontFamily: 'Lexend_400Regular',
-  },
-  statValue: {
-    fontSize: ms(22),
-    fontWeight: 'bold',
-    fontFamily: 'Lexend',
-  },
-  descCard: {
-    padding: s(20),
-  },
-  descTitle: {
-    fontSize: ms(12),
-    fontWeight: 'bold',
-    marginBottom: vs(8),
-    fontFamily: 'Lexend_400Regular',
-    letterSpacing: 1,
-  },
-  descText: {
-    fontSize: ms(14),
-    lineHeight: ms(22),
-  },
+    flex: { flex: 1 },
+    swapped: { gap: 18 },
+    switcher: { position: 'absolute', left: 20, right: 20, bottom: 16 },
+    headerActions: { flexDirection: 'row', gap: 4 },
+    content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 84, gap: 14 },
+    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+    retry: { minHeight: 44, padding: 12, alignItems: 'center', justifyContent: 'center' },
+    rhythm: { paddingVertical: 10, paddingHorizontal: 8 },
+    week: { flexDirection: 'row', gap: 2 },
+    day: { flex: 1, paddingVertical: 8, borderRadius: 14, borderWidth: 1, gap: 5, alignItems: 'center', justifyContent: 'center' },
+    weekday: { fontFamily: FontFamily.medium, fontSize: 10 },
+    dayCircle: { width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    dayNumber: { fontFamily: FontFamily.regular, fontSize: 12 },
+    todayDot: { width: 3, height: 3, borderRadius: 2 },
+    divider: { height: StyleSheet.hairlineWidth, marginVertical: 8, marginHorizontal: 4 },
+    statRow: { flexDirection: 'row' },
+    stat: { flex: 1, alignItems: 'center', gap: 1, paddingHorizontal: 4 },
+    statTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    statValue: { fontFamily: FontFamily.display, fontSize: 19, lineHeight: 26, fontVariant: ['tabular-nums'] },
+    statLabel: { fontFamily: FontFamily.regular, fontSize: 10, textAlign: 'center' },
+    note: { gap: 6, paddingHorizontal: 4 },
+    heatmap: { padding: 16 },
 });

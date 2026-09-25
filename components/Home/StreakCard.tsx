@@ -1,6 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '../Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
@@ -88,16 +89,14 @@ const styles = StyleSheet.create({
     },
     value: {
         fontSize: ms(24),
-        fontWeight: '900',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
         textAlign: 'center',
         lineHeight: ms(24),
     },
     label: {
         fontSize: ms(8),
-        fontWeight: 'bold',
         letterSpacing: 1,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.bold,
         textAlign: 'center',
         marginTop: vs(2),
     },

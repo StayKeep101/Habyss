@@ -1,44 +1,49 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, DeviceEventEmitter, Text, TouchableOpacity } from 'react-native';
+import { AppButton } from '@/components/Common/AppButton';
+import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/constants/themeContext';
+import { FontFamily } from '@/constants/DesignSystem';
+import { useMemo } from 'react';
+import {View, StyleSheet, Text} from 'react-native';
 import RevenueCatUI from 'react-native-purchases-ui';
 import { useRouter } from 'expo-router';
 import { CustomerInfo, PurchasesStoreTransaction } from 'react-native-purchases';
 import RevenueCatService from '@/lib/RevenueCat';
+import { emit } from '@/lib/appEvents';
 
 export default function RevenueCatPaywall() {
     const router = useRouter();
+    const { theme } = useTheme();
+    const palette = Colors[theme];
     const isConfigured = useMemo(() => RevenueCatService.isConfigured(), []);
 
     const handlePurchaseCompleted = ({ customerInfo }: { customerInfo: CustomerInfo, storeTransaction: PurchasesStoreTransaction }) => {
         console.log('Purchase completed:', customerInfo);
-        DeviceEventEmitter.emit('premium_status_updated');
+        emit('premium_status_updated');
         router.back();
     };
 
     const handleRestoreCompleted = ({ customerInfo }: { customerInfo: CustomerInfo }) => {
         console.log('Restore completed:', customerInfo);
         if (customerInfo.entitlements.active['pro'] || customerInfo.entitlements.active['Habyss Pro']) {
-            DeviceEventEmitter.emit('premium_status_updated');
+            emit('premium_status_updated');
             router.back();
         }
     };
 
     if (!isConfigured) {
         return (
-            <View style={[styles.container, styles.fallback]}>
-                <Text style={styles.title}>Billing isn&apos;t configured on this build.</Text>
-                <Text style={styles.subtitle}>
+            <View style={[styles.container, styles.fallback, { backgroundColor: palette.background }]}>
+                <Text style={[styles.title, { color: palette.textPrimary }]}>Billing isn&apos;t configured on this build.</Text>
+                <Text style={[styles.subtitle, { color: palette.textSecondary }]}>
                     Add the RevenueCat API key for this platform before showing the paywall.
                 </Text>
-                <TouchableOpacity onPress={() => router.back()} style={styles.button}>
-                    <Text style={styles.buttonText}>Close</Text>
-                </TouchableOpacity>
+                <AppButton label="Close" onPress={() => router.back()} />
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: palette.background }]}>
             <RevenueCatUI.Paywall
                 onPurchaseCompleted={handlePurchaseCompleted}
                 onRestoreCompleted={handleRestoreCompleted}
@@ -65,7 +70,7 @@ const styles = StyleSheet.create({
     title: {
         color: '#fff',
         fontSize: 20,
-        fontWeight: '700',
+        fontFamily: FontFamily.bold,
         textAlign: 'center',
         marginBottom: 12,
     },
@@ -84,6 +89,6 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#000',
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: FontFamily.semibold,
     },
 });

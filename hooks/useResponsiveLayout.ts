@@ -1,3 +1,4 @@
+import { Spacing } from '@/constants/DesignSystem';
 import { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,9 +13,9 @@ export function useResponsiveLayout() {
         const isCompactHeight = height <= 700;
         const isSmallDevice = isCompactWidth || isCompactHeight;
 
-        const horizontalPadding = isCompactWidth ? 16 : 20;
-        const sectionGap = isSmallDevice ? 12 : 16;
-        const topSpacing = isCompactHeight ? 12 : 20;
+        const horizontalPadding = isCompactWidth ? Spacing.lg : Spacing.xl;
+        const sectionGap = isSmallDevice ? Spacing.md : Spacing.lg;
+        const topSpacing = isCompactHeight ? Spacing.md : Spacing.xl;
 
         const tabBarHeight = isCompactWidth ? 56 : 64;
         const floatingButtonSize = isCompactWidth ? 56 : 64;

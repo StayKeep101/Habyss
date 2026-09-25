@@ -1,6 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, Dimensions, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
     useSharedValue,
@@ -231,18 +232,18 @@ const styles = StyleSheet.create({
     sheetBorder: { borderTopLeftRadius: 32, borderTopRightRadius: 32, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.1)', pointerEvents: 'none' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: 0.5, fontFamily: 'Lexend' },
-    subtitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, fontFamily: 'Lexend', marginTop: 4 },
+    title: { fontSize: 20,  color: '#fff', letterSpacing: 0.5, fontFamily: FontFamily.bold },
+    subtitle: { fontSize: 11,  letterSpacing: 1.5, fontFamily: FontFamily.bold, marginTop: 4 },
     scrollContent: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
     sectionIcon: { width: 24, height: 24, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-    sectionTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, fontFamily: 'Lexend' },
+    sectionTitle: { fontSize: 11,  letterSpacing: 1.5, fontFamily: FontFamily.bold },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     card: { borderRadius: 20 },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
     iconBox: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    modeName: { fontSize: 15, fontWeight: '700', fontFamily: 'Lexend', marginBottom: 6 },
-    modeDesc: { fontSize: 12, fontFamily: 'Lexend_400Regular', opacity: 0.7, lineHeight: 18 },
+    modeName: { fontSize: 15, fontFamily: FontFamily.bold, marginBottom: 6 },
+    modeDesc: { fontSize: 12, fontFamily: FontFamily.regular, opacity: 0.7, lineHeight: 18 },
     greetingChip: { flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8, borderRadius: 16 },
-    greetingLabel: { fontSize: 12, fontWeight: '600', fontFamily: 'Lexend', textAlign: 'center' },
+    greetingLabel: { fontSize: 12, fontFamily: FontFamily.semibold, textAlign: 'center' },
 });

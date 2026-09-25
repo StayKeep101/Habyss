@@ -122,7 +122,12 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     return row ? rowToTask(row) : null;
 }
 
-export async function updateTask(id: string, patch: Partial<TaskInput>): Promise<void> {
+/** A field set to undefined or null is cleared; a field left out is kept. */
+export type TaskPatch = { [K in keyof TaskInput]?: TaskInput[K] | null };
+
+const REQUIRED: (keyof TaskInput)[] = ['title', 'priority'];
+
+export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
     if (!isSQLiteAvailable()) return;
     const db = await getDatabase();
     if (!db) return;
@@ -136,8 +141,12 @@ export async function updateTask(id: string, patch: Partial<TaskInput>): Promise
     const sets: string[] = [];
     const params: any[] = [];
     for (const [key, column] of Object.entries(columns) as [keyof TaskInput, string][]) {
-        const value = patch[key];
-        if (value !== undefined) { sets.push(`${column} = ?`); params.push(value); }
+        if (!Object.prototype.hasOwnProperty.call(patch, key)) continue;
+        const value = patch[key] ?? null;
+        // Clearing a due date or notes must stick; clearing the title cannot.
+        if (value === null && REQUIRED.includes(key)) continue;
+        sets.push(`${column} = ?`);
+        params.push(value);
     }
     if (sets.length === 0) return;
 
@@ -163,6 +172,17 @@ export async function deleteTask(id: string): Promise<void> {
     const db = await getDatabase();
     if (!db) return;
     await db.runAsync('UPDATE tasks SET deleted = 1, updated_at = ?, synced = 0 WHERE id = ?', nowISO(), id);
+}
+
+/** A goal's tasks go with it, the same way its habits do. */
+export async function deleteTasksForGoal(goalId: string): Promise<void> {
+    if (!isSQLiteAvailable()) return;
+    const db = await getDatabase();
+    if (!db) return;
+    await db.runAsync(
+        'UPDATE tasks SET deleted = 1, updated_at = ?, synced = 0 WHERE goal_id = ? AND deleted = 0',
+        nowISO(), goalId,
+    );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -196,6 +216,33 @@ export function topTasksForToday(tasks: Task[], today: string, limit = 3): Task[
         .filter(task => !task.dueDate || task.dueDate <= today)
         .sort((a, b) => taskRank(a, today) - taskRank(b, today) || a.createdAt.localeCompare(b.createdAt))
         .slice(0, Math.max(0, limit));
+}
+
+/**
+ * The tasks that belong to a given day, the way Reminders and Todoist decide it.
+ *
+ * A task appears on the day it was given and on no other: writing "Friday" on
+ * something and then seeing it in today's list every day until Friday is how a
+ * list stops being trusted. Two exceptions, both from the same principle —
+ * today is where work that needs doing now belongs:
+ *
+ *  - Something open and past its date is still to be done, so it carries into
+ *    today (and only today, never into a day being read back as history).
+ *  - Something with no date at all is work with no home, so it sits in today
+ *    rather than disappearing from the app entirely.
+ *
+ * A past or future day shows exactly what was due then, including what was
+ * finished, so looking back at a day says what that day actually held.
+ */
+export function tasksForDay(tasks: Task[], day: string, today: string = todayKey()): Task[] {
+    const isToday = day === today;
+    return tasks.filter(task => {
+        if (task.status === 'cancelled') return false;
+        if (task.dueDate === day) return true;
+        if (!isToday) return false;
+        if (!task.dueDate) return task.status === 'open';
+        return task.dueDate < day && task.status === 'open';
+    });
 }
 
 export const todayKey = (date: Date = new Date()): string => localDateKey(date);

@@ -1,0 +1,80 @@
+import { DeviceEventEmitter, type EmitterSubscription } from 'react-native';
+import type { Habit } from './habitsSQLite';
+import type { Task } from './tasks';
+import type { DayTally } from './dayComplete';
+import type { DailyTarget } from './dailyFocus';
+
+/**
+ * Every message the app broadcasts to itself, and what it carries.
+ *
+ * The app coordinates screens through a device-wide emitter, which is a
+ * reasonable fit for a local-first app: a habit ticked in one tab has to show
+ * in three others, and nothing here is worth a store for. What it lacked was
+ * any way to be wrong loudly. Both ends were raw strings, so a mistyped name or
+ * a payload that quietly changed shape failed in the only way an event bus can
+ * — by doing nothing at all, on a screen nobody was looking at.
+ *
+ * Naming them once makes both ends checkable: `emit` and `on` below accept only
+ * these keys, and only the payload each key declares.
+ */
+export interface AppEvents {
+    /* ---------------------------------------------------- something changed */
+    /** A habit was ticked, un-ticked or skipped. Empty means "something did". */
+    habit_completion_updated: {
+        habitId?: string; date?: string; completed?: boolean; skipped?: boolean; value?: number;
+    };
+    habit_completed: { habitId: string; date: string; value: number };
+    habit_created: { habit: Habit };
+    habit_updated: { habitId?: string };
+    habit_deleted: { habitId: string };
+    goal_deleted: { goalId: string };
+    tasks_changed: void;
+    /** Every task and habit for the day is done. */
+    day_complete: { tally: DayTally; streak: number; completedDates: string[] };
+    daily_focus_target_changed: DailyTarget;
+
+    /* ------------------------------------------------------------- the account */
+    cloud_restored: void;
+    social_state_updated: void;
+    premium_status_updated: void;
+    notifications_updated: { unreadCount: number };
+    profile_avatar_changed: string;
+
+    /* -------------------------------------------------- a screen is being asked */
+    /** Where on screen the creation modal should grow from. */
+    show_creation_modal: { x: number; y: number; size: number; height?: number } | undefined;
+    close_creation_modal: void;
+    show_habit_modal: { goalId?: string; initialHabit?: Habit } | undefined;
+    show_task_form: { task?: Task; goalId?: string } | undefined;
+    show_goal_quick_add: { goal?: Habit } | undefined;
+    show_quick_add: { goalId?: string } | undefined;
+    openModal: { modal: string };
+}
+
+export type AppEvent = keyof AppEvents;
+
+/**
+ * Events carrying nothing take no second argument, events whose payload is
+ * optional may omit it, and the rest must supply one.
+ */
+type Payload<K extends AppEvent> =
+    AppEvents[K] extends void ? []
+    : undefined extends AppEvents[K] ? [AppEvents[K]?]
+    : [AppEvents[K]];
+
+export function emit<K extends AppEvent>(event: K, ...payload: Payload<K>): void {
+    DeviceEventEmitter.emit(event, payload[0]);
+}
+
+export function on<K extends AppEvent>(
+    event: K,
+    handler: (payload: AppEvents[K]) => void,
+): EmitterSubscription {
+    return DeviceEventEmitter.addListener(event, handler);
+}
+
+/** Subscribe to several at once; the returned function drops them all. */
+export function onAny(events: AppEvent[], handler: () => void): () => void {
+    const subs = events.map(event => DeviceEventEmitter.addListener(event, handler));
+    return () => subs.forEach(sub => sub.remove());
+}

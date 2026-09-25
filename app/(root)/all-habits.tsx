@@ -1,16 +1,17 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, DeviceEventEmitter, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { FontFamily, UIStyles } from '@/constants/DesignSystem';
+import { useCallback, useEffect, useState } from 'react';
+import {ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { getHabits, getGoals, type Habit } from '@/lib/habitsSQLite';
 import { describeRecurrence } from '@/lib/onboarding';
+import { on } from '@/lib/appEvents';
 
 type Filter = 'active' | 'archived' | 'all';
 
@@ -65,7 +66,7 @@ export default function AllHabitsScreen() {
 
     useEffect(() => {
         load();
-        const sub = DeviceEventEmitter.addListener('habit_updated', load);
+        const sub = on('habit_updated', load);
         return () => sub.remove();
     }, [load]);
 
@@ -73,15 +74,7 @@ export default function AllHabitsScreen() {
         filter === 'all' ? true : filter === 'archived' ? habit.isArchived : !habit.isArchived);
 
     return (
-        <VoidShell>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Back">
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>All habits</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <SheetScreen title="All habits" onBack={() => router.back()}>
 
                 <View style={styles.filters}>
                     {FILTERS.map(option => {
@@ -99,7 +92,7 @@ export default function AllHabitsScreen() {
                                     borderColor: on ? accent : 'transparent',
                                 }]}
                             >
-                                <Text style={{ color: on ? accent : colors.textSecondary, fontSize: 13, fontFamily: 'Lexend_500Medium' }}>
+                                <Text style={{ color: on ? accent : colors.textSecondary, fontSize: 13, fontFamily: FontFamily.medium }}>
                                     {option.label} {count}
                                 </Text>
                             </TouchableOpacity>
@@ -142,21 +135,17 @@ export default function AllHabitsScreen() {
                         ))}
                     </ScrollView>
                 )}
-            </SafeAreaView>
-        </VoidShell>
+            </SheetScreen>
     );
 }
 
 const styles = StyleSheet.create({
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
-    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: 18, fontWeight: '700', fontFamily: 'Lexend' },
     filters: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 12 },
     chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
-    content: { paddingHorizontal: 20, paddingBottom: 40, gap: 8 },
+    content: { ...UIStyles.screenContent,   gap: 8  },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
     icon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    name: { fontSize: 15, fontFamily: 'Lexend_500Medium' },
-    meta: { fontSize: 12, fontFamily: 'Lexend_400Regular', marginTop: 3 },
-    empty: { fontSize: 14, fontFamily: 'Lexend_400Regular', textAlign: 'center', marginTop: 40 },
+    name: { fontSize: 15, fontFamily: FontFamily.medium },
+    meta: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 3 },
+    empty: { fontSize: 14, fontFamily: FontFamily.regular, textAlign: 'center', marginTop: 40 },
 });

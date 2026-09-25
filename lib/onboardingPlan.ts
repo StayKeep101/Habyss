@@ -1,5 +1,5 @@
 import type { PersonalityModeId } from '@/constants/AIPersonalities';
-import { parseGoalText, type GoalSpec } from './goalParser';
+import { parseGoalText, type GoalParseResult, type GoalSpec } from './goalParser';
 import type { Habit } from './habitsSQLite';
 import { localDateKey } from './habitSchedule';
 import { draftToHabit, type OnboardingDraft } from './onboarding';
@@ -26,7 +26,10 @@ export interface OnboardingPlan {
     /** The goal contract, with a "lose 5 kg" delta resolved against the baseline. */
     spec: GoalSpec;
     goal: Partial<Habit>;
+    /** The first habit, the one carrying the daily amount. */
     habit: Partial<Habit>;
+    /** Every habit the user added, the first one being `habit`. */
+    habits: Partial<Habit>[];
     tasks: PlannedTask[];
     coach: PersonalityModeId;
     /** What giving up would cost, if they wrote anything. */
@@ -34,9 +37,20 @@ export interface OnboardingPlan {
 }
 
 /** Resolves the confirmed goal, turning a delta into a target once a baseline exists. */
-export function resolveGoal(draft: OnboardingDraft, today: Date): GoalSpec {
+/**
+ * How the goal was understood: the on-device model's reading when it read
+ * exactly this text, otherwise the rule-based parse. Every step of onboarding
+ * and the saved plan use this, so they all agree.
+ */
+export function readGoal(draft: OnboardingDraft, today: Date): GoalParseResult | null {
     const goalText = (draft.measurableText ?? draft.identityGoal ?? '').trim();
-    const parsed = parseGoalText(goalText, { today, habits: [] }).goal;
+    if (!goalText) return null;
+    if (draft.goalReading?.text === goalText) return draft.goalReading.result;
+    return parseGoalText(goalText, { today, habits: [] });
+}
+
+export function resolveGoal(draft: OnboardingDraft, today: Date): GoalSpec {
+    const parsed = readGoal(draft, today)?.goal ?? parseGoalText('', { today, habits: [] }).goal;
 
     const typed = (draft.baselineText ?? '').trim();
     const baseline = typed !== '' && Number.isFinite(Number(typed)) ? Number(typed) : parsed.baseline;
@@ -48,6 +62,12 @@ export function resolveGoal(draft: OnboardingDraft, today: Date): GoalSpec {
             ? baseline - parsed.delta_from_baseline
             : parsed.target,
     };
+}
+
+/** The name of the first habit the user added, if they added one. */
+function firstHabitName(draft: OnboardingDraft): string | undefined {
+    const fromItems = (draft.planItems ?? []).find(item => item.kind === 'habit' && item.title.trim())?.title.trim();
+    return fromItems || draft.habitName?.trim() || undefined;
 }
 
 export function planFromDraft(draft: OnboardingDraft, now: Date = new Date()): OnboardingPlan {
@@ -79,7 +99,7 @@ export function planFromDraft(draft: OnboardingDraft, now: Date = new Date()): O
     const habit: Partial<Habit> = {
         ...draftToHabit({
             ...draft,
-            habitName: draft.habitName?.trim() || spec.suggested_habit?.name || spec.title,
+            habitName: firstHabitName(draft) || spec.suggested_habit?.name || spec.title,
             targetValue: draft.targetValue ?? minutes,
             targetUnit: draft.targetUnit ?? 'min',
             trackingMethod: draft.trackingMethod ?? 'numeric',
@@ -88,8 +108,28 @@ export function planFromDraft(draft: OnboardingDraft, now: Date = new Date()): O
         icon: 'ellipse-outline',
     };
 
-    // A checkpoint with no title is not a step anyone committed to.
-    const tasks: PlannedTask[] = (draft.roadmapSteps ?? [])
+    // The extra habits the user added; they follow the same schedule and are
+    // simply done or not, since only the first one carries an amount.
+    const extras: Partial<Habit>[] = (draft.planItems ?? [])
+        .filter(item => item.kind === 'habit' && item.title.trim())
+        .slice(1)
+        .map(item => ({
+            ...draftToHabit({
+                ...draft,
+                habitName: item.title.trim(),
+                targetValue: undefined,
+                targetUnit: undefined,
+                trackingMethod: 'boolean',
+                startDate: today,
+            }),
+            icon: 'ellipse-outline',
+        }));
+
+    // An item with no title is not something anyone committed to.
+    const items = draft.planItems
+        ? draft.planItems.filter(item => item.kind === 'task').map(item => ({ id: item.id, title: item.title, dueDate: item.dueDate ?? today }))
+        : (draft.roadmapSteps ?? []);
+    const tasks: PlannedTask[] = items
         .map(step => ({ stepId: step.id, title: step.title.trim(), dueDate: step.dueDate }))
         .filter(step => step.title.length > 0);
 
@@ -97,8 +137,10 @@ export function planFromDraft(draft: OnboardingDraft, now: Date = new Date()): O
         spec,
         goal,
         habit,
+        habits: [habit, ...extras],
         tasks,
-        coach: coachForTone(draft.tone),
+        // Chosen directly on the Echo step; older drafts derived it from the tone answer.
+        coach: draft.echo ?? coachForTone(draft.tone),
         stakes: draft.stakesText?.trim() ? draft.stakesText.trim() : null,
     };
 }

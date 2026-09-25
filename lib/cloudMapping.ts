@@ -165,6 +165,7 @@ export function completionToRemote(row: Row, userId: string): Row {
         completed: true,
         created_at: row.created_at ?? null,
         updated_at: row.updated_at ?? row.created_at ?? null,
+        skipped: bool(row.skipped),
         deleted_at: deletedAt({ ...row, updated_at: row.updated_at ?? row.created_at }),
     };
 }
@@ -180,6 +181,7 @@ export function completionToLocal(row: Row): Row {
         created_at: row.created_at ?? new Date().toISOString(),
         updated_at: row.updated_at ?? row.created_at ?? new Date().toISOString(),
         // A completion the server marks as not completed is treated as removed.
+        skipped: row.skipped ? 1 : 0,
         deleted: row.deleted_at || row.completed === false ? 1 : 0,
         synced: 1,
     };

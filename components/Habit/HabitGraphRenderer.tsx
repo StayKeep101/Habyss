@@ -1,7 +1,8 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Svg, { Circle, Rect, Path, Defs, LinearGradient as SvgGradient, Stop, G, Text as SvgText } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle, Rect, Path, Line, Defs, LinearGradient as SvgGradient, Stop, G, Text as SvgText } from 'react-native-svg';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -14,6 +15,10 @@ interface DayData {
     date: string;
     completed: boolean;
     value?: number;
+    /** Deliberately skipped — not a failure, and not a zero. */
+    skipped?: boolean;
+    /** Whether the schedule asked for the habit at all. Absent means it did. */
+    scheduled?: boolean;
 }
 
 interface HabitGraphRendererProps {
@@ -25,6 +30,41 @@ interface HabitGraphRendererProps {
     currentStreak: number;
     todayValue?: number;
 }
+
+/**
+ * What a single day is actually worth.
+ *
+ * The distinction these charts were missing: a day the habit was never due is
+ * not a day you scored zero on. Plotting it as zero is the oldest mistake in
+ * charting — treating absent data as the value nought — and on a three-times-a-
+ * week habit it drew four crashes into every week that never happened.
+ */
+type State = 'kept' | 'missed' | 'skipped' | 'off';
+interface Point { date: string; state: State; value: number }
+
+const prepare = (data: DayData[], goalValue: number): Point[] => data.map(day => {
+    // An older caller that knows nothing about scheduling means every day counted.
+    const due = day.scheduled !== false;
+    const state: State = day.completed ? 'kept' : day.skipped ? 'skipped' : due ? 'missed' : 'off';
+    return { date: day.date, state, value: state === 'kept' ? (day.value || goalValue) : (day.value ?? 0) };
+});
+
+/** Only the days that actually asked something of you set the scale. */
+const ceilingOf = (points: Point[], goalValue: number) =>
+    Math.max(goalValue, ...points.filter(p => p.state !== 'off').map(p => p.value), 1);
+
+const weekday = (date: string) =>
+    new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' });
+
+/** The target, drawn so a value can be read against something. */
+const GoalLine = ({ y, width, color, label }: { y: number; width: number; color: string; label: string }) => (
+    <G>
+        <Line x1={8} y1={y} x2={width - 8} y2={y} stroke={color} strokeWidth={1} strokeDasharray="4 4" opacity={0.5} />
+        <SvgText x={width - 8} y={y - 4} textAnchor="end" fill={color} fontSize={9} fontFamily={FontFamily.medium} opacity={0.85}>
+            {label}
+        </SvgText>
+    </G>
+);
 
 // ─── Progress Ring ───────────────────────────────────────────
 function ProgressRing({ color, goalValue, unit, todayValue = 0 }: {
@@ -56,19 +96,19 @@ function ProgressRing({ color, goalValue, unit, todayValue = 0 }: {
                 <SvgText
                     x={size / 2} y={size / 2 - 8}
                     textAnchor="middle" fill={colors.textPrimary}
-                    fontSize={28} fontWeight="bold"
+                    fontSize={28} fontFamily={FontFamily.bold}
                 >
                     {todayValue}
                 </SvgText>
                 <SvgText
                     x={size / 2} y={size / 2 + 16}
                     textAnchor="middle" fill={colors.textTertiary}
-                    fontSize={12}
+                    fontSize={12} fontFamily={FontFamily.regular}
                 >
                     / {goalValue} {unit}
                 </SvgText>
             </Svg>
-            <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 8, fontFamily: FontFamily.regular }}>
                 {Math.round(progress * 100)}% Complete Today
             </Text>
         </View>
@@ -81,38 +121,63 @@ function BarChart({ color, completionData, goalValue }: {
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const data = completionData.slice(-7); // Last 7 days
+    const isLight = theme === 'light';
+    // SVG defs are document-global, so two charts on one screen would otherwise
+    // share — and fight over — the same gradient.
+    const gid = `bar${React.useId().replace(/:/g, '')}`;
+
+    const points = prepare(completionData, goalValue).slice(-7);
     const barWidth = (GRAPH_WIDTH - 48) / 7;
-    const maxVal = Math.max(goalValue, ...data.map(d => d.value || (d.completed ? 1 : 0)));
+    const ceiling = ceilingOf(points, goalValue);
+    const floor = GRAPH_HEIGHT - 20;
+    const span = GRAPH_HEIGHT - 30;
+    const goalY = floor - (goalValue / ceiling) * span;
 
     return (
         <View style={{ paddingVertical: 8 }}>
             <Svg width={GRAPH_WIDTH} height={GRAPH_HEIGHT}>
                 <Defs>
-                    <SvgGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                    <SvgGradient id={gid} x1="0" y1="0" x2="0" y2="1">
                         <Stop offset="0" stopColor={color} stopOpacity="1" />
                         <Stop offset="1" stopColor={color} stopOpacity="0.5" />
                     </SvgGradient>
                 </Defs>
-                {data.map((day, i) => {
-                    const val = day.value || (day.completed ? goalValue : 0);
-                    const barH = maxVal > 0 ? (val / maxVal) * (GRAPH_HEIGHT - 30) : 0;
-                    const x = i * barWidth + 24;
-                    const y = GRAPH_HEIGHT - 20 - barH;
-                    const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en', { weekday: 'narrow' });
+
+                {goalValue > 0 && goalY > 8 ? (
+                    <GoalLine y={goalY} width={GRAPH_WIDTH} color={colors.textTertiary} label={`goal ${goalValue}`} />
+                ) : null}
+
+                {points.map((point, index) => {
+                    const x = index * barWidth + 24;
+                    const height = point.state === 'off' ? 0 : (point.value / ceiling) * span;
+                    const y = floor - height;
 
                     return (
-                        <G key={day.date}>
-                            <Rect
-                                x={x + 2} y={y} width={barWidth - 6} height={barH}
-                                rx={4} fill={val > 0 ? 'url(#barGrad)' : color + '15'}
-                            />
+                        <G key={point.date}>
+                            {point.state === 'off' ? (
+                                // Not due: an empty slot, so the week keeps its
+                                // shape without claiming you scored nothing.
+                                <Rect
+                                    x={x + 2} y={floor - 6} width={barWidth - 6} height={6} rx={3}
+                                    fill="none" stroke={colors.textTertiary} strokeWidth={1}
+                                    strokeDasharray="2 2" opacity={0.4}
+                                />
+                            ) : (
+                                <Rect
+                                    x={x + 2} y={y} width={barWidth - 6} height={Math.max(height, 2)} rx={4}
+                                    fill={point.state === 'kept' ? `url(#${gid})`
+                                        : point.state === 'skipped' ? colors.textTertiary
+                                            : color + (isLight ? '20' : '15')}
+                                    opacity={point.state === 'skipped' ? 0.35 : 1}
+                                />
+                            )}
                             <SvgText
                                 x={x + barWidth / 2} y={GRAPH_HEIGHT - 4}
                                 textAnchor="middle" fill={colors.textTertiary}
-                                fontSize={10}
+                                fontSize={10} fontFamily={FontFamily.regular}
+                                opacity={point.state === 'off' ? 0.45 : 1}
                             >
-                                {dayLabel}
+                                {weekday(point.date)}
                             </SvgText>
                         </G>
                     );
@@ -128,37 +193,69 @@ function LineChart({ color, completionData, goalValue }: {
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const data = completionData.slice(-14); // Last 14 days
-    if (data.length < 2) return null;
+    const gid = `line${React.useId().replace(/:/g, '')}`;
 
+    const points = prepare(completionData, goalValue).slice(-14);
     const chartPadding = 24;
     const chartW = GRAPH_WIDTH - chartPadding * 2;
     const chartH = GRAPH_HEIGHT - 30;
-    const maxVal = Math.max(goalValue, ...data.map(d => d.value || (d.completed ? goalValue : 0)));
+    const ceiling = ceilingOf(points, goalValue);
 
-    const points = data.map((day, i) => {
-        const val = day.value || (day.completed ? goalValue : 0);
-        const x = chartPadding + (i / (data.length - 1)) * chartW;
-        const y = chartH - (maxVal > 0 ? (val / maxVal) * (chartH - 10) : 0) + 5;
-        return { x, y };
-    });
+    const placed = points.map((point, index) => ({
+        ...point,
+        x: chartPadding + (points.length === 1 ? chartW / 2 : (index / (points.length - 1)) * chartW),
+        y: chartH - (point.value / ceiling) * (chartH - 10) + 5,
+    }));
 
-    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-    const fillPath = `${linePath} L ${points[points.length - 1].x} ${chartH + 5} L ${points[0].x} ${chartH + 5} Z`;
+    // The line breaks over days the habit was never due, rather than diving to
+    // the floor and inventing a slump that did not happen.
+    const segments = useMemo(() => {
+        const runs: (typeof placed)[] = [];
+        let run: typeof placed = [];
+        for (const point of placed) {
+            if (point.state === 'off') { if (run.length) runs.push(run); run = []; }
+            else run.push(point);
+        }
+        if (run.length) runs.push(run);
+        return runs;
+    }, [placed]);
+
+    if (!segments.some(run => run.length >= 2)) return null;
+    const goalY = chartH - (goalValue / ceiling) * (chartH - 10) + 5;
 
     return (
         <View style={{ paddingVertical: 8 }}>
             <Svg width={GRAPH_WIDTH} height={GRAPH_HEIGHT}>
                 <Defs>
-                    <SvgGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                    <SvgGradient id={gid} x1="0" y1="0" x2="0" y2="1">
                         <Stop offset="0" stopColor={color} stopOpacity="0.3" />
                         <Stop offset="1" stopColor={color} stopOpacity="0.02" />
                     </SvgGradient>
                 </Defs>
-                <Path d={fillPath} fill="url(#lineGrad)" />
-                <Path d={linePath} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                {points.map((p, i) => (
-                    <Circle key={i} cx={p.x} cy={p.y} r={3} fill={color} />
+
+                {goalValue > 0 && goalY > 8 ? (
+                    <GoalLine y={goalY} width={GRAPH_WIDTH} color={colors.textTertiary} label={`goal ${goalValue}`} />
+                ) : null}
+
+                {segments.map((run, index) => {
+                    if (run.length < 2) return null;
+                    const line = run.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+                    const fill = `${line} L ${run[run.length - 1].x} ${chartH + 5} L ${run[0].x} ${chartH + 5} Z`;
+                    return (
+                        <G key={index}>
+                            <Path d={fill} fill={`url(#${gid})`} />
+                            <Path d={line} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                        </G>
+                    );
+                })}
+
+                {segments.flat().map(point => (
+                    <Circle
+                        key={point.date}
+                        cx={point.x} cy={point.y} r={point.state === 'skipped' ? 2.5 : 3}
+                        fill={point.state === 'skipped' ? colors.textTertiary : color}
+                        opacity={point.state === 'missed' ? 0.45 : 1}
+                    />
                 ))}
             </Svg>
         </View>
@@ -171,42 +268,49 @@ function HeatmapChart({ color, completionData }: {
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const data = completionData.slice(-35); // Last 5 weeks
+    const points = prepare(completionData, 1).slice(-35); // Last 5 weeks
     const cols = 7;
-    const rows = Math.ceil(data.length / cols);
     const cellSize = Math.min((GRAPH_WIDTH - 16) / cols, 20);
     const gap = 3;
 
     return (
         <View style={{ paddingVertical: 12 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap }}>
-                {data.map((day, i) => {
-                    const intensity = day.completed ? 1 : (day.value ? Math.min(day.value / 10, 1) : 0);
-                    const opacity = intensity > 0 ? 0.2 + intensity * 0.8 : 0.06;
-
+                {points.map(point => {
+                    // Four readings, not two: kept, missed, deliberately skipped,
+                    // and never asked for.
+                    const filled = point.state === 'kept';
                     return (
                         <View
-                            key={day.date}
+                            key={point.date}
                             style={{
-                                width: cellSize, height: cellSize,
-                                borderRadius: 4,
-                                backgroundColor: intensity > 0 ? color : colors.textTertiary,
-                                opacity,
+                                width: cellSize, height: cellSize, borderRadius: 4,
+                                backgroundColor: filled ? color : point.state === 'skipped' ? colors.textTertiary : 'transparent',
+                                opacity: filled ? 1 : point.state === 'skipped' ? 0.3 : point.state === 'missed' ? 0.14 : 1,
+                                borderWidth: point.state === 'off' ? 1 : point.state === 'missed' ? 0 : 0,
+                                borderColor: colors.border,
+                                ...(point.state === 'missed' ? { backgroundColor: colors.textTertiary } : null),
                             }}
                         />
                     );
                 })}
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8, gap: 4, alignItems: 'center' }}>
-                <Text style={{ fontSize: 9, color: colors.textTertiary }}>Less</Text>
-                {[0.1, 0.3, 0.6, 1].map((op, i) => (
-                    <View key={i} style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: color, opacity: 0.2 + op * 0.8 }} />
-                ))}
-                <Text style={{ fontSize: 9, color: colors.textTertiary }}>More</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 10, gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Key swatch={{ backgroundColor: color }} label="Kept" colors={colors} />
+                <Key swatch={{ backgroundColor: colors.textTertiary, opacity: 0.14 }} label="Missed" colors={colors} />
+                <Key swatch={{ backgroundColor: colors.textTertiary, opacity: 0.3 }} label="Skipped" colors={colors} />
+                <Key swatch={{ borderWidth: 1, borderColor: colors.border }} label="Not due" colors={colors} />
             </View>
         </View>
     );
 }
+
+const Key = ({ swatch, label, colors }: { swatch: object; label: string; colors: typeof Colors.light }) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <View style={[{ width: 10, height: 10, borderRadius: 2 }, swatch]} />
+        <Text style={{ fontSize: 9, color: colors.textTertiary, fontFamily: FontFamily.regular }}>{label}</Text>
+    </View>
+);
 
 // ─── Streak Counter ──────────────────────────────────────────
 function StreakCounter({ color, currentStreak }: {
@@ -217,17 +321,17 @@ function StreakCounter({ color, currentStreak }: {
 
     return (
         <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-            <Text style={{ fontSize: 56, fontWeight: '900', color, fontFamily: 'SpaceGrotesk_700Bold' }}>
+            <Text style={{ fontSize: 56, color, fontFamily: FontFamily.bold }}>
                 {currentStreak}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <Ionicons name="flame" size={18} color="#F59E0B" />
-                <Text style={{ color: colors.textSecondary, fontSize: 14, fontFamily: 'Lexend_500Medium', letterSpacing: 1 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 14, fontFamily: FontFamily.medium, letterSpacing: 1 }}>
                     DAY STREAK
                 </Text>
                 <Ionicons name="flame" size={18} color="#F59E0B" />
             </View>
-            <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 8, fontFamily: 'Lexend_400Regular' }}>
+            <Text style={{ color: colors.textTertiary, fontSize: 11, marginTop: 8, fontFamily: FontFamily.regular }}>
                 {currentStreak === 0 ? 'Start your streak today!' :
                     currentStreak < 7 ? 'Keep going! 🌱' :
                         currentStreak < 30 ? 'Amazing consistency! 🔥' :
@@ -305,8 +409,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 13,
-        fontWeight: '600',
-        fontFamily: 'Lexend_500Medium',
+        fontFamily: FontFamily.semibold,
         letterSpacing: 0.3,
     },
 });

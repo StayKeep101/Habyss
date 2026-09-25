@@ -1,6 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { MusicService } from '@/lib/MusicService';
@@ -92,7 +93,7 @@ export const SpotifyPage: React.FC<SpotifyPageProps> = ({ habitId }) => {
             )}
             <View style={{ flex: 1, marginRight: 12 }}>
                 <Text style={[styles.itemName, { color: colors.textPrimary }]} numberOfLines={1}>{item.name}</Text>
-                <Text style={{ fontSize: 12, color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>Playlist</Text>
+                <Text style={{ fontSize: 12, color: colors.textTertiary, fontFamily: FontFamily.regular }}>Playlist</Text>
             </View>
             <TouchableOpacity onPress={() => handlePlay(item)} style={{ padding: 8 }}>
                 <Ionicons name="play-circle" size={32} color={colors.primary} />
@@ -104,7 +105,7 @@ export const SpotifyPage: React.FC<SpotifyPageProps> = ({ habitId }) => {
         return (
             <View style={[styles.container, { backgroundColor: 'transparent' }]}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={{ marginTop: 16, color: colors.textSecondary, fontFamily: 'Lexend' }}>Loading Library...</Text>
+                <Text style={{ marginTop: 16, color: colors.textSecondary, fontFamily: FontFamily.bold }}>Loading Library...</Text>
             </View>
         );
     }
@@ -135,7 +136,7 @@ export const SpotifyPage: React.FC<SpotifyPageProps> = ({ habitId }) => {
         <View style={styles.container}>
             <View style={{ width: '100%', paddingHorizontal: 20, marginBottom: 16, paddingTop: 20 }}>
                 <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>AUDIO PROTOCOL</Text>
-                <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend_400Regular', fontSize: 12 }}>
+                <Text style={{ color: colors.textSecondary, fontFamily: FontFamily.regular, fontSize: 12 }}>
                     Select a playlist to enhance your focus
                 </Text>
             </View>
@@ -148,7 +149,7 @@ export const SpotifyPage: React.FC<SpotifyPageProps> = ({ habitId }) => {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={{ alignItems: 'center', marginTop: 40 }}>
-                        <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend' }}>No playlists found in your library.</Text>
+                        <Text style={{ color: colors.textSecondary, fontFamily: FontFamily.bold }}>No playlists found in your library.</Text>
                     </View>
                 }
             />
@@ -157,8 +158,8 @@ export const SpotifyPage: React.FC<SpotifyPageProps> = ({ habitId }) => {
             {currentTrack && (
                 <View style={[styles.nowPlaying, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
                     <View style={{ flex: 1 }}>
-                        <Text style={{ color: colors.primary, fontSize: 10, fontFamily: 'Lexend', fontWeight: 'bold', marginBottom: 2 }}>NOW PLAYING</Text>
-                        <Text style={{ color: colors.textPrimary, fontFamily: 'Lexend_400Regular' }} numberOfLines={1}>{currentTrack}</Text>
+                        <Text style={{ color: colors.primary, fontSize: 10, fontFamily: FontFamily.bold,  marginBottom: 2 }}>NOW PLAYING</Text>
+                        <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.regular }} numberOfLines={1}>{currentTrack}</Text>
                     </View>
                     <TouchableOpacity onPress={handleStop} style={{ padding: 8 }}>
                         <Ionicons name="stop-circle" size={32} color={colors.error} />
@@ -178,8 +179,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 20,
-        fontWeight: '900',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
         letterSpacing: 1,
         marginBottom: 4,
     },
@@ -194,13 +194,12 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 24,
-        fontWeight: '900',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     subtitle: {
         fontSize: 14,
         textAlign: 'center',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         lineHeight: 22,
     },
     button: {
@@ -210,8 +209,8 @@ const styles = StyleSheet.create({
     },
     buttonText: {
         color: 'white',
-        fontWeight: 'bold',
-        fontFamily: 'Lexend',
+
+        fontFamily: FontFamily.bold,
     },
     item: {
         flexDirection: 'row',
@@ -227,7 +226,7 @@ const styles = StyleSheet.create({
     },
     itemName: {
         fontSize: 16,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
         marginBottom: 4,
     },
     nowPlaying: {

@@ -80,26 +80,3 @@ export function describeDay(
     if (parts.length === 0) return 'Nothing scheduled';
     return parts.join(' · ');
 }
-
-/** Tasks belonging to a goal, and how many are finished. */
-export function goalTaskProgress(tasks: Task[], goalId: string): { done: number; total: number } {
-    const mine = tasks.filter(task => task.goalId === goalId && task.status !== 'cancelled');
-    return { done: mine.filter(task => task.status === 'done').length, total: mine.length };
-}
-
-/**
- * A goal's progress across both kinds of work.
- *
- * Habits contribute their completion rate and tasks their finished share, each
- * weighted by how much of the goal it represents, so a goal made only of tasks
- * still reports honestly. Returns null when the goal has neither, instead of
- * claiming zero progress on something with nothing attached.
- */
-export function combinedGoalProgress(
-    habitProgress: { done: number; total: number },
-    taskProgress: { done: number; total: number },
-): number | null {
-    const total = habitProgress.total + taskProgress.total;
-    if (total === 0) return null;
-    return Math.round(((habitProgress.done + taskProgress.done) / total) * 100);
-}

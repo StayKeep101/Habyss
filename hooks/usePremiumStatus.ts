@@ -1,19 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RevenueCatService, { ProStatus } from '@/lib/RevenueCat';
 import { useHaptics } from './useHaptics';
+import { PAYWALL_ENABLED } from '@/constants/features';
+import { on } from '@/lib/appEvents';
 
 export const PREMIUM_BUTTONS = [
   'ai_coaching_button'
 ];
 
 export const usePremiumStatus = () => {
-  const [isPremium, setIsPremium] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // With the paywall off, everyone has everything and RevenueCat is not asked.
+  const [isPremium, setIsPremium] = useState(!PAYWALL_ENABLED);
+  const [loading, setLoading] = useState(PAYWALL_ENABLED);
   const { lightFeedback } = useHaptics();
 
   const refreshStatus = useCallback(async () => {
+    if (!PAYWALL_ENABLED) return;
     // 1. Check cache first for instant load
     try {
       const cached = await AsyncStorage.getItem('is_premium_cache');
@@ -47,7 +50,7 @@ export const usePremiumStatus = () => {
     refreshStatus();
 
     // Listen for updates (e.g. from Paywall purchase)
-    const subscription = DeviceEventEmitter.addListener('premium_status_updated', () => {
+    const subscription = on('premium_status_updated', () => {
       refreshStatus();
     });
 

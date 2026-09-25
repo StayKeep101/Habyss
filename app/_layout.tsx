@@ -3,7 +3,8 @@ import { getLocalUserId } from '@/lib/localUser';
 import { ThemeProvider } from "../constants/themeContext";
 import { useFonts, Lexend_400Regular, Lexend_500Medium, Lexend_600SemiBold, Lexend_700Bold } from '@expo-google-fonts/lexend';
 import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
-import { Stack } from 'expo-router';
+import { Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
+import { Colors } from '@/constants/Colors';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -15,26 +16,27 @@ import { DarkTheme, LightTheme } from "../constants/Themes";
 import React from "react";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { View, AppState } from 'react-native';
+import {View, AppState} from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import '@/lib/LocationService'; // Register background tasks
 import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
 import { AppSettingsProvider } from '@/constants/AppSettingsContext';
-import { AccentProvider } from '@/constants/AccentContext';
+import { AccentProvider, useAccentGradient } from '@/constants/AccentContext';
 import { FocusTimeProvider, useFocusTime } from '@/constants/FocusTimeContext';
 import { CreationModal } from '@/components/CreationModal';
-import { HabitCreationModal } from '@/components/HabitCreationModal';
-import { QuickAddModal } from '@/components/Home/QuickAddModal';
-import { GoalQuickAddModal } from '@/components/Home/GoalQuickAddModal';
+import { DayCompleteCelebration } from '@/components/DayCompleteCelebration';
+import { HabitSheet } from '@/components/Create/HabitSheet';
+import { GoalSheet } from '@/components/Create/GoalSheet';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
 import RevenueCatService from '@/lib/RevenueCat';
 // import { SuperwallProvider, SuperwallExpoModule } from 'expo-superwall';
 // import * as Linking from 'expo-linking';
 import { BiometricGuard } from '@/components/BiometricGuard';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { HabyssBootScreen } from '@/components/Loading/HabyssBootScreen';
+import { QuietLoading } from '@/components/Loading/QuietLoading';
 import { SiriService } from '@/lib/siriService';
+import { emit, on } from '@/lib/appEvents';
 
 SplashScreen.preventAutoHideAsync().catch(() => { });
 
@@ -80,11 +82,12 @@ export default function MobileLayout() {
             await NotificationService.init();
             // Permissions are requested when the user enables a reminder.
             void NotificationService.refreshHabitReminders().catch(error => console.warn('Reminder refresh failed', error));
-            await RevenueCatService.init();
+            await RevenueCatService.init().catch(error => console.warn('Purchases unavailable', error));
             await SiriService.syncTodayProgress();
-            // Initialize Local LLM in background to avoid blocking startup too much
-            // We catch errors internally so it doesn't crash the app if model is missing
-            import('@/lib/LocalLLMService').then(service => service.default.init());
+            // On-device AI in the background: Apple's built-in model when the
+            // phone has one, otherwise the Llama model, downloaded on Wi-Fi the
+            // first time. Never blocks startup and never throws.
+            import('@/lib/onDeviceAI').then(ai => ai.prepareOnDeviceAI()).catch(() => undefined);
           } catch (e) {
             console.warn("Notification initialization failed", e);
           }
@@ -161,7 +164,7 @@ export default function MobileLayout() {
   }, []);
 
   if (!loaded || !bootReady) {
-    return <HabyssBootScreen />;
+    return <QuietLoading />;
   }
 
   return (
@@ -190,6 +193,16 @@ export default function MobileLayout() {
 function InnerLayout() {
   const theme = useColorScheme();
   const isDark = theme !== 'light';
+  const { foreground } = useAccentGradient();
+  const palette = Colors[theme];
+  const navigationTheme = {
+    ...(isDark ? DarkTheme : LightTheme),
+    colors: {
+      ...(isDark ? DarkTheme : LightTheme).colors,
+      primary: foreground, background: palette.background, card: palette.surface,
+      text: palette.textPrimary, border: palette.border, notification: palette.error,
+    },
+  };
 
   // Connect Live Activity to Focus Context
   // ... (existing code for Live Activity?)
@@ -229,20 +242,12 @@ function InnerLayout() {
           console.log('[AppIntents] Shortcut logs applied:', drained);
         }
 
-        const pendingWidgetToggles = await SharedDefaults.getArray('pending_widget_toggles');
-        if (pendingWidgetToggles && pendingWidgetToggles.length > 0) {
-          console.log('[Widget] Processing pending toggles:', pendingWidgetToggles.length);
-          const { toggleCompletion } = require('@/lib/habitsSQLite');
-          const now = new Date();
-          const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-          for (const habitId of pendingWidgetToggles) {
-            if (typeof habitId === 'string' && habitId.length > 0) {
-              await toggleCompletion(habitId, dateStr);
-            }
-          }
-
-          await SharedDefaults.remove('pending_widget_toggles');
+        // Rows ticked on the widget while the app was closed, habits and tasks alike.
+        const { drainWidgetToggles } = require('@/lib/widgetSync');
+        const fromWidget = await drainWidgetToggles();
+        if (fromWidget.habits || fromWidget.tasks) {
+          emit('habit_completion_updated', {});
+          emit('tasks_changed');
         }
 
       } catch (e) {
@@ -268,79 +273,57 @@ function InnerLayout() {
   const { isRunning, activeHabitName, totalDuration, timeLeft } = useFocusTime();
 
   useEffect(() => {
-    const updateLiveActivity = async () => {
+    // One place decides what "today" is for the widget, the lock screen and
+    // the Dynamic Island, so they can never disagree with the app.
+    const push = async () => {
       try {
-        const { getHabits, getLastNDaysCompletions } = require('@/lib/habitsSQLite');
+        const { syncWidgets } = require('@/lib/widgetSync');
         const { LiveActivityService } = require('@/lib/liveActivityService');
-        const { WidgetService } = require('@/lib/widgetService');
-
-        // Always sync habits to widget (home screen + lock screen widgets)
-        const habits = await getHabits();
-        const activeHabits = habits.filter((h: any) => !h.isGoal && !h.isArchived);
-        const todayCompletions = await getLastNDaysCompletions(1);
-        const completedToday = todayCompletions[0]?.completedIds?.length || 0;
-        const completedSet = new Set(todayCompletions[0]?.completedIds || []);
-
-        // Sync habit data to widget
-        const widgetHabits = activeHabits.map((h: any) => ({
-          id: h.id,
-          name: h.name,
-          isCompleted: completedSet.has(h.id)
-        }));
-        await WidgetService.syncHabitsToWidget(widgetHabits);
-
-        // 1. If Timer is running, show Focus Timer in Live Activity
-        if (isRunning && activeHabitName) {
-          const now = Date.now();
-          const targetDate = now + (timeLeft * 1000);
-
-          await LiveActivityService.startDailyProgress({
-            completed: completedToday,
-            total: activeHabits.length,
-            activeHabitName: activeHabitName,
-            targetDate: targetDate,
-            habits: widgetHabits,
-          });
-          return;
-        }
-
-        // 2. Otherwise show Daily Progress (Default)
-        const nextHabit = activeHabits.find((h: any) => !completedSet.has(h.id));
+        const day = await syncWidgets();
+        if (!day) return;
 
         await LiveActivityService.startDailyProgress({
-          completed: completedToday,
-          total: activeHabits.length,
-          topHabitName: nextHabit?.name,
-          habits: widgetHabits,
+          completed: day.completed,
+          total: day.total,
+          streakDays: day.streak || undefined,
+          // While the timer runs the activity counts that down instead.
+          ...(isRunning && activeHabitName
+            ? { activeHabitName, targetDate: Date.now() + timeLeft * 1000 }
+            : { topHabitName: day.nextUp }),
+          habits: day.items,
         });
-      } catch (e) {
-        // Live Activity is optional
-        console.log('Live Activity Update Error:', e);
+      } catch (error) {
+        // The widget being out of date is never worth an error on screen.
+        console.log('Widget update failed:', error);
       }
     };
 
     const subscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'active') {
-        updateLiveActivity();
-      }
+      if (nextAppState === 'active') push();
     });
+    push();
 
-    // Initial update
-    updateLiveActivity();
-
-    // Listen for habit completions
-    const { DeviceEventEmitter } = require('react-native');
-    const completionListener = DeviceEventEmitter.addListener('habit_completion_updated', () => {
-      updateLiveActivity();
+    const completionListener = on('habit_completion_updated', () => {
+      push();
+      // Finishing the last thing due today is worth marking, once a day.
+      require('@/lib/dayComplete').checkDayComplete();
     });
+    const taskListener = on('tasks_changed', () => {
+      push();
+      require('@/lib/dayComplete').checkDayComplete();
+    });
+    const habitListener = on('habit_updated', () => push());
 
     return () => {
       subscription.remove();
       completionListener.remove();
+      taskListener.remove();
+      habitListener.remove();
     };
-  }, [isRunning, activeHabitName]); // Re-run when timer state changes
+  }, [isRunning, activeHabitName, timeLeft]);
 
   return (
+    <NavigationThemeProvider value={navigationTheme}>
     <View style={{ flex: 1 }} className={theme}>
       <VoidShell>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
@@ -348,13 +331,14 @@ function InnerLayout() {
           <Stack.Screen name="(root)" />
           <Stack.Screen name="+not-found" />
         </Stack>
+        <DayCompleteCelebration />
         <CreationModal />
-        <HabitCreationModal />
-        <QuickAddModal listenToGlobalEvents />
-        <GoalQuickAddModal listenToGlobalEvents />
+        <HabitSheet listenToGlobalEvents />
+        <GoalSheet listenToGlobalEvents />
         <TaskFormModal listenToGlobalEvents />
         <StatusBar style={isDark ? "light" : "dark"} />
       </VoidShell>
     </View>
+    </NavigationThemeProvider>
   );
 }

@@ -1,16 +1,16 @@
+import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useTheme, ThemeMode } from '@/constants/themeContext';
 import { useAppSettings, RoadMapCardSize } from '@/constants/AppSettingsContext';
-import { useAccent, ACCENT_GRADIENTS, AccentGradientId } from '@/constants/AccentContext';
+import { useAccent, ACCENT_GRADIENTS } from '@/constants/AccentContext';
 
 const Appearance = () => {
     const { theme, mode, setTheme } = useTheme();
@@ -53,16 +53,7 @@ const Appearance = () => {
     );
 
     return (
-        <VoidShell>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>Appearance</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <SheetScreen title="Theme & accent" onBack={() => router.back()}>
 
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     {/* Theme Section */}
@@ -72,6 +63,8 @@ const Appearance = () => {
                             <View key={t.id}>
                                 {index > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
                                 <TouchableOpacity
+                                    accessibilityRole="radio"
+                                    accessibilityState={{ selected: mode === t.id }}
                                     style={styles.themeRow}
                                     onPress={() => { lightFeedback(); setTheme(t.id); }}
                                 >
@@ -103,9 +96,12 @@ const Appearance = () => {
                             return (
                                 <TouchableOpacity
                                     key={g.id}
+                                    accessibilityRole="radio"
+                                    accessibilityLabel={g.name}
+                                    accessibilityState={{ selected: isSelected }}
                                     style={[
                                         styles.gradientCell,
-                                        isSelected && { borderColor: '#fff', borderWidth: 2 }
+                                        { borderColor: isSelected ? colors.textPrimary : colors.border, borderWidth: 2 }
                                     ]}
                                     onPress={() => { mediumFeedback(); setAccentGradientId(g.id); }}
                                     activeOpacity={0.7}
@@ -161,51 +157,17 @@ const Appearance = () => {
                         ))}
                     </View>
                 </ScrollView>
-            </SafeAreaView>
-        </VoidShell>
+            </SheetScreen>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-    },
-    content: {
-        padding: 16,
-        paddingBottom: 100,
-    },
-    sectionTitle: {
-        fontSize: 11,
-        fontWeight: '600',
-        letterSpacing: 1,
-        marginBottom: 8,
-        marginLeft: 4,
-        fontFamily: 'Lexend_400Regular',
-    },
-    sectionDesc: {
-        fontSize: 12,
-        marginBottom: 12,
-        marginLeft: 4,
-        fontFamily: 'Lexend_400Regular',
-    },
+    content: { ...UIStyles.screenContent },
+    sectionTitle: UIStyles.sectionTitle,
+    sectionDesc: UIStyles.sectionDescription,
     card: {
-        borderRadius: 16,
+        borderRadius: Radius.card,
         borderWidth: 1,
         overflow: 'hidden',
     },
@@ -217,12 +179,11 @@ const styles = StyleSheet.create({
     },
     themeName: {
         fontSize: 15,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
     themeDesc: {
         fontSize: 11,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         marginTop: 2,
     },
     divider: {
@@ -260,7 +221,7 @@ const styles = StyleSheet.create({
         fontSize: 13,
         marginTop: 12,
         marginLeft: 4,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     // Card Size
     sizeRow: {
@@ -276,8 +237,7 @@ const styles = StyleSheet.create({
     },
     sizeBtnText: {
         fontSize: 14,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
 });
 

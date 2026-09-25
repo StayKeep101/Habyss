@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
     useSharedValue,
@@ -10,7 +10,7 @@ import Animated, {
     runOnJS,
     cancelAnimation,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 
 const { width, height } = Dimensions.get('window');
@@ -25,12 +25,12 @@ interface Particle {
     x: number;
     y: number;
     color: string;
-    emoji: string;
+    icon: keyof typeof Ionicons.glyphMap;
     delay: number;
     rotation: number;
 }
 
-const EMOJIS = ['⭐', '🎉', '✨', '💪', '🔥', '🚀', '💯', '🎯'];
+const ICONS = ['star-outline', 'sparkles-outline', 'barbell-outline', 'flame-outline', 'rocket-outline', 'ribbon-outline', 'flag-outline'] as const;
 const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EF4444', '#EC4899'];
 
 const CelebrationParticle: React.FC<{ particle: Particle }> = ({ particle }) => {
@@ -98,7 +98,7 @@ const CelebrationParticle: React.FC<{ particle: Particle }> = ({ particle }) => 
                 style,
             ]}
         >
-            <Animated.Text style={styles.emoji}>{particle.emoji}</Animated.Text>
+            <Ionicons name={particle.icon} size={28} color={particle.color} />
         </Animated.View>
     );
 };
@@ -116,7 +116,7 @@ export const CelebrationAnimation: React.FC<CelebrationProps> = ({ visible, onCo
         x: width / 2 + (Math.random() - 0.5) * 150,
         y: height / 2 + (Math.random() - 0.5) * 100,
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)],
+        icon: ICONS[Math.floor(Math.random() * ICONS.length)],
         delay: Math.random() * 300,
         rotation: (Math.random() - 0.5) * 720,
     }));

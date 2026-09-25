@@ -1,4 +1,4 @@
-import { taskRank, topTasksForToday, type Task } from '../tasks';
+import { taskRank, tasksForDay, topTasksForToday, type Task } from '../tasks';
 
 const TODAY = '2026-09-17';
 
@@ -92,5 +92,45 @@ describe('taskRank', () => {
         const unestimated = taskRank(task({ dueDate: TODAY }), TODAY);
         const fiveMinutes = taskRank(task({ dueDate: TODAY, estimatedMinutes: 5 }), TODAY);
         expect(fiveMinutes).toBeLessThan(unestimated);
+    });
+});
+
+describe('the tasks that belong to a day', () => {
+    const DAY = '2026-09-23';
+
+    it('shows a task on the day it was given, and on no other', () => {
+        const friday = task({ id: 'f', title: 'Call the bank', dueDate: '2026-09-25' });
+        expect(tasksForDay([friday], DAY, DAY)).toEqual([]);
+        expect(tasksForDay([friday], '2026-09-24', DAY)).toEqual([]);
+        expect(tasksForDay([friday], '2026-09-25', DAY).map(item => item.id)).toEqual(['f']);
+    });
+
+    it('carries something still open and past its date into today', () => {
+        const late = task({ id: 'l', dueDate: '2026-09-20' });
+        expect(tasksForDay([late], DAY, DAY).map(item => item.id)).toEqual(['l']);
+    });
+
+    it('does not carry it into a past day being read back', () => {
+        const late = task({ id: 'l', dueDate: '2026-09-20' });
+        expect(tasksForDay([late], '2026-09-22', DAY)).toEqual([]);
+        // The day it was actually due still shows it.
+        expect(tasksForDay([late], '2026-09-20', DAY).map(item => item.id)).toEqual(['l']);
+    });
+
+    it('keeps work with no date at all in today', () => {
+        const loose = task({ id: 'u' });
+        expect(tasksForDay([loose], DAY, DAY).map(item => item.id)).toEqual(['u']);
+        expect(tasksForDay([loose], '2026-09-25', DAY)).toEqual([]);
+    });
+
+    it('stops carrying something once it is done', () => {
+        const done = task({ id: 'd', dueDate: '2026-09-20', status: 'done' });
+        expect(tasksForDay([done], DAY, DAY)).toEqual([]);
+        // On its own day it stays, so that day still reads correctly.
+        expect(tasksForDay([done], '2026-09-20', DAY).map(item => item.id)).toEqual(['d']);
+    });
+
+    it('leaves out anything cancelled', () => {
+        expect(tasksForDay([task({ dueDate: TODAY, status: 'cancelled' })], DAY, DAY)).toEqual([]);
     });
 });

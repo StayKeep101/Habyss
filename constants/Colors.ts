@@ -37,7 +37,7 @@ export const Colors = {
 
     textPrimary: '#0F172A', // Slate-900 - almost black
     textSecondary: '#475569', // Slate-600
-    textTertiary: '#94A3B8', // Slate-400
+    textTertiary: '#64748B', // Slate-400
 
     // Gradients - Use vibrant Habyss colors for light mode
     gradientStart: '#3B82F6', // Blue-500
@@ -73,7 +73,7 @@ export const Colors = {
 
     textPrimary: '#E0E6ED', // High Emphasis
     textSecondary: '#94A3B8', // Low Emphasis
-    textTertiary: '#64748B', // Muted
+    textTertiary: '#8B9AB0', // Muted
 
     // Gradients
     gradientStart: '#0A0F14', // Trench Blue
@@ -109,7 +109,7 @@ export const Colors = {
 
     textPrimary: '#FFFFFF',
     textSecondary: '#A1A1AA', // Zinc-400
-    textTertiary: '#71717A', // Zinc-500
+    textTertiary: '#90909B', // Zinc-500
 
     // Gradients - No gradients in true dark, use solid colors
     gradientStart: '#000000',

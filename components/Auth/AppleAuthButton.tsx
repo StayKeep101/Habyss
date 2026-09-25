@@ -1,19 +1,24 @@
-import { Platform, StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useTheme } from '@/constants/themeContext';
 
-/**
- * Apple Auth Button — DISABLED in local-only mode
- * Will be re-enabled when premium cloud sync is available.
- * For now, renders nothing (returning null).
- */
-export function AppleAuthButton({ type = 'sign-in' }: { type?: 'sign-in' | 'sign-up' | 'continue' }) {
-    // Authentication is not available in free/local-only mode
-    return null;
+/** Native Apple branding, shared by every sign-in surface. */
+export function AppleAuthButton({ type = 'continue', onPress, disabled = false }: {
+    type?: 'sign-in' | 'sign-up' | 'continue';
+    onPress: () => void;
+    disabled?: boolean;
+}) {
+    const { theme } = useTheme();
+    const types = AppleAuthentication.AppleAuthenticationButtonType;
+    return <View pointerEvents={disabled ? 'none' : 'auto'} accessibilityState={{ disabled }}>
+        <AppleAuthentication.AppleAuthenticationButton
+            buttonType={type === 'sign-in' ? types.SIGN_IN : type === 'sign-up' ? types.SIGN_UP : types.CONTINUE}
+            buttonStyle={theme === 'light' ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+            cornerRadius={999}
+            style={styles.button}
+            onPress={onPress}
+        />
+    </View>;
 }
-
-const styles = StyleSheet.create({
-    button: {
-        width: '100%',
-        height: 52,
-    },
-});
+const styles = StyleSheet.create({ button: { width: '100%', height: 54 } });

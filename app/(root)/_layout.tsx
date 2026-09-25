@@ -1,11 +1,7 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Colors } from '@/constants/Colors';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
 
   // Initialize SQLite database (sync removed — local-only mode)
   useEffect(() => {
@@ -33,6 +29,9 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="ai-config" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="goals-overview" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="roadmap" options={{ presentation: 'modal' }} />
         <Stack.Screen
           name="notifications"
           options={{
@@ -96,6 +95,22 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="goal-roadmap"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="progress"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="goal-stats"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="task-stats"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="goal-plan"
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen

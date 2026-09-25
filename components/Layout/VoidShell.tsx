@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, StatusBar, AppState } from 'react-native';
+import { View, StyleSheet, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/constants/themeContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { Colors } from '@/constants/Colors';
-import Animated, { useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing, cancelAnimation } from 'react-native-reanimated';
 
 interface VoidShellProps {
     children: React.ReactNode;
@@ -12,125 +12,49 @@ interface VoidShellProps {
 export const VoidShell: React.FC<VoidShellProps> = ({ children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary } = useAccentGradient();
 
-    // Subtle breathing animation for the background
-    const opacity = useSharedValue(0.3);
+    /**
+     * One gradient, not four.
+     *
+     * This used to stack a base colour, a three-stop gradient, a blue glow and
+     * a perpetually breathing mist — four translucent layers of almost the same
+     * dark colour. On a real screen that is where banding comes from: each
+     * layer rounds to the nearest displayable value and the seams show as grey
+     * steps. It also animated forever for something nobody consciously sees.
+     *
+     * What is left is the background colour and a single wash of the accent
+     * over the top third, fading to nothing. Same feeling of depth, no seams,
+     * and the colour follows whatever accent the user picked rather than being
+     * hard-coded blue.
+     */
+    const wash = theme === 'light'
+        ? [primary + '14', primary + '08', 'transparent'] as const
+        : [primary + '1f', primary + '0d', 'transparent'] as const;
 
-    React.useEffect(() => {
-        // Start animation
-        opacity.value = withRepeat(
-            withTiming(0.5, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
-            -1,
-            true
-        );
-
-        // Pause animation when app goes to background to save resources
-        const subscription = AppState.addEventListener('change', (nextAppState) => {
-            if (nextAppState === 'active') {
-                opacity.value = withRepeat(
-                    withTiming(0.5, { duration: 8000, easing: Easing.inOut(Easing.ease) }),
-                    -1,
-                    true
-                );
-            } else {
-                cancelAnimation(opacity);
-            }
-        });
-
-        return () => {
-            cancelAnimation(opacity);
-            subscription.remove();
-        };
-    }, []);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        opacity: opacity.value
-    }));
-
-    // Stable structure to prevent unmounting of children on theme switch
     return (
-        <View style={[styles.container, { backgroundColor: theme === 'light' ? colors.background : (theme === 'trueDark' ? '#000000' : '#000000') }]}>
-            <StatusBar barStyle={theme === 'light' ? "dark-content" : "light-content"} />
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
 
-            {/* Background Layer - Entirely contained in absolute fill to avoid shifting children index */}
-            <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]}>
-                {theme === 'light' && (
-                    <>
-                        {/* Light Mode Base - Pure White */}
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FFFFFF' }]} />
+            <LinearGradient
+                pointerEvents="none"
+                colors={wash}
+                locations={[0, 0.55, 1]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.wash}
+            />
 
-                        {/* Top Gradient - Blue to White (Matches Abyss structure) */}
-                        <LinearGradient
-                            colors={['#E0F2FE', '#F0F9FF', '#FFFFFF']}
-                            style={[StyleSheet.absoluteFill]}
-                            start={{ x: 0.5, y: 0 }}
-                            end={{ x: 0.5, y: 0.6 }}
-                        />
-
-                        {/* Top Glow - Blue tint */}
-                        <LinearGradient
-                            colors={['rgba(59, 130, 246, 0.1)', 'transparent']}
-                            style={[StyleSheet.absoluteFill, { height: '40%' }]}
-                            start={{ x: 0.5, y: 0 }}
-                            end={{ x: 0.5, y: 1 }}
-                        />
-
-                        {/* Breathing Bottom Mist */}
-                        <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
-                            <LinearGradient
-                                colors={['transparent', 'rgba(59, 130, 246, 0.12)']}
-                                style={[StyleSheet.absoluteFill, { top: '50%' }]}
-                                start={{ x: 0.5, y: 0 }}
-                                end={{ x: 0.5, y: 1 }}
-                            />
-                        </Animated.View>
-                    </>
-                )}
-
-                {theme === 'abyss' && (
-                    <>
-                        {/* Deep Void Base */}
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#050505' }]} />
-
-                        {/* Top Gradient */}
-                        <LinearGradient
-                            colors={['#0F1A24', '#0A1219', '#050505']}
-                            style={[StyleSheet.absoluteFill]}
-                            start={{ x: 0.5, y: 0 }}
-                            end={{ x: 0.5, y: 0.5 }}
-                        />
-
-                        {/* Subtle radial glow at top */}
-                        <LinearGradient
-                            colors={['rgba(58, 90, 140, 0.15)', 'transparent']}
-                            style={[StyleSheet.absoluteFill, { height: '40%' }]}
-                            start={{ x: 0.5, y: 0 }}
-                            end={{ x: 0.5, y: 1 }}
-                        />
-
-                        {/* Bottom Mist (Subtle glow) */}
-                        <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
-                            <LinearGradient
-                                colors={['transparent', 'rgba(139, 173, 214, 0.08)']}
-                                style={[StyleSheet.absoluteFill, { top: '60%' }]}
-                                start={{ x: 0.5, y: 0 }}
-                                end={{ x: 0.5, y: 1 }}
-                            />
-                        </Animated.View>
-                    </>
-                )}
-            </View>
-
-            {/* Content Layer - ZIndex ensures it sits above background */}
-            <View style={{ flex: 1, zIndex: 1 }}>
+            <View style={styles.content}>
                 {children}
             </View>
-        </View >
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    }
+    container: { flex: 1 },
+    // Only the top third is touched; the rest is the background colour itself.
+    wash: { position: 'absolute', top: 0, left: 0, right: 0, height: '34%' },
+    content: { flex: 1 },
 });

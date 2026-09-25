@@ -108,6 +108,10 @@ create index if not exists habits_goal_id_idx on public.habits (goal_id);
 
 -- -----------------------------------------------------------------------------
 -- 2. habit_completions
+-- A skipped day is a decision, not a missed day: it is recorded, and counts
+-- as if the habit had not been scheduled.
+alter table public.habit_completions add column if not exists skipped boolean not null default false;
+
 -- -----------------------------------------------------------------------------
 do $$
 begin
@@ -202,9 +206,41 @@ create trigger on_auth_user_created
 -- in their session already, and push tokens are only used server-side.
 revoke all on public.profiles from anon;
 revoke select, insert, update, delete on public.profiles from authenticated;
-grant select (id, username, avatar_url, created_at, updated_at) on public.profiles to authenticated;
-grant insert (id, username, avatar_url) on public.profiles to authenticated;
-grant update (username, avatar_url, push_token, updated_at) on public.profiles to authenticated;
+
+-- Granted column by column, skipping any this database does not have, so a
+-- profiles table shaped slightly differently cannot abort the migration
+-- halfway and leave the old, wide-open rules in place.
+do $$
+declare
+    readable text[] := array['id', 'username', 'avatar_url', 'created_at', 'updated_at'];
+    writable text[] := array['username', 'avatar_url', 'push_token', 'updated_at'];
+    creatable text[] := array['id', 'username', 'avatar_url'];
+    present text[];
+    column_name text;
+begin
+    select array_agg(c.column_name::text)
+      into present
+      from information_schema.columns c
+     where c.table_schema = 'public' and c.table_name = 'profiles';
+
+    foreach column_name in array readable loop
+        if column_name = any (present) then
+            execute format('grant select (%I) on public.profiles to authenticated', column_name);
+        end if;
+    end loop;
+
+    foreach column_name in array creatable loop
+        if column_name = any (present) then
+            execute format('grant insert (%I) on public.profiles to authenticated', column_name);
+        end if;
+    end loop;
+
+    foreach column_name in array writable loop
+        if column_name = any (present) then
+            execute format('grant update (%I) on public.profiles to authenticated', column_name);
+        end if;
+    end loop;
+end $$;
 
 -- -----------------------------------------------------------------------------
 -- 5. Social and integration tables: cascade with the account

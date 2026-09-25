@@ -1,7 +1,7 @@
-import React from 'react';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { FontFamily, UIStyles } from '@/constants/DesignSystem';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -34,16 +34,7 @@ export default function AIConfigScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>AI Configuration</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <SheetScreen title="AI Configuration" onBack={() => router.back()}>
 
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     {/* Personality Selection */}
@@ -80,9 +71,8 @@ export default function AIConfigScreen() {
                                         },
                                     ]}
                                 >
-                                    <View style={[styles.emojiBox, { backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)' }]}>
-                                        {/* These are emoji, not Ionicons glyphs. */}
-                                        <Text style={styles.emoji}>{mode.icon}</Text>
+                                    <View style={[styles.iconBox, { backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)' }]}>
+                                        <Ionicons name={mode.icon} size={24} color={colors.textPrimary} />
                                     </View>
 
                                     <View style={{ flex: 1 }}>
@@ -141,8 +131,7 @@ export default function AIConfigScreen() {
 
                     <View style={{ height: 40 }} />
                 </ScrollView>
-            </SafeAreaView>
-        </View>
+            </SheetScreen>
     );
 }
 
@@ -150,38 +139,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-    },
-    content: {
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 40,
-    },
+    content: { ...UIStyles.screenContent },
     sectionHeader: {
         marginBottom: 12,
     },
-    sectionTitle: {
-        fontSize: 11,
-        fontWeight: '700',
-        letterSpacing: 1,
-        fontFamily: 'Lexend_700Bold',
-    },
+    sectionTitle: UIStyles.sectionTitle,
     list: {
         gap: 8,
     },
@@ -199,7 +161,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
     },
-    emojiBox: {
+    iconBox: {
         width: 38,
         height: 38,
         borderRadius: 12,
@@ -211,12 +173,11 @@ const styles = StyleSheet.create({
     },
     modeName: {
         fontSize: 15,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     modeDesc: {
         fontSize: 12,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         opacity: 0.85,
         lineHeight: 17,
         marginTop: 3,
@@ -232,7 +193,6 @@ const styles = StyleSheet.create({
     },
     greetingLabel: {
         fontSize: 13,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
 });

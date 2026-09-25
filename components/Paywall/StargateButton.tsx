@@ -1,3 +1,4 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +10,7 @@ import Animated, {
     withSequence,
     cancelAnimation
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 
 interface StargateButtonProps {
     onPress: () => void;
@@ -104,14 +105,14 @@ const styles = StyleSheet.create({
     mainText: {
         color: 'white',
         fontSize: 18,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
         textAlign: 'right',
     },
     subText: {
         color: 'rgba(255,255,255,0.8)',
         fontSize: 12,
         textAlign: 'right',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     shine: {
         position: 'absolute',

@@ -7,7 +7,7 @@
 
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DeviceEventEmitter } from 'react-native';
+import { emit } from './appEvents';
 
 // Action categories
 export type ActionCategory = 'settings' | 'habit' | 'goal' | 'navigation' | 'data';
@@ -334,7 +334,7 @@ export const executeNavigationAction = async (action: AgentAction): Promise<bool
             const modalKey = MODAL_MAP[modal];
             if (modalKey) {
                 // Emit event to open modal
-                DeviceEventEmitter.emit('openModal', { modal: modalKey });
+                emit('openModal', { modal: modalKey });
                 return true;
             }
         }

@@ -281,3 +281,34 @@ describe('losing an amount is a change, not a destination', () => {
         expect(result.goal.title).toContain('Reach 75 kg');
     });
 });
+
+describe('dates with a year or an ISO date', () => {
+    const today = new Date('2026-09-19T12:00:00');
+
+    it('keeps the date out of the title and the amount', () => {
+        const result = parseGoalText('Save 10000 dollars by December 31, 2026', { today });
+        expect(result.goal.target).toBe(10000);
+        expect(result.goal.title).toBe('Save 10000 dollars by December 31');
+        expect(result.goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2026-12-31' });
+    });
+
+    it('never takes the day of the month as the target', () => {
+        const result = parseGoalText('Launch my app by January 1, 2027', { today });
+        expect(result.goal.target).toBeNull();
+        expect(result.goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2027-01-01' });
+    });
+
+    it('shows the year in the title when it is not this year', () => {
+        const result = parseGoalText('Read 3000 pages by March 1, 2027', { today });
+        expect(result.goal.title).toBe('Read 3000 pages by March 1, 2027');
+    });
+
+    it('reads ISO dates and ordinals', () => {
+        expect(parseGoalText('Run 200 km by 2026-11-30', { today }).goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2026-11-30' });
+        expect(parseGoalText('Run 200 km by November 30th', { today }).goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2026-11-30' });
+    });
+
+    it('reads a month and year without a day as the end of that month', () => {
+        expect(parseGoalText('Save 5000 dollars by March 2027', { today }).goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2027-03-31' });
+    });
+});

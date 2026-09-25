@@ -44,6 +44,20 @@ export const LiveActivityService = {
                 return;
             }
 
+            // A day that asks for nothing has nothing to put on the Lock
+            // Screen, and a card reading "0/0" is worse than no card. The
+            // widget still gets the day either way.
+            if (stats.total === 0 && !stats.activeHabitName) {
+                this.syncToWidget(stats);
+                return;
+            }
+
+            // Turned off in Settings; asking anyway just throws every time.
+            if (!LiveActivity.areActivitiesEnabled()) {
+                this.syncToWidget(stats);
+                return;
+            }
+
             const progress = stats.total > 0 ? stats.completed / stats.total : 0;
             const subtitle = stats.activeHabitName
                 ? 'Focusing...'
@@ -53,7 +67,7 @@ export const LiveActivityService = {
                         ? `Next: ${stats.topHabitName}`
                         : 'Keep going!';
 
-            const title = stats.activeHabitName || `${stats.completed}/${stats.total} Habits Done`;
+            const title = stats.activeHabitName || `${stats.completed}/${stats.total} done today`;
 
             const profileImagePath: string | undefined = undefined;
 
@@ -104,7 +118,7 @@ export const LiveActivityService = {
 
             const progress = stats.total > 0 ? stats.completed / stats.total : 0;
 
-            let title = `${stats.completed}/${stats.total} Habits Done`;
+            let title = `${stats.completed}/${stats.total} done today`;
             let subtitle = stats.completed >= stats.total
                 ? '✅ All done for today!'
                 : stats.topHabitName
@@ -164,11 +178,12 @@ export const LiveActivityService = {
             await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
             console.log('Live Activity stopped');
 
-            // Clear Widget active state
+            // Only the focus state is cleared. The day's counts belong to the
+            // home screen widget, which is still on screen: zeroing them here
+            // used to leave it reading 0/0 the moment the day was finished.
             if (SharedDefaults) {
                 await SharedDefaults.set('activeHabitName', 'No Active Habit');
                 await SharedDefaults.remove('timerEndDate');
-                syncWidgetSummary({ completed: 0, total: 0 });
                 if (typeof SharedDefaults.reloadTimelines === 'function') {
                     await SharedDefaults.reloadTimelines();
                 }
@@ -196,7 +211,7 @@ export const LiveActivityService = {
         const habitName = stats.activeHabitName || 'No Active Habit';
         const status = stats.activeHabitName
             ? 'Focusing...'
-            : `${stats.completed}/${stats.total} Habits`;
+            : `${stats.completed}/${stats.total} done`;
 
         SharedDefaults.set('activeHabitName', habitName).catch(() => { });
         SharedDefaults.set('todayStats', status).catch(() => { });

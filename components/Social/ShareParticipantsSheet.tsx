@@ -1,6 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -141,7 +142,7 @@ export const ShareParticipantsSheet: React.FC<ShareParticipantsSheetProps> = ({
                                     ]}
                                 >
                                     <View style={[styles.avatar, { backgroundColor: isSelected ? accentColor : (isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.1)') }]}>
-                                        <Text style={{ fontSize: 15, color: isSelected ? '#000' : colors.textSecondary, fontFamily: 'Lexend_600SemiBold' }}>
+                                        <Text style={{ fontSize: 15, color: isSelected ? '#000' : colors.textSecondary, fontFamily: FontFamily.semibold }}>
                                             {friend.username[0]?.toUpperCase()}
                                         </Text>
                                     </View>
@@ -198,13 +199,13 @@ const styles = StyleSheet.create({
         fontSize: 13,
         lineHeight: 19,
         textAlign: 'center',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         paddingHorizontal: 28,
         marginBottom: 14,
     },
     emptyState: { alignItems: 'center', paddingVertical: 34, paddingHorizontal: 40, gap: 6 },
-    emptyText: { fontSize: 15, marginTop: 6, fontFamily: 'Lexend_600SemiBold' },
-    emptySubtext: { fontSize: 12, lineHeight: 18, textAlign: 'center', fontFamily: 'Lexend_400Regular' },
+    emptyText: { fontSize: 15, marginTop: 6, fontFamily: FontFamily.semibold },
+    emptySubtext: { fontSize: 12, lineHeight: 18, textAlign: 'center', fontFamily: FontFamily.regular },
     list: { paddingHorizontal: 20, paddingBottom: 12, gap: 8 },
     row: {
         flexDirection: 'row',
@@ -216,7 +217,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     avatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-    name: { flex: 1, fontSize: 15, fontFamily: 'Lexend_500Medium' },
+    name: { flex: 1, fontSize: 15, fontFamily: FontFamily.medium },
     error: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -228,8 +229,8 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
     },
-    errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: 'Lexend_400Regular' },
+    errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },
     footer: { paddingHorizontal: 24, paddingBottom: 20, paddingTop: 4 },
     saveButton: { paddingVertical: 15, borderRadius: 999, alignItems: 'center' },
-    saveText: { fontSize: 15, fontFamily: 'Lexend_600SemiBold' },
+    saveText: { fontSize: 15, fontFamily: FontFamily.semibold },
 });

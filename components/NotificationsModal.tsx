@@ -1,6 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Dimensions, Animated as RNAnimated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated as RNAnimated } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import Animated, { FadeInDown, FadeInUp, SlideOutRight } from 'react-native-reanimated';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
@@ -273,7 +274,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                                                     </View>
                                                     <View style={styles.notifContent}>
                                                         <View style={styles.titleRow}>
-                                                            <Text style={[styles.notificationTitle, { color: colors.text, fontWeight: notification.read ? '500' : '700' }]} numberOfLines={1}>
+                                                            <Text style={[styles.notificationTitle, { color: colors.text, fontFamily: notification.read ? FontFamily.medium : FontFamily.bold }]} numberOfLines={1}>
                                                                 {notification.title}
                                                             </Text>
                                                             <Text style={[styles.notificationTime, { color: colors.textTertiary }]}>
@@ -332,9 +333,8 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 18,
-        fontWeight: '900',
         letterSpacing: 1,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -344,9 +344,8 @@ const styles = StyleSheet.create({
     },
     sectionLabel: {
         fontSize: 10,
-        fontWeight: '700',
         letterSpacing: 1.5,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.bold,
     },
     listContainer: {
         flex: 1,
@@ -363,15 +362,14 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     emptySubtext: {
         fontSize: 12,
         marginTop: 8,
         textAlign: 'center',
         lineHeight: 18,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     notificationItem: {
         flexDirection: 'row',
@@ -403,7 +401,7 @@ const styles = StyleSheet.create({
     notificationTitle: {
         fontSize: 13,
         flex: 1,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     unreadDot: {
         width: 7,
@@ -413,12 +411,12 @@ const styles = StyleSheet.create({
     },
     notificationMessage: {
         fontSize: 11,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         lineHeight: 16,
     },
     notificationTime: {
         fontSize: 9,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         marginLeft: 8,
     },
     shareActions: {
@@ -436,6 +434,6 @@ const styles = StyleSheet.create({
     },
     shareBtnText: {
         fontSize: 12,
-        fontFamily: 'Lexend_600SemiBold',
+        fontFamily: FontFamily.semibold,
     },
 });

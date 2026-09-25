@@ -6,11 +6,13 @@
  */
 
 import RevenueCatService from './RevenueCat';
+import { PAYWALL_ENABLED } from '@/constants/features';
 
 /**
  * Check if user has premium access
  */
 export async function isPremium(): Promise<boolean> {
+    if (!PAYWALL_ENABLED) return true;
     try {
         return await RevenueCatService.checkProStatus();
     } catch (e) {

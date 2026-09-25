@@ -1,3 +1,5 @@
+import { Typography } from '@/constants/DesignSystem';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { Text, type TextProps, StyleSheet } from 'react-native';
 
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -15,12 +17,13 @@ export function ThemedText({
   type = 'default',
   ...rest
 }: ThemedTextProps) {
+  const { foreground } = useAccentGradient();
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
 
   return (
     <Text
       style={[
-        { color },
+        { color: type === 'link' ? foreground : color },
         type === 'default' ? styles.default : undefined,
         type === 'title' ? styles.title : undefined,
         type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
@@ -34,33 +37,9 @@ export function ThemedText({
 }
 
 const styles = StyleSheet.create({
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontFamily: 'Lexend_400Regular',
-  },
-  defaultSemiBold: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontFamily: 'Lexend',
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 32,
-    lineHeight: 40,
-    fontFamily: 'Lexend',
-    fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: 20,
-    lineHeight: 28,
-    fontFamily: 'Lexend',
-    fontWeight: '600',
-  },
-  link: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#3A5A8C', // Brand Deep Blue
-    fontFamily: 'Lexend_400Regular',
-  },
+  default: Typography.body,
+  defaultSemiBold: Typography.heading,
+  title: Typography.screenTitle,
+  subtitle: Typography.title,
+  link: Typography.body,
 });

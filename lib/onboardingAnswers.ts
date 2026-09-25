@@ -154,34 +154,3 @@ export function payoffHeadline(attempts?: AttemptsId, killers?: KillerId[]): str
     return 'Here’s your plan.';
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Answer 4: the stakes                                                       */
-/* -------------------------------------------------------------------------- */
-
-/**
- * What the user said giving up would cost them.
- *
- * Kept outside the onboarding draft because the draft is cleared when setup
- * finishes, and this is the one answer the coach needs months later. Cleared
- * with everything else by account deletion, which wipes AsyncStorage.
- */
-export const STAKES_KEY = 'habyss_stakes';
-
-export async function saveStakes(text: string): Promise<void> {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    try {
-        const trimmed = text.trim();
-        if (trimmed) await AsyncStorage.setItem(STAKES_KEY, trimmed);
-    } catch {
-        // The plan is still saved; losing this only costs one coaching line.
-    }
-}
-
-export async function readStakes(): Promise<string | null> {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    try {
-        return await AsyncStorage.getItem(STAKES_KEY);
-    } catch {
-        return null;
-    }
-}

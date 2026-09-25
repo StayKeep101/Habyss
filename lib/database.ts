@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 10;
 
 let dbInstance: any = null;
 /**
@@ -116,6 +116,8 @@ async function runMigrations(db: any): Promise<void> {
         [6, migrateToV6],
         [7, migrateToV7],
         [8, migrateToV8],
+        [9, migrateToV9],
+        [10, migrateToV10],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -133,6 +135,20 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/** Partial progress stays separate from check-ins so existing streaks count only finished habits. */
+async function migrateToV10(db: any): Promise<void> {
+    await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS habit_measurements (
+            user_id TEXT NOT NULL,
+            habit_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            value REAL NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, habit_id, date)
+        );
+    `);
 }
 
 /**
@@ -183,6 +199,18 @@ async function migrateToV8(db: any): Promise<void> {
     await addColumnIfMissing(db, 'tasks', 'synced', 'INTEGER DEFAULT 0');
     await db.execAsync('CREATE INDEX IF NOT EXISTS idx_tasks_unsynced ON tasks (synced) WHERE synced = 0;');
     console.log('[Database] Migrated to schema v8');
+}
+
+/**
+ * A skipped day is a decision, not a failure.
+ *
+ * Without this, a day the user deliberately stood down was stored as nothing
+ * at all, which is the same as forgetting: it broke streaks and counted
+ * against them. A skip is now recorded next to the check-in it replaces.
+ */
+async function migrateToV9(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'completions', 'skipped', 'INTEGER DEFAULT 0');
+    console.log('[Database] Migrated to schema v9');
 }
 
 /**

@@ -1,3 +1,4 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
 import { View, Text } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -52,7 +53,7 @@ export const HalfCircleProgress: React.FC<HalfCircleProgressProps> = ({
       </Svg>
       {showPercentage && (
         <View style={{ position: 'absolute', bottom: 8 }}>
-          <Text style={{ color: textColor, fontWeight: 'bold', fontSize, textAlign: 'center' }}>{Math.round(progress)}%</Text>
+          <Text style={{ color: textColor, fontFamily: FontFamily.bold, fontSize, textAlign: 'center' }}>{Math.round(progress)}%</Text>
         </View>
       )}
     </View>

@@ -30,7 +30,10 @@ export function getSupabase(): SupabaseClient | null {
                 storage: AsyncStorage,
                 persistSession: true,
                 autoRefreshToken: true,
-                // Sign-in is by emailed code, so there is no redirect to parse.
+                // Google sign-in hands back a one-time code that
+                // lib/socialSignIn.ts exchanges itself; PKCE keeps that code
+                // useless to anyone who intercepts it.
+                flowType: 'pkce',
                 detectSessionInUrl: false,
             },
         });

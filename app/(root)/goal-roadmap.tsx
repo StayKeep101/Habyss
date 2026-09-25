@@ -1,18 +1,18 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, DeviceEventEmitter, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { FontFamily, UIStyles } from '@/constants/DesignSystem';
+import { useCallback, useEffect, useState } from 'react';
+import {ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { getHabits, getGoals, type Habit } from '@/lib/habitsSQLite';
+import { calculateGoalProgressInstant, getCompletions, getGoals, getHabits, getLastNDaysCompletions, type Habit } from '@/lib/habitsSQLite';
 import { getTasks, todayKey, type Task } from '@/lib/tasks';
-import { combinedGoalProgress, goalTaskProgress } from '@/lib/taskStats';
 import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
+import { emit, on } from '@/lib/appEvents';
 
 interface GoalPlan {
     goal: Habit;
@@ -51,26 +51,29 @@ export default function GoalRoadmapScreen() {
 
     const load = useCallback(async () => {
         try {
-            const [goals, habits, tasks] = await Promise.all([
+            const [goals, habits, tasks, today, history] = await Promise.all([
                 getGoals(),
                 getHabits(),
                 getTasks({ includeDone: true }),
+                getCompletions(),
+                getLastNDaysCompletions(90),
             ]);
+            const historyMap: Record<string, string[]> = {};
+            history.forEach(day => { historyMap[day.date] = day.completedIds; });
             const liveHabits = habits.filter((habit: Habit) => !habit.isGoal && !habit.isArchived);
             const liveTasks = tasks.filter(task => task.status !== 'cancelled');
 
             setPlans(goals.map((goal: Habit) => {
                 const goalHabits = liveHabits.filter((habit: Habit) => habit.goalId === goal.id);
                 const goalTasks = liveTasks.filter(task => task.goalId === goal.id);
-                const taskProgress = goalTaskProgress(liveTasks, goal.id);
-                // Habits count as "attached and running"; the honest habit-side
-                // number lives on the goal itself, so this stays about coverage.
-                const habitProgress = { done: 0, total: goalHabits.length };
                 return {
                     goal,
                     habits: goalHabits,
                     tasks: goalTasks,
-                    progress: combinedGoalProgress(habitProgress, taskProgress),
+                    // The same number the goal shows everywhere else.
+                    progress: goalHabits.length + goalTasks.length > 0
+                        ? calculateGoalProgressInstant(goal, habits, today, historyMap, tasks)
+                        : null,
                 };
             }));
 
@@ -88,8 +91,8 @@ export default function GoalRoadmapScreen() {
     useEffect(() => {
         load();
         const subs = [
-            DeviceEventEmitter.addListener('tasks_changed', load),
-            DeviceEventEmitter.addListener('habit_updated', load),
+            on('tasks_changed', load),
+            on('habit_updated', load),
         ];
         return () => subs.forEach(sub => sub.remove());
     }, [load]);
@@ -116,7 +119,7 @@ export default function GoalRoadmapScreen() {
             <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel={`Task: ${task.title}`}
-                onPress={() => { lightFeedback(); DeviceEventEmitter.emit('show_task_form', { task }); }}
+                onPress={() => { lightFeedback(); emit('show_task_form', { task }); }}
                 style={styles.leaf}
             >
                 <Ionicons name={done ? 'checkbox' : 'square-outline'} size={15} color={done ? colors.textTertiary : TASK_COLOR} />
@@ -136,15 +139,7 @@ export default function GoalRoadmapScreen() {
     };
 
     return (
-        <VoidShell>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Back">
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>Full roadmap</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <SheetScreen title="Full roadmap" onBack={() => router.back()}>
 
                 {loading ? (
                     <ActivityIndicator color={accent} style={{ marginTop: 40 }} />
@@ -199,26 +194,22 @@ export default function GoalRoadmapScreen() {
                         ) : null}
                     </ScrollView>
                 )}
-            </SafeAreaView>
-        </VoidShell>
+            </SheetScreen>
     );
 }
 
 const styles = StyleSheet.create({
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
-    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: 18, fontWeight: '700', fontFamily: 'Lexend' },
-    content: { paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
+    content: { ...UIStyles.screenContent,   gap: 12  },
     card: { padding: 14, gap: 8 },
     goalRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     icon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    goalName: { fontSize: 15, fontFamily: 'Lexend_600SemiBold' },
-    meta: { fontSize: 12, fontFamily: 'Lexend_400Regular', marginTop: 2 },
-    progress: { fontSize: 14, fontFamily: 'Lexend_600SemiBold' },
-    section: { fontSize: 10, letterSpacing: 1.2, fontFamily: 'Lexend_500Medium' },
+    goalName: { fontSize: 15, fontFamily: FontFamily.semibold },
+    meta: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 2 },
+    progress: { fontSize: 14, fontFamily: FontFamily.semibold },
+    section: { fontSize: 10, letterSpacing: 1.2, fontFamily: FontFamily.medium },
     branch: { marginLeft: 16, paddingLeft: 14, borderLeftWidth: 2, gap: 2 },
     leaf: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
-    leafText: { flex: 1, fontSize: 13, fontFamily: 'Lexend_400Regular' },
-    overdue: { fontSize: 11, color: '#EF4444', fontFamily: 'Lexend_500Medium' },
-    empty: { fontSize: 14, fontFamily: 'Lexend_400Regular', textAlign: 'center', marginTop: 40 },
+    leafText: { flex: 1, fontSize: 13, fontFamily: FontFamily.regular },
+    overdue: { fontSize: 11, color: '#EF4444', fontFamily: FontFamily.medium },
+    empty: { fontSize: 14, fontFamily: FontFamily.regular, textAlign: 'center', marginTop: 40 },
 });

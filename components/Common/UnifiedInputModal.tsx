@@ -1,3 +1,4 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useEffect, useState } from 'react';
 import {
     View,
@@ -8,7 +9,7 @@ import {
     StyleSheet,
     TouchableOpacity,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -193,9 +194,9 @@ const styles = StyleSheet.create({
     numericInput: {
         fontSize: 46,
         lineHeight: 52,
-        fontWeight: '900',
+
         textAlign: 'center',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
         minWidth: 120,
     },
     numericUnit: {
@@ -203,7 +204,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         textTransform: 'uppercase',
         letterSpacing: 1.2,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     optionsList: {
         maxHeight: 320,
@@ -220,8 +221,7 @@ const styles = StyleSheet.create({
     },
     optionLabel: {
         fontSize: 15,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
     footer: {
         flexDirection: 'row',

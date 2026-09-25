@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.habyss.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSUserNotificationUsageDescription": "Habyss uses notifications to remind you about your habits and help you stay consistent.",
         "NSPhotoLibraryUsageDescription": "Habyss needs access to your photos to let you set custom backgrounds for your goals.",
@@ -32,9 +33,11 @@
         "com.apple.security.application-groups": [
           "group.com.habyss.data"
         ],
-        "com.apple.developer.siri": true
-      },
-      "runtimeVersion": "1.0.0"
+        "com.apple.developer.siri": true,
+        "com.apple.developer.applesignin": [
+          "Default"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -47,10 +50,7 @@
         "android.permission.WRITE_CALENDAR",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
-      ],
-      "runtimeVersion": {
-        "policy": "appVersion"
-      }
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -87,6 +87,13 @@
         }
       ],
       "expo-sqlite",
+      "expo-apple-authentication",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Habyss uses Face ID to unlock your private habits when App Lock is enabled."
+        }
+      ],
       "expo-asset",
       "expo-audio",
       [
@@ -108,7 +115,8 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isIosBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
@@ -118,6 +126,9 @@
       "eas": {
         "projectId": "9ce82041-a728-43a6-8b9a-1ffa254fbfb6"
       }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
     },
     "updates": {
       "url": "https://u.expo.dev/9ce82041-a728-43a6-8b9a-1ffa254fbfb6"

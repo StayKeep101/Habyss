@@ -1,7 +1,10 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
-import { Swipeable, RectButton, TouchableOpacity, Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
+import { TouchableOpacity, Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { SwipeRow } from '@/components/Common/SwipeRow';
+import { CheckPop } from '@/components/Common/CheckPop';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
@@ -38,6 +41,9 @@ interface SwipeableHabitItemProps {
   onDragMove?: (habit: ExtendedHabit, x: number, y: number) => void;
   onDragEnd?: (habit: ExtendedHabit, x: number, y: number) => void;
   isDragging?: boolean;
+  /** Stand down for today, on purpose: neither done nor missed. */
+  onSkip?: (habit: ExtendedHabit) => void;
+  skipped?: boolean;
 }
 
 const { width } = Dimensions.get('window');
@@ -46,11 +52,10 @@ const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration,
   canFocusNow, onFocusPress,
-  onDragStart, onDragMove, onDragEnd, isDragging = false
+  onDragStart, onDragMove, onDragEnd, isDragging = false, onSkip, skipped = false
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
-  const swipeableRef = useRef<Swipeable>(null);
   const router = useRouter();
   const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
   const { colors: accentColors, primary: accentColor } = useAccentGradient();
@@ -58,7 +63,6 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   // Measure card for SVG Border
   const [layout, setLayout] = React.useState({ width: 0, height: 0 });
 
-  const close = () => swipeableRef.current?.close();
 
   // Prefer dedicated prop, fallback to object property
   const isCompleted = completed !== undefined ? completed : habit.completed;
@@ -73,83 +77,6 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   const iconBoxSize = isSmall ? 20 : (isBig ? 32 : 26);
   const fontSize = isSmall ? 11 : (isBig ? 14 : 13);
   const checkboxSize = isSmall ? 14 : (isBig ? 20 : 18);
-
-  // Swipe threshold trigger with haptic
-  const onSwipeableWillOpen = (direction: 'left' | 'right') => {
-    lightFeedback(); // Subtle haptic when swipe reveals actions
-  };
-
-  // (renderLeftActions and renderRightActions remain mostly same but slightly smaller)
-  const renderLeftActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
-  ) => {
-    const trans = dragX.interpolate({
-      inputRange: [0, 50, 100],
-      outputRange: [-20, 0, 0],
-      extrapolate: 'clamp',
-    });
-    const scale = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.8, 1],
-      extrapolate: 'clamp',
-    });
-
-    return (
-      <RectButton
-        style={[styles.leftAction, { backgroundColor: isCompleted ? colors.surfaceSecondary : '#10B981' }]}
-        onPress={() => {
-          if (onToggle) {
-            onToggle(habit);
-          }
-          close();
-        }}
-      >
-        <Animated.View style={[styles.actionContent, { transform: [{ translateX: trans }, { scale }] }]}>
-          <Ionicons name={isCompleted ? "close-circle-outline" : "checkmark-circle-outline"} size={26} color="white" />
-        </Animated.View>
-      </RectButton>
-    );
-  };
-
-  const renderRightActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
-  ) => {
-    // Reveal animation
-    const trans = dragX.interpolate({
-      inputRange: [-ACTION_WIDTH * 3, 0],
-      outputRange: [0, ACTION_WIDTH * 3],
-      extrapolate: 'clamp',
-    });
-
-    const scale = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.8, 1],
-      extrapolate: 'clamp',
-    });
-
-    return (
-      <View style={styles.rightActionsContainer}>
-        <RectButton
-          style={[styles.rightAction, { backgroundColor: '#F59E0B' }]}
-          onPress={() => { selectionFeedback(); close(); onEdit(habit); }}
-        >
-          <Animated.View style={[styles.actionContent, { transform: [{ scale }, { translateX: Animated.multiply(trans, 0.2) }] }]}>
-            <Ionicons name="pencil" size={20} color="white" />
-          </Animated.View>
-        </RectButton>
-        <RectButton
-          style={[styles.rightAction, { backgroundColor: '#EF4444' }]}
-          onPress={() => { mediumFeedback(); close(); onDelete(habit); }}
-        >
-          <Animated.View style={[styles.actionContent, { transform: [{ scale }, { translateX: Animated.multiply(trans, 0.3) }] }]}>
-            <Ionicons name="trash" size={20} color="white" />
-          </Animated.View>
-        </RectButton>
-      </View>
-    );
-  };
 
   // Timer Progress Logic
   const formattedTime = React.useMemo(() => {
@@ -195,19 +122,18 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   return (
     <GestureDetector gesture={dragGesture}>
       <View style={[styles.dragWrapper, isDragging && styles.dragging]}>
-        <Swipeable
-          ref={swipeableRef}
-          renderLeftActions={renderLeftActions}
-          renderRightActions={renderRightActions}
-          leftThreshold={30}
-          rightThreshold={35}
-          overshootLeft={false}
-          overshootRight={false}
-          overshootFriction={4}
-          friction={2}
-          useNativeAnimations
-          onSwipeableWillOpen={onSwipeableWillOpen}
-          containerStyle={styles.swipeableContainer}
+        <SwipeRow
+          left={onSkip ? {
+            // Standing down on purpose, rather than quietly missing the day.
+            icon: skipped ? 'arrow-undo' : 'play-skip-forward',
+            label: skipped ? 'Undo' : 'Skip',
+            color: skipped ? colors.textTertiary : '#64748B',
+            onPress: () => onSkip(habit),
+          } : undefined}
+          right={[
+            { icon: 'pencil', label: 'Edit', color: '#F59E0B', onPress: () => { selectionFeedback(); onEdit(habit); } },
+            { icon: 'trash', label: 'Delete', color: '#EF4444', onPress: () => { mediumFeedback(); onDelete(habit); } },
+          ]}
         >
           <TouchableOpacity
             activeOpacity={0.8}
@@ -260,7 +186,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
             intensity={40} // Lighter glass for items
             style={[
               styles.card,
-              isCompleted && { opacity: 0.7 },
+              (isCompleted || (skipped && !isCompleted)) && { opacity: 0.7 },
               { paddingVertical: paddingV },
               isActive && { margin: 4 } // Inset to not cover border
             ]}
@@ -268,12 +194,28 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
             {/* Checkbox / Hit Area */}
             <TouchableOpacity
               activeOpacity={0.6}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: !!isCompleted }}
+              accessibilityLabel={skipped ? `${habit.name}, skipped today` : isCompleted ? `Undo ${habit.name}` : `Mark ${habit.name} done`}
               onPress={() => onToggle && onToggle(habit)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <View style={[styles.checkbox, { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 }, isCompleted && { backgroundColor: accentColor + '30', borderColor: accentColor }, isActive && { borderColor: accentColor, backgroundColor: accentColor + '20' }]}>
-                {(isCompleted || isActive) && <Ionicons name={isCompleted ? "checkmark" : "play"} size={checkboxSize * 0.7} color={accentColor} />}
-              </View>
+              <CheckPop active={!!isCompleted} color={accentColor} size={checkboxSize}>
+                <View style={[
+                  styles.checkbox,
+                  { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 },
+                  isCompleted && { backgroundColor: accentColor + '30', borderColor: accentColor },
+                  isActive && { borderColor: accentColor, backgroundColor: accentColor + '20' },
+                  // A skipped day is drawn as set aside, not as failed.
+                  skipped && !isCompleted && { borderStyle: 'dashed', borderColor: colors.textTertiary },
+                ]}>
+                  {isCompleted || isActive ? (
+                    <Ionicons name={isCompleted ? 'checkmark' : 'play'} size={checkboxSize * 0.7} color={accentColor} />
+                  ) : skipped ? (
+                    <Ionicons name="remove" size={checkboxSize * 0.7} color={colors.textTertiary} />
+                  ) : null}
+                </View>
+              </CheckPop>
             </TouchableOpacity>
 
             {/* Icon */}
@@ -283,13 +225,15 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
 
             {/* Text Info */}
             <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }, isActive && { fontWeight: '900', color: accentColor }]} numberOfLines={1}>
+              <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }, isActive && { fontFamily: FontFamily.bold, color: accentColor }]} numberOfLines={1}>
                 {habit.name}
               </Text>
-              {goalName && !isSmall ? (
-                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
+              {skipped && !isCompleted && !isSmall ? (
+                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.medium, marginTop: 2 }}>Skipped today</Text>
+              ) : goalName && !isSmall ? (
+                <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.regular, marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
               ) : ((habit.streak ?? 0) > 0 && !isSmall) ? (
-                <Text style={[styles.streakText, { color: '#F59E0B' }]}>🔥 {habit.streak}</Text>
+                <Text style={[styles.streakText, { color: '#F59E0B' }]}><Ionicons name="flame-outline" size={12} color="#F59E0B" /> {habit.streak}</Text>
               ) : canFocusNow && onFocusPress && !isSmall ? (
                 <TouchableOpacity
                   activeOpacity={0.85}
@@ -304,13 +248,13 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
             {/* Time / Timer + Target (Compact) */}
             <View style={{ alignItems: 'flex-end' }}>
               {isActive && formattedTime ? (
-                <Text style={{ fontSize: 13, fontWeight: '700', color: accentColor, fontFamily: 'Lexend', fontVariant: ['tabular-nums'] }}>
+                <Text style={{ fontSize: 13,  color: accentColor, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] }}>
                   {formattedTime}
                 </Text>
               ) : (
                 <>
                   {habit.goalValue > 1 && habit.unit && habit.unit !== 'count' && !isSmall && (
-                    <Text style={{ fontSize: 9, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', marginBottom: 1 }}>
+                    <Text style={{ fontSize: 9, color: colors.textTertiary, fontFamily: FontFamily.regular, marginBottom: 1 }}>
                       {habit.goalValue} {habit.unit}
                     </Text>
                   )}
@@ -324,7 +268,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
           </VoidCard>
         </View>
           </TouchableOpacity>
-        </Swipeable>
+        </SwipeRow>
       </View>
     </GestureDetector>
   );
@@ -369,12 +313,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   title: {
-    fontWeight: '500',
-    fontFamily: 'Lexend_400Regular', // Lighter weight for items
+
+    fontFamily: FontFamily.medium, // Lighter weight for items
   },
   streakText: {
     fontSize: 9,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginTop: 1,
   },
   metaRow: {
@@ -396,11 +340,11 @@ const styles = StyleSheet.create({
   },
   metaBadgeText: {
     fontSize: 9,
-    fontFamily: 'Lexend_400Regular',
+    fontFamily: FontFamily.regular,
     color: '#A1A1AA',
   },
   timeText: {
-    fontFamily: 'Lexend_400Regular',
+    fontFamily: FontFamily.regular,
   },
   leftAction: {
     flex: 1,

@@ -7,6 +7,8 @@ import { IntegrationService } from '@/lib/integrationService';
 import { HealthKitService } from '@/lib/healthKit';
 import { getLocalUserId } from '@/lib/localUser';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
+import { getHabits, saveHabitMeasurement } from '@/lib/habitsSQLite';
+import { localHabitDate, measurementFor } from '@/lib/habitMeasurement';
 
 // ============================================
 // Focus Time Context - INDUSTRY STANDARD
@@ -300,8 +302,17 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 date: getTodayString(),
                 mode: session.mode,
             }));
+            // Save to the habit even if its detail sheet has been dismissed.
+            const habit = (await getHabits()).find(item => item.id === session.habitId);
+            if (habit) {
+                const measurement = measurementFor(habit);
+                if (measurement.kind === 'timer' && session.actualDuration > 0) {
+                    await saveHabitMeasurement(habit.id, session.actualDuration / measurement.secondsPerUnit, localHabitDate(session.startedAt), true);
+                }
+            }
         } catch (e) {
             console.log('Failed to save focus session locally:', e);
+            Alert.alert('Progress wasn’t saved', 'Your session ended, but its time could not be added to your habit. You can log the time manually on the habit page.');
         }
     }, []);
 
@@ -412,7 +423,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     // Calculate elapsed time instead of remaining
                     if (!focusStartRef.current) return;
                     const now = Date.now();
-                    const elapsed = Math.floor((now - focusStartRef.current) / 1000);
+                    const elapsed = (currentSessionRef.current?.actualDuration || 0) + Math.floor((now - focusStartRef.current) / 1000);
                     setTimeLeft(elapsed); // Actually represents elapsed time
                 } else {
                     if (!endTimeRef.current) return;

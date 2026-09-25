@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { useState, useEffect, useCallback } from 'react';
+import { ScrollView, View, Text, StyleSheet, Switch, Alert, Platform } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { IntegrationService, Integration } from '@/lib/integrationService';
 import { SpotifyService } from '@/lib/spotifyService';
@@ -171,18 +171,9 @@ export default function IntegrationsScreen() {
     };
 
     return (
-        <VoidShell>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>Integrations</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <SheetScreen title="Integrations" onBack={() => router.back()}>
 
-                <View style={styles.content}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
                         CONNECTED SERVICES
                     </Text>
@@ -241,51 +232,18 @@ export default function IntegrationsScreen() {
                             Note: Apple Health requires additional native setup
                         </Text>
                     )}
-                </View>
-            </SafeAreaView>
-        </VoidShell>
+                </ScrollView>
+            </SheetScreen>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-    },
-    content: {
-        padding: 16,
-    },
-    sectionTitle: {
-        fontSize: 11,
-        fontWeight: '600',
-        letterSpacing: 1,
-        marginBottom: 4,
-        marginLeft: 4,
-        fontFamily: 'Lexend_400Regular',
-    },
-    sectionDesc: {
-        fontSize: 12,
-        marginBottom: 12,
-        marginLeft: 4,
-        fontFamily: 'Lexend_400Regular',
-    },
+    content: { ...UIStyles.screenContent },
+    sectionTitle: UIStyles.sectionTitle,
+    sectionDesc: UIStyles.sectionDescription,
     card: {
-        borderRadius: 16,
+        borderRadius: Radius.card,
         borderWidth: 1,
         overflow: 'hidden',
     },
@@ -312,8 +270,7 @@ const styles = StyleSheet.create({
     },
     itemName: {
         fontSize: 15,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
     badge: {
         borderRadius: 999,
@@ -322,13 +279,13 @@ const styles = StyleSheet.create({
     },
     badgeText: {
         fontSize: 10,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         textTransform: 'uppercase',
     },
     itemDesc: {
         fontSize: 11,
         marginTop: 2,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     divider: {
         height: 1,
@@ -339,6 +296,6 @@ const styles = StyleSheet.create({
         marginTop: 16,
         textAlign: 'center',
         fontStyle: 'italic',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
 });

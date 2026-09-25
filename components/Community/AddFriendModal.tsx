@@ -1,6 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -274,10 +275,9 @@ const styles = StyleSheet.create({
     },
     code: {
         fontSize: 28,
-        fontWeight: '700',
         letterSpacing: 4,
         marginBottom: 12,
-        fontFamily: 'SpaceGrotesk_700Bold',
+        fontFamily: FontFamily.display,
     },
     copyBtn: {
         flexDirection: 'row',
@@ -289,9 +289,8 @@ const styles = StyleSheet.create({
     },
     copyText: {
         fontSize: 10,
-        fontWeight: '700',
         letterSpacing: 1,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     input: {
         height: 52,
@@ -299,7 +298,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         paddingHorizontal: 16,
         fontSize: 18,
-        fontFamily: 'SpaceGrotesk_700Bold',
+        fontFamily: FontFamily.display,
         letterSpacing: 2,
         marginBottom: 20,
     },
@@ -311,10 +310,9 @@ const styles = StyleSheet.create({
     },
     addBtnText: {
         fontSize: 14,
-        fontWeight: '900',
         color: '#fff',
         letterSpacing: 1,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     // New Styles
     tabContainer: {
@@ -330,8 +328,8 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     tabText: {
-        fontWeight: '700',
-        fontFamily: 'Lexend',
+
+        fontFamily: FontFamily.bold,
         fontSize: 12,
     },
     qrContainer: {
@@ -349,7 +347,7 @@ const styles = StyleSheet.create({
     },
     qrLabel: {
         fontSize: 14,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         textAlign: 'center',
     },
     cameraContainer: {

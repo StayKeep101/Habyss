@@ -1,75 +1,123 @@
+import { FontFamily, Typography, UIStyles } from '@/constants/DesignSystem';
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, TextInput, Alert, ActivityIndicator, Image, Linking, Platform, DeviceEventEmitter } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { useDailyTarget } from '@/hooks/useDailyFocus';
+import { saveDailyTarget } from '@/lib/dailyFocus';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
-import { usePremiumStatus } from '@/hooks/usePremiumStatus';
+import { PAYWALL_ENABLED } from '@/constants/features';
 import { hasAnyIntegration, integrationsSummary } from '@/lib/integrationAvailability';
 import { APP_SLOGAN } from '@/constants/brand';
 import { currentAccount, onAccountChange } from '@/lib/account';
 import Constants from 'expo-constants';
-import { LinearGradient } from 'expo-linear-gradient';
 import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { clearHabitsCache } from '@/lib/habitsSQLite';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
-
 // Settings configuration
-interface SettingOption {
-    id: string;
-    icon: string;
-    title: string;
-    subtitle?: string;
-    onPress?: () => void;
-    comingSoon?: boolean;
-}
 
-// Conditionally require ImagePicker
-let ImagePicker: any = null;
-try { ImagePicker = require('expo-image-picker'); } catch (e) { }
+
+/**
+ * A titled group of rows.
+ *
+ * Declared here rather than inside the screen: a component created during
+ * render is a new component type on every render, so React threw away every
+ * row and built it again each time anything on the page changed.
+ */
+const Section = ({ title, children }: { title: string; children: React.ReactNode }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const rows = React.Children.toArray(children).filter(Boolean);
+    return (
+        <View style={styles.group}>
+            <Text style={[styles.sectionHeading, { color: colors.textTertiary }]}>{title.toUpperCase()}</Text>
+            <View style={[styles.sectionCardPlain, { backgroundColor: isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.04)', borderColor: colors.border }]}>
+                {rows.map((row, index) => (
+                    <View key={index}>
+                        {index > 0 ? <View style={[styles.rowDivider, { backgroundColor: colors.border }]} /> : null}
+                        {row}
+                    </View>
+                ))}
+            </View>
+        </View>
+    );
+};
+
+/**
+ * One setting. A small monochrome icon, the name, and either what it is set to
+ * or a switch. No gradient tiles: this is a list, and every row shouting the
+ * accent colour made none of them readable.
+ */
+const Row = ({ icon, label, value, toggle, onPress }: {
+    icon: React.ComponentProps<typeof Ionicons>['name']; label: string; value?: string;
+    toggle?: boolean; onPress: () => void;
+}) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const { primary: accentColor } = useAccentGradient();
+    const { selectionFeedback } = useHaptics();
+
+    return (
+    <TouchableOpacity
+        accessibilityRole={toggle === undefined ? 'button' : 'switch'}
+        accessibilityState={toggle === undefined ? undefined : { checked: toggle }}
+        accessibilityLabel={label}
+        activeOpacity={0.7}
+        onPress={() => { selectionFeedback(); onPress(); }}
+        style={styles.row}
+    >
+        <View style={[styles.rowIcon, { backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)' }]}>
+            <Ionicons name={icon} size={16} color={colors.textSecondary} />
+        </View>
+        <Text numberOfLines={1} style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
+        {toggle === undefined ? (
+            <>
+                {value ? <Text numberOfLines={1} style={[styles.rowValue, { color: colors.textTertiary }]}>{value}</Text> : null}
+                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+            </>
+        ) : (
+            <View style={[styles.switch, { backgroundColor: toggle ? accentColor : (isLight ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.12)') }]}>
+                <View style={[styles.knob, { alignSelf: toggle ? 'flex-end' : 'flex-start' }]} />
+            </View>
+        )}
+    </TouchableOpacity>
+    );
+};
 
 export default function ProfileScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
-    const { colors: accentColors, primary: accentColor } = useAccentGradient();
+    const { primary: accentColor } = useAccentGradient();
     const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
     // User state
-    const { lightFeedback, selectionFeedback, mediumFeedback } = useHaptics();
+    const { selectionFeedback } = useHaptics();
+    const dailyTarget = useDailyTarget();
     const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
-    const [isEditingUsername, setIsEditingUsername] = useState(false);
-    const [newUsername, setNewUsername] = useState('');
-    const [checkingUsername, setCheckingUsername] = useState(false);
-    const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
-    const [saving, setSaving] = useState(false);
     const [showEditProfile, setShowEditProfile] = useState(false);
 
     // Settings state - use global context
     const {
         hapticsEnabled, setHapticsEnabled,
         soundsEnabled, setSoundsEnabled,
-        notificationsEnabled, setNotificationsEnabled,
+        notificationsEnabled,
         aiPersonality,
-        cardSize, setCardSize
     } = useAppSettings();
 
     // Profile picture state
     const [avatarUri, setAvatarUri] = useState<string | null>(null);
-    const { isPremium } = usePremiumStatus();
 
     // Load user profile from local storage
     useEffect(() => {
@@ -85,150 +133,6 @@ export default function ProfileScreen() {
         loadProfile();
     }, []);
 
-    // Username availability check (local-only — always available)
-    const checkUsernameAvailability = async (name: string) => {
-        if (name.length < 3) {
-            setUsernameAvailable(null);
-            return;
-        }
-        setCheckingUsername(true);
-        // In local-only mode, username is always available
-        setCheckingUsername(false);
-        setUsernameAvailable(true);
-    };
-
-    // Save new username locally
-    const saveUsername = async () => {
-        if (!usernameAvailable || newUsername.length < 3) return;
-
-        setSaving(true);
-        await AsyncStorage.setItem('profile_nickname', newUsername.toLowerCase());
-        setSaving(false);
-
-        setUsername(newUsername);
-        setIsEditingUsername(false);
-        setNewUsername('');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    };
-
-    const handleChangeAvatar = async () => {
-        if (!ImagePicker) {
-            Alert.alert(
-                "Feature Unavailable",
-                "Photo picker requires a development build. Run 'npx expo run:ios' or 'npx expo run:android' to enable this feature."
-            );
-            return;
-        }
-
-        Alert.alert(
-            "Change Profile Picture",
-            "Choose an option",
-            [
-                {
-                    text: "Take Photo",
-                    onPress: async () => {
-                        try {
-                            const { status } = await ImagePicker.requestCameraPermissionsAsync();
-                            if (status !== 'granted') {
-                                Alert.alert('Permission Required', 'Camera permission is needed to take photos.');
-                                return;
-                            }
-
-                            // Add delay to prevent crash
-                            await new Promise(resolve => setTimeout(resolve, 100));
-
-                            const result = await ImagePicker.launchCameraAsync({
-                                allowsEditing: true,
-                                aspect: [1, 1],
-                                quality: 0.7,
-                            });
-
-                            if (!result.canceled && result.assets && result.assets[0]) {
-                                const uri = result.assets[0].uri;
-                                setAvatarUri(uri);
-                                await AsyncStorage.setItem('profile_avatar', uri);
-                                DeviceEventEmitter.emit('profile_avatar_changed', uri);
-                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            }
-                        } catch (error: any) {
-                            console.error('Camera error:', error);
-                            Alert.alert('Camera unavailable', 'Habyss could not open the camera. Check camera access in Settings and try again.');
-                        }
-                    }
-                },
-                {
-                    text: "Choose from Library",
-                    onPress: async () => {
-                        try {
-                            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                            if (status !== 'granted') {
-                                Alert.alert('Permission Required', 'Photo library access is needed to select photos.');
-                                return;
-                            }
-
-                            // Add delay to prevent crash
-                            await new Promise(resolve => setTimeout(resolve, 100));
-
-                            const result = await ImagePicker.launchImageLibraryAsync({
-                                mediaTypes: 'images',
-                                allowsEditing: true,
-                                aspect: [1, 1],
-                                quality: 0.7,
-                            });
-
-                            if (!result.canceled && result.assets && result.assets[0]) {
-                                const uri = result.assets[0].uri;
-                                setAvatarUri(uri);
-                                await AsyncStorage.setItem('profile_avatar', uri);
-                                DeviceEventEmitter.emit('profile_avatar_changed', uri);
-                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            }
-                        } catch (error: any) {
-                            console.error('Library error:', error);
-                            Alert.alert('Photos unavailable', 'Habyss could not open your photo library. Check photo access in Settings and try again.');
-                        }
-                    }
-                },
-                { text: "Cancel", style: "cancel" }
-            ]
-        );
-    };
-
-    const toggleGlobalSetting = (setter: (val: boolean) => void, currentValue: boolean) => {
-        if (hapticsEnabled) selectionFeedback();
-        setter(!currentValue);
-    };
-
-    const SettingItem = ({ icon, label, value, onToggle }: any) => (
-        <View style={styles.settingItem}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                <View style={[styles.iconBox, { borderColor: colors.border }]}>
-                    <Ionicons name={icon} size={20} color={colors.textSecondary} />
-                </View>
-                <Text style={[styles.settingLabel, { color: colors.textPrimary }]}>{label}</Text>
-            </View>
-            <Switch
-                trackColor={{ false: '#3e3e3e', true: colors.primary }}
-                thumbColor={colors.textPrimary}
-                ios_backgroundColor="#3e3e3e"
-                onValueChange={() => onToggle(!value)}
-                value={value}
-            />
-        </View>
-    );
-
-    const MenuLink = ({ icon, label, onPress, destructive = false }: any) => (
-        <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.settingItem}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                <View style={[styles.iconBox, { borderColor: colors.border }]}>
-                    <Ionicons name={icon} size={20} color={destructive ? colors.error : colors.textSecondary} />
-                </View>
-                <Text style={[styles.settingLabel, { color: destructive ? colors.error : colors.textPrimary }]}>{label}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} style={{ opacity: 0.5 }} />
-        </TouchableOpacity>
-    );
-
 
     // Signed-in state for the Account row. Signing out lives on the Account
     // screen, where it backs up first; the old button here cleared storage with
@@ -239,273 +143,117 @@ export default function ProfileScreen() {
         return onAccountChange(account => setAccountEmail(account?.email ?? null));
     }, []);
 
+    /** A titled group of rows, as one card. */
     return (
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header - No Settings Button */}
                 <View style={[styles.header, { paddingHorizontal: horizontalPadding, paddingTop: topSpacing * 0.4 }]}>
                     <View style={{ width: isCompactWidth ? 32 : 40 }} />
-                    <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: isCompactWidth ? 22 : 24, fontFamily: 'Lexend_700Bold' }]}>PROFILE</Text>
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: isCompactWidth ? 26 : 30 }]}>SETTINGS</Text>
                     <View style={{ width: isCompactWidth ? 32 : 40 }} />
                 </View>
 
-                <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance, paddingHorizontal: horizontalPadding }]}>
-                    {/* Profile Section */}
-                    <View style={[styles.profileSection, { marginBottom: isCompactWidth ? 24 : 32, marginTop: topSpacing }]}>
-                        <TouchableOpacity onPress={() => setShowEditProfile(true)} style={styles.avatarContainer}>
-                            {/* Premium gradient border */}
-                            {isPremium && (
-                                <LinearGradient
-                                    colors={accentColors}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.premiumAvatarBorder}
-                                />
+                <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance, paddingHorizontal: horizontalPadding }]} showsVerticalScrollIndicator={false}>
+                    {/* Who you are, small: a settings screen is a list, not a poster. */}
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit your profile"
+                        activeOpacity={0.85}
+                        onPress={() => { selectionFeedback(); setShowEditProfile(true); }}
+                        style={styles.profileRow}
+                    >
+                        <View style={[styles.avatar, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+                            {avatarUri ? (
+                                <Image source={{ uri: avatarUri }} style={{ width: 56, height: 56 }} />
+                            ) : (
+                                <Text style={{ fontSize: 20, fontFamily: FontFamily.bold, color: colors.textPrimary }}>
+                                    {username[0]?.toUpperCase() || 'U'}
+                                </Text>
                             )}
-                            <View style={[
-                                styles.avatarPlaceholder,
-                                {
-                                    backgroundColor: colors.surfaceSecondary,
-                                    borderColor: isPremium ? 'transparent' : colors.border,
-                                    overflow: 'hidden',
-                                }
-                            ]}>
-                                {avatarUri ? (
-                                    <Image source={{ uri: avatarUri }} style={{ width: 100, height: 100 }} />
-                                ) : (
-                                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: colors.textPrimary }}>
-                                        {username[0]?.toUpperCase() || 'U'}
-                                    </Text>
-                                )}
-                            </View>
-                            {/* Badge: PRO for premium users, star for non-premium */}
-                            {isPremium ? (
-                                <LinearGradient
-                                    colors={accentColors}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={styles.verifiedBadge}
-                                >
-                                    <Text style={{ color: 'white', fontSize: 8, fontWeight: '900', fontFamily: 'Lexend' }}>PRO</Text>
-                                </LinearGradient>
-                            ) : null}
-                        </TouchableOpacity>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text numberOfLines={1} style={[styles.profileName, { color: colors.textPrimary }]}>{username || 'You'}</Text>
+                            <Text numberOfLines={1} style={[styles.profileMeta, { color: colors.textTertiary }]}>
+                                {accountEmail ?? 'Not signed in'}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                    </TouchableOpacity>
 
-                        {/* Upgrade Button (only for non-premium) */}
-                        {!isPremium && (
-                            <TouchableOpacity
-                                onPress={() => {
-                                    selectionFeedback();
-                                    router.push('/(root)/paywall');
-                                }}
-                                style={styles.upgradeBtnContainer}
-                            >
-                                <LinearGradient
-                                    colors={accentColors}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.upgradeBtn}
-                                >
-                                    <Ionicons name="sparkles" size={16} color="white" />
-                                    <Text style={styles.upgradeText}>Upgrade to Pro</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        )}
+                    <Section title="Account">
+                        <Row
+                            icon="cloud-upload-outline"
+                            label="Account & backup"
+                            value={accountEmail ? 'Signed in' : 'Sign in'}
+                            onPress={() => router.push('/(root)/account')}
+                        />
+                        <Row icon="shield-checkmark-outline" label="Privacy & security" onPress={() => router.push('/(root)/privacy')} />
+                        {PAYWALL_ENABLED ? (
+                            <Row icon="star-outline" label="Subscription" value="Manage" onPress={() => router.push('/(root)/paywall')} />
+                        ) : null}
+                    </Section>
 
-                        {/* Username Display (non-editable here, edit in modal) */}
-                        <Text style={[styles.name, { color: colors.textPrimary }]}>{username}</Text>
-                    </View>
+                    <Section title="Your plan">
+                        {/* The promise is two numbers, so the row is the choice
+                            rather than a page that holds one. */}
+                        <Row
+                            icon="checkmark-circle-outline"
+                            label="Daily tasks"
+                            value={`${dailyTarget} a day`}
+                            onPress={() => void saveDailyTarget(dailyTarget === 3 ? 5 : 3)}
+                        />
+                        <Row icon="git-branch-outline" label="Full roadmap" onPress={() => router.push('/(root)/goal-roadmap')} />
+                        <Row icon="list-outline" label="All habits" value="Including archived" onPress={() => router.push('/(root)/all-habits')} />
+                    </Section>
 
-                    {/* Inline Settings Sections */}
-                    {/* APP PREFERENCES */}
-                    <View style={styles.settingsSection}>
-                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>APP PREFERENCES</Text>
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/account'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name={accountEmail ? 'cloud-done-outline' : 'cloud-upload-outline'} size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Account & backup</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-                                        {accountEmail ?? 'Sign in to back up and add friends'}
-                                    </Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/goal-roadmap'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="git-branch-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Full roadmap</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Every goal, habit and task</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/all-habits'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="list-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>All habits</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Including archived</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/ai-settings'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="sparkles-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>AI Configuration</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Personality & greeting settings</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/notifications'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="notifications-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Notifications</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Manage alerts and reminders</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/appearance'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="color-palette-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Appearance</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Theme, colors, and display</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
+                    <Section title="Echo & reminders">
+                        <Row
+                            icon="sparkles-outline"
+                            label="Echo"
+                            value={PERSONALITY_MODES.find(mode => mode.id === aiPersonality)?.name ?? 'Friendly'}
+                            onPress={() => router.push('/(root)/ai-settings')}
+                        />
+                        <Row
+                            icon="notifications-outline"
+                            label="Notifications"
+                            value={notificationsEnabled ? 'On' : 'Off'}
+                            onPress={() => router.push('/(root)/notifications')}
+                        />
+                    </Section>
 
-                            {/* Sounds & Haptics */}
-                            <View style={[styles.settingItem, { paddingVertical: 12 }]}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="volume-high-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={{ flex: 1, marginLeft: 12 }}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Sounds & Haptics</Text>
+                    <Section title="Appearance & feedback">
+                        <Row icon="color-palette-outline" label="Theme & accent" onPress={() => router.push('/(root)/appearance')} />
+                        <Row
+                            icon="volume-medium-outline"
+                            label="Sounds"
+                            toggle={soundsEnabled}
+                            onPress={() => { setSoundsEnabled(!soundsEnabled); selectionFeedback(); }}
+                        />
+                        <Row
+                            icon="phone-portrait-outline"
+                            label="Haptics"
+                            toggle={hapticsEnabled}
+                            onPress={() => { setHapticsEnabled(!hapticsEnabled); selectionFeedback(); }}
+                        />
+                    </Section>
 
-                                    <View style={{ flexDirection: 'row', marginTop: 12, gap: 16 }}>
-                                        <TouchableOpacity
-                                            onPress={() => { setSoundsEnabled(!soundsEnabled); selectionFeedback(); }}
-                                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
-                                        >
-                                            <Ionicons name={soundsEnabled ? "volume-medium" : "volume-mute"} size={14} color={soundsEnabled ? accentColor : colors.textTertiary} />
-                                            <Text style={{ fontSize: 12, fontWeight: '600', color: soundsEnabled ? accentColor : colors.textTertiary }}>Sounds</Text>
-                                        </TouchableOpacity>
+                    {hasAnyIntegration() ? (
+                        <Section title="Connections">
+                            <Row
+                                icon="link-outline"
+                                label="Integrations"
+                                value={integrationsSummary()}
+                                onPress={() => router.push('/(root)/integrations')}
+                            />
+                        </Section>
+                    ) : null}
 
-                                        <TouchableOpacity
-                                            onPress={() => { setHapticsEnabled(!hapticsEnabled); selectionFeedback(); }}
-                                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
-                                        >
-                                            <Ionicons name={hapticsEnabled ? "phone-portrait" : "tablet-landscape"} size={14} color={hapticsEnabled ? accentColor : colors.textTertiary} />
-                                            <Text style={{ fontSize: 12, fontWeight: '600', color: hapticsEnabled ? accentColor : colors.textTertiary }}>Haptics</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </View>
-                        </VoidCard>
-                    </View>
-
-                    {/* CONNECTIONS */}
-                    {hasAnyIntegration() && (
-                    <View style={styles.settingsSection}>
-                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>CONNECTIONS</Text>
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/integrations'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="link-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Integrations</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>{integrationsSummary()}</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                        </VoidCard>
-                    </View>
-                    )}
-
-                    {/* ACCOUNT */}
-                    <View style={styles.settingsSection}>
-                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ACCOUNT</Text>
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/paywall'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="star-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Subscription</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Manage your plan</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/privacy'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="shield-checkmark-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Privacy & Security</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Data and security options</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                        </VoidCard>
-                    </View>
-
-                    {/* SUPPORT */}
-                    <View style={styles.settingsSection}>
-                        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>SUPPORT</Text>
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.sectionCard, isLight && { backgroundColor: colors.surfaceSecondary }]}>
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/help'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="help-buoy-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Help Center</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>FAQs and guides</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/contact'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="mail-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>Contact Support</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Get help from our team</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                            <View style={[styles.settingDivider, { backgroundColor: colors.border }]} />
-                            <TouchableOpacity style={styles.settingItem} onPress={() => { selectionFeedback(); router.push('/(root)/about'); }}>
-                                <LinearGradient colors={accentColors} style={styles.settingIcon}>
-                                    <Ionicons name="information-circle-outline" size={20} color="white" />
-                                </LinearGradient>
-                                <View style={styles.settingContent}>
-                                    <Text style={[styles.settingTitle, { color: colors.textPrimary }]}>About Habyss</Text>
-                                    <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>Version and legal info</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
-                            </TouchableOpacity>
-                        </VoidCard>
-                    </View>
-
+                    <Section title="Support">
+                        <Row icon="help-circle-outline" label="Help centre" onPress={() => router.push('/(root)/help')} />
+                        <Row icon="chatbubble-ellipses-outline" label="Contact support" onPress={() => router.push('/(root)/contact')} />
+                        <Row icon="information-circle-outline" label="About Habyss" onPress={() => router.push('/(root)/about')} />
+                    </Section>
 
                     <View style={styles.footer}>
                         <Text style={[styles.quote, { color: colors.textSecondary }]}>{APP_SLOGAN}</Text>
@@ -532,6 +280,26 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+    profileRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 14,
+        paddingVertical: 14, marginTop: 4, marginBottom: 8,
+    },
+    avatar: {
+        width: 56, height: 56, borderRadius: 28, borderWidth: 1,
+        alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    },
+    profileName: { fontSize: 17, fontFamily: FontFamily.semibold },
+    profileMeta: { fontSize: 13, fontFamily: FontFamily.regular, marginTop: 2 },
+    group: { marginTop: 22 },
+    sectionHeading: { fontSize: 11, letterSpacing: 1.2, fontFamily: FontFamily.medium, marginBottom: 8, marginLeft: 4 },
+    sectionCardPlain: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+    rowDivider: { height: StyleSheet.hairlineWidth, marginLeft: 52 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
+    rowIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    rowLabel: { flex: 1, fontSize: 15, fontFamily: FontFamily.regular },
+    rowValue: { fontSize: 13, fontFamily: FontFamily.regular, maxWidth: 150 },
+    switch: { width: 44, height: 26, borderRadius: 13, padding: 3, justifyContent: 'center' },
+    knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -539,11 +307,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 12,
     },
-    headerTitle: {
-        fontSize: 24,
-        fontFamily: 'Lexend_700Bold', // Matches CalendarStrip day font
-        letterSpacing: 0,
-    },
+    headerTitle: Typography.screenTitle,
     settingsButton: {
         width: 36,
         height: 36,
@@ -586,13 +350,12 @@ const styles = StyleSheet.create({
     },
     name: {
         fontSize: 20,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
         marginBottom: 2,
     },
     email: {
         fontSize: 12,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         marginBottom: 12,
     },
     usernameEditContainer: {
@@ -612,7 +375,7 @@ const styles = StyleSheet.create({
     usernameInputText: {
         flex: 1,
         fontSize: 16,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     usernameButtons: {
         flexDirection: 'row',
@@ -641,9 +404,8 @@ const styles = StyleSheet.create({
     },
     tagText: {
         fontSize: 9,
-        fontWeight: 'bold',
         letterSpacing: 1,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.bold,
     },
     groupCard: {
         padding: 12,
@@ -651,10 +413,9 @@ const styles = StyleSheet.create({
     },
     groupTitle: {
         fontSize: 9,
-        fontWeight: '600',
         letterSpacing: 1,
         marginBottom: 12,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.semibold,
     },
     iconBox: {
         width: 32,
@@ -666,8 +427,7 @@ const styles = StyleSheet.create({
     },
     settingLabel: {
         fontSize: 14,
-        fontWeight: '500',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.medium,
     },
     divider: {
         height: 1,
@@ -681,12 +441,12 @@ const styles = StyleSheet.create({
     quote: {
         fontSize: 11,
         fontStyle: 'italic',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     version: {
         fontSize: 9,
         marginTop: 6,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     premiumAvatarBorder: {
         position: 'absolute',
@@ -707,9 +467,8 @@ const styles = StyleSheet.create({
     },
     proBadgeText: {
         fontSize: 9,
-        fontWeight: '900',
         color: '#fff',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     upgradeBtnContainer: {
         marginTop: 12,
@@ -729,22 +488,14 @@ const styles = StyleSheet.create({
     },
     upgradeText: {
         fontSize: 13,
-        fontWeight: '700',
         color: '#fff',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     // Inline settings styles
     settingsSection: {
         marginTop: 20,
     },
-    sectionTitle: {
-        fontSize: 11,
-        fontWeight: '600',
-        letterSpacing: 1,
-        marginBottom: 10,
-        marginLeft: 4,
-        fontFamily: 'Lexend_400Regular',
-    },
+    sectionTitle: UIStyles.sectionTitle,
     sectionCard: {
         padding: 4,
     },
@@ -766,12 +517,11 @@ const styles = StyleSheet.create({
     },
     settingTitle: {
         fontSize: 15,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
     settingSubtitle: {
         fontSize: 12,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         marginTop: 2,
     },
     settingDivider: {
@@ -788,7 +538,6 @@ const styles = StyleSheet.create({
     },
     signOutText: {
         fontSize: 15,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
 });

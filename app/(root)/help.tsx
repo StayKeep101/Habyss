@@ -1,13 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
 
@@ -30,23 +28,11 @@ const Help = () => {
         Linking.openURL('mailto:support@habyss.app');
     };
 
-
-
     return (
-        <VoidShell>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>Help</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <SheetScreen title="Help centre" onBack={() => router.back()}>
 
                 {/* FAQ */}
-                <View style={styles.content}>
-
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>FAQ</Text>
                     <VoidCard
@@ -90,9 +76,8 @@ const Help = () => {
                             <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
                         </VoidCard>
                     </TouchableOpacity>
-                </View>
-            </SafeAreaView>
-        </VoidShell>
+                </ScrollView>
+            </SheetScreen>
     );
 };
 
@@ -100,37 +85,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-    },
-    content: {
-        padding: 16,
-    },
-    sectionTitle: {
-        fontSize: 11,
-        fontWeight: '600',
-        letterSpacing: 1,
-        marginBottom: 8,
-        marginLeft: 4,
-        fontFamily: 'Lexend_400Regular',
-    },
+    content: { ...UIStyles.screenContent },
+    sectionTitle: UIStyles.sectionTitle,
     card: {
-        borderRadius: 16,
+        borderRadius: Radius.card,
         borderWidth: 1,
         overflow: 'hidden',
     },
@@ -139,13 +97,12 @@ const styles = StyleSheet.create({
     },
     question: {
         fontSize: 15,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
         marginBottom: 6,
     },
     answer: {
         fontSize: 13,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         lineHeight: 20,
     },
     divider: {
@@ -156,17 +113,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        borderRadius: 16,
+        borderRadius: Radius.card,
         borderWidth: 1,
         gap: 12,
     },
     contactText: {
         flex: 1,
         fontSize: 15,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
-
 
 });
 export default Help;

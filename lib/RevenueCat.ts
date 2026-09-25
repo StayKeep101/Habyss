@@ -72,10 +72,10 @@ class RevenueCatService {
         const apiKey = this.getApiKeyForCurrentPlatform();
         if (!apiKey) {
             const message = `[RevenueCat] No API key for ${Platform.OS}. Set EXPO_PUBLIC_REVENUECAT_${Platform.OS === 'ios' ? 'APPLE' : 'GOOGLE'}_API_KEY (eas env:create) - purchases cannot work without it.`;
-            console.error(message);
-            // Loud in development; in production the paywall shows its unconfigured state
-            // rather than crashing a user mid-session.
-            if (__DEV__) throw new Error(message);
+            // A warning, not a throw: a missing key must only disable purchases,
+            // never the notifications, Siri and widgets that start alongside it.
+            // The paywall shows its unconfigured state.
+            console.warn(message);
             return;
         }
 

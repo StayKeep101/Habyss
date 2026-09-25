@@ -1,3 +1,4 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/Colors';
@@ -32,6 +33,6 @@ const styles = StyleSheet.create({
         fontSize: 10,
         letterSpacing: 1.2,
         textTransform: 'uppercase',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
 });

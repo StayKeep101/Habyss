@@ -1,16 +1,20 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { RectButton, Swipeable, TouchableOpacity } from 'react-native-gesture-handler';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { Gesture, GestureDetector, TouchableOpacity } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
+import { SwipeRow } from '@/components/Common/SwipeRow';
+import { CheckPop } from '@/components/Common/CheckPop';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import type { RoadMapCardSize } from '@/constants/AppSettingsContext';
 import type { Task } from '@/lib/tasks';
 
 /** Tasks are amber throughout, so they read as a different kind of thing. */
 export const TASK_COLOR = '#F59E0B';
-
-const PRIORITY_LABEL: Record<number, string> = { 1: 'High', 2: '', 3: 'Low' };
 
 interface Props {
     task: Task;
@@ -21,137 +25,163 @@ interface Props {
     onDelete: (task: Task) => void;
     /** Shown when the task is listed outside its goal. */
     goalName?: string;
+    size?: RoadMapCardSize;
+    /** Hold and drag onto a goal to move it there, exactly like a habit. */
+    onDragStart?: (task: Task, x: number, y: number) => void;
+    onDragMove?: (task: Task, x: number, y: number) => void;
+    onDragEnd?: (task: Task, x: number, y: number) => void;
+    isDragging?: boolean;
 }
 
-const ACTION_WIDTH = 64;
+const shortDate = (day: string) =>
+    new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+const shortLength = (minutes: number) =>
+    minutes < 60 ? `${minutes}m` : `${Math.round((minutes / 60) * 10) / 10}h`;
 
 /**
- * A task in the roadmap, alongside habits and goals.
+ * A task in the roadmap, alongside habits.
  *
- * Deliberately the same shape and gestures as a habit row so the tab reads as
- * one list, but visibly a different kind of thing: a square box rather than a
- * circle, an amber edge, and the due date and length that only a task has. A
- * habit is a rhythm; a task is finished once and then gone.
+ * The same card, spacing and gestures as a habit row, so the tab reads as one
+ * list rather than two designs stitched together. What differs is what a task
+ * actually is: a square box instead of a circle, amber instead of the accent,
+ * and a due date where a habit shows its time of day. A habit is a rhythm; a
+ * task is finished once and then gone.
  */
-const TaskItemComponent: React.FC<Props> = ({ task, today, onToggle, onPress, onEdit, onDelete, goalName }) => {
+const TaskItemComponent: React.FC<Props> = ({
+    task, today, onToggle, onPress, onEdit, onDelete, goalName, size = 'standard',
+    onDragStart, onDragMove, onDragEnd, isDragging = false,
+}) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
+    const { mediumFeedback, selectionFeedback } = useHaptics();
 
-    const swipeableRef = React.useRef<Swipeable>(null);
-    const close = () => swipeableRef.current?.close();
+    // The same measurements as a habit row, so the two line up in a list.
+    const isSmall = size === 'small';
+    const isBig = size === 'big';
+    const paddingV = isSmall ? 4 : (isBig ? 12 : 10);
+    const iconSize = isSmall ? 12 : (isBig ? 16 : 14);
+    const iconBoxSize = isSmall ? 20 : (isBig ? 32 : 26);
+    const fontSize = isSmall ? 11 : (isBig ? 14 : 13);
+    const boxSize = isSmall ? 14 : (isBig ? 20 : 18);
 
     const done = task.status === 'done';
     const overdue = !done && !!task.dueDate && task.dueDate < today;
+    const dueToday = !done && task.dueDate === today;
 
-    const meta: string[] = [];
-    if (overdue) meta.push('Overdue');
-    else if (task.dueDate && task.dueDate > today) {
-        meta.push(new Date(`${task.dueDate}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
-    }
-    if (task.dueTime) meta.push(task.dueTime);
-    if (task.estimatedMinutes) {
-        meta.push(task.estimatedMinutes < 60 ? `${task.estimatedMinutes} min` : `${task.estimatedMinutes / 60} hr`);
-    }
-    if (PRIORITY_LABEL[task.priority]) meta.push(PRIORITY_LABEL[task.priority]);
-    if (goalName) meta.push(goalName);
+    // Right-hand column, where a habit shows its time.
+    const when = done
+        ? 'Done'
+        : overdue ? 'Overdue'
+            : dueToday ? (task.dueTime ?? 'Today')
+                : task.dueDate ? shortDate(task.dueDate) : '—';
+    const whenColor = overdue ? colors.error : dueToday ? TASK_COLOR : colors.textTertiary;
 
-    const renderLeftActions = () => (
-        <RectButton
-            style={[styles.leftAction, { backgroundColor: done ? colors.surfaceSecondary : TASK_COLOR }]}
-            onPress={() => { onToggle(task); close(); }}
-        >
-            <Ionicons name={done ? 'arrow-undo-outline' : 'checkmark'} size={24} color="white" />
-        </RectButton>
-    );
+    const label = [
+        overdue ? 'Overdue' : task.dueDate ? `Due ${task.dueDate === today ? 'today' : shortDate(task.dueDate)}` : 'No date',
+        task.dueTime,
+        task.estimatedMinutes ? shortLength(task.estimatedMinutes) : null,
+        task.priority === 1 ? 'High priority' : null,
+        goalName,
+    ].filter(Boolean).join(', ');
 
-    const renderRightActions = () => (
-        <View style={{ flexDirection: 'row' }}>
-            <RectButton
-                style={[styles.rightAction, { backgroundColor: '#F59E0B' }]}
-                onPress={() => { selectionFeedback(); close(); onEdit(task); }}
-            >
-                <Ionicons name="pencil" size={20} color="white" />
-            </RectButton>
-            <RectButton
-                style={[styles.rightAction, { backgroundColor: '#EF4444' }]}
-                onPress={() => { mediumFeedback(); close(); onDelete(task); }}
-            >
-                <Ionicons name="trash" size={20} color="white" />
-            </RectButton>
-        </View>
-    );
+    const drag = Gesture.Pan()
+        .enabled(!!onDragStart)
+        .activateAfterLongPress(250)
+        .onStart(event => { if (onDragStart) runOnJS(onDragStart)(task, event.absoluteX, event.absoluteY); })
+        .onUpdate(event => { if (onDragMove) runOnJS(onDragMove)(task, event.absoluteX, event.absoluteY); })
+        .onFinalize(event => { if (onDragEnd) runOnJS(onDragEnd)(task, event.absoluteX, event.absoluteY); });
 
     return (
-        <Swipeable
-            ref={swipeableRef}
-            renderLeftActions={renderLeftActions}
-            renderRightActions={renderRightActions}
-            leftThreshold={30}
-            rightThreshold={35}
-            overshootLeft={false}
-            overshootRight={false}
-            friction={2}
-            onSwipeableWillOpen={() => lightFeedback()}
-            containerStyle={styles.swipeContainer}
+        <GestureDetector gesture={drag}>
+        <View style={isDragging ? styles.dragging : undefined}>
+        <SwipeRow
+            left={{
+                icon: done ? 'arrow-undo' : 'checkmark',
+                label: done ? 'Undo' : 'Done',
+                color: done ? colors.textTertiary : TASK_COLOR,
+                onPress: () => onToggle(task),
+            }}
+            right={[
+                { icon: 'pencil', label: 'Edit', color: TASK_COLOR, onPress: () => { selectionFeedback(); onEdit(task); } },
+                { icon: 'trash', label: 'Delete', color: '#EF4444', onPress: () => { mediumFeedback(); onDelete(task); } },
+            ]}
         >
             <TouchableOpacity
-                activeOpacity={0.85}
+                activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel={`Task: ${task.title}${meta.length ? `. ${meta.join(', ')}` : ''}`}
+                accessibilityLabel={`Task: ${task.title}. ${label}`}
                 onPress={() => onPress(task)}
-                style={[styles.card, {
-                    backgroundColor: isLight ? '#fff' : 'rgba(255,255,255,0.05)',
-                    borderColor: overdue ? '#EF444455' : colors.border,
-                }]}
             >
-                {/* The amber edge marks the row as a task at a glance. */}
-                <View style={[styles.edge, { backgroundColor: done ? colors.textTertiary : TASK_COLOR }]} />
-
-                <TouchableOpacity
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: done }}
-                    accessibilityLabel={done ? `Reopen ${task.title}` : `Mark ${task.title} done`}
-                    onPress={() => onToggle(task)}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    style={[styles.box, { borderColor: done ? TASK_COLOR : colors.textTertiary, backgroundColor: done ? TASK_COLOR : 'transparent' }]}
-                >
-                    {done ? <Ionicons name="checkmark" size={16} color="#000" /> : null}
-                </TouchableOpacity>
-
-                <View style={{ flex: 1 }}>
-                    <Text
-                        numberOfLines={2}
-                        style={[styles.title, {
-                            color: done ? colors.textTertiary : colors.textPrimary,
-                            textDecorationLine: done ? 'line-through' : 'none',
-                        }]}
+                <VoidCard intensity={40} style={[styles.card, { paddingVertical: paddingV }, done && { opacity: 0.7 }]}>
+                    {/* Square, where a habit is round: the difference at a glance. */}
+                    <TouchableOpacity
+                        activeOpacity={0.6}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: done }}
+                        accessibilityLabel={done ? `Reopen ${task.title}` : `Mark ${task.title} done`}
+                        onPress={() => onToggle(task)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        {task.title}
-                    </Text>
-                    {meta.length ? (
-                        <Text style={[styles.meta, { color: overdue ? '#EF4444' : colors.textTertiary }]} numberOfLines={1}>
-                            {meta.join(' · ')}
-                        </Text>
-                    ) : null}
-                </View>
+                        <CheckPop active={done} color={TASK_COLOR} size={boxSize}>
+                            <View style={[styles.box, {
+                                width: boxSize, height: boxSize, borderRadius: isSmall ? 4 : 5,
+                                borderColor: done ? TASK_COLOR : overdue ? colors.error : 'rgba(128,128,128,0.4)',
+                                backgroundColor: done ? TASK_COLOR + '30' : 'transparent',
+                            }]}>
+                                {done ? <Ionicons name="checkmark" size={boxSize * 0.7} color={TASK_COLOR} /> : null}
+                            </View>
+                        </CheckPop>
+                    </TouchableOpacity>
 
-                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                    <View style={[styles.iconBox, {
+                        width: iconBoxSize, height: iconBoxSize,
+                        backgroundColor: TASK_COLOR + (done ? '12' : '1f'),
+                    }]}>
+                        <Ionicons name={done ? 'checkmark-done' : 'flash'} size={iconSize} color={TASK_COLOR} />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                        <Text
+                            numberOfLines={1}
+                            style={[styles.title, {
+                                fontSize,
+                                color: done ? colors.textTertiary : colors.textPrimary,
+                                textDecorationLine: done ? 'line-through' : 'none',
+                            }]}
+                        >
+                            {task.title}
+                        </Text>
+                        {!isSmall && (goalName || task.priority === 1) ? (
+                            <Text numberOfLines={1} style={[styles.meta, { color: task.priority === 1 && !done ? TASK_COLOR : colors.textTertiary }]}>
+                                {[task.priority === 1 && !done ? 'High' : null, goalName].filter(Boolean).join(' · ')}
+                            </Text>
+                        ) : null}
+                    </View>
+
+                    <View style={{ alignItems: 'flex-end' }}>
+                        {task.estimatedMinutes && !isSmall ? (
+                            <Text style={[styles.estimate, { color: colors.textTertiary }]}>{shortLength(task.estimatedMinutes)}</Text>
+                        ) : null}
+                        <Text style={[styles.when, { color: whenColor, fontSize: isSmall ? 9 : 11 }]}>{when}</Text>
+                    </View>
+                </VoidCard>
             </TouchableOpacity>
-        </Swipeable>
+        </SwipeRow>
+        </View>
+        </GestureDetector>
     );
 };
 
-const styles = StyleSheet.create({
-    swipeContainer: { marginBottom: 8, borderRadius: 16, overflow: 'hidden' },
-    card: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingRight: 14, paddingLeft: 16, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
-    edge: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
-    box: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: 15, fontFamily: 'Lexend_500Medium' },
-    meta: { fontSize: 12, fontFamily: 'Lexend_400Regular', marginTop: 3 },
-    leftAction: { width: ACTION_WIDTH, justifyContent: 'center', alignItems: 'center' },
-    rightAction: { width: ACTION_WIDTH, justifyContent: 'center', alignItems: 'center' },
-});
-
 export const TaskItem = React.memo(TaskItemComponent);
+
+const styles = StyleSheet.create({
+    dragging: { opacity: 0.25 },
+    card: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderRadius: 8 },
+    box: { borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+    iconBox: { borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+    title: { fontFamily: FontFamily.medium },
+    meta: { fontSize: 10, fontFamily: FontFamily.regular, marginTop: 2 },
+    estimate: { fontSize: 9, fontFamily: FontFamily.regular, marginBottom: 1 },
+    when: { fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
+});

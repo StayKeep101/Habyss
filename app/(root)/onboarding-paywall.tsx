@@ -1,3 +1,6 @@
+import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/constants/themeContext';
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
 import { View, BackHandler, StyleSheet, Text } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -7,6 +10,8 @@ import RevenueCatService from '@/lib/RevenueCat';
 
 export default function OnboardingPaywall() {
     const router = useRouter();
+    const { theme } = useTheme();
+    const palette = Colors[theme];
 
     // Disable back button on Android
     useFocusEffect(
@@ -27,10 +32,10 @@ export default function OnboardingPaywall() {
 
     if (!RevenueCatService.isConfigured()) {
         return (
-            <View style={[styles.container, styles.centered]}>
-                <StatusBar style="light" />
-                <Text style={styles.title}>Billing isn&apos;t configured on this build.</Text>
-                <Text style={styles.subtitle}>
+            <View style={[styles.container, styles.centered, { backgroundColor: palette.background }]}>
+                <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
+                <Text style={[styles.title, { color: palette.textPrimary }]}>Billing isn&apos;t configured on this build.</Text>
+                <Text style={[styles.subtitle, { color: palette.textSecondary }]}>
                     Add the RevenueCat API key for this platform before using onboarding paywalls.
                 </Text>
             </View>
@@ -38,8 +43,8 @@ export default function OnboardingPaywall() {
     }
 
     return (
-        <View style={styles.container}>
-            <StatusBar style="light" />
+        <View style={[styles.container, { backgroundColor: palette.background }]}>
+            <StatusBar style={theme === 'light' ? 'dark' : 'light'} />
             <RevenueCatUI.Paywall
                 onPurchaseCompleted={handlePurchase}
                 onRestoreCompleted={handlePurchase}
@@ -64,7 +69,7 @@ const styles = StyleSheet.create({
     title: {
         color: '#fff',
         fontSize: 20,
-        fontWeight: '700',
+        fontFamily: FontFamily.bold,
         textAlign: 'center',
         marginBottom: 12,
     },

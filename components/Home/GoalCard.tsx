@@ -1,9 +1,10 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { Habit } from '@/lib/habitsSQLite';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useAccentGradient } from '@/constants/AccentContext';
 
 import { RoadMapCardSize } from '@/constants/AppSettingsContext';
@@ -94,10 +95,6 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             ) : (
               <Ionicons name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || defaultColor} />
             )}
-            {/* Subtle indicator that this is clickable for details */}
-            <View style={{ position: 'absolute', bottom: -4, right: -4, backgroundColor: colors.surface, borderRadius: 6, padding: 1, zIndex: 10 }}>
-              <Ionicons name="open-outline" size={8} color={colors.textTertiary} />
-            </View>
           </View>
 
           {/* Content (Expands) */}
@@ -173,7 +170,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             justifyContent: 'center'
           }]}
         >
-          <Text style={{ color: colors.textTertiary, fontSize: 10, fontWeight: '700', fontFamily: 'Lexend', marginRight: 4 }}>
+          <Text style={{ color: colors.textTertiary, fontSize: 10, fontFamily: FontFamily.bold, marginRight: 4 }}>
             {linkedHabitsCount}
           </Text>
           <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.textTertiary} />
@@ -200,8 +197,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   name: {
-    fontWeight: '700',
-    fontFamily: 'Lexend',
+
+    fontFamily: FontFamily.bold,
     marginRight: 8,
     flex: 1,
   },
@@ -212,7 +209,7 @@ const styles = StyleSheet.create({
   },
   daysText: {
     fontSize: 9,
-    fontWeight: '600',
+    fontFamily: FontFamily.semibold,
   },
   progressBg: {
     flex: 1,
@@ -225,8 +222,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   progressText: {
-    fontWeight: '700',
-    fontFamily: 'Lexend_400Regular',
+
+    fontFamily: FontFamily.bold,
     minWidth: 28,
     textAlign: 'right',
   },

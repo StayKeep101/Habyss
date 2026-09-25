@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, DeviceEventEmitter, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppButton } from '@/components/Common/AppButton';
+import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { FontFamily } from '@/constants/DesignSystem';
+import { useEffect, useState } from 'react';
+import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -11,6 +14,7 @@ import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { currentAccount } from '@/lib/account';
 import { addFriendByUsername, getMyUsername, usernameFrom } from '@/lib/friendsService';
+import { emit } from '@/lib/appEvents';
 
 type State =
     | { kind: 'loading' }
@@ -52,7 +56,7 @@ export default function AddFriendScreen() {
         const result = await addFriendByUsername(username);
         if (!result.ok) return setState({ kind: 'error', message: result.error });
         successFeedback();
-        DeviceEventEmitter.emit('social_state_updated');
+        emit('social_state_updated');
         setState({
             kind: 'done',
             message: result.nowFriends
@@ -64,18 +68,14 @@ export default function AddFriendScreen() {
     const close = () => (router.canGoBack() ? router.back() : router.replace('/(root)/(tabs)/community'));
 
     const button = (label: string, onPress: () => void) => (
-        <TouchableOpacity accessibilityRole="button" onPress={onPress} style={[styles.button, { backgroundColor: accent }]}>
-            <Text style={styles.buttonText}>{label}</Text>
-        </TouchableOpacity>
+        <AppButton label={label} onPress={onPress} />
     );
 
     return (
         <VoidShell>
-            <SafeAreaView style={styles.safe}>
-                <TouchableOpacity accessibilityLabel="Close" onPress={close} style={styles.close}>
-                    <Ionicons name="close" size={24} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <VoidCard style={styles.card}>
+            <SafeAreaView style={{ flex: 1 }}>
+                <ModalHeader title="Add friend" onBack={close} backIcon="close" />
+                <View style={styles.safe}><VoidCard style={styles.card}>
                     <View style={[styles.icon, { backgroundColor: accent + '22' }]}>
                         <Ionicons name="person-add" size={26} color={accent} />
                     </View>
@@ -110,7 +110,7 @@ export default function AddFriendScreen() {
                             {button('Done', close)}
                         </>
                     )}
-                </VoidCard>
+                </VoidCard></View>
             </SafeAreaView>
         </VoidShell>
     );
@@ -121,8 +121,8 @@ const styles = StyleSheet.create({
     close: { position: 'absolute', top: 60, right: 16, padding: 8, zIndex: 1 },
     card: { padding: 22, alignItems: 'center', gap: 12 },
     icon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: 22, fontFamily: 'Lexend_600SemiBold' },
-    body: { fontSize: 14, lineHeight: 20, fontFamily: 'Lexend_400Regular', textAlign: 'center' },
+    title: { fontSize: 22, fontFamily: FontFamily.semibold },
+    body: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlign: 'center' },
     button: { alignSelf: 'stretch', paddingVertical: 15, borderRadius: 999, alignItems: 'center', marginTop: 4 },
-    buttonText: { fontSize: 15, fontFamily: 'Lexend_600SemiBold', color: '#000' },
+    buttonText: { fontSize: 15, fontFamily: FontFamily.semibold, color: '#000' },
 });

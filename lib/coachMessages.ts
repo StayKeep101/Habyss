@@ -42,6 +42,10 @@ type Voice = {
     home: (c: CoachContext) => string;
     /** Same habit, same situation, for side-by-side comparison in onboarding. */
     preview: (habitName: string) => string;
+    /** The notification when a habit's reminder time comes. */
+    reminder: (c: { habitName: string; name?: string }) => string;
+    /** How Echo introduces itself when the user is choosing a voice. */
+    hello: (name?: string) => string;
 };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -76,6 +80,8 @@ const VOICES: Record<PersonalityModeId, Voice> = {
                 : `${c.habitName} is on for today. Whenever you are ready, I am cheering for you. 🌟`;
         },
         preview: name => `You picked ${name}? That is a wonderful start, and I will be right here cheering you on every single day. 💙`,
+        reminder: c => `${c.name ? `Hey ${c.name}! ` : ''}Time for ${c.habitName}. You've got this. 💙`,
+        hello: name => `${name ? `Hi ${name}! ` : 'Hi! '}I'll cheer on every win, big or small. 💙`,
     },
 
     normal: {
@@ -92,6 +98,8 @@ const VOICES: Record<PersonalityModeId, Voice> = {
             return week ? `${c.habitName} today. ${week}.` : `${c.habitName} is scheduled for today.`;
         },
         preview: name => `${name}, scheduled and tracked. I will show you how consistent you have been and keep the feedback factual.`,
+        reminder: c => `${c.habitName} is scheduled now.${c.name ? ` Over to you, ${c.name}.` : ''}`,
+        hello: name => `${name ? `${name}, ` : ''}I'll keep it clear: what's due, what's done, how you're trending.`,
     },
 
     dad_mode: {
@@ -108,6 +116,8 @@ const VOICES: Record<PersonalityModeId, Voice> = {
             return week ? `${c.habitName} today. ${week}. Let's keep it up.` : `${c.habitName} is on today. Get it done.`;
         },
         preview: name => `You committed to ${name}. I will expect it done, and I will ask about it when it is not logged.`,
+        reminder: c => `${c.habitName}. You said you would${c.name ? `, ${c.name}` : ''}. Now's the time.`,
+        hello: name => `${name ? `${name}. ` : ''}You made a promise to yourself. I'll make sure you keep it.`,
     },
 
     bully_mode: {
@@ -124,6 +134,8 @@ const VOICES: Record<PersonalityModeId, Voice> = {
             return week ? `${c.habitName} today. ${week}. Move.` : `${c.habitName} today. Move.`;
         },
         preview: name => `${name}. Every scheduled day. I will not soften it when it is not logged.`,
+        reminder: c => `${c.habitName}. Now${c.name ? `, ${c.name}` : ''}. No excuses.`,
+        hello: name => `${name ? `${name}. ` : ''}No excuses, no hand-holding. Show up.`,
     },
 };
 
@@ -141,37 +153,13 @@ export const coachNotLogged = (id: PersonalityModeId, context: CoachContext): st
 export const coachHomeMessage = (id: PersonalityModeId, context: CoachContext): string =>
     voiceFor(id).home(context);
 
-/**
- * Reminds the user what they said giving up would cost, in their own words.
- *
- * Only ever called with a quote the user wrote during setup, and only when a
- * habit they have a run going on is scheduled today and not logged yet. It
- * quotes them rather than characterising them, and never asserts they failed:
- * the habit is "still open", because an unlogged habit is not a broken one.
- *
- * Returns null when nothing was written, so the caller shows nothing rather
- * than inventing a reason to care.
- */
-export function coachStakes(
-    id: PersonalityModeId,
-    context: { habitName: string; stakes?: string | null },
-): string | null {
-    const quote = context.stakes?.trim();
-    if (!quote) return null;
-    const name = context.habitName;
+/** Echo's line in a habit's reminder notification. */
+export const coachReminder = (id: PersonalityModeId, context: { habitName: string; name?: string }): string =>
+    voiceFor(id).reminder(context);
 
-    switch (id) {
-        case 'friendly':
-            return `${name} is still open today. You wrote that giving up would cost you: “${quote}”. You have time. 💙`;
-        case 'dad_mode':
-            return `${name} is still open. You wrote this down yourself: “${quote}”. Keep your word.`;
-        case 'bully_mode':
-            return `${name}. Still open. Your words: “${quote}”. Go.`;
-        case 'normal':
-        default:
-            return `${name} is not logged yet today. In your words, giving up would cost: “${quote}”.`;
-    }
-}
+/** Echo introducing itself in a personality, for choosing between them. */
+export const coachHello = (id: PersonalityModeId, name?: string): string =>
+    voiceFor(id).hello(name?.trim() || undefined);
 
 /** One line per personality about the same habit, for the comparison step. */
 export const coachPreview = (id: PersonalityModeId, habitName: string): string =>

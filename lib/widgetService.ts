@@ -1,70 +1,39 @@
-import { Platform, NativeModules } from 'react-native';
+import { Platform } from 'react-native';
+import SharedDefaults from './SharedDefaults';
+import type { WidgetPayload } from './widgetSync';
 
-const { SharedDefaults: SharedDefaultsModule } = NativeModules;
-
-export interface WidgetData {
-    todayProgress: number;
-    streak: number;
-    habitsLeft: number;
-    topHabitName: string;
-    total?: number;
-    completed?: number;
-}
-
-export interface WidgetHabit {
-    id: string;
-    name: string;
-    isCompleted: boolean;
-}
-
+/**
+ * The app group the widget reads from (`group.com.habyss.data`).
+ *
+ * Everything the widget draws is written here in one go, so the list, the
+ * count and the ring can never disagree: they come from the same payload.
+ * `lib/widgetSync.ts` decides what that payload is.
+ */
 export const WidgetService = {
-    /**
-     * Syncs the current habits list to the iOS widget via App Group UserDefaults.
-     * The widget reads from the "habitsData" key in group.com.habyss.data.
-     */
-    async syncHabitsToWidget(habits: WidgetHabit[]): Promise<void> {
-        if (Platform.OS !== 'ios' || !SharedDefaultsModule) return;
-
+    async write(payload: WidgetPayload): Promise<void> {
+        if (Platform.OS !== 'ios') return;
         try {
-            const habitsJson = JSON.stringify(habits);
-            await SharedDefaultsModule.set('habitsData', habitsJson);
-            await SharedDefaultsModule.reloadTimelines();
-        } catch (error) {
-            console.warn('WidgetService: Failed to sync habits to widget', error);
-        }
-    },
-
-    /**
-     * Updates the shared data container for the iOS Widget with summary stats.
-     */
-    async updateTimeline(data: WidgetData): Promise<void> {
-        if (Platform.OS !== 'ios' || !SharedDefaultsModule) return;
-
-        try {
-            await SharedDefaultsModule.set('todayProgress', String(data.todayProgress));
-            await SharedDefaultsModule.set('streakCount', String(data.streak));
-            await SharedDefaultsModule.set('habitsLeft', String(data.habitsLeft));
-            await SharedDefaultsModule.set('topHabitName', data.topHabitName);
-            await SharedDefaultsModule.set('widgetSummary', JSON.stringify({
-                total: data.total ?? data.todayProgress + data.habitsLeft,
-                completed: data.completed ?? data.todayProgress,
+            await SharedDefaults.set('habitsData', JSON.stringify(payload.items));
+            await SharedDefaults.set('widgetSummary', JSON.stringify({
+                total: payload.total,
+                completed: payload.completed,
             }));
-            await SharedDefaultsModule.reloadTimelines();
+            await SharedDefaults.set('streakCount', String(payload.streak));
+            await SharedDefaults.set('topHabitName', payload.nextUp ?? '');
+            await SharedDefaults.set('dayKey', payload.dayKey);
+            await SharedDefaults.reloadTimelines();
         } catch (error) {
-            console.warn('WidgetService: Failed to update widget data', error);
+            console.warn('WidgetService: could not update the widget', error);
         }
     },
 
-    /**
-     * Forces a widget timeline reload without changing data.
-     */
+    /** Redraws the widget without changing what it shows. */
     async reloadTimelines(): Promise<void> {
-        if (Platform.OS !== 'ios' || !SharedDefaultsModule) return;
-
+        if (Platform.OS !== 'ios') return;
         try {
-            await SharedDefaultsModule.reloadTimelines();
+            await SharedDefaults.reloadTimelines();
         } catch (error) {
-            console.warn('WidgetService: Failed to reload timelines', error);
+            console.warn('WidgetService: could not reload the widget', error);
         }
     },
 };

@@ -3,6 +3,7 @@ import type { Habit, HabitCategory, TimeOfDay } from './habitsSQLite';
 import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
 import type { PersonalityModeId } from '@/constants/AIPersonalities';
 import type { AttemptsId, KillerId, TimeBudget, ToneId } from './onboardingAnswers';
+import type { BlockerId, ChronotypeId, HopeId, SleepAmountId, SourceId, TimingId } from './onboardingProfile';
 
 /**
  * The onboarding draft, and the schedule it turns into.
@@ -15,8 +16,46 @@ export const DRAFT_KEY = 'habyss_onboarding_draft';
 
 export type RecurrenceId = 'daily' | 'weekdays' | 'custom';
 
+export interface PlanItem {
+    id: string;
+    kind: 'habit' | 'task';
+    title: string;
+    /** Tasks only: the day it is due. */
+    dueDate?: string;
+}
+
+/**
+ * Bumped whenever steps are added or reordered. A draft saved by an older
+ * flow keeps its answers but starts again from the welcome screen, because its
+ * step number would now point at a different question.
+ */
+export const FLOW_VERSION = 4;
+
 export interface OnboardingDraft {
     step: number;
+    flow?: number;
+
+    /** What Echo calls them. Also saved as their profile name. */
+    name?: string;
+    /** The voice Echo speaks in; one of the app's personalities. */
+    echo?: PersonalityModeId;
+    /** "HH:MM" local; when their day starts and ends. */
+    wake?: string;
+    sleep?: string;
+
+    /* What we ask about the person. See lib/onboardingProfile.ts. */
+    /** Where they heard about Habyss. Asked once, never acted on. */
+    source?: SourceId;
+    /** What they are here for. Multi-select. */
+    hope?: HopeId[];
+    /** Early bird, night owl, or neither; seeds the day window. */
+    chronotype?: ChronotypeId;
+    /** How much sleep they actually get. */
+    sleepAmount?: SleepAmountId;
+    /** When work actually happens, which decides how firm Echo starts. */
+    timing?: TimingId;
+    /** What gets in the way. Multi-select, and the strongest signal. */
+    blockers?: BlockerId[];
 
     /* The seven answers. See lib/onboardingAnswers.ts for what each one does. */
     /** 1. The goal in their words, which becomes the measurable one in 7. */
@@ -42,6 +81,13 @@ export interface OnboardingDraft {
      */
     roadmapSteps?: { id: string; title: string; dueDate: string }[];
 
+    /**
+     * What gets them there: habits to repeat and one-off tasks with a date, in
+     * the order the user arranged them. Replaces the separate roadmap and plan
+     * steps, which asked for the same thing twice.
+     */
+    planItems?: PlanItem[];
+
     /* The habit those answers produce. */
     habitName?: string;
     targetValue?: number;
@@ -60,6 +106,16 @@ export interface OnboardingDraft {
     reminderTime?: string;
     /** Label of the place saved as an arrival reminder, if any. */
     arrivalPlace?: string;
+
+    /**
+     * The on-device model's reading of the goal, kept with the exact text it
+     * read. Used instead of the rule-based parse only while the text is
+     * unchanged, so editing the goal can never leave a stale reading behind.
+     */
+    goalReading?: { text: string; result: import('./goalParser').GoalParseResult };
+
+    /** Set once the plan has been written, so a retry cannot duplicate it. */
+    planSaved?: boolean;
 
     /** Set once the rows exist, so a retry cannot create duplicates. */
     createdGoalId?: string;
@@ -148,7 +204,9 @@ export function describeRecurrence(draft: OnboardingDraft): string {
 export async function loadDraft(): Promise<OnboardingDraft | null> {
     try {
         const raw = await AsyncStorage.getItem(DRAFT_KEY);
-        return raw ? (JSON.parse(raw) as OnboardingDraft) : null;
+        if (!raw) return null;
+        const draft = JSON.parse(raw) as OnboardingDraft;
+        return draft.flow === FLOW_VERSION ? draft : { ...draft, step: 0, flow: FLOW_VERSION };
     } catch {
         return null;
     }

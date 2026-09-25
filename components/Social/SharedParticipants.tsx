@@ -1,6 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
     },
     headerText: {
         fontSize: 12,
-        fontFamily: 'Lexend_500Medium',
+        fontFamily: FontFamily.medium,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
     },
     avatarInitial: {
         fontSize: 14,
-        fontFamily: 'Lexend_600SemiBold',
+        fontFamily: FontFamily.semibold,
     },
     statusDot: {
         position: 'absolute',
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
     participantName: {
         flex: 1,
         fontSize: 14,
-        fontFamily: 'Lexend_500Medium',
+        fontFamily: FontFamily.medium,
     },
     badge: {
         paddingHorizontal: 8,
@@ -179,11 +180,11 @@ const styles = StyleSheet.create({
     },
     badgeText: {
         fontSize: 10,
-        fontFamily: 'Lexend_600SemiBold',
+        fontFamily: FontFamily.semibold,
         textTransform: 'uppercase',
     },
     statusText: {
         fontSize: 12,
-        fontFamily: 'Lexend_500Medium',
+        fontFamily: FontFamily.medium,
     },
 });

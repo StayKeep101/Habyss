@@ -1,5 +1,6 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
-import { View, Text, Image, StyleSheet, Dimensions, ScrollView, Animated } from 'react-native';
+import { View, Text, Image, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
     },
     text: {
         color: 'white',
-        fontWeight: 'bold',
+        fontFamily: FontFamily.bold,
         fontSize: 14,
         textShadowColor: 'rgba(0,0,0,0.5)',
         textShadowOffset: { width: 0, height: 1 },
@@ -132,6 +133,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontStyle: 'italic',
         textAlign: 'center',
-        fontWeight: '600',
+        fontFamily: FontFamily.semibold,
     }
 });

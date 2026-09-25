@@ -1,6 +1,9 @@
+import { AppButton } from '@/components/Common/AppButton';
+import { AppTextField } from '@/components/Common/AppTextField';
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, View } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -8,6 +11,7 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { setMyUsername, USERNAME_RULE } from '@/lib/friendsService';
+import { SignInOptions } from '@/components/Auth/SignInOptions';
 
 interface Props {
     /** Signed in, but friends cannot find them until they pick a username. */
@@ -64,7 +68,7 @@ export const FriendsGate: React.FC<Props> = ({ needsUsername, onReady }) => {
 
             {needsUsername ? (
                 <>
-                    <TextInput
+                    <View style={{ alignSelf: 'stretch' }}><AppTextField label="Username" error={error ?? undefined}
                         value={username}
                         onChangeText={text => { setUsername(text.replace(/\s/g, '')); setError(null); }}
                         autoCapitalize="none"
@@ -75,32 +79,16 @@ export const FriendsGate: React.FC<Props> = ({ needsUsername, onReady }) => {
                         accessibilityLabel="Username"
                         returnKeyType="done"
                         onSubmitEditing={save}
-                        style={[styles.input, {
-                            color: colors.textPrimary, borderColor: error ? colors.error : colors.border,
-                            backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                        }]}
-                    />
-                    {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
-                    <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityState={{ disabled: !valid }}
-                        disabled={!valid || saving}
-                        onPress={save}
-                        style={[styles.button, { backgroundColor: valid ? accent : (isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)') }]}
-                    >
-                        {saving ? <ActivityIndicator color="#000" /> : (
-                            <Text style={[styles.buttonText, { color: valid ? '#000' : colors.textTertiary }]}>Save username</Text>
-                        )}
-                    </TouchableOpacity>
+                    /></View>
+                    <AppButton label="Save username" onPress={save} disabled={!valid} loading={saving} />
                 </>
             ) : (
-                <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => { lightFeedback(); router.push('/(root)/account'); }}
-                    style={[styles.button, { backgroundColor: accent }]}
-                >
-                    <Text style={[styles.buttonText, { color: '#000' }]}>Sign in</Text>
-                </TouchableOpacity>
+                // The same buttons as onboarding, so signing in is one tap here too.
+                <SignInOptions
+                    onSignedIn={onReady}
+                    onEmail={() => router.push('/(root)/account')}
+                    emailLabel="Sign in with email"
+                />
             )}
         </VoidCard>
     );
@@ -109,10 +97,10 @@ export const FriendsGate: React.FC<Props> = ({ needsUsername, onReady }) => {
 const styles = StyleSheet.create({
     card: { padding: 22, alignItems: 'center', gap: 10, marginTop: 12 },
     icon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-    title: { fontSize: 20, fontFamily: 'Lexend_600SemiBold', textAlign: 'center' },
-    body: { fontSize: 14, lineHeight: 20, fontFamily: 'Lexend_400Regular', textAlign: 'center' },
-    input: { alignSelf: 'stretch', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, fontFamily: 'Lexend_400Regular', marginTop: 6 },
-    error: { alignSelf: 'stretch', fontSize: 12, fontFamily: 'Lexend_400Regular' },
+    title: { fontSize: 20, fontFamily: FontFamily.semibold, textAlign: 'center' },
+    body: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlign: 'center' },
+    input: { alignSelf: 'stretch', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, fontFamily: FontFamily.regular, marginTop: 6 },
+    error: { alignSelf: 'stretch', fontSize: 12, fontFamily: FontFamily.regular },
     button: { alignSelf: 'stretch', paddingVertical: 15, borderRadius: 999, alignItems: 'center', marginTop: 6 },
-    buttonText: { fontSize: 15, fontFamily: 'Lexend_600SemiBold' },
+    buttonText: { fontSize: 15, fontFamily: FontFamily.semibold },
 });

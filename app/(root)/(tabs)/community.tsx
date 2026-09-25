@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, RefreshControl, StyleSheet, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, Share, DeviceEventEmitter } from 'react-native';
+import { FontFamily, Typography, UIStyles } from '@/constants/DesignSystem';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {View, Text, ScrollView, RefreshControl, StyleSheet, TouchableOpacity, Alert, Share} from 'react-native';
 import { Colors } from '@/constants/Colors';
-import { s, vs, ms } from '@/constants/Layout';
+import { vs } from '@/constants/Layout';
 import { useTheme } from '@/constants/themeContext';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -11,14 +12,13 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { FriendsService, Friend, FriendRequest, FriendActivity, ReactionType, getMyUsername, inviteMessage } from '@/lib/friendsService';
 import { onAccountChange } from '@/lib/account';
 import { FriendsGate } from '@/components/Community/FriendsGate';
-import { addHabit } from '@/lib/habitsSQLite';
 import { FriendStatsModal } from '@/components/FriendStatsModal';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import { useRouter } from 'expo-router';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withRepeat, withTiming, Easing } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
+import Animated from 'react-native-reanimated';
 import { Leaderboard } from '@/components/Community/Leaderboard';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { on } from '@/lib/appEvents';
 
 export default function CommunityScreen() {
     const { theme } = useTheme();
@@ -52,6 +52,7 @@ export default function CommunityScreen() {
     const [leaderboardPeriod, setLeaderboardPeriod] = useState<'week' | 'month' | 'year' | 'all'>('week');
 
     const isLoadingRef = useRef(false);
+    const refreshQueued = useRef(false);
 
     const loadData = useCallback(async (forceRefresh = false) => {
         // Skip if already loaded and not forcing refresh
@@ -60,7 +61,7 @@ export default function CommunityScreen() {
         }
 
         // Prevent concurrent loads that cause flickering
-        if (isLoadingRef.current) return;
+        if (isLoadingRef.current) { if (forceRefresh) refreshQueued.current = true; return; }
         isLoadingRef.current = true;
 
         // Only show full-page loader on initial load
@@ -101,6 +102,7 @@ export default function CommunityScreen() {
         } finally {
             setLoading(false);
             isLoadingRef.current = false;
+            if (refreshQueued.current) { refreshQueued.current = false; void loadData(true); }
         }
     }, [leaderboardPeriod]);
 
@@ -112,7 +114,7 @@ export default function CommunityScreen() {
     }, []);
 
     useEffect(() => {
-        const subscription = DeviceEventEmitter.addListener('social_state_updated', () => {
+        const subscription = on('social_state_updated', () => {
             loadData(true);
         });
         const stopWatchingAccount = onAccountChange(() => loadData(true));
@@ -158,7 +160,7 @@ export default function CommunityScreen() {
             Alert.alert('Success! 🎉', 'Friend request sent (or auto-accepted if they already requested you)!');
             setSearchResults(prev => prev.filter(u => u.id !== userId));
             setSearchQuery('');
-            await loadData(); // Refresh to show new friend if auto-accepted
+            await loadData(true); // Refresh to show new friend if auto-accepted
         } else {
             Alert.alert('Already Connected', 'You may already be friends or have a pending request with this user.');
         }
@@ -168,7 +170,7 @@ export default function CommunityScreen() {
         lightFeedback();
         const success = await FriendsService.acceptFriendRequest(requestId);
         if (success) {
-            await loadData();
+            await loadData(true);
         }
     };
 
@@ -251,7 +253,7 @@ export default function CommunityScreen() {
                         const { SpinningLogo } = require('@/components/SpinningLogo');
                         return <SpinningLogo />;
                     })()}
-                    <Text style={{ color: colors.textSecondary, marginTop: vs(16), fontFamily: 'Lexend_400Regular' }}>Getting crew data...</Text>
+                    <Text style={{ color: colors.textSecondary, marginTop: vs(16), fontFamily: FontFamily.regular }}>Getting crew data...</Text>
                 </Animated.View>
             )}
 
@@ -298,9 +300,6 @@ export default function CommunityScreen() {
                         <Ionicons name="person-add" size={20} color={accentColor} />
                     </TouchableOpacity>}
                 </View>
-
-
-
 
                 {gate ? (
                     <FriendsGate needsUsername={gate === 'needs_username'} onReady={() => loadData(true)} />
@@ -367,27 +366,9 @@ export default function CommunityScreen() {
 }
 
 const styles = StyleSheet.create({
-    headerTitle: {
-        fontSize: 24, // Smaller
-        fontWeight: '900',
-        letterSpacing: -1,
-        fontFamily: 'Lexend',
-    },
-    headerSubtitle: {
-        marginTop: 2,
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 2,
-        opacity: 0.8,
-        fontFamily: 'Lexend_400Regular',
-    },
-    sectionLabel: {
-        fontSize: 10, // Consistent
-        fontWeight: '600',
-        letterSpacing: 1,
-        marginBottom: 8,
-        fontFamily: 'Lexend_400Regular',
-    },
+    headerTitle: Typography.screenTitle,
+    headerSubtitle: Typography.label,
+    sectionLabel: UIStyles.sectionTitle,
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -396,7 +377,7 @@ const styles = StyleSheet.create({
     searchInput: {
         flex: 1,
         fontSize: 13,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     searchResult: {
         flexDirection: 'row',
@@ -433,12 +414,11 @@ const styles = StyleSheet.create({
     },
     username: {
         fontSize: 13,
-        fontWeight: '600',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.semibold,
     },
     email: {
         fontSize: 11,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     addButton: {
         width: 32,
@@ -465,8 +445,7 @@ const styles = StyleSheet.create({
     },
     friendName: {
         fontSize: 14,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
         marginBottom: 2,
     },
     statsRow: {
@@ -480,7 +459,7 @@ const styles = StyleSheet.create({
     },
     statText: {
         fontSize: 10,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     progressDot: {
         width: 4,
@@ -495,20 +474,18 @@ const styles = StyleSheet.create({
     },
     nudgeText: {
         fontSize: 9,
-        fontWeight: '700',
         letterSpacing: 1,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.bold,
     },
     emptyText: {
         fontSize: 14,
-        fontWeight: '600',
         marginTop: 12,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
     emptySubtext: {
         fontSize: 11,
         marginTop: 4,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     leaderboardRow: {
         flexDirection: 'row',
@@ -521,18 +498,17 @@ const styles = StyleSheet.create({
         fontSize: 14,
         width: 24,
         textAlign: 'center',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     leaderName: {
         flex: 1,
         fontSize: 13,
-        fontWeight: '600',
         marginLeft: 12,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.semibold,
     },
     leaderStreak: {
         fontSize: 13,
         marginLeft: 4,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
 });

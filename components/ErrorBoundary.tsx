@@ -1,6 +1,7 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { FontFamily } from '@/constants/DesignSystem';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 
 interface Props {
     children: ReactNode;
@@ -128,11 +129,10 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 24,
-        fontWeight: '700',
         color: '#fff',
         textAlign: 'center',
         marginBottom: 12,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     subtitle: {
         fontSize: 16,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 24,
         lineHeight: 24,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     errorDetailsContainer: {
         backgroundColor: '#1F2937',
@@ -152,10 +152,9 @@ const styles = StyleSheet.create({
     },
     errorDetailsTitle: {
         fontSize: 14,
-        fontWeight: '600',
         color: '#EF4444',
         marginBottom: 8,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
     errorDetailsText: {
         fontSize: 12,
@@ -178,13 +177,12 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
     helpText: {
         fontSize: 14,
         color: '#6B7280',
         textAlign: 'center',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
 });

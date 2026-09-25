@@ -17,10 +17,6 @@
       "channel": "preview",
       "ios": {
         "image": "macos-tahoe-26.5-xcode-26.6"
-      },
-      "env": {
-        "EXPO_PUBLIC_SPOTIFY_CLIENT_ID": "PLACEHOLDER_FOR_SPOTIFY_CLIENT_ID",
-        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "PLACEHOLDER_FOR_STRIPE_PUBLISHABLE_KEY"
       }
     },
     "production": {

@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, DeviceEventEmitter } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { useState, useEffect, useCallback } from 'react';
+import {View} from 'react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { RoadmapView } from '@/components/Home/RoadmapView';
 import { getHabits as loadHabits, getCompletions, Habit as StoreHabit } from '@/lib/habitsSQLite';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { on } from '@/lib/appEvents';
 
 interface Habit extends StoreHabit {
   streak?: number;
@@ -17,7 +17,7 @@ export default function RoadmapScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  
+
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completedHabits, setCompletedHabits] = useState(0);
   const [totalHabits, setTotalHabits] = useState(0);
@@ -33,7 +33,7 @@ export default function RoadmapScreen() {
 
   useEffect(() => {
     loadData();
-    const sub = DeviceEventEmitter.addListener('habit_created', loadData);
+    const sub = on('habit_created', loadData);
     return () => sub.remove();
   }, [loadData]);
 
@@ -44,14 +44,7 @@ export default function RoadmapScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View className="flex-row items-center px-6 py-4 border-b" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-        <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 rounded-full" style={{ backgroundColor: colors.surfaceSecondary }}>
-             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text className="text-xl font-bold" style={{ color: colors.textPrimary }}>My Journey</Text>
-      </View>
-      
+    <SheetScreen title="My journey" onBack={() => router.back()}>
       <View style={{ flex: 1 }}>
          <RoadmapView 
             onDayPress={handleDayPress} 
@@ -60,6 +53,6 @@ export default function RoadmapScreen() {
             totalHabitsCount={totalHabits}
          />
       </View>
-    </SafeAreaView>
+    </SheetScreen>
   );
 }

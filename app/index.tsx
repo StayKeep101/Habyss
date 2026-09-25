@@ -1,10 +1,10 @@
 import { Redirect } from "expo-router";
-import React, { useState, useEffect } from 'react';
-import { View, useColorScheme } from 'react-native';
+import { useState, useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 import { getLocalUserId, isOnboardingComplete } from '@/lib/localUser';
 import { getHabits } from '@/lib/habitsSQLite';
 import { Colors } from '@/constants/Colors';
-import { HabyssBootScreen } from "@/components/Loading/HabyssBootScreen";
+import { QuietLoading } from "@/components/Loading/QuietLoading";
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -34,7 +34,7 @@ export default function App() {
   }, []);
 
   if (!ready) {
-    return <HabyssBootScreen subtitle="Booting your private system" />;
+    return <QuietLoading />;
   }
 
   if (onboarded) {

@@ -1,182 +1,114 @@
+import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { FontFamily, UIStyles } from '@/constants/DesignSystem';
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings, GreetingStyle } from '@/constants/AppSettingsContext';
+import { currentEngine } from '@/lib/onDeviceAI';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { coachHello } from '@/lib/coachMessages';
+import { NotificationService } from '@/lib/notificationService';
+import { PAYWALL_ENABLED } from '@/constants/features';
+import {
+    DEFAULT_DAY, DEFAULT_ECHO, eveningCheckIn, getDayWindow, getEchoConfig, getName,
+    morningCheckIn, saveDayWindow, saveEchoConfig, type DayWindow, type EchoConfig,
+} from '@/lib/echo';
+import { hasTurboModule } from '@/lib/nativeModules';
+import { clearWrittenLines } from '@/lib/echoWriter';
+
+/** null in a build without the on-device model's native code. */
+const localModel = () => (hasTurboModule('MLCEngine') ? require('@/lib/LocalLLMService').default : null);
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
-import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 48) / 2; // 2 columns with padding
 
 // Greeting style options
 const GREETING_STYLES: { id: GreetingStyle; label: string; icon: string; description: string }[] = [
-    { id: 'ai', label: 'AI Personality', icon: 'sparkles', description: 'Based on selected personality' },
-    { id: 'quotes', label: 'Motivational', icon: 'bulb', description: 'Inspiring quotes' },
-    { id: 'data', label: 'Data Driven', icon: 'analytics', description: 'Your stats & insights' },
-    { id: 'all', label: 'Mixed', icon: 'shuffle', description: 'Random combination' },
+    { id: 'ai', label: 'Echo decides', icon: 'sparkles', description: 'The mix that fits its personality' },
+    { id: 'quotes', label: 'Facts & motivation', icon: 'bulb', description: 'Habit science and a push' },
+    { id: 'data', label: 'My data', icon: 'analytics', description: 'Only your own progress' },
+    { id: 'all', label: 'Everything', icon: 'shuffle', description: 'An even mix of all of it' },
 ];
 
 // Separate component to handle Local LLM logic
+/**
+ * Which on-device model Echo and the natural-language parsing use. Apple's
+ * model is built into the phone; the Llama model downloads by itself on Wi-Fi
+ * the first time, and can be downloaded now or removed here.
+ */
 const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
-    const { useLocalAI, setUseLocalAI } = useAppSettings();
+    const [engine, setEngine] = React.useState(currentEngine());
     const [isDownloading, setIsDownloading] = React.useState(false);
     const [progress, setProgress] = React.useState(0);
-    const [modelReady, setModelReady] = React.useState(false);
 
-    React.useEffect(() => {
-        // Check status on mount
-        const check = () => {
-            const Service = require('@/lib/LocalLLMService').default;
-            setModelReady(Service.isReady());
-        };
-        check();
-    }, []);
-
-    const handleToggle = async () => {
-        // If it's ON and Ready -> Turn Off
-        if (useLocalAI && modelReady) {
-            setUseLocalAI(false);
+    const download = async () => {
+        const Service = localModel();
+        if (!Service) {
+            Alert.alert('Not in this version', 'Update the app to download the on-device model.');
             return;
         }
-
-        // If it's OFF or (ON but Not Ready) -> Try to Enable/Download
-        const Service = require('@/lib/LocalLLMService').default;
-
-        // re-check readiness just in case
-        const isReady = Service.isReady();
-
-        if (!isReady) {
-            Alert.alert(
-                "Download Required",
-                "To use Offline AI, you need to download the Llama 3.2 (1B) model (~1.2GB). This is a smaller, more efficient model optimized for your device.",
-                [
-                    {
-                        text: "Cancel", style: "cancel", onPress: () => {
-                            // If we cancelled and it was supposedly "ON" but not ready, maybe turn it off?
-                            // Or just leave it as is (fallback to cloud). 
-                            // Let's leave it, but user might want to turn it off.
-                            // Actually if they cancel download, we probably shouldn't change the toggle if it was already ON.
-                            // If it was OFF, stay OFF.
-                        }
-                    },
-                    {
-                        text: "Download & Enable",
-                        onPress: async () => {
-                            setIsDownloading(true);
-                            // We can pass a progress callback
-                            const success = await Service.downloadModel((p: number) => setProgress(p));
-                            setIsDownloading(false);
-                            if (success) {
-                                setModelReady(true);
-                                setUseLocalAI(true);
-                            } else {
-                                Alert.alert("Download Failed", "Please check your connection and try again.");
-                            }
-                        }
-                    }
-                ]
-            );
-        } else {
-            // It is ready, just ensure it's on
-            setUseLocalAI(true);
-            setModelReady(true);
-        }
+        setIsDownloading(true);
+        const success = await Service.downloadModel((p: number) => setProgress(p));
+        setIsDownloading(false);
+        setEngine(currentEngine());
+        if (!success) Alert.alert('Download failed', 'Check your connection and try again. On Wi-Fi it also downloads by itself.');
     };
 
-    const handleDelete = () => {
-        Alert.alert(
-            "Delete Local Model?",
-            "This will remove the Llama 3.2 (1B) model from your device (~1.2GB). usage will revert to offline-only (no AI) or require re-download.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        const Service = require('@/lib/LocalLLMService').default;
-                        const success = await Service.deleteModel();
-                        if (success) {
-                            setModelReady(false);
-                            setUseLocalAI(false);
-                            Alert.alert("Deleted", "Model has been removed from storage.");
-                        } else {
-                            Alert.alert("Error", "Could not delete model. It might be in use.");
-                        }
-                    }
-                }
-            ]
-        );
+    const remove = () => {
+        Alert.alert('Remove the on-device model?', 'Frees about 1.2 GB. Habyss keeps working with its built-in rules, and the model downloads again next time you are on Wi-Fi.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Remove', style: 'destructive', onPress: async () => {
+                    await localModel()?.deleteModel();
+                    setEngine(currentEngine());
+                },
+            },
+        ]);
     };
+
+    const canDownload = !!localModel();
+    const title = engine === 'apple' ? 'Apple Intelligence' : 'Llama 3.2 (1B)';
+    const status = engine === 'apple'
+        ? 'Built into your iPhone. Ready, nothing to download.'
+        : engine === 'llama'
+            ? 'On this phone and ready. About 1.2 GB.'
+            : isDownloading
+                ? `Downloading… ${Math.round(progress)}%`
+                : 'Downloads by itself on Wi-Fi (about 1.2 GB). Until then, Habyss uses its built-in rules.';
 
     return (
         <VoidCard
             glass={!isTrueDark}
             intensity={isLight ? 20 : 80}
-            style={{
-                borderRadius: 16,
-                padding: 16,
-                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-            }}
+            style={{ borderRadius: 16, padding: 16, backgroundColor: isLight ? colors.surfaceSecondary : undefined, gap: 10 }}
         >
-            <View style={{ flex: 1, paddingRight: 16 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                    <Ionicons name={useLocalAI ? "cloud-offline" : "cloud-outline"} size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary, fontFamily: 'Lexend' }}>
-                        Local Mode
-                    </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name={engine ? 'hardware-chip' : 'hardware-chip-outline'} size={20} color={engine ? colors.success : colors.textTertiary} />
+                <Text style={{ flex: 1, fontSize: 16, color: colors.textPrimary, fontFamily: FontFamily.semibold }}>{title}</Text>
+                {engine ? <Text style={{ fontSize: 12, color: colors.success, fontFamily: FontFamily.semibold }}>Ready</Text> : null}
+            </View>
+            <Text style={{ fontSize: 13, lineHeight: 18, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
+                {status} It reads what you type when you add habits, tasks and goals, and gives Echo fresh things to say. Nothing leaves your phone.
+            </Text>
+            {isDownloading ? (
+                <View style={{ height: 4, backgroundColor: colors.surface, borderRadius: 2, overflow: 'hidden' }}>
+                    <View style={{ height: '100%', width: `${progress}%`, backgroundColor: colors.primary }} />
                 </View>
-                <Text style={{ fontSize: 12, color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>
-                    {isDownloading
-                        ? `Downloading Model... ${Math.round(progress)}%`
-                        : modelReady
-                            ? "Running Llama 3.2 (1B) • 1.2GB"
-                            : "Download Llama 3.2 (1B) (~1.2GB) to run offline"}
-                </Text>
-                {isDownloading && (
-                    <View style={{ height: 4, backgroundColor: colors.surface, marginTop: 8, borderRadius: 2, overflow: 'hidden' }}>
-                        <View style={{ height: '100%', width: `${progress}%`, backgroundColor: colors.primary }} />
-                    </View>
-                )}
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                {modelReady && !isDownloading && (
-                    <TouchableOpacity
-                        onPress={handleDelete}
-                        style={{
-                            width: 36, height: 36,
-                            borderRadius: 18,
-                            backgroundColor: colors.surface,
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
-                    >
-                        <Ionicons name="trash-outline" size={18} color={colors.error || '#EF4444'} />
-                    </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                    onPress={handleToggle}
-                    disabled={isDownloading}
-                    style={{
-                        width: 50, height: 30, borderRadius: 15,
-                        backgroundColor: useLocalAI ? colors.success : colors.surface,
-                        justifyContent: 'center', alignItems: useLocalAI ? 'flex-end' : 'flex-start',
-                        paddingHorizontal: 4
-                    }}
-                >
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' }} />
+            ) : null}
+            {engine === null && !isDownloading && canDownload ? (
+                <TouchableOpacity accessibilityRole="button" onPress={download} style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
+                    <Text style={{ color: colors.primary, fontSize: 14, fontFamily: FontFamily.semibold }}>Download now</Text>
                 </TouchableOpacity>
-            </View>
+            ) : null}
+            {engine === 'llama' ? (
+                <TouchableOpacity accessibilityRole="button" onPress={remove} style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
+                    <Text style={{ color: colors.error, fontSize: 14, fontFamily: FontFamily.medium }}>Remove from this phone</Text>
+                </TouchableOpacity>
+            ) : null}
         </VoidCard>
     );
 };
@@ -205,279 +137,297 @@ const AISettings = () => {
         }
     };
 
+    // What Echo knows about the user, and what it is allowed to do.
+    const [name, setName] = React.useState<string | undefined>(undefined);
+    const [day, setDay] = React.useState<DayWindow>(DEFAULT_DAY);
+    const [echo, setEcho] = React.useState<EchoConfig>(DEFAULT_ECHO);
+
+    React.useEffect(() => {
+        getName().then(setName).catch(() => undefined);
+        getDayWindow().then(setDay).catch(() => undefined);
+        getEchoConfig().then(setEcho).catch(() => undefined);
+    }, []);
+
+    // Echo can only write its own reminders where a model is ready.
+    const hasModel = currentEngine() !== null;
+
+    /** Saved, then the notifications are rewritten to match. */
+    const saveEcho = (next: EchoConfig) => {
+        selectionFeedback();
+        setEcho(next);
+        saveEchoConfig(next)
+            .then(() => NotificationService.refreshReminders())
+            .catch(() => undefined);
+    };
+
+    const saveDay = (next: DayWindow) => {
+        setDay(next);
+        saveDayWindow(next)
+            .then(() => NotificationService.refreshReminders())
+            .catch(() => undefined);
+    };
+
     const handleSelectGreeting = (style: GreetingStyle) => {
         selectionFeedback();
         setGreetingStyle(style);
     };
 
     return (
-        <VoidShell>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>AI Configuration</Text>
-                    <View style={{ width: 40 }} />
+        <SheetScreen title="Echo" onBack={() => router.back()}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                {/* What Echo sounds like, heard rather than described. */}
+                <View style={[styles.sample, { borderColor: colors.border, backgroundColor: isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.04)' }]}>
+                    <View style={[styles.sampleMark, { backgroundColor: colors.primary + '1f' }]}>
+                        <Ionicons name="sparkles" size={16} color={colors.primary} />
+                    </View>
+                    <Text style={[styles.sampleText, { color: colors.textSecondary }]}>
+                        “{coachHello(aiPersonality, name)}”
+                    </Text>
                 </View>
 
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                    {/* AI Personality Section */}
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>AI PERSONALITY</Text>
-                    <Text style={[styles.sectionDesc, { color: colors.textTertiary }]}>
-                        Choose how the AI communicates with you
-                    </Text>
+                <Group title="Voice" hint="How Echo talks to you, everywhere">
+                    {PERSONALITY_MODES.map(mode => (
+                        <ChoiceRow
+                            key={mode.id}
+                            icon={mode.icon}
+                            label={mode.name}
+                            detail={mode.warning ? 'Harsh language' : mode.description}
+                            selected={aiPersonality === mode.id}
+                            colors={colors}
+                            accent={colors.primary}
+                            onPress={() => handleSelectPersonality(mode.id)}
+                        />
+                    ))}
+                </Group>
 
-                    {/* 2x2 Grid for Personalities */}
-                    <View style={styles.personalityGrid}>
-                        {PERSONALITY_MODES.map((mode) => {
-                            const isSelected = aiPersonality === mode.id;
+                <Group title="On Home" hint="A new line every time you open it">
+                    {GREETING_STYLES.map(style => (
+                        <ChoiceRow
+                            key={style.id}
+                            icon={style.icon as any}
+                            label={style.label}
+                            detail={style.description}
+                            selected={greetingStyle === style.id}
+                            colors={colors}
+                            accent={colors.primary}
+                            onPress={() => handleSelectGreeting(style.id)}
+                        />
+                    ))}
+                </Group>
 
-                            return (
-                                <TouchableOpacity
-                                    key={mode.id}
-                                    style={{ width: CARD_WIDTH }}
-                                    onPress={() => handleSelectPersonality(mode.id)}
-                                    activeOpacity={0.7}
-                                >
-                                    <VoidCard
-                                        glass={!isTrueDark}
-                                        intensity={isLight ? 20 : 80}
-                                        style={[
-                                            styles.personalityCard,
-                                            {
-                                                borderColor: isSelected ? colors.success : 'transparent',
-                                                borderWidth: isSelected ? 2 : 0,
-                                                backgroundColor: isLight ? colors.surfaceSecondary : undefined
-                                            },
-                                            isSelected && !isLight && { backgroundColor: colors.success + '15' }
-                                        ]}
-                                    >
-                                        <View style={styles.cardTopRow}>
-                                            <Text style={styles.emoji}>{mode.icon}</Text>
-                                            {isSelected && (
-                                                <View style={[styles.checkBadge, { backgroundColor: colors.success }]}>
-                                                    <Ionicons name="checkmark" size={10} color="#fff" />
-                                                </View>
-                                            )}
-                                        </View>
+                <Group title="Check-ins" hint={`Your day runs ${day.wake} to ${day.sleep}`}>
+                    <ToggleRow
+                        icon="sunny-outline"
+                        label="Morning"
+                        detail={`What today asks of you, at ${morningCheckIn(day)}`}
+                        value={echo.morning}
+                        colors={colors}
+                        accent={colors.primary}
+                        onChange={(value: boolean) => saveEcho({ ...echo, morning: value })}
+                    />
+                    <ToggleRow
+                        icon="moon-outline"
+                        label="Before bed"
+                        detail={`Whatever is still open, at ${eveningCheckIn(day)}`}
+                        value={echo.evening}
+                        colors={colors}
+                        accent={colors.primary}
+                        onChange={(value: boolean) => saveEcho({ ...echo, evening: value })}
+                    />
+                    <ToggleRow
+                        icon="person-outline"
+                        label="Call me by name"
+                        detail={name ? `Echo says “${name}”` : 'Set a name in your profile first'}
+                        value={echo.useName && !!name}
+                        disabled={!name}
+                        colors={colors}
+                        accent={colors.primary}
+                        onChange={(value: boolean) => saveEcho({ ...echo, useName: value })}
+                    />
+                    <ToggleRow
+                        icon="create-outline"
+                        label="Echo writes the reminders"
+                        detail={hasModel
+                            ? 'Each reminder written on your phone, in this voice'
+                            : 'Needs the on-device model, below'}
+                        value={echo.writeReminders && hasModel}
+                        disabled={!hasModel}
+                        colors={colors}
+                        accent={colors.primary}
+                        onChange={(value: boolean) => {
+                            // Turning it off throws the written lines away, so
+                            // the next reminder is the built-in one again.
+                            if (!value) void clearWrittenLines();
+                            saveEcho({ ...echo, writeReminders: value });
+                        }}
+                    />
+                </Group>
 
-                                        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{mode.name}</Text>
+                <Group title="Your day" hint="When check-ins and reminders land">
+                    <TimeRow
+                        icon="alarm-outline"
+                        label="Wake up"
+                        value={day.wake}
+                        colors={colors}
+                        accent={colors.primary}
+                        onChange={(time: string) => saveDay({ ...day, wake: time })}
+                    />
+                    <TimeRow
+                        icon="bed-outline"
+                        label="Sleep"
+                        value={day.sleep}
+                        colors={colors}
+                        accent={colors.primary}
+                        onChange={(time: string) => saveDay({ ...day, sleep: time })}
+                    />
+                </Group>
 
-                                        <Text style={[styles.cardDesc, { color: colors.textTertiary }]} numberOfLines={3}>
-                                            {mode.description}
-                                        </Text>
+                <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 22 }]}>ON-DEVICE AI</Text>
+                <OfflineStartCard colors={colors} isLight={isLight} isTrueDark={isTrueDark} />
 
-                                        {mode.warning && (
-                                            <View style={styles.warningDot}>
-                                                <Ionicons name="warning" size={10} color="#F59E0B" />
-                                            </View>
-                                        )}
-                                    </VoidCard>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-
-                    {/* Greeting Style Section */}
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>
-                        DASHBOARD GREETING
-                    </Text>
-                    <Text style={[styles.sectionDesc, { color: colors.textTertiary }]}>
-                        What type of greeting to show on your dashboard
-                    </Text>
-
-                    <View style={styles.greetingGrid}>
-                        {GREETING_STYLES.map((style) => {
-                            const isSelected = greetingStyle === style.id;
-
-                            return (
-                                <TouchableOpacity
-                                    key={style.id}
-                                    style={{ width: (width - 48) / 2 - 5 }}
-                                    onPress={() => handleSelectGreeting(style.id)}
-                                    activeOpacity={0.7}
-                                >
-                                    <VoidCard
-                                        glass={!isTrueDark}
-                                        intensity={isLight ? 20 : 80}
-                                        style={[
-                                            styles.greetingCard,
-                                            {
-                                                borderColor: isSelected ? colors.primary : 'transparent',
-                                                borderWidth: isSelected ? 2 : 0,
-                                                backgroundColor: isLight ? colors.surfaceSecondary : undefined
-                                            },
-                                            isSelected && !isLight && { backgroundColor: colors.primary + '15' }
-                                        ]}
-                                    >
-                                        <View style={[styles.greetingIcon, { backgroundColor: isSelected ? colors.primary + '20' : (isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)') }]}>
-                                            <Ionicons name={style.icon as any} size={16} color={isSelected ? colors.primary : colors.textSecondary} />
-                                        </View>
-                                        <Text style={[styles.greetingLabel, { color: isSelected ? colors.primary : colors.textPrimary }]}>
-                                            {style.label}
-                                        </Text>
-                                        <Text style={[styles.greetingDesc, { color: colors.textTertiary }]} numberOfLines={1}>
-                                            {style.description}
-                                        </Text>
-                                    </VoidCard>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-
-                    {/* Offline Intelligence Section */}
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>
-                        OFFLINE INTELLIGENCE
-                    </Text>
-                    <Text style={[styles.sectionDesc, { color: colors.textTertiary }]}>
-                        Run AI locally on your device for privacy and offline access.
-                        (Requires ~1.2GB download)
-                    </Text>
-
-
-                    <OfflineStartCard colors={colors} isLight={isLight} isTrueDark={isTrueDark} />
-
-                    {/* Customer Center Section */}
-                    {/* Only show if user is likely Pro or for testing */}
+                {PAYWALL_ENABLED ? (
                     <TouchableOpacity
-                        style={{ marginTop: 32, marginBottom: 20, alignItems: 'center' }}
+                        style={styles.manage}
                         onPress={async () => {
                             const RevenueCatUI = require('react-native-purchases-ui').default;
                             await RevenueCatUI.presentCustomerCenter();
                         }}
                     >
-                        <Text style={{ color: colors.primary, fontFamily: 'Lexend', fontSize: 14 }}>
-                            Manage Subscription
-                        </Text>
+                        <Text style={{ color: colors.primary, fontFamily: FontFamily.semibold, fontSize: 14 }}>Manage subscription</Text>
                     </TouchableOpacity>
+                ) : null}
+            </ScrollView>
+        </SheetScreen>
+    );
+}
 
-                    {/* Superwall Test */}
-                    <TouchableOpacity
-                        style={{ marginTop: 20, alignItems: 'center' }}
-                        onPress={async () => {
-                            // await registerPlacement("campaign_trigger");
+/** A titled group of rows, as one card, like the Settings tab. */
+const Group = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const rows = React.Children.toArray(children).filter(Boolean);
+    return (
+        <View style={styles.group}>
+            <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>{title.toUpperCase()}</Text>
+            {hint ? <Text style={[styles.groupHint, { color: colors.textTertiary }]}>{hint}</Text> : null}
+            <View style={[styles.groupCard, { backgroundColor: isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.04)', borderColor: colors.border }]}>
+                {rows.map((row, index) => (
+                    <View key={index}>
+                        {index > 0 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
+                        {row}
+                    </View>
+                ))}
+            </View>
+        </View>
+    );
+};
+
+const ChoiceRow = ({ icon, label, detail, selected, colors, accent, onPress }: any) => (
+    <TouchableOpacity
+        accessibilityRole="radio"
+        accessibilityState={{ selected }}
+        activeOpacity={0.7}
+        onPress={onPress}
+        style={styles.row}
+    >
+        <Ionicons name={icon} size={17} color={selected ? accent : colors.textTertiary} />
+        <View style={styles.rowText}>
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
+            <Text numberOfLines={1} style={[styles.rowDetail, { color: colors.textTertiary }]}>{detail}</Text>
+        </View>
+        <Ionicons
+            name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+            size={20}
+            color={selected ? accent : colors.textTertiary}
+        />
+    </TouchableOpacity>
+);
+
+const ToggleRow = ({ icon, label, detail, value, disabled, colors, accent, onChange }: any) => (
+    <TouchableOpacity
+        accessibilityRole="switch"
+        accessibilityState={{ checked: value, disabled: !!disabled }}
+        activeOpacity={0.7}
+        disabled={disabled}
+        onPress={() => onChange(!value)}
+        style={[styles.row, disabled && { opacity: 0.5 }]}
+    >
+        <Ionicons name={icon} size={17} color={value ? accent : colors.textTertiary} />
+        <View style={styles.rowText}>
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
+            <Text numberOfLines={1} style={[styles.rowDetail, { color: colors.textTertiary }]}>{detail}</Text>
+        </View>
+        <View style={[styles.switch, { backgroundColor: value ? accent : colors.surfaceTertiary }]}>
+            <View style={[styles.knob, { alignSelf: value ? 'flex-end' : 'flex-start' }]} />
+        </View>
+    </TouchableOpacity>
+);
+
+/** A time the user can change, in the phone's own picker. */
+const TimeRow = ({ icon, label, value, colors, accent, onChange }: any) => {
+    const [open, setOpen] = React.useState(false);
+    const [hour, minute] = value.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hour || 0, minute || 0, 0, 0);
+
+    return (
+        <View>
+            <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`${label}, ${value}`}
+                activeOpacity={0.7}
+                onPress={() => setOpen(!open)}
+                style={styles.row}
+            >
+                <Ionicons name={icon} size={17} color={colors.textTertiary} />
+                <View style={styles.rowText}>
+                    <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
+                </View>
+                <Text style={[styles.rowValue, { color: open ? accent : colors.textSecondary }]}>{value}</Text>
+            </TouchableOpacity>
+            {open ? (
+                <View style={{ alignItems: 'center', paddingBottom: 8 }}>
+                    <DateTimePicker
+                        value={date}
+                        mode="time"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={(_event, selected) => {
+                            if (Platform.OS !== 'ios') setOpen(false);
+                            if (!selected) return;
+                            onChange(`${String(selected.getHours()).padStart(2, '0')}:${String(selected.getMinutes()).padStart(2, '0')}`);
                         }}
-                    >
-                        <Text style={{ color: colors.textSecondary, fontFamily: 'Lexend', fontSize: 12 }}>
-                            Test Superwall Paywall
-                        </Text>
-                    </TouchableOpacity>
-                </ScrollView>
-            </SafeAreaView>
-        </VoidShell>
+                    />
+                </View>
+            ) : null}
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    sample: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, marginTop: 6 },
+    sampleMark: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    sampleText: { flex: 1, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, fontStyle: 'italic' },
+    group: { marginTop: 22 },
+    groupTitle: { fontSize: 11, letterSpacing: 1.2, fontFamily: FontFamily.medium, marginLeft: 4 },
+    groupHint: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 3, marginBottom: 8, marginLeft: 4 },
+    groupCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+    divider: { height: StyleSheet.hairlineWidth, marginLeft: 46 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
+    rowText: { flex: 1, gap: 2 },
+    rowLabel: { fontSize: 15, fontFamily: FontFamily.regular },
+    rowDetail: { fontSize: 12, fontFamily: FontFamily.regular },
+    rowValue: { fontSize: 14, fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
+    switch: { width: 44, height: 26, borderRadius: 13, padding: 3, justifyContent: 'center' },
+    knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
+    manage: { marginTop: 28, alignItems: 'center' },
     container: { flex: 1 },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-    },
-    content: {
-        padding: 16,
-        paddingBottom: 40,
-    },
-    sectionTitle: {
-        fontSize: 11,
-        fontWeight: '700',
-        letterSpacing: 1.5,
-        fontFamily: 'Lexend',
-        marginBottom: 4,
-    },
-    sectionDesc: {
-        fontSize: 12,
-        fontFamily: 'Lexend_400Regular',
-        marginBottom: 16,
-    },
+    content: { ...UIStyles.screenContent },
+    sectionTitle: UIStyles.sectionTitle,
+    sectionDesc: UIStyles.sectionDescription,
     // 2x2 Grid for personalities
-    personalityGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    personalityCard: {
-        borderRadius: 16,
-        padding: 14,
-        minHeight: 110,
-    },
-    cardTopRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 8,
-    },
     emoji: { fontSize: 24 },
-    checkBadge: {
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    cardTitle: {
-        fontSize: 14,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
-        marginBottom: 4,
-    },
-    cardDesc: {
-        fontSize: 10,
-        fontFamily: 'Lexend_400Regular',
-        lineHeight: 14,
-    },
-    warningDot: {
-        position: 'absolute',
-        bottom: 10,
-        right: 10,
-    },
     // Greeting style cards
-    greetingGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-    },
-    greetingCard: {
-        borderRadius: 12,
-        padding: 12,
-        width: (width - 48) / 2 - 5,
-        alignItems: 'center',
-    },
-    greetingIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 8,
-    },
-    greetingLabel: {
-        fontSize: 12,
-        fontWeight: '600',
-        fontFamily: 'Lexend',
-        marginBottom: 2,
-    },
-    greetingDesc: {
-        fontSize: 9,
-        fontFamily: 'Lexend_400Regular',
-        textAlign: 'center',
-    },
 });
 
 export default AISettings;

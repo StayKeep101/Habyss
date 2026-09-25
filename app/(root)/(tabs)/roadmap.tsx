@@ -1,43 +1,36 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, LayoutAnimation, Platform, UIManager, InteractionManager, DeviceEventEmitter, ScrollView, Dimensions, Image } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { FontFamily } from '@/constants/DesignSystem';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager, InteractionManager, DeviceEventEmitter, ScrollView, Image } from 'react-native';
 import Animated, {
     useAnimatedScrollHandler,
     useSharedValue,
-    useAnimatedStyle,
-    withTiming,
-    withSpring,
-    Easing,
-    interpolate,
-    Extrapolation,
-    runOnJS,
+    useAnimatedStyle, runOnJS, withSpring, withTiming
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { GoalCard } from '@/components/Home/GoalCard';
-import { GoalCreationWizard } from '@/components/GoalCreationWizard';
-import { TaskItem } from '@/components/Roadmap/TaskItem';
-import { getTasks, setTaskStatus, deleteTask as removeTask, todayKey, type Task } from '@/lib/tasks';
+import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
+import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
 
-import { subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgress, calculateGoalProgressInstant, getLastNDaysCompletions, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
+import { getSkipped, setSkipped as setSkippedHabit, subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgressInstant, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { FriendsService } from '@/lib/friendsService';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useHistory } from '@/hooks/useHistory';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useFocusTime } from '@/constants/FocusTimeContext';
-import { RoadmapFilters } from '@/components/Home/RoadmapFilters';
+import { RoadmapFilters, type FilterAnchor } from '@/components/Home/RoadmapFilters';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { emit, on } from '@/lib/appEvents';
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -83,11 +76,11 @@ const CalendarScreen = () => {
     const [todayCompletions, setTodayCompletions] = useState<Record<string, boolean>>({});
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [goalProgress, setGoalProgress] = useState<Record<string, number>>({});
+    const [skipped, setSkipped] = useState<Record<string, boolean>>({});
     const [sharedHabits, setSharedHabits] = useState<any[]>([]);
     const [sharedGoals, setSharedGoals] = useState<any[]>([]);
 
     // UI State
-    const [isWizardVisible, setIsWizardVisible] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
     const [activeSort, setActiveSort] = useState<SortType>('default');
@@ -97,10 +90,26 @@ const CalendarScreen = () => {
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null); // Filter by life pillar
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
-    const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
+    // Loaded once here, and re-read whenever a habit is ticked anywhere —
+    // this screen used to fetch on mount only and then quietly go stale.
+    const { rows: historyData } = useHistory(90);
     const [draggingHabit, setDraggingHabit] = useState<Habit | null>(null);
+    const [draggingTask, setDraggingTask] = useState<Task | null>(null);
     const dragY = useSharedValue(0);
-    const dragPreviewStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value - 28 }] }));
+    const dragX = useSharedValue(0);
+    // 0 while resting, 1 once picked up: lifts, tilts and shrinks the card so it
+    // reads as held above the list, the way a dragged file does.
+    const dragLift = useSharedValue(0);
+    const dragPreviewStyle = useAnimatedStyle(() => ({
+        transform: [
+            { translateY: dragY.value - 34 },
+            { translateX: (dragX.value - 24) * 0.12 },
+            { scale: 0.92 + dragLift.value * 0.08 },
+            { rotateZ: `${dragLift.value * 1.6}deg` },
+        ],
+        opacity: dragLift.value,
+        shadowOpacity: 0.35 * dragLift.value,
+    }));
     const [hoveredGoalId, setHoveredGoalId] = useState<string | null>(null);
     // Mirrors hoveredGoalId so a drag can compare without re-subscribing to state.
     const hoveredGoalRef = useRef<string | null>(null);
@@ -113,7 +122,17 @@ const CalendarScreen = () => {
     const wasAtTop = useSharedValue(true); // Track if user was at top before pulling
 
     const closeFilterModal = useCallback(() => setShowFilter(false), []);
-    const openFilterModal = useCallback(() => setShowFilter(true), []);
+    // The menu drops out of the button, so the button measures itself first.
+    const filterButtonRef = useRef<any>(null);
+    const [filterAnchor, setFilterAnchor] = useState<FilterAnchor | null>(null);
+    const openFilterModal = useCallback(() => {
+        filterButtonRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+            setFilterAnchor({ x, y, width, height });
+            setShowFilter(true);
+        });
+        // Opened from a gesture with nothing to measure: still open, centred.
+        if (!filterButtonRef.current) setShowFilter(true);
+    }, []);
 
     const scrollHandler = useAnimatedScrollHandler({
         onScroll: (event) => {
@@ -147,7 +166,7 @@ const CalendarScreen = () => {
             getTasks({ includeDone: true }).then(setTasks).catch(() => setTasks([]));
         };
         loadTasks();
-        const taskSub = DeviceEventEmitter.addListener('tasks_changed', loadTasks);
+        const taskSub = on('tasks_changed', loadTasks);
 
         const unsubPromise = subscribeToHabits((newHabits) => {
             setHabitsStore(newHabits);
@@ -160,21 +179,25 @@ const CalendarScreen = () => {
             // Use local date format (not UTC)
             const now = selectedDate;
             const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-            const c = await getCompletions(dateStr);
+            const [c, s] = await Promise.all([getCompletions(dateStr), getSkipped(dateStr)]);
             setCompletions(c);
+            setSkipped(s);
         };
         loadCompletions();
 
         // Listen for updates from other screens (Home, Detail)
-        const sub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId, date, completed }) => {
+        const sub = on('habit_completion_updated', ({ habitId, date, completed }) => {
             const now = selectedDate;
             const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+            // Nothing to patch when the change was a bulk one.
+            if (!habitId || !date) return;
 
             // Update viewed completions if date matches
             if (date === currentDateStr) {
                 setCompletions(prev => ({
                     ...prev,
-                    [habitId]: completed
+                    [habitId]: completed === true
                 }));
             }
 
@@ -184,7 +207,7 @@ const CalendarScreen = () => {
             if (date === todayStr) {
                 setTodayCompletions(prev => ({
                     ...prev,
-                    [habitId]: completed
+                    [habitId]: completed === true
                 }));
             }
         });
@@ -202,15 +225,6 @@ const CalendarScreen = () => {
         };
         loadToday();
     }, []);
-
-    // SEPARATE EFFECT: Load history data ONCE on mount (not on every historyData change!)
-    useEffect(() => {
-        const loadHistory = async () => {
-            const data = await getLastNDaysCompletions(90);
-            setHistoryData(data);
-        };
-        loadHistory();
-    }, []); // Empty deps - only run once on mount
 
     // Load shared items
     useEffect(() => {
@@ -238,8 +252,6 @@ const CalendarScreen = () => {
 
     // SEPARATE EFFECT: Recalculate goal progress when relevant data changes
     useEffect(() => {
-        if (historyData.length === 0) return; // Wait for history to load
-
         const goals = habitsStore.filter(h => h.isGoal && !h.isArchived);
         if (goals.length === 0) return;
 
@@ -248,12 +260,12 @@ const CalendarScreen = () => {
             const progressMap: Record<string, number> = {};
             goals.forEach(g => {
                 // IMPORTANT: Pass todayCompletions, NOT current view completions
-                progressMap[g.id] = calculateGoalProgressInstant(g, habitsStore, todayCompletions, historyMap);
+                progressMap[g.id] = calculateGoalProgressInstant(g, habitsStore, todayCompletions, historyMap, tasks);
             });
             setGoalProgress(progressMap);
         });
         return () => task.cancel();
-    }, [habitsStore, todayCompletions, historyMap]);
+    }, [habitsStore, todayCompletions, historyMap, tasks]);
 
     // Map habits with completion status - OPTIMIZED: only on data changes
     // Map habits effect removed - redundant O(N) state update
@@ -350,10 +362,23 @@ const CalendarScreen = () => {
         setTimeout(() => { isNavigating.current = false; }, 300);
     }, [selectedDate, completions, playComplete, selectionFeedback, lightFeedback]);
 
+    // Standing down for today: recorded, so it is never counted as a miss.
+    const handleHabitSkip = useCallback(async (habit: StoreHabit) => {
+        const already = !!skipped[habit.id];
+        selectionFeedback();
+        setSkipped(prev => {
+            const next = { ...prev };
+            if (already) delete next[habit.id]; else next[habit.id] = true;
+            return next;
+        });
+        const date = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+        await setSkippedHabit(habit.id, !already, date);
+    }, [skipped, selectedDate, selectionFeedback]);
+
     const handleTaskToggle = useCallback(async (task: Task) => {
         await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
         successFeedback();
-        DeviceEventEmitter.emit('tasks_changed');
+        emit('tasks_changed');
     }, [successFeedback]);
 
     const handleTaskDelete = useCallback((task: Task) => {
@@ -363,14 +388,14 @@ const CalendarScreen = () => {
                 text: 'Delete', style: 'destructive',
                 onPress: async () => {
                     await removeTask(task.id);
-                    DeviceEventEmitter.emit('tasks_changed');
+                    emit('tasks_changed');
                 },
             },
         ]);
     }, []);
 
     const openTask = useCallback((task: Task) => {
-        DeviceEventEmitter.emit('show_task_form', { task });
+        emit('show_task_form', { task });
     }, []);
 
     const handleDelete = (habit: Habit) => {
@@ -392,12 +417,11 @@ const CalendarScreen = () => {
 
     const handleEdit = (habit: Habit) => {
         // Use global modal via DeviceEventEmitter
-        DeviceEventEmitter.emit('show_habit_modal', {
+        emit('show_habit_modal', {
             goalId: habit.goalId,
             initialHabit: habit
         });
     };
-
 
     const isHabitFocusableNow = useCallback((habit: Habit) => {
         if (!habit.startTime) return false;
@@ -479,6 +503,8 @@ const CalendarScreen = () => {
         selectionFeedback();
         setDraggingHabit(habit);
         dragY.value = y;
+        dragX.value = x;
+        dragLift.value = withSpring(1, { damping: 16, stiffness: 220 });
         const currentGoals = habitsStore.filter((item) => item.isGoal) as Habit[];
         await measureGoalDropTargets(currentGoals);
         const initial = getHoveredGoalAtPoint(x, y);
@@ -492,16 +518,22 @@ const CalendarScreen = () => {
         // changes; setting it on every pointer move re-rendered every goal and habit
         // row for each frame of the drag.
         dragY.value = y;
+        dragX.value = x;
         const next = getHoveredGoalAtPoint(x, y);
         if (next !== hoveredGoalRef.current) {
             hoveredGoalRef.current = next;
             setHoveredGoalId(next);
+            // A tap of feedback the moment it is over a goal, so the drop is
+            // felt rather than guessed at.
+            if (next) selectionFeedback();
         }
-    }, [getHoveredGoalAtPoint]);
+    }, [getHoveredGoalAtPoint, selectionFeedback]);
 
     const handleHabitDragEnd = useCallback(async (habit: Habit, x: number, y: number) => {
         const targetGoalId = getHoveredGoalAtPoint(x, y);
 
+        // The card settles back into the list instead of vanishing mid-air.
+        dragLift.value = withTiming(0, { duration: 170 });
         setDraggingHabit(null);
         hoveredGoalRef.current = null;
         setHoveredGoalId(null);
@@ -519,6 +551,56 @@ const CalendarScreen = () => {
         } catch {
             setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
             Alert.alert('Could not move habit', 'Your habit is still in its original goal. Please try again.');
+        }
+    }, [getHoveredGoalAtPoint, lightFeedback]);
+
+    /**
+     * Tasks move between goals exactly like habits: hold one, drag it onto a
+     * goal, let go. The drop targets and the floating preview are shared, so
+     * both kinds of row behave the same.
+     */
+    const handleTaskDragStart = useCallback(async (task: Task, x: number, y: number) => {
+        selectionFeedback();
+        setDraggingTask(task);
+        dragY.value = y;
+        dragX.value = x;
+        dragLift.value = withSpring(1, { damping: 16, stiffness: 220 });
+        await measureGoalDropTargets(habitsStore.filter(item => item.isGoal) as Habit[]);
+        const initial = getHoveredGoalAtPoint(x, y);
+        hoveredGoalRef.current = initial;
+        setHoveredGoalId(initial);
+    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore]);
+
+    const handleTaskDragMove = useCallback((_task: Task, x: number, y: number) => {
+        dragY.value = y;
+        dragX.value = x;
+        const next = getHoveredGoalAtPoint(x, y);
+        if (next !== hoveredGoalRef.current) {
+            hoveredGoalRef.current = next;
+            setHoveredGoalId(next);
+            if (next) selectionFeedback();
+        }
+    }, [getHoveredGoalAtPoint, selectionFeedback]);
+
+    const handleTaskDragEnd = useCallback(async (task: Task, x: number, y: number) => {
+        const targetGoalId = getHoveredGoalAtPoint(x, y);
+        dragLift.value = withTiming(0, { duration: 170 });
+        setDraggingTask(null);
+        hoveredGoalRef.current = null;
+        setHoveredGoalId(null);
+
+        if (!targetGoalId || targetGoalId === task.goalId) return;
+
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: targetGoalId } : item));
+        setExpandedGoals(prev => ({ ...prev, [targetGoalId]: true }));
+        lightFeedback();
+        try {
+            await updateTask(task.id, { goalId: targetGoalId });
+            emit('tasks_changed');
+        } catch {
+            setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: task.goalId } : item));
+            Alert.alert('Could not move task', 'Your task is still in its original goal. Please try again.');
         }
     }, [getHoveredGoalAtPoint, lightFeedback]);
 
@@ -569,6 +651,14 @@ const CalendarScreen = () => {
 
         return { allHabits: filtered, habitsByGoal: byGoal };
     }, [habitsStore, selectedDate, selectedGoalFilter, selectedCategoryFilter, activeTimeFilter, activeSort, sortDirection, completions]);
+
+    // Habits are already filtered to the day being looked at; tasks were not,
+    // so everything ever written sat in every day's list. A task belongs to the
+    // day it was given, plus today for anything late or undated.
+    const dayTasks = useMemo(() => {
+        const day = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+        return tasksForDay(tasks, day, todayKey());
+    }, [tasks, selectedDate]);
 
     // Loose habits are those not linked to any goal, or linked to a non-existent goal
     const looseHabits = useMemo(() => {
@@ -669,6 +759,9 @@ const CalendarScreen = () => {
                                     marginBottom: 8,
                                 }}>
                                     <TouchableOpacity
+                                        ref={filterButtonRef}
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Filter the roadmap"
                                         onPress={() => {
                                             lightFeedback();
                                             openFilterModal();
@@ -676,7 +769,7 @@ const CalendarScreen = () => {
                                         style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                                     >
                                         <Ionicons name="filter" size={10} color={accentColor} />
-                                        <Text style={{ color: accentColor, fontSize: 9, fontWeight: '600', letterSpacing: 0.5 }}>
+                                        <Text style={{ color: accentColor, fontSize: 9, fontFamily: FontFamily.semibold, letterSpacing: 0.5 }}>
                                             {[
                                                 activeFilter !== 'all' && (activeFilter === 'goals_only' ? 'Goals' : 'Habits'),
                                                 selectedGoalFilter && goals.find(g => g.id === selectedGoalFilter)?.name?.slice(0, 12),
@@ -702,7 +795,7 @@ const CalendarScreen = () => {
                             {(sharedHabits.length > 0 || sharedGoals.length > 0) && !hasActiveFilters && activeFilter === 'all' && (
                                 <View style={{ marginBottom: 24 }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                        <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2 }}>
+                                        <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2 }}>
                                             SHARED WITH YOU
                                         </Text>
                                     </View>
@@ -714,16 +807,16 @@ const CalendarScreen = () => {
                                                 <VoidCard key={`sh-${index}`} glass={!theme.includes('trueDark')} intensity={30} style={{ width: 220, padding: 12, marginRight: 0 }}>
                                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                                                         <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.surfaceTertiary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                                                            <Text style={{ fontSize: 16 }}>{item.habit.icon || '📝'}</Text>
+                                                            <Ionicons name={item.habit.icon || 'checkbox-outline'} size={18} color={colors.textPrimary} />
                                                         </View>
                                                         <View style={{ flex: 1 }}>
-                                                            <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', fontFamily: 'Lexend' }} numberOfLines={1}>{item.habit.name}</Text>
+                                                            <Text style={{ color: colors.text, fontSize: 13, fontFamily: FontFamily.semibold }} numberOfLines={1}>{item.habit.name}</Text>
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                                                                 {item.owner.avatarUrl ? (
                                                                     <Image source={{ uri: item.owner.avatarUrl }} style={{ width: 14, height: 14, borderRadius: 7, marginRight: 4 }} />
                                                                 ) : (
                                                                     <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: colors.primary, marginRight: 4, alignItems: 'center', justifyContent: 'center' }}>
-                                                                        <Text style={{ color: '#fff', fontSize: 8, fontWeight: 'bold' }}>{item.owner.username.charAt(0).toUpperCase()}</Text>
+                                                                        <Text style={{ color: '#fff', fontSize: 8, fontFamily: FontFamily.bold }}>{item.owner.username.charAt(0).toUpperCase()}</Text>
                                                                     </View>
                                                                 )}
                                                                 <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{item.owner.username}</Text>
@@ -760,7 +853,7 @@ const CalendarScreen = () => {
                                                             );
                                                         }}
                                                     >
-                                                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Add to list</Text>
+                                                        <Text style={{ color: '#fff', fontSize: 11, fontFamily: FontFamily.semibold }}>Add to list</Text>
                                                     </TouchableOpacity>
                                                 </VoidCard>
                                             ))}
@@ -770,16 +863,16 @@ const CalendarScreen = () => {
                                                 <VoidCard key={`sg-${index}`} glass={!theme.includes('trueDark')} intensity={30} style={{ width: 220, padding: 12, marginRight: 0 }}>
                                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                                                         <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(16, 185, 129, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                                                            <Text style={{ fontSize: 16 }}>{item.goal.icon || '🎯'}</Text>
+                                                            <Ionicons name={item.goal.icon || 'flag-outline'} size={18} color={colors.textPrimary} />
                                                         </View>
                                                         <View style={{ flex: 1 }}>
-                                                            <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600', fontFamily: 'Lexend' }} numberOfLines={1}>{item.goal.name}</Text>
+                                                            <Text style={{ color: colors.text, fontSize: 13, fontFamily: FontFamily.semibold }} numberOfLines={1}>{item.goal.name}</Text>
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                                                                 {item.owner.avatarUrl ? (
                                                                     <Image source={{ uri: item.owner.avatarUrl }} style={{ width: 14, height: 14, borderRadius: 7, marginRight: 4 }} />
                                                                 ) : (
                                                                     <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: colors.primary, marginRight: 4, alignItems: 'center', justifyContent: 'center' }}>
-                                                                        <Text style={{ color: '#fff', fontSize: 8, fontWeight: 'bold' }}>{item.owner.username.charAt(0).toUpperCase()}</Text>
+                                                                        <Text style={{ color: '#fff', fontSize: 8, fontFamily: FontFamily.bold }}>{item.owner.username.charAt(0).toUpperCase()}</Text>
                                                                     </View>
                                                                 )}
                                                                 <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{item.owner.username}</Text>
@@ -796,7 +889,7 @@ const CalendarScreen = () => {
                                                             });
                                                         }}
                                                     >
-                                                        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }}>View Goal</Text>
+                                                        <Text style={{ color: colors.text, fontSize: 11, fontFamily: FontFamily.semibold }}>View Goal</Text>
                                                     </TouchableOpacity>
                                                 </VoidCard>
                                             ))}
@@ -809,7 +902,7 @@ const CalendarScreen = () => {
                             {!isHabitFilter && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                        <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2 }}>GOALS</Text>
+                                        <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2 }}>GOALS</Text>
                                         <TouchableOpacity onPress={() => {
                                             const allExpanded = sortedGoals.every(goal => expandedGoals[goal.id]);
                                             setExpandedGoals(allExpanded ? {} : Object.fromEntries(sortedGoals.map(goal => [goal.id, true])));
@@ -861,6 +954,8 @@ const CalendarScreen = () => {
                                                                         size={cardSize}
                                                                         completed={!!completions[habit.id]}
                                                                         isDragging={draggingHabit?.id === habit.id}
+                                                                        skipped={!!skipped[habit.id]}
+                                                                        onSkip={handleHabitSkip}
                                                                         isActive={habit.id === activeHabitId}
                                                                         timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
                                                                         totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
@@ -878,11 +973,16 @@ const CalendarScreen = () => {
                                                             ) : null}
 
                                                             {/* A goal is reached through rhythms and one-off work alike. */}
-                                                            {tasks.filter(task => task.goalId === goal.id && task.status !== 'cancelled').map(task => (
+                                                            {dayTasks.filter(task => task.goalId === goal.id).map(task => (
                                                                 <TaskItem
                                                                     key={task.id}
                                                                     task={task}
+                                                                    size={cardSize}
                                                                     today={todayKey()}
+                                                                    isDragging={draggingTask?.id === task.id}
+                                                                    onDragStart={handleTaskDragStart}
+                                                                    onDragMove={handleTaskDragMove}
+                                                                    onDragEnd={handleTaskDragEnd}
                                                                     onToggle={handleTaskToggle}
                                                                     onPress={openTask}
                                                                     onEdit={openTask}
@@ -890,7 +990,7 @@ const CalendarScreen = () => {
                                                                 />
                                                             ))}
 
-                                                            {linkedHabits.length === 0 && !tasks.some(task => task.goalId === goal.id && task.status !== 'cancelled') ? (
+                                                            {linkedHabits.length === 0 && !dayTasks.some(task => task.goalId === goal.id) ? (
                                                                 <Text style={{ color: colors.textSecondary, fontSize: 12, fontStyle: 'italic', paddingVertical: 8 }}>
                                                                     Nothing linked yet.
                                                                 </Text>
@@ -903,25 +1003,30 @@ const CalendarScreen = () => {
                                         })
                                     ) : (
                                         <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
-                                            <Text style={{ color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>NO ACTIVE GOALS</Text>
+                                            <Text style={{ color: colors.textTertiary, fontFamily: FontFamily.regular }}>NO ACTIVE GOALS</Text>
                                         </VoidCard>
                                     )}
                                 </View>
                             )}
 
                             {/* TASKS SECTION — one-off work, kept apart from the rhythms. */}
-                            {!isGoalFilter && tasks.some(task => !task.goalId && task.status !== 'cancelled') && (
+                            {!isGoalFilter && dayTasks.some(task => !task.goalId) && (
                                 <View style={{ marginBottom: 16 }}>
-                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2, marginBottom: 10 }}>
+                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2, marginBottom: 10 }}>
                                         TASKS
                                     </Text>
-                                    {tasks
-                                        .filter(task => !task.goalId && task.status !== 'cancelled')
+                                    {dayTasks
+                                        .filter(task => !task.goalId)
                                         .map(task => (
                                             <TaskItem
                                                 key={task.id}
                                                 task={task}
+                                                size={cardSize}
                                                 today={todayKey()}
+                                                isDragging={draggingTask?.id === task.id}
+                                                onDragStart={handleTaskDragStart}
+                                                onDragMove={handleTaskDragMove}
+                                                onDragEnd={handleTaskDragEnd}
                                                 onToggle={handleTaskToggle}
                                                 onPress={openTask}
                                                 onEdit={openTask}
@@ -934,7 +1039,7 @@ const CalendarScreen = () => {
                             {/* HABITS SECTION */}
                             {!isGoalFilter && (activeFilter === 'all' ? looseHabits : allHabits).length > 0 && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
-                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: 'Lexend_400Regular', letterSpacing: 2, marginBottom: 10 }}>
+                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2, marginBottom: 10 }}>
                                         {activeFilter === 'all' ? 'OTHER HABITS' : 'ALL HABITS'}
                                     </Text>
 
@@ -986,7 +1091,7 @@ const CalendarScreen = () => {
 
                         </Animated.ScrollView>
 
-                        {draggingHabit ? (
+                        {draggingHabit || draggingTask ? (
                             <View pointerEvents="none" style={styles.dragOverlay}>
                                 <Animated.View
                                     style={[
@@ -1001,22 +1106,21 @@ const CalendarScreen = () => {
                                         },
                                     ]}
                                 >
-                                    <Ionicons name={(draggingHabit.icon as any) || 'ellipse-outline'} size={16} color={draggingHabit.color || accentColor} />
+                                    {/* The same preview for both kinds of row. */}
+                                    <Ionicons
+                                        name={draggingTask ? 'flash' : ((draggingHabit?.icon as any) || 'ellipse-outline')}
+                                        size={16}
+                                        color={draggingTask ? TASK_COLOR : (draggingHabit?.color || accentColor)}
+                                    />
                                     <Text style={[styles.dragPreviewText, { color: colors.text }]} numberOfLines={1}>
-                                        {`Move "${draggingHabit.name}" into ${hoveredGoalId ? goals.find((goal) => goal.id === hoveredGoalId)?.name || 'goal' : 'a goal'}`}
+                                        {`Move "${draggingTask?.title ?? draggingHabit?.name ?? ''}" into ${hoveredGoalId ? goals.find((goal) => goal.id === hoveredGoalId)?.name || 'goal' : 'a goal'}`}
                                     </Text>
                                 </Animated.View>
                             </View>
                         ) : null}
                     </View>
 
-                    <GoalCreationWizard
-                        visible={isWizardVisible}
-                        onClose={() => setIsWizardVisible(false)}
-                        onSuccess={() => {/* refresh */ }}
-                    />
-
-                    <RoadmapFilters visible={showFilter} onClose={closeFilterModal} goals={goals}
+                    <RoadmapFilters visible={showFilter} onClose={closeFilterModal} goals={goals} anchor={filterAnchor}
                         show={activeFilter} onShow={setActiveFilter} focus={activeTimeFilter} onFocus={setActiveTimeFilter}
                         goal={selectedGoalFilter} onGoal={setSelectedGoalFilter} order={activeSort} direction={sortDirection}
                         onOrder={value => { if (value === activeSort) setSortDirection(direction => direction === 1 ? -1 : 1); else { setActiveSort(value); setSortDirection(1); } }}
@@ -1024,7 +1128,6 @@ const CalendarScreen = () => {
 
                 </View>
             </SafeAreaView>
-
 
         </VoidShell>
     );
@@ -1053,7 +1156,7 @@ const styles = StyleSheet.create({
     dragPreviewText: {
         flex: 1,
         fontSize: 14,
-        fontFamily: 'Lexend_500Medium',
+        fontFamily: FontFamily.medium,
     },
     filterOption: {
         flexDirection: 'row',
@@ -1065,8 +1168,7 @@ const styles = StyleSheet.create({
     },
     filterText: {
         fontSize: 16,
-        fontWeight: '600',
-        fontFamily: 'Lexend_400Regular'
+        fontFamily: FontFamily.semibold
     },
     sortChip: {
         flex: 1,
@@ -1080,9 +1182,8 @@ const styles = StyleSheet.create({
     },
     sortText: {
         fontSize: 12,
-        fontWeight: '600',
         color: 'rgba(128,128,128,0.7)',
-        fontFamily: 'Lexend_400Regular'
+        fontFamily: FontFamily.semibold
     }
 });
 

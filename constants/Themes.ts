@@ -8,8 +8,8 @@ export const LightTheme: Theme = {
     background: Colors.light.background,
     primary: Colors.light.tint,
     text: Colors.light.text,
-    card: "#F8F8F8", // Optional: Adjust as needed
-    border: "#E5E5E5", // Optional
+    card: Colors.light.surface,
+    border: Colors.light.border,
   },
 };
 
@@ -20,7 +20,7 @@ export const DarkTheme: Theme = {
     background: Colors.abyss.background,
     primary: Colors.abyss.tint,
     text: Colors.abyss.text,
-    card: "#1E1E1E", // Optional
-    border: "#333333", // Optional
+    card: Colors.abyss.surface,
+    border: Colors.abyss.border,
   },
 };

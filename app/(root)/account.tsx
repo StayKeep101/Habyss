@@ -1,23 +1,28 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppButton } from '@/components/Common/AppButton';
+import { AppTextField } from '@/components/Common/AppTextField';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { FontFamily, UIStyles } from '@/constants/DesignSystem';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
-    StyleSheet, Text, TextInput, TouchableOpacity, View,
+    StyleSheet, Text, TouchableOpacity, View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import {
-    currentAccount, deleteAccount, isEmail, onAccountChange, requestCode, signOut, verifyCode,
+    currentAccount, deleteAccount, isEmail, onAccountChange, requestCode, signInWithPassword,
+    signOut, signUpWithPassword, verifyCode,
     type Account,
 } from '@/lib/account';
 import { lastSyncedAt, syncNow } from '@/lib/cloudSync';
 import { isCloudConfigured } from '@/lib/supabase';
+import { SignInOptions } from '@/components/Auth/SignInOptions';
+import type { SyncReport } from '@/lib/cloudSync';
 import { setOnboardingComplete } from '@/lib/localUser';
 import { restartAfterDeletion } from '@/lib/accountDeletion';
 
@@ -54,6 +59,10 @@ export default function AccountScreen() {
     const [email, setEmail] = useState('');
     const [code, setCode] = useState('');
     const [codeSent, setCodeSent] = useState(false);
+    // A password needs no email to arrive, so it is the way in that cannot be
+    // broken by a mail server.
+    const [usePassword, setUsePassword] = useState(false);
+    const [password, setPassword] = useState('');
     const [resendIn, setResendIn] = useState(0);
     const [busy, setBusy] = useState<null | 'send' | 'verify' | 'sync' | 'signout' | 'delete'>(null);
     const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
@@ -96,6 +105,23 @@ export default function AccountScreen() {
         setMessage({ tone: 'ok', text: `We sent a code to ${email.trim()}.` });
     };
 
+    const withPassword = async (creating: boolean) => {
+        if (busy) return;
+        lightFeedback();
+        setBusy('verify');
+        setMessage(null);
+        const result = creating
+            ? await signUpWithPassword(email, password)
+            : await signInWithPassword(email, password);
+        setBusy(null);
+        if (!result.ok) { setMessage({ tone: 'error', text: result.error }); return; }
+        if (!result.value) {
+            setMessage({ tone: 'ok', text: `Account made. Confirm ${email.trim()} from the email, then sign in.` });
+            return;
+        }
+        await afterSignIn(result.value);
+    };
+
     const confirmCode = async () => {
         if (busy) return;
         lightFeedback();
@@ -104,9 +130,12 @@ export default function AccountScreen() {
         const result = await verifyCode(email, code);
         setBusy(null);
         if (!result.ok) { setMessage({ tone: 'error', text: result.error }); return; }
+        await afterSignIn(result.value);
+    };
 
+    /** The same ending for every way of signing in. */
+    const afterSignIn = async (report: SyncReport) => {
         successFeedback();
-        const report = result.value;
         await refresh();
 
         if (restoring) {
@@ -138,7 +167,11 @@ export default function AccountScreen() {
         setLastSync(await lastSyncedAt());
         if (report.ok) {
             successFeedback();
-            setMessage({ tone: 'ok', text: 'Everything is backed up.' });
+            // Saying "everything" while a table is still missing on the server
+            // would be a lie the user only finds out about on a new phone.
+            setMessage(report.waiting?.length
+                ? { tone: 'ok', text: `Backed up, except ${report.waiting.join(' and ')} — the server needs its database update first.` }
+                : { tone: 'ok', text: 'Everything is backed up.' });
         } else {
             setMessage({ tone: 'error', text: report.error ?? `${report.failed} change${report.failed === 1 ? '' : 's'} could not be backed up.` });
         }
@@ -204,25 +237,6 @@ export default function AccountScreen() {
         );
     };
 
-    const inputStyle = [styles.input, {
-        color: colors.textPrimary, borderColor: colors.border,
-        backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-    }];
-
-    const PrimaryButton = ({ label, onPress, disabled, working }: { label: string; onPress: () => void; disabled?: boolean; working?: boolean }) => (
-        <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !!disabled }}
-            disabled={disabled || working}
-            onPress={onPress}
-            style={[styles.primary, { backgroundColor: disabled ? (isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)') : accent }]}
-        >
-            {working ? <ActivityIndicator color="#000" /> : (
-                <Text style={[styles.primaryText, { color: disabled ? colors.textTertiary : '#000' }]}>{label}</Text>
-            )}
-        </TouchableOpacity>
-    );
-
     const renderSignedOut = () => (
         <>
             <VoidCard style={styles.card}>
@@ -232,13 +246,21 @@ export default function AccountScreen() {
                 </Text>
                 <Text style={[styles.cardBody, { color: colors.textSecondary }]}>
                     {restoring
-                        ? 'Sign in with the email you used before. Your habits, goals and tasks come back with you.'
-                        : 'Keep a backup, move to a new phone without losing anything, and add friends. No password; we email you a code.'}
+                        ? 'Sign in the way you did before. Your habits, goals and tasks come back with you.'
+                        : 'Keep a backup, move to a new phone without losing anything, and add friends.'}
                 </Text>
             </VoidCard>
 
-            <Text style={[styles.label, { color: colors.textSecondary }]}>EMAIL</Text>
-            <TextInput
+            {/* The same two buttons as onboarding and the Friends tab. */}
+            <SignInOptions onSignedIn={afterSignIn} />
+
+            <View style={styles.divider}>
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.textTertiary }]}>or with email</Text>
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            </View>
+
+            <AppTextField label="Email"
                 value={email}
                 onChangeText={text => { setEmail(text); if (codeSent) { setCodeSent(false); setCode(''); } }}
                 autoCapitalize="none"
@@ -250,13 +272,48 @@ export default function AccountScreen() {
                 placeholder="you@example.com"
                 placeholderTextColor={colors.textTertiary}
                 accessibilityLabel="Email address"
-                style={inputStyle}
             />
 
-            {codeSent ? (
+            {usePassword ? (
                 <>
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>CODE</Text>
-                    <TextInput
+                    <AppTextField label="Password"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                        autoCapitalize="none"
+                        autoComplete="current-password"
+                        textContentType="password"
+                        returnKeyType="go"
+                        onSubmitEditing={() => { if (isEmail(email) && password) void withPassword(false); }}
+                        placeholder="Your password"
+                        placeholderTextColor={colors.textTertiary}
+                        accessibilityLabel="Password"
+                    />
+                    <AppButton
+                        label="Sign in"
+                        onPress={() => void withPassword(false)}
+                        disabled={!isEmail(email) || !password}
+                        loading={busy === 'verify'}
+                    />
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        disabled={!!busy}
+                        onPress={() => void withPassword(true)}
+                        style={styles.secondary}
+                    >
+                        <Text style={[styles.secondaryText, { color: accent }]}>Create an account with this password</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        onPress={() => { lightFeedback(); setUsePassword(false); setMessage(null); }}
+                        style={styles.secondary}
+                    >
+                        <Text style={[styles.secondaryText, { color: colors.textSecondary }]}>Email me a code instead</Text>
+                    </TouchableOpacity>
+                </>
+            ) : codeSent ? (
+                <>
+                    <AppTextField label="Code"
                         value={code}
                         onChangeText={setCode}
                         autoFocus
@@ -267,9 +324,9 @@ export default function AccountScreen() {
                         placeholder="123456"
                         placeholderTextColor={colors.textTertiary}
                         accessibilityLabel="Code from the email"
-                        style={[...inputStyle, styles.codeInput]}
+                        style={styles.codeInput}
                     />
-                    <PrimaryButton label="Sign in" onPress={confirmCode} disabled={code.replace(/\s/g, '').length < 6} working={busy === 'verify'} />
+                    <AppButton label="Sign in" onPress={confirmCode} disabled={code.replace(/\s/g, '').length < 6} loading={busy === 'verify'} />
                     <TouchableOpacity
                         accessibilityRole="button"
                         disabled={resendIn > 0 || !!busy}
@@ -282,7 +339,16 @@ export default function AccountScreen() {
                     </TouchableOpacity>
                 </>
             ) : (
-                <PrimaryButton label="Send code" onPress={sendCode} disabled={!isEmail(email)} working={busy === 'send'} />
+                <>
+                    <AppButton label="Send code" onPress={sendCode} disabled={!isEmail(email)} loading={busy === 'send'} />
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        onPress={() => { lightFeedback(); setUsePassword(true); setMessage(null); }}
+                        style={styles.secondary}
+                    >
+                        <Text style={[styles.secondaryText, { color: colors.textSecondary }]}>Use a password instead</Text>
+                    </TouchableOpacity>
+                </>
             )}
         </>
     );
@@ -301,32 +367,16 @@ export default function AccountScreen() {
                 </View>
             </VoidCard>
 
-            <PrimaryButton label="Back up now" onPress={backUpNow} working={busy === 'sync'} />
+            <AppButton label="Back up now" onPress={backUpNow} loading={busy === 'sync'} />
 
             <View style={{ height: 24 }} />
-            <TouchableOpacity accessibilityRole="button" disabled={!!busy} onPress={confirmSignOut} style={[styles.outline, { borderColor: colors.border }]}>
-                {busy === 'signout' ? <ActivityIndicator color={colors.textPrimary} /> : (
-                    <Text style={[styles.outlineText, { color: colors.textPrimary }]}>Sign out</Text>
-                )}
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" disabled={!!busy} onPress={confirmDelete} style={styles.secondary}>
-                {busy === 'delete' ? <ActivityIndicator color={colors.error} /> : (
-                    <Text style={[styles.secondaryText, { color: colors.error }]}>Delete account</Text>
-                )}
-            </TouchableOpacity>
+            <AppButton label="Sign out" variant="secondary" onPress={confirmSignOut} disabled={!!busy} loading={busy === 'signout'} />
+            <AppButton label="Delete account" variant="danger" onPress={confirmDelete} disabled={!!busy} loading={busy === 'delete'} />
         </>
     );
 
     return (
-        <VoidShell>
-            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.back} accessibilityLabel="Back">
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>Account</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+        <SheetScreen title="Account & backup" onBack={() => router.back()}>
 
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -351,30 +401,26 @@ export default function AccountScreen() {
                         ) : null}
                     </ScrollView>
                 </KeyboardAvoidingView>
-            </SafeAreaView>
-        </VoidShell>
+            </SheetScreen>
     );
 }
 
 const styles = StyleSheet.create({
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
-    back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: 18, fontWeight: '700', fontFamily: 'Lexend' },
-    content: { paddingHorizontal: 20, paddingBottom: 40, gap: 12 },
+    providerButton: { height: 50, alignSelf: 'stretch', marginTop: 12 },
+    google: { borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    googleText: { fontSize: 16, fontFamily: FontFamily.medium },
+    divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20, marginBottom: 4 },
+    dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
+    dividerText: { fontSize: 12, fontFamily: FontFamily.regular },
+    content: { ...UIStyles.screenContent,   gap: 12  },
     card: { padding: 18, gap: 6, marginBottom: 8 },
-    cardTitle: { fontSize: 17, fontFamily: 'Lexend_600SemiBold', marginTop: 6 },
-    cardBody: { fontSize: 13, lineHeight: 19, fontFamily: 'Lexend_400Regular' },
+    cardTitle: { fontSize: 17, fontFamily: FontFamily.semibold, marginTop: 6 },
+    cardBody: { fontSize: 13, lineHeight: 19, fontFamily: FontFamily.regular },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-    label: { fontSize: 10, letterSpacing: 1.2, fontFamily: 'Lexend_500Medium', marginTop: 4 },
-    input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16, fontFamily: 'Lexend_400Regular' },
-    codeInput: { fontSize: 22, letterSpacing: 6, textAlign: 'center', fontFamily: 'Lexend_600SemiBold' },
-    primary: { paddingVertical: 16, borderRadius: 999, alignItems: 'center', marginTop: 4 },
-    primaryText: { fontSize: 15, fontFamily: 'Lexend_600SemiBold' },
-    outline: { paddingVertical: 15, borderRadius: 999, alignItems: 'center', borderWidth: 1 },
-    outlineText: { fontSize: 15, fontFamily: 'Lexend_500Medium' },
+    codeInput: { fontSize: 22, letterSpacing: 6, textAlign: 'center', fontFamily: FontFamily.semibold },
     secondary: { paddingVertical: 14, alignItems: 'center' },
-    secondaryText: { fontSize: 14, fontFamily: 'Lexend_500Medium' },
+    secondaryText: { fontSize: 14, fontFamily: FontFamily.medium },
     note: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', padding: 12, borderRadius: 12, borderWidth: 1, marginTop: 8 },
-    noteText: { flex: 1, fontSize: 13, lineHeight: 18, fontFamily: 'Lexend_400Regular' },
+    noteText: { flex: 1, fontSize: 13, lineHeight: 18, fontFamily: FontFamily.regular },
 });

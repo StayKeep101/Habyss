@@ -1,7 +1,9 @@
 /**
- * Integration Service — Local Stub
- * Full implementation moved to _premium/integrationService.ts
- * This stub prevents import errors in free tier.
+ * Integration Service — local only.
+ *
+ * Integrations are remembered on the device. A second, server-backed copy of
+ * this lived under lib/_premium and was never reachable from any screen, so it
+ * was removed rather than left to drift out of step with this one.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';

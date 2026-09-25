@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Dimensions, Animated, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Habit } from '@/lib/habitsSQLite';
@@ -28,7 +28,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
   const days = React.useMemo(() => {
     const d = [];
     const today = new Date();
-    
+
     // Future days (upcoming days above) - Reversed order so today is at bottom
     for (let i = 10; i >= 1; i--) {
       const date = new Date(today);
@@ -42,7 +42,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
         icon: ['star', 'videocam', 'book', 'headset'][i % 4] as any,
       });
     }
-    
+
     // Today
     d.push({
       day: 0,
@@ -52,7 +52,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
       isPast: false,
       icon: 'star',
     });
-    
+
     // Past days
     for (let i = 1; i <= 10; i++) {
         const date = new Date(today);
@@ -66,7 +66,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
           icon: ['star', 'videocam', 'book', 'headset'][i % 4] as any,
         });
     }
-    
+
     return d;
   }, [completedHabitsCount, totalHabitsCount]);
 
@@ -83,7 +83,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
     // Sine wave logic for horizontal position
     // Center is width/2. Amplitude is width * 0.35. Frequency depends on index.
     const xOffset = Math.sin(index * 0.8) * (width * 0.25); 
-    
+
     // Styling
     const nodeSize = 70;
     const buttonColor = colors.primary; // Theme Primary (Slate Blue)
@@ -101,7 +101,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
     return (
       <View key={index} className="mb-6 relative items-center justify-center w-full">
         <View style={{ transform: [{ translateX: xOffset }] }}>
-            
+
             {/* Character Illustration */}
             {showCharacter && (
                 <View className="absolute right-[-100] top-[-20]">
@@ -140,7 +140,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
                 }}
             >
                 <Ionicons name={day.icon} size={32} color={iconColor} />
-                
+
                 {/* Stars below node (Decoration) */}
                 <View className="absolute -bottom-8 flex-row space-x-1">
                     {[1,2,3].map(s => (
@@ -155,7 +155,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}> 
-      
+
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={{ paddingVertical: 60, paddingBottom: 120 }}
@@ -164,7 +164,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
         {days.map((day, index) => {
             // Check if there's a goal on this day
             const goalForDay = habits.find(h => h.isGoal && h.targetDate && new Date(h.targetDate).toDateString() === day.date.toDateString());
-            
+
             if (goalForDay) {
                 // Goal Node (Rectangular)
                 const xOffset = Math.sin(index * 0.8) * (width * 0.25);
@@ -203,7 +203,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
                     </View>
                 )
             }
-            
+
             return renderDayNode(day, index);
         })}
       </ScrollView>

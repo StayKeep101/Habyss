@@ -1,6 +1,7 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, ScrollView, Alert, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, Alert } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
@@ -10,7 +11,7 @@ import { VoidModal } from '@/components/Layout/VoidModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { SheetSection } from '@/components/Layout/SheetSection';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing, withSpring } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
 import { useAccentGradient } from '@/constants/AccentContext';
 
@@ -343,12 +344,11 @@ const styles = StyleSheet.create({
     },
     avatarText: {
         fontSize: 48,
-        fontWeight: 'bold',
+        fontFamily: FontFamily.bold,
     },
     username: {
         fontSize: 28,
-        fontWeight: '900',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
         marginTop: 16,
         letterSpacing: -1,
     },
@@ -363,8 +363,7 @@ const styles = StyleSheet.create({
     },
     statusText: {
         fontSize: 12,
-        fontWeight: '600',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.semibold,
     },
     hudContainer: {
         flexDirection: 'row',
@@ -382,12 +381,11 @@ const styles = StyleSheet.create({
     },
     hudValue: {
         fontSize: 24,
-        fontWeight: '900',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     hudLabel: {
         fontSize: 9,
-        fontWeight: '700',
+        fontFamily: FontFamily.bold,
         letterSpacing: 1,
     },
     hudStats: {
@@ -404,12 +402,11 @@ const styles = StyleSheet.create({
     },
     boxValue: {
         fontSize: 18,
-        fontWeight: '800',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     boxLabel: {
         fontSize: 9,
-        fontWeight: '600',
+        fontFamily: FontFamily.semibold,
         letterSpacing: 0.5,
     },
     activitySection: {
@@ -434,8 +431,7 @@ const styles = StyleSheet.create({
     },
     heatmapLabel: {
         fontSize: 10,
-        fontWeight: '600',
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.semibold,
     },
     actionContainer: {
         paddingHorizontal: 40,
@@ -458,8 +454,7 @@ const styles = StyleSheet.create({
     nudgeText: {
         color: '#FFF',
         fontSize: 16,
-        fontWeight: '800',
         letterSpacing: 1,
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     }
 });

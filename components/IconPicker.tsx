@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Modal, Platform, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useState, useEffect, useMemo } from 'react';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Modal } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
-import { cn } from '@/lib/utils';
 
 const POPULAR_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
   'alarm', 'american-football', 'analytics', 'aperture', 'apps', 'archive', 'barbell', 'basket', 'basketball', 'battery-charging',
@@ -105,7 +104,7 @@ export function IconPicker({ visible, onClose, onSelect, selectedIcon, habitName
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'dark'];
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Reset search when modal opens
   useEffect(() => {
     if (visible) {
@@ -116,17 +115,17 @@ export function IconPicker({ visible, onClose, onSelect, selectedIcon, habitName
   // Auto-suggestions based on habit name
   const suggestions = useMemo(() => {
     if (!habitName.trim()) return [];
-    
+
     const terms = habitName.toLowerCase().split(' ').filter(t => t.length > 2);
     if (terms.length === 0) return [];
 
     const scoredIcons = POPULAR_ICONS.map(icon => {
       let score = 0;
       const keywords = ICON_KEYWORDS[icon] || [];
-      
+
       // Check exact match with icon name
       if (terms.some(t => icon.includes(t))) score += 10;
-      
+
       // Check keywords
       terms.forEach(term => {
         if (keywords.some(k => k.includes(term))) score += 5;
@@ -145,7 +144,7 @@ export function IconPicker({ visible, onClose, onSelect, selectedIcon, habitName
   // Filtered icons based on search
   const filteredIcons = useMemo(() => {
     if (!searchQuery.trim()) return POPULAR_ICONS;
-    
+
     const query = searchQuery.toLowerCase();
     return POPULAR_ICONS.filter(icon => {
       // Match name
@@ -230,7 +229,7 @@ export function IconPicker({ visible, onClose, onSelect, selectedIcon, habitName
                 <Text className="text-sm font-bold uppercase tracking-wider mb-3 opacity-70" style={{ color: colors.textSecondary }}>
                     {searchQuery ? 'Search Results' : 'All Icons'}
                 </Text>
-                
+
                 {filteredIcons.length === 0 ? (
                     <View className="items-center justify-center py-10">
                         <Ionicons name="search" size={48} color={colors.textTertiary} style={{ opacity: 0.5 }} />

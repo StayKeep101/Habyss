@@ -5,7 +5,9 @@ import { useRouter } from 'expo-router';
 import { CreationModal } from '../CreationModal';
 
 jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
-jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8' }) }));
+jest.mock('@/constants/AccentContext', () => ({
+    useAccentGradient: () => ({ primary: '#00b9e8', buttonColors: ['#00b9e8', '#0077b6'], shadowColor: '#00b9e8' }),
+}));
 jest.mock('@/hooks/useResponsiveLayout', () => ({ useResponsiveLayout: () => ({ horizontalPadding: 20, floatingButtonSize: 60, tabBarBottomOffset: 24 }) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 
@@ -37,6 +39,33 @@ describe('floating creation actions', () => {
         expect(callback).not.toHaveBeenCalled();
         act(() => { jest.runAllTimers(); });
         expect(callback).toHaveBeenCalledTimes(1);
+        subscription.remove();
+        screen.unmount();
+    });
+});
+
+describe('the plus button and the menu are one object', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
+
+    it('opens where the button reported itself, not at a guessed corner', () => {
+        const screen = render(<CreationModal />);
+        act(() => { DeviceEventEmitter.emit('show_creation_modal', { x: 300, y: 700, size: 60 }); });
+        const stack = screen.getByLabelText('Create goal').parent;
+        expect(stack).toBeTruthy();
+        // The close control sits on the button's own spot.
+        expect(screen.getByLabelText('Close creation menu')).toBeTruthy();
+        screen.unmount();
+    });
+
+    it('closes without opening anything when the menu is dismissed', () => {
+        const habit = jest.fn();
+        const subscription = DeviceEventEmitter.addListener('show_quick_add', habit);
+        const screen = render(<CreationModal />);
+        act(() => { DeviceEventEmitter.emit('show_creation_modal', { x: 300, y: 700, size: 60 }); });
+        fireEvent.press(screen.getAllByLabelText('Close creation menu')[0]);
+        act(() => { jest.runAllTimers(); });
+        expect(habit).not.toHaveBeenCalled();
         subscription.remove();
         screen.unmount();
     });

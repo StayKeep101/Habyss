@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useAccentGradient } from '@/constants/AccentContext';
+import { AppButton } from '@/components/Common/AppButton';
+import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { useState } from 'react';
+import { ScrollView, View, Text, StyleSheet, Switch, Alert } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
 
@@ -19,12 +20,23 @@ const Privacy = () => {
   // const colorScheme = useColorScheme();
   const { theme } = useTheme();
   const colors = Colors[theme];
+  const { primary: accent } = useAccentGradient();
   const isLight = theme === 'light';
   const isTrueDark = theme === 'trueDark';
   const { lightFeedback } = useHaptics();
   const { isAppLockEnabled, setIsAppLockEnabled } = useAppSettings();
 
   const [deleting, setDeleting] = useState(false);
+  const [changingLock, setChangingLock] = useState(false);
+
+  const changeAppLock = async (enabled: boolean) => {
+    if (changingLock) return;
+    lightFeedback();
+    setChangingLock(true);
+    try { await setIsAppLockEnabled(enabled); }
+    catch (error: any) { Alert.alert('App Lock unchanged', error?.message || 'The setting could not be saved. Please try again.'); }
+    finally { setChangingLock(false); }
+  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -75,19 +87,10 @@ const Privacy = () => {
   };
 
   return (
-    <VoidShell>
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Privacy</Text>
-          <View style={{ width: 40 }} />
-        </View>
+    <SheetScreen title="Privacy & security" onBack={() => router.back()}>
 
         {/* Settings */}
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Data Collection */}
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>DATA COLLECTION</Text>
           <VoidCard
@@ -132,36 +135,24 @@ const Privacy = () => {
                 <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} />
                 <View style={styles.textContent}>
                   <Text style={[styles.label, { color: colors.textPrimary }]}>App Lock</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Require FaceID/TouchID to open</Text>
+                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Face ID, Touch ID or device passcode</Text>
                 </View>
               </View>
               <Switch
                 value={isAppLockEnabled}
-                onValueChange={(v) => { lightFeedback(); setIsAppLockEnabled(v); }}
-                trackColor={{ false: colors.border, true: colors.success }}
+                disabled={changingLock}
+                accessibilityLabel="App Lock"
+                onValueChange={changeAppLock}
+                trackColor={{ false: colors.border, true: accent }}
               />
             </View>
           </VoidCard>
 
           {/* Danger Zone */}
           <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>DANGER ZONE</Text>
-          <TouchableOpacity
-            style={[styles.dangerBtn, { backgroundColor: colors.error + '15' }]}
-            onPress={handleDeleteAccount}
-            disabled={deleting}
-          >
-            {deleting ? (
-              <ActivityIndicator size="small" color={colors.error} />
-            ) : (
-              <Ionicons name="trash-outline" size={20} color={colors.error} />
-            )}
-            <Text style={[styles.dangerText, { color: colors.error }]}>
-              {deleting ? 'Deleting…' : 'Delete Account'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    </VoidShell>
+          <AppButton label="Delete Account" variant="danger" icon="trash-outline" onPress={handleDeleteAccount} loading={deleting} />
+        </ScrollView>
+      </SheetScreen>
   );
 };
 
@@ -169,37 +160,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    fontFamily: 'Lexend',
-  },
-  content: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 1,
-    marginBottom: 8,
-    marginLeft: 4,
-    fontFamily: 'Lexend_400Regular',
-  },
+  content: { ...UIStyles.screenContent },
+  sectionTitle: UIStyles.sectionTitle,
   card: {
-    borderRadius: 16,
+    borderRadius: Radius.card,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -220,12 +184,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Lexend',
+    fontFamily: FontFamily.semibold,
   },
   subtitle: {
     fontSize: 12,
-    fontFamily: 'Lexend_400Regular',
+    fontFamily: FontFamily.regular,
     marginTop: 2,
   },
   divider: {
@@ -242,8 +205,7 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Lexend',
+    fontFamily: FontFamily.semibold,
   },
 });
 

@@ -3,7 +3,7 @@ import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { BlurView } from 'expo-blur';
-import { s } from '@/constants/Layout';
+import { Radius } from '@/constants/DesignSystem';
 
 interface VoidCardProps {
     children: React.ReactNode;
@@ -30,7 +30,7 @@ export const VoidCard: React.FC<VoidCardProps> = ({ children, style, glass = fal
                 : isLight
                     ? colors.surface
                     : colors.surfaceSecondary,
-            borderColor: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.07)',
+            borderColor: colors.border,
         },
         isLight && {
             shadowColor: '#000',
@@ -42,7 +42,7 @@ export const VoidCard: React.FC<VoidCardProps> = ({ children, style, glass = fal
         style,
     ];
 
-    if (glass && !isLight) {
+    if (glass && !isLight && !isTrueDark) {
         return (
             <BlurView intensity={intensity} tint="dark" style={containerStyle}>
                 {children}
@@ -59,7 +59,7 @@ export const VoidCard: React.FC<VoidCardProps> = ({ children, style, glass = fal
 
 const styles = StyleSheet.create({
     card: {
-        borderRadius: s(22),
+        borderRadius: Radius.card,
         borderWidth: 1,
         overflow: 'hidden',
     },

@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DeviceEventEmitter } from 'react-native';
 import { getDatabase } from './database';
 import { getSupabase } from './supabase';
 import {
     chunk, completionToLocal, completionToRemote, habitToLocal, habitToRemote,
     isUuid, orderForUpload, taskToLocal, taskToRemote,
 } from './cloudMapping';
+import { emit } from './appEvents';
 
 /**
  * Backup and restore.
@@ -57,6 +57,11 @@ export interface SyncReport {
     downloaded: number;
     /** Rows the server refused, or that can never be uploaded. */
     failed: number;
+    /**
+     * Tables this server does not have yet, because the migration has not been
+     * applied. Their rows stay on the phone, unsent, and go up once it has.
+     */
+    waiting?: string[];
     error?: string;
     at?: string;
 }
@@ -100,6 +105,7 @@ async function runSync(): Promise<SyncReport> {
         report.downloaded = await download(db, sb, userId);
         report.failed += skippedOnDownload;
 
+        if (absentTables.size > 0) report.waiting = [...absentTables];
         report.ok = report.failed === 0;
         report.at = new Date().toISOString();
         await AsyncStorage.setItem(LAST_SYNC_KEY, report.at);
@@ -115,7 +121,72 @@ async function runSync(): Promise<SyncReport> {
 /*  Upload                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The column a server error is complaining about, if that is what it is.
+ *
+ * A database that has not had the latest migration applied is missing columns
+ * the app knows about. Postgres reports that as 42703 and PostgREST as
+ * PGRST204; both name the column.
+ */
+/**
+ * Whether the server has no such table at all.
+ *
+ * A database still waiting for the latest migration has no `tasks` table. That
+ * used to abort the whole restore, so a backup that had just put every habit
+ * safely on the server reported itself as failed. The table is skipped instead,
+ * its rows stay marked unsent, and they go up the first sync after the
+ * migration is applied.
+ */
+export function missingTableFrom(error: any): boolean {
+    const code = String(error?.code ?? '');
+    const message = String(error?.message ?? '');
+    return code === 'PGRST205' || code === '42P01'
+        || /could not find the table/i.test(message)
+        || /relation "?[a-z_.]+"? does not exist/i.test(message);
+}
+
+export function missingColumnFrom(error: any): string | null {
+    const message = String(error?.message ?? '');
+    const match = message.match(/column "?([a-z_]+)"? of relation/i)
+        || message.match(/column [a-z_]+\.([a-z_]+) does not exist/i)
+        || message.match(/Could not find the '([a-z_]+)' column/i);
+    return match ? match[1] : null;
+}
+
+/** Columns this server turned out not to have; not retried again this session. */
+const absentColumns = new Set<string>();
+/** Tables this server turned out not to have; reported, and not retried. */
+const absentTables = new Set<string>();
+
+const withoutColumn = (rows: any[], column: string): any[] =>
+    rows.map(row => { const copy = { ...row }; delete copy[column]; return copy; });
+
+/**
+ * Upserts, and if the server does not have one of the columns, sends the rows
+ * again without it. Everything else is still backed up, which matters more
+ * than the one field a database update has not added yet.
+ */
+async function upsertTolerant(sb: any, spec: TableSpec, rows: any[]): Promise<{ error: any }> {
+    let payload = rows;
+    for (const column of absentColumns) payload = withoutColumn(payload, column);
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const result = await sb.from(spec.remote).upsert(payload, { onConflict: spec.onConflict });
+        if (!result.error) return { error: null };
+
+        const column = missingColumnFrom(result.error);
+        if (!column || !(column in (payload[0] ?? {}))) return { error: result.error };
+
+        console.warn(`[Backup] ${spec.remote}.${column} is missing on the server; backing up without it.`);
+        absentColumns.add(column);
+        payload = withoutColumn(payload, column);
+    }
+    return { error: new Error('Too many missing columns') };
+}
+
 async function upload(db: any, sb: any, spec: TableSpec, userId: string) {
+    if (absentTables.has(spec.remote)) return { uploaded: 0, failed: 0 };
+
     const rows: any[] = await db.getAllAsync(
         `SELECT * FROM ${spec.local} WHERE synced = 0 AND user_id = ?`, userId,
     );
@@ -129,17 +200,25 @@ async function upload(db: any, sb: any, spec: TableSpec, userId: string) {
 
     for (const batch of chunk(usable, BATCH)) {
         const payload = batch.map(row => spec.toRemote(row, userId));
-        const { error } = await sb.from(spec.remote).upsert(payload, { onConflict: spec.onConflict });
+        const { error } = await upsertTolerant(sb, spec, payload);
 
         if (!error) {
             uploaded += await markUploaded(db, spec.local, batch);
             continue;
         }
 
+        // Nothing to retry one row at a time if the table itself is not there.
+        // The rows stay unsent and go up once the migration has been applied.
+        if (missingTableFrom(error)) {
+            absentTables.add(spec.remote);
+            console.warn(`[Backup] this server has no ${spec.remote} table yet; keeping those changes on the phone.`);
+            return { uploaded, failed };
+        }
+
         // One bad row fails the whole batch. Retry one at a time so every other
         // row still gets backed up, and only the bad one is reported.
         for (const row of batch) {
-            const single = await sb.from(spec.remote).upsert([spec.toRemote(row, userId)], { onConflict: spec.onConflict });
+            const single = await upsertTolerant(sb, spec, [spec.toRemote(row, userId)]);
             if (single.error) {
                 failed += 1;
                 console.warn(`[Backup] ${spec.remote} ${row.id} refused:`, single.error.message);
@@ -179,6 +258,8 @@ async function download(db: any, sb: any, userId: string): Promise<number> {
     skippedOnDownload = 0;
 
     for (const spec of TABLES) {
+        if (absentTables.has(spec.remote)) continue;
+
         for (let from = 0; ; from += PAGE) {
             let query = sb.from(spec.remote).select('*').eq('user_id', userId)
                 .order('updated_at', { ascending: true }).range(from, from + PAGE - 1);
@@ -187,7 +268,15 @@ async function download(db: any, sb: any, userId: string): Promise<number> {
             if (since) query = query.gte('updated_at', since);
 
             const { data, error } = await query;
-            if (error) throw error;
+            if (error) {
+                // A table the server does not have is not a failed restore.
+                if (missingTableFrom(error)) {
+                    absentTables.add(spec.remote);
+                    console.warn(`[Backup] this server has no ${spec.remote} table yet; nothing to restore from it.`);
+                    break;
+                }
+                throw error;
+            }
             if (!data?.length) break;
 
             await db.withTransactionAsync(async () => {
@@ -240,9 +329,9 @@ async function announceChanges(): Promise<void> {
     } catch {
         // Screens still refresh on their next focus.
     }
-    DeviceEventEmitter.emit('tasks_changed');
-    DeviceEventEmitter.emit('habit_completion_updated', {});
-    DeviceEventEmitter.emit('cloud_restored');
+    emit('tasks_changed');
+    emit('habit_completion_updated', {});
+    emit('cloud_restored');
 }
 
 function humanError(error: any): string {

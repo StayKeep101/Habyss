@@ -1,272 +1,94 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, DeviceEventEmitter, InteractionManager, RefreshControl, Alert } from 'react-native';
+import { FontFamily } from '@/constants/DesignSystem';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {View, Text, ScrollView, TouchableOpacity, InteractionManager, RefreshControl} from 'react-native';
 import { s, vs, ms } from '@/constants/Layout';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { Colors } from '@/constants/Colors';
 import { VoidShell } from '@/components/Layout/VoidShell';
-import { VoidCard } from '@/components/Layout/VoidCard';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { subscribeToHabits, getCompletions, toggleCompletion, calculateGoalProgress, Habit, getLastNDaysCompletions, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
+import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
+import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { NotificationService } from '@/lib/notificationService';
 import { NotificationsModal } from '@/components/NotificationsModal';
-import { InsightsCard } from '@/components/Home/InsightsCard';
 import { CelebrationAnimation } from '@/components/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useFocusEffect } from 'expo-router';
-import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { UserGreetingData } from '@/lib/deepseek';
-import { coachHomeMessage, coachNotLogged, coachStakes } from '@/lib/coachMessages';
-import { readStakes } from '@/lib/onboardingAnswers';
-import { LinearGradient } from 'expo-linear-gradient';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
+import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
+import { getName } from '@/lib/echo';
 
-// Pro user motivational quotes by AI personality
-const PRO_QUOTES: Record<string, string[]> = {
-  normal: [
-    "Every step forward counts. Keep building.",
-    "Consistency beats intensity. You've got this.",
-    "Your habits are shaping your future self.",
-    "Progress is progress, no matter how small.",
-    "Today's discipline is tomorrow's freedom.",
-  ],
-  dad_mode: [
-    "Let's get it done. No drifting today.",
-    "You're stronger than your excuses!",
-    "Champions are made in the daily grind!",
-    "No limits! Push through!",
-    "Your potential is unlimited!",
-  ],
-  friendly: [
-    "Hey! You're doing amazing today.",
-    "So proud of your progress!",
-    "One day at a time, friend.",
-    "You've got this, I believe in you!",
-    "Keep going, you're inspiring!",
-  ],
-  bully_mode: [
-    "Execute. No excuses.",
-    "Focus. Discipline. Results.",
-    "Less talk. More action.",
-    "Build the habit.",
-    "Stay consistent.",
-  ],
-};
 
-// Free user promotional messages
-const FREE_PROMOS = [
-  "Unlock AI coaching with Habyss Pro ✨",
-  "Go Pro for personalized habit insights",
-  "Pro users get smart reminders & analytics",
-  "Upgrade to Pro for unlimited goals",
-  "Pro: Advanced stats & AI motivation",
-  "Unlock your full potential with Pro",
-  "Get AI-powered habit suggestions with Pro",
-];
 
 import { useTheme } from '@/constants/themeContext';
 
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
+import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
+import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
+import { tallyDay } from '@/lib/dayComplete';
+import { useDailyFocus } from '@/hooks/useDailyFocus';
+import { useHistory } from '@/hooks/useHistory';
+import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
-import { StreakSuccessModal } from '@/components/Home/StreakSuccessModal';
-import { ConsistencyCard } from '@/components/Home/ConsistencyCard';
-import { StreakModal } from '@/components/Home/StreakModal';
+import { MomentumCard } from '@/components/Home/MomentumCard';
 import { goalActivityDays, activityStreaks } from '@/lib/goalActivity';
 import { localDateKey } from '@/lib/habitSchedule';
-import { LifeAreaMatrixCard } from '@/components/Home/LifeAreaMatrixCard';
-import { ConsistencyModal } from '@/components/Home/ConsistencyModal';
-import { FocusTimeCard } from '@/components/Home/FocusTimeCard';
-import { TodaysCompletionCard } from '@/components/Home/TodaysCompletionCard';
-import { CompletionModal } from '@/components/Home/CompletionModal';
+import { MomentumModal } from '@/components/Home/MomentumModal';
+import { RecoveryCard } from '@/components/Home/RecoveryCard';
+import { RecoveryModal } from '@/components/Home/RecoveryModal';
+import { momentum } from '@/lib/momentum';
+import { recovery } from '@/lib/recovery';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { emit, on } from '@/lib/appEvents';
 
 const Home = () => {
   const router = useRouter();
   const { theme } = useTheme();
   const colors = Colors[theme];
   const isLight = theme === 'light';
-  const { colors: accentColors, primary: accentColor } = useAccentGradient();
-  const { lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
-  const { playComplete, playTap } = useSounds();
+  const { primary: accentColor } = useAccentGradient();
+  const { lightFeedback, selectionFeedback } = useHaptics();
+  const { playComplete } = useSounds();
   const { horizontalPadding, sectionGap, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
   // Pro Hooks
-  const { isPremium } = usePremiumStatus();
-  const { aiPersonality, greetingStyle, useLocalAI, motivationStyle, communicationStyle } = useAppSettings();
+  const { aiPersonality, greetingStyle } = useAppSettings();
 
   // Data state
   const [allHabits, setAllHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
-  const [historyData, setHistoryData] = useState<{ date: string; completedIds: string[] }[]>([]);
+  // Check-ins for the stats below, kept current by the shared loader.
+  const { rows: historyData, reload: reloadHistory } = useHistory(90);
   // Stats are now derived, removed explicit state
-  // const [goalProgressMap, setGoalProgressMap] = useState<Record<string, number>>({});
-  const [greeting, setGreeting] = useState('');
 
   // UI state
   const [showNotifications, setShowNotifications] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [showStreakModal, setShowStreakModal] = useState(false);
-  const [showStreakSuccessModal, setShowStreakSuccessModal] = useState(false);
-  const [showConsistencyModal, setShowConsistencyModal] = useState(false);
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showMomentumModal, setShowMomentumModal] = useState(false);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [motivationalQuote, setMotivationalQuote] = useState('');
   const [displayedQuote, setDisplayedQuote] = useState('');
 
+  // Echo's line: new on every visit and refresh. Stats are read from a ref so
+  // the line always reflects the latest render without re-running the effect.
+  const echoStatsRef = useRef<EchoStats>({ streak: 0, todayDone: 0, todayTotal: 0, weekConsistency: 0, goalsCount: 0, overallProgress: 0 });
+  const showEchoLine = useCallback(async () => {
+    const name = await getName();
+    const personality = normalizeAIPersonality(aiPersonality || 'friendly');
+    const stats = echoStatsRef.current;
+    setMotivationalQuote(await nextEchoLine(personality, { ...stats, name }, greetingStyle));
+  }, [aiPersonality, greetingStyle]);
+
   // Track previous streak for celebration
-  const [lastKnownStreak, setLastKnownStreak] = useState<number | null>(null);
-
-  // Generate smart greeting using user data
-  const generateUserGreeting = useCallback(async () => {
-    // Calculate inline stats for greeting
-    const activeHabits = allHabits.filter(h => !h.isGoal && !h.isArchived);
-    const scheduledForToday = activeHabits.filter(h => isHabitScheduledForDate(h, new Date()));
-    const completedTodayCount = scheduledForToday.filter(h => completions[h.id]).length;
-
-    // Simple streak calculation from history
-    let currentStreak = 0;
-    const sortedHistory = [...historyData].sort((a, b) => b.date.localeCompare(a.date));
-    for (const day of sortedHistory) {
-      if (day.completedIds && day.completedIds.length > 0) {
-        currentStreak++;
-      } else {
-        break;
-      }
-    }
-
-    // Simple consistency (last 7 days)
-    const last7Days = historyData.slice(0, 7);
-    const daysWithCompletions = last7Days.filter(d => d.completedIds && d.completedIds.length > 0).length;
-    const consistencyScore = last7Days.length > 0 ? Math.round((daysWithCompletions / last7Days.length) * 100) : 0;
-
-    // Identify Best & Struggling habits (Last 7 days)
-    const habitCounts: Record<string, number> = {};
-    activeHabits.forEach(h => habitCounts[h.id] = 0);
-    last7Days.forEach(day => {
-      day.completedIds?.forEach(id => { if (habitCounts[id] !== undefined) habitCounts[id]++; });
-    });
-
-    const sortedStats = activeHabits.sort((a, b) => habitCounts[b.id] - habitCounts[a.id]);
-    const bestHabitName = sortedStats.length > 0 && habitCounts[sortedStats[0].id] > 0 ? sortedStats[0].name : undefined;
-    const strugglingHabitName = sortedStats.length > 1 && habitCounts[sortedStats[sortedStats.length - 1].id] < 3
-      ? sortedStats[sortedStats.length - 1].name
-      : undefined;
-
-    // Gather user data for smart greeting
-    const userData: UserGreetingData = {
-      currentStreak,
-      consistencyScore,
-      todayCompleted: completedTodayCount,
-      todayTotal: scheduledForToday.length,
-      bestHabit: bestHabitName,
-      strugglingHabit: strugglingHabitName,
-      topHabit: bestHabitName, // Fallback
-    };
-
-    // Written coaching, grounded in what was actually recorded. No API call, so
-    // it works offline and before the on-device model is downloaded. Random
-    // quotes ignored the user's data entirely.
-    if (greetingStyle !== 'ai') {
-      const coach = normalizeAIPersonality(aiPersonality || 'normal');
-      const unlogged = scheduledForToday.find(habit => !completions[habit.id]);
-      const context = {
-        habitName: unlogged?.name ?? scheduledForToday[0]?.name ?? 'your habits',
-        // Only pass a streak once there is one; the voices omit what is absent.
-        currentStreak: currentStreak > 0 ? currentStreak : undefined,
-      };
-
-      if (scheduledForToday.length === 0) {
-        return isPremium ? '' : FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
-      }
-
-      // A run going and today still open is the moment the user said they wanted
-      // to be reminded what giving up would cost, so quote them rather than the
-      // generic line. Nothing is shown if they skipped that question.
-      if (unlogged && currentStreak >= 2) {
-        const stakes = await readStakes();
-        const line = coachStakes(coach, { habitName: context.habitName, stakes });
-        if (line) return line;
-      }
-
-      // "Not logged" is not a claim that the user skipped it.
-      return unlogged ? coachNotLogged(coach, context) : coachHomeMessage(coach, context);
-    }
-
-    // AI mode - try smart greeting (API-powered or Local)
-    try {
-      // Check for Local LLM preference
-      // Dynamic import
-      // Note: usage inside callback might be stale if we don't include it in dependency array or use a ref/getter. 
-      // better to use the hook value passed in dependencies.
-      // But let's look at dependencies below: [isPremium, aiPersonality, allHabits... greetingStyle]
-      // We need to add useLocalAI to the hook and dependencies.
-
-      // Dynamic import
-      const LocalLLM = require('@/lib/LocalLLMService').default;
-
-      if (useLocalAI && LocalLLM.isReady()) {
-        const normalizedPersonality = normalizeAIPersonality(aiPersonality || 'normal');
-        const prompt = `You are a motivational habit coach.
-TASK: Write ONE short, inspiring sentence (max 15 words) based on these stats:
-Streak: ${userData.currentStreak} days
-Consistency: ${userData.consistencyScore}%
-Today: ${userData.todayCompleted}/${userData.todayTotal} done
-Personality: ${normalizedPersonality}
-Motivation Style: ${motivationStyle || 'gentle'}
-Communication Style: ${communicationStyle || 'empathetic'}
-
-OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
-
-        const reply = await LocalLLM.generateResponse(prompt, "Generate greeting.");
-        // Clean up response
-        return reply.replace(/"/g, '').trim();
-      }
-
-      // If Local LLM is not ready, fall back to static text (Offline)
-      throw new Error("Local LLM not ready");
-    } catch (e) {
-      console.log("Greeting Error", e);
-      // Fallback to static quotes on error
-      if (isPremium) {
-        const personality = normalizeAIPersonality(aiPersonality || 'normal');
-        const quotes = PRO_QUOTES[personality] || PRO_QUOTES.normal;
-        return quotes[Math.floor(Math.random() * quotes.length)];
-      } else {
-        return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
-      }
-    }
-  }, [isPremium, aiPersonality, allHabits, completions, historyData, greetingStyle, useLocalAI, motivationStyle, communicationStyle]);
-
-  // Get random quote based on pro status and AI personality (fallback)
-  const getRandomQuote = useCallback(() => {
-    if (isPremium) {
-      const personality = normalizeAIPersonality(aiPersonality || 'normal');
-      const quotes = PRO_QUOTES[personality] || PRO_QUOTES.normal;
-      return quotes[Math.floor(Math.random() * quotes.length)];
-    } else {
-      return FREE_PROMOS[Math.floor(Math.random() * FREE_PROMOS.length)];
-    }
-  }, [isPremium, aiPersonality]);
-
-  // Set initial quote - use smart greeting for premium users with AI setting
-  useEffect(() => {
-    // Premium users with AI greeting style get smart AI-generated greetings
-    if (isPremium && greetingStyle === 'ai') {
-      generateUserGreeting().then(q => setMotivationalQuote(q));
-    } else {
-      // Non-premium users or those who prefer quotes-only
-      setMotivationalQuote(getRandomQuote());
-    }
-  }, [isPremium, aiPersonality, greetingStyle]);
 
   // Typewriter animation effect - FIXED closure bug
   useEffect(() => {
@@ -294,22 +116,17 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
     // Sync HealthKit Data
     syncHealthKitData().catch(console.error);
 
-    // Generate new greeting based on preference
-    if (isPremium && greetingStyle === 'ai') {
-      generateUserGreeting().then(q => setMotivationalQuote(q));
-    } else {
-      setMotivationalQuote(getRandomQuote());
-    }
+    // A new line from Echo on every refresh.
+    showEchoLine();
     // Reload completions for today
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const completionsData = await getCompletions(today);
     setCompletions(completionsData);
     // Reload history data for accurate stats (streak, consistency, goal progress)
-    const historyResult = await getLastNDaysCompletions(90);
-    setHistoryData(historyResult);
+    reloadHistory();
     setRefreshing(false);
-  }, [isPremium, greetingStyle, getRandomQuote, generateUserGreeting]);
+  }, [showEchoLine, reloadHistory]);
 
   // Derived data
   const goals = useMemo(() => allHabits.filter(h => h.isGoal), [allHabits]);
@@ -327,19 +144,14 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
 
       loadData();
 
-      // Update greeting ONLY if premium AND using AI greeting style
-      // This prevents unnecessary API calls when quotes-only is selected
-      if (isPremium && greetingStyle === 'ai') {
-        // For simple "Greeting", just use a static one or Local LLM if we wanted to (but let's keep it simple/static for now to guarantee no cloud)
-        // generateGreeting(aiPersonality).then(g => setGreeting(g));
-        setGreeting("Ready to build?");
-      }
-    }, [isPremium, aiPersonality, greetingStyle])
+      // A new line from Echo every time Home comes into view.
+      showEchoLine();
+    }, [showEchoLine])
   );
 
   // Listen for profile avatar changes (syncs instantly when changed in settings)
   useEffect(() => {
-    const avatarListener = DeviceEventEmitter.addListener('profile_avatar_changed', (uri: string) => {
+    const avatarListener = on('profile_avatar_changed', (uri: string) => {
       setProfileAvatar(uri);
     });
     return () => avatarListener.remove();
@@ -362,7 +174,11 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
     loadCompletions();
 
     // Listen for updates from other screens (Roadmap, Detail)
-    const sub = DeviceEventEmitter.addListener('habit_completion_updated', ({ habitId, date, completed }) => {
+    const sub = on('habit_completion_updated', ({ habitId, date, completed }) => {
+      // A restore or a sync says only that something changed, with no row to
+      // patch. Reload, rather than dropping the event as this used to.
+      if (!habitId || !date) { void loadCompletions(); return; }
+
       const now = new Date();
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -370,21 +186,12 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
       if (date === todayStr) {
         setCompletions(prev => ({
           ...prev,
-          [habitId]: completed
+          [habitId]: completed === true
         }));
       }
     });
 
     return () => sub.remove();
-  }, []);
-
-  // Load history data
-  useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(async () => {
-      const data = await getLastNDaysCompletions(90);
-      setHistoryData(data);
-    });
-    return () => task.cancel();
   }, []);
 
   // Sync HealthKit on focus/mount
@@ -396,85 +203,9 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
     }, [])
   );
 
-  // INSTANT: Calculate goal progress synchronously using local state (completions + historyData)
-  // This avoids the network delay of 'calculateGoalProgress' after every toggle
-  const goalProgressMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    const todayStr = new Date().toISOString().split('T')[0];
+  // The same number as the goals overview and each goal's stats.
+  const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = useGoalsInsights();
 
-    goals.forEach(goal => {
-      // 1. Get linked habits
-      const linked = habits.filter(h => h.goalId === goal.id && !h.isArchived);
-      if (linked.length === 0) {
-        map[goal.id] = 0;
-        return;
-      }
-
-      // 2. Define Time Range
-      const startDate = new Date(goal.startDate || goal.createdAt);
-      const targetDate = goal.targetDate ? new Date(goal.targetDate) : new Date();
-      // Clamp target date to today? User wanted "Progress towards deadline" usually implies full duration.
-      // But for "Current Progress" visual, usually we mean completions / expected.
-      // Let's stick to the logic: Valid completions in range / Expected completions in range.
-
-      // 3. Iterate days to calculate Expected vs Actual
-      let totalExpected = 0;
-      let totalCompleted = 0;
-
-      const current = new Date(startDate);
-      // Safety break
-      if (current > targetDate) {
-        map[goal.id] = 0;
-        return;
-      }
-
-      // Optimization: Convert habit details to faster lookup
-      // const habitActiveRanges = linked.map... 
-
-      while (current <= targetDate) {
-        const dateStr = current.toISOString().split('T')[0];
-        const dayName = current.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-
-        linked.forEach(habit => {
-          // Check scheduling
-          const hCreated = new Date(habit.createdAt);
-          const createdStr = hCreated.toISOString().split('T')[0];
-
-          if (dateStr >= createdStr) {
-            if (habit.taskDays?.includes(dayName)) {
-              totalExpected++;
-
-              // DATA SOURCE 1: Today's local state
-              if (dateStr === todayStr) {
-                if (completions[habit.id]) totalCompleted++;
-              }
-              // DATA SOURCE 2: History (network/cache)
-              else {
-                const historyDay = historyData.find(d => d.date === dateStr);
-                if (historyDay && historyDay.completedIds?.includes(habit.id)) {
-                  totalCompleted++;
-                }
-              }
-            }
-          }
-        });
-
-        current.setDate(current.getDate() + 1);
-      }
-
-      if (totalExpected === 0) map[goal.id] = 0;
-      else map[goal.id] = Math.round((totalCompleted / totalExpected) * 100);
-    });
-
-    return map;
-  }, [goals, habits, historyData, completions]);
-
-  // Average Mission Progress (Derived instantly from above)
-  const avgGoalProgress = useMemo(() => {
-    if (goals.length === 0) return 0;
-    const sum = goals.reduce((acc, g) => acc + (goalProgressMap[g.id] || 0), 0);
-    return Math.round(sum / goals.length);
-  }, [goals, goals.length, goalProgressMap]);
 
   // Calculate streak (goal-based: streak++ if ALL habits for ANY goal completed)
   const { streak, completionTier, completedDaysPerGoal, streakDates } = useMemo(() => {
@@ -496,86 +227,26 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
       completedDaysPerGoal, streakDates: combined.filter(day => day.complete).map(day => day.date) };
   }, [goals, habits, historyData, completions]);
 
-  // Calculate consistency score per goal
-  const { goalConsistency, avgConsistency } = useMemo(() => {
-    const consistency: Record<string, number> = {};
+  // What Echo is allowed to say about today: only what was recorded.
+  const echoStats = useMemo<EchoStats>(() => {
+    const scheduledToday = habits.filter(h => !h.isArchived && isHabitScheduledForDate(h, new Date()));
+    const lastWeek = [...historyData].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7);
+    const counts: Record<string, number> = {};
+    lastWeek.forEach(day => day.completedIds?.forEach(id => { counts[id] = (counts[id] ?? 0) + 1; }));
+    const best = habits.filter(h => (counts[h.id] ?? 0) >= 3).sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0))[0];
+    return {
+      streak,
+      todayDone: scheduledToday.filter(h => completions[h.id]).length,
+      todayTotal: scheduledToday.length,
+      weekConsistency: lastWeek.length ? Math.round((lastWeek.filter(day => day.completedIds?.length).length / 7) * 100) : 0,
+      bestHabit: best?.name,
+      nextHabit: scheduledToday.find(h => !completions[h.id])?.name,
+      goalsCount: goals.filter(g => !g.isArchived).length,
+      overallProgress: avgGoalProgress,
+    };
+  }, [habits, historyData, completions, goals, avgGoalProgress, streak]);
 
-    goals.forEach(goal => {
-      const goalHabits = habits.filter(h => h.goalId === goal.id);
-      if (goalHabits.length === 0) {
-        consistency[goal.id] = 0;
-        return;
-      }
-
-      // Find earliest habit start date
-      const startDates = goalHabits.map(h => new Date(h.startDate || Date.now()));
-      const earliest = new Date(Math.min(...startDates.map(d => d.getTime())));
-      const today = new Date();
-      const totalDays = Math.max(1, Math.ceil((today.getTime() - earliest.getTime()) / (1000 * 60 * 60 * 24)));
-
-      // Count days where all SCHEDULED habits were completed
-      let completeDays = 0;
-      let scheduledDays = 0;
-
-      historyData.forEach(day => {
-        const dayDate = new Date(day.date + 'T12:00:00');
-
-        // Filter habits that were actually scheduled for this specific historical date
-        const scheduledHabits = goalHabits.filter(h => isHabitScheduledForDate(h, dayDate));
-
-        if (scheduledHabits.length > 0) {
-          scheduledDays++;
-          const allDone = scheduledHabits.every(h => day.completedIds?.includes(h.id));
-          if (allDone) completeDays++;
-        }
-      });
-
-      // Prevent division by zero if goal just started or no days scheduled yet
-      consistency[goal.id] = scheduledDays > 0 ? Math.round((completeDays / scheduledDays) * 100) : 0;
-    });
-
-    const avg = goals.length > 0
-      ? Math.round(goals.reduce((sum, g) => sum + (consistency[g.id] || 0), 0) / goals.length)
-      : 0;
-
-    return { goalConsistency: consistency, avgConsistency: avg };
-  }, [goals, habits, historyData]);
-
-  // --- Streak Success Logic ---
-
-  // 1. Load last known streak from storage on mount
-  useEffect(() => {
-    AsyncStorage.getItem('last_known_streak').then(val => {
-      if (val !== null) {
-        setLastKnownStreak(parseInt(val, 10));
-      } else {
-        setLastKnownStreak(-1); // Signal that we haven't synced yet (fresh install/first run)
-      }
-    });
-  }, []);
-
-  // 2. Watch for streak increases
-  useEffect(() => {
-    if (streak === undefined || lastKnownStreak === null) return;
-
-    if (lastKnownStreak === -1) {
-      // First run: just sync up silently
-      setLastKnownStreak(streak);
-      AsyncStorage.setItem('last_known_streak', streak.toString());
-      return;
-    }
-
-    if (streak > lastKnownStreak) {
-      // Streak extended!
-      setShowStreakSuccessModal(true);
-      setLastKnownStreak(streak);
-      AsyncStorage.setItem('last_known_streak', streak.toString());
-    } else if (streak !== lastKnownStreak) {
-      // Streak broken or reset - sync silently
-      setLastKnownStreak(streak);
-      AsyncStorage.setItem('last_known_streak', streak.toString());
-    }
-  }, [streak, lastKnownStreak]);
+  useEffect(() => { echoStatsRef.current = echoStats; }, [echoStats]);
 
   // Quick habits (non-goal habits for today)
   // Filter for ONLY habits scheduled for TODAY
@@ -583,66 +254,30 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
     return habits.filter(h => isHabitScheduledForDate(h, new Date())).slice(0, 5);
   }, [habits]);
 
-  // Handlers
-  const handleHabitToggle = (habitId: string) => {
-    selectionFeedback();
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  // Are the habits getting stronger, and do they get back up when they slip?
+  // Both read the same window; neither is a grade out of today.
+  const trend = useMemo(() => momentum(habits, historyData, completions, 30), [habits, historyData, completions]);
+  const bounce = useMemo(() => recovery(habits, historyData, completions, 90), [habits, historyData, completions]);
 
-    const wasCompleted = completions[habitId];
+  // Today's promise, and ticking one of its rows off.
+  const focus = useDailyFocus();
 
-    // Optimistic UI update - instant!
-    setCompletions(prev => {
-      const updated = { ...prev };
-      if (updated[habitId]) delete updated[habitId];
-      else updated[habitId] = true;
-      return updated;
-    });
+  // What today asked for, habits and the promise together: the number the ring
+  // around the avatar draws.
+  const dayTally = useMemo(
+    () => tallyDay(allHabits, completions, skippedToday, allTasks, todayKeyString, focus.target),
+    [allHabits, completions, skippedToday, allTasks, todayKeyString, focus.target],
+  );
 
-    // Play sound effect on completion
-    if (!wasCompleted) {
-      playComplete();
-    } else {
-      playTap();
-    }
-
-    // Fire and forget - don't await, let it run in background
-    toggleCompletion(habitId, today).catch(console.error);
-
-    // LIVE ACTIVITY UPDATE
-    // Calculate new stats for immediate update
-    const activeHabits = habits.filter(h => isHabitScheduledForDate(h, now) && !h.isArchived);
-    const totalToday = activeHabits.length;
-    let completedCount = activeHabits.filter(h => completions[h.id]).length;
-
-    // Adjust for the toggle we just made (since completions state might lag slightly behind this function start)
-    // Actually, we already updated 'completions' optimistically above via setCompletions, 
-    // BUT 'completions' variable in this scope is stale (closure).
-    // So we use the 'wasCompleted' flag.
-    if (wasCompleted) {
-      completedCount = Math.max(0, completedCount - 1);
-    } else {
-      completedCount = Math.min(totalToday, completedCount + 1);
-    }
-
-    // Find next habit to do
-    const nextHabit = activeHabits.find(h => !completions[h.id] && h.id !== habitId); // Simplified
-
-    const { LiveActivityService } = require('@/lib/liveActivityService');
-    LiveActivityService.updateProgress({
-      completed: completedCount,
-      total: totalToday,
-      topHabitName: nextHabit?.name,
-      streakDays: streak,
-      profilePicture: profileAvatar || undefined,
-      habits: activeHabits.map(h => ({
-        id: h.id,
-        name: h.name,
-        isCompleted: h.id === habitId ? !wasCompleted : !!completions[h.id]
-      }))
-    });
+  const handleFocusToggle = (task: Task) => {
+    const done = task.status === 'done';
+    if (!done) playComplete();
+    void setTaskStatus(task.id, done ? 'open' : 'done')
+        .then(() => emit('tasks_changed'))
+        .catch(() => undefined);
   };
 
+  // Handlers
   const handleProfilePress = () => {
     selectionFeedback();
     router.push('/(root)/(tabs)/settings');
@@ -699,38 +334,14 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: topSpacing }}>
             {/* Left: Profile */}
             <View>
-              {/* Profile Avatar */}
-              <TouchableOpacity onPress={() => router.push('/(root)/(tabs)/settings')} activeOpacity={0.8}>
-                <LinearGradient
-                  colors={accentColors}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{
-                    width: s(52),
-                    height: s(52),
-                    borderRadius: s(26),
-                    padding: s(2),
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
-                  <View style={{
-                    width: s(48),
-                    height: s(48),
-                    borderRadius: s(24),
-                    overflow: 'hidden',
-                    backgroundColor: colors.background
-                  }}>
-                    {profileAvatar ? (
-                      <Image source={{ uri: profileAvatar }} style={{ width: '100%', height: '100%' }} />
-                    ) : (
-                      <View style={{ flex: 1, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="person" size={s(22)} color={colors.textSecondary} />
-                      </View>
-                    )}
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
+              {/* The ring is today: empty at nothing done, closed and green
+                  when the day is kept. */}
+              <ProgressAvatar
+                uri={profileAvatar}
+                done={dayTally.done}
+                total={dayTally.total}
+                onPress={() => router.push('/(root)/(tabs)/settings')}
+              />
             </View>
 
             {/* Right: Action Buttons */}
@@ -745,11 +356,12 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
           {/* AI Greeting - Full Width Below Header */}
           {motivationalQuote ? (
             <Animated.View entering={FadeInDown.duration(400)} style={{ marginTop: sectionGap }}>
+              {/* Echo is the voice behind this line and the reminders. */}
+              <Text style={{ fontSize: ms(11), letterSpacing: 1.4, color: accentColor, fontFamily: FontFamily.semibold, marginBottom: 4 }}>ECHO</Text>
               <Text style={{
                 fontSize: ms(15),
-                fontWeight: '600',
-                color: isPremium ? colors.text : colors.textSecondary,
-                fontFamily: 'Lexend',
+                color: colors.text,
+                fontFamily: FontFamily.semibold,
                 textAlign: 'left',
                 lineHeight: ms(22),
               }}>
@@ -773,92 +385,51 @@ OUTPUT ONLY THE SENTENCE. NO QUOTES.`;
             />
           </Animated.View>
 
-          {/* What the recorded data actually shows, plus any suggestion the
-              user can accept. Renders nothing until there is enough evidence. */}
-          <Animated.View entering={FadeInDown.delay(150).duration(500)} style={{ marginTop: sectionGap }}>
-            <InsightsCard habits={allHabits} history={historyData} onChanged={onRefresh} />
-          </Animated.View>
-
           {/* 3-Column Stats Row: Streak | Consistency | Completion */}
           <Animated.View entering={FadeInDown.delay(200).duration(500)} style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: sectionGap }}>
             <StreakCard
               streak={streak}
               completionTier={completionTier}
-              onPress={() => setShowStreakModal(true)}
+              onPress={() => { lightFeedback(); router.push('/(root)/progress'); }}
             />
-            <ConsistencyCard
-              score={avgConsistency}
-              onPress={() => setShowConsistencyModal(true)}
+            <MomentumCard
+              momentum={trend}
+              onPress={() => { lightFeedback(); setShowMomentumModal(true); }}
             />
-            <TodaysCompletionCard
-              completedCount={habits.filter(h => !h.isArchived && isHabitScheduledForDate(h, new Date()) && completions[h.id]).length}
-              totalCount={habits.filter(h => !h.isArchived && isHabitScheduledForDate(h, new Date())).length}
-              onPress={() => setShowCompletionModal(true)}
+            <RecoveryCard
+              recovery={bounce}
+              onPress={() => { lightFeedback(); setShowRecoveryModal(true); }}
             />
           </Animated.View>
 
-          {/* Today's Focus Card - Moved Above Matrix */}
+          {/* Under the three numbers: the day's promise, and the few things
+              that would keep it. */}
           <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: sectionGap }}>
-            <FocusTimeCard />
+            <DailyFocusCard
+              focus={focus}
+              onToggle={handleFocusToggle}
+              onOpen={() => router.push('/task-stats')}
+              onAdd={() => emit('show_task_form')}
+            />
           </Animated.View>
 
-          {/* Analytics Dashboard (Life Balance Matrix) */}
-          <View style={{ marginTop: sectionGap }}>
-            <LifeAreaMatrixCard habits={habits} completions={completions} history={historyData} />
-          </View>
 
         </ScrollView>
 
-        <StreakModal
-          visible={showStreakModal}
-          onClose={() => setShowStreakModal(false)}
-          goals={goals}
+
+        <MomentumModal
+          visible={showMomentumModal}
+          onClose={() => setShowMomentumModal(false)}
           habits={habits}
           history={historyData}
           completions={completions}
         />
-
-        <StreakSuccessModal
-          visible={showStreakSuccessModal}
-          streak={streak}
-          completedDates={streakDates}
-          onClose={() => setShowStreakSuccessModal(false)}
-        />
-        <ConsistencyModal
-          visible={showConsistencyModal}
-          onClose={() => setShowConsistencyModal(false)}
-          goals={goals}
-          habits={habits} // Pass habits for graph calculation
+        <RecoveryModal
+          visible={showRecoveryModal}
+          onClose={() => setShowRecoveryModal(false)}
+          habits={habits}
           history={historyData}
           completions={completions}
-        />
-        <CompletionModal
-          visible={showCompletionModal}
-          onClose={() => setShowCompletionModal(false)}
-          habits={allHabits}
-          completions={completions}
-          onToggle={handleHabitToggle}
-          onEdit={(habit) => {
-            setShowCompletionModal(false);
-            DeviceEventEmitter.emit('show_habit_modal', { initialHabit: habit, goalId: habit.goalId });
-          }}
-          onDelete={(habit) => {
-            Alert.alert(
-              "Delete Habit",
-              "Are you sure? This cannot be undone.",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Delete",
-                  style: "destructive",
-                  onPress: async () => {
-                    const { removeHabitEverywhere } = require('@/lib/habitsSQLite');
-                    await removeHabitEverywhere(habit.id);
-                  }
-                }
-              ]
-            );
-          }}
         />
         <NotificationsModal
           visible={showNotifications}

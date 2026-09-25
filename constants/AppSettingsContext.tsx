@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PersonalityModeId } from '@/constants/AIPersonalities';
+import { verifyAppLockChange } from '@/lib/biometricLock';
 
 export type RoadMapCardSize = 'small' | 'standard' | 'big';
 export type GreetingStyle = 'ai' | 'quotes' | 'data' | 'all';
@@ -28,7 +29,8 @@ interface AppSettingsContextType extends AppSettings {
     setCardSize: (size: RoadMapCardSize) => void;
     setGreetingStyle: (style: GreetingStyle) => void;
     setUseLocalAI: (enabled: boolean) => void;
-    setIsAppLockEnabled: (enabled: boolean) => void;
+    setIsAppLockEnabled: (enabled: boolean) => Promise<boolean>;
+    appLockVerifiedAt: number;
     setMotivationStyle: (style: MotivationStyle) => void;
     setCommunicationStyle: (style: CommunicationStyle) => void;
     isLoaded: boolean;
@@ -54,6 +56,8 @@ const STORAGE_KEY = 'app_settings';
 export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [settings, setSettings] = useState<AppSettings>(defaultSettings);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [appLockVerifiedAt, setAppLockVerifiedAt] = useState(0);
+    const lockChangePending = useRef(false);
 
     // Load settings on mount
     useEffect(() => {
@@ -66,6 +70,8 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
                 }
             } catch (e) {
                 console.error('Failed to load settings:', e);
+                // Unknown settings are not proof that App Lock is off.
+                setSettings(previous => ({ ...previous, isAppLockEnabled: true }));
             }
             setIsLoaded(true);
         };
@@ -102,7 +108,11 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
     const setAIPersonality = (personality: PersonalityModeId) => {
         const newSettings = { ...settings, aiPersonality: personality };
         setSettings(newSettings);
-        saveSettings(newSettings);
+        // Reminders already scheduled were written in the old voice; rewrite
+        // them once the new one is stored, since that is where they read it.
+        saveSettings(newSettings)
+            .then(() => require('@/lib/notificationService').NotificationService.refreshHabitReminders())
+            .catch(() => undefined);
     };
 
     const setCardSize = (size: RoadMapCardSize) => {
@@ -123,10 +133,20 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         saveSettings(newSettings);
     };
 
-    const setIsAppLockEnabled = (enabled: boolean) => {
-        const newSettings = { ...settings, isAppLockEnabled: enabled };
-        setSettings(newSettings);
-        saveSettings(newSettings);
+    const setIsAppLockEnabled = async (enabled: boolean): Promise<boolean> => {
+        if (!isLoaded || lockChangePending.current) return false;
+        lockChangePending.current = true;
+        try {
+            if (!(await verifyAppLockChange(enabled))) return false;
+            const newSettings = { ...settings, isAppLockEnabled: enabled };
+            // Show the switch as on only after its preference is durable.
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
+            setAppLockVerifiedAt(Date.now());
+            setSettings(newSettings);
+            return true;
+        } finally {
+            lockChangePending.current = false;
+        }
     };
 
     const setMotivationStyle = (style: 'gentle' | 'tough_love') => {
@@ -153,6 +173,7 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
                 setGreetingStyle,
                 setUseLocalAI,
                 setIsAppLockEnabled,
+                appLockVerifiedAt,
                 setMotivationStyle,
                 setCommunicationStyle, // Export new setters
                 isLoaded,

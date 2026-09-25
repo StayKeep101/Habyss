@@ -1,6 +1,6 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TextInput, StyleSheet, Dimensions } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { Text, TextInput, StyleSheet, Dimensions } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -57,13 +57,13 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 32,
-        fontWeight: 'bold',
+        fontFamily: FontFamily.bold,
         marginBottom: 40,
         textAlign: 'center',
     },
     input: {
         fontSize: 32,
-        fontWeight: '600',
+        fontFamily: FontFamily.semibold,
         textAlign: 'center',
         paddingBottom: 16,
         borderBottomWidth: 2,

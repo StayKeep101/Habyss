@@ -1,13 +1,14 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { FontFamily } from '@/constants/DesignSystem';
+import { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { Friend } from '@/lib/friendsService';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSequence, withRepeat, Easing, withSpring, withDelay } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSequence, withRepeat, Easing, withSpring } from 'react-native-reanimated';
 import { s, vs, ms } from '@/constants/Layout';
 
 interface LeaderboardProps {
@@ -90,9 +91,9 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                     alignItems: 'center'
                 }}>
                     {isFirst && (
-                        <Animated.Text style={[{ fontSize: ms(24), marginBottom: -vs(8), zIndex: 20 }, animatedCrownStyle]}>
-                            👑
-                        </Animated.Text>
+                        <Animated.View style={[{ marginBottom: -vs(8), zIndex: 20 }, animatedCrownStyle]}>
+                            <Ionicons name="trophy-outline" size={28} color={colors.warning} />
+                        </Animated.View>
                     )}
 
                     <View style={{
@@ -124,7 +125,7 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                         borderWidth: 2,
                         borderColor: colors.background
                     }}>
-                        <Text style={{ fontSize: ms(10), fontWeight: 'bold', color: '#FFF' }}>{item.rank}</Text>
+                        <Text style={{ fontSize: ms(10), fontFamily: FontFamily.bold, color: '#FFF' }}>{item.rank}</Text>
                     </View>
                 </View>
 
@@ -132,9 +133,8 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                 <Text style={{
                     color: item.friend.isCurrentUser ? accentColor : colors.textPrimary,
                     fontSize: isFirst ? ms(14) : ms(12),
-                    fontWeight: '700',
                     textAlign: 'center',
-                    fontFamily: 'Lexend',
+                    fontFamily: FontFamily.bold,
                     marginBottom: vs(2)
                 }} numberOfLines={1}>
                     {item.friend.isCurrentUser ? 'You' : item.friend.username}
@@ -142,7 +142,7 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
 
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Ionicons name="flame" size={s(12)} color={placeColor} />
-                    <Text style={{ color: colors.textSecondary, fontSize: ms(11), fontWeight: '600', marginLeft: s(2), fontFamily: 'Lexend' }}>
+                    <Text style={{ color: colors.textSecondary, fontSize: ms(11),  marginLeft: s(2), fontFamily: FontFamily.semibold }}>
                         {item.friend.currentStreak}
                     </Text>
                 </View>
@@ -177,7 +177,7 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: vs(16) }}>
                 <View>
                     <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: vs(2) }]}>LEADERBOARD</Text>
-                    <Text style={{ fontSize: ms(10), color: colors.textTertiary, fontFamily: 'Lexend_400Regular' }}>
+                    <Text style={{ fontSize: ms(10), color: colors.textTertiary, fontFamily: FontFamily.regular }}>
                         Based on streak consistency
                     </Text>
                 </View>
@@ -211,8 +211,7 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                         <Text style={{
                             color: period === p.id ? '#fff' : colors.textSecondary,
                             fontSize: ms(12),
-                            fontWeight: period === p.id ? '700' : '500',
-                            fontFamily: 'Lexend',
+                            fontFamily: period === p.id ? FontFamily.bold : FontFamily.medium,
                         }}>
                             {p.label}
                         </Text>
@@ -256,7 +255,7 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                                     }}
                                 >
                                     <View style={{ width: s(24), alignItems: 'center', marginRight: s(12) }}>
-                                        <Text style={{ color: colors.textTertiary, fontWeight: '700', fontFamily: 'Lexend' }}>{item.rank}</Text>
+                                        <Text style={{ color: colors.textTertiary, fontFamily: FontFamily.bold }}>{item.rank}</Text>
                                     </View>
 
                                     <View style={{
@@ -275,15 +274,14 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
                                     <Text style={{
                                         flex: 1,
                                         color: item.friend.isCurrentUser ? accentColor : colors.textPrimary,
-                                        fontWeight: item.friend.isCurrentUser ? '700' : '400',
-                                        fontFamily: 'Lexend'
+                                        fontFamily: item.friend.isCurrentUser ? FontFamily.bold : FontFamily.regular
                                     }}>
                                         {item.friend.isCurrentUser ? 'You' : item.friend.username}
                                     </Text>
 
                                     <View style={{ flexDirection: 'row', alignItems: 'center', opacity: 0.8 }}>
                                         <Ionicons name="flame" size={s(14)} color={colors.textTertiary} />
-                                        <Text style={{ color: colors.textSecondary, marginLeft: s(4), fontWeight: '600', fontFamily: 'Lexend' }}>
+                                        <Text style={{ color: colors.textSecondary, marginLeft: s(4), fontFamily: FontFamily.semibold }}>
                                             {item.friend.currentStreak}
                                         </Text>
                                     </View>
@@ -300,20 +298,18 @@ export function Leaderboard({ leaderboard, period, onPeriodChange, onFriendPress
 const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: ms(10),
-        fontWeight: '600',
         letterSpacing: 1,
         marginBottom: vs(8),
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.semibold,
     },
     emptyText: {
         fontSize: ms(14),
-        fontWeight: '600',
         marginTop: vs(12),
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.semibold,
     },
     emptySubtext: {
         fontSize: ms(11),
         marginTop: vs(4),
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
 });
