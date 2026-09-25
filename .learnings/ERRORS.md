@@ -152,3 +152,44 @@ All three targets and all four synchronized folder refs survive. Note Xcode may 
 
 ### Related Files
 ios/Habyss.xcodeproj/project.pbxproj
+
+## [ERR-20260925-001] Reachability scan blind to side-effect imports
+
+**Logged**: 2026-09-25
+**Priority**: high
+**Status**: resolved
+**Area**: tooling, dead-code removal
+
+### Summary
+An import-graph scan used to find unreachable modules missed bare side-effect
+imports, and listed `lib/polyfills.ts` as dead. It is loaded first in
+`app/_layout.tsx` and deleting it would have broken startup with no compile
+error — `tsc` and the test suite would both have stayed green.
+
+### Error
+The scan matched only `from '...'`, `require('...')` and `import('...')`:
+
+    import '@/lib/polyfills';   // Must be first   <- invisible to the scan
+    import '@/lib/LocationService';                 <- same
+
+### Resolution
+The pattern must also match a bare `^\s*import\s+['"]`. Three rules for any
+scan that drives a deletion:
+
+1. Match every import form, side-effect imports included.
+2. Resolve by import **path**, never by exported name. `focusHistory` is both a
+   module and an unrelated function in `dailyFocus`; `Roadmap` is a type in
+   `roadmapPlan` and also the name of a tab; `healthService` shares a prefix
+   with the live `HealthKitService`. All three read as "in use" to a name grep
+   and as dead to a path scan — the path scan was right each time.
+3. Delete a **closed set**. Removing a leaf while leaving a dead file importing
+   it breaks the build; every file referencing the set must be inside it.
+
+Recompute the set and delete in one pass. Writing candidates to a temp file and
+deleting from it in a second step went wrong twice here: once the file was
+stale because a guard had skipped rewriting it, and once `while read` dropped
+the last entry for want of a trailing newline.
+
+### Metadata
+- Related Files: lib/polyfills.ts, lib/LocationService.ts
+- Reproducible: yes
