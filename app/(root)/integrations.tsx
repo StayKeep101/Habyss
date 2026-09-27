@@ -13,6 +13,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { IntegrationService, Integration } from '@/lib/integrationService';
 import { isHealthAvailable } from '@/lib/integrationAvailability';
 import { HealthKitService } from '@/lib/healthKit';
+import { HealthKitService as HealthReader } from '@/lib/HealthKitService';
 // import * as Calendar from 'expo-calendar'; // Removed static import
 
 interface IntegrationItem {
@@ -79,14 +80,17 @@ export default function IntegrationsScreen() {
                     return;
                 }
 
-                const granted = await HealthKitService.requestPermissions();
+                // The reader's own request, so the one prompt covers steps,
+                // sleep, mindful minutes and workouts — everything a habit can
+                // now ask Health to answer for, not mindfulness alone.
+                const granted = await HealthReader.init();
                 if (granted) {
                     await IntegrationService.connectService('apple_health', { accessToken: 'local' });
                     setIntegrations(prev => ({ ...prev, apple_health: true }));
                     successFeedback();
-                    Alert.alert('Connected', 'Apple Health integration enabled.');
+                    Alert.alert('Connected', 'A habit measured in steps or minutes can now be counted by Health.');
                 } else {
-                    Alert.alert('Permission Denied', 'Health access is required to sync minutes.');
+                    Alert.alert('Permission Denied', 'Habyss needs Health access to read steps, sleep, mindful minutes and workouts.');
                 }
             } else {
                 await IntegrationService.disconnectService('apple_health');

@@ -113,5 +113,21 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       from `kindOf`, so the tab you pick a unit in and the control you then get
       reason from one answer. The picker is already shared by the Habit and
       Goal sheets.
-- [ ] Habit detail: three ways to know a habit is done — HealthKit, manual
-      input, timer — and nothing else.
+- [x] Habit detail: three ways to know a habit is done — HealthKit, manual
+      input, timer — and nothing else. Manual and the timer were already there;
+      **HealthKit was not**, despite `healthKitMetric` sitting in the habit
+      table and in `lib/evidence.ts` since either existed. Nothing ever set it
+      and nothing ever read Health, so `lib/HealthKitService.ts` — steps,
+      sleep, mindful minutes, workouts — was dead code.
+      Now: the Measure row asks *who counts it*, offering only metrics that
+      measure what the habit measures (a step count filling in "8 glasses"
+      would be worse than no help, because the number would look right); the
+      link is dropped on save if an edit has made the unit disagree with it;
+      and the detail card asks Health once when the day is opened, with a
+      "Read from Health" button to ask again.
+      **Health is a floor, never a ceiling.** Someone who walked on a second
+      phone has a number Health cannot see, and writing a smaller one over it
+      would take work away from them. Health answering with nothing is
+      `null`, not zero, for the same reason.
+      The Apple Health toggle in Integrations now asks for all four
+      permissions rather than mindfulness alone.

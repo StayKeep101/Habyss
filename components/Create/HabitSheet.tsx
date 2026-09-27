@@ -16,6 +16,7 @@ import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
 import { goalUnitLabel } from '@/lib/goalUnits';
+import { healthDetail, healthLabel, metricsForUnit, type HealthMetric } from '@/lib/healthMetrics';
 import { shortLead } from '@/lib/leadTime';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
@@ -53,6 +54,8 @@ interface Draft {
     reminderOffset?: number;
     /** One sentence for this habit; Echo writes it when this is empty. */
     reminderMessage?: string;
+    /** Apple Health answers for this habit, when its unit lets it. */
+    health?: HealthMetric;
     /** The geofences this habit listens for, arriving or leaving. */
     places: LocationReminder[];
     /** How often it comes round, in the full grammar. */
@@ -78,6 +81,7 @@ const fromHabit = (from: Habit): Draft => ({
     rule: parseRecurrence(from.recurrence) ?? ruleFromColumns(from),
     reminderOffset: from.reminderOffset,
     reminderMessage: from.reminderMessage,
+    health: from.healthKitMetric,
     places: from.locationReminders ?? [],
 });
 
@@ -288,6 +292,10 @@ export const HabitSheet: React.FC<{
                 reminderOffset: draft.reminderOffset,
                 reminderMessage: draft.reminderMessage?.trim() || undefined,
                 locationReminders: draft.places,
+                // Dropped when the unit no longer measures what Health does, so
+                // an edit cannot leave a step count answering for pages.
+                healthKitMetric: draft.health && metricsForUnit(draft.unit === 'min' ? 'minutes' : draft.unit).includes(draft.health)
+                    ? draft.health : undefined,
                 goalPeriod: current?.goalPeriod ?? 'daily',
                 category: current?.category ?? 'personal',
                 startDate: current?.startDate ?? localDateKey(new Date()),
@@ -318,6 +326,8 @@ export const HabitSheet: React.FC<{
     const asTime = (date: Date) =>
         `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
+    // 'min' is how the sheet spells minutes; the metrics speak in full words.
+    const healthOptions = metricsForUnit(draft.unit === 'min' ? 'minutes' : draft.unit);
     const goalName = goals.find(goal => goal.id === linkedGoal)?.name;
     const canSave = !!text.trim();
 
@@ -366,6 +376,28 @@ export const HabitSheet: React.FC<{
                         : <Pressable accessibilityRole="button" onPress={() => { change({ amount: undefined, unit: undefined }); setAmountText(null); }} style={styles.link}>
                             <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>Use a simple check-in</Text>
                         </Pressable>}
+
+                    {/* Who answers for this habit. Only shown when Health
+                        measures the same thing the habit does — offering to
+                        fill "8 glasses" from a step count would be worse than
+                        offering nothing, because the number would look right. */}
+                    {!unitPicker && healthOptions.length ? (
+                        <>
+                            <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>Who counts it</Text>
+                            <Choices
+                                options={[{ id: '', label: 'You do' },
+                                    ...healthOptions.map(metric => ({ id: metric, label: healthLabel(metric) }))]}
+                                value={draft.health ?? ''}
+                                accent={accent}
+                                onChange={id => change({ health: (id || undefined) as HealthMetric | undefined })}
+                            />
+                            {draft.health ? (
+                                <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                                    {`${healthDetail(draft.health)} — read from Apple Health and never lowered by it.`}
+                                </Text>
+                            ) : null}
+                        </>
+                    ) : null}
                 </>
             ),
         },
@@ -584,6 +616,7 @@ const styles = StyleSheet.create({
     picker: { alignSelf: 'flex-start' },
     place: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
     placeBody: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    hint: { fontSize: 12, fontFamily: FontFamily.regular, lineHeight: 17 },
     message: { minHeight: 40, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, fontFamily: FontFamily.regular },
     inline: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },

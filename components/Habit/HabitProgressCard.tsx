@@ -13,6 +13,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import type { Habit } from '@/lib/habitsSQLite';
 import { formatMeasurement, localHabitDate, measurementFor, parseMeasurement } from '@/lib/habitMeasurement';
 import { KIND_LABEL } from '@/lib/unitKind';
+import { healthLabel, mergeHealth, metricFits, readHealth } from '@/lib/healthMetrics';
 import { readableAccent } from '@/lib/colorContrast';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -52,6 +53,18 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     const [draft, setDraft] = useState('');
     const [inputError, setInputError] = useState<string | null>(null);
     const isToday = date === localHabitDate();
+    /**
+     * The third way to know a habit is done: Health already knows.
+     *
+     * Only for a habit whose unit still measures what its metric measures — a
+     * link outlives an edit, and a step count answering for pages would look
+     * like an answer.
+     */
+    const health = habit.healthKitMetric && metricFits(habit.unit, habit.healthKitMetric)
+        ? habit.healthKitMetric : null;
+    const [asking, setAsking] = useState(false);
+    /** A ref, not state: asking once per day shown must not cause a render. */
+    const asked = React.useRef<string | null>(null);
     const active = focus.activeHabitId === habit.id && (focus.isRunning || focus.isPaused);
     const live = active && isToday && kind === 'timer';
     const elapsed = live ? (focus.activeMode === 'flow' ? focus.timeLeft : Math.max(0, focus.totalDuration - focus.timeLeft)) : 0;
@@ -81,6 +94,35 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     const note = saving ? 'Saving your progress…' : !ready ? 'Loading your progress…'
         : live ? 'Your timer keeps going when you leave this screen'
         : !isToday ? 'Past days are read-only' : null;
+
+    /**
+     * Ask Health for this day's number.
+     *
+     * Health is a floor, never a ceiling: someone who walked on a second phone
+     * has a number Health cannot see, and replacing it with a smaller one would
+     * be taking work away from them.
+     */
+    const askHealth = React.useCallback(async (byHand: boolean) => {
+        if (!health || asking) return;
+        setAsking(true);
+        try {
+            const fromHealth = await readHealth(health, new Date(`${date}T12:00:00`));
+            const merged = mergeHealth(value, fromHealth);
+            if (merged !== value) onChange(merged);
+            else if (byHand) selectionFeedback();
+        } finally {
+            setAsking(false);
+        }
+    }, [health, asking, date, value, onChange, selectionFeedback]);
+
+    // Once per day shown, and only when the day is still open: a habit Health
+    // answers for should be answered before you are asked to tick it.
+    useEffect(() => {
+        const key = `${habit.id}:${date}`;
+        if (!health || !ready || !isToday || asked.current === key) return;
+        asked.current = key;
+        void askHealth(false);
+    }, [health, ready, isToday, habit.id, date, askHealth]);
 
     const beginEditing = () => {
         selectionFeedback();
@@ -130,9 +172,10 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                         <Text style={[Typography.caption, { color: colors.textPrimary }]}>{isToday ? 'Today' : new Date(date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
                     </View>
                     <Text style={[Typography.caption, { color: colors.textSecondary }]}>
-                        {kind === 'boolean' ? 'Daily check-in'
-                            : kind === 'timer' ? `${KIND_LABEL.duration} · ${formatMeasurement(target)} ${unit}`
-                                : `${KIND_LABEL[unitKind]} · ${formatMeasurement(target)} ${unit}`}
+                        {health ? `Apple Health · ${formatMeasurement(target)} ${unit}`
+                            : kind === 'boolean' ? 'Daily check-in'
+                                : kind === 'timer' ? `${KIND_LABEL.duration} · ${formatMeasurement(target)} ${unit}`
+                                    : `${KIND_LABEL[unitKind]} · ${formatMeasurement(target)} ${unit}`}
                     </Text>
                 </View>
                 <View style={styles.dial} accessible accessibilityRole="progressbar" accessibilityLabel={`${habit.name} progress`} accessibilityValue={{ min: 0, max: target, now: Math.min(displayValue, target), text: `${formatMeasurement(displayValue)} of ${formatMeasurement(target)} ${unit}` }}>
@@ -187,6 +230,15 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                         <View style={styles.utilityRow}>
                             {live ? <Pressable onPress={finishSession} accessibilityRole="button" style={styles.textButton}><AppIcon name="stop-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Finish & save time</Text></Pressable>
                                 : kind !== 'boolean' ? <Pressable disabled={!editable} onPress={beginEditing} accessibilityRole="button" style={styles.textButton}><AppIcon name="create-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{kind === 'timer' ? 'Log time manually' : 'Set exact total'}</Text></Pressable> : null}
+                            {health && !live ? (
+                                <Pressable disabled={asking} onPress={() => void askHealth(true)} accessibilityRole="button"
+                                    accessibilityLabel={`Read ${healthLabel(health)} from Apple Health`} style={styles.textButton}>
+                                    <AppIcon name={asking ? 'sync-outline' : 'heart-outline'} size={16} color={colors.textSecondary} />
+                                    <Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>
+                                        {asking ? 'Asking Health…' : 'Read from Health'}
+                                    </Text>
+                                </Pressable>
+                            ) : null}
                             {!live && (canUndo || complete || value > 0) && <Pressable disabled={!editable} onPress={canUndo ? onUndo : () => onChange(0)} accessibilityRole="button" style={styles.textButton}><AppIcon name="arrow-undo-outline" size={15} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{canUndo || complete ? 'Undo' : 'Reset'}</Text></Pressable>}
                         </View>
                     </Animated.View>
