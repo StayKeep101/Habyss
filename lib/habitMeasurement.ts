@@ -1,4 +1,5 @@
 import type { Habit } from './habitsSQLite';
+import { kindOf, quickAmountsFor, stepFor, type UnitKind } from './unitKind';
 
 const TIME_UNITS: Record<string, number> = {
     second: 1, seconds: 1, sec: 1, secs: 1,
@@ -15,10 +16,14 @@ export function measurementFor(habit: Pick<Habit, 'unit' | 'goalValue' | 'durati
     // Quit habits are a positive daily check-in, never an invitation to add the unwanted behavior.
     const kind = habit.type === 'quit' ? 'boolean' : secondsPerUnit ? 'timer'
         : target > 1 || (habit.trackingMethod === 'numeric' && !['times', 'count'].includes(unit)) ? 'counter' : 'boolean';
-    const step = target < 1 ? 0.1 : 1;
-    const quickAmounts = target <= 10 ? [step, step * 2, step * 3]
-        : target <= 100 ? [1, 5, 10] : target <= 1000 ? [10, 50, 100] : [100, 500, 1000];
-    return { kind, target: kind === 'boolean' ? 1 : target, unit, secondsPerUnit, step, quickAmounts } as const;
+    // What the unit measures decides the buttons: a glass of water is 250ml
+    // whatever the target, and 500 pages is nothing like 500 millilitres. Only
+    // a unit the app does not recognise falls back to the target's magnitude.
+    const step = stepFor(unit, target);
+    const quickAmounts = quickAmountsFor(unit, target);
+    /** Which control this habit deserves, rather than one bespoke per unit. */
+    const unitKind: UnitKind = kindOf(unit);
+    return { kind, target: kind === 'boolean' ? 1 : target, unit, unitKind, secondsPerUnit, step, quickAmounts } as const;
 }
 
 export const localHabitDate = (date = new Date()) =>

@@ -1,4 +1,5 @@
 import { ALLOWED_UNITS } from './goalParser';
+import { KIND_LABEL, KINDS_IN_ORDER, kindOf } from './unitKind';
 
 const labels: Record<string, string> = {
     km: 'Km', m: 'Meters', mi: 'Miles', ml: 'ml', kg: 'kg', lb: 'lb',
@@ -8,13 +9,24 @@ const labels: Record<string, string> = {
 export const goalUnitLabel = (unit: string) => labels[unit] ?? unit.charAt(0).toUpperCase() + unit.slice(1);
 export const GOAL_UNITS = ALLOWED_UNITS.map(id => ({ id, label: goalUnitLabel(id) }));
 
-export const UNIT_GROUPS = {
+/**
+ * The picker's groups, derived from what each unit measures.
+ *
+ * They used to be a hand-written list that disagreed with the measurement
+ * logic — "Health" held both kilograms and millilitres, which are not the same
+ * kind of thing and do not want the same buttons. Deriving them from `kindOf`
+ * means the tab you pick a unit in and the control you then get are reasoning
+ * from one answer.
+ *
+ * A kind with no units of its own is left out rather than shown empty.
+ */
+export const UNIT_GROUPS: Record<string, readonly string[]> = {
     All: ALLOWED_UNITS as readonly string[],
-    Count: ['books', 'pages', 'chapters', 'words', 'sessions', 'reps', 'sets', 'laps', 'lessons', 'tasks', 'projects', 'percent'],
-    Distance: ['km', 'mi', 'm', 'steps'],
-    Time: ['minutes', 'hours'],
-    Money: ['dollars', 'euros', 'gbp'],
-    Health: ['kg', 'lb', 'ml', 'liters', 'glasses'],
+    ...Object.fromEntries(
+        KINDS_IN_ORDER
+            .map(kind => [KIND_LABEL[kind], ALLOWED_UNITS.filter(unit => kindOf(unit) === kind)] as const)
+            .filter(([, units]) => units.length > 0),
+    ),
 };
 
 const aliases: Record<string, string> = {

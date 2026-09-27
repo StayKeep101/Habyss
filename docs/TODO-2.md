@@ -72,14 +72,20 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Habit detail — redesign
 
-- [ ] Keep the Today / Stats split; it works.
-- [ ] Three ways to know a habit is done, and only three: HealthKit, manual
-      input, timer.
-- [ ] Stop inventing a bespoke control per unit. Group units into kinds:
-      - **Volume** — ml, l, fl oz…
-      - **Length** — m, km, miles, yards…
-      - **Weight** — g, kg, lb…
-      - **Currency** — CAD, USD…
-      - **Count** — anything qualitative the user names (pages, homeworks,
-        sales calls), with a counter they tick up to the target.
-- [ ] The same grouping appears in the Habit and Goal measurement tabs.
+- [x] Keep the Today / Stats split; it works — left alone.
+- [x] Units are grouped by what they measure (`lib/unitKind.ts`, 16 tests):
+      Volume, Distance, Weight, Money, Time, and Count for anything a person
+      names themselves — which is the honest bucket for pages, homeworks and
+      sales calls, and gets a plain counter.
+      The real fix is that the **buttons now come from the unit, not from the
+      size of the number**: a glass of water is 250ml whether the target is one
+      or eight, and 500ml no longer offers the same increments as 500 pages.
+      A unit the app has never heard of falls back to the target's magnitude.
+- [x] The same grouping drives the picker. `UNIT_GROUPS` used to be a
+      hand-written list that disagreed with the measurement logic — its
+      "Health" group held both kilograms and millilitres. It is now derived
+      from `kindOf`, so the tab you pick a unit in and the control you then get
+      reason from one answer. The picker is already shared by the Habit and
+      Goal sheets.
+- [ ] Habit detail: three ways to know a habit is done — HealthKit, manual
+      input, timer — and nothing else.

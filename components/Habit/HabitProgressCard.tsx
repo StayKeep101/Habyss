@@ -12,6 +12,7 @@ import { useFocusTime } from '@/constants/FocusTimeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Habit } from '@/lib/habitsSQLite';
 import { formatMeasurement, localHabitDate, measurementFor, parseMeasurement } from '@/lib/habitMeasurement';
+import { KIND_LABEL } from '@/lib/unitKind';
 import { readableAccent } from '@/lib/colorContrast';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -44,7 +45,7 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     const accent = habit.color || colors.primary;
     const ink = readableAccent(accent, colors.surfaceSecondary);
     const successInk = readableAccent(colors.success, colors.surfaceSecondary);
-    const { kind, target, unit, step, quickAmounts, secondsPerUnit } = measurementFor(habit);
+    const { kind, target, unit, unitKind, step, quickAmounts, secondsPerUnit } = measurementFor(habit);
     const focus = useFocusTime();
     const { selectionFeedback, mediumFeedback } = useHaptics();
     const [editing, setEditing] = useState(false);
@@ -128,7 +129,11 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                         <View style={[styles.dot, { backgroundColor: complete ? colors.success : accent }]} />
                         <Text style={[Typography.caption, { color: colors.textPrimary }]}>{isToday ? 'Today' : new Date(date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
                     </View>
-                    <Text style={[Typography.caption, { color: colors.textSecondary }]}>{kind === 'boolean' ? 'Daily check-in' : `Goal · ${formatMeasurement(target)} ${unit}`}</Text>
+                    <Text style={[Typography.caption, { color: colors.textSecondary }]}>
+                        {kind === 'boolean' ? 'Daily check-in'
+                            : kind === 'timer' ? `${KIND_LABEL.duration} · ${formatMeasurement(target)} ${unit}`
+                                : `${KIND_LABEL[unitKind]} · ${formatMeasurement(target)} ${unit}`}
+                    </Text>
                 </View>
                 <View style={styles.dial} accessible accessibilityRole="progressbar" accessibilityLabel={`${habit.name} progress`} accessibilityValue={{ min: 0, max: target, now: Math.min(displayValue, target), text: `${formatMeasurement(displayValue)} of ${formatMeasurement(target)} ${unit}` }}>
                     <Svg width={156} height={156} style={StyleSheet.absoluteFill}>
