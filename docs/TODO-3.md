@@ -65,9 +65,14 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 Deliberately rough — the user says it is a work in progress and not worth much
 energy yet.
 
-- [ ] Remove "Make it yours" and the Details card.
-- [ ] Show exactly what another person sees: avatar over a wide header image,
-      name, a line of bio, then the metrics worth showing — streak first.
-- [ ] Reference shot: avatar overlapping a banner, name and bio centred, a row
-      of actions, then cards below. Keep the Habyss aesthetic rather than
-      copying the reference's styling.
+- [x] "Make it yours" and the Details card are gone — nobody else sees your
+      theme settings, so they do not belong on the page that shows what others
+      see. Birthday and gender went with the Details card; if you want them
+      back they belong in Settings.
+- [x] Six metrics, streak first, because that is the number people actually
+      ask each other about: day streak, momentum, recovery, habits, finished,
+      best run. The streak uses the same `streakFrom` as Home and the day card.
+- [ ] **Still to do:** the banner layout from the reference — a wide header
+      image with the avatar overlapping it, name and bio centred beneath. The
+      page is currently a left-aligned identity card. Left deliberately, since
+      you said this page is a work in progress.

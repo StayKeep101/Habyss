@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
@@ -11,12 +11,13 @@ import { ms, s, vs } from '@/constants/Layout';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { ChipPicker } from '@/components/Common/ChipPicker';
 import { useHistory } from '@/hooks/useHistory';
 import { useTasks } from '@/hooks/useTasks';
 import { subscribeToHabits, type Habit } from '@/lib/habitsSQLite';
 import { momentum } from '@/lib/momentum';
+import { streakFrom } from '@/lib/dayComplete';
+import { localDateKey } from '@/lib/habitSchedule';
+import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { recovery } from '@/lib/recovery';
 import { EMPTY_PROFILE, ageFrom, getProfile, initials, saveProfile, type Profile } from '@/lib/profile';
 
@@ -49,7 +50,6 @@ export default function ProfileScreen() {
 
     const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
     const [loaded, setLoaded] = useState(false);
-    const [pickingBirthday, setPickingBirthday] = useState(false);
 
     useEffect(() => {
         let alive = true;
@@ -71,7 +71,20 @@ export default function ProfileScreen() {
     }, []);
 
     const tasks = useTasks();
+    const target = useDailyTarget();
     const { rows: history } = useHistory(90);
+    // The same streak the home screen and the day card show — one definition.
+    const streak = React.useMemo(() => {
+        const today = localDateKey(new Date());
+        const done: Record<string, string[]> = {};
+        const skips: Record<string, string[]> = {};
+        for (const row of history) {
+            done[row.date] = row.completedIds;
+            if (row.skippedIds?.length) skips[row.date] = row.skippedIds;
+        }
+        return streakFrom(habits, tasks, done, skips, today, 70, target).streak;
+    }, [habits, tasks, history, target]);
+
     const trend = React.useMemo(() => momentum(habits, history, {}, 30), [habits, history]);
     const bounce = React.useMemo(() => recovery(habits, history, {}, 90), [habits, history]);
 
@@ -174,75 +187,27 @@ export default function ProfileScreen() {
 
                 {/* The numbers a friend would be shown, read from the same
                     place the home screen reads them. */}
+                {/* What a friend would be shown. The streak leads because it
+                    is the number people actually ask each other about. */}
                 <Text style={[styles.section, { color: colors.textTertiary }]}>WHAT YOU HAVE BUILT</Text>
                 <View style={styles.stats}>
+                    <Stat label="Day streak" value={`${streak}`} colors={colors} surface={surface} tint={tint} />
                     <Stat label="Momentum" value={`${trend.rate}%`} colors={colors} surface={surface} tint={tint} />
                     <Stat
                         label="Recovery"
                         value={bounce.rate === null ? '—' : `${bounce.rate}%`}
                         colors={colors} surface={surface} tint={tint}
                     />
-                    <Stat label="Finished" value={`${finished}`} colors={colors} surface={surface} tint={tint} />
                 </View>
-
-                {/* The rest of who you are. Optional, and never asked for
-                    twice — this is the only place it is edited. */}
-                <Text style={[styles.section, { color: colors.textTertiary }]}>DETAILS</Text>
-                <VoidCard {...surface} style={[styles.card, tint, styles.links]}>
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={profile.birthday ? `Birthday, ${profile.birthday}` : 'Add your birthday'}
-                        onPress={() => { lightFeedback(); setPickingBirthday(!pickingBirthday); }}
-                        style={styles.link}
-                    >
-                        <Ionicons name="gift-outline" size={s(18)} color={colors.textTertiary} />
-                        <Text style={[styles.linkLabel, styles.linkText, { color: colors.textPrimary }]}>Birthday</Text>
-                        <Text style={[styles.linkDetail, { color: pickingBirthday ? primary : colors.textTertiary }]}>
-                            {profile.birthday ?? 'Not set'}
-                        </Text>
-                    </Pressable>
-                    {pickingBirthday ? (
-                        <Animated.View layout={MORPH} style={styles.datePicker}>
-                            <DateTimePicker
-                                value={profile.birthday ? new Date(`${profile.birthday}T12:00:00`) : new Date(2000, 0, 1, 12)}
-                                mode="date"
-                                maximumDate={new Date()}
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                themeVariant={isLight ? 'light' : 'dark'}
-                                onChange={(_event, picked) => {
-                                    if (Platform.OS !== 'ios') setPickingBirthday(false);
-                                    if (!picked) return;
-                                    const key = `${picked.getFullYear()}-${String(picked.getMonth() + 1).padStart(2, '0')}-${String(picked.getDate()).padStart(2, '0')}`;
-                                    change({ birthday: key });
-                                }}
-                            />
-                        </Animated.View>
-                    ) : null}
-
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                    <ChipPicker
-                        options={[
-                            { id: 'Male', label: 'Male' },
-                            { id: 'Female', label: 'Female' },
-                            { id: 'Other', label: 'Other' },
-                            { id: 'Prefer not to say', label: 'Rather not say' },
-                        ]}
-                        value={profile.gender ?? 'Prefer not to say'}
-                        onChange={gender => change({ gender })}
-                        accent={primary}
-                    />
-                </VoidCard>
-
-                <Text style={[styles.section, { color: colors.textTertiary }]}>MAKE IT YOURS</Text>
-                <VoidCard {...surface} style={[styles.card, tint, styles.links]}>
-                    <Link icon="color-palette-outline" label="Appearance" detail="Theme, accent and card size" onPress={() => router.push('/(root)/appearance')} colors={colors} />
-                    <Link icon="sparkles-outline" label="Echo" detail="How the app talks to you" onPress={() => router.push('/(root)/ai-settings')} colors={colors} />
-                    <Link icon="person-circle-outline" label="Account" detail="Sign in, backup and privacy" onPress={() => router.push('/(root)/account')} colors={colors} />
-                </VoidCard>
+                <View style={styles.stats}>
+                    <Stat label="Habits" value={`${tracked}`} colors={colors} surface={surface} tint={tint} />
+                    <Stat label="Finished" value={`${finished}`} colors={colors} surface={surface} tint={tint} />
+                    <Stat label="Best run" value={`${bounce.recovered}`} colors={colors} surface={surface} tint={tint} />
+                </View>
 
                 {!loaded ? null : (
                     <Text style={[styles.footnote, { color: colors.textTertiary }]}>
-                        Your profile stays on this phone until you share it with a friend.
+                        This is what a friend sees. Settings live in the Settings tab.
                     </Text>
                 )}
             </ScrollView>
@@ -257,19 +222,6 @@ const Stat = ({ label, value, colors, surface, tint }: {
         <Text style={[styles.statValue, { color: colors.textPrimary }]}>{value}</Text>
         <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>
     </VoidCard>
-);
-
-const Link = ({ icon, label, detail, onPress, colors }: {
-    icon: never | string; label: string; detail: string; onPress: () => void; colors: typeof Colors.light;
-}) => (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.link}>
-        <Ionicons name={icon as never} size={s(18)} color={colors.textTertiary} />
-        <View style={styles.linkText}>
-            <Text style={[styles.linkLabel, { color: colors.textPrimary }]}>{label}</Text>
-            <Text style={[styles.linkDetail, { color: colors.textTertiary }]}>{detail}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={s(16)} color={colors.textTertiary} />
-    </Pressable>
 );
 
 const styles = StyleSheet.create({
