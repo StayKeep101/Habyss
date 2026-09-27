@@ -2,13 +2,17 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
-import { AppIcon, type IconName } from '@/components/Common/AppIcon';
+import { AppIcon, isGlyphIcon, isPhotoIcon, type IconName } from '@/components/Common/AppIcon';
 import { GoalColorWheel } from './GoalColorWheel';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { readableAccent } from '@/lib/colorContrast';
+
+/** Loaded lazily: a build without the picker should still show the tab. */
+let ImagePicker: typeof import('expo-image-picker') | null = null;
+try { ImagePicker = require('expo-image-picker'); } catch { ImagePicker = null; }
 
 /** Timed, never sprung: the panel changes height and a spring would bounce it. */
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
@@ -94,10 +98,30 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
     const [query, setQuery] = useState('');
     const [wheel, setWheel] = useState(false);
 
-    const search = query.trim().toLowerCase();
+    const typed = query.trim();
+    const search = typed.toLowerCase();
     const icons = search
         ? ICONS.filter(item => `${item.label} ${item.tags}`.toLowerCase().includes(search))
         : ICONS;
+    // Typing an emoji into the search field offers it as an icon, because that
+    // is plainly what someone typing an emoji into an icon search wants.
+    const glyph = typed && isGlyphIcon(typed) ? typed : null;
+    const photo = isPhotoIcon(icon) ? icon : null;
+
+    /** Your own picture, cropped square because every tile it lands in is. */
+    const pickPhoto = async () => {
+        if (!ImagePicker) return;
+        try {
+            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (!permission.granted) return;
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6,
+            });
+            if (!result.canceled && result.assets?.[0]?.uri) onChange({ icon: result.assets[0].uri as IconName });
+        } catch {
+            // A picker that would not open is not worth an alert over an icon.
+        }
+    };
     const custom = !SWATCHES.some(item => item.color.toUpperCase() === color.toUpperCase());
 
     return <Animated.View layout={MORPH} style={styles.content}>
@@ -112,7 +136,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
 
         {tab === 'icons' ? <>
             <TextInput accessibilityLabel={`Search ${subject.toLowerCase()} icons`} value={query} onChangeText={setQuery}
-                placeholder={`Search all ${ICONS.length} icons`} placeholderTextColor={colors.textTertiary}
+                placeholder={`Search ${ICONS.length} icons, or type an emoji`} placeholderTextColor={colors.textTertiary}
                 autoCorrect={false} autoCapitalize="none"
                 style={[styles.search, { color: colors.textPrimary, borderColor: colors.border,
                     backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)' }]} />
@@ -120,6 +144,25 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                 you are writing never leaves the screen to make room for them. */}
             <ScrollView style={styles.iconScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <View style={styles.icons}>
+                    {/* Your own, first: a picture from the library, or the
+                        emoji being typed. Both are ordinary icons once chosen —
+                        every card in the app draws them through AppIcon. */}
+                    <Pressable accessibilityRole="button" accessibilityLabel={photo ? 'Change your own picture' : 'Use your own picture'}
+                        accessibilityState={{ selected: !!photo }}
+                        onPress={() => { selectionFeedback(); void pickPhoto(); }}
+                        style={[styles.icon, { backgroundColor: photo ? color + '20' : 'transparent', borderColor: photo ? tint : colors.border }]}>
+                        {photo
+                            ? <AppIcon name={photo} size={30} />
+                            : <AppIcon name="image-outline" size={22} color={colors.textSecondary} />}
+                    </Pressable>
+                    {glyph ? (
+                        <Pressable accessibilityRole="radio" accessibilityLabel={`Icon ${glyph}`}
+                            accessibilityState={{ selected: icon === glyph }}
+                            onPress={() => { selectionFeedback(); onChange({ icon: glyph as IconName }); }}
+                            style={[styles.icon, { backgroundColor: icon === glyph ? color + '20' : 'transparent', borderColor: icon === glyph ? tint : colors.border }]}>
+                            <AppIcon name={glyph} size={24} />
+                        </Pressable>
+                    ) : null}
                     {icons.map(item => <Pressable key={item.name} accessibilityRole="radio" accessibilityLabel={`Icon ${item.label}`}
                         accessibilityState={{ selected: icon === item.name }}
                         onPress={() => { selectionFeedback(); onChange({ icon: item.name }); }}
@@ -128,7 +171,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                     </Pressable>)}
                 </View>
             </ScrollView>
-            {!icons.length ? <Text style={[styles.label, { color: colors.textSecondary }]}>No icons found. Try “art” or “work”.</Text> : null}
+            {!icons.length && !glyph ? <Text style={[styles.label, { color: colors.textSecondary }]}>No icons found. Try “art”, “work”, or an emoji.</Text> : null}
         </> : <>
             <View style={styles.swatches}>
                 {SWATCHES.map(item => <Pressable key={item.color} accessibilityRole="radio" accessibilityLabel={`Color ${item.name}`}

@@ -143,6 +143,16 @@ describe('the goal sheet', () => {
         await act(async () => {});
     });
 
+    it('takes an emoji as the icon when one is typed', async () => {
+        const screen = render(<GoalSheet visible />);
+        write(screen, 'Read 12 books this year');
+        fireEvent.press(screen.getByLabelText('Look'));
+        fireEvent.changeText(screen.getByLabelText('Search goal icons'), '🈯');
+        fireEvent.press(screen.getByLabelText('Icon 🈯'));
+        await act(async () => { fireEvent.press(screen.getByText('Create goal')); });
+        expect(saved()).toMatchObject({ icon: '🈯' });
+    });
+
     it('searches icons and saves an exact custom color', async () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Read 12 books this year');

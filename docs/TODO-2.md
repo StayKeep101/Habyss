@@ -17,11 +17,17 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Goal creation — the Look tab
 
-- [ ] A goal can take your own icon.
-- [ ] Redraw the tab in the app's own language — cards, buttons, spacing.
-- [ ] Colour: replace the dropdown with a rainbow circle that opens the wheel.
-- [ ] Icons: drop the "more" dropdown. Show the whole collection with search.
-- [ ] Remove the icon on the left — the "Look" tab already previews the change.
+- [x] A goal or habit can take your own icon: a picture from the photo
+      library, or an emoji typed into the icon search. Both are taught to
+      `AppIcon`, which every card, row and chip in the app draws through, so
+      they work everywhere rather than only in the picker.
+- [x] Redraw the tab in the app's own language — cards, buttons, spacing.
+- [x] Colour: a circle of the spectrum at the end of the swatch row opens the
+      wheel, in place of a text link reading "Custom color".
+- [x] Icons: all 42 on screen with the search always visible, inside a panel
+      with a ceiling so the sentence being typed never scrolls away.
+- [x] The 48-point preview on the left is gone; the "Look" chip above the
+      keyboard already shows the icon and the colour.
 
 ## Goal creation — By when
 
@@ -61,8 +67,10 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Reminders — habits and tasks
 
-- [ ] "A certain time before", with a real amount: minutes, hours or days.
-- [ ] Location triggers, both directions: when I arrive at, and when I leave.
+- [x] "A certain time before", with a real amount: minutes, hours or days
+      (`lib/leadTime.ts`). Still stored as minutes, so no migration.
+- [x] Location triggers, both directions: arriving and leaving. Tapping a
+      place chip turns it round.
 
 ## Goal detail
 
