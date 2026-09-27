@@ -32,12 +32,12 @@ import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
 import { tallyDay } from '@/lib/dayComplete';
-import { useDailyFocus } from '@/hooks/useDailyFocus';
+import { useDailyFocus, useDailyTarget } from '@/hooks/useDailyFocus';
+import { streakFrom } from '@/lib/dayComplete';
 import { useHistory } from '@/hooks/useHistory';
 import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
 import { MomentumCard } from '@/components/Home/MomentumCard';
-import { goalActivityDays, activityStreaks } from '@/lib/goalActivity';
 import { localDateKey } from '@/lib/habitSchedule';
 import { MomentumModal } from '@/components/Home/MomentumModal';
 import { RecoveryCard } from '@/components/Home/RecoveryCard';
@@ -203,29 +203,40 @@ const Home = () => {
     }, [])
   );
 
+  const dailyTarget = useDailyTarget();
+
   // The same number as the goals overview and each goal's stats.
   const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = useGoalsInsights();
 
 
-  // Calculate streak (goal-based: streak++ if ALL habits for ANY goal completed)
-  const { streak, completionTier, completedDaysPerGoal, streakDates } = useMemo(() => {
+  /**
+   * The streak, worked out the one way the app defines a finished day.
+   *
+   * Home used to count it per goal — a day counted only if every habit under
+   * some goal was done, and tasks were not looked at at all. So finishing
+   * today's three things moved nothing, and Home could sit on zero while the
+   * card that appears when the day is won said three. Two answers to one
+   * question is one too many; this is now the same `streakFrom` the card uses.
+   */
+  const { streak } = useMemo(() => {
     const today = localDateKey(new Date());
-    const completedDaysPerGoal: Record<string, string[]> = {};
-    const allDays = goals.map(goal => {
-      const days = goalActivityDays(habits.filter(h => h.goalId === goal.id), historyData, completions);
-      completedDaysPerGoal[goal.id] = days.filter(day => day.complete).map(day => day.date);
-      return days;
-    });
-    if (!goals.length) allDays.push(goalActivityDays(habits, historyData, completions));
-    const dates = [...new Set(allDays.flatMap(days => days.map(day => day.date)))].sort();
-    const combined = dates.map(date => {
-      const days = allDays.flatMap(group => group.filter(day => day.date === date));
-      return { date, scheduledIds: days.flatMap(day => day.scheduledIds), completedIds: days.flatMap(day => day.completedIds), complete: days.some(day => day.complete) };
-    });
-    const goalsDone = allDays.filter(days => days.find(day => day.date === today)?.complete).length;
-    return { streak: activityStreaks(combined, today).current, completionTier: allDays.length ? Math.floor(goalsDone / allDays.length * 4) : 0,
-      completedDaysPerGoal, streakDates: combined.filter(day => day.complete).map(day => day.date) };
-  }, [goals, habits, historyData, completions]);
+    const history: Record<string, string[]> = {};
+    const skips: Record<string, string[]> = {};
+    for (const row of historyData) {
+      history[row.date] = row.completedIds;
+      if (row.skippedIds?.length) skips[row.date] = row.skippedIds;
+    }
+    history[today] = Object.keys(completions).filter(id => completions[id]);
+    const run = streakFrom(habits, allTasks, history, skips, today, 70, dailyTarget);
+    return { streak: run.streak };
+  }, [habits, allTasks, historyData, completions, dailyTarget]);
+
+  // How hot the flame burns: how much of today is already done.
+  const completionTier = useMemo(() => {
+    const due = habits.filter(habit => !habit.isArchived && isHabitScheduledForDate(habit, new Date()));
+    if (due.length === 0) return 0;
+    return Math.floor(due.filter(habit => completions[habit.id]).length / due.length * 4);
+  }, [habits, completions]);
 
   // What Echo is allowed to say about today: only what was recorded.
   const echoStats = useMemo<EchoStats>(() => {

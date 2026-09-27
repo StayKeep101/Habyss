@@ -1,4 +1,4 @@
-import { isDayComplete, tallyDay } from '../dayComplete';
+import { isDayComplete, tallyDay, streakFrom } from '../dayComplete';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 
@@ -123,5 +123,50 @@ describe('the run of finished days', () => {
 
     it('is zero when today is not finished yet', () => {
         expect(streakFrom(daily, [], doneOn(['2026-09-21']), {}, TODAY).streak).toBe(0);
+    });
+});
+
+describe('one definition of a streak', () => {
+    // Home used to count streaks per goal: a day counted only if every habit
+    // under some goal was done, and tasks were never looked at. So finishing
+    // today's three things moved nothing and Home sat on zero while the card
+    // that appears when the day is won said three.
+    const day = (back: number) => {
+        const date = new Date(2026, 8, 27 - back, 12);
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    };
+    const today = day(0);
+
+    it('counts a day won by tasks alone, with no habits at all', () => {
+        const tasks = [0, 1, 2].flatMap(back =>
+            [1, 2, 3].map(n => ({
+                id: `t${back}-${n}`, title: 'x', status: 'done', priority: 2, source: 'app',
+                dueDate: day(back), completedAt: `${day(back)}T10:00:00.000Z`,
+                createdAt: '2026-09-01', updatedAt: '2026-09-01',
+            })),
+        ) as never[];
+        const run = streakFrom([], tasks, {}, {}, today, 70, 3);
+        expect(run.streak).toBe(3);
+    });
+
+    it('does not count a day with work still open on it', () => {
+        const base = { title: 'x', priority: 2, source: 'app', dueDate: today, createdAt: '2026-09-01', updatedAt: '2026-09-01' };
+        const tasks = [
+            { ...base, id: 't1', status: 'done', completedAt: `${today}T10:00:00.000Z` },
+            { ...base, id: 't2', status: 'open' },
+            { ...base, id: 't3', status: 'open' },
+        ] as never[];
+        // One of the three that exist today is not a kept day.
+        expect(streakFrom([], tasks, {}, {}, today, 70, 3).streak).toBe(0);
+    });
+
+    it('asks only for work that exists, so one task done is a kept day', () => {
+        // Nobody can be asked for three things on a day that only holds one.
+        const tasks = [{
+            id: 't1', title: 'x', status: 'done', priority: 2, source: 'app',
+            dueDate: today, completedAt: `${today}T10:00:00.000Z`,
+            createdAt: '2026-09-01', updatedAt: '2026-09-01',
+        }] as never[];
+        expect(streakFrom([], tasks, {}, {}, today, 70, 3).streak).toBe(1);
     });
 });
