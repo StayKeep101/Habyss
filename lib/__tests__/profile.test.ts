@@ -1,4 +1,4 @@
-import { ageFrom, displayName, initials, EMPTY_PROFILE, type Profile } from '../profile';
+import { ageFrom, displayName, getProfile, initials, saveProfile, EMPTY_PROFILE, type Profile } from '../profile';
 
 const profile = (over: Partial<Profile> = {}): Profile => ({ ...EMPTY_PROFILE, ...over });
 
@@ -44,5 +44,19 @@ describe('age from a birthday', () => {
 
     it('refuses a birthday in the future rather than showing a negative age', () => {
         expect(ageFrom('2030-01-01', today)).toBeNull();
+    });
+});
+
+describe('the cover image', () => {
+    it('is read and written like the rest of the profile', async () => {
+        await saveProfile({ cover: 'file:///cover.jpg' });
+        expect((await getProfile()).cover).toBe('file:///cover.jpg');
+    });
+    it('is cleared by an empty string, not by leaving it out', async () => {
+        await saveProfile({ cover: 'file:///cover.jpg', name: 'Sam' });
+        await saveProfile({ name: 'Sam Again' });
+        expect((await getProfile()).cover).toBe('file:///cover.jpg');
+        await saveProfile({ cover: '' });
+        expect((await getProfile()).cover).toBeNull();
     });
 });

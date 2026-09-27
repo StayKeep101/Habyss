@@ -19,16 +19,19 @@ export interface Profile {
     bio: string;
     /** A local file uri, not a remote one. */
     avatar: string | null;
+    /** The wide image behind the avatar; a local uri, or the accent when unset. */
+    cover: string | null;
     birthday: string | null;
     gender: string | null;
 }
 
-export const EMPTY_PROFILE: Profile = { name: '', bio: '', avatar: null, birthday: null, gender: null };
+export const EMPTY_PROFILE: Profile = { name: '', bio: '', avatar: null, cover: null, birthday: null, gender: null };
 
 const KEYS = {
     name: 'profile_nickname',
     bio: 'profile_bio',
     avatar: 'profile_avatar',
+    cover: 'profile_cover',
     birthday: 'profile_birthday',
     gender: 'profile_gender',
     age: 'profile_age',
@@ -36,12 +39,13 @@ const KEYS = {
 
 export async function getProfile(): Promise<Profile> {
     try {
-        const pairs = await AsyncStorage.multiGet([KEYS.name, KEYS.bio, KEYS.avatar, KEYS.birthday, KEYS.gender]);
+        const pairs = await AsyncStorage.multiGet([KEYS.name, KEYS.bio, KEYS.avatar, KEYS.cover, KEYS.birthday, KEYS.gender]);
         const found = Object.fromEntries(pairs) as Record<string, string | null>;
         return {
             name: found[KEYS.name] ?? '',
             bio: found[KEYS.bio] ?? '',
             avatar: found[KEYS.avatar] || null,
+            cover: found[KEYS.cover] || null,
             birthday: found[KEYS.birthday] || null,
             gender: found[KEYS.gender] || null,
         };
@@ -70,6 +74,7 @@ export async function saveProfile(changes: Partial<Profile>): Promise<void> {
     put(KEYS.name, changes.name);
     put(KEYS.bio, changes.bio);
     put(KEYS.avatar, changes.avatar);
+    put(KEYS.cover, changes.cover);
     put(KEYS.gender, changes.gender);
     if (changes.birthday !== undefined) {
         put(KEYS.birthday, changes.birthday);

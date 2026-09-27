@@ -102,7 +102,10 @@ energy yet.
 - [x] Six metrics, streak first, because that is the number people actually
       ask each other about: day streak, momentum, recovery, habits, finished,
       best run. The streak uses the same `streakFrom` as Home and the day card.
-- [ ] **Still to do:** the banner layout from the reference — a wide header
-      image with the avatar overlapping it, name and bio centred beneath. The
-      page is currently a left-aligned identity card. Left deliberately, since
-      you said this page is a work in progress.
+- [x] The banner layout from the reference: a wide cover running to both edges,
+      the avatar sitting half on it and half off, name, age, habits and bio
+      centred beneath. The cover is its own image (`profile_cover`, picked at
+      16:9) and falls back to the accent wash the rest of the app is drawn with
+      rather than an empty grey rectangle. The bio lost its box — a sentence
+      about someone should read as a sentence, not as a filled field — and both
+      images can be removed again.
