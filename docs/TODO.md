@@ -123,7 +123,12 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       the server to put one. The stored shape is that table's shape, so applying
       it makes this the local half of a sync rather than something to throw
       away. Notes are kept per day and clear themselves tomorrow.
-- [ ] Messages and emoji between friends.
+- [ ] Messages and emoji between friends. **Blocked, and deliberately not
+      faked.** Notes on a day could be kept locally because a note is still a
+      record of what you thought; a message that never leaves the phone is a
+      conversation with nobody. This needs a `friend_messages` table with RLS
+      scoped to the two people in it, which means the migration below has to be
+      applied first — say the word and it goes in the same one.
 - [~] Shared habits **and tasks**: the rule is built and tested (`lib/shared.ts`,
       12 tests) — not done until everyone on it has done it, two people or
       five — and surfaced on the habit page as who is on it, who it is waiting

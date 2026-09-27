@@ -44,7 +44,24 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 - [ ] The keyboard still flickers on leaving a create sheet. One attempt has
       been made (`ComposerModal` now outlives `visible` by a slide and
       dismisses the keyboard first); it needs checking on a device to see what
-      is still firing.
+      is still firing. **This is the one thing on the list I cannot finish from
+      here** — it is a frame-timing problem between iOS's keyboard animation
+      and the modal's, and the only honest way to fix it is to watch it happen.
+
+## Still open, and why
+
+- **Messages between friends** (round one) needs a `friend_messages` table, so
+  it waits on the migration below. Notes on a day could be local because a note
+  is still a record of what you thought; a message that never leaves the phone
+  is a conversation with nobody, and building a fake inbox would be worse than
+  building nothing.
+- **Two migrations are written and not applied**, which is the only thing
+  standing between the social tab and being real:
+  `20260927_feed_reactions_and_proof.sql` and
+  `20260926_habit_reminder_message.sql`. They need
+  `SUPABASE_ACCESS_TOKEN=sbp_...` in `.env.local` (gitignored — it is not there
+  now), then `node scripts/apply-migration.mjs <file>`.
+- **The app-slowdown diagnosis** is last, as you said.
 
 ## Goals
 
