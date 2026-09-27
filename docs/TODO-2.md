@@ -37,8 +37,15 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Habit flow — Repeat
 
-- [ ] Rebuild the options so they are actually logical:
-      Daily · Weekdays · Weekends · Weekly · Monthly · Yearly · Custom.
+- [~] The **grammar** is built and tested (`lib/recurrence.ts`, 21 tests): every
+      N hours / days / weeks / months / years, weekly on chosen days, monthly
+      on set dates or on the {first…fifth, last} {weekday, day, weekday-kind,
+      weekend}, and yearly with months plus the same ordinal option. It can
+      match a date and describe itself in English — "Every 2 months on the
+      third Sunday". Intervals count from the habit's start so a fortnightly
+      rule never drifts, and the 31st lands on the last day of a short month
+      rather than being skipped.
+      **Still to do: the UI, and teaching `createHabitSchedule` to read it.**
 - [ ] Custom takes a unit and an interval — every N hours / days / weeks /
       months / years:
       - **Weekly** — every N, on chosen weekdays.
