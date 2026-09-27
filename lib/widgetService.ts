@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import SharedDefaults from './SharedDefaults';
 import type { WidgetPayload } from './widgetSync';
+import type { EchoHour } from './echoLockScreen';
 
 /**
  * The app group the widget reads from (`group.com.habyss.data`).
@@ -33,6 +34,23 @@ export const WidgetService = {
             await SharedDefaults.reloadTimelines();
         } catch (error) {
             console.warn('WidgetService: could not update the widget', error);
+        }
+    },
+
+    /**
+     * The hourly lines the lock-screen widget reads.
+     *
+     * Written on its own rather than with the day's list, because it changes
+     * for a different reason: the list changes when something is ticked, the
+     * lines change when the hour turns.
+     */
+    async writeEcho(hours: EchoHour[]): Promise<void> {
+        if (Platform.OS !== 'ios') return;
+        try {
+            await SharedDefaults.set('echoHours', JSON.stringify(hours));
+            await SharedDefaults.reloadTimelines();
+        } catch (error) {
+            console.warn('WidgetService: could not update Echo', error);
         }
     },
 

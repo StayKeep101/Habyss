@@ -56,9 +56,19 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Lock screen
 
-- [ ] Echo speaks hourly: a line on the lock screen, the way there is one on
-      Home. (`lib/echoAlive.ts` and the scheduled-activities work are the
-      places to start; the Live Activity already renders text.)
+- [x] Echo speaks hourly on the lock screen — as a **widget**, not a Live
+      Activity. A Live Activity needs a start, an end and something happening
+      in between; "a line, on the hour, all day" is a timeline, which is what a
+      widget is for. `lib/echoLockScreen.ts` writes one line per waking hour
+      into the App Group and `ios/Widget/EchoWidget.swift` reads whichever the
+      hour has reached (`accessoryRectangular`, `accessoryInline`, plus small
+      and medium for the Home Screen).
+      Two things worth knowing: the lines are picked with a **seeded** shuffle,
+      so rebuilding the plan does not rewrite the afternoon and take away the
+      line you were half-reading; and sleeping hours are skipped rather than
+      filled, so a phone picked up at four in the morning keeps the last line
+      instead of being given a pep talk. Add it from the lock screen's widget
+      gallery — there is nothing to switch on in Settings.
 
 ## Task flow — Date tab
 

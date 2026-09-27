@@ -4,7 +4,7 @@ import { getDailyTarget, type DailyTarget } from './dailyFocus';
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import { buildWidgetDashboard, parseWidgetEvent, type WidgetDashboard } from './widgetDashboard';
-import { daysBetween, goalRange } from './goalInsights';
+import { addDays, daysBetween, goalRange } from './goalInsights';
 import { engagementLifecycle } from './engagementLifecycle';
 
 /**
@@ -151,10 +151,51 @@ async function writeWidgets(): Promise<WidgetPayload | null> {
         payload.accent = await readAccent();
         payload.dashboard = buildWidgetDashboard({ habits, tasks, history, skips, today, accent: payload.accent });
         await WidgetService.write(payload);
+        // Echo's hourly lines ride along with the day: they are built from the
+        // same numbers, so writing them anywhere else would risk the lock
+        // screen quoting a streak the widget above it disagrees with.
+        await writeEchoHours(habits, payload, history, today);
         return payload;
     } catch {
         // A stale widget is not worth an error in front of the user.
         return null;
+    }
+}
+
+/**
+ * What Echo will say on the lock screen for the rest of the day.
+ *
+ * Built from the payload the widget was just handed rather than from a second
+ * read of the database, so the line and the numbers beside it always agree.
+ */
+async function writeEchoHours(habits: Habit[], payload: WidgetPayload, history: Record<string, string[]>, today: string) {
+    try {
+        const { buildEchoHours } = require('./echoLockScreen') as typeof import('./echoLockScreen');
+        const { getDayWindow, getEchoPersonality, getName } = require('./echo') as typeof import('./echo');
+        const { WidgetService } = require('./widgetService') as typeof import('./widgetService');
+
+        const lastWeek = Array.from({ length: 7 }, (_, offset) => history[addDays(today, -offset)] ?? []);
+        const goals = payload.dashboard?.goals ?? [];
+        const [window, personality, name] = await Promise.all([getDayWindow(), getEchoPersonality(), getName()]);
+
+        await WidgetService.writeEcho(buildEchoHours({
+            now: new Date(), window, personality,
+            stats: {
+                name,
+                streak: payload.streak,
+                todayDone: payload.completed,
+                todayTotal: payload.total,
+                weekConsistency: Math.round((lastWeek.filter(day => day.length).length / 7) * 100),
+                nextHabit: payload.nextUp,
+                goalsCount: goals.length,
+                overallProgress: goals.length
+                    ? Math.round(goals.reduce((sum, goal) => sum + goal.progress, 0) / goals.length)
+                    : 0,
+                bestHabit: habits.find(habit => !habit.isGoal && !habit.isArchived)?.name,
+            },
+        }));
+    } catch {
+        // A lock screen without a line is yesterday's behaviour, not a failure.
     }
 }
 
