@@ -21,7 +21,7 @@ import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';
 import { GoalPlanView } from '@/components/Goal/GoalPlanView';
 import { dateAt, friendlyDate } from '@/lib/goalInsights';
-import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
+import { TaskItem } from '@/components/Roadmap/TaskItem';
 import { setTaskStatus, deleteTask, type Task } from '@/lib/tasks';
 
 import { useHaptics } from '@/hooks/useHaptics';
@@ -190,11 +190,6 @@ const GoalDetail = () => {
   const openTask = (task?: Task) => {
     lightFeedback();
     emit('show_task_form', task ? { task } : { goalId: goal?.id });
-  };
-
-  const addHabitToGoal = () => {
-    lightFeedback();
-    emit('show_habit_modal', { goalId: goal?.id });
   };
 
   /**
@@ -430,7 +425,8 @@ const GoalDetail = () => {
             </Animated.View>
           ) : (
           /* Today: only what this goal asks of the user today. The numbers and
-             the whole plan replace it in place, from the buttons below. */
+             the whole plan replace it in place, from the tabs above. Building
+             the plan happens on the roadmap, not here. */
           <Animated.View key="today" entering={FadeIn.duration(220)}>
           <VoidCard glass style={[styles.mainPanel, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
             <View style={styles.todayHeader}>
@@ -498,18 +494,6 @@ const GoalDetail = () => {
               </View>
             ) : null}
 
-            {!isSharedGoal ? (
-              <View style={styles.addRow}>
-                <TouchableOpacity accessibilityRole="button" onPress={addHabitToGoal} style={[styles.addPill, { borderColor: colors.border }]}>
-                  <Ionicons name="repeat" size={15} color={goal.color || accentColor} />
-                  <Text style={[styles.addText, { color: colors.textSecondary }]}>Habit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" onPress={() => openTask()} style={[styles.addPill, { borderColor: colors.border }]}>
-                  <Ionicons name="checkbox-outline" size={15} color={TASK_COLOR} />
-                  <Text style={[styles.addText, { color: colors.textSecondary }]}>Task</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
           </VoidCard>
           </Animated.View>
           )}

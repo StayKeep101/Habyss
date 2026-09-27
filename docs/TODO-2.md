@@ -25,7 +25,10 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Goal creation — By when
 
-- [ ] Remove swipe-to-change-month.
+- [x] Swipe-to-change-month removed. The arrows already did it, and a
+      horizontal pager inside a sheet that scrolls vertically fights the
+      gesture. The grid now morphs to the new month's height, so a five-row
+      month no longer jolts into a six-row one.
 
 ## Creation flows — the keyboard
 
@@ -67,7 +70,8 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       headline, over a ruler of the whole run where spent marks dim, today's
       mark stands tall, and what is left is lit. It turns amber in the last
       tenth (or last week, whichever is longer) and red once the day has gone.
-- [ ] Today tab: remove the habit and task buttons.
+- [x] Today tab: habit and task buttons removed. Building the plan belongs on
+      the roadmap; Today is for what today asks of you.
 - [ ] Roadmap tab: moving a task to another day should be the only action.
 
 ## Habit detail — redesign

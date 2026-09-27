@@ -16,13 +16,21 @@ describe('goal calendar navigation', () => {
         await act(async () => {});
     });
 
-    it('moves forward and backward when the horizontal pager settles', async () => {
+    it('moves forward and backward on the arrows', async () => {
+        // Swiping was removed: the arrows already did this, and a horizontal
+        // pager inside a sheet that scrolls vertically fights the gesture.
         const screen = render(<GoalCalendar value="2028-01-01" onChange={jest.fn()} accent="#00b9e8" />);
-        fireEvent(screen.getByTestId('calendar-viewport'), 'layout', { nativeEvent: { layout: { width: 350 } } });
-        fireEvent(screen.getByLabelText('Swipe calendar month'), 'momentumScrollEnd', { nativeEvent: { contentOffset: { x: 700 } } });
+        fireEvent.press(screen.getByLabelText('Next month'));
         expect(screen.getByText('February 2028')).toBeTruthy();
-        fireEvent(screen.getByLabelText('Swipe calendar month'), 'momentumScrollEnd', { nativeEvent: { contentOffset: { x: 0 } } });
+        fireEvent.press(screen.getByLabelText('Previous month'));
         expect(screen.getByText('January 2028')).toBeTruthy();
+        await act(async () => {});
+    });
+
+    it('no longer offers a swipe to change month', async () => {
+        const screen = render(<GoalCalendar value="2028-01-01" onChange={jest.fn()} accent="#00b9e8" />);
+        expect(screen.queryByLabelText('Swipe calendar month')).toBeNull();
+        expect(screen.queryByText('Swipe to change month')).toBeNull();
         await act(async () => {});
     });
 

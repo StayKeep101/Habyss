@@ -1,11 +1,16 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState } from 'react';
+import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AppIcon } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { localDateKey } from '@/lib/habitSchedule';
+
+/** Timed, never sprung: a sprung height overshoots and the grid bounces. */
+const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
+const monthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
 
 const firstOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1, 12);
 const shiftMonth = (date: Date, delta: number) => new Date(date.getFullYear(), date.getMonth() + delta, 1, 12);
@@ -24,24 +29,17 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false }: {
     const [month, setMonth] = useState(() => firstOfMonth(new Date(`${value ?? today}T12:00:00`)));
     const [jump, setJump] = useState(false);
     const [year, setYear] = useState(String(month.getFullYear()));
-    const [width, setWidth] = useState(0);
-    const pager = useRef<ScrollView>(null);
     const canGoBack = month > minimumMonth;
-    const center = () => { if (width) pager.current?.scrollTo({ x: width, animated: false }); };
-    useLayoutEffect(() => {
-        if (width) pager.current?.scrollTo({ x: width, animated: false });
-    }, [month, width, jump]);
     const showMonth = (next: Date) => {
         selectionFeedback();
         setMonth(next < minimumMonth ? minimumMonth : next);
     };
     const validYear = /^\d{4}$/.test(year) && Number(year) >= minimumMonth.getFullYear() && Number(year) <= 9999;
 
-    const days = (page: Date, pageIndex: number) => {
+    const days = (page: Date) => {
         const offset = (page.getDay() + 6) % 7;
         const count = new Date(page.getFullYear(), page.getMonth() + 1, 0).getDate();
-        return <View key={pageIndex} style={[styles.grid, { width }]} accessibilityElementsHidden={pageIndex !== 1}
-            importantForAccessibility={pageIndex !== 1 ? 'no-hide-descendants' : 'auto'}>
+        return <View style={styles.grid}>
             {Array.from({ length: monthRows(page) * 7 }, (_, index) => {
                 const day = index - offset + 1;
                 if (day < 1 || day > count) return <View key={index} style={styles.cell} />;
@@ -112,25 +110,24 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false }: {
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) =>
                     <Text key={index} style={[styles.weekday, { color: colors.textTertiary }]}>{day}</Text>)}
             </View>
-            <View testID="calendar-viewport" onLayout={event => setWidth(event.nativeEvent.layout.width)} style={{ height: monthRows(month) * 40, overflow: 'hidden' }}>
-                <ScrollView ref={pager} horizontal pagingEnabled bounces={false} showsHorizontalScrollIndicator={false}
-                    accessibilityLabel="Swipe calendar month" keyboardShouldPersistTaps="handled" directionalLockEnabled
-                    contentOffset={{ x: width, y: 0 }} onContentSizeChange={center}
-                    onMomentumScrollEnd={event => {
-                        if (!width) return;
-                        const delta = Math.round(event.nativeEvent.contentOffset.x / width) - 1;
-                        if (delta && (delta > 0 || canGoBack)) showMonth(shiftMonth(month, delta));
-                        else center();
-                    }}>
-                    {[shiftMonth(month, -1), month, shiftMonth(month, 1)].map(days)}
-                </ScrollView>
-            </View>
+            {/* One month, changed by the arrows above. The grid morphs to the
+                new month's height so a 5-row month does not jolt into a 6-row
+                one, and the days fade in rather than cutting. */}
+            <Animated.View
+                testID="calendar-viewport"
+                layout={MORPH}
+                style={{ height: monthRows(month) * 40, overflow: 'hidden' }}
+            >
+                <Animated.View key={monthKey(month)} entering={FadeIn.duration(180)}>
+                    {days(month)}
+                </Animated.View>
+            </Animated.View>
         </>}
         <View style={styles.footer}>
             <Pressable accessibilityRole="button" accessibilityLabel="Go to current month" onPress={() => { showMonth(thisMonth); setJump(false); }} style={styles.today}>
                 <Text style={[styles.hint, { color: accent }]}>Today</Text>
             </Pressable>
-            <Text style={[styles.hint, { color: colors.textTertiary }]}>{jump ? 'Pick a month' : 'Swipe to change month'}</Text>
+            <Text style={[styles.hint, { color: colors.textTertiary }]}>{jump ? 'Pick a month' : ''}</Text>
         </View>
     </View>;
 }
