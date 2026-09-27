@@ -7,9 +7,17 @@ import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
 
 const LOCATION_TASK_NAME = 'HABYSS_GEOFENCING_TASK';
 const REGIONS_KEY = 'habyss_geofence_regions';
-let arrivalQueue: Promise<void> = Promise.resolve();
+let crossingQueue: Promise<void> = Promise.resolve();
 
-async function notifyArrival(identifier: string) {
+/**
+ * A geofence was crossed; tell them if that is the crossing they asked for.
+ *
+ * A place registers for one direction only, so a region that fires on exit
+ * belongs to a "leaving" reminder — but the check is made anyway, because the
+ * habit may have been turned round since the region was registered and the
+ * stale one keeps reporting until the next refresh.
+ */
+async function notifyCrossing(identifier: string, direction: 'arrive' | 'leave') {
     // Defer loading because habit persistence also imports the notification service.
     const { getHabits, getCompletions }: typeof import('./habitsSQLite') = require('./habitsSQLite');
     const [habitId, index] = identifier.split('::');
@@ -20,14 +28,16 @@ async function notifyArrival(identifier: string) {
     if (!habit || habit.isArchived || habit.isGoal || !isHabitScheduledForDate(habit, now)) return;
     if ((await getCompletions(date))[habitId]) return;
     const place = habit.locationReminders?.[Number(index)];
-    if (!place) return;
-    const dedupeKey = 'habyss_arrival_' + habitId;
+    if (!place || (place.trigger ?? 'arrive') !== direction) return;
+    // Once a day per place and per direction: a habit with two places should
+    // still be able to catch you at the second one.
+    const dedupeKey = `habyss_crossing_${habitId}::${index}::${direction}`;
     if (await AsyncStorage.getItem(dedupeKey) === date) return;
     const permission = await Notifications.getPermissionsAsync();
     if (!permission.granted && permission.ios?.status !== Notifications.IosAuthorizationStatus.PROVISIONAL) return;
     await Notifications.scheduleNotificationAsync({
         content: {
-            title: 'Arrived at ' + place.name,
+            title: (direction === 'leave' ? 'Leaving ' : 'Arrived at ') + place.name,
             body: 'Time for ' + habit.name,
             sound: habit.ringtone === 'silent' || habit.ringtone === 'vibrate' ? false : 'default',
             data: { habitId, url: '/habit-detail?habitId=' + encodeURIComponent(habitId) },
@@ -46,11 +56,13 @@ try {
         }
         if (data) {
             const { eventType, region } = data;
-            if (eventType === Location.GeofencingEventType.Enter) {
+            const direction = eventType === Location.GeofencingEventType.Enter ? 'arrive'
+                : eventType === Location.GeofencingEventType.Exit ? 'leave' : null;
+            if (direction) {
                 // Native events can arrive together; serialize the daily dedupe check.
-                arrivalQueue = arrivalQueue.then(() => notifyArrival(String(region?.identifier)))
-                    .catch(taskError => console.warn('[Geofencing] Arrival reminder failed:', taskError));
-                await arrivalQueue;
+                crossingQueue = crossingQueue.then(() => notifyCrossing(String(region?.identifier), direction))
+                    .catch(taskError => console.warn('[Geofencing] Place reminder failed:', taskError));
+                await crossingQueue;
             }
         }
     });
@@ -117,8 +129,11 @@ export class LocationService {
                             latitude: loc.latitude,
                             longitude: loc.longitude,
                             radius: Number.isFinite(loc.radius) ? Math.max(100, loc.radius!) : 150,
-                            notifyOnEnter: true,
-                            notifyOnExit: false,
+                            // One direction each: a region that woke us for both
+                            // would fire the crossing the user did not ask for
+                            // and then be thrown away in notifyCrossing.
+                            notifyOnEnter: loc.trigger !== 'leave',
+                            notifyOnExit: loc.trigger === 'leave',
                         });
                     });
                 }

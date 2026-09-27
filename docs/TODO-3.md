@@ -24,8 +24,23 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       eye is already looking for a colour, instead of a text link reading
       "Custom color". The 48-point preview on the left is gone; the "Look"
       chip above the keyboard already shows the icon and colour.
-- [ ] Reminders: a real duration before — minutes, hours or days — and
-      location triggers in both directions, arriving and leaving.
+- [x] Reminders lead by a real duration (`lib/leadTime.ts`,
+      `components/Create/LeadTime.tsx`): minutes, hours or days, where the unit
+      chooses which five amounts are on screen rather than showing nineteen
+      buttons. Everything is still stored in the `reminder_offset` column as
+      minutes, so **no migration and no habit changes** — hours and days are a
+      way of saying a number of minutes. A lead is read back in the unit it was
+      set in, exactly: 90 minutes stays 90 minutes rather than rounding to an
+      hour and quietly moving the reminder.
+- [x] Places work in both directions. `locationReminders` entries carry
+      `trigger: 'arrive' | 'leave'` — absent means arriving, which is what every
+      place saved before this already did, and it rides in the existing JSON
+      column so **no migration** here either. A region is registered for one
+      direction only (`notifyOnEnter` / `notifyOnExit`), and the crossing is
+      checked again when it fires, because a stale region keeps reporting until
+      the next refresh. Tapping a place chip turns it round; the × removes it.
+      The daily dedupe is now per place and per direction, so a habit with two
+      places can still catch you at the second one.
 - [ ] The keyboard still flickers on leaving a create sheet. One attempt has
       been made (`ComposerModal` now outlives `visible` by a slide and
       dismisses the keyboard first); it needs checking on a device to see what

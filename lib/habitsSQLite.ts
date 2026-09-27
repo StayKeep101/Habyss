@@ -58,7 +58,7 @@ export interface Habit {
     ringtone?: string;
     /** Parsed goal contract as JSON; set on goals created from natural language. */
     goalSpec?: string;
-    locationReminders?: { name: string; latitude: number; longitude: number; radius?: number }[];
+    locationReminders?: LocationReminder[];
     reminderOffset?: number; // Minutes before start time
     /** One specific sentence for this habit's reminder; Echo writes it when unset. */
     reminderMessage?: string;
@@ -122,6 +122,20 @@ export async function reloadHabitsFromStorage(): Promise<void> {
 
 // --- CRUD Operations (SQLite-first when available, Supabase fallback) ---
 
+/**
+ * A place this habit listens for, and which way you have to cross it.
+ *
+ * `trigger` is absent on every place saved before directions existed, and
+ * absent means arriving — which is what those places already did.
+ */
+export interface LocationReminder {
+    name: string;
+    latitude: number;
+    longitude: number;
+    radius?: number;
+    trigger?: 'arrive' | 'leave';
+}
+
 function storedArray(value: unknown, fallback: any[] = []): any[] {
     try {
         const parsed = typeof value === 'string' ? JSON.parse(value) : value;
@@ -174,7 +188,15 @@ export async function getHabits(): Promise<Habit[]> {
                     ringtone: row.ringtone || 'default',
                     goalSpec: row.goal_spec || undefined,
                     reminderOffset: row.reminder_offset,
-                    locationReminders: storedArray(row.location_reminders).filter(location => location && typeof location.name === 'string' && Number.isFinite(location.latitude) && Number.isFinite(location.longitude)),
+                    locationReminders: storedArray(row.location_reminders)
+                        .filter(location => location && typeof location.name === 'string' && Number.isFinite(location.latitude) && Number.isFinite(location.longitude))
+                        // Rebuilt rather than passed through, so a hand-edited
+                        // row cannot put an unknown direction on a geofence.
+                        .map((location): LocationReminder => ({
+                            name: location.name, latitude: location.latitude, longitude: location.longitude,
+                            radius: Number.isFinite(location.radius) ? location.radius : undefined,
+                            trigger: location.trigger === 'leave' ? 'leave' : 'arrive',
+                        })),
                     reminderMessage: row.reminder_message || undefined,
                     recurrence: row.recurrence || undefined,
                     graphStyle: row.graph_style,

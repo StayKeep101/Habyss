@@ -22,8 +22,10 @@ jest.mock('../habitsSQLite', () => ({ getHabits: jest.fn(), getCompletions: jest
 const habit = { id: 'read', name: 'Read', startDate: '2026-01-01', frequency: 'weekly', taskDays: ['wed'], locationReminders: [{ name: 'Home', latitude: 45, longitude: -73, radius: 150 }] };
 const task = (TaskManager.defineTask as jest.Mock).mock.calls[0][1];
 const enter = () => task({ data: { eventType: 1, region: { identifier: 'read::0' } } });
+const leave = () => task({ data: { eventType: 2, region: { identifier: 'read::0' } } });
+const leaving = { ...habit, locationReminders: [{ ...habit.locationReminders[0], trigger: 'leave' as const }] };
 
-describe('habit arrival reminders', () => {
+describe('habit place reminders', () => {
     beforeEach(async () => {
         jest.clearAllMocks();
         jest.useFakeTimers().setSystemTime(new Date(2026, 8, 16, 10));
@@ -62,6 +64,31 @@ describe('habit arrival reminders', () => {
         (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ granted: false });
         await enter();
         expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+    it('reminds on the way out when that is the crossing asked for', async () => {
+        (getHabits as jest.Mock).mockResolvedValue([leaving]);
+        await leave();
+        expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(expect.objectContaining({
+            content: expect.objectContaining({ title: 'Leaving Home' }),
+        }));
+    });
+    it('ignores the crossing the habit did not ask for', async () => {
+        await leave();
+        (getHabits as jest.Mock).mockResolvedValue([leaving]);
+        await enter();
+        expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+    it('still catches the second place after the first has fired', async () => {
+        (getHabits as jest.Mock).mockResolvedValue([{ ...habit, locationReminders: [habit.locationReminders[0], { name: 'Gym', latitude: 46, longitude: -73 }] }]);
+        await enter();
+        await task({ data: { eventType: 1, region: { identifier: 'read::1' } } });
+        expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+    });
+    it('watches each region in one direction only', async () => {
+        (getHabits as jest.Mock).mockResolvedValue([leaving]);
+        await LocationService.refreshGeofences();
+        expect(Location.startGeofencingAsync).toHaveBeenCalledWith('HABYSS_GEOFENCING_TASK',
+            [expect.objectContaining({ notifyOnEnter: false, notifyOnExit: true })]);
     });
     it('registers coordinates rather than placeholder places and removes old regions', async () => {
         await LocationService.refreshGeofences();

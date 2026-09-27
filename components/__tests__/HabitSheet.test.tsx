@@ -72,6 +72,36 @@ describe('the habit sheet', () => {
         expect((addHabit as jest.Mock).mock.calls[0][0].reminders).toEqual(['21:00']);
     });
 
+    it('leads a reminder by hours and days, not only minutes', async () => {
+        const screen = render(<HabitSheet visible />);
+        write(screen, 'Pack the bag at 18:00');
+        fireEvent.press(screen.getByText('Reminder'));
+        fireEvent.press(screen.getByText('At the start time'));
+        fireEvent.press(screen.getByText('Hours'));
+        fireEvent.press(screen.getByText('2 hr'));
+        expect(screen.getAllByText('2 hr before').length).toBeGreaterThan(0);
+
+        fireEvent.press(screen.getByText('Days'));
+        fireEvent.press(screen.getByText('1 day'));
+        await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
+
+        await waitFor(() => expect(addHabit).toHaveBeenCalled());
+        expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ reminders: ['18:00'], reminderOffset: 1440 });
+    });
+
+    it('reads a saved lead back in the unit it was set in', async () => {
+        const habit = {
+            id: 'h7', name: 'Shop', taskDays: ['sat'], goalValue: 1, unit: 'time', color: '#6B8AF5',
+            icon: 'cart-outline', reminders: ['10:00'], reminderOffset: 120, startDate: '2026-01-01', startTime: '10:00',
+        } as unknown as Habit;
+        const screen = render(<HabitSheet visible habit={habit} />);
+        fireEvent.press(screen.getByLabelText(/^Reminder/));
+        // The amounts on screen are hours, because that is what 120 minutes is.
+        expect(screen.getByText('12 hr')).toBeTruthy();
+        expect(screen.queryByText('45 min')).toBeNull();
+        expect(screen.getAllByText('2 hr before').length).toBeGreaterThan(0);
+    });
+
     it('edits an existing habit in place rather than making a second one', async () => {
         const habit = {
             id: 'h9', name: 'Meditate', taskDays: ['mon'], goalValue: 1, unit: 'time',

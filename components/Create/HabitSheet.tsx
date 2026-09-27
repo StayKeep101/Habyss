@@ -11,10 +11,12 @@ import { RepeatPicker } from '@/components/Create/RepeatPicker';
 import { TimeRange, endTime } from '@/components/Create/TimeRange';
 import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, type Recurrence, type Weekday } from '@/lib/recurrence';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
+import { LeadTime } from '@/components/Create/LeadTime';
 import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
 import { goalUnitLabel } from '@/lib/goalUnits';
+import { shortLead } from '@/lib/leadTime';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
@@ -23,7 +25,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseHabit } from '@/lib/smartParse';
 import { parseHabitText } from '@/lib/habitParser';
-import { addHabit, updateHabit, getGoals, type Habit } from '@/lib/habitsSQLite';
+import { addHabit, updateHabit, getGoals, type Habit, type LocationReminder } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
 import { NotificationService } from '@/lib/notificationService';
 import { emit, on } from '@/lib/appEvents';
@@ -51,8 +53,8 @@ interface Draft {
     reminderOffset?: number;
     /** One sentence for this habit; Echo writes it when this is empty. */
     reminderMessage?: string;
-    /** Arrival reminders — the geofences this habit listens for. */
-    places: { name: string; latitude: number; longitude: number; radius?: number }[];
+    /** The geofences this habit listens for, arriving or leaving. */
+    places: LocationReminder[];
     /** How often it comes round, in the full grammar. */
     rule: Recurrence;
 }
@@ -92,7 +94,7 @@ function ruleFromColumns(from: Habit): Recurrence {
 const describeReminder = (draft: Draft): string | undefined => {
     const parts: string[] = [];
     if (draft.reminder) {
-        parts.push(draft.reminderOffset ? `${draft.reminderOffset}m before ${draft.reminder}` : draft.reminder);
+        parts.push(draft.reminderOffset ? `${shortLead(draft.reminderOffset)} ${draft.reminder}` : draft.reminder);
     }
     if (draft.places.length) parts.push(draft.places.length === 1 ? draft.places[0].name : `${draft.places.length} places`);
     return parts.length ? parts.join(' · ') : undefined;
@@ -123,7 +125,7 @@ export const HabitSheet: React.FC<{
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: accent, foreground: accentText } = useAccentGradient();
-    const { lightFeedback, successFeedback } = useHaptics();
+    const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
     const [editing, setEditing] = useState<Habit | null>(null);
@@ -164,7 +166,7 @@ export const HabitSheet: React.FC<{
                 Math.abs(item.latitude - fix.coords.latitude) < 0.0005
                 && Math.abs(item.longitude - fix.coords.longitude) < 0.0005);
             if (already) return;
-            change({ places: [...draft.places, { name, latitude: fix.coords.latitude, longitude: fix.coords.longitude, radius: 150 }] });
+            change({ places: [...draft.places, { name, latitude: fix.coords.latitude, longitude: fix.coords.longitude, radius: 150, trigger: 'arrive' }] });
         } catch {
             setError('Could not find where you are. Try again.');
         } finally {
@@ -385,13 +387,7 @@ export const HabitSheet: React.FC<{
 
                     {/* How far ahead of the habit it should land. */}
                     {draft.reminder ? (
-                        <Choices
-                            options={[
-                                { id: 0, label: 'On time' },
-                                { id: 5, label: '5 min before' },
-                                { id: 15, label: '15 min before' },
-                                { id: 30, label: '30 min before' },
-                            ]}
+                        <LeadTime
                             value={draft.reminderOffset ?? 0}
                             accent={accent}
                             onChange={minutes => change({ reminderOffset: minutes || undefined })}
@@ -415,22 +411,38 @@ export const HabitSheet: React.FC<{
                         data model and in LocationService; nothing ever asked
                         for one. */}
                     <View style={styles.inline}>
-                        {draft.places.map(place => (
-                            <Pressable
-                                key={`${place.latitude},${place.longitude}`}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Remove the reminder at ${place.name}`}
-                                onPress={() => { lightFeedback(); change({ places: draft.places.filter(item => item !== place) }); }}
-                                style={[styles.place, { borderColor: accent + '66', backgroundColor: accent + '18' }]}
-                            >
-                                <Ionicons name="location" size={12} color={accent} />
-                                <Text style={{ color: accent, fontSize: 12, fontFamily: FontFamily.medium }}>{place.name}</Text>
-                                <Ionicons name="close" size={12} color={accent} />
-                            </Pressable>
-                        ))}
+                        {draft.places.map(place => {
+                            const leaving = place.trigger === 'leave';
+                            return (
+                                <View key={`${place.latitude},${place.longitude}`} style={[styles.place, { borderColor: accent + '66', backgroundColor: accent + '18' }]}>
+                                    {/* Tapping the chip turns it round. Arriving
+                                        and leaving are the same place either way,
+                                        so a second chip would only repeat it. */}
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel={leaving ? `Remind me when I arrive at ${place.name} instead` : `Remind me when I leave ${place.name} instead`}
+                                        onPress={() => { selectionFeedback(); change({ places: draft.places.map(item => item === place ? { ...item, trigger: leaving ? 'arrive' : 'leave' } : item) }); }}
+                                        style={styles.placeBody}
+                                    >
+                                        <Ionicons name={leaving ? 'exit-outline' : 'location'} size={12} color={accent} />
+                                        <Text style={{ color: accent, fontSize: 12, fontFamily: FontFamily.medium }}>
+                                            {`${leaving ? 'Leaving' : 'Arriving'} · ${place.name}`}
+                                        </Text>
+                                    </Pressable>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Remove the reminder at ${place.name}`}
+                                        onPress={() => { lightFeedback(); change({ places: draft.places.filter(item => item !== place) }); }}
+                                        hitSlop={8}
+                                    >
+                                        <Ionicons name="close" size={12} color={accent} />
+                                    </Pressable>
+                                </View>
+                            );
+                        })}
                         <Pressable onPress={() => void addHere()} disabled={findingPlace} style={styles.link}>
                             <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.medium }}>
-                                {findingPlace ? 'Finding you…' : 'Remind me when I arrive here'}
+                                {findingPlace ? 'Finding you…' : 'Remind me at this place'}
                             </Text>
                         </Pressable>
                     </View>
@@ -571,6 +583,7 @@ const styles = StyleSheet.create({
     link: { paddingVertical: 6 },
     picker: { alignSelf: 'flex-start' },
     place: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
+    placeBody: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     message: { minHeight: 40, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, fontFamily: FontFamily.regular },
     inline: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },

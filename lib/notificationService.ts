@@ -11,6 +11,7 @@ import { LocationService } from './LocationService';
 import type { Habit } from './habitsSQLite';
 import { buildTaskReminderPlan } from './taskReminders';
 import { buildHabitReminderPlan } from './habitReminders';
+import { longLead } from './leadTime';
 import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
 import { emit, onAny } from './appEvents';
 import { scheduledMoments } from './scheduledMoments';
@@ -223,7 +224,7 @@ export class NotificationService {
         });
         for (const { habit, date, scheduledDate } of plan) candidates.push({
           identifier: `habit:${habit.id}:${date.getTime()}`, date,
-          content: { title: habit.name, body: (habit.reminderOffset ? `Starts in ${habit.reminderOffset} minutes. ` : '')
+          content: { title: habit.name, body: (habit.reminderOffset ? `Starts in ${longLead(habit.reminderOffset)}. ` : '')
               // A sentence the user wrote for this habit beats anything Echo
               // or the coach lines would have chosen for them.
               + (habit.reminderMessage?.trim()
