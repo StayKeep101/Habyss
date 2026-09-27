@@ -3,7 +3,8 @@ import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity
 import { router } from 'expo-router';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
-import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
+import { Countdown } from '@/components/Goal/Countdown';
+import { TaskItem } from '@/components/Roadmap/TaskItem';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
@@ -47,25 +48,29 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
         lightFeedback();
         emit('show_task_form', task ? { task } : { goalId: goal.id });
     };
-    const addHabit = () => {
-        lightFeedback();
-        emit('show_habit_modal', { goalId: goal.id });
-    };
     const toggleTask = async (task: Task) => {
         selectionFeedback();
-        await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
-        emit('tasks_changed');
+        try {
+            await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
+            emit('tasks_changed');
+        } catch { Alert.alert('Could not save task', 'Please try again.'); }
     };
     const removeTask = (task: Task) => {
         Alert.alert('Delete task', `Delete "${task.title}"?`, [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: async () => { await deleteTask(task.id); emit('tasks_changed'); } },
+            { text: 'Delete', style: 'destructive', onPress: async () => {
+                try { await deleteTask(task.id); emit('tasks_changed'); }
+                catch { Alert.alert('Could not delete task', 'Your task is still saved. Please try again.'); }
+            } },
         ]);
     };
     const toggleHabit = (habit: Habit, done: boolean) => {
         selectionFeedback();
         setCompletion(habit.id, !done);
-        toggleCompletion(habit.id, today).catch(console.error);
+        toggleCompletion(habit.id, today).catch(() => {
+            setCompletion(habit.id, done);
+            Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');
+        });
     };
 
     // Upcoming tasks under one heading per day, in date order.
@@ -80,15 +85,6 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
         <TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} />
     );
 
-    const addButton = (label: string, onPress: () => void, tint: string) => (
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Add a ${label.toLowerCase()}`} onPress={onPress} hitSlop={10} style={styles.addBtn}>
-            <Ionicons name="add" size={16} color={tint} />
-            <Text style={[styles.addText, { color: tint }]}>{label}</Text>
-        </TouchableOpacity>
-    );
-
-    const range = `${dateAt(insights.startDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} → ${goal.targetDate ? dateAt(insights.endDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'no end date'}`;
-
     return (
         <>
             {/* Inside the goal page this is part of that page, so it must not
@@ -96,10 +92,17 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
             <Outer {...(embedded
                 ? { style: styles.content }
                 : { contentContainerStyle: styles.content, showsVerticalScrollIndicator: false })}>
-                <Text numberOfLines={2} style={[styles.goalName, { color: colors.textPrimary }]}>{goal.name}</Text>
-                <Text style={[styles.range, { color: colors.textTertiary }]}>{range}</Text>
+                {/* The one question this page exists to answer. */}
+                <Countdown
+                    span={Math.max(1, Math.round(
+                        (dateAt(insights.endDate).getTime() - dateAt(insights.startDate).getTime()) / 86400000))}
+                    left={insights.daysLeft ?? 0}
+                    endLabel={goal.targetDate
+                        ? dateAt(insights.endDate).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
+                        : 'no end date'}
+                />
 
-                <SectionLabel right={addButton('Habit', addHabit, color)}>{`Habits · ${insights.habits.length}`}</SectionLabel>
+                <SectionLabel>{`Habits · ${insights.habits.length}`}</SectionLabel>
                 {insights.habits.length ? insights.habits.map(summary => (
                     <GoalHabitRow
                         key={summary.habit.id}
@@ -117,7 +120,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
                     <Text style={[styles.hint, { color: colors.textTertiary }]}>What will you repeat to get there? Add a habit.</Text>
                 )}
 
-                <SectionLabel right={addButton('Task', () => openTask(), TASK_COLOR)}>{`Tasks · ${tasks.total}`}</SectionLabel>
+                <SectionLabel>{`Tasks · ${tasks.total}`}</SectionLabel>
                 {tasks.total === 0 ? (
                     <Text style={[styles.hint, { color: colors.textTertiary }]}>What must be finished, and by when? Add a task.</Text>
                 ) : null}

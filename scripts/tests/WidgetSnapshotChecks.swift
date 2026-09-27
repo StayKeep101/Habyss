@@ -1,0 +1,43 @@
+let suite = "com.habyss.widget-tests." + UUID().uuidString
+let defaults = UserDefaults(suiteName: suite)!
+defer { defaults.removePersistentDomain(forName: suite) }
+let today = "2026-09-26"
+let tomorrow = "2026-09-27"
+let item = DashboardTask(id: "task:one", name: "Ship Habyss", isCompleted: false, time: "16:00", dueDate: today)
+let snapshot = DashboardSnapshot(version: 1, generatedAt: today, dayKey: today,
+    accent: .init(from: "#FF0000", to: "#FFFF00"),
+    days: [DashboardDay(date: today, total: 1, completed: 0, items: [item]),
+           DashboardDay(date: tomorrow, total: 1, completed: 0, items: [item])],
+    heatmap: [HeatmapDay(date: today, completed: 2, total: 3)],
+    goals: [DashboardGoal(id: "goal", name: "Launch", progress: 50, color: "#FF0000", taskWeights: ["task:one": 50])])
+let raw = String(data: try JSONEncoder().encode(snapshot), encoding: .utf8)!
+defaults.set(raw, forKey: "widgetDashboard")
+func action(_ id: String, _ done: Bool, _ timestamp: Double) throws {
+    let event = WidgetAction(eventId: id, id: "task:one", day: today, done: done, timestamp: timestamp)
+    defaults.set(String(data: try JSONEncoder().encode(event), encoding: .utf8)!, forKey: "widget_event_" + id)
+}
+assert(DashboardSnapshot.read(defaults: defaults)?.days[0].completed == 0)
+try action("first", true, 1)
+let done = DashboardSnapshot.read(defaults: defaults)!
+assert(done.days[0].completed == 1 && done.days[0].items[0].isCompleted)
+assert(done.goals[0].progress == 100)
+assert(done.days[1].total == 0 && done.days[1].items.isEmpty, "Completed overdue tasks must not appear tomorrow")
+assert(defaults.string(forKey: "widgetDashboard") == raw, "Overlay must not mutate the original snapshot")
+try action("duplicate", true, 2)
+assert(DashboardSnapshot.read(defaults: defaults)!.goals[0].progress == 100, "Duplicate delivery must not count twice")
+try action("undo", false, 3)
+let undone = DashboardSnapshot.read(defaults: defaults)!
+assert(undone.days[0].completed == 0 && undone.goals[0].progress == 50)
+assert(undone.days[1].items.count == 1 && undone.days[1].total == 1, "Undo restores a future overdue task")
+defaults.set("broken-json", forKey: "widget_event_broken")
+assert(DashboardSnapshot.read(defaults: defaults)!.goals[0].progress == 50)
+defaults.set(raw.replacingOccurrences(of: "\"version\":1", with: "\"version\":99"), forKey: "widgetDashboard")
+assert(DashboardSnapshot.read(defaults: defaults) == nil, "Unknown snapshot versions must be ignored")
+print("Swift widget snapshot checks passed: completion, counts, goal progress, rollover, undo, duplicates, corruption, versioning.")
+var many = snapshot
+many.days[0].total = 2
+many.days[0].items.append(DashboardTask(id: "task:two", name: "Next step", isCompleted: false, time: nil, dueDate: today))
+defaults.set(String(data: try JSONEncoder().encode(many), encoding: .utf8)!, forKey: "widgetDashboard")
+try action("final", true, 4)
+assert(DashboardSnapshot.read(defaults: defaults)!.days[0].items[0].id == "task:two", "Checking a row must reveal the next unfinished task")
+print("Swift widget next-task check passed.")

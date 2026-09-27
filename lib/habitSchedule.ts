@@ -27,33 +27,35 @@ const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0
 
 /** The same local calendar schedule is shared by Home, Roadmap and statistics. */
 export function isHabitScheduledForDate(habit: Habit, date: Date): boolean {
-    if (!Number.isFinite(date.getTime())) return false;
+    return createHabitSchedule(habit)(date);
+}
+
+/** Compile once when evaluating years of history for the same habit. */
+export function createHabitSchedule(habit: Habit): (date: Date) => boolean {
     const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
-    if (!start) return false;
-    const day = calendarDay(date);
-    if (day < calendarDay(start)) return false;
-    // Respect both the explicit end date and legacy target date, inclusively.
-    for (const boundary of [habit.endDate, habit.targetDate]) {
-        const end = parseHabitDate(boundary);
-        if (end && day > calendarDay(end)) return false;
-    }
-
-    if (habit.frequency === 'monthly') {
-        return date.getDate() === Math.min(start.getDate(), daysInMonth(date.getFullYear(), date.getMonth()));
-    }
-    if (habit.frequency === 'yearly') {
-        return date.getMonth() === start.getMonth()
-            && date.getDate() === Math.min(start.getDate(), daysInMonth(date.getFullYear(), start.getMonth()));
-    }
-
+    if (!start) return () => false;
+    const startDay = calendarDay(start);
+    const startWeek = startOfWeek(start);
+    const startMonth = start.getMonth();
+    const startDate = start.getDate();
+    const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((date): date is Date => date !== null);
+    const endDay = ends.length ? Math.min(...ends.map(calendarDay)) : Infinity;
     const interval = Math.max(1, Math.floor(habit.weekInterval || 1));
-    if (interval > 1) {
-        const weeksSinceStart = (startOfWeek(date) - startOfWeek(start)) / 7;
-        if (weeksSinceStart % interval !== 0) return false;
-    }
+    const weekdays = new Set((habit.taskDays ?? []).map(day => day.toLowerCase().slice(0, 3)));
+    const frequency = habit.frequency;
 
-    if (habit.taskDays?.length) {
-        return habit.taskDays.some(dayName => dayName.toLowerCase().slice(0, 3) === WEEKDAYS[date.getDay()]);
-    }
-    return true;
+    return date => {
+        if (!Number.isFinite(date.getTime())) return false;
+        const day = calendarDay(date);
+        if (day < startDay || day > endDay) return false;
+        if (frequency === 'monthly') {
+            return date.getDate() === Math.min(startDate, daysInMonth(date.getFullYear(), date.getMonth()));
+        }
+        if (frequency === 'yearly') {
+            return date.getMonth() === startMonth
+                && date.getDate() === Math.min(startDate, daysInMonth(date.getFullYear(), startMonth));
+        }
+        if (interval > 1 && ((startOfWeek(date) - startWeek) / 7) % interval !== 0) return false;
+        return weekdays.size === 0 || weekdays.has(WEEKDAYS[date.getDay()]);
+    };
 }

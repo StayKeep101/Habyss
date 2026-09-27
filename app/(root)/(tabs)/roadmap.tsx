@@ -102,13 +102,13 @@ const CalendarScreen = () => {
     const dragLift = useSharedValue(0);
     const dragPreviewStyle = useAnimatedStyle(() => ({
         transform: [
-            { translateY: dragY.value - 34 },
-            { translateX: (dragX.value - 24) * 0.12 },
-            { scale: 0.92 + dragLift.value * 0.08 },
-            { rotateZ: `${dragLift.value * 1.6}deg` },
+            { translateY: dragY.get() - 34 },
+            { translateX: (dragX.get() - 24) * 0.12 },
+            { scale: 0.92 + dragLift.get() * 0.08 },
+            { rotateZ: `${dragLift.get() * 1.6}deg` },
         ],
-        opacity: dragLift.value,
-        shadowOpacity: 0.35 * dragLift.value,
+        opacity: dragLift.get(),
+        shadowOpacity: 0.35 * dragLift.get(),
     }));
     const [hoveredGoalId, setHoveredGoalId] = useState<string | null>(null);
     // Mirrors hoveredGoalId so a drag can compare without re-subscribing to state.
@@ -356,6 +356,8 @@ const CalendarScreen = () => {
         toggleCompletion(habit.id, dateStr).catch(e => {
             // Revert on error
             setCompletions(prev => ({ ...prev, [habit.id]: !isCompleted }));
+            setTodayCompletions(prev => ({ ...prev, [habit.id]: !isCompleted }));
+            Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');
             console.error(e);
         });
 
@@ -372,47 +374,44 @@ const CalendarScreen = () => {
             return next;
         });
         const date = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-        await setSkippedHabit(habit.id, !already, date);
+        try { await setSkippedHabit(habit.id, !already, date); }
+        catch {
+            setSkipped(prev => ({ ...prev, [habit.id]: already }));
+            Alert.alert('Could not save progress', 'This skip was not saved. Please try again.');
+        }
     }, [skipped, selectedDate, selectionFeedback]);
 
     const handleTaskToggle = useCallback(async (task: Task) => {
-        await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
-        successFeedback();
-        emit('tasks_changed');
+        try {
+            await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
+            successFeedback();
+            emit('tasks_changed');
+        } catch { Alert.alert('Could not save task', 'Please try again.'); }
     }, [successFeedback]);
 
-    const handleTaskDelete = useCallback((task: Task) => {
-        Alert.alert('Delete task', `Delete "${task.title}"?`, [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Delete', style: 'destructive',
-                onPress: async () => {
-                    await removeTask(task.id);
-                    emit('tasks_changed');
-                },
-            },
-        ]);
+    // Pulling the row all the way across is already a deliberate act — asking
+    // again afterwards only makes the gesture feel untrusted.
+    const handleTaskDelete = useCallback(async (task: Task) => {
+        try { await removeTask(task.id); emit('tasks_changed'); }
+        catch { Alert.alert('Could not delete task', 'Your task is still saved. Please try again.'); }
     }, []);
 
     const openTask = useCallback((task: Task) => {
         emit('show_task_form', { task });
     }, []);
 
-    const handleDelete = (habit: Habit) => {
-        Alert.alert(
-            habit.isGoal ? "Delete Goal" : "Delete Habit",
-            "Are you sure? This cannot be undone.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        await removeHabitEverywhere(habit.id);
-                    }
-                }
-            ]
-        );
+    const handleDelete = async (habit: Habit) => {
+        // A habit goes on the gesture alone. A goal takes its whole plan with
+        // it, which is more than one swipe should be allowed to decide.
+        if (habit.isGoal) {
+            Alert.alert('Delete goal', 'This removes the goal and everything planned under it.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: () => void removeHabitEverywhere(habit.id) },
+            ]);
+            return;
+        }
+        try { await removeHabitEverywhere(habit.id); }
+        catch { Alert.alert('Could not delete', 'Your habit is still saved. Please try again.'); }
     };
 
     const handleEdit = (habit: Habit) => {
@@ -502,23 +501,23 @@ const CalendarScreen = () => {
     const handleHabitDragStart = useCallback(async (habit: Habit, x: number, y: number) => {
         selectionFeedback();
         setDraggingHabit(habit);
-        dragY.value = y;
-        dragX.value = x;
-        dragLift.value = withSpring(1, { damping: 16, stiffness: 220 });
+        dragY.set(y);
+        dragX.set(x);
+        dragLift.set(withSpring(1, { damping: 16, stiffness: 220 }));
         const currentGoals = habitsStore.filter((item) => item.isGoal) as Habit[];
         await measureGoalDropTargets(currentGoals);
         const initial = getHoveredGoalAtPoint(x, y);
         hoveredGoalRef.current = initial;
         setHoveredGoalId(initial);
-    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore]);
+    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift]);
 
     const handleHabitDragMove = useCallback((habit: Habit, x: number, y: number) => {
         // dragY is a shared value, so the floating card follows the finger on the UI
         // thread. Only publish the hovered goal to React state when it actually
         // changes; setting it on every pointer move re-rendered every goal and habit
         // row for each frame of the drag.
-        dragY.value = y;
-        dragX.value = x;
+        dragY.set(y);
+        dragX.set(x);
         const next = getHoveredGoalAtPoint(x, y);
         if (next !== hoveredGoalRef.current) {
             hoveredGoalRef.current = next;
@@ -527,13 +526,13 @@ const CalendarScreen = () => {
             // felt rather than guessed at.
             if (next) selectionFeedback();
         }
-    }, [getHoveredGoalAtPoint, selectionFeedback]);
+    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY]);
 
     const handleHabitDragEnd = useCallback(async (habit: Habit, x: number, y: number) => {
         const targetGoalId = getHoveredGoalAtPoint(x, y);
 
         // The card settles back into the list instead of vanishing mid-air.
-        dragLift.value = withTiming(0, { duration: 170 });
+        dragLift.set(withTiming(0, { duration: 170 }));
         setDraggingHabit(null);
         hoveredGoalRef.current = null;
         setHoveredGoalId(null);
@@ -552,7 +551,7 @@ const CalendarScreen = () => {
             setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
             Alert.alert('Could not move habit', 'Your habit is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift]);
 
     /**
      * Tasks move between goals exactly like habits: hold one, drag it onto a
@@ -562,29 +561,29 @@ const CalendarScreen = () => {
     const handleTaskDragStart = useCallback(async (task: Task, x: number, y: number) => {
         selectionFeedback();
         setDraggingTask(task);
-        dragY.value = y;
-        dragX.value = x;
-        dragLift.value = withSpring(1, { damping: 16, stiffness: 220 });
+        dragY.set(y);
+        dragX.set(x);
+        dragLift.set(withSpring(1, { damping: 16, stiffness: 220 }));
         await measureGoalDropTargets(habitsStore.filter(item => item.isGoal) as Habit[]);
         const initial = getHoveredGoalAtPoint(x, y);
         hoveredGoalRef.current = initial;
         setHoveredGoalId(initial);
-    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore]);
+    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift]);
 
     const handleTaskDragMove = useCallback((_task: Task, x: number, y: number) => {
-        dragY.value = y;
-        dragX.value = x;
+        dragY.set(y);
+        dragX.set(x);
         const next = getHoveredGoalAtPoint(x, y);
         if (next !== hoveredGoalRef.current) {
             hoveredGoalRef.current = next;
             setHoveredGoalId(next);
             if (next) selectionFeedback();
         }
-    }, [getHoveredGoalAtPoint, selectionFeedback]);
+    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY]);
 
     const handleTaskDragEnd = useCallback(async (task: Task, x: number, y: number) => {
         const targetGoalId = getHoveredGoalAtPoint(x, y);
-        dragLift.value = withTiming(0, { duration: 170 });
+        dragLift.set(withTiming(0, { duration: 170 }));
         setDraggingTask(null);
         hoveredGoalRef.current = null;
         setHoveredGoalId(null);
@@ -602,7 +601,7 @@ const CalendarScreen = () => {
             setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: task.goalId } : item));
             Alert.alert('Could not move task', 'Your task is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift]);
 
     const toggleGoalExpansion = (goalId: string) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -1074,8 +1073,12 @@ const CalendarScreen = () => {
                                                     }
 
                                                     selectionFeedback();
-                                                    toggleCompletion(h.id, todayStr);
-                                                    setCompletions(prev => ({ ...prev, [h.id]: !prev[h.id] }));
+                                                    const wasDone = !!completions[h.id];
+                                                    toggleCompletion(h.id, todayStr).catch(() => {
+                                                        setCompletions(prev => ({ ...prev, [h.id]: wasDone }));
+                                                        Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');
+                                                    });
+                                                    setCompletions(prev => ({ ...prev, [h.id]: !wasDone }));
                                                 }}
                                                 onEdit={handleEdit}
                                                 onDelete={(h) => { handleDelete(h); }}

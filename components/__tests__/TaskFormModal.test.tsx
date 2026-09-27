@@ -1,0 +1,64 @@
+import React from 'react';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
+import { TaskFormModal } from '../Tasks/TaskFormModal';
+import { createTask, updateTask, type Task } from '@/lib/tasks';
+
+jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
+jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
+jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
+jest.mock('@/lib/onDeviceAI', () => ({ isOnDeviceAIReady: () => false }));
+jest.mock('@/lib/habitsSQLite', () => ({ getGoals: jest.fn().mockResolvedValue([]) }));
+jest.mock('@/lib/tasks', () => ({ createTask: jest.fn().mockResolvedValue({ id: 't1' }), updateTask: jest.fn().mockResolvedValue(undefined) }));
+
+const saved = { id: 't1', title: 'Call tomorrow', dueDate: '2026-09-24', dueTime: '00:00', priority: 2 } as Task;
+beforeEach(() => jest.clearAllMocks());
+
+it('opens the calendar directly and saves the selected date', async () => {
+    const screen = render(<TaskFormModal visible task={saved} />);
+    fireEvent.press(screen.getByLabelText(/^Date,/));
+    expect(screen.getByTestId('goal-calendar')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Choose 2026-09-25'));
+    await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
+    expect(updateTask).toHaveBeenCalledWith('t1', expect.objectContaining({ title: saved.title, dueDate: '2026-09-25' }));
+});
+
+it('clears a date and preserves midnight when editing', async () => {
+    const screen = render(<TaskFormModal visible task={saved} />);
+    fireEvent.press(screen.getByLabelText(/^Date,/));
+    fireEvent.press(screen.getByText('No date'));
+    fireEvent.press(screen.getByLabelText('Time, 00:00'));
+    fireEvent.press(screen.getByText('Pick a time'));
+    expect(screen.UNSAFE_getByType('DateTimePicker' as any).props.value.getHours()).toBe(0);
+    await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
+    expect(updateTask).toHaveBeenCalledWith('t1', expect.objectContaining({ dueDate: undefined, dueTime: '00:00' }));
+});
+
+it('highlights recognized details inside the input', async () => {
+    const screen = render(<TaskFormModal visible />);
+    const input = screen.getByLabelText('Describe the task');
+    fireEvent.changeText(input, 'Call tomorrow at 2pm');
+    expect(within(input).getByText('tomorrow').props.style.color).toBe('#00b9e8');
+    expect(within(input).getByText('at 2pm').props.style.color).toBe('#00b9e8');
+    await act(async () => {});
+});
+
+it('does not save the old title after the user clears it', async () => {
+    const screen = render(<TaskFormModal visible task={saved} />);
+    fireEvent.changeText(screen.getByLabelText('Describe the task'), '');
+    await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
+    expect(updateTask).not.toHaveBeenCalled();
+    expect(createTask).not.toHaveBeenCalled();
+});
+
+it('keeps the draft open after a failed save and allows retry', async () => {
+    (createTask as jest.Mock).mockRejectedValueOnce(new Error('Disk full'));
+    const onClose = jest.fn();
+    const screen = render(<TaskFormModal visible onClose={onClose} />);
+    fireEvent.changeText(screen.getByLabelText('Describe the task'), 'Buy tea');
+    await act(async () => { fireEvent.press(screen.getByText('Add task')); });
+    expect(screen.getByText(/Could not save that task/)).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => { fireEvent.press(screen.getByText('Add task')); });
+    expect(onClose).toHaveBeenCalledTimes(1);
+});

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AppIcon as Ionicons, type IconName } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
@@ -7,10 +7,7 @@ import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
-/**
- * One height for every panel, so opening Repeat and opening Date move the bar
- * by exactly the same amount and nothing below it ever shifts twice.
- */
+/** Default compact panel; a calendar or wheel can reserve the space it needs. */
 const PANEL_HEIGHT = 186;
 const OPEN = { duration: 190, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 const CLOSE = { duration: 150, easing: Easing.in(Easing.cubic), reduceMotion: ReduceMotion.System };
@@ -18,6 +15,9 @@ const CLOSE = { duration: 150, easing: Easing.in(Easing.cubic), reduceMotion: Re
 export interface DetailItem {
     id: string;
     icon: IconName;
+    color?: string;
+    panelHeight?: number;
+    fixedContent?: boolean;
     /** What the setting is called, shown on the chip when it is not set. */
     label: string;
     /** What it is set to, shown on the chip instead of the label. */
@@ -36,10 +36,9 @@ export interface DetailItem {
  * over them — so the sentence, the settings and the save button are all in
  * reach at once and nothing is ever hidden.
  *
- * Nothing here springs. The panel is a fixed height that slides open on a
- * timing curve, so the bar has exactly two positions and choosing something
- * inside it — which changes the chip's own text, and can reveal a picker —
- * cannot move it at all. A spring overshoots by design, which is the wobble
+ * Nothing here springs. Each panel reserves its own height that slides open on a
+ * timing curve. Choosing something inside a panel can change its chip text
+ * or reveal a picker without moving that panel's controls. A spring overshoots by design, which is the wobble
  * you see when a control resizes under your thumb.
  *
  * A chip reads as its value once it has one, because "Fridays" tells you more
@@ -50,11 +49,13 @@ export const DetailBar: React.FC<{
     open: string | null;
     onToggle: (id: string | null) => void;
     accent: string;
-}> = ({ items, open, onToggle, accent }) => {
+    fitContent?: boolean;
+}> = ({ items, open, onToggle, accent, fitContent = false }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { selectionFeedback } = useHaptics();
+    const { height: screenHeight } = useWindowDimensions();
 
     // A setting can stop being offered while its panel is open — a goal drops
     // "Starting from" the moment its target stops being relative to one — so
@@ -66,21 +67,22 @@ export const DetailBar: React.FC<{
     // remembered, so what it draws is always the live control.
     const [lastOpen, setLastOpen] = useState<string | null>(openId);
     if (openId && openId !== lastOpen) setLastOpen(openId);
-    const shown = items.find(item => item.id === (openId ?? lastOpen)) ?? null;
+    const shown = items.find(item => item.id === (fitContent ? openId : openId ?? lastOpen)) ?? null;
 
-    const height = useSharedValue(openId ? PANEL_HEIGHT : 0);
+    const panelHeight = shown?.panelHeight ?? PANEL_HEIGHT;
+    const height = useSharedValue(openId ? panelHeight : 0);
     useEffect(() => {
-        height.value = withTiming(openId ? PANEL_HEIGHT : 0, openId ? OPEN : CLOSE);
-    }, [openId, height]);
+        height.value = withTiming(openId ? panelHeight : 0, openId ? OPEN : CLOSE);
+    }, [openId, height, panelHeight]);
 
     const panelStyle = useAnimatedStyle(() => ({
         height: height.value,
-        opacity: height.value / PANEL_HEIGHT,
+        opacity: Math.min(1, height.value / panelHeight),
     }));
 
     return (
         <View style={[styles.bar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-            <Animated.View style={[styles.panel, panelStyle]}>
+            <Animated.View testID="detail-panel" style={[styles.panel, fitContent ? { maxHeight: Math.min(440, screenHeight * 0.55) } : panelStyle]}>
                 {shown ? (
                     <>
                         <View style={styles.panelHead}>
@@ -94,14 +96,15 @@ export const DetailBar: React.FC<{
                                 <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
                             </Pressable>
                         </View>
-                        <ScrollView
+                        {shown.fixedContent && !fitContent ? <View style={styles.panelContent}>{shown.content}</View> : <ScrollView
                             bounces={false}
-                            contentContainerStyle={styles.panelContent}
+                            style={fitContent ? { flexGrow: 0 } : undefined}
+                            contentContainerStyle={[styles.panelContent, fitContent && { flexGrow: 0 }]}
                             keyboardShouldPersistTaps="handled"
                             showsVerticalScrollIndicator={false}
                         >
                             {shown.content}
-                        </ScrollView>
+                        </ScrollView>}
                     </>
                 ) : null}
             </Animated.View>
@@ -115,7 +118,8 @@ export const DetailBar: React.FC<{
             >
                 {items.map(item => {
                     const isOpen = item.id === openId;
-                    const isSet = !!item.value;
+                    const isSet = !!item.value || !!item.color;
+                    const tint = item.color ?? accent;
                     return (
                         <Pressable
                             key={item.id}
@@ -132,11 +136,11 @@ export const DetailBar: React.FC<{
                             // Static style: a function style loses the chip's
                             // layout on this React Native.
                             style={[styles.chip, {
-                                backgroundColor: isOpen || isSet ? accent + '1f' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)'),
-                                borderColor: isOpen ? accent : (isSet ? accent + '4d' : 'transparent'),
+                                backgroundColor: isOpen || isSet ? tint + '1f' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)'),
+                                borderColor: isOpen ? tint : (isSet ? tint + '4d' : 'transparent'),
                             }]}
                         >
-                            <Ionicons name={item.icon} size={14} color={isOpen || isSet ? accent : colors.textSecondary} />
+                            <Ionicons name={item.icon} size={14} color={item.color ?? (isOpen || isSet ? accent : colors.textSecondary)} />
                             <Text numberOfLines={1} style={[styles.chipText, { color: isOpen || isSet ? colors.textPrimary : colors.textSecondary }]}>
                                 {item.value || item.label}
                             </Text>
@@ -186,7 +190,7 @@ export const Choices = <T,>({ options, value, onChange, accent, multiple }: {
 };
 
 const styles = StyleSheet.create({
-    bar: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8 },
+    bar: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, flexShrink: 1 },
     // overflow hidden so the content is clipped by the sliding height rather
     // than spilling over the chips on the way open.
     panel: { paddingHorizontal: 16, overflow: 'hidden', flexShrink: 1 },

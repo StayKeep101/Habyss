@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useTheme } from '@/constants/themeContext';
 
-/** Native Apple branding, shared by every sign-in surface. */
+/** Native Apple branding; SignInOptions owns authentication and account sync. */
 export function AppleAuthButton({ type = 'continue', onPress, disabled = false }: {
     type?: 'sign-in' | 'sign-up' | 'continue';
     onPress: () => void;
@@ -21,4 +21,5 @@ export function AppleAuthButton({ type = 'continue', onPress, disabled = false }
         />
     </View>;
 }
+
 const styles = StyleSheet.create({ button: { width: '100%', height: 54 } });

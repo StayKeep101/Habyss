@@ -13,7 +13,10 @@ export const WidgetService = {
     async write(payload: WidgetPayload): Promise<void> {
         if (Platform.OS !== 'ios') return;
         try {
+            if (payload.dashboard) await SharedDefaults.set('widgetDashboard', JSON.stringify(payload.dashboard));
             await SharedDefaults.set('habitsData', JSON.stringify(payload.items));
+            // Siri asks about habits; the legacy widget list also contains tasks.
+            await SharedDefaults.set('siriHabitsData', JSON.stringify(payload.items.filter(item => item.id.startsWith('habit:'))));
             await SharedDefaults.set('widgetSummary', JSON.stringify({
                 total: payload.total,
                 completed: payload.completed,
@@ -21,6 +24,12 @@ export const WidgetService = {
             await SharedDefaults.set('streakCount', String(payload.streak));
             await SharedDefaults.set('topHabitName', payload.nextUp ?? '');
             await SharedDefaults.set('dayKey', payload.dayKey);
+            // The widget cannot reach the app's palette, so it is handed the
+            // two colours rather than the name of a gradient.
+            if (payload.accent) {
+                await SharedDefaults.set('accentFrom', payload.accent.from);
+                await SharedDefaults.set('accentTo', payload.accent.to);
+            }
             await SharedDefaults.reloadTimelines();
         } catch (error) {
             console.warn('WidgetService: could not update the widget', error);

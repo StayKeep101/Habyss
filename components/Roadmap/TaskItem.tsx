@@ -5,6 +5,7 @@ import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Gesture, GestureDetector, TouchableOpacity } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { SwipeRow } from '@/components/Common/SwipeRow';
+import { BadgeRow, PriorityFlag, ReminderBadge } from '@/components/Common/CardBadges';
 import { CheckPop } from '@/components/Common/CheckPop';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -104,7 +105,7 @@ const TaskItemComponent: React.FC<Props> = ({
             }}
             right={[
                 { icon: 'pencil', label: 'Edit', color: TASK_COLOR, onPress: () => { selectionFeedback(); onEdit(task); } },
-                { icon: 'trash', label: 'Delete', color: '#EF4444', onPress: () => { mediumFeedback(); onDelete(task); } },
+                { icon: 'trash', label: 'Delete', color: '#EF4444', destructive: true, onPress: () => { mediumFeedback(); onDelete(task); } },
             ]}
         >
             <TouchableOpacity
@@ -152,11 +153,16 @@ const TaskItemComponent: React.FC<Props> = ({
                         >
                             {task.title}
                         </Text>
-                        {!isSmall && (goalName || task.priority === 1) ? (
-                            <Text numberOfLines={1} style={[styles.meta, { color: task.priority === 1 && !done ? TASK_COLOR : colors.textTertiary }]}>
-                                {[task.priority === 1 && !done ? 'High' : null, goalName].filter(Boolean).join(' · ')}
-                            </Text>
-                        ) : null}
+                        <View style={styles.metaRow}>
+                            <BadgeRow>
+                                <PriorityFlag priority={task.priority} size={isSmall ? 10 : undefined} />
+                                {/* A dated task is one the reminder can reach. */}
+                                <ReminderBadge on={!done && !!task.dueDate} size={isSmall ? 10 : undefined} />
+                            </BadgeRow>
+                            {goalName && !isSmall ? (
+                                <Text numberOfLines={1} style={[styles.meta, { color: colors.textTertiary }]}>{goalName}</Text>
+                            ) : null}
+                        </View>
                     </View>
 
                     <View style={{ alignItems: 'flex-end' }}>
@@ -181,7 +187,8 @@ const styles = StyleSheet.create({
     box: { borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     iconBox: { borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     title: { fontFamily: FontFamily.medium },
-    meta: { fontSize: 10, fontFamily: FontFamily.regular, marginTop: 2 },
+    meta: { fontSize: 10, fontFamily: FontFamily.regular, flexShrink: 1 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
     estimate: { fontSize: 9, fontFamily: FontFamily.regular, marginBottom: 1 },
     when: { fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
 });

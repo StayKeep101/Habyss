@@ -53,7 +53,7 @@ const Appearance = () => {
     );
 
     return (
-        <SheetScreen title="Theme & accent" onBack={() => router.back()}>
+        <SheetScreen title="Appearance" onBack={() => router.back()}>
 
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     {/* Theme Section */}

@@ -1,21 +1,41 @@
 import { mlc } from '@react-native-ai/mlc';
 import { generateText } from 'ai';
+import { hasCompleteIOSModelFiles } from './localModelFiles';
 
 class LocalLLMService {
     private modelId = 'Llama-3.2-1B-Instruct'; // Smaller 1B model to prevent overheating
     private isModelReady = false;
+    private pendingOperation: Promise<unknown> = Promise.resolve();
+    private downloading: Promise<boolean> | null = null;
+    private progressListeners = new Set<(progress: number) => void>();
+
+    // Startup and Settings can both request the model. Never download, load or
+    // remove its files concurrently.
+    private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+        const pending = this.pendingOperation.then(operation, operation);
+        this.pendingOperation = pending.catch(() => undefined);
+        return pending;
+    }
 
     // Initialize the engine (prepare the model)
-    async init() {
+    init() {
+        return this.enqueue(() => this.prepareDownloadedModel());
+    }
+
+    private async prepareDownloadedModel() {
         if (this.isModelReady) return;
 
         try {
+            if (!await hasCompleteIOSModelFiles(this.modelId)) {
+                console.info('Local LLM download is incomplete; using built-in responses.');
+                return;
+            }
             console.log(`Initializing Local LLM (${this.modelId})...`);
             // We use the provider object to get the model instance
             const model = mlc.languageModel(this.modelId);
 
             // Prepare the model (loads it into memory)
-            // Note: This might fail if the model is not downloaded yet.
+            // Never call this with partial files: the native worker can abort.
             await model.prepare();
 
             console.log("Local LLM Engine Initialized");
@@ -29,6 +49,20 @@ class LocalLLMService {
 
     // Download the model if missing
     async downloadModel(onProgress?: (progress: number) => void) {
+        if (onProgress) this.progressListeners.add(onProgress);
+        if (!this.downloading) {
+            this.downloading = this.enqueue(() => this.downloadAndPrepare())
+                .finally(() => { this.downloading = null; });
+        }
+        try {
+            return await this.downloading;
+        } finally {
+            if (onProgress) this.progressListeners.delete(onProgress);
+        }
+    }
+
+    private async downloadAndPrepare() {
+        if (this.isModelReady) return true;
         try {
             console.log(`Downloading Local LLM (${this.modelId})...`);
             const model = mlc.languageModel(this.modelId);
@@ -36,13 +70,13 @@ class LocalLLMService {
             await model.download((event) => {
                 const progress = event.percentage || 0;
                 console.log(`Download progress: ${progress}%`);
-                if (onProgress) onProgress(progress);
+                this.progressListeners.forEach(listener => listener(progress));
             });
 
             console.log("Local LLM Downloaded");
             // Auto-init after download
-            await this.init();
-            return true;
+            await this.prepareDownloadedModel();
+            return this.isModelReady;
         } catch (e) {
             console.error("Failed to download Local LLM:", e);
             return false;
@@ -50,21 +84,19 @@ class LocalLLMService {
     }
 
     // Delete the model from storage
-    async deleteModel() {
+    deleteModel() {
+        return this.enqueue(() => this.removeDownloadedModel());
+    }
+
+    private async removeDownloadedModel() {
         try {
             console.log(`Deleting Local LLM (${this.modelId})...`);
-            // Unload first if ready
-            if (this.isModelReady) {
-                // We might need to unload explicitly if the SDK supports it, or just rely on remove
-                // mlc.languageModel doesn't seem to have a direct unload on the instance we create easily 
-                // without keeping the reference, but we can try removing directly.
-            }
-
             const model = mlc.languageModel(this.modelId);
-            // The remove method is available on the model instance in the SDK
-            // We need to cast or ensure typescript knows about it if it's in the interface
-            // Looking at ai-sdk.ts, 'remove' is part of MlcChatLanguageModel
-            await (model as any).remove();
+            if (this.isModelReady) {
+                await model.unload();
+                this.isModelReady = false;
+            }
+            await model.remove();
 
             console.log("Local LLM Deleted");
             this.isModelReady = false;

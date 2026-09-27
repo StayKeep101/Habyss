@@ -29,8 +29,13 @@ export interface AppEvents {
     habit_deleted: { habitId: string };
     goal_deleted: { goalId: string };
     tasks_changed: void;
+    engagement_settings_changed: void;
     /** Every task and habit for the day is done. */
     day_complete: { tally: DayTally; streak: number; completedDates: string[] };
+    /** The day's promise — three things, or five — has been kept. */
+    daily_target_reached: { done: number; target: number };
+    /** A goal reached a hundred per cent for the first time. */
+    goal_complete: { goalId: string; name: string };
     daily_focus_target_changed: DailyTarget;
 
     /* ------------------------------------------------------------- the account */

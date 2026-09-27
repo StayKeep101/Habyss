@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0176F505AE1047D0D411BF65 /* libPods-Habyss.a in Frameworks */ = {isa = PBXBuildFile; fileRef = BEEC303B5179A474C6A73405 /* libPods-Habyss.a */; };
+		0F64715E561999ACB00955C1 /* SharedDefaults.m in Sources */ = {isa = PBXBuildFile; fileRef = DE54580FC86AA4EE1F54AF25 /* SharedDefaults.m */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		415271EDADD4FFE567C21614 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */; };
@@ -23,8 +24,10 @@
 		AE96A61F2F3E411F00681BAF /* WatchSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE96A61E2F3E411700681BAF /* WatchSessionManager.swift */; };
 		BA84A58A49474D71957AE493 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = D975BC3A3D79467886582ADD /* noop-file.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		D34EB9618A114640AED3E701 /* WidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = D34EB9618A114640AED3E702 /* WidgetShared.swift */; };
 		DD0FD4B8068B26E08FAE9E9D /* ScreenTimeModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 1E089807AF9CC20BFEF42E57 /* ScreenTimeModule.m */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F58C228D66577EC94A1681A3 /* SharedDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4D352A872465CB1F4C53483 /* SharedDefaults.swift */; };
 		FB409C2E3BEEA019059C82C9 /* ScreenTimeModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E7BCBC66B78AA89F94FBAE /* ScreenTimeModule.swift */; };
 /* End PBXBuildFile section */
 
@@ -80,6 +83,7 @@
 		2F9187C8E9B684C03F9D3698 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Habyss/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		6DC916925CA14220E2C514D4 /* ScreenTimePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScreenTimePickerView.swift; path = Views/ScreenTimePickerView.swift; sourceTree = "<group>"; };
 		76DA85DC67D58196B9C62E28 /* ScreenTimeManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ScreenTimeManager.swift; path = Managers/ScreenTimeManager.swift; sourceTree = "<group>"; };
+		A4D352A872465CB1F4C53483 /* SharedDefaults.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SharedDefaults.swift; path = Habyss/SharedDefaults.swift; sourceTree = "<group>"; };
 		A4E7BCBC66B78AA89F94FBAE /* ScreenTimeModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenTimeModule.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Habyss/SplashScreen.storyboard; sourceTree = "<group>"; };
 		AE7DC5282F40FA2500F32E02 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
@@ -93,7 +97,9 @@
 		B9E5A1344AAF6929B4699F1D /* Pods-Habyss.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Habyss.debug.xcconfig"; path = "Target Support Files/Pods-Habyss/Pods-Habyss.debug.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		BEEC303B5179A474C6A73405 /* libPods-Habyss.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Habyss.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D34EB9618A114640AED3E702 /* WidgetShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WidgetShared.swift; path = Widget/WidgetShared.swift; sourceTree = "<group>"; };
 		D975BC3A3D79467886582ADD /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "Habyss/noop-file.swift"; sourceTree = "<group>"; };
+		DE54580FC86AA4EE1F54AF25 /* SharedDefaults.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = SharedDefaults.m; path = Habyss/SharedDefaults.m; sourceTree = "<group>"; };
 		E43594A9D6C422E0D552E996 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Habyss/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		E7ABF6C194AA28D356857C00 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -193,6 +199,9 @@
 				C26442F3B83E5C3CD19B550E /* Managers */,
 				B4BA6917D79759167ACFE9FC /* Views */,
 				42F543F4807C8F1571268244 /* Modules */,
+				A4D352A872465CB1F4C53483 /* SharedDefaults.swift */,
+				D34EB9618A114640AED3E702 /* WidgetShared.swift */,
+				DE54580FC86AA4EE1F54AF25 /* SharedDefaults.m */,
 			);
 			name = Habyss;
 			sourceTree = "<group>";
@@ -639,6 +648,9 @@
 				6B108C6361DA61CE7F98C7AD /* ScreenTimePickerView.swift in Sources */,
 				FB409C2E3BEEA019059C82C9 /* ScreenTimeModule.swift in Sources */,
 				DD0FD4B8068B26E08FAE9E9D /* ScreenTimeModule.m in Sources */,
+				F58C228D66577EC94A1681A3 /* SharedDefaults.swift in Sources */,
+				D34EB9618A114640AED3E701 /* WidgetShared.swift in Sources */,
+				0F64715E561999ACB00955C1 /* SharedDefaults.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

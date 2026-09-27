@@ -19,35 +19,28 @@ export interface DailyProgress {
     habits?: { id: string; name: string; isCompleted: boolean }[];
 }
 
-function syncWidgetSummary(stats: DailyProgress) {
-    if (!SharedDefaults) return;
-    SharedDefaults.set('widgetSummary', JSON.stringify({
-        total: stats.total,
-        completed: stats.completed,
-    })).catch(() => { });
-}
-
 export const LiveActivityService = {
     /**
      * Start or update the daily progress Live Activity.
      * Shows habit progress on Lock Screen and Dynamic Island.
      */
     async startDailyProgress(stats: DailyProgress): Promise<void> {
-        if (!LiveActivity || Platform.OS !== 'ios') return;
+        if (!LiveActivity || Platform.OS !== 'ios' || !stats.activeHabitName) return;
 
         try {
             // Check if we already have an active Live Activity
             const existingId = await AsyncStorage.getItem(ACTIVITY_ID_KEY);
-            if (existingId) {
+            if (existingId && LiveActivity.listActivities().includes(existingId)) {
                 // Update existing activity instead of creating a new one
                 await this.updateProgress(stats);
                 return;
             }
 
+            if (existingId) await AsyncStorage.removeItem(ACTIVITY_ID_KEY);
             // A day that asks for nothing has nothing to put on the Lock
             // Screen, and a card reading "0/0" is worse than no card. The
             // widget still gets the day either way.
-            if (stats.total === 0 && !stats.activeHabitName) {
+            if (!stats.activeHabitName) {
                 this.syncToWidget(stats);
                 return;
             }
@@ -141,9 +134,9 @@ export const LiveActivityService = {
             });
 
             // Auto-stop when all habits are complete
-            if (stats.completed >= stats.total && stats.total > 0) {
+            if (!stats.activeHabitName && stats.completed >= stats.total && stats.total > 0) {
                 // Keep it visible for a bit longer, then stop
-                setTimeout(() => this.stopActivity(), 30000); // 30s celebration
+                setTimeout(async () => { if (await AsyncStorage.getItem(ACTIVITY_ID_KEY) === activityId) await this.stopActivity(); }, 30000); // 30s celebration
             }
 
             // Sync to Widget
@@ -215,21 +208,12 @@ export const LiveActivityService = {
 
         SharedDefaults.set('activeHabitName', habitName).catch(() => { });
         SharedDefaults.set('todayStats', status).catch(() => { });
-        syncWidgetSummary(stats);
+
 
         if (stats.targetDate) {
             SharedDefaults.set('timerEndDate', String(stats.targetDate)).catch(() => { });
         } else {
             SharedDefaults.remove('timerEndDate').catch(() => { });
-        }
-
-        if (stats.habits) {
-            try {
-                const habitsJson = JSON.stringify(stats.habits);
-                SharedDefaults.set('habitsData', habitsJson).catch(() => { });
-            } catch (e) {
-                console.warn('Failed to serialize habits for widget:', e);
-            }
         }
 
         // Reload widget timelines so changes appear immediately

@@ -24,7 +24,7 @@ interface AppSettings {
 interface AppSettingsContextType extends AppSettings {
     setHapticsEnabled: (enabled: boolean) => void;
     setSoundsEnabled: (enabled: boolean) => void;
-    setNotificationsEnabled: (enabled: boolean) => void;
+    setNotificationsEnabled: (enabled: boolean) => Promise<void>;
     setAIPersonality: (personality: PersonalityModeId) => void;
     setCardSize: (size: RoadMapCardSize) => void;
     setGreetingStyle: (style: GreetingStyle) => void;
@@ -99,10 +99,12 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         saveSettings(newSettings);
     };
 
-    const setNotificationsEnabled = (enabled: boolean) => {
+    const setNotificationsEnabled = async (enabled: boolean) => {
         const newSettings = { ...settings, notificationsEnabled: enabled };
         setSettings(newSettings);
-        saveSettings(newSettings);
+        await saveSettings(newSettings)
+            .then(() => require('@/lib/notificationService').NotificationService.refreshReminders())
+            .catch(() => undefined);
     };
 
     const setAIPersonality = (personality: PersonalityModeId) => {

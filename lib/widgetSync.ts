@@ -3,6 +3,9 @@ import { tallyDay, streakFrom } from './dayComplete';
 import { getDailyTarget, type DailyTarget } from './dailyFocus';
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
+import { buildWidgetDashboard, parseWidgetEvent, type WidgetDashboard } from './widgetDashboard';
+import { daysBetween, goalRange } from './goalInsights';
+import { engagementLifecycle } from './engagementLifecycle';
 
 /**
  * What the home screen, the lock screen and the Dynamic Island are told.
@@ -25,6 +28,7 @@ export interface WidgetItem {
 
 export interface WidgetPayload {
     items: WidgetItem[];
+    dashboard?: WidgetDashboard;
     completed: number;
     total: number;
     /** The first thing still to do, for the small widget's one line. */
@@ -32,6 +36,8 @@ export interface WidgetPayload {
     streak: number;
     /** The day this list is for; the widget stops showing it once it passes. */
     dayKey: string;
+    /** The accent the user picked, so the widget is the same colour as the app. */
+    accent?: { from: string; to: string };
 }
 
 const HABIT = 'habit:';
@@ -90,7 +96,34 @@ export function buildWidgetPayload(options: {
 }
 
 /** Reads the day out of the database and hands it to iOS. */
-export async function syncWidgets(): Promise<WidgetPayload | null> {
+/** The accent the user chose, as colours rather than an id. */
+export async function readAccent(): Promise<{ from: string; to: string }> {
+    const DEFAULT = { from: '#3A5A8C', to: '#8BADD6' };
+    try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const { ACCENT_GRADIENTS } = require('@/constants/AccentContext') as typeof import('@/constants/AccentContext');
+        const id = await AsyncStorage.getItem('habyss_accent_gradient');
+        const found = ACCENT_GRADIENTS.find(item => item.id === id);
+        return found ? { from: found.colors[0], to: found.colors[1] } : DEFAULT;
+    } catch {
+        return DEFAULT;
+    }
+}
+
+let syncing: Promise<WidgetPayload | null> | null = null;
+let resync = false;
+export function syncWidgets(): Promise<WidgetPayload | null> {
+    if (engagementLifecycle.paused) return Promise.resolve(null);
+    if (syncing) { resync = true; return syncing; }
+    syncing = (async () => {
+        let result: WidgetPayload | null;
+        do { resync = false; result = await writeWidgets(); } while (resync);
+        return result;
+    })().finally(() => { syncing = null; });
+    return syncing;
+}
+
+async function writeWidgets(): Promise<WidgetPayload | null> {
     try {
         const { getHabits, getCompletions, getSkipped, getLastNDaysCompletions } = require('./habitsSQLite') as typeof import('./habitsSQLite');
         const { getTasks } = require('./tasks') as typeof import('./tasks');
@@ -101,7 +134,8 @@ export async function syncWidgets(): Promise<WidgetPayload | null> {
             getHabits(), getCompletions(today), getSkipped(today), getTasks({ includeDone: true }),
         ]);
 
-        const rows = await getLastNDaysCompletions(70).catch(() => []);
+        const earliest = habits.map(habit => goalRange(habit, today).start).sort()[0] ?? today;
+        const rows = await getLastNDaysCompletions(Math.max(91, daysBetween(earliest, today) + 1));
         const history: Record<string, string[]> = {};
         const skips: Record<string, string[]> = {};
         for (const row of rows) {
@@ -114,6 +148,8 @@ export async function syncWidgets(): Promise<WidgetPayload | null> {
         const { streak } = streakFrom(habits, tasks, history, skips, today, 70, target);
 
         const payload = buildWidgetPayload({ habits, tasks, completions, skipped, today, streak, target });
+        payload.accent = await readAccent();
+        payload.dashboard = buildWidgetDashboard({ habits, tasks, history, skips, today, accent: payload.accent });
         await WidgetService.write(payload);
         return payload;
     } catch {
@@ -129,39 +165,55 @@ export async function syncWidgets(): Promise<WidgetPayload | null> {
  * catching up, so it sets the state the user chose rather than toggling, which
  * would undo anything logged in both places.
  */
-export async function drainWidgetToggles(): Promise<{ habits: number; tasks: number }> {
+let draining: Promise<{ habits: number; tasks: number }> | null = null;
+export function drainWidgetToggles(): Promise<{ habits: number; tasks: number }> {
+    if (engagementLifecycle.paused) return Promise.resolve({ habits: 0, tasks: 0 });
+    if (draining) return draining;
+    draining = drain().finally(() => { draining = null; });
+    return draining;
+}
+
+export async function waitForWidgetSync() { await Promise.allSettled([syncing, draining]); }
+async function drain(): Promise<{ habits: number; tasks: number }> {
     const applied = { habits: 0, tasks: 0 };
+    const SharedDefaults = (require('./SharedDefaults') as typeof import('./SharedDefaults')).default;
+    const { toggleCompletion, getCompletions, getHabits } = require('./habitsSQLite') as typeof import('./habitsSQLite');
+    const { setTaskStatus, getTasks } = require('./tasks') as typeof import('./tasks');
     try {
-        const SharedDefaults = (require('./SharedDefaults') as typeof import('./SharedDefaults')).default;
-        const pending = await SharedDefaults.getArray('pending_widget_toggles');
-        if (!pending?.length) return applied;
-        await SharedDefaults.remove('pending_widget_toggles');
-
-        const { toggleCompletion, getCompletions } = require('./habitsSQLite') as typeof import('./habitsSQLite');
-        const { setTaskStatus, getTasks } = require('./tasks') as typeof import('./tasks');
+        const [rawEvents, legacy, habits, tasks] = await Promise.all([
+            SharedDefaults.getPendingWidgetEvents?.() ?? Promise.resolve([]),
+            SharedDefaults.getArray('pending_widget_toggles'), getHabits(), getTasks({ includeDone: true }),
+        ]);
+        const events = rawEvents.map(parseWidgetEvent).filter((event): event is NonNullable<typeof event> => !!event)
+            .sort((a, b) => a.timestamp - b.timestamp || a.eventId.localeCompare(b.eventId));
         const today = localDateKey(new Date());
-        const completions = await getCompletions(today);
-        const tasks = await getTasks({ includeDone: true });
-
-        for (const raw of pending) {
-            if (typeof raw !== 'string' || !raw) continue;
-            const { kind, id, done } = parseWidgetId(raw);
+        // Old widget builds did not stamp a day; use their stored snapshot day.
+        const legacyDay = await SharedDefaults.get('dayKey') ?? today;
+        const oldEvents = (legacy ?? []).filter((raw): raw is string => typeof raw === 'string').map(raw => {
+            const parsed = parseWidgetId(raw);
+            return { eventId: '', id: `${parsed.kind}:${parsed.id}`, day: legacyDay, done: parsed.done, timestamp: 0 };
+        });
+        const completions: Record<string, Record<string, boolean>> = {};
+        for (const event of [...oldEvents, ...events]) {
+            const { kind, id } = parseWidgetId(event.id);
             if (kind === 'habit') {
-                // Setting the state the user chose, not toggling: the widget
-                // may have been ticked while the app logged the same habit.
-                if (!!completions[id] === done) continue;
-                await toggleCompletion(id, today);
-                completions[id] = done;
-                applied.habits++;
+                if (habits.some(habit => habit.id === id && !habit.isGoal)) {
+                    const done = completions[event.day] ?? await getCompletions(event.day);
+                    if (!!done[id] !== event.done) { await toggleCompletion(id, event.day); applied.habits++; }
+                    completions[event.day] = { ...done, [id]: event.done };
+                }
             } else {
-                const task = tasks.find(item => item.id === id);
-                if (!task || (task.status === 'done') === done) continue;
-                await setTaskStatus(id, done ? 'done' : 'open');
-                applied.tasks++;
+                const task = tasks.find(task => task.id === id);
+                if (task && (task.status === 'done') !== event.done) {
+                    await setTaskStatus(id, event.done ? 'done' : 'open');
+                    task.status = event.done ? 'done' : 'open';
+                    applied.tasks++;
+                }
             }
+            // Acknowledge only after SQLite commits; a failed write stays queued.
+            if (event.eventId) await SharedDefaults.remove('widget_event_' + event.eventId);
         }
-    } catch {
-        // Nothing applied; the widget will be corrected by the next sync.
-    }
+        if (legacy?.length) await SharedDefaults.remove('pending_widget_toggles');
+    } catch (error) { console.warn('[Widget] Could not apply all widget actions; retained for retry.', error); }
     return applied;
 }

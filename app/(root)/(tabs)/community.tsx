@@ -1,5 +1,5 @@
 import { FontFamily, Typography, UIStyles } from '@/constants/DesignSystem';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {View, Text, ScrollView, RefreshControl, StyleSheet, TouchableOpacity, Alert, Share} from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { vs } from '@/constants/Layout';
@@ -9,16 +9,24 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { FriendsService, Friend, FriendRequest, FriendActivity, ReactionType, getMyUsername, inviteMessage } from '@/lib/friendsService';
+import { FriendsService, Friend, FriendRequest, ReactionType, getMyUsername, inviteMessage } from '@/lib/friendsService';
 import { onAccountChange } from '@/lib/account';
 import { FriendsGate } from '@/components/Community/FriendsGate';
 import { FriendStatsModal } from '@/components/FriendStatsModal';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
-import { Leaderboard } from '@/components/Community/Leaderboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDateKey } from '@/lib/habitSchedule';
+import { DayCard } from '@/components/Community/DayCard';
+import { buildFeed, summarise } from '@/lib/feed';
+import { evidenceListToday } from '@/lib/evidence';
+import type { Evidence } from '@/lib/proof';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { on } from '@/lib/appEvents';
+
+/** Reactions are a thing about today, so they are stored under today. */
+const reactionsKey = () => `feed_reactions_${localDateKey(new Date())}`;
 
 export default function CommunityScreen() {
     const { theme } = useTheme();
@@ -36,11 +44,9 @@ export default function CommunityScreen() {
     // State
     const [friends, setFriends] = useState<Friend[]>([]);
     const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
-    const [leaderboard, setLeaderboard] = useState<{ rank: number; friend: Friend }[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<Friend[]>([]);
     const [searching, setSearching] = useState(false);
-    const [friendsFeed, setFriendsFeed] = useState<FriendActivity[]>([]);
 
     const [sentReactions, setSentReactions] = useState<Record<string, ReactionType>>({});
     const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
@@ -49,7 +55,6 @@ export default function CommunityScreen() {
     const [userCode, setUserCode] = useState('');
     // Friends need an account and a username; until then the tab says so.
     const [gate, setGate] = useState<'signed_out' | 'needs_username' | null>(null);
-    const [leaderboardPeriod, setLeaderboardPeriod] = useState<'week' | 'month' | 'year' | 'all'>('week');
 
     const isLoadingRef = useRef(false);
     const refreshQueued = useRef(false);
@@ -74,8 +79,6 @@ export default function CommunityScreen() {
                 setGate('signed_out');
                 setFriends([]);
                 setFriendRequests([]);
-                setLeaderboard([]);
-                setFriendsFeed([]);
                 hasLoadedOnce.current = true;
                 return;
             }
@@ -85,16 +88,12 @@ export default function CommunityScreen() {
 
             await FriendsService.repairFriendshipsFromAcceptedRequests();
 
-            const [friendsList, requests, rankings, feed] = await Promise.all([
+            const [friendsList, requests] = await Promise.all([
                 FriendsService.getFriendsWithProgress(),
                 FriendsService.getFriendRequests(),
-                FriendsService.getLeaderboard(leaderboardPeriod),
-                FriendsService.getFriendsFeed(),
             ]);
             setFriends(friendsList);
             setFriendRequests(requests);
-            setLeaderboard(rankings);
-            setFriendsFeed(feed);
 
             hasLoadedOnce.current = true;
         } catch (error) {
@@ -104,7 +103,7 @@ export default function CommunityScreen() {
             isLoadingRef.current = false;
             if (refreshQueued.current) { refreshQueued.current = false; void loadData(true); }
         }
-    }, [leaderboardPeriod]);
+    }, []);
 
     // Only load data once on initial mount
     useEffect(() => {
@@ -124,15 +123,6 @@ export default function CommunityScreen() {
             stopWatchingAccount();
         };
     }, [loadData]);
-
-    // Reload leaderboard when period changes
-    useEffect(() => {
-        const loadLeaderboard = async () => {
-            const rankings = await FriendsService.getLeaderboard(leaderboardPeriod);
-            setLeaderboard(rankings);
-        };
-        loadLeaderboard();
-    }, [leaderboardPeriod]);
 
     const onRefresh = async () => {
         thud();
@@ -189,7 +179,6 @@ export default function CommunityScreen() {
     };
 
     // Animation for 1st place crown
-    // Moved to Leaderboard component
 
     const getRankIcon = (rank: number) => {
         if (rank === 1) return '🥇';
@@ -198,10 +187,24 @@ export default function CommunityScreen() {
         return `#${rank}`;
     };
 
-    const handleReaction = async (activityId: string, reaction: ReactionType) => {
+    /**
+     * Reacting to someone's day.
+     *
+     * Tapping the same one again takes it back, because a reaction you cannot
+     * withdraw is a reaction people hesitate to give. It is remembered on this
+     * device and keyed by the day, so it survives a reload and clears itself
+     * tomorrow; `sendReaction` is still a stub until the feed_reactions table
+     * exists, and it is called anyway so nothing has to change here when it
+     * does.
+     */
+    const handleReaction = async (friendId: string, reaction: ReactionType) => {
         mediumFeedback();
-        setSentReactions(prev => ({ ...prev, [activityId]: reaction }));
-        await FriendsService.sendReaction(activityId, reaction);
+        const taken = sentReactions[friendId] === reaction;
+        const next = { ...sentReactions };
+        if (taken) delete next[friendId]; else next[friendId] = reaction;
+        setSentReactions(next);
+        void AsyncStorage.setItem(reactionsKey(), JSON.stringify(next)).catch(() => undefined);
+        if (!taken) await FriendsService.sendReaction(friendId, reaction);
     };
 
     const getTimeAgo = (dateStr: string) => {
@@ -212,6 +215,35 @@ export default function CommunityScreen() {
         if (hours < 24) return `${hours}h ago`;
         return 'Today';
     };
+
+    // One card per person, you included, ordered by what was done rather than
+    // by who anyone is.
+    // Your own evidence is known exactly — the app has your Health habits and
+    // your timer sessions. A friend's arrives with the feed migration; until
+    // then theirs reads as logged, which is the truthful default.
+    const [myEvidence, setMyEvidence] = useState<Record<string, Evidence[]>>({});
+    useEffect(() => {
+        const me = friends.find(friend => friend.isCurrentUser);
+        if (!me) return;
+        let alive = true;
+        (async () => {
+            const { getHabits, getCompletions } = require('@/lib/habitsSQLite') as typeof import('@/lib/habitsSQLite');
+            const day = localDateKey(new Date());
+            const [habits, completions] = await Promise.all([getHabits(), getCompletions(day)]);
+            const doneIds = Object.keys(completions).filter(id => completions[id]);
+            const list = await evidenceListToday(habits, doneIds, day);
+            if (alive) setMyEvidence({ [me.userId]: list });
+        })().catch(() => undefined);
+        return () => { alive = false; };
+    }, [friends]);
+
+    const dayFeed = useMemo(() => buildFeed(friends, myEvidence), [friends, myEvidence]);
+
+    useEffect(() => {
+        AsyncStorage.getItem(reactionsKey())
+            .then(raw => { if (raw) setSentReactions(JSON.parse(raw)); })
+            .catch(() => undefined);
+    }, []);
 
     const handleFriendPress = (friend: Friend) => {
         // Allow viewing own profile too - shows what friends see
@@ -335,13 +367,28 @@ export default function CommunityScreen() {
                     </View>
                 )}
 
-                {/* Leaderboard */}
-                <Leaderboard
-                    leaderboard={leaderboard}
-                    period={leaderboardPeriod}
-                    onPeriodChange={setLeaderboardPeriod}
-                    onFriendPress={handleFriendPress}
-                />
+                {/* The day, as everyone finished it. This replaced a ranked
+                    table: a leaderboard answers "who is winning", which rewards
+                    whoever tracks the least demanding things and makes a bad
+                    week public. */}
+                <View style={styles.feed}>
+                    <View style={styles.feedHead}>
+                        <Text style={[styles.feedTitle, { color: colors.textPrimary }]}>TODAY</Text>
+                        <Text style={[styles.feedSummary, { color: colors.textTertiary }]}>{summarise(dayFeed)}</Text>
+                    </View>
+                    {dayFeed.map(card => (
+                        <DayCard
+                            key={card.id}
+                            card={card}
+                            reaction={sentReactions[card.id]}
+                            onReact={value => void handleReaction(card.id, value)}
+                            onOpen={() => {
+                                const found = friends.find(item => (item.id || item.userId) === card.id);
+                                if (found) handleFriendPress(found);
+                            }}
+                        />
+                    ))}
+                </View>
 
                 </>)}
             </ScrollView>
@@ -487,6 +534,10 @@ const styles = StyleSheet.create({
         marginTop: 4,
         fontFamily: FontFamily.regular,
     },
+    feed: { gap: 10, marginTop: 6 },
+    feedHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 2 },
+    feedTitle: { fontSize: 13, letterSpacing: 1.5, fontFamily: FontFamily.bold },
+    feedSummary: { fontSize: 12, fontFamily: FontFamily.regular, flexShrink: 1, textAlign: 'right' },
     leaderboardRow: {
         flexDirection: 'row',
         alignItems: 'center',

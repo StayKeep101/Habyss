@@ -12,10 +12,16 @@ export type LiveActivityState = {
   timerEndDateInMilliseconds?: number | null;
   progress: number;
   profileImagePath?: string | null;
+  scheduledStartDateInMilliseconds?: number | null;
+  scheduledEndDateInMilliseconds?: number | null;
+  url?: string | null;
+  accentHex?: string | null;
 };
 
 type HabyssLiveActivityModule = {
   areActivitiesEnabled(): boolean;
+  supportsScheduledActivities?(): boolean;
+  reconcileScheduledActivities?(plans: { key: string; title: string; start: number; end: number; url: string; accentHex: string }[]): Promise<{ scheduled: number; failed: number }>;
   listActivities(): string[];
   startActivity(config: LiveActivityConfig, state: LiveActivityState): string;
   updateActivity(activityId: string, state: LiveActivityState): Promise<void>;

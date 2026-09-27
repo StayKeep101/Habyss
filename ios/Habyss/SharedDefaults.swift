@@ -63,6 +63,17 @@ class SharedDefaults: NSObject {
   }
 
   @objc
+  func getPendingWidgetEvents(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    guard let defaults = UserDefaults(suiteName: appGroup) else {
+      reject("USER_DEFAULTS_ERROR", "Could not initialize shared storage", nil)
+      return
+    }
+    let events = defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("widget_event_") }
+      .compactMap { $0.value as? String }
+    resolve(events)
+  }
+
+  @objc
   func remove(_ key: String, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
     if let userDefaults = UserDefaults(suiteName: appGroup) {
       userDefaults.removeObject(forKey: key)

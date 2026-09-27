@@ -1,11 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AppIcon as Ionicons, type IconName } from '@/components/Common/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
+import { CreationTextInput } from '@/components/Create/CreationTextInput';
+import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
+import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
+import { habitTextSegments } from '@/lib/creationTextHighlight';
+import { readableAccent } from '@/lib/colorContrast';
+import { goalUnitLabel } from '@/lib/goalUnits';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
@@ -25,14 +31,7 @@ const DAYS: { id: string; label: string }[] = [
 ];
 const EVERY_DAY = DAYS.map(day => day.id);
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
-const ICONS: IconName[] = [
-    'ellipse-outline', 'barbell-outline', 'book-outline', 'water-outline', 'walk-outline',
-    'moon-outline', 'musical-notes-outline', 'leaf-outline', 'brush-outline', 'code-slash-outline',
-];
-const COLORS = ['#6B8AF5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6'];
-const UNITS = ['min', 'times', 'pages', 'km', 'glasses', 'reps'];
-
-type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'goal' | 'look' | null;
+type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'goal' | 'look' | 'notes' | null;
 
 interface Draft {
     name: string;
@@ -46,26 +45,68 @@ interface Draft {
     icon: IconName;
     color: string;
     description?: string;
+    /** Minutes before the start time, when the reminder should lead it. */
+    reminderOffset?: number;
+    /** One sentence for this habit; Echo writes it when this is empty. */
+    reminderMessage?: string;
+    /** Arrival reminders — the geofences this habit listens for. */
+    places: { name: string; latitude: number; longitude: number; radius?: number }[];
+    /** 'weekly' honours the chosen days; the rest repeat off the start date. */
+    cadence: Cadence;
+    /** Weeks between repeats, for the weekly cadence only. */
+    every: number;
 }
 
-const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline', color: COLORS[0] });
+/**
+ * How often a habit comes round.
+ *
+ * The schedule already understood every one of these — a week interval, a day
+ * of the month, a date in the year — but the sheet only ever offered which
+ * weekdays, so a fortnightly habit could be stored and never asked for.
+ */
+export type Cadence = 'weekly' | 'monthly' | 'yearly';
+
+const CADENCES: { id: string; label: string }[] = [
+    { id: 'w1', label: 'Weekly' },
+    { id: 'w2', label: 'Every 2 weeks' },
+    { id: 'w3', label: 'Every 3 weeks' },
+    { id: 'w4', label: 'Every 4 weeks' },
+    { id: 'monthly', label: 'Day of month' },
+    { id: 'yearly', label: 'Yearly' },
+];
+
+const cadenceId = (cadence: Cadence, every: number): string =>
+    cadence === 'weekly' ? `w${Math.min(4, Math.max(1, every))}` : cadence;
+
+const fromCadenceId = (id: string): { cadence: Cadence; every: number } =>
+    id === 'monthly' ? { cadence: 'monthly', every: 1 }
+        : id === 'yearly' ? { cadence: 'yearly', every: 1 }
+            : { cadence: 'weekly', every: Number(id.slice(1)) || 1 };
+
+const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline', color: '#6B8AF5', cadence: 'weekly', every: 1, places: [] });
 
 const fromHabit = (from: Habit): Draft => ({
     name: from.name,
     days: from.taskDays?.length ? from.taskDays : EVERY_DAY,
     startTime: from.startTime,
     durationMinutes: from.durationMinutes,
-    amount: from.goalValue && from.goalValue > 1 ? from.goalValue : undefined,
+    amount: from.goalValue > 0 && (from.trackingMethod === 'numeric' || from.goalValue !== 1 || !!from.unit && !['time', 'times', 'count'].includes(from.unit)) ? from.goalValue : undefined,
     unit: from.unit && from.unit !== 'time' ? from.unit : undefined,
     reminder: from.reminders?.[0],
     goalId: from.goalId,
     icon: (from.icon as IconName) || 'ellipse-outline',
-    color: from.color || COLORS[0],
+    color: from.color || '#6B8AF5',
     description: from.description,
+    cadence: from.frequency === 'monthly' ? 'monthly' : from.frequency === 'yearly' ? 'yearly' : 'weekly',
+    every: Math.min(4, Math.max(1, Math.floor(from.weekInterval || 1))),
+    reminderOffset: from.reminderOffset,
+    reminderMessage: from.reminderMessage,
+    places: from.locationReminders ?? [],
 });
 
 const describeDays = (days: string[]): string => {
-    if (days.length === 0 || days.length === 7) return 'Every day';
+    if (days.length === 0) return 'Choose days';
+    if (days.length === 7) return 'Every day';
     if (days.length === 5 && WEEKDAYS.every(day => days.includes(day))) return 'Weekdays';
     if (days.length === 2 && days.includes('sat') && days.includes('sun')) return 'Weekends';
     return DAYS.filter(day => days.includes(day.id))
@@ -73,8 +114,27 @@ const describeDays = (days: string[]): string => {
         .join(', ');
 };
 
+/** What the Repeat chip says when it is closed. */
+const describeRepeat = (draft: Draft): string => {
+    if (draft.cadence === 'monthly') return 'Day of month';
+    if (draft.cadence === 'yearly') return 'Yearly';
+    const days = describeDays(draft.days);
+    // "Weekdays, every 2 weeks" — the days, and how often they come round.
+    return draft.every > 1 ? `${days}, every ${draft.every} weeks` : days;
+};
+
+/** What the Reminder chip says when it is closed. */
+const describeReminder = (draft: Draft): string | undefined => {
+    const parts: string[] = [];
+    if (draft.reminder) {
+        parts.push(draft.reminderOffset ? `${draft.reminderOffset}m before ${draft.reminder}` : draft.reminder);
+    }
+    if (draft.places.length) parts.push(draft.places.length === 1 ? draft.places[0].name : `${draft.places.length} places`);
+    return parts.length ? parts.join(' · ') : undefined;
+};
+
 const presetOf = (days: string[]): string =>
-    days.length === 7 || days.length === 0 ? 'all'
+    days.length === 7 ? 'all'
         : days.length === 5 && WEEKDAYS.every(day => days.includes(day)) ? 'week'
             : days.length === 2 && days.includes('sat') && days.includes('sun') ? 'end' : '';
 
@@ -102,7 +162,7 @@ export const HabitSheet: React.FC<{
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
-    const { primary: accent } = useAccentGradient();
+    const { primary: accent, foreground: accentText } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
@@ -112,7 +172,45 @@ export const HabitSheet: React.FC<{
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<Row>(null);
+    const [unitPicker, setUnitPicker] = useState(false);
+    const [amountText, setAmountText] = useState<string | null>(null);
     const [picker, setPicker] = useState<'time' | 'reminder' | null>(null);
+    const [findingPlace, setFindingPlace] = useState(false);
+
+    /**
+     * Adds where you are standing as an arrival reminder.
+     *
+     * A map picker would be the fuller answer, but the place people want to be
+     * reminded at is almost always the one they are in when they think of it —
+     * the gym, the desk, the kitchen — so asking once for permission and
+     * taking the current fix covers it without a screen of its own.
+     */
+    const addHere = async () => {
+        if (findingPlace) return;
+        setFindingPlace(true);
+        try {
+            const Location = require('expo-location') as typeof import('expo-location');
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                setError('Habyss needs location access to remind you somewhere.');
+                return;
+            }
+            const fix = await Location.getCurrentPositionAsync({});
+            const [place] = await Location.reverseGeocodeAsync({
+                latitude: fix.coords.latitude, longitude: fix.coords.longitude,
+            }).catch(() => []);
+            const name = place?.name || place?.street || place?.city || 'Here';
+            const already = draft.places.some(item =>
+                Math.abs(item.latitude - fix.coords.latitude) < 0.0005
+                && Math.abs(item.longitude - fix.coords.longitude) < 0.0005);
+            if (already) return;
+            change({ places: [...draft.places, { name, latitude: fix.coords.latitude, longitude: fix.coords.longitude, radius: 150 }] });
+        } catch {
+            setError('Could not find where you are. Try again.');
+        } finally {
+            setFindingPlace(false);
+        }
+    };
     const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -133,6 +231,8 @@ export const HabitSheet: React.FC<{
         setEdits({});
         setOpenRow(null);
         setPicker(null);
+        setUnitPicker(false);
+        setAmountText(null);
         setError(null);
     }
 
@@ -172,23 +272,27 @@ export const HabitSheet: React.FC<{
         const read: Draft = parsed ? {
             ...start,
             name: parsed.name || start.name,
-            days: parsed.taskDays?.length ? parsed.taskDays : start.days,
+            days: parsed.taskDays?.length ? parsed.taskDays : rules?.matched.days ? EVERY_DAY : start.days,
             startTime: parsed.startTime ?? start.startTime,
             durationMinutes: parsed.durationMinutes ?? start.durationMinutes,
             amount: parsed.targetValue ?? start.amount,
             unit: parsed.targetUnit ?? start.unit,
         } : start;
         return { ...read, ...edits };
-    }, [current, eventGoal, parsed, edits]);
+    }, [current, eventGoal, parsed, edits, rules]);
 
     const linkedGoal = goalId ?? draft.goalId;
     const close = () => { setEventVisible(false); setEditing(null); onClose?.(); };
-    const toggleRow = (row: Row) => setOpenRow(value => (value === row ? null : row));
+    const toggleRow = (id: string | null) => { setOpenRow(id as Row); setUnitPicker(false); setPicker(null); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
     const save = async () => {
         const name = draft.name.trim() || text.trim();
-        if (!name || savingRef.current) return;
+        if (!text.trim() || !name || savingRef.current) return;
+        if (draft.amount !== undefined && (!Number.isFinite(draft.amount) || draft.amount <= 0 || draft.amount > 100000000)) {
+            setError('Choose an amount greater than zero and no more than 100,000,000.'); setOpenRow('target'); return;
+        }
+        if (draft.days.length === 0) { setError('Choose at least one day for this habit.'); setOpenRow('repeat'); return; }
         savingRef.current = true;
         setSaving(true);
         setError(null);
@@ -202,13 +306,18 @@ export const HabitSheet: React.FC<{
                 goalValue: draft.amount ?? 1,
                 unit: draft.unit ?? 'time',
                 trackingMethod: draft.amount ? 'numeric' : 'boolean',
-                reminders: draft.reminder ? [draft.reminder] : [],
+                reminders: current && !Object.prototype.hasOwnProperty.call(edits, 'reminder')
+                    ? current.reminders : draft.reminder ? [draft.reminder] : [],
                 goalId: linkedGoal,
                 icon: draft.icon,
                 color: draft.color,
-                type: 'build',
-                frequency: 'daily',
-                goalPeriod: 'daily',
+                type: current?.type ?? 'build',
+                frequency: draft.cadence === 'weekly' ? 'daily' : draft.cadence,
+                weekInterval: draft.cadence === 'weekly' ? draft.every : 1,
+                reminderOffset: draft.reminderOffset,
+                reminderMessage: draft.reminderMessage?.trim() || undefined,
+                locationReminders: draft.places,
+                goalPeriod: current?.goalPeriod ?? 'daily',
                 category: current?.category ?? 'personal',
                 startDate: current?.startDate ?? localDateKey(new Date()),
             };
@@ -232,20 +341,27 @@ export const HabitSheet: React.FC<{
     const timeValue = (value?: string) => {
         const [hour, minute] = (value ?? '08:00').split(':').map(Number);
         const date = new Date();
-        date.setHours(hour || 8, minute || 0, 0, 0);
+        date.setHours(Number.isFinite(hour) ? hour : 8, Number.isFinite(minute) ? minute : 0, 0, 0);
         return date;
     };
     const asTime = (date: Date) =>
         `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
     const goalName = goals.find(goal => goal.id === linkedGoal)?.name;
-    const canSave = !!(draft.name.trim() || text.trim());
+    const canSave = !!text.trim();
 
     const items: DetailItem[] = [
         {
-            id: 'repeat', icon: 'repeat', label: 'Repeat', value: describeDays(draft.days),
+            id: 'repeat', icon: 'repeat', label: 'Repeat', value: describeRepeat(draft),
             content: (
                 <>
+                    <Choices
+                        options={CADENCES}
+                        value={cadenceId(draft.cadence, draft.every)}
+                        accent={accent}
+                        onChange={id => change(fromCadenceId(id))}
+                    />
+                    {draft.cadence === 'weekly' ? (
                     <View style={styles.days}>
                         {DAYS.map(day => {
                             const on = draft.days.includes(day.id);
@@ -269,12 +385,23 @@ export const HabitSheet: React.FC<{
                             );
                         })}
                     </View>
-                    <Choices
-                        options={[{ id: 'all', label: 'Every day' }, { id: 'week', label: 'Weekdays' }, { id: 'end', label: 'Weekends' }]}
-                        value={presetOf(draft.days)}
-                        accent={accent}
-                        onChange={id => change({ days: id === 'all' ? EVERY_DAY : id === 'week' ? WEEKDAYS : ['sat', 'sun'] })}
-                    />
+                    ) : null}
+                    {draft.cadence === 'weekly' ? (
+                        <Choices
+                            options={[{ id: 'all', label: 'Every day' }, { id: 'week', label: 'Weekdays' }, { id: 'end', label: 'Weekends' }]}
+                            value={presetOf(draft.days)}
+                            accent={accent}
+                            onChange={id => change({ days: id === 'all' ? EVERY_DAY : id === 'week' ? WEEKDAYS : ['sat', 'sun'] })}
+                        />
+                    ) : (
+                        // Monthly and yearly repeat off the start date, so there
+                        // is nothing to pick here — say which day it lands on.
+                        <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: FontFamily.regular, paddingHorizontal: 14 }}>
+                            {draft.cadence === 'monthly'
+                                ? 'Repeats on the same date each month as the day it starts.'
+                                : 'Repeats on the same date each year as the day it starts.'}
+                        </Text>
+                    )}
                 </>
             ),
         },
@@ -323,40 +450,31 @@ export const HabitSheet: React.FC<{
             content: (
                 <>
                     <View style={styles.amountRow}>
-                        <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Less"
-                            onPress={() => { lightFeedback(); change({ amount: Math.max(0, (draft.amount ?? 0) - 1) || undefined }); }}
-                            hitSlop={8}
-                        >
-                            <Ionicons name="remove-circle-outline" size={26} color={colors.textSecondary} />
+                        <TextInput accessibilityLabel="Habit target number" value={amountText ?? (draft.amount === undefined ? '' : String(draft.amount))}
+                            keyboardType="decimal-pad" placeholder="1" placeholderTextColor={colors.textTertiary}
+                            onFocus={() => setUnitPicker(false)}
+                            onChangeText={value => {
+                                setAmountText(value);
+                                const amount = Number(value.replace(',', '.'));
+                                change({ amount: value.trim() ? amount : undefined, unit: draft.unit ?? 'times' });
+                            }} style={[styles.number, { color: colors.textPrimary, borderColor: colors.border }]} />
+                        <Pressable accessibilityRole="button" accessibilityLabel="Choose habit unit" accessibilityState={{ expanded: unitPicker }}
+                            onPress={() => { Keyboard.dismiss(); setUnitPicker(!unitPicker); }}
+                            style={[styles.unitButton, { borderColor: accent + '44', backgroundColor: accent + '18' }]}>
+                            <Text style={[styles.unitLabel, { color: accentText }]}>{goalUnitLabel(draft.unit === 'min' ? 'minutes' : draft.unit === 'times' ? 'sessions' : draft.unit ?? 'sessions')}</Text>
+                            <Ionicons name={unitPicker ? 'chevron-up' : 'chevron-down'} size={14} color={accentText} />
                         </Pressable>
-                        <Text style={[styles.amount, { color: colors.textPrimary }]}>{draft.amount ?? '—'}</Text>
-                        <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="More"
-                            onPress={() => { lightFeedback(); change({ amount: (draft.amount ?? 0) + 1, unit: draft.unit ?? 'min' }); }}
-                            hitSlop={8}
-                        >
-                            <Ionicons name="add-circle-outline" size={26} color={accent} />
-                        </Pressable>
-                        {draft.amount ? (
-                            <Pressable onPress={() => change({ amount: undefined, unit: undefined })} style={styles.link}>
-                                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Done or not</Text>
-                            </Pressable>
-                        ) : null}
                     </View>
-                    <Choices
-                        options={UNITS.map(unit => ({ id: unit, label: unit }))}
-                        value={draft.unit ?? ''}
-                        accent={accent}
-                        onChange={unit => change({ unit, amount: draft.amount ?? 1 })}
-                    />
+                    {unitPicker ? <GoalUnitPicker value={draft.unit === 'min' ? 'minutes' : draft.unit === 'times' ? 'sessions' : draft.unit}
+                        accent={accentText} onChange={unit => { change({ unit: unit === 'minutes' ? 'min' : unit === 'sessions' ? 'times' : unit, amount: draft.amount ?? 1 }); setUnitPicker(false); }} />
+                        : <Pressable accessibilityRole="button" onPress={() => { change({ amount: undefined, unit: undefined }); setAmountText(null); }} style={styles.link}>
+                            <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>Use a simple check-in</Text>
+                        </Pressable>}
                 </>
             ),
         },
         {
-            id: 'reminder', icon: 'notifications-outline', label: 'Reminder', value: draft.reminder,
+            id: 'reminder', icon: 'notifications-outline', label: 'Reminder', value: describeReminder(draft),
             content: (
                 <>
                     <Choices
@@ -370,6 +488,21 @@ export const HabitSheet: React.FC<{
                             change({ reminder: draft.reminder ?? draft.startTime ?? '08:00' });
                         }}
                     />
+
+                    {/* How far ahead of the habit it should land. */}
+                    {draft.reminder ? (
+                        <Choices
+                            options={[
+                                { id: 0, label: 'On time' },
+                                { id: 5, label: '5 min before' },
+                                { id: 15, label: '15 min before' },
+                                { id: 30, label: '30 min before' },
+                            ]}
+                            value={draft.reminderOffset ?? 0}
+                            accent={accent}
+                            onChange={minutes => change({ reminderOffset: minutes || undefined })}
+                        />
+                    ) : null}
                     {picker === 'reminder' ? (
                         <DateTimePicker
                             value={timeValue(draft.reminder)}
@@ -383,6 +516,43 @@ export const HabitSheet: React.FC<{
                             }}
                         />
                     ) : null}
+
+                    {/* A place, not a time. The geofences were always in the
+                        data model and in LocationService; nothing ever asked
+                        for one. */}
+                    <View style={styles.inline}>
+                        {draft.places.map(place => (
+                            <Pressable
+                                key={`${place.latitude},${place.longitude}`}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Remove the reminder at ${place.name}`}
+                                onPress={() => { lightFeedback(); change({ places: draft.places.filter(item => item !== place) }); }}
+                                style={[styles.place, { borderColor: accent + '66', backgroundColor: accent + '18' }]}
+                            >
+                                <Ionicons name="location" size={12} color={accent} />
+                                <Text style={{ color: accent, fontSize: 12, fontFamily: FontFamily.medium }}>{place.name}</Text>
+                                <Ionicons name="close" size={12} color={accent} />
+                            </Pressable>
+                        ))}
+                        <Pressable onPress={() => void addHere()} disabled={findingPlace} style={styles.link}>
+                            <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.medium }}>
+                                {findingPlace ? 'Finding you…' : 'Remind me when I arrive here'}
+                            </Text>
+                        </Pressable>
+                    </View>
+
+                    {/* What it says. Left empty, Echo writes it in your voice. */}
+                    <TextInput
+                        value={draft.reminderMessage ?? ''}
+                        onChangeText={reminderMessage => change({ reminderMessage })}
+                        placeholder="What it should say — leave empty and Echo writes it"
+                        placeholderTextColor={colors.textTertiary}
+                        accessibilityLabel="Reminder message"
+                        style={[styles.message, {
+                            color: colors.textPrimary, borderColor: colors.border,
+                            backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
+                        }]}
+                    />
                 </>
             ),
         },
@@ -398,40 +568,8 @@ export const HabitSheet: React.FC<{
             ),
         }] : []),
         {
-            id: 'look', icon: 'color-palette-outline', label: 'Look',
-            content: (
-                <>
-                    <View style={styles.icons}>
-                        {ICONS.map(icon => (
-                            <Pressable
-                                key={icon}
-                                accessibilityRole="radio"
-                                accessibilityState={{ selected: draft.icon === icon }}
-                                accessibilityLabel={icon}
-                                onPress={() => { lightFeedback(); change({ icon }); }}
-                                style={[styles.iconChoice, {
-                                    backgroundColor: draft.icon === icon ? draft.color + '26' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                    borderColor: draft.icon === icon ? draft.color : 'transparent',
-                                }]}
-                            >
-                                <Ionicons name={icon} size={17} color={draft.icon === icon ? draft.color : colors.textSecondary} />
-                            </Pressable>
-                        ))}
-                    </View>
-                    <View style={styles.icons}>
-                        {COLORS.map(color => (
-                            <Pressable
-                                key={color}
-                                accessibilityRole="radio"
-                                accessibilityState={{ selected: draft.color === color }}
-                                accessibilityLabel={`Colour ${color}`}
-                                onPress={() => { lightFeedback(); change({ color }); }}
-                                style={[styles.colour, { backgroundColor: color, borderColor: draft.color === color ? colors.textPrimary : 'transparent' }]}
-                            />
-                        ))}
-                    </View>
-                </>
-            ),
+            id: 'look', icon: draft.icon, color: readableAccent(draft.color, colors.background), label: 'Look',
+            content: <GoalLookPicker subject="Habit" icon={draft.icon} color={draft.color} onChange={change} />,
         },
         {
             id: 'notes', icon: 'document-text-outline', label: 'Note',
@@ -468,9 +606,10 @@ export const HabitSheet: React.FC<{
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <TextInput
-                        value={text}
-                        onChangeText={setText}
+                    <CreationTextInput
+                        key={session} text={text} segments={habitTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
+                        onChangeText={value => { setText(value); setAmountText(null); }}
+                        onFocus={() => { setOpenRow(null); setUnitPicker(false); }}
                         // Open ready to type, editing as well as creating: the
                         // caret lands after what is already written, so the first
                         // keystroke adds to it rather than replacing it.
@@ -502,7 +641,7 @@ export const HabitSheet: React.FC<{
                     ) : null}
                 </ScrollView>
 
-                <DetailBar items={items} open={openRow} onToggle={id => setOpenRow(id as Row)} accent={accent} />
+                <DetailBar fitContent items={items} open={openRow} onToggle={toggleRow} accent={accent} />
 
                 <View style={styles.footer}>
                     <Pressable
@@ -537,13 +676,14 @@ const styles = StyleSheet.create({
     day: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
     link: { paddingVertical: 6 },
     picker: { alignSelf: 'flex-start' },
+    place: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
+    message: { minHeight: 40, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, fontFamily: FontFamily.regular },
     inline: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    notes: { flex: 1, minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
+    notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     amountRow: { flexDirection: 'row', alignItems: 'center', gap: 18 },
-    amount: { minWidth: 56, textAlign: 'center', fontSize: 22, fontFamily: FontFamily.bold },
-    icons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    iconChoice: { width: 38, height: 38, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-    colour: { width: 30, height: 30, borderRadius: 15, borderWidth: 2 },
+    number: { width: 110, minHeight: 46, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, fontSize: 17, fontFamily: FontFamily.semibold },
+    unitButton: { minWidth: 118, minHeight: 46, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'space-between' },
+    unitLabel: { fontSize: 13, fontFamily: FontFamily.medium },
     error: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1 },
     errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },
     footer: { paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8 },

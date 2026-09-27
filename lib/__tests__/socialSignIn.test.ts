@@ -2,6 +2,7 @@ const mockAuth = {
     signInWithIdToken: jest.fn(),
     signInWithOAuth: jest.fn(),
     exchangeCodeForSession: jest.fn(),
+    updateUser: jest.fn(async () => ({ error: null })),
 };
 jest.mock('../supabase', () => ({ getSupabase: () => ({ auth: mockAuth }) }));
 jest.mock('../account', () => ({
@@ -19,6 +20,12 @@ jest.mock('expo-crypto', () => ({
     CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
 }));
 jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: jest.fn() }));
+const mockSecureProfile = new Map<string, string>();
+jest.mock('expo-secure-store', () => ({
+    getItemAsync: jest.fn(async (key: string) => mockSecureProfile.get(key) ?? null),
+    setItemAsync: jest.fn(async (key: string, value: string) => { mockSecureProfile.set(key, value); }),
+    deleteItemAsync: jest.fn(async (key: string) => { mockSecureProfile.delete(key); }),
+}));
 // In tests there is no native side; the real check answers false.
 jest.mock('../nativeModules', () => ({ hasExpoModule: () => true, hasTurboModule: () => true }));
 jest.mock('../echo', () => ({ getName: jest.fn(async () => undefined), saveName: jest.fn(async () => undefined) }));
@@ -30,7 +37,7 @@ import { finishSignIn } from '../account';
 import { getName, saveName } from '../echo';
 
 const USER = 'aaaaaaaa-0000-4000-8000-000000000001';
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => { jest.clearAllMocks(); mockSecureProfile.clear(); });
 
 describe('Sign in with Apple', () => {
     it('gives Apple the hashed nonce and Supabase the raw one', async () => {
@@ -48,6 +55,7 @@ describe('Sign in with Apple', () => {
         mockAuth.signInWithIdToken.mockResolvedValue({ data: { session: { user: { id: USER } } }, error: null });
         await signInWithApple();
         expect(saveName).toHaveBeenCalledWith('Erwan');
+        expect(mockAuth.updateUser).toHaveBeenCalledWith({ data: { full_name: 'Erwan', given_name: 'Erwan' } });
     });
 
     it('never overwrites a name the user already has', async () => {
@@ -77,6 +85,80 @@ describe('Sign in with Apple', () => {
         const result = await signInWithApple();
         expect(result).toMatchObject({ ok: false });
         expect(result.ok === false && result.error).toMatch(/not switched on/);
+    });
+
+    it('preserves all supplied name parts without writing nulls on later sign-ins', async () => {
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: 'jwt', user: 'apple-user',
+            fullName: { givenName: ' Ada ', middleName: ' M ', familyName: ' Lovelace ' } });
+        mockAuth.signInWithIdToken.mockResolvedValue({ data: { session: { user: { id: USER } } }, error: null });
+        await signInWithApple();
+        expect(mockAuth.updateUser).toHaveBeenCalledWith({ data: {
+            full_name: 'Ada M Lovelace', given_name: 'Ada', middle_name: 'M', family_name: 'Lovelace',
+        } });
+        expect(mockSecureProfile.size).toBe(0);
+        mockAuth.updateUser.mockClear();
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: 'jwt', user: 'apple-user', fullName: { givenName: null, familyName: null } });
+        await signInWithApple();
+        expect(mockAuth.updateUser).not.toHaveBeenCalled();
+    });
+
+    it('keeps the first name through a failed exchange without changing the local profile', async () => {
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: 'jwt', user: 'apple-user', fullName: { givenName: 'Ada' } });
+        mockAuth.signInWithIdToken.mockResolvedValueOnce({ data: { session: null }, error: { message: 'Network failure' } });
+        expect((await signInWithApple()).ok).toBe(false);
+        expect(saveName).not.toHaveBeenCalled();
+        expect(mockAuth.updateUser).not.toHaveBeenCalled();
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: 'jwt', user: 'apple-user', fullName: null });
+        mockAuth.signInWithIdToken.mockResolvedValueOnce({ data: { session: { user: { id: USER } } }, error: null });
+        expect((await signInWithApple()).ok).toBe(true);
+        expect(mockAuth.updateUser).toHaveBeenCalledWith({ data: { full_name: 'Ada', given_name: 'Ada' } });
+        expect(saveName).toHaveBeenCalledWith('Ada');
+    });
+
+    it('retries a failed metadata upload on the next Apple sign-in', async () => {
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: 'jwt', user: 'apple-user', fullName: { givenName: 'Ada' } });
+        mockAuth.signInWithIdToken.mockResolvedValue({ data: { session: { user: { id: USER } } }, error: null });
+        mockAuth.updateUser.mockRejectedValueOnce(new Error('Offline'));
+        expect((await signInWithApple()).ok).toBe(true);
+        expect(mockSecureProfile.size).toBe(1);
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: 'jwt', user: 'apple-user', fullName: null });
+        await signInWithApple();
+        expect(mockAuth.updateUser).toHaveBeenCalledTimes(2);
+        expect(mockSecureProfile.size).toBe(0);
+    });
+
+    it('does not attach another Apple account’s pending name', async () => {
+        mockSecureProfile.set('habyss_apple_pending_profile', JSON.stringify({ user: 'someone-else', profile: { full_name: 'Ada', given_name: 'Ada' } }));
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: 'jwt', user: 'apple-user', fullName: null });
+        mockAuth.signInWithIdToken.mockResolvedValue({ data: { session: { user: { id: USER } } }, error: null });
+        await signInWithApple();
+        expect(mockAuth.updateUser).not.toHaveBeenCalled();
+        expect(saveName).not.toHaveBeenCalled();
+    });
+
+    it('restores the greeting from verified metadata on a new device', async () => {
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: 'jwt', fullName: null });
+        mockAuth.signInWithIdToken.mockResolvedValueOnce({ data: { session: { user: { id: USER, user_metadata: { given_name: 'Ada' } } } }, error: null });
+        await signInWithApple();
+        expect(saveName).toHaveBeenCalledWith('Ada');
+    });
+
+    it('rejects a missing identity token without linking or changing a profile', async () => {
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: null, fullName: { givenName: 'Ada' } });
+        expect((await signInWithApple()).ok).toBe(false);
+        expect(mockAuth.signInWithIdToken).not.toHaveBeenCalled();
+        expect(mockAuth.updateUser).not.toHaveBeenCalled();
+        expect(saveName).not.toHaveBeenCalled();
+        expect(finishSignIn).not.toHaveBeenCalled();
+    });
+
+    it('opens only one native sheet and exchanges once when tapped twice', async () => {
+        (AppleAuthentication.signInAsync as jest.Mock).mockResolvedValueOnce({ identityToken: 'jwt' });
+        mockAuth.signInWithIdToken.mockResolvedValueOnce({ data: { session: { user: { id: USER } } }, error: null });
+        const results = await Promise.all([signInWithApple(), signInWithApple()]);
+        expect(results.every(result => result.ok)).toBe(true);
+        expect(AppleAuthentication.signInAsync).toHaveBeenCalledTimes(1);
+        expect(mockAuth.signInWithIdToken).toHaveBeenCalledTimes(1);
     });
 });
 

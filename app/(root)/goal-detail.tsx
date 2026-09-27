@@ -2,12 +2,11 @@ import { FontFamily } from '@/constants/DesignSystem';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { ViewSwitcher } from '@/components/Common/ViewSwitcher';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, Image, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
@@ -42,6 +41,43 @@ const { height, width } = Dimensions.get('window');
 const HEADER_HEIGHT = 380; // Taller header for better visual
 /** How far the panel's dome rises over the progress arc. */
 const BUMP = 86;
+
+/**
+ * Framing the goal's photograph.
+ *
+ * Only the strip above the panel is ever seen, so a picture told to `cover`
+ * the whole screen shows its top third there and buries the subject behind the
+ * panel — which is why every goal looked like the sky above whatever it was
+ * about.
+ *
+ * The fix is not a bigger canvas, which is just a heavier crop. The picture is
+ * laid out at its *own* proportions, exactly as wide as the screen, so nothing
+ * is enlarged and nothing is cut off the sides — then hung so its middle falls
+ * in the strip you can actually see.
+ *
+ * Because the height comes from the image's own aspect ratio rather than from
+ * a number picked per device, it frames the same way on every phone.
+ */
+const HERO_WINDOW = HEADER_HEIGHT - BUMP;
+/** Portrait-ish, used only until the real picture has been measured. */
+const ASSUMED_ASPECT = 3 / 4;
+
+/**
+ * Where to hang a picture of this aspect so its middle lands in the strip.
+ *
+ * The width is the screen's and the height is whatever the picture's own
+ * proportions make it — so it is never enlarged, which was the complaint.
+ * Because both numbers come from the image and the screen width rather than
+ * from a constant chosen per device, it frames identically on every phone.
+ *
+ * Nothing forces it to reach the bottom of the screen. Everything below the
+ * strip is behind the panel, which is opaque and the same colour as what is
+ * behind the picture, so covering it would buy nothing and cost a crop.
+ */
+function heroFrame(aspect: number, screenWidth: number) {
+    const height = Math.round(screenWidth / Math.max(0.2, aspect));
+    return { height, top: Math.round(HERO_WINDOW / 2 - height / 2) };
+}
 /** HalfCircleProgress leaves this much box below its arc's baseline. */
 const ARC_BASELINE = 5;
 
@@ -56,6 +92,22 @@ const GoalDetail = () => {
 
   const { goal, completions, setCompletion, insights, today } = useGoalInsights(goalId);
   const [bgImage, setBgImage] = useState<string | null>(null);
+
+  // The picture's own proportions decide how it is hung, so it frames the same
+  // way on every phone instead of being cropped to a number chosen per device.
+  const [aspect, setAspect] = useState(ASSUMED_ASPECT);
+  useEffect(() => {
+    if (!bgImage) { setAspect(ASSUMED_ASPECT); return; }
+    let alive = true;
+    Image.getSize(
+      bgImage,
+      (w, h) => { if (alive && w > 0 && h > 0) setAspect(w / h); },
+      () => { if (alive) setAspect(ASSUMED_ASPECT); },
+    );
+    return () => { alive = false; };
+  }, [bgImage]);
+
+  const heroBox = useMemo(() => heroFrame(aspect, width), [aspect]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [view, setView] = useState<'today' | 'stats' | 'plan'>('today');
@@ -117,8 +169,10 @@ const GoalDetail = () => {
 
   const toggleTask = async (task: Task) => {
     selectionFeedback();
-    await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
-    emit('tasks_changed');
+    try {
+      await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
+      emit('tasks_changed');
+    } catch { Alert.alert('Could not save task', 'Please try again.'); }
   };
 
   const removeTask = (task: Task) => {
@@ -126,8 +180,8 @@ const GoalDetail = () => {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
-          await deleteTask(task.id);
-          emit('tasks_changed');
+          try { await deleteTask(task.id); emit('tasks_changed'); }
+          catch { Alert.alert('Could not delete task', 'Your task is still saved. Please try again.'); }
         },
       },
     ]);
@@ -213,7 +267,10 @@ const GoalDetail = () => {
     }
     setCompletion(habit.id, isCompleted);
     // Fire and forget for instant response
-    toggleCompletion(habit.id, today).catch(console.error);
+    toggleCompletion(habit.id, today).catch(() => {
+      setCompletion(habit.id, !isCompleted);
+      Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');
+    });
   };
 
   const handleDeleteHabit = (habit: Habit) => {
@@ -284,22 +341,14 @@ const GoalDetail = () => {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
 
-      {/* Background Image with Overlay */}
-      <View style={StyleSheet.absoluteFill}>
+      {/* The goal's picture, shown whole and unshaded. The only shadow on it
+          is the one the panel casts. */}
+      <View style={styles.heroClip} pointerEvents="none">
         <ImageBackground
           source={bgImage ? { uri: bgImage } : require('@/assets/images/adaptive-icon.png')}
-          style={{ flex: 1 }}
+          style={{ position: 'absolute', top: heroBox.top, left: 0, right: 0, height: heroBox.height }}
           resizeMode="cover"
-          imageStyle={styles.heroImage}
-        >
-          <LinearGradient
-            colors={theme === 'light'
-              ? ['rgba(255,255,255,0.22)', 'rgba(255,255,255,0.74)', colors.background]
-              : ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.38)', colors.background]}
-            style={StyleSheet.absoluteFill}
-            locations={[0, 0.38, 0.95]}
-          />
-        </ImageBackground>
+        />
       </View>
 
       {/* Navigation Header */}
@@ -495,10 +544,7 @@ const GoalDetail = () => {
 };
 
 const styles = StyleSheet.create({
-  heroImage: {
-    opacity: 0.56,
-    transform: [{ scale: 1.02 }],
-  },
+  heroClip: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
   navHeader: {
     position: 'absolute',
     top: 0, left: 0, right: 0,
@@ -576,6 +622,13 @@ const styles = StyleSheet.create({
   },
   panelWrap: {
     marginTop: 20,
+    // The picture is no longer dimmed, so the panel has to separate itself
+    // from it the way a real card would — by casting onto it.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.34,
+    shadowRadius: 22,
+    elevation: 16,
   },
   contentContainer: {
     minHeight: height,

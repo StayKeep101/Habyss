@@ -68,15 +68,16 @@ export function useGoalsInsights(): GoalsData {
         return () => { alive = false; unsubscribe.then(stop => stop()); subs.forEach(sub => sub.remove()); };
     }, [today]);
 
-    // History back to the oldest goal's start, so every chart covers its whole plan.
+    // Include archived goals and habits older than their goal, so charts and
+    // lifetime streaks keep the complete history.
     const earliestStart = useMemo(
-        () => goals.map(goal => goalRange(goal, today).start).sort()[0] ?? null,
-        [goals, today],
+        () => habits.map(habit => goalRange(habit, today).start).sort()[0] ?? null,
+        [habits, today],
     );
     useEffect(() => {
         if (!earliestStart) return;
         let alive = true;
-        const days = Math.min(730, Math.max(30, daysBetween(earliestStart, today) + 1));
+        const days = Math.max(30, daysBetween(earliestStart, today) + 1);
         getLastNDaysCompletions(days)
             .then(rows => {
                 if (!alive) return;

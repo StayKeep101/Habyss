@@ -55,13 +55,25 @@ export interface ParseOptions {
 
 export const ALLOWED_UNITS = [
     'sessions', 'minutes', 'hours', 'pages', 'km', 'mi', 'steps',
-    'kg', 'lb', 'glasses', 'liters', 'dollars', 'words', 'reps', 'percent',
+    'm', 'ml', 'books', 'chapters', 'sets', 'laps', 'lessons', 'tasks', 'projects',
+    'kg', 'lb', 'glasses', 'liters', 'dollars', 'euros', 'gbp', 'words', 'reps', 'percent',
 ] as const;
 
 /** Spoken unit -> allowed unit, with a multiplier where the unit changes. */
 const UNIT_MAP: { pattern: RegExp; unit: string; factor?: number }[] = [
     { pattern: /\b(hours?|hrs?|h)\b/i, unit: 'minutes', factor: 60 },
     { pattern: /\b(minutes?|mins?)\b/i, unit: 'minutes' },
+    { pattern: /\b(books?)\b/i, unit: 'books' },
+    { pattern: /\b(chapters?)\b/i, unit: 'chapters' },
+    { pattern: /\b(sets?)\b/i, unit: 'sets' },
+    { pattern: /\b(laps?)\b/i, unit: 'laps' },
+    { pattern: /\b(lessons?)\b/i, unit: 'lessons' },
+    { pattern: /\b(tasks?)\b/i, unit: 'tasks' },
+    { pattern: /\b(projects?)\b/i, unit: 'projects' },
+    { pattern: /\b(meters?|metres?|m)\b/i, unit: 'm' },
+    { pattern: /\b(milliliters?|millilitres?|ml)\b/i, unit: 'ml' },
+    { pattern: /\b(euros?|eur)\b/i, unit: 'euros' },
+    { pattern: /\b(gbp)\b/i, unit: 'gbp' },
     { pattern: /\b(pages?|pgs?)\b/i, unit: 'pages' },
     { pattern: /\b(kilometers?|kilometres?|kms?|km)\b/i, unit: 'km' },
     { pattern: /\b(miles?|mi)\b/i, unit: 'mi' },
@@ -134,6 +146,9 @@ const UNIT_WORDS = new Set([
     'dollar', 'dollars', 'usd', 'buck', 'bucks', 'word', 'words',
     'rep', 'reps', 'repetition', 'repetitions', 'percent', 'session', 'sessions',
     'workout', 'workouts', 'x',
+    'm', 'meter', 'meters', 'metre', 'metres', 'ml', 'milliliter', 'milliliters',
+    'millilitre', 'millilitres', 'book', 'books', 'chapter', 'chapters', 'set', 'sets',
+    'lap', 'laps', 'lesson', 'lessons', 'task', 'tasks', 'project', 'projects', 'euro', 'euros', 'eur', 'gbp',
 ]);
 
 /**
@@ -338,7 +353,7 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     }
 
     /* ----------------------------------------------------------------- title */
-    spec.title = buildTitle(raw, spec, subject, today);
+    spec.title = buildTitle(raw, spec, subject, today, datePhrase);
 
     /* --------------------------------------------------- what is still needed */
     // A vague goal never produces a target the user did not state.
@@ -387,10 +402,18 @@ function questionFor(field: string, spec: GoalSpec): string {
     }
 }
 
-function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date): string {
-    const name = subject ? titleCase(subject) : titleCase(raw);
+function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date, datePhrase = ''): string {
+    // "Launch Habyss by Jan 1" is a deadline and a name, and the deadline has
+    // already been read off. Leaving it in the title as well meant the goal was
+    // called after the date it was due.
+    const withoutDate = datePhrase
+        ? raw.replace(new RegExp(datePhrase.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), ' ')
+            .replace(/\s{2,}/g, ' ').trim()
+        : raw;
+
+    const name = subject ? titleCase(subject) : titleCase(withoutDate);
     if (spec.delta_from_baseline === null && (spec.target === null || !spec.metric_unit)) {
-        return titleCase(raw);
+        return titleCase(withoutDate);
     }
 
     const amount = spec.metric_unit === 'percent'

@@ -340,7 +340,7 @@ const Home = () => {
                 uri={profileAvatar}
                 done={dayTally.done}
                 total={dayTally.total}
-                onPress={() => router.push('/(root)/(tabs)/settings')}
+                onPress={() => router.push('/(root)/profile')}
               />
             </View>
 

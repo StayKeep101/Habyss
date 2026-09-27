@@ -1,24 +1,26 @@
 import * as Notifications from 'expo-notifications';
 import { NotificationService } from '../notificationService';
-import { getHabits, getCompletions } from '../habitsSQLite';
+import { getHabits, getCompletions, getSkipped, setCompletionValue } from '../habitsSQLite';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LocationService } from '../LocationService';
 import type { Habit } from '../habitsSQLite';
 
 jest.mock('expo-notifications', () => ({
-    setNotificationHandler: jest.fn(), setNotificationChannelAsync: jest.fn(),
+    setNotificationHandler: jest.fn(), setNotificationChannelAsync: jest.fn(), setNotificationCategoryAsync: jest.fn(),
     requestPermissionsAsync: jest.fn(), getPermissionsAsync: jest.fn(),
     getAllScheduledNotificationsAsync: jest.fn(), cancelScheduledNotificationAsync: jest.fn(),
     scheduleNotificationAsync: jest.fn(), SchedulableTriggerInputTypes: { DATE: 'date' },
     IosAuthorizationStatus: { PROVISIONAL: 3 },
 }));
-jest.mock('../habitsSQLite', () => ({ getHabits: jest.fn(), getCompletions: jest.fn() }));
+jest.mock('../habitsSQLite', () => ({ getHabits: jest.fn(), getCompletions: jest.fn(), getSkipped: jest.fn(async () => ({})), setCompletionValue: jest.fn() }));
 jest.mock('../LocationService', () => ({ LocationService: { refreshGeofences: jest.fn() } }));
 const tasksForTest: any[] = [];
 jest.mock('../tasks', () => ({
     ...jest.requireActual('../tasks'),
     getTasks: jest.fn(async () => tasksForTest),
+    setTaskStatus: jest.fn(async (id: string, status: string) => { const task = tasksForTest.find(task => task.id === id); if (task) task.status = status; }),
 }));
-const echoForTest = { morning: false, evening: false, useName: true };
+const echoForTest = { morning: false, evening: false, useName: true, alive: false, aliveFollowUp: true };
 jest.mock('../echo', () => ({
     getEchoConfig: jest.fn(async () => echoForTest),
     getDayWindow: jest.fn(async () => ({ wake: '07:00', sleep: '23:00' })),
@@ -27,7 +29,18 @@ jest.mock('../echo', () => ({
     eveningCheckIn: () => '22:00',
     getEchoPersonality: jest.fn(async () => 'normal'),
     getName: jest.fn(async () => 'Erwan'),
+    minutesOf: (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute; },
 }));
+
+beforeEach(async () => {
+    await AsyncStorage.clear();
+    echoForTest.alive = false;
+    echoForTest.aliveFollowUp = true;
+    echoForTest.morning = false;
+    echoForTest.evening = false;
+    tasksForTest.length = 0;
+    (getSkipped as jest.Mock).mockResolvedValue({});
+});
 
 const habit = { id: 'read', name: 'Read', category: 'mind', startDate: '2026-01-01', createdAt: '2026-01-01', frequency: 'daily', reminders: ['09:00'], taskDays: [] } as unknown as Habit;
 
@@ -167,5 +180,76 @@ describe("Echo's check-ins", () => {
         ]);
         await NotificationService.refreshReminders();
         expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('echo:evening:2026-09-16');
+    });
+});
+
+describe('Echo Alive native scheduling and actions', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        jest.useFakeTimers().setSystemTime(new Date(2026, 8, 16, 7));
+        (getHabits as jest.Mock).mockResolvedValue([{ ...habit, startTime: '08:00', reminders: ['08:00'], durationMinutes: 30 }]);
+        (getCompletions as jest.Mock).mockResolvedValue({});
+        (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
+        (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([]);
+        (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('id');
+        echoForTest.alive = true;
+    });
+    afterEach(() => jest.useRealTimers());
+    it('replaces the regular timed reminder with encouragement and a follow-up', async () => {
+        await NotificationService.refreshReminders();
+        const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request);
+        expect(calls).toHaveLength(14);
+        expect(calls.every(item => item.content.data.kind === 'echo-alive')).toBe(true);
+        expect(calls[0].trigger.date).toEqual(new Date(2026, 8, 16, 7, 50));
+        expect(calls[1].trigger.date).toEqual(new Date(2026, 8, 16, 8, 45));
+        expect(calls[0].content.categoryIdentifier).toBe('ECHO_ALIVE');
+    });
+    it('cancels today’s follow-up after completion without cancelling tomorrow', async () => {
+        (getCompletions as jest.Mock).mockResolvedValue({ read: true });
+        (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([
+            { identifier: 'old-followup', content: { data: { kind: 'echo-alive', habitId: 'read' } } },
+        ]);
+        await NotificationService.refreshReminders();
+        expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('old-followup');
+        const calls = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request);
+        expect(calls).toHaveLength(12);
+        expect(calls.every(item => item.content.data.scheduledDate !== '2026-09-16')).toBe(true);
+    });
+    it('respects the master switch and the habit-reminder switch', async () => {
+        await AsyncStorage.setItem('app_settings', JSON.stringify({ notificationsEnabled: false }));
+        await NotificationService.refreshReminders();
+        expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+        await AsyncStorage.removeItem('app_settings');
+        await AsyncStorage.setItem('notif_habits', 'false');
+        await NotificationService.refreshReminders();
+        expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+    it('marks the original date complete using the fractional measurement target', async () => {
+        (getHabits as jest.Mock).mockResolvedValue([{ ...habit, goalValue: 0.5, unit: 'km', trackingMethod: 'numeric' }]);
+        const refresh = jest.spyOn(NotificationService, 'refreshReminders').mockResolvedValueOnce(undefined);
+        await NotificationService.handleEchoResponse({ actionIdentifier: 'ECHO_DONE', notification: { request: {
+            identifier: 'echo', content: { data: { kind: 'echo-alive', habitId: 'read', scheduledDate: '2026-09-15' } },
+        } } } as any);
+        expect(setCompletionValue).toHaveBeenCalledWith('read', 0.5, '2026-09-15');
+        refresh.mockRestore();
+    });
+    it('does not double-log an already completed habit', async () => {
+        (getCompletions as jest.Mock).mockResolvedValue({ read: true });
+        const refresh = jest.spyOn(NotificationService, 'refreshReminders').mockResolvedValueOnce(undefined);
+        await NotificationService.handleEchoResponse({ actionIdentifier: 'ECHO_DONE', notification: { request: {
+            identifier: 'echo', content: { data: { kind: 'echo-alive', habitId: 'read', scheduledDate: '2026-09-16' } },
+        } } } as any);
+        expect(setCompletionValue).not.toHaveBeenCalled();
+        refresh.mockRestore();
+    });
+    it('keeps an explicit snooze across unrelated refreshes and removes it on completion', async () => {
+        const snooze = { identifier: 'snooze', content: { title: 'Echo', body: 'Try again', sound: 'default',
+            data: { kind: 'echo-alive', habitId: 'read', scheduledDate: '2026-09-16', snoozedUntil: Date.now() + 15 * 60000 } } };
+        (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([snooze]);
+        await NotificationService.refreshReminders();
+        expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalledWith('snooze');
+        (getCompletions as jest.Mock).mockResolvedValue({ read: true });
+        await NotificationService.refreshReminders();
+        expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('snooze');
     });
 });

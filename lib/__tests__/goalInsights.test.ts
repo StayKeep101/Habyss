@@ -221,3 +221,71 @@ describe('skipping a day on purpose', () => {
         expect(summary.scheduledToday).toBe(false);
     });
 });
+
+describe('a goal that names a number', () => {
+    const spec = (target: number, unit = 'books') =>
+        JSON.stringify({ title: 'Read 4 books', target, metric_unit: unit });
+
+    /** Read 4 books, with one habit worth 2 books, due once on the 10th. */
+    const books = (over: Partial<Habit> = {}) => goal({
+        name: 'Read 4 books', goalSpec: spec(4), unit: 'books', ...over,
+    });
+    const reading = (over: Partial<Habit> = {}) => habit({
+        name: 'Read 2 books', goalValue: 2, unit: 'books', taskDays: ['thu'], ...over,
+    });
+
+    it('is half done when a habit worth two of its four is completed', () => {
+        // The reported bug: perfect adherence to the schedule was reported as
+        // a finished goal, though only two of the four books were read.
+        const progress = goalProgress({
+            goal: books(), habits: [reading()], tasks: [],
+            history: { '2026-09-10': ['h'] }, today: TODAY,
+        });
+        expect(progress).toBe(50);
+    });
+
+    it('reaches a hundred only once the number is actually met', () => {
+        const twice = { '2026-09-10': ['h'], '2026-09-17': ['h'] };
+        expect(goalProgress({
+            goal: books(), habits: [reading()], tasks: [], history: twice, today: TODAY,
+        })).toBe(100);
+    });
+
+    it('never exceeds a hundred when the habits overshoot', () => {
+        const thrice = { '2026-09-10': ['h'], '2026-09-17': ['h'], '2026-09-24': ['h'] };
+        expect(goalProgress({
+            goal: books(), habits: [reading()], tasks: [], history: thrice, today: TODAY,
+        })).toBeLessThanOrEqual(100);
+    });
+
+    it('ignores a habit measured in a unit that cannot add up to the goal', () => {
+        // Twenty minutes of reading does not make twenty of four books, so this
+        // falls back to how faithfully the plan was kept.
+        const minutes = reading({ goalValue: 20, unit: 'minutes' });
+        const progress = goalProgress({
+            goal: books(), habits: [minutes], tasks: [],
+            history: { '2026-09-10': ['h'] }, today: TODAY,
+        });
+        // Back to adherence: one of the three Thursdays in the goal's range.
+        expect(progress).toBe(33);
+    });
+
+    it('still measures adherence for a goal that names no number', () => {
+        // Every day kept so far, half way through the plan — progress is what
+        // has been banked against the whole plan, so it reads 50.
+        const daily = goal({ name: 'Meditate daily' });
+        expect(goalProgress({
+            goal: daily, habits: [habit()], tasks: [],
+            history: doneThrough(TODAY), today: TODAY,
+        })).toBe(50);
+    });
+
+    it('lets the chart agree with the headline', () => {
+        const insights = buildGoalInsights({
+            goal: books(), habits: [reading()], tasks: [],
+            history: { '2026-09-10': ['h'] }, today: TODAY,
+        });
+        expect(insights.progress).toBe(50);
+        expect(insights.series[insights.series.length - 1].actual).toBe(50);
+    });
+});

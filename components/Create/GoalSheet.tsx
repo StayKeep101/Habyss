@@ -1,11 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import {ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import { AppIcon as Ionicons, type IconName } from '@/components/Common/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
+import { GoalCalendar } from '@/components/Create/GoalCalendar';
+import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
+import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
+import { readableAccent } from '@/lib/colorContrast';
+import { goalTextSegments } from '@/lib/goalTextHighlight';
+import { goalUnitLabel } from '@/lib/goalUnits';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
@@ -13,22 +18,10 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseGoal } from '@/lib/smartParse';
-import { parseGoalText, ALLOWED_UNITS, type Direction, type GoalSpec, type GoalWindow, type HabitRef } from '@/lib/goalParser';
+import { parseGoalText, type Direction, type GoalSpec, type GoalWindow, type HabitRef } from '@/lib/goalParser';
 import { addHabit, updateHabit, getHabits, type Habit } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
 import { emit, on } from '@/lib/appEvents';
-
-const ICONS: IconName[] = [
-    'flag-outline', 'trophy-outline', 'barbell-outline', 'book-outline', 'wallet-outline',
-    'heart-outline', 'briefcase-outline', 'leaf-outline', 'rocket-outline', 'school-outline',
-];
-const COLORS = ['#6B8AF5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6'];
-
-const DIRECTIONS: { id: Direction; label: string }[] = [
-    { id: 'at_least', label: 'At least' },
-    { id: 'at_most', label: 'At most' },
-    { id: 'reach', label: 'Reach' },
-];
 
 type Row = 'target' | 'window' | 'baseline' | 'tracks' | 'look' | 'notes' | null;
 
@@ -49,9 +42,8 @@ interface Draft {
     description?: string;
 }
 
-const blank = (): Draft => ({ title: '', direction: 'at_least', linked: [], icon: 'flag-outline', color: COLORS[0] });
+const blank = (): Draft => ({ title: '', direction: 'at_least', linked: [], icon: 'flag-outline', color: '#6B8AF5' });
 
-const iso = (date: Date) => localDateKey(date);
 const dateFrom = (value?: string) => {
     const date = value ? new Date(`${value}T12:00:00`) : new Date(Date.now() + 30 * 86400000);
     return Number.isNaN(date.getTime()) ? new Date(Date.now() + 30 * 86400000) : date;
@@ -63,9 +55,8 @@ const pretty = (value?: string) =>
 const fromGoal = (from: Habit): Draft => {
     let spec: Partial<GoalSpec> = {};
     try { spec = from.goalSpec ? JSON.parse(from.goalSpec) : {}; } catch { spec = {}; }
-    const window: GoalWindow | undefined = spec.window ?? (from.targetDate
-        ? { kind: 'fixed', start: from.startDate, end: from.targetDate }
-        : { kind: 'recurring', period: from.goalPeriod === 'weekly' ? 'week' : from.goalPeriod === 'monthly' ? 'month' : 'day' });
+    const window: GoalWindow | undefined = spec.window?.kind === 'fixed' ? spec.window : from.targetDate
+        ? { kind: 'fixed', start: from.startDate, end: from.targetDate } : undefined;
 
     return {
         title: from.name,
@@ -79,23 +70,21 @@ const fromGoal = (from: Habit): Draft => {
         linked: spec.linked_habits ?? [],
         suggested: spec.suggested_habit ?? null,
         icon: (from.icon as IconName) || 'flag-outline',
-        color: from.color || COLORS[0],
+        color: from.color || '#6B8AF5',
         description: from.description,
     };
 };
 
 const describeWindow = (draft: Draft): string => {
-    if (draft.window?.kind === 'recurring') return `Every ${draft.window.period}`;
     if (draft.window?.kind === 'fixed') return `By ${pretty(draft.window.end)}`;
     return 'Not set';
 };
 
 const describeTarget = (draft: Draft): string => {
     if (draft.target === undefined && draft.deltaFromBaseline === undefined) return 'Not set';
-    const label = DIRECTIONS.find(item => item.id === draft.direction)?.label ?? '';
-    if (draft.target === undefined) return `${label} ${draft.deltaFromBaseline} ${draft.unit ?? ''} from now`.trim();
-    const amount = draft.unit === 'percent' ? `${Math.round(draft.target * 100)}%` : `${draft.target} ${draft.unit ?? ''}`;
-    return `${label} ${amount}`.trim();
+    if (draft.target === undefined) return `${draft.deltaFromBaseline} ${draft.unit ?? ''} from now`.trim();
+    const amount = draft.unit === 'percent' ? `${Math.round(draft.target * 100)}%` : `${draft.target} ${draft.unit ? goalUnitLabel(draft.unit) : ''}`;
+    return amount.trim();
 };
 
 /**
@@ -117,7 +106,7 @@ export const GoalSheet: React.FC<{
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
-    const { primary: accent } = useAccentGradient();
+    const { primary: accent, foreground: accentText } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
@@ -125,7 +114,8 @@ export const GoalSheet: React.FC<{
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<Row>(null);
-    const [picker, setPicker] = useState(false);
+    const [unitPicker, setUnitPicker] = useState(false);
+    const [targetText, setTargetText] = useState<string | null>(null);
     const [habits, setHabits] = useState<HabitRef[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -145,7 +135,8 @@ export const GoalSheet: React.FC<{
         setText(current?.name ?? '');
         setEdits({});
         setOpenRow(null);
-        setPicker(false);
+        setUnitPicker(false);
+        setTargetText(null);
         setError(null);
     }
 
@@ -186,7 +177,7 @@ export const GoalSheet: React.FC<{
             target: spec.target ?? start.target,
             unit: spec.metric_unit ?? start.unit,
             direction: spec.direction ?? start.direction,
-            window: spec.window ?? start.window,
+            window: spec.window?.kind === 'fixed' ? spec.window : start.window,
             deadline: spec.window?.kind === 'fixed' ? spec.window.end : start.deadline,
             baseline: spec.baseline ?? start.baseline,
             deltaFromBaseline: spec.delta_from_baseline ?? start.deltaFromBaseline,
@@ -197,7 +188,6 @@ export const GoalSheet: React.FC<{
     }, [current, result, edits]);
 
     const close = () => { setEventVisible(false); setEditing(null); onClose?.(); };
-    const toggleRow = (row: Row) => setOpenRow(value => (value === row ? null : row));
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
     // A goal needs a starting point only when the target is relative to it.
@@ -206,13 +196,13 @@ export const GoalSheet: React.FC<{
     if (draft.target === undefined && draft.deltaFromBaseline === undefined) missing.push({ row: 'target', what: 'a number to hit' });
     else if (!draft.unit) missing.push({ row: 'target', what: 'what it is measured in' });
     if (needsBaseline && draft.baseline === undefined) missing.push({ row: 'baseline', what: 'where you are starting from' });
-    if (!draft.window) missing.push({ row: 'window', what: 'by when' });
-    const ready = !!draft.title.trim() && missing.length === 0;
+    if (draft.window?.kind !== 'fixed') missing.push({ row: 'window', what: 'a finish date' });
+    const ready = !!text.trim() && missing.length === 0;
 
     const save = async () => {
         const title = draft.title.trim() || text.trim();
-        if (!title) return;
-        if (missing.length > 0) { lightFeedback(); setOpenRow(missing[0].row); return; }
+        if (!text.trim() || !title) return;
+        if (missing.length > 0) { Keyboard.dismiss(); lightFeedback(); setOpenRow(missing[0].row); return; }
         if (savingRef.current) return;
         savingRef.current = true;
         setSaving(true);
@@ -274,7 +264,8 @@ export const GoalSheet: React.FC<{
         }
     };
 
-    const windowChoice = draft.window?.kind === 'fixed' ? 'date' : draft.window?.period ?? '';
+    const segments = goalTextSegments(text, rules?.goal);
+    const toggleRow = (id: string | null) => { setUnitPicker(false); setOpenRow(id as Row); };
 
     const items: DetailItem[] = [
         {
@@ -284,11 +275,13 @@ export const GoalSheet: React.FC<{
                 <>
                     <View style={styles.targetRow}>
                         <TextInput
-                            value={draft.target === undefined ? '' : String(draft.unit === 'percent' ? Math.round(draft.target * 100) : draft.target)}
+                            value={targetText ?? (draft.target === undefined ? '' : String(draft.unit === 'percent' ? Math.round(draft.target * 100) : draft.target))}
                             onChangeText={value => {
+                                setTargetText(value);
                                 const amount = Number(value.replace(',', '.'));
                                 change({ target: value.trim() && Number.isFinite(amount) ? (draft.unit === 'percent' ? amount / 100 : amount) : undefined });
                             }}
+                            onFocus={() => setUnitPicker(false)}
                             keyboardType="decimal-pad"
                             placeholder="0"
                             placeholderTextColor={colors.textTertiary}
@@ -298,15 +291,23 @@ export const GoalSheet: React.FC<{
                                 backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
                             }]}
                         />
-                        <Text style={[styles.unitLabel, { color: colors.textTertiary }]}>{draft.unit ?? 'pick a unit'}</Text>
+                        <Pressable accessibilityRole="button" accessibilityLabel="Choose target unit"
+                            accessibilityState={{ expanded: unitPicker }}
+                            onPress={() => { Keyboard.dismiss(); lightFeedback(); setUnitPicker(value => !value); }}
+                            style={[styles.unitButton, { backgroundColor: accent + '18', borderColor: accent + '44' }]}>
+                            <Text style={[styles.unitLabel, { color: accentText }]}>{draft.unit ? goalUnitLabel(draft.unit) : 'Unit'}</Text>
+                            <Ionicons name={unitPicker ? 'chevron-up' : 'chevron-down'} size={14} color={accentText} />
+                        </Pressable>
                     </View>
-                    <Choices options={DIRECTIONS} value={draft.direction} accent={accent} onChange={direction => change({ direction })} />
-                    <Choices
-                        options={ALLOWED_UNITS.map(unit => ({ id: unit as string, label: unit }))}
-                        value={draft.unit ?? ''}
-                        accent={accent}
-                        onChange={unit => change({ unit })}
-                    />
+                    {unitPicker ? <GoalUnitPicker value={draft.unit} accent={accentText}
+                        onChange={unit => {
+                            // Keep the displayed amount when moving to or from percent.
+                            const amount = draft.target === undefined ? undefined : draft.unit === 'percent' ? draft.target * 100 : draft.target;
+                            change({ unit, target: amount === undefined ? undefined : unit === 'percent' ? amount / 100 : amount });
+                            setUnitPicker(false);
+                        }} />
+                        : <Text style={[styles.help, { color: colors.textTertiary }]}>Set an amount, then tap the unit to choose how to measure it.</Text>}
+
                 </>
             ),
         },
@@ -314,49 +315,11 @@ export const GoalSheet: React.FC<{
             id: 'window', icon: 'calendar-outline', label: 'By when',
             value: draft.window ? describeWindow(draft) : undefined,
             content: (
-                <>
-                    <Choices
-                        options={[
-                            { id: 'day', label: 'Every day' }, { id: 'week', label: 'Every week' },
-                            { id: 'month', label: 'Every month' }, { id: 'date', label: 'By a date' },
-                        ]}
-                        value={windowChoice}
-                        accent={accent}
-                        onChange={id => {
-                            if (id === 'date') {
-                                const end = draft.deadline ?? iso(dateFrom(undefined));
-                                change({ window: { kind: 'fixed', start: localDateKey(new Date()), end }, deadline: end });
-                                setPicker(true);
-                                return;
-                            }
-                            setPicker(false);
-                            change({ window: { kind: 'recurring', period: id as 'day' | 'week' | 'month' } });
-                        }}
-                    />
-                    {draft.window?.kind === 'fixed' ? (
-                        <>
-                            <Pressable onPress={() => { lightFeedback(); setPicker(value => !value); }} style={styles.link}>
-                                <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.medium }}>{pretty(draft.deadline)}</Text>
-                            </Pressable>
-                            {picker ? (
-                                <DateTimePicker
-                                    value={dateFrom(draft.deadline)}
-                                    mode="date"
-                                    minimumDate={new Date()}
-                                    display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                            style={styles.picker}
-                                    themeVariant={isLight ? 'light' : 'dark'}
-                                    onChange={(_event, selected) => {
-                                        if (Platform.OS !== 'ios') setPicker(false);
-                                        if (!selected) return;
-                                        const end = iso(selected);
-                                        change({ deadline: end, window: { kind: 'fixed', start: draft.window?.kind === 'fixed' ? draft.window.start : localDateKey(new Date()), end } });
-                                    }}
-                                />
-                            ) : null}
-                        </>
-                    ) : null}
-                </>
+                    <GoalCalendar key={openRow === 'window' ? 'open-calendar' : 'closed-calendar'}
+                        value={draft.window?.kind === 'fixed' ? draft.window.end : undefined} accent={accentText}
+                        onChange={end => change({ deadline: end, window: {
+                            kind: 'fixed', start: draft.window?.kind === 'fixed' && draft.window.start <= end ? draft.window.start : localDateKey(new Date()), end,
+                        } })} />
             ),
         },
         ...(needsBaseline ? [{
@@ -404,40 +367,8 @@ export const GoalSheet: React.FC<{
             ),
         }] : []),
         {
-            id: 'look', icon: 'color-palette-outline', label: 'Look',
-            content: (
-                <>
-                    <View style={styles.icons}>
-                        {ICONS.map(icon => (
-                            <Pressable
-                                key={icon}
-                                accessibilityRole="radio"
-                                accessibilityState={{ selected: draft.icon === icon }}
-                                accessibilityLabel={icon}
-                                onPress={() => { lightFeedback(); change({ icon }); }}
-                                style={[styles.iconChoice, {
-                                    backgroundColor: draft.icon === icon ? draft.color + '26' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                    borderColor: draft.icon === icon ? draft.color : 'transparent',
-                                }]}
-                            >
-                                <Ionicons name={icon} size={17} color={draft.icon === icon ? draft.color : colors.textSecondary} />
-                            </Pressable>
-                        ))}
-                    </View>
-                    <View style={styles.icons}>
-                        {COLORS.map(color => (
-                            <Pressable
-                                key={color}
-                                accessibilityRole="radio"
-                                accessibilityState={{ selected: draft.color === color }}
-                                accessibilityLabel={`Colour ${color}`}
-                                onPress={() => { lightFeedback(); change({ color }); }}
-                                style={[styles.colour, { backgroundColor: color, borderColor: draft.color === color ? colors.textPrimary : 'transparent' }]}
-                            />
-                        ))}
-                    </View>
-                </>
-            ),
+            id: 'look', icon: draft.icon, color: readableAccent(draft.color, colors.background), label: 'Look',
+            content: <GoalLookPicker icon={draft.icon} color={draft.color} onChange={change} />,
         },
         {
             id: 'notes', icon: 'document-text-outline', label: 'Why it matters',
@@ -475,8 +406,11 @@ export const GoalSheet: React.FC<{
                     alwaysBounceVertical={false}
                 >
                     <TextInput
-                        value={text}
-                        onChangeText={setText}
+                        key={session}
+                        {...(Platform.OS === 'web' ? { value: text } : {})}
+                        onChangeText={value => { setText(value); setTargetText(null); }}
+                        selectionColor={accent}
+                        onFocus={() => { setOpenRow(null); setUnitPicker(false); }}
                         // Open ready to type, editing as well as creating: the
                         // caret lands after what is already written, so the first
                         // keystroke adds to it rather than replacing it.
@@ -489,7 +423,11 @@ export const GoalSheet: React.FC<{
                             color: colors.textPrimary, borderColor: colors.border,
                             backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
                         }]}
-                    />
+                    >
+                        {Platform.OS !== 'web' ? <Text>{segments.map((part, index) =>
+                            <Text key={index} style={{ color: part.highlighted ? accentText : colors.textPrimary }}>{part.text}</Text>
+                        )}</Text> : null}
+                    </TextInput>
 
                     {draft.title && draft.title !== text.trim() ? (
                         <View style={styles.readRow}>
@@ -501,6 +439,8 @@ export const GoalSheet: React.FC<{
                     ) : null}
 
 
+                    {result?.goal.window?.kind === 'recurring' && !draft.window ? <Text style={[styles.help, { color: colors.textSecondary }]}>Goals have one finish date. Choose when you want to complete this goal.</Text> : null}
+
                     {error ? (
                         <View style={[styles.error, { backgroundColor: colors.error + '18', borderColor: colors.error + '44' }]}>
                             <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
@@ -509,19 +449,19 @@ export const GoalSheet: React.FC<{
                     ) : null}
                 </ScrollView>
 
-                <DetailBar items={items} open={openRow} onToggle={id => setOpenRow(id as Row)} accent={accent} />
+                <DetailBar fitContent items={items} open={openRow} onToggle={toggleRow} accent={accent} />
 
                 <View style={styles.footer}>
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityState={{ disabled: !draft.title.trim() }}
-                        disabled={!draft.title.trim() || saving}
+                        accessibilityState={{ disabled: !text.trim() }}
+                        disabled={!text.trim() || saving}
                         onPress={save}
                         style={[styles.save, { backgroundColor: ready ? accent : (isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)') }]}
                     >
                         {saving ? <ActivityIndicator color="#000" size="small" /> : (
                             <Text style={[styles.saveText, { color: ready ? '#000' : colors.textSecondary }]}>
-                                {ready ? (current ? 'Save changes' : 'Create goal') : `Add ${missing[0]?.what}`}
+                                {ready ? (current ? 'Save changes' : 'Create goal') : (!draft.title.trim() ? 'Describe your goal' : `Add ${missing[0]?.what}`)}
                             </Text>
                         )}
                     </Pressable>
@@ -541,15 +481,11 @@ const styles = StyleSheet.create({
     readRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     read: { flexShrink: 1, fontSize: 11, fontFamily: FontFamily.regular },
     targetRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    number: { minWidth: 96, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 11, fontSize: 17, fontFamily: FontFamily.semibold },
+    number: { width: 110, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 11, fontSize: 17, fontFamily: FontFamily.semibold },
+    unitButton: { minWidth: 118, minHeight: 46, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, flexDirection: 'row', gap: 14, alignItems: 'center', justifyContent: 'space-between' },
     unitLabel: { fontSize: 13, fontFamily: FontFamily.regular },
     help: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular },
-    link: { paddingVertical: 6 },
-    picker: { alignSelf: 'flex-start' },
-    notes: { flex: 1, minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
-    icons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    iconChoice: { width: 38, height: 38, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-    colour: { width: 30, height: 30, borderRadius: 15, borderWidth: 2 },
+    notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     error: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1 },
     errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },
     footer: { paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8 },

@@ -8,6 +8,53 @@
 import WidgetKit
 import SwiftUI
 import AppIntents
+import UserNotifications
+import ActivityKit
+
+// MARK: - The app's look, carried across
+
+/// Hex as the app writes it (`#RRGGBB`), because the widget cannot import the
+/// palette from JavaScript.
+extension Color {
+    init?(habyssHex hex: String?) {
+        guard var value = hex?.trimmingCharacters(in: .whitespaces), !value.isEmpty else { return nil }
+        if value.hasPrefix("#") { value.removeFirst() }
+        guard value.count == 6, let rgb = UInt32(value, radix: 16) else { return nil }
+        self.init(
+            .sRGB,
+            red: Double((rgb >> 16) & 0xFF) / 255,
+            green: Double((rgb >> 8) & 0xFF) / 255,
+            blue: Double(rgb & 0xFF) / 255
+        )
+    }
+}
+
+enum Habyss {
+    /// The void the app is drawn on. The widget sits on the Home Screen, so it
+    /// keeps the same near-black rather than the system's translucent fill.
+    static let void = Color(.sRGB, red: 0.043, green: 0.047, blue: 0.055)
+    static let line = Color.white.opacity(0.10)
+    static let dim = Color.white.opacity(0.55)
+    static let faint = Color.white.opacity(0.32)
+    static let done = Color(.sRGB, red: 0.06, green: 0.72, blue: 0.51)
+    /// Falls back to the default gradient when the app has not written one yet.
+    static let fallbackFrom = Color(.sRGB, red: 0.227, green: 0.353, blue: 0.549)
+    static let fallbackTo = Color(.sRGB, red: 0.545, green: 0.678, blue: 0.839)
+}
+
+/// Uppercase and widely tracked, the way every section heading in the app reads.
+struct SectionLabel: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: 11, weight: .bold))
+            .tracking(1.5)
+            .foregroundStyle(Habyss.faint)
+    }
+}
+
+extension View {
+    func sectionLabel() -> some View { modifier(SectionLabel()) }
+}
 
 // MARK: - Data Model
 struct HabitModel: Codable, Identifiable {
@@ -19,51 +66,6 @@ struct HabitModel: Codable, Identifiable {
 struct WidgetSummary: Codable {
     let total: Int
     let completed: Int
-}
-
-// MARK: - App Intent for Interaction
-struct ToggleHabitIntent: AppIntent {
-    static var title: LocalizedStringResource = "Toggle Habit"
-    // Ticking something off is the whole point of the widget; sending the user
-    // into the app to do it would defeat it. The app catches up when opened.
-    static var openAppWhenRun: Bool = false
-
-    @Parameter(title: "Habit ID")
-    var id: String
-
-    init() {}
-
-    init(id: String) {
-        self.id = id
-    }
-
-    func perform() async throws -> some IntentResult {
-        let appGroup = "group.com.habyss.data"
-        let userDefaults = UserDefaults(suiteName: appGroup)
-
-        guard let data = userDefaults?.string(forKey: "habitsData")?.data(using: .utf8),
-              var habits = try? JSONDecoder().decode([HabitModel].self, from: data),
-              let index = habits.firstIndex(where: { $0.id == id })
-        else { return .result() }
-
-        habits[index].isCompleted.toggle()
-
-        // Drawn as done straight away; the app is told separately.
-        if let newData = try? JSONEncoder().encode(habits),
-           let jsonString = String(data: newData, encoding: .utf8) {
-            userDefaults?.set(jsonString, forKey: "habitsData")
-        }
-
-        // The state chosen, not just "it was tapped", so ticking something on
-        // and off again leaves the app agreeing with the widget.
-        var pending = userDefaults?.array(forKey: "pending_widget_toggles") as? [String] ?? []
-        pending.removeAll { $0 == id || $0.hasPrefix("\(id)|") }
-        pending.append("\(id)|\(habits[index].isCompleted ? 1 : 0)")
-        userDefaults?.set(pending, forKey: "pending_widget_toggles")
-        WidgetCenter.shared.reloadAllTimelines()
-
-        return .result()
-    }
 }
 
 struct Provider: TimelineProvider {
@@ -82,23 +84,32 @@ struct Provider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SimpleEntry>) -> Void) {
-        // The app reloads the timeline whenever anything is ticked, so this is
-        // only the fallback: a quarter-hourly redraw, and always one the moment
-        // the day turns over, so today's list never lingers into tomorrow.
-        let next = min(
-            Date().addingTimeInterval(15 * 60),
-            Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 0, minute: 0), matchingPolicy: .nextTime) ?? Date().addingTimeInterval(15 * 60)
-        )
-        completion(Timeline(entries: [entry(from: getData())], policy: .after(next)))
+        let start = Calendar.current.startOfDay(for: .now)
+        let entries = (0...8).compactMap { offset -> SimpleEntry? in
+            guard let date = Calendar.current.date(byAdding: .day, value: offset, to: start) else { return nil }
+            return entry(from: getData(), at: offset == 0 ? .now : date)
+        }
+        completion(Timeline(entries: entries, policy: .after(Date().addingTimeInterval(30 * 60))))
     }
 
-    private func entry(from state: (habits: [HabitModel], activeHabitName: String?, timerEndDate: Date?, summary: WidgetSummary?, dayKey: String?)) -> SimpleEntry {
-        SimpleEntry(
+    private func entry(from state: (habits: [HabitModel], activeHabitName: String?, timerEndDate: Date?, summary: WidgetSummary?, dayKey: String?), at date: Date = .now) -> SimpleEntry {
+        let userDefaults = UserDefaults(suiteName: appGroup)
+        if let snapshot = DashboardSnapshot.read() {
+            let day = snapshot.days.first(where: { $0.date == SimpleEntry.todayKey(date) })
+            return SimpleEntry(date: date, habits: (day?.items ?? []).map { HabitModel(id: $0.id, name: $0.name, isCompleted: $0.isCompleted) },
+                               activeHabitName: nil, timerEndDate: nil,
+                               summary: WidgetSummary(total: day?.total ?? 0, completed: day?.completed ?? 0),
+                               accentFrom: snapshot.accent.from, accentTo: snapshot.accent.to,
+                               dayKey: day?.date ?? snapshot.dayKey)
+        }
+        return SimpleEntry(
             date: Date(),
             habits: state.habits,
             activeHabitName: state.activeHabitName,
             timerEndDate: state.timerEndDate,
             summary: state.summary,
+            accentFrom: userDefaults?.string(forKey: "accentFrom"),
+            accentTo: userDefaults?.string(forKey: "accentTo"),
             dayKey: state.dayKey
         )
     }
@@ -140,14 +151,29 @@ struct SimpleEntry: TimelineEntry {
     let activeHabitName: String?
     let timerEndDate: Date?
     let summary: WidgetSummary?
+    /// The accent the user picked in the app, written alongside the day.
+    var accentFrom: String? = nil
+    var accentTo: String? = nil
     /// The day the app last wrote. The widget cannot work out a habit's
     /// schedule on its own, so once this is not today it says so instead of
     /// showing yesterday's list as if it were due now.
     var dayKey: String? = nil
 
+    var accent: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(habyssHex: accentFrom) ?? Habyss.fallbackFrom,
+                Color(habyssHex: accentTo) ?? Habyss.fallbackTo,
+            ],
+            startPoint: .topLeading, endPoint: .bottomTrailing
+        )
+    }
+
+    var accentSolid: Color { Color(habyssHex: accentFrom) ?? Habyss.fallbackFrom }
+
     var isStale: Bool {
         guard let dayKey else { return false }
-        return dayKey != SimpleEntry.todayKey()
+        return dayKey != SimpleEntry.todayKey(date)
     }
 
     static func todayKey(_ date: Date = Date()) -> String {
@@ -161,7 +187,7 @@ struct WidgetEntryView : View {
     @Environment(\.widgetFamily) var family
 
     var completedCount: Int {
-        entry.habits.filter { $0.isCompleted }.count
+        entry.isStale ? 0 : (entry.summary?.completed ?? entry.habits.filter { $0.isCompleted }.count)
     }
 
     /// The rows to draw: none once they belong to a day that has gone by.
@@ -170,7 +196,7 @@ struct WidgetEntryView : View {
     }
     
     var totalCount: Int {
-        entry.habits.count
+        entry.isStale ? 0 : (entry.summary?.total ?? entry.habits.count)
     }
     
     var progress: Double {
@@ -199,8 +225,8 @@ struct WidgetEntryView : View {
             HStack {
                 VStack(alignment: .leading) {
                     Text("HABYSS")
-                        .font(.caption)
-                        .bold()
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.2)
                     if entry.isStale {
                         Text("Open Habyss")
                             .font(.headline)
@@ -231,39 +257,43 @@ struct WidgetEntryView : View {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
                 HStack {
-                    Text(activeFocusTitle == nil ? "TODAY" : "FOCUS")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.secondary)
-                    
+                    Text(activeFocusTitle == nil ? "DAILY TASKS" : "FOCUS")
+                        .sectionLabel()
+
                     Spacer()
-                    
-                    // Mini Progress Ring
+
+                    // The ring closes as the day is won, and turns green at the
+                    // moment it closes — the same signal as the profile ring.
                     ZStack {
                         Circle()
-                            .stroke(Color.secondary.opacity(0.2), lineWidth: 4)
+                            .stroke(Habyss.line, lineWidth: 3.5)
                         Circle()
                             .trim(from: 0, to: progress)
-                            .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                            .stroke(
+                                progress >= 1 ? AnyShapeStyle(Habyss.done) : AnyShapeStyle(entry.accent),
+                                style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                            )
                             .rotationEffect(.degrees(-90))
                     }
-                    .frame(width: 20, height: 20)
+                    .frame(width: 22, height: 22)
                 }
                 .padding(.bottom, 12)
 
                 if let activeFocusTitle {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(activeFocusTitle)
-                            .font(.headline)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
                             .lineLimit(1)
                         if let timerEndDate = entry.timerEndDate {
-                            Text(timerInterval: Date()...timerEndDate, countsDown: true)
-                                .font(.system(.title3, design: .monospaced))
-                                .fontWeight(.semibold)
+                            Text(timerInterval: min(Date(), timerEndDate)...timerEndDate, countsDown: true)
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(entry.accent)
                         } else if let summary = entry.summary {
                             Text("\(summary.completed)/\(summary.total) done")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 12))
+                                .foregroundStyle(Habyss.dim)
                         }
                     }
                     .padding(.bottom, 12)
@@ -273,44 +303,55 @@ struct WidgetEntryView : View {
                 if rows.isEmpty {
                     Spacer()
                     VStack(spacing: 8) {
-                        Image(systemName: entry.isStale ? "arrow.clockwise" : "checklist")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-                        Text(entry.isStale ? "Open Habyss for today" : "Nothing due today")
-                            .font(.caption)
+                        Image(systemName: entry.isStale ? "arrow.clockwise" : "checkmark.circle")
+                            .font(.system(size: 26, weight: .light))
+                            .foregroundStyle(entry.accent)
+                        Text(entry.isStale ? "Open Habyss for today" : totalCount > 0 ? "Open Habyss for remaining tasks" : "Nothing due today")
+                            .font(.system(size: 12))
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Habyss.dim)
                     }
                     .frame(maxWidth: .infinity)
                     Spacer()
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(rows.prefix(family == .systemSmall ? 3 : 4)) { habit in
-                            HStack(spacing: 8) {
+                            HStack(spacing: 10) {
+                                // The same rounded box the day's list uses in
+                                // the app, rather than iOS's circle.
                                 Button(intent: ToggleHabitIntent(id: habit.id)) {
-                                    Image(systemName: habit.isCompleted ? "checkmark.circle.fill" : "circle")
-                                        .font(.title3)
-                                        .foregroundStyle(habit.isCompleted ? .secondary : .primary)
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(habit.isCompleted ? AnyShapeStyle(Habyss.done) : AnyShapeStyle(Color.clear))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                .stroke(habit.isCompleted ? Habyss.done : Color.white.opacity(0.26), lineWidth: 1.5)
+                                        )
+                                        .overlay(
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundStyle(.white)
+                                                .opacity(habit.isCompleted ? 1 : 0)
+                                        )
+                                        .frame(width: 19, height: 19)
                                 }
                                 .buttonStyle(.plain)
-                                
+
                                 Text(habit.name)
-                                    .font(.subheadline)
-                                    .fontWeight(habit.isCompleted ? .regular : .medium)
+                                    .font(.system(size: 13, weight: habit.isCompleted ? .regular : .medium))
                                     .strikethrough(habit.isCompleted)
-                                    .foregroundStyle(habit.isCompleted ? .secondary : .primary)
+                                    .foregroundStyle(habit.isCompleted ? Habyss.faint : .white)
                                     .lineLimit(1)
-                                
+
                                 Spacer()
                             }
                         }
                     }
                     
-                    if rows.count > (family == .systemSmall ? 3 : 4) {
+                    if totalCount > (family == .systemSmall ? 3 : 4) {
                         Spacer()
-                        Text("+\(rows.count - (family == .systemSmall ? 3 : 4)) more")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        Text("+\(totalCount - (family == .systemSmall ? 3 : 4)) more")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Habyss.faint)
                     }
                     Spacer()
                 }
@@ -329,11 +370,22 @@ struct HabyssWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
             WidgetEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(URL(string: "habyss://roadmap"))
+                // The app is a near-black void with one wash of the accent at
+                // the top; the widget is a small window onto the same thing.
+                .containerBackground(for: .widget) {
+                    ZStack {
+                        Habyss.void
+                        RadialGradient(
+                            colors: [entry.accentSolid.opacity(0.22), .clear],
+                            center: .topLeading, startRadius: 0, endRadius: 190
+                        )
+                    }
+                }
         }
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
-        .configurationDisplayName("Today")
-        .description("Your habits and tasks for today. Tick them off without opening the app.")
+        .configurationDisplayName("Daily Tasks")
+        .description("Today’s tasks, including overdue work. Check them off right here.")
     }
 }
 

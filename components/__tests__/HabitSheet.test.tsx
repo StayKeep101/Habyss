@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { HabitSheet } from '../Create/HabitSheet';
 import { addHabit, updateHabit } from '@/lib/habitsSQLite';
 import type { Habit } from '@/lib/habitsSQLite';
@@ -30,7 +30,7 @@ describe('the habit sheet', () => {
         expect(screen.getByText('Mon, Wed, Fri')).toBeTruthy();
         expect(screen.getByText('06:00 · 45m')).toBeTruthy();
         // The habit itself is what is left once the schedule is taken out.
-        expect(screen.getByText('Gym')).toBeTruthy();
+        expect(screen.getAllByText('Gym').length).toBeGreaterThan(0);
     });
 
     it('keeps a day the user taps even as they keep typing', () => {
@@ -42,7 +42,7 @@ describe('the habit sheet', () => {
 
         write(screen, 'Read monday 20 pages');
         expect(screen.getByText('Mon, Sat')).toBeTruthy();
-        expect(screen.getByText('20 pages')).toBeTruthy();
+        expect(screen.getByLabelText('Measure, 20 pages')).toBeTruthy();
     });
 
     it('saves what the rows show, with no reminder unless one is asked for', async () => {
@@ -100,7 +100,7 @@ describe('opening a habit that already exists', () => {
     it('opens ready to type, with what is already there', () => {
         const screen = render(<HabitSheet visible habit={saved} />);
         const field = screen.getByLabelText('Describe the habit');
-        expect(field.props.value).toBe('Run everyday');
+        expect(within(field).getByText('Run everyday')).toBeTruthy();
         expect(field.props.autoFocus).toBe(true);
     });
 
@@ -127,5 +127,63 @@ describe('opening a habit that already exists', () => {
 
         await waitFor(() => expect(updateHabit).toHaveBeenCalled());
         expect((updateHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ name: 'Run', startTime: '18:00' });
+    });
+});
+
+
+describe('shared habit controls', () => {
+    beforeEach(() => jest.clearAllMocks());
+    it('preserves fractional numeric targets, quit type and monthly scheduling on edits', async () => {
+        const habit = { id: 'fraction', name: 'Monthly check', goalValue: 0.5, unit: 'km', trackingMethod: 'numeric', type: 'quit', frequency: 'monthly', reminders: ['08:00', '18:00'], startDate: '2020-01-31', icon: 'flag-outline', color: '#6B8AF5' } as Habit;
+        const screen = render(<HabitSheet visible habit={habit} />);
+        await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
+        expect(updateHabit).toHaveBeenCalledWith(expect.objectContaining({ goalValue: 0.5, unit: 'km', type: 'quit', frequency: 'monthly', reminders: ['08:00', '18:00'] }));
+    });
+    it('finds a unit without changing the typed amount', async () => {
+        const screen = render(<HabitSheet visible />);
+        write(screen, 'Read');
+        fireEvent.press(screen.getByLabelText('Measure'));
+        fireEvent.changeText(screen.getByLabelText('Habit target number'), '1');
+        fireEvent.press(screen.getByLabelText('Choose habit unit'));
+        fireEvent.changeText(screen.getByLabelText('Search units'), 'books');
+        fireEvent.press(screen.getByLabelText('Unit Books'));
+        await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
+        expect(addHabit).toHaveBeenCalledWith(expect.objectContaining({ goalValue: 1, unit: 'books', trackingMethod: 'numeric' }));
+    });
+    it('keeps midnight when opening the time control', async () => {
+        const screen = render(<HabitSheet visible />);
+        write(screen, 'Stretch at 00:00');
+        fireEvent.press(screen.getByLabelText('Time, 00:00'));
+        fireEvent.press(screen.getByText('Starts at 00:00'));
+        expect(screen.UNSAFE_getByType('DateTimePicker' as any).props.value.getHours()).toBe(0);
+        await act(async () => {});
+    });
+});
+
+describe('how often a habit comes round', () => {
+    it('offers fortnightly and monthly, not just which weekdays', () => {
+        const screen = render(<HabitSheet visible />);
+        fireEvent.press(screen.getByLabelText(/^Repeat/));
+        for (const label of ['Weekly', 'Every 2 weeks', 'Day of month', 'Yearly']) {
+            expect(screen.getByText(label)).toBeTruthy();
+        }
+    });
+
+    it('hides the weekday grid for a cadence that does not use it', () => {
+        const screen = render(<HabitSheet visible />);
+        fireEvent.press(screen.getByLabelText(/^Repeat/));
+        expect(screen.getByText('Weekdays')).toBeTruthy();
+
+        fireEvent.press(screen.getByText('Day of month'));
+        // Nothing to pick: it repeats off the start date, and says so.
+        expect(screen.getByText(/same date each month/)).toBeTruthy();
+        expect(screen.queryByText('Weekdays')).toBeNull();
+    });
+
+    it('says how often it repeats on the closed row', () => {
+        const screen = render(<HabitSheet visible />);
+        fireEvent.press(screen.getByLabelText(/^Repeat/));
+        fireEvent.press(screen.getByText('Every 2 weeks'));
+        expect(screen.getByText(/every 2 weeks/)).toBeTruthy();
     });
 });

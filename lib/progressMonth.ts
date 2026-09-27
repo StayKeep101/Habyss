@@ -1,6 +1,6 @@
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
-import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
+import { createHabitSchedule, localDateKey } from './habitSchedule';
 
 /**
  * A month of progress, day by day.
@@ -56,28 +56,34 @@ export function monthDays(input: MonthInput): DaySummary[] {
     const index = month.getMonth();
     const count = new Date(year, index + 1, 0).getDate();
 
-    const habits = input.habits.filter(habit => !habit.isGoal && !habit.isArchived);
+    const habits = input.habits.filter(habit => !habit.isGoal && !habit.isArchived)
+        .map(habit => ({ habit, scheduled: createHabitSchedule(habit) }));
+    const firstDay = dayKey(year, index, 1);
+    const lastDay = dayKey(year, index, count);
     const tasksByDay = new Map<string, string[]>();
     for (const task of input.tasks) {
         const day = taskDoneOn(task);
         if (!day) continue;
-        tasksByDay.set(day, [...(tasksByDay.get(day) ?? []), task.id]);
+        if (day < firstDay || day > lastDay) continue;
+        const bucket = tasksByDay.get(day);
+        if (bucket) bucket.push(task.id);
+        else tasksByDay.set(day, [task.id]);
     }
 
     const days: DaySummary[] = [];
     for (let day = 1; day <= count; day++) {
         const date = dayKey(year, index, day);
         const when = new Date(year, index, day, 12);
-        const completed = history[date] ?? [];
-        const skippedToday = skips?.[date] ?? [];
+        const completed = new Set(history[date]);
+        const skippedToday = new Set(skips?.[date]);
 
         const done: string[] = [];
         const missed: string[] = [];
         const skipped: string[] = [];
-        for (const habit of habits) {
-            if (!isHabitScheduledForDate(habit, when)) continue;
-            if (skippedToday.includes(habit.id)) { skipped.push(habit.id); continue; }
-            if (completed.includes(habit.id)) done.push(habit.id);
+        for (const { habit, scheduled } of habits) {
+            if (!scheduled(when)) continue;
+            if (skippedToday.has(habit.id)) { skipped.push(habit.id); continue; }
+            if (completed.has(habit.id)) done.push(habit.id);
             else missed.push(habit.id);
         }
 

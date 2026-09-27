@@ -4,53 +4,17 @@
  * Cloud sync will be re-enabled with premium subscription.
  */
 
-import { isSQLiteAvailable } from './database';
+import { getDatabase, generateId, isSQLiteAvailable } from './database';
 import { HealthKitService } from './HealthKitService';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { Platform } from 'react-native';
 import { getLocalUserId } from './localUser';
 import { NotificationService } from './notificationService';
-import SharedDefaults from './SharedDefaults';
-import { SiriService } from './siriService';
-import { isHabitScheduledForDate } from './habitSchedule';
+import { isHabitScheduledForDate, localDateKey, parseHabitDate } from './habitSchedule';
 import type { Task } from './tasks';
-import { goalProgress } from './goalInsights';
+import { addDays, daysBetween, goalProgress } from './goalInsights';
 import { measurementFor } from './habitMeasurement';
 import { emit } from './appEvents';
 export { isHabitScheduledForDate } from './habitSchedule';
-
-// Widget Sync Helper
-async function syncWidgets() {
-    try {
-        const habits = await getHabits();
-        const activeHabits = habits.filter(h => !h.isArchived && !h.isGoal);
-        const todayCompletions = await getCompletions(todayString());
-
-        const widgetData = activeHabits.map(h => ({
-            id: h.id,
-            name: h.name,
-            isCompleted: !!todayCompletions[h.id]
-        }));
-
-        console.log('[Widget] Syncing', widgetData.length, 'habits');
-        await SharedDefaults.set('habitsData', JSON.stringify(widgetData));
-        await SharedDefaults.set('todayStats', JSON.stringify({
-            total: activeHabits.length,
-            completed: Object.keys(todayCompletions).length
-        }));
-        await SharedDefaults.set('widgetSummary', JSON.stringify({
-            total: activeHabits.length,
-            completed: Object.values(todayCompletions).filter(Boolean).length,
-        }));
-
-        // Force widget reload
-        await SharedDefaults.reloadTimelines();
-        await SiriService.syncProgressForSiri(widgetData);
-
-    } catch (e) {
-        console.warn('[Widget] Sync failed:', e);
-    }
-}
-
 
 // Re-export types
 export type HabitCategory = 'body' | 'wealth' | 'heart' | 'mind' | 'soul' | 'play' | 'health' | 'fitness' | 'work' | 'personal' | 'mindfulness' | 'misc' | 'productivity' | 'learning' | 'creativity' | 'social' | 'family' | 'finance';
@@ -96,6 +60,8 @@ export interface Habit {
     goalSpec?: string;
     locationReminders?: { name: string; latitude: number; longitude: number; radius?: number }[];
     reminderOffset?: number; // Minutes before start time
+    /** One specific sentence for this habit's reminder; Echo writes it when unset. */
+    reminderMessage?: string;
     healthKitMetric?: 'steps' | 'sleep' | 'mindfulness' | 'workout'; // New
     healthKitTarget?: number; // New
 }
@@ -129,7 +95,13 @@ export async function subscribeToHabits(callback: (habits: Habit[]) => void): Pr
 
 export function clearHabitsCache() {
     cachedHabits = null;
+    clearProgressCache();
     habitsListeners.clear();
+}
+
+function clearProgressCache() {
+    for (const day of Object.keys(completionsCache)) delete completionsCache[day];
+    for (const day of Object.keys(skippedCache)) delete skippedCache[day];
 }
 
 /**
@@ -141,11 +113,19 @@ export function clearHabitsCache() {
  */
 export async function reloadHabitsFromStorage(): Promise<void> {
     cachedHabits = null;
+    clearProgressCache();
     const habits = await getHabits();
     habitsListeners.forEach(listener => listener(habits));
 }
 
 // --- CRUD Operations (SQLite-first when available, Supabase fallback) ---
+
+function storedArray(value: unknown, fallback: any[] = []): any[] {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        return Array.isArray(parsed) ? parsed : fallback;
+    } catch { return fallback; }
+}
 
 export async function getHabits(): Promise<Habit[]> {
     const uid = await getUserId();
@@ -154,7 +134,6 @@ export async function getHabits(): Promise<Habit[]> {
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {
         try {
-            const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db) {
                 const rows = await db.getAllAsync(
@@ -179,8 +158,8 @@ export async function getHabits(): Promise<Habit[]> {
                     goalPeriod: row.goal_period || 'daily',
                     goalValue: row.goal_value || 1,
                     unit: row.unit || 'count',
-                    taskDays: typeof row.task_days === 'string' ? JSON.parse(row.task_days) : (row.task_days || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
-                    reminders: typeof row.reminders === 'string' ? JSON.parse(row.reminders) : (row.reminders || []),
+                    taskDays: storedArray(row.task_days).filter(day => typeof day === 'string'),
+                    reminders: storedArray(row.reminders).filter(time => typeof time === 'string'),
                     chartType: row.chart_type || 'bar',
                     startDate: row.start_date || row.created_at,
                     endDate: row.end_date,
@@ -193,7 +172,8 @@ export async function getHabits(): Promise<Habit[]> {
                     ringtone: row.ringtone || 'default',
                     goalSpec: row.goal_spec || undefined,
                     reminderOffset: row.reminder_offset,
-                    locationReminders: typeof row.location_reminders === 'string' ? JSON.parse(row.location_reminders || '[]') : (row.location_reminders || []),
+                    locationReminders: storedArray(row.location_reminders).filter(location => location && typeof location.name === 'string' && Number.isFinite(location.latitude) && Number.isFinite(location.longitude)),
+                    reminderMessage: row.reminder_message || undefined,
                     graphStyle: row.graph_style,
                     trackingMethod: row.tracking_method,
                     healthKitMetric: row.health_kit_metric,
@@ -226,7 +206,6 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {
         try {
-            const { getDatabase, generateId } = await import('./database');
             const db = await getDatabase();
             if (db) {
                 const id = generateId();
@@ -237,8 +216,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                         task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
                         type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
                         frequency, week_interval, time_of_day, graph_style, tracking_method,
-                        ringtone, goal_spec, reminder_offset, location_reminders, health_kit_metric, health_kit_target, created_at, updated_at, synced, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                        ringtone, goal_spec, reminder_offset, reminder_message, location_reminders, health_kit_metric, health_kit_target, created_at, updated_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                 `,
                     id,
                     uid,
@@ -272,6 +251,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     habitData.ringtone || 'default',
                     habitData.goalSpec || null,
                     habitData.reminderOffset || null,
+                    habitData.reminderMessage?.trim() || null,
                     JSON.stringify(habitData.locationReminders || []),
                     habitData.healthKitMetric || null,
                     habitData.healthKitTarget || null,
@@ -328,7 +308,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                 }
 
                 emit('habit_created', { habit: created });
-                syncWidgets(); // Sync to widget
+
                 return created;
             }
         } catch (e) {
@@ -350,7 +330,6 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {
         try {
-            const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db) {
                 const setClauses: string[] = ['updated_at = ?', 'synced = 0'];
@@ -387,6 +366,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (updatedHabit.goalSpec !== undefined) { setClauses.push('goal_spec = ?'); params.push(updatedHabit.goalSpec); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'reminderOffset')) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset ?? null); }
                 if (updatedHabit.locationReminders !== undefined) { setClauses.push('location_reminders = ?'); params.push(JSON.stringify(updatedHabit.locationReminders)); }
+                if (updatedHabit.reminderMessage !== undefined) { setClauses.push('reminder_message = ?'); params.push(updatedHabit.reminderMessage?.trim() || null); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'healthKitMetric')) { setClauses.push('health_kit_metric = ?'); params.push(updatedHabit.healthKitMetric ?? null); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'healthKitTarget')) { setClauses.push('health_kit_target = ?'); params.push(updatedHabit.healthKitTarget ?? null); }
 
@@ -409,7 +389,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 void NotificationService.refreshHabitReminders().catch(error => console.warn('[Habits] Reminder update failed:', error));
 
                 emit('habit_updated', { habitId: updatedHabit.id });
-                syncWidgets(); // Sync to widget
+
                 return;
             }
         } catch (e) {
@@ -427,7 +407,6 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {
         try {
-            const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db) {
                 // Soft delete in SQLite
@@ -445,7 +424,7 @@ export async function removeHabitEverywhere(habitId: string): Promise<void> {
                 }
 
                 emit('habit_deleted', { habitId });
-                syncWidgets(); // Sync to widget
+
                 return;
             }
         } catch (e) {
@@ -487,7 +466,6 @@ export async function getCompletions(dateISO?: string): Promise<Record<string, b
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {
         try {
-            const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db) {
                 // A skipped habit is recorded, but it is not a check-in.
@@ -520,7 +498,6 @@ export async function getSkipped(dateISO?: string): Promise<Record<string, boole
     if (!isSQLiteAvailable()) return {};
 
     try {
-        const { getDatabase } = await import('./database');
         const db = await getDatabase();
         if (!db) return {};
         const rows = await db.getAllAsync(
@@ -544,131 +521,94 @@ export async function getSkipped(dateISO?: string): Promise<Record<string, boole
  * and everywhere Habyss counts, the day is treated as if the habit had not
  * been scheduled: it does not break a streak and it does not count as missed.
  */
-export async function setSkipped(habitId: string, skipped: boolean, dateISO?: string): Promise<void> {
-    const uid = await getUserId();
-    if (!uid) return;
-
-    const dateStr = dateISO ?? todayString();
-    const now = new Date().toISOString();
-
-    skippedCache[dateStr] = { ...(skippedCache[dateStr] ?? {}) };
-    if (skipped) skippedCache[dateStr][habitId] = true;
-    else delete skippedCache[dateStr][habitId];
-
-    // A skipped habit is not also completed.
-    if (completionsCache[dateStr]?.[habitId]) delete completionsCache[dateStr][habitId];
-
-    if (isSQLiteAvailable()) {
-        try {
-            const { getDatabase } = await import('./database');
-            const db = await getDatabase();
-            if (db) {
-                await db.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateStr);
-                if (skipped) {
-                    await db.runAsync(
-                        `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted)
-                         VALUES (?, ?, ?, ?, 0, 1, ?, ?, 0, 0)
-                         ON CONFLICT(habit_id, date) DO UPDATE SET
-                         value = 0, skipped = 1, deleted = 0, synced = 0, updated_at = excluded.updated_at`,
-                        `${habitId}_${dateStr}`, uid, habitId, dateStr, now, now,
-                    );
-                } else {
-                    await db.runAsync(
-                        'UPDATE completions SET deleted = 1, skipped = 0, synced = 0, updated_at = ? WHERE habit_id = ? AND date = ? AND user_id = ?',
-                        now, habitId, dateStr, uid,
-                    );
-                }
-            }
-        } catch (e) {
-            console.error('[Habits] SQLite skip write failed:', e);
-        }
-    }
-
-    void NotificationService.refreshReminders().catch(() => undefined);
-    emit('habit_completion_updated', { habitId, date: dateStr, completed: false, skipped });
-    syncWidgets();
+// Serialize every progress mutation, including switches between measured, skipped
+// and checked states. Cache changes and notifications follow a committed write.
+let progressWrites: Promise<unknown> = Promise.resolve();
+function writeProgress<T>(work: () => Promise<T>): Promise<T> {
+    const next = progressWrites.catch(() => undefined).then(work);
+    progressWrites = next;
+    return next;
 }
 
-export async function toggleCompletion(habitId: string, dateISO?: string): Promise<Record<string, boolean>> {
+async function progressTransaction(db: any, work: (tx: any) => Promise<void>): Promise<void> {
+    // Expo exposes exclusive connections only on native platforms. Progress
+    // writes are also queued above, so web can use its supported transaction API.
+    if (Platform.OS === 'web') await db.withTransactionAsync(() => work(db));
+    else await db.withExclusiveTransactionAsync(work);
+}
+
+async function progressStorage() {
     const uid = await getUserId();
-    if (!uid) return {};
+    const db = await getDatabase();
+    if (!uid || !db) throw new Error('Your progress could not be saved. Please try again.');
+    return { uid, db };
+}
 
-    const dateStr = dateISO ?? todayString();
-    const now = new Date().toISOString();
+function progressSaved(habitId: string, date: string, completed: boolean, skipped = false) {
+    delete completionsCache[date];
+    delete skippedCache[date];
+    emit('habit_completion_updated', { habitId, date, completed, skipped });
+    void NotificationService.refreshHabitReminders().catch(() => undefined);
 
-    if (!completionsCache[dateStr]) {
-        completionsCache[dateStr] = {};
-    }
+}
 
-    const wasCompleted = !!completionsCache[dateStr][habitId];
-    const newCompleted = !wasCompleted;
-    // Checking a habit off answers the skip; they cannot both be true.
-    if (newCompleted && skippedCache[dateStr]?.[habitId]) delete skippedCache[dateStr][habitId];
-
-    // Optimistic update
-    if (newCompleted) {
-        completionsCache[dateStr][habitId] = true;
-    } else {
-        delete completionsCache[dateStr][habitId];
-    }
-
-    const optimisticResult = { ...completionsCache[dateStr] };
-
-    // Try SQLite first (offline-capable)
-    if (isSQLiteAvailable()) {
-        try {
-            const { getDatabase } = await import('./database');
-            const db = await getDatabase();
-            if (db) {
-                await db.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateStr);
-                if (wasCompleted) {
-                    // Mark as deleted in SQLite
-                    await db.runAsync(
-                        'UPDATE completions SET deleted = 1, synced = 0 WHERE habit_id = ? AND date = ? AND user_id = ?',
-                        habitId, dateStr, uid
-                    );
-
-                    // Queue for sync removed — local-only
-                } else {
-                    await db.runAsync(
-                        `INSERT INTO completions (id, user_id, habit_id, date, value, created_at, updated_at, synced, deleted)
-                         VALUES (?, ?, ?, ?, 1, ?, ?, 0, 0)
-                         ON CONFLICT(habit_id, date) DO UPDATE SET
-                         value = 1,
-                         skipped = 0,
-                         updated_at = excluded.updated_at,
-                         deleted = 0,
-                         synced = 0`,
-                        `${habitId}_${dateStr}`, uid, habitId, dateStr, now, now
-                    );
-
-                    // Queue for sync
-                    await db.runAsync(
-                        'INSERT INTO sync_queue (table_name, operation, record_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-                        'completions', 'UPSERT', `${habitId}_${dateStr}`, JSON.stringify({ habitId, date: dateStr }), now
-                    );
-
-                    // Send notification
-                    const habit = cachedHabits?.find(h => h.id === habitId);
-                    if (habit) {
-                        await NotificationService.sendCompletionNotification(habit.name);
-                    }
-                }
-
-                void NotificationService.refreshHabitReminders().catch(error => console.warn('[Habits] Reminder refresh failed:', error));
-                emit('habit_completion_updated', { habitId, date: dateStr, completed: newCompleted });
-                syncWidgets();
-                return optimisticResult;
+export function setSkipped(habitId: string, skipped: boolean, dateISO = todayString()): Promise<void> {
+    return writeProgress(async () => {
+        const { uid, db } = await progressStorage();
+        const now = new Date().toISOString();
+        await progressTransaction(db, async (tx: any) => {
+            await tx.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateISO);
+            if (skipped) {
+                await tx.runAsync(
+                    `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted)
+                     VALUES (?, ?, ?, ?, 0, 1, ?, ?, 0, 0)
+                     ON CONFLICT(habit_id, date) DO UPDATE SET
+                     value = 0, skipped = 1, deleted = 0, synced = 0, updated_at = excluded.updated_at`,
+                    `${habitId}_${dateISO}`, uid, habitId, dateISO, now, now,
+                );
+            } else {
+                await tx.runAsync(
+                    'UPDATE completions SET deleted = 1, skipped = 0, synced = 0, updated_at = ? WHERE habit_id = ? AND date = ? AND user_id = ?',
+                    now, habitId, dateISO, uid,
+                );
             }
-        } catch (e) {
-            console.error('[Habits] SQLite completion toggle failed:', e);
-        }
-    }
+        });
+        progressSaved(habitId, dateISO, false, skipped);
+    });
+}
 
-    emit('habit_completion_updated', { habitId, date: dateStr, completed: newCompleted });
-    syncWidgets(); // Sync to widget
-
-    return optimisticResult;
+export function toggleCompletion(habitId: string, dateISO = todayString()): Promise<Record<string, boolean>> {
+    return writeProgress(async () => {
+        const { uid, db } = await progressStorage();
+        const now = new Date().toISOString();
+        let completed = false;
+        await progressTransaction(db, async (tx: any) => {
+            const existing = await tx.getFirstAsync(
+                'SELECT id FROM completions WHERE user_id = ? AND habit_id = ? AND date = ? AND deleted = 0 AND COALESCE(skipped, 0) = 0',
+                uid, habitId, dateISO,
+            );
+            completed = !existing;
+            await tx.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateISO);
+            if (!completed) {
+                await tx.runAsync(
+                    'UPDATE completions SET deleted = 1, skipped = 0, synced = 0, updated_at = ? WHERE habit_id = ? AND date = ? AND user_id = ?',
+                    now, habitId, dateISO, uid,
+                );
+            } else {
+                await tx.runAsync(
+                    `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted)
+                     VALUES (?, ?, ?, ?, 1, 0, ?, ?, 0, 0)
+                     ON CONFLICT(habit_id, date) DO UPDATE SET
+                     value = 1, skipped = 0, updated_at = excluded.updated_at, deleted = 0, synced = 0`,
+                    `${habitId}_${dateISO}`, uid, habitId, dateISO, now, now,
+                );
+            }
+        });
+        progressSaved(habitId, dateISO, completed);
+        const habit = cachedHabits?.find(h => h.id === habitId);
+        if (completed && habit) void NotificationService.sendCompletionNotification(habit.name).catch(() => undefined);
+        return getCompletions(dateISO);
+    });
 }
 
 // --- Statistics ---
@@ -685,7 +625,6 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {
         try {
-            const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db && uid) {
                 const rows = await db.getAllAsync(
@@ -724,8 +663,10 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
 }
 
 export async function getStreakData(): Promise<{ currentStreak: number; bestStreak: number; perfectDays: number; totalCompleted: number }> {
-    const history = await getLastNDaysCompletions(90);
     const habits = await getHabits();
+    const earliest = habits.map(h => parseHabitDate(h.startDate) ?? parseHabitDate(h.createdAt))
+        .filter((date): date is Date => date !== null).map(localDateKey).sort()[0] ?? todayString();
+    const history = await getLastNDaysCompletions(Math.max(1, daysBetween(earliest, todayString()) + 1));
     const totalHabitCount = habits.filter(h => !h.isGoal).length;
 
     if (totalHabitCount === 0) return { currentStreak: 0, bestStreak: 0, perfectDays: 0, totalCompleted: 0 };
@@ -784,15 +725,26 @@ export async function getHabitStats(habitId: string): Promise<{
         return { currentStreak: 0, bestStreak: 0, completionRate: 0, totalCompletions: 0, totalDaysTracked: 0 };
     }
 
-    const history = await getLastNDaysCompletions(366);
-    const trackingStartStr = todayString(new Date(habit.startDate || habit.createdAt));
-    const habitHistory = history
-        .filter((day) => day.date >= trackingStartStr)
-        .map(d => ({
-        date: d.date,
-        completed: d.completedIds.includes(habitId),
-        scheduled: isHabitScheduledForDate(habit, new Date(`${d.date}T12:00:00`)),
-    }));
+    const today = todayString();
+    const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt) ?? new Date();
+    const trackingStartStr = localDateKey(start);
+    const uid = await getUserId();
+    const db = await getDatabase();
+    if (!uid || !db) throw new Error('Habit history is unavailable. Please try again.');
+    const rows = await db.getAllAsync(
+        'SELECT date, COALESCE(skipped, 0) AS skipped FROM completions WHERE user_id = ? AND habit_id = ? AND date >= ? AND date <= ? AND deleted = 0',
+        uid, habitId, trackingStartStr, today,
+    );
+    const completed = new Set<string>(rows.filter((row: any) => !row.skipped).map((row: any) => row.date));
+    const skipped = new Set<string>(rows.filter((row: any) => row.skipped).map((row: any) => row.date));
+    const habitHistory = [];
+    for (let day = trackingStartStr; day <= today; day = addDays(day, 1)) {
+        habitHistory.push({
+            date: day,
+            completed: completed.has(day),
+            scheduled: !skipped.has(day) && isHabitScheduledForDate(habit, new Date(`${day}T12:00:00`)),
+        });
+    }
 
     const relevantHistory = habitHistory.filter((day) => day.scheduled);
 
@@ -815,7 +767,7 @@ export async function getHabitStats(habitId: string): Promise<{
     // Current streak (from end, allow today to be incomplete)
     for (let i = relevantHistory.length - 1; i >= 0; i--) {
         if (relevantHistory[i].completed) currentStreak++;
-        else if (i === relevantHistory.length - 1) continue; // today might not be done yet
+        else if (relevantHistory[i].date === today) continue; // only today is still pending
         else break;
     }
 
@@ -855,7 +807,6 @@ export async function calculateGoalProgress(goal: Habit): Promise<number> {
     let totalCompleted = 0;
     if (isSQLiteAvailable()) {
         try {
-            const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db) {
                 const linkedIds = linked.map(h => h.id);
@@ -931,7 +882,6 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {
         try {
-            const { getDatabase } = await import('./database');
             const db = await getDatabase();
             if (db && uid) {
                 const rows = await db.getAllAsync(
@@ -957,55 +907,29 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
     return [];
 }
 
-export async function setCompletionValue(habitId: string, value: number, dateISO?: string): Promise<void> {
-    const uid = await getUserId();
-    if (!uid) return;
-
-    const dateStr = dateISO ?? todayString();
-    const now = new Date().toISOString();
-
-    // Try SQLite first (offline-capable)
-    if (isSQLiteAvailable()) {
-        try {
-            const { getDatabase } = await import('./database');
-            const db = await getDatabase();
-            if (db) {
-                await db.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateStr);
-                // Upsert completion with value
-                await db.runAsync(
-                    `INSERT INTO completions (id, user_id, habit_id, date, value, created_at, updated_at, synced, deleted)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
-                     ON CONFLICT(habit_id, date) DO UPDATE SET
-                     value = excluded.value,
-                     updated_at = excluded.updated_at,
-                     deleted = 0,
-                     synced = 0`,
-                    `${habitId}_${dateStr}`, uid, habitId, dateStr, value, now, now
-                );
-
-                // Update cache
-                if (!completionsCache[dateStr]) completionsCache[dateStr] = {};
-                completionsCache[dateStr][habitId] = true; // Mark as completed (existence implies completion for now, or check value > target?)
-
-                // Notify listeners
-                if (cachedHabits) habitsListeners.forEach(l => l(cachedHabits!));
-                emit('habit_completed', { habitId, date: dateStr, value });
-
-                // Queue sync not strictly needed if we just mark synced=0, but for completeness:
-                // We rely on background sync to pick up unsynced records.
-                // Or we can explicitly queue if we want faster sync.
-                return;
-            }
-        } catch (e) {
-            console.log('[Habits] SQLite setCompletionValue failed:', e);
-        }
-    }
+export function setCompletionValue(habitId: string, value: number, dateISO = todayString()): Promise<void> {
+    return writeProgress(async () => {
+        if (!Number.isFinite(value) || value < 0) throw new Error('Enter a valid amount.');
+        const { uid, db } = await progressStorage();
+        const now = new Date().toISOString();
+        await progressTransaction(db, async (tx: any) => {
+            await tx.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateISO);
+            await tx.runAsync(
+                `INSERT INTO completions (id, user_id, habit_id, date, value, skipped, created_at, updated_at, synced, deleted)
+                 VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, 0)
+                 ON CONFLICT(habit_id, date) DO UPDATE SET
+                 value = excluded.value, skipped = 0, updated_at = excluded.updated_at, deleted = 0, synced = 0`,
+                `${habitId}_${dateISO}`, uid, habitId, dateISO, value, now, now,
+            );
+        });
+        progressSaved(habitId, dateISO, true);
+        emit('habit_completed', { habitId, date: dateISO, value });
+    });
 }
 
 /** Reads a persisted amount; old check-ins without measurements represent the full target. */
 export async function getHabitMeasurement(habitId: string, target: number, dateISO = todayString()): Promise<number> {
     const uid = await getUserId();
-    const { getDatabase } = require('./database') as typeof import('./database');
     const db = await getDatabase();
     if (!uid || !db) throw new Error('Habit progress is unavailable. Please try again.');
     return readMeasurement(db, uid, habitId, target, dateISO);
@@ -1024,12 +948,10 @@ async function readMeasurement(db: any, uid: string, habitId: string, target: nu
 }
 
 // Serialize taps and completed focus sessions. A rejected write must not block the next one.
-let measurementWrites: Promise<unknown> = Promise.resolve();
 export function saveHabitMeasurement(habitId: string, amount: number, dateISO = todayString(), add = false): Promise<number> {
-    const write = measurementWrites.catch(() => undefined).then(async () => {
+    return writeProgress(async () => {
         if (!Number.isFinite(amount) || amount < 0 || amount > 100000000) throw new Error('Enter a valid amount.');
         const uid = await getUserId();
-        const { getDatabase } = require('./database') as typeof import('./database');
         const db = await getDatabase();
         if (!uid || !db) throw new Error('Your progress could not be saved. Please try again.');
         const habit = await db.getFirstAsync(
@@ -1040,8 +962,9 @@ export function saveHabitMeasurement(habitId: string, amount: number, dateISO = 
         const { target } = measurementFor(habit);
         const now = new Date().toISOString();
         let value = amount;
-        await db.withExclusiveTransactionAsync(async (tx: any) => {
+        await progressTransaction(db, async (tx: any) => {
             if (add) value += await readMeasurement(tx, uid, habitId, target, dateISO);
+            if (!Number.isFinite(value) || value > 100000000) throw new Error('Enter a valid amount.');
             value = Math.round(value * 1000) / 1000;
             await tx.runAsync(
                 `INSERT INTO habit_measurements (user_id, habit_id, date, value, updated_at) VALUES (?, ?, ?, ?, ?)
@@ -1066,11 +989,9 @@ export function saveHabitMeasurement(habitId: string, amount: number, dateISO = 
         delete skippedCache[dateISO];
         emit('habit_completion_updated', { habitId, date: dateISO, completed: value >= target, value });
         void NotificationService.refreshHabitReminders().catch(() => undefined);
-        void syncWidgets();
+
         return value;
     });
-    measurementWrites = write;
-    return write;
 }
 
 export async function syncHealthKitData() {

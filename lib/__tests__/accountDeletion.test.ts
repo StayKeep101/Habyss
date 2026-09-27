@@ -4,6 +4,16 @@ import { deleteAllLocalData } from '../accountDeletion';
 import { closeDatabase, getDatabase } from '../database';
 import { SecureTokenService } from '../secureStorage';
 import SharedDefaults from '../SharedDefaults';
+import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
+
+jest.mock('expo-notifications', () => ({ cancelAllScheduledNotificationsAsync: jest.fn(async () => undefined) }));
+jest.mock('expo-secure-store', () => ({ deleteItemAsync: jest.fn(async () => undefined) }));
+jest.mock('../notificationService', () => ({ NotificationService: { waitForReminderSync: jest.fn(async () => undefined) } }));
+jest.mock('../widgetSync', () => ({ waitForWidgetSync: jest.fn(async () => undefined) }));
+jest.mock('../scheduledActivities', () => ({ waitForScheduledActivitySync: jest.fn(async () => undefined) }));
+jest.mock('../habitsSQLite', () => ({ clearHabitsCache: jest.fn() }));
+jest.mock('@/modules/habyss-live-activity', () => ({ __esModule: true, default: null }));
 
 jest.mock('expo-sqlite', () => ({ deleteDatabaseAsync: jest.fn(async () => undefined) }));
 const mockDb = {
@@ -21,12 +31,13 @@ jest.mock('../secureStorage', () => ({
 }));
 jest.mock('../SharedDefaults', () => ({
     __esModule: true,
-    default: { remove: jest.fn(async () => true), reloadTimelines: jest.fn(async () => true) },
+    default: { remove: jest.fn(async () => true), reloadTimelines: jest.fn(async () => true),
+        getPendingWidgetEvents: jest.fn(async () => [JSON.stringify({ eventId: 'pending' })]) },
 }));
 jest.mock('../RevenueCat', () => ({ __esModule: true, default: { logOut: jest.fn(async () => undefined) } }));
 jest.mock('../LocalLLMService', () => ({ __esModule: true, default: { deleteModel: jest.fn(async () => undefined) } }));
 
-const STEP_KEYS = ['purchases', 'aiModel', 'shared', 'database', 'tokens', 'settings'];
+const STEP_KEYS = ['reminders', 'purchases', 'aiModel', 'shared', 'database', 'tokens', 'settings'];
 
 describe('deleteAllLocalData', () => {
     beforeEach(() => {
@@ -47,8 +58,12 @@ describe('deleteAllLocalData', () => {
         expect(closeDatabase).toHaveBeenCalled();
         expect(SQLite.deleteDatabaseAsync).toHaveBeenCalledWith('habyss.db');
         expect(AsyncStorage.clear).toHaveBeenCalled();
-        expect(SecureTokenService.clearServiceTokens).toHaveBeenCalledTimes(4);
-        expect(SharedDefaults.remove).toHaveBeenCalledTimes(5);
+        expect(SecureTokenService.clearServiceTokens).toHaveBeenCalledTimes(3);
+        expect(SharedDefaults.remove).toHaveBeenCalledWith('widgetDashboard');
+        expect(SharedDefaults.remove).toHaveBeenCalledWith('widget_event_pending');
+        expect(SharedDefaults.remove).toHaveBeenCalledWith('siriHabitsData');
+        expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
+        expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('habyss_apple_pending_profile');
     });
 
     it('empties every table found in the database', async () => {

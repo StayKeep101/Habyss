@@ -2,6 +2,7 @@ import { Linking, Platform } from 'react-native';
 import type * as AppleAuthenticationModule from 'expo-apple-authentication';
 import type * as CryptoModule from 'expo-crypto';
 import type * as WebBrowserModule from 'expo-web-browser';
+import type * as SecureStoreModule from 'expo-secure-store';
 import { getSupabase } from './supabase';
 import { finishSignIn, friendly, type Result } from './account';
 import { getName, saveName } from './echo';
@@ -31,6 +32,37 @@ function load<T>(nativeName: string, get: () => T): T | null {
 const apple = () => load<typeof AppleAuthenticationModule>('ExpoAppleAuthentication', () => require('expo-apple-authentication'));
 const crypto = () => load<typeof CryptoModule>('ExpoCrypto', () => require('expo-crypto'));
 const browser = () => load<typeof WebBrowserModule>('ExpoWebBrowser', () => require('expo-web-browser'));
+const secureStore = () => load<typeof SecureStoreModule>('ExpoSecureStore', () => require('expo-secure-store'));
+const APPLE_PROFILE_KEY = 'habyss_apple_pending_profile';
+
+type AppleProfile = { full_name: string; given_name?: string; middle_name?: string; family_name?: string };
+
+function appleProfile(fullName: AppleAuthenticationModule.AppleAuthenticationFullName | null): AppleProfile | null {
+    const given = fullName?.givenName?.trim();
+    const middle = fullName?.middleName?.trim();
+    const family = fullName?.familyName?.trim();
+    const fallback = [given, middle, family].filter(Boolean).join(' ');
+    if (!fallback) return null;
+    let formatted = fallback;
+    try { formatted = apple()?.formatFullName(fullName!)?.trim() || fallback; } catch { /* Older builds can use the name parts. */ }
+    return { full_name: formatted, ...(given ? { given_name: given } : {}),
+        ...(middle ? { middle_name: middle } : {}), ...(family ? { family_name: family } : {}) };
+}
+
+/** Apple only sends the name once; keep a failed upload for the same Apple user. No tokens are stored here. */
+async function pendingAppleProfile(credential: AppleAuthenticationModule.AppleAuthenticationCredential): Promise<AppleProfile | null> {
+    const profile = appleProfile(credential.fullName);
+    const store = secureStore();
+    if (!credential.user || !store) return profile;
+    try {
+        if (profile) {
+            await store.setItemAsync(APPLE_PROFILE_KEY, JSON.stringify({ user: credential.user, profile }));
+            return profile;
+        }
+        const saved = JSON.parse(await store.getItemAsync(APPLE_PROFILE_KEY) || 'null');
+        return saved?.user === credential.user && typeof saved.profile?.full_name === 'string' ? saved.profile : null;
+    } catch { return profile; }
+}
 
 const NOT_IN_BUILD: SocialResult = { ok: false, error: 'This version of the app needs updating to use this sign-in.' };
 
@@ -58,9 +90,13 @@ export function isGoogleSignInAvailable(): boolean {
     return !!getSupabase();
 }
 
-export async function signInWithApple(): Promise<SocialResult> {
-    try { return await performAppleSignIn(); }
-    catch (error: any) { return { ok: false, error: friendly(error?.message || 'Sign in with Apple did not work. Try again.') }; }
+let appleSignIn: Promise<SocialResult> | null = null;
+export function signInWithApple(): Promise<SocialResult> {
+    if (appleSignIn) return appleSignIn;
+    appleSignIn = performAppleSignIn()
+        .catch((error): SocialResult => ({ ok: false, error: friendly(error?.message || 'Sign in with Apple did not work. Try again.') }))
+        .finally(() => { appleSignIn = null; });
+    return appleSignIn;
 }
 
 async function performAppleSignIn(): Promise<SocialResult> {
@@ -101,10 +137,7 @@ async function performAppleSignIn(): Promise<SocialResult> {
     }
     if (!credential.identityToken) return { ok: false, error: 'Apple did not return a sign-in token.' };
 
-    // Apple hands over the name only on the very first sign-in. Keep it, so the
-    // app can greet them without asking again; never overwrite a name they set.
-    const given = credential.fullName?.givenName?.trim();
-    if (given && !(await getName())) await saveName(given).catch(() => undefined);
+    const profile = await pendingAppleProfile(credential);
 
     const { data, error } = await sb.auth.signInWithIdToken({
         provider: 'apple',
@@ -119,6 +152,18 @@ async function performAppleSignIn(): Promise<SocialResult> {
         return { ok: false, error: friendly(message || 'Sign in with Apple did not work.') };
     }
 
+    // Supabase validates Apple's signature and nonce before any local account
+    // or greeting changes. The name is not included in Apple's identity token.
+    if (profile) {
+        try {
+            const updated = await sb.auth.updateUser({ data: profile });
+            if (!updated.error && credential.user) await secureStore()?.deleteItemAsync(APPLE_PROFILE_KEY);
+        } catch { /* Keep the first-sign-in name for the next attempt; the session is still valid. */ }
+    }
+    const given = profile?.given_name ?? data.session.user.user_metadata?.given_name;
+    if (typeof given === 'string' && given.trim()) {
+        try { if (!(await getName())) await saveName(given.trim()); } catch { /* Profile metadata still holds the name. */ }
+    }
     return finishSignIn(data.session.user.id);
 }
 

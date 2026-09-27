@@ -17,7 +17,12 @@ const habit = (over: Partial<Habit> = {}): Habit => ({
     showMemo: false, frequency: 'daily', trackingMethod: 'boolean', ...over,
 } as Habit);
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = (() => {
+    // The code keys days locally; toISOString would be a day out whenever the
+    // machine is behind UTC — the same mistake the heatmap had.
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+})();
 
 /** 90 days ending today: '.' kept, 'x' not kept, padded with kept days before. */
 const days = (pattern: string) =>

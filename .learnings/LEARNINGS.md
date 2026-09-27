@@ -325,3 +325,55 @@ One thing PostgREST does not do by itself: after a migration its schema cache st
 ### Metadata
 - Source: implementation
 - Related Files: scripts/check-supabase.mjs, supabase/migrations/20260918_align_app_and_secure.sql
+
+## [LRN-20260926-001] best_practice
+
+**Logged**: 2026-09-26
+**Priority**: high
+**Status**: resolved
+**Area**: frontend
+
+### Summary
+Interactive widget intents need membership in both the widget extension and host app. A successful extension build alone does not establish this.
+
+### Details
+LiveActivityIntent executes in the app process. WidgetShared.swift now supplies the completion intent, snapshot model and ActivityAttributes to both targets. Queue overlays must handle undo, move finished rows behind unfinished rows, and remove completed overdue tasks from future days. The native snapshot checks exercise these behaviors using an isolated UserDefaults suite.
+
+### Metadata
+- Source: implementation
+- Related Files: ios/Widget/WidgetShared.swift, ios/Habyss.xcodeproj/project.pbxproj, scripts/check-widget-snapshot.mjs
+
+## [LRN-20260926-002] best_practice
+
+**Logged**: 2026-09-26
+**Priority**: high
+**Status**: resolved
+**Area**: backend
+
+### Summary
+Apple's first-authorization name must be uploaded separately and retained through a failed first exchange.
+
+### Details
+Supabase verifies the native identity token but its claims do not contain the full name. Capture supplied name parts in SecureStore keyed to the Apple user, upload with updateUser after token validation, and keep the pending record until upload succeeds. Never overwrite saved names with nulls, nor update the local profile before authentication succeeds.
+
+### Metadata
+- Source: user_feedback
+- Related Files: lib/socialSignIn.ts, lib/__tests__/socialSignIn.test.ts
+
+## [LRN-20260926-003] best_practice
+
+**Logged**: 2026-09-26
+**Priority**: critical
+**Status**: resolved
+**Area**: frontend
+
+### Summary
+Check every downloaded MLC model file before native preparation; a JavaScript catch cannot intercept its worker's fatal C++ abort.
+
+### Details
+Three physical-device crash reports pointed to NDArrayCache::Load during the startup model reload. The 1B model directory contained only its two JSON configuration files, with all weights and tokenizers missing. MLC 0.12.0 on iOS checks directory existence, resolves prepare(), then loads on a background thread. The project's simulator implementation is a stub, so simulator success cannot verify this behavior. Validate the manifest, shard byte counts and tokenizer files before preparing, including after a reported successful download. Serialize download/preparation/removal and report readiness truthfully. Regression tests cover the configuration-only directory and interrupted downloads; physical-device verification remains necessary for native startup changes.
+
+### Metadata
+- Source: error
+- Related Files: lib/localModelFiles.ts, lib/LocalLLMService.ts, lib/__tests__/localModelFiles.test.ts, lib/__tests__/LocalLLMService.test.ts
+- Pattern-Key: harden.native_model_loading

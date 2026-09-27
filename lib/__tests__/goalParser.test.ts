@@ -312,3 +312,41 @@ describe('dates with a year or an ISO date', () => {
         expect(parseGoalText('Save 5000 dollars by March 2027', { today }).goal.window).toEqual({ kind: 'fixed', start: '2026-09-19', end: '2027-03-31' });
     });
 });
+
+
+describe('goal unit vocabulary', () => {
+    it.each([
+        ['Read 12 books this year', 'books', 12],
+        ['Write 3 chapters this month', 'chapters', 3],
+        ['Swim 500 m every week', 'm', 500],
+        ['Drink 250 ml every day', 'ml', 250],
+        ['Save 1000 USD this year', 'dollars', 1000],
+        ['Save 500 euros this month', 'euros', 500],
+    ])('understands %s', (text, unit, target) => {
+        const result = parseGoalText(text as string, { today: new Date(2026, 8, 25) });
+        expect(result.status).toBe('complete');
+        expect(result.goal).toMatchObject({ metric_unit: unit, target });
+    });
+});
+
+describe('a deadline is not a name', () => {
+    const today = new Date(2026, 8, 26); // 26 September 2026
+
+    it('reads "by Jan 1" as the target date and keeps it out of the title', () => {
+        // The reported bug: the goal was named after the day it was due.
+        const result = parseGoalText('Launch Habyss by Jan 1', { today, habits: [] });
+        expect(result.goal.title).toBe('Launch Habyss');
+        expect(result.goal.window).toEqual({ kind: 'fixed', start: '2026-09-26', end: '2027-01-01' });
+    });
+
+    it('does the same for a goal with no number at all', () => {
+        const result = parseGoalText('Finish the thesis by March 15', { today, habits: [] });
+        expect(result.goal.title).toBe('Finish the thesis');
+        expect(result.goal.window?.kind).toBe('fixed');
+    });
+
+    it('leaves a title alone when it names no date', () => {
+        const result = parseGoalText('Launch Habyss', { today, habits: [] });
+        expect(result.goal.title).toBe('Launch Habyss');
+    });
+});

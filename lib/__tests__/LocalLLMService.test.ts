@@ -1,6 +1,9 @@
 import LocalLLMService from '../LocalLLMService';
 import { mlc } from '@react-native-ai/mlc';
 import { generateText } from 'ai';
+import { hasCompleteIOSModelFiles } from '../localModelFiles';
+
+jest.mock('../localModelFiles', () => ({ hasCompleteIOSModelFiles: jest.fn() }));
 
 // Mock the 'ai' package
 jest.mock('ai', () => ({
@@ -12,16 +15,33 @@ describe('LocalLLMService', () => {
     prepare: jest.fn(),
     download: jest.fn(),
     remove: jest.fn(),
+    unload: jest.fn(),
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    Object.values(mockModel).forEach(mock => mock.mockReset().mockResolvedValue(undefined));
+    (hasCompleteIOSModelFiles as jest.Mock).mockReset().mockResolvedValue(true);
     (mlc.languageModel as jest.Mock).mockReturnValue(mockModel);
     // Reset the service state
     (LocalLLMService as any).isModelReady = false;
   });
 
   describe('init', () => {
+    it('never enters the native engine when the model is incomplete', async () => {
+      (hasCompleteIOSModelFiles as jest.Mock).mockResolvedValue(false);
+
+      await LocalLLMService.init();
+
+      expect(mockModel.prepare).not.toHaveBeenCalled();
+      expect(LocalLLMService.isReady()).toBe(false);
+    });
+
+    it('prepares only once for concurrent startup requests', async () => {
+      await Promise.all([LocalLLMService.init(), LocalLLMService.init()]);
+      expect(mockModel.prepare).toHaveBeenCalledTimes(1);
+    });
+
     it('should initialize the model successfully', async () => {
       mockModel.prepare.mockResolvedValue(undefined);
 
@@ -59,6 +79,33 @@ describe('LocalLLMService', () => {
   });
 
   describe('downloadModel', () => {
+    it('rechecks files after downloading and rejects an incomplete model', async () => {
+      (hasCompleteIOSModelFiles as jest.Mock).mockResolvedValue(false);
+
+      expect(await LocalLLMService.downloadModel()).toBe(false);
+      expect(mockModel.download).toHaveBeenCalledTimes(1);
+      expect(mockModel.prepare).not.toHaveBeenCalled();
+    });
+
+    it('reports a preparation failure instead of a successful download', async () => {
+      mockModel.prepare.mockRejectedValue(new Error('Unable to prepare'));
+      expect(await LocalLLMService.downloadModel()).toBe(false);
+    });
+
+    it('shares one download between startup and Settings', async () => {
+      const first = jest.fn();
+      const second = jest.fn();
+      mockModel.download.mockImplementation(async callback => callback({ percentage: 50 }));
+
+      expect(await Promise.all([
+        LocalLLMService.downloadModel(first), LocalLLMService.downloadModel(second),
+      ])).toEqual([true, true]);
+      expect(mockModel.download).toHaveBeenCalledTimes(1);
+      expect(mockModel.prepare).toHaveBeenCalledTimes(1);
+      expect(first).toHaveBeenCalledWith(50);
+      expect(second).toHaveBeenCalledWith(50);
+    });
+
     it('should download the model with progress callback', async () => {
       const mockProgressCallback = jest.fn();
       const mockDownloadEvent = { percentage: 50 };
@@ -94,6 +141,21 @@ describe('LocalLLMService', () => {
   });
 
   describe('deleteModel', () => {
+    it('waits for a download and unloads before removing files', async () => {
+      let finishDownload!: () => void;
+      mockModel.download.mockReturnValue(new Promise<void>(resolve => { finishDownload = resolve; }));
+      const download = LocalLLMService.downloadModel();
+      const remove = LocalLLMService.deleteModel();
+      await Promise.resolve();
+      expect(mockModel.remove).not.toHaveBeenCalled();
+      finishDownload();
+      expect(await download).toBe(true);
+      expect(await remove).toBe(true);
+      expect(mockModel.unload).toHaveBeenCalledTimes(1);
+      expect(mockModel.unload.mock.invocationCallOrder[0]).toBeLessThan(mockModel.remove.mock.invocationCallOrder[0]);
+      expect(LocalLLMService.isReady()).toBe(false);
+    });
+
     it('should delete the model successfully', async () => {
       mockModel.remove.mockResolvedValue(undefined);
 

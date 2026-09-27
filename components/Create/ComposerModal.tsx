@@ -1,11 +1,18 @@
-import React from 'react';
-import { Keyboard, Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { Easing, ReduceMotion, SlideInDown, useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Keyboard, Modal, Pressable, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import Animated, {
+    Easing, ReduceMotion, runOnJS, useAnimatedKeyboard, useAnimatedStyle,
+    useSharedValue, withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 
-const enter = SlideInDown.duration(220).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
+const OPEN = { duration: 260, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
+const SHUT = { duration: 210, easing: Easing.in(Easing.cubic), reduceMotion: ReduceMotion.System };
+/** Used until the card has been measured once. */
+const ASSUMED_HEIGHT = 360;
 
 /**
  * The card you write a habit, a goal or a task into.
@@ -25,6 +32,11 @@ const enter = SlideInDown.duration(220).easing(Easing.out(Easing.cubic)).reduceM
  * keyboard away, and the card, the sentence and the save button all come down
  * with it in the same motion, at the same speed.
  *
+ * Closing is the same motion in reverse, and deliberately not a fade. The card
+ * arrived from the bottom, so it leaves that way. The modal stays mounted
+ * until the slide has finished: unmounting it while the field still had focus
+ * was what made the keyboard flick back up and then drop a second time.
+ *
  * Tapping the dimmed area above closes it, as tapping away from a field does
  * everywhere else.
  */
@@ -38,6 +50,29 @@ export const ComposerModal: React.FC<{
     const insets = useSafeAreaInsets();
     const { height: screen } = useWindowDimensions();
     const keyboard = useAnimatedKeyboard();
+
+    // The modal outlives `visible` by exactly one slide, so the card has
+    // somewhere to animate out to.
+    const [mounted, setMounted] = useState(visible);
+    const [height, setHeight] = useState(ASSUMED_HEIGHT);
+    const shown = useSharedValue(0);
+
+    const unmount = useCallback(() => setMounted(false), []);
+
+    useEffect(() => {
+        if (visible) {
+            setMounted(true);
+            shown.value = withTiming(1, OPEN);
+            return;
+        }
+        if (!mounted) return;
+        // The keyboard goes first; the card follows it down rather than
+        // racing it, and nothing is left focused when the modal disappears.
+        Keyboard.dismiss();
+        shown.value = withTiming(0, SHUT, finished => {
+            if (finished) runOnJS(unmount)();
+        });
+    }, [visible, mounted, shown, unmount]);
 
     // The card rides on top of the keyboard...
     const lift = useAnimatedStyle(() => ({ paddingBottom: keyboard.height.value }));
@@ -54,27 +89,35 @@ export const ComposerModal: React.FC<{
         // ceiling is whatever the keyboard has left, and the written part
         // gives up its room first because it is the part that can scroll.
         maxHeight: screen - keyboard.height.value - insets.top - 12,
+        // Down and out of sight, never a fade.
+        transform: [{ translateY: (1 - shown.value) * (height + insets.bottom) }],
     }));
 
+    // The dimming comes and goes with the card, so the screen behind is never
+    // left dark under a card that has already gone.
+    const scrim = useAnimatedStyle(() => ({ opacity: shown.value }));
+
     return (
-        <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-            <View style={styles.fill}>
-                <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Close"
-                    style={styles.backdrop}
-                    onPress={() => { Keyboard.dismiss(); onClose(); }}
-                />
+        <Modal visible={mounted} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+            <GestureHandlerRootView style={styles.fill}>
+                <Animated.View style={[styles.backdrop, scrim]}>
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Close"
+                        style={styles.fill}
+                        onPress={onClose}
+                    />
+                </Animated.View>
 
                 <Animated.View pointerEvents="box-none" style={[styles.bottom, lift]}>
                     <Animated.View
-                        entering={enter}
+                        onLayout={(event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height)}
                         style={[styles.card, pad, { backgroundColor: colors.background, borderColor: colors.border }]}
                     >
                         {children}
                     </Animated.View>
                 </Animated.View>
-            </View>
+            </GestureHandlerRootView>
         </Modal>
     );
 };

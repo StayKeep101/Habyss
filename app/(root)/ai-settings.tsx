@@ -1,20 +1,19 @@
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { FontFamily, UIStyles } from '@/constants/DesignSystem';
 import React from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings, GreetingStyle } from '@/constants/AppSettingsContext';
 import { currentEngine } from '@/lib/onDeviceAI';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { coachHello } from '@/lib/coachMessages';
 import { NotificationService } from '@/lib/notificationService';
 import { PAYWALL_ENABLED } from '@/constants/features';
 import {
     DEFAULT_DAY, DEFAULT_ECHO, eveningCheckIn, getDayWindow, getEchoConfig, getName,
-    morningCheckIn, saveDayWindow, saveEchoConfig, type DayWindow, type EchoConfig,
+    morningCheckIn, saveEchoConfig, type DayWindow, type EchoConfig,
 } from '@/lib/echo';
 import { hasTurboModule } from '@/lib/nativeModules';
 import { clearWrittenLines } from '@/lib/echoWriter';
@@ -24,6 +23,7 @@ const localModel = () => (hasTurboModule('MLCEngine') ? require('@/lib/LocalLLMS
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
+import { ChipPicker } from '@/components/Common/ChipPicker';
 
 
 // Greeting style options
@@ -160,13 +160,6 @@ const AISettings = () => {
             .catch(() => undefined);
     };
 
-    const saveDay = (next: DayWindow) => {
-        setDay(next);
-        saveDayWindow(next)
-            .then(() => NotificationService.refreshReminders())
-            .catch(() => undefined);
-    };
-
     const handleSelectGreeting = (style: GreetingStyle) => {
         selectionFeedback();
         setGreetingStyle(style);
@@ -185,37 +178,37 @@ const AISettings = () => {
                     </Text>
                 </View>
 
+                {/* Every voice stays on screen; only the one in use explains
+                    itself, which is the only one describing what Echo does. */}
                 <Group title="Voice" hint="How Echo talks to you, everywhere">
-                    {PERSONALITY_MODES.map(mode => (
-                        <ChoiceRow
-                            key={mode.id}
-                            icon={mode.icon}
-                            label={mode.name}
-                            detail={mode.warning ? 'Harsh language' : mode.description}
-                            selected={aiPersonality === mode.id}
-                            colors={colors}
-                            accent={colors.primary}
-                            onPress={() => handleSelectPersonality(mode.id)}
-                        />
-                    ))}
+                    <ChipPicker
+                        options={PERSONALITY_MODES.map(mode => ({
+                            id: mode.id,
+                            label: mode.name,
+                            icon: mode.icon as any,
+                            detail: mode.warning ? `${mode.description} · Harsh language` : mode.description,
+                        }))}
+                        value={aiPersonality}
+                        onChange={handleSelectPersonality}
+                        accent={colors.primary}
+                    />
                 </Group>
 
                 <Group title="On Home" hint="A new line every time you open it">
-                    {GREETING_STYLES.map(style => (
-                        <ChoiceRow
-                            key={style.id}
-                            icon={style.icon as any}
-                            label={style.label}
-                            detail={style.description}
-                            selected={greetingStyle === style.id}
-                            colors={colors}
-                            accent={colors.primary}
-                            onPress={() => handleSelectGreeting(style.id)}
-                        />
-                    ))}
+                    <ChipPicker
+                        options={GREETING_STYLES.map(style => ({
+                            id: style.id,
+                            label: style.label,
+                            icon: style.icon as any,
+                            detail: style.description,
+                        }))}
+                        value={greetingStyle}
+                        onChange={handleSelectGreeting}
+                        accent={colors.primary}
+                    />
                 </Group>
 
-                <Group title="Check-ins" hint={`Your day runs ${day.wake} to ${day.sleep}`}>
+                <Group title="Check-ins" hint={`Your day runs ${day.wake} to ${day.sleep} — set in Notifications`}>
                     <ToggleRow
                         icon="sunny-outline"
                         label="Morning"
@@ -263,25 +256,6 @@ const AISettings = () => {
                     />
                 </Group>
 
-                <Group title="Your day" hint="When check-ins and reminders land">
-                    <TimeRow
-                        icon="alarm-outline"
-                        label="Wake up"
-                        value={day.wake}
-                        colors={colors}
-                        accent={colors.primary}
-                        onChange={(time: string) => saveDay({ ...day, wake: time })}
-                    />
-                    <TimeRow
-                        icon="bed-outline"
-                        label="Sleep"
-                        value={day.sleep}
-                        colors={colors}
-                        accent={colors.primary}
-                        onChange={(time: string) => saveDay({ ...day, sleep: time })}
-                    />
-                </Group>
-
                 <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 22 }]}>ON-DEVICE AI</Text>
                 <OfflineStartCard colors={colors} isLight={isLight} isTrueDark={isTrueDark} />
 
@@ -323,27 +297,6 @@ const Group = ({ title, hint, children }: { title: string; hint?: string; childr
     );
 };
 
-const ChoiceRow = ({ icon, label, detail, selected, colors, accent, onPress }: any) => (
-    <TouchableOpacity
-        accessibilityRole="radio"
-        accessibilityState={{ selected }}
-        activeOpacity={0.7}
-        onPress={onPress}
-        style={styles.row}
-    >
-        <Ionicons name={icon} size={17} color={selected ? accent : colors.textTertiary} />
-        <View style={styles.rowText}>
-            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
-            <Text numberOfLines={1} style={[styles.rowDetail, { color: colors.textTertiary }]}>{detail}</Text>
-        </View>
-        <Ionicons
-            name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-            size={20}
-            color={selected ? accent : colors.textTertiary}
-        />
-    </TouchableOpacity>
-);
-
 const ToggleRow = ({ icon, label, detail, value, disabled, colors, accent, onChange }: any) => (
     <TouchableOpacity
         accessibilityRole="switch"
@@ -365,45 +318,6 @@ const ToggleRow = ({ icon, label, detail, value, disabled, colors, accent, onCha
 );
 
 /** A time the user can change, in the phone's own picker. */
-const TimeRow = ({ icon, label, value, colors, accent, onChange }: any) => {
-    const [open, setOpen] = React.useState(false);
-    const [hour, minute] = value.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hour || 0, minute || 0, 0, 0);
-
-    return (
-        <View>
-            <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel={`${label}, ${value}`}
-                activeOpacity={0.7}
-                onPress={() => setOpen(!open)}
-                style={styles.row}
-            >
-                <Ionicons name={icon} size={17} color={colors.textTertiary} />
-                <View style={styles.rowText}>
-                    <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
-                </View>
-                <Text style={[styles.rowValue, { color: open ? accent : colors.textSecondary }]}>{value}</Text>
-            </TouchableOpacity>
-            {open ? (
-                <View style={{ alignItems: 'center', paddingBottom: 8 }}>
-                    <DateTimePicker
-                        value={date}
-                        mode="time"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(_event, selected) => {
-                            if (Platform.OS !== 'ios') setOpen(false);
-                            if (!selected) return;
-                            onChange(`${String(selected.getHours()).padStart(2, '0')}:${String(selected.getMinutes()).padStart(2, '0')}`);
-                        }}
-                    />
-                </View>
-            ) : null}
-        </View>
-    );
-};
-
 const styles = StyleSheet.create({
     sample: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, marginTop: 6 },
     sampleMark: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },

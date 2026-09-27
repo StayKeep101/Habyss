@@ -12,8 +12,13 @@ import type { Habit } from './habitsSQLite';
 import { buildTaskReminderPlan } from './taskReminders';
 import { buildHabitReminderPlan } from './habitReminders';
 import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
-import { emit, on } from './appEvents';
+import { emit, onAny } from './appEvents';
+import { scheduledMoments } from './scheduledMoments';
+import { buildAlivePlan } from './echoAlive';
+import { engagementLifecycle } from './engagementLifecycle';
 let reminderQueue: Promise<void> = Promise.resolve();
+let refreshPromise: Promise<void> | null = null;
+let refreshAgain = false;
 
 // IMPORTANT: Do NOT call Notifications APIs at module scope - it crashes iOS!
 // setNotificationHandler is now called inside init()
@@ -81,10 +86,15 @@ export class NotificationService {
     // rewrite what is scheduled: created, rescheduled, finished or deleted.
     if (!watchingTasks) {
       watchingTasks = true;
-      on('tasks_changed', () => {
-        this.refreshReminders().catch(() => undefined);
+      onAny(['tasks_changed', 'habit_created', 'habit_updated', 'habit_deleted', 'goal_deleted', 'habit_completion_updated', 'cloud_restored', 'engagement_settings_changed'], () => {
+        void this.refreshReminders().catch(() => undefined);
       });
     }
+
+    await Notifications.setNotificationCategoryAsync('ECHO_ALIVE', [
+      { identifier: 'ECHO_DONE', buttonTitle: 'Mark done', options: { opensAppToForeground: true } },
+      { identifier: 'ECHO_SNOOZE', buttonTitle: 'In 15 minutes', options: { opensAppToForeground: true } },
+    ]);
 
     // Setup channels for Android
     if (Platform.OS === 'android') {
@@ -153,163 +163,168 @@ export class NotificationService {
   }
 
   static refreshHabitReminders(): Promise<void> {
+    if (engagementLifecycle.paused) return Promise.resolve();
+    if (refreshPromise) { refreshAgain = true; return refreshPromise; }
     // Serialize refreshes so rapid edits cannot create duplicate notification queues.
     const refresh = async () => {
-      // Defer loading to avoid the SQLite ↔ notification service dependency cycle.
-      const { getHabits, getCompletions }: typeof import('./habitsSQLite') = require('./habitsSQLite');
+      const { getHabits, getCompletions, getSkipped }: typeof import('./habitsSQLite') = require('./habitsSQLite');
       try {
-        const habits = await getHabits();
-        const pending = await Notifications.getAllScheduledNotificationsAsync();
-        const isHabitReminder = (item: Notifications.NotificationRequest) =>
-          item.content.data?.kind === 'habit-reminder' || (typeof item.content.data?.habitId === 'string' && typeof item.content.data?.url === 'string');
-        const isTaskReminder = (item: Notifications.NotificationRequest) => item.content.data?.kind === 'task-reminder';
-        const isCheckIn = (item: Notifications.NotificationRequest) => item.content.data?.kind === 'echo-check-in';
-        const isOurs = (item: Notifications.NotificationRequest) => isHabitReminder(item) || isTaskReminder(item) || isCheckIn(item);
-        const oldReminders = pending.filter(isHabitReminder);
-        const oldTaskReminders = pending.filter(isTaskReminder);
-        const oldCheckIns = pending.filter(isCheckIn);
-        const permission = await Notifications.getPermissionsAsync();
-        const allowed = permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
-        const today = await getCompletions(localDateKey(new Date()));
-        // iOS keeps at most 64 pending notifications. Due dates are scarce and
-        // dated, so they are planned first, and habits take what is left: with
-        // no tasks, habits still get the whole allowance.
-        const budget = Math.max(0, 56 - pending.filter(item => !isOurs(item)).length);
-
+        // A widget intent can wake the app in the background. Apply its check-in
+        // before planning, otherwise startup could recreate the cancelled nudge.
+        const { drainWidgetToggles }: typeof import('./widgetSync') = require('./widgetSync');
+        const applied = await drainWidgetToggles();
+        if (applied.tasks) emit('tasks_changed');
+        const now = new Date();
+        const todayKey = localDateKey(now);
         const { getTasks }: typeof import('./tasks') = require('./tasks');
-        const { getDayWindow, suggestedReminder, getEchoConfig }: typeof import('./echo') = require('./echo');
-        const tasks = allowed ? await getTasks().catch(() => []) : [];
-        const taskPlan = allowed
-          ? buildTaskReminderPlan(tasks, new Date(), suggestedReminder(await getDayWindow()), Math.min(16, budget))
-          : [];
-
-        const plan = allowed
-          ? buildHabitReminderPlan(habits, new Date(), today, Math.min(48, Math.max(0, budget - taskPlan.length)))
-          : [];
-        // Echo writes the reminders, in the voice and with the name the user chose.
-        const { getEchoPersonality, getName }: typeof import('./echo') = require('./echo');
+        const echo: typeof import('./echo') = require('./echo');
         const { coachReminder }: typeof import('./coachMessages') = require('./coachMessages');
-        const echoWriter: typeof import('./echoWriter') = require('./echoWriter');
-        const [voice, name] = await Promise.all([getEchoPersonality(), getName()]);
-        // Lines Echo wrote on this phone, if it has written any yet. Reading
-        // the pool is instant; filling it happens after everything is booked.
-        const dayOf = (date: Date) => Math.floor(date.getTime() / 86400000);
-        const desired = new Set(plan.map(item => 'habit:' + item.habit.id + ':' + item.date.getTime()));
-        const existing = new Set(oldReminders.map(item => item.identifier));
-        for (const notification of oldReminders) {
-          if (!desired.has(notification.identifier)) await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+        const writer: typeof import('./echoWriter') = require('./echoWriter');
+        const [habits, tasks, today, skipped, pending, permission, config, dayWindow, voice, person, settingsRaw, habitPreference] = await Promise.all([
+          getHabits(), getTasks(), getCompletions(todayKey), getSkipped(todayKey),
+          Notifications.getAllScheduledNotificationsAsync(), Notifications.getPermissionsAsync(),
+          echo.getEchoConfig(), echo.getDayWindow(), echo.getEchoPersonality(), echo.getName(),
+          AsyncStorage.getItem('app_settings'), AsyncStorage.getItem('notif_habits'),
+        ]);
+        let settings: { notificationsEnabled?: boolean } = {};
+        try { settings = JSON.parse(settingsRaw ?? '{}'); } catch { /* use defaults */ }
+        const allowed = settings?.notificationsEnabled !== false && (permission.granted || permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL);
+        const habitsAllowed = habitPreference !== 'false';
+        const name = config.useName ? person : undefined;
+        const written = allowed && config.writeReminders ? await writer.loadWrittenLines() : {};
+        const ours = (item: Notifications.NotificationRequest) =>
+          ['habit-reminder', 'task-reminder', 'echo-check-in', 'echo-alive'].includes(String(item.content.data?.kind))
+          || (typeof item.content.data?.habitId === 'string' && typeof item.content.data?.url === 'string');
+        const old = pending.filter(ours);
+        // One budget includes Echo, regular reminders, and daily check-ins.
+        const budget = Math.max(0, 56 - pending.filter(item => !ours(item)).length);
+        const candidates: { identifier: string; date: Date; content: Notifications.NotificationContentInput }[] = [];
+        // A user-requested snooze survives unrelated edits, but not completion,
+        // a skip, deletion, or turning Echo off.
+        if (allowed && config.alive) for (const item of old) {
+          const data = item.content.data;
+          if (typeof data?.snoozedUntil !== 'number' || data.snoozedUntil <= now.getTime()) continue;
+          const unfinished = typeof data.taskId === 'string' ? tasks.some(task => task.id === data.taskId && task.status === 'open')
+            : typeof data.habitId === 'string' && habitsAllowed && data.scheduledDate === todayKey && !today[data.habitId] && !skipped[data.habitId]
+              && habits.some(habit => habit.id === data.habitId && !habit.isArchived);
+          if (unfinished) candidates.push({ identifier: item.identifier, date: new Date(data.snoozedUntil),
+            content: { title: item.content.title, body: item.content.body, sound: 'default', categoryIdentifier: 'ECHO_ALIVE', data } });
         }
-        // Echo's own check-ins, if the user asked for them: what today holds in
-        // the morning, what is still open before bed.
+        const aliveHabits = config.alive && habitsAllowed ? habits.filter(habit => habit.startTime) : [];
+        const aliveTasks = config.alive ? tasks.filter(task => task.dueTime) : [];
+        const moments = scheduledMoments(aliveHabits, aliveTasks, now, today, skipped);
+        const taskPlan = allowed ? buildTaskReminderPlan(tasks.filter(task => !config.alive || !task.dueTime), now, echo.suggestedReminder(dayWindow)) : [];
+        const plan = allowed && habitsAllowed ? buildHabitReminderPlan(habits.filter(habit => !config.alive || !habit.startTime), now, { ...today, ...skipped }) : [];
+        const dayOf = (date: Date) => Math.floor(date.getTime() / 86400000);
+        for (const { task, date } of taskPlan) candidates.push({
+          identifier: `task:${task.id}:${date.getTime()}`, date,
+          content: { title: task.title, body: writer.pickLine(written, 'task:' + task.id, voice, dayOf(date)) ?? coachReminder(voice, { habitName: task.title, name }),
+            sound: 'default', data: { kind: 'task-reminder', taskId: task.id, url: '/(root)/(tabs)/roadmap' } },
+        });
+        for (const { habit, date, scheduledDate } of plan) candidates.push({
+          identifier: `habit:${habit.id}:${date.getTime()}`, date,
+          content: { title: habit.name, body: (habit.reminderOffset ? `Starts in ${habit.reminderOffset} minutes. ` : '')
+              // A sentence the user wrote for this habit beats anything Echo
+              // or the coach lines would have chosen for them.
+              + (habit.reminderMessage?.trim()
+                  || writer.pickLine(written, 'habit:' + habit.id, voice, dayOf(date))
+                  || coachReminder(voice, { habitName: habit.name, name })),
+            sound: habit.ringtone === 'silent' || habit.ringtone === 'vibrate' ? false : 'default',
+            data: { kind: 'habit-reminder', habitId: habit.id, scheduledDate, url: '/habit-detail?habitId=' + encodeURIComponent(habit.id) } },
+        });
+        if (allowed && config.alive) for (const item of buildAlivePlan(moments, now, dayWindow, voice,
+          { followUp: config.aliveFollowUp !== false, useName: config.useName, name, limit: 56 })) {
+          const habit = item.moment.kind === 'habit' ? habits.find(habit => habit.id === item.moment.id) : undefined;
+          candidates.push({ identifier: item.id, date: item.date,
+            content: { title: item.title, body: item.body, categoryIdentifier: 'ECHO_ALIVE',
+              sound: habit?.ringtone === 'silent' || habit?.ringtone === 'vibrate' ? false : 'default',
+              data: { kind: 'echo-alive', phase: item.phase, scheduledDate: item.moment.day, url: item.moment.url,
+                ...(item.moment.kind === 'habit' ? { habitId: item.moment.id } : { taskId: item.moment.id }) } },
+          });
+        }
         const { buildCheckInPlan }: typeof import('./echoCheckIns') = require('./echoCheckIns');
         const { checkInLine }: typeof import('./echoLines') = require('./echoLines');
-        const echoConfig = allowed ? await getEchoConfig() : { morning: false, evening: false, useName: true, writeReminders: false };
-        // Lines Echo wrote on this phone, if the user asked for them. Reading
-        // the pool is instant; filling it happens after everything is booked.
-        const written = echoConfig.writeReminders ? await echoWriter.loadWrittenLines() : {};
-        const checkIns = allowed ? buildCheckInPlan(echoConfig, await getDayWindow()) : [];
-
-        const wantedCheckIns = new Set(checkIns.map(item => item.id));
-        for (const notification of oldCheckIns) {
-            if (!wantedCheckIns.has(notification.identifier)) await Notifications.cancelScheduledNotificationAsync(notification.identifier);
-        }
-        if (checkIns.length) {
-            const scheduledToday = habits.filter(habit =>
-                !habit.isGoal && !habit.isArchived && isHabitScheduledForDate(habit, new Date()));
-            const doneToday = scheduledToday.filter(habit => today[habit.id]);
-            const todayKey = localDateKey(new Date());
-            // The day's promise, so the check-ins are about the thing the day
-            // is actually for rather than a bare list of what is scheduled.
-            const { getDailyTarget, dailyFocus }: typeof import('./dailyFocus') = require('./dailyFocus');
-            const focus = dailyFocus(tasks, await getDailyTarget(), todayKey, todayKey);
-
-            const facts = {
-                name: echoConfig.useName ? name : undefined,
-                total: scheduledToday.length,
-                left: scheduledToday.length - doneToday.length,
-                next: focus.rows.find(task => task.status === 'open')?.title
-                    ?? scheduledToday.find(habit => !today[habit.id])?.name,
-                tasksDue: tasks.filter(task => task.status === 'open' && task.dueDate === todayKey).length,
-                focusTarget: focus.target,
-                focusDone: focus.done,
-            };
-
-            for (const item of checkIns) {
-                if (oldCheckIns.some(old => old.identifier === item.id)) {
-                    await Notifications.cancelScheduledNotificationAsync(item.id);
-                }
-                const line = checkInLine(item.kind, voice, facts);
-                await Notifications.scheduleNotificationAsync({
-                    identifier: item.id,
-                    content: {
-                        title: line.title,
-                        body: line.body,
-                        sound: 'default',
-                        data: { kind: 'echo-check-in', when: item.kind, url: '/(root)/(tabs)/home' },
-                    },
-                    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: item.date, channelId: 'default' },
-                });
-            }
-        }
-
-        // Tasks: one reminder each, at the time it is due.
-        const wantedTasks = new Set(taskPlan.map(item => 'task:' + item.task.id + ':' + item.date.getTime()));
-        for (const notification of oldTaskReminders) {
-          if (!wantedTasks.has(notification.identifier)) await Notifications.cancelScheduledNotificationAsync(notification.identifier);
-        }
-        for (const { task, date } of taskPlan) {
-          const identifier = 'task:' + task.id + ':' + date.getTime();
-          if (oldTaskReminders.some(item => item.identifier === identifier)) {
-            await Notifications.cancelScheduledNotificationAsync(identifier);
+        if (allowed) {
+          const scheduled = habits.filter(habit => !habit.isGoal && !habit.isArchived && !skipped[habit.id] && isHabitScheduledForDate(habit, now));
+          const { getDailyTarget, dailyFocus }: typeof import('./dailyFocus') = require('./dailyFocus');
+          const focus = dailyFocus(tasks, await getDailyTarget(), todayKey, todayKey);
+          const facts = { name, total: scheduled.length, left: scheduled.filter(habit => !today[habit.id]).length,
+            next: focus.rows.find(task => task.status === 'open')?.title ?? scheduled.find(habit => !today[habit.id])?.name,
+            tasksDue: tasks.filter(task => task.status === 'open' && task.dueDate === todayKey).length, focusTarget: focus.target, focusDone: focus.done };
+          for (const item of buildCheckInPlan(config, dayWindow, now)) {
+            const line = checkInLine(item.kind, voice, facts);
+            candidates.push({ identifier: item.id, date: item.date, content: { title: line.title, body: line.body, sound: 'default',
+              data: { kind: 'echo-check-in', when: item.kind, url: '/(root)/(tabs)/home' } } });
           }
-          await Notifications.scheduleNotificationAsync({
-            identifier,
-            content: {
-              title: task.title,
-              body: echoWriter.pickLine(written, 'task:' + task.id, voice, dayOf(date))
-                ?? coachReminder(voice, { habitName: task.title, name }),
-              sound: 'default',
-              data: { kind: 'task-reminder', taskId: task.id, url: '/(root)/(tabs)/roadmap' },
-            },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: 'default' },
-          });
         }
-
-        for (const { habit, date, scheduledDate } of plan) {
-          const identifier = 'habit:' + habit.id + ':' + date.getTime();
-          // Replace matching IDs too: name, sound, and other content may have changed.
-          if (existing.has(identifier)) await Notifications.cancelScheduledNotificationAsync(identifier);
-          await Notifications.scheduleNotificationAsync({
-            identifier,
-            content: {
-              title: habit.name,
-              body: (habit.reminderOffset ? 'Starts in ' + habit.reminderOffset + ' minutes. ' : '')
-                + (echoWriter.pickLine(written, 'habit:' + habit.id, voice, dayOf(date))
-                  ?? coachReminder(voice, { habitName: habit.name, name })),
-              sound: habit.ringtone === 'silent' || habit.ringtone === 'vibrate' ? false : 'default',
-              data: { kind: 'habit-reminder', habitId: habit.id, scheduledDate, url: '/habit-detail?habitId=' + encodeURIComponent(habit.id) },
-            },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: 'default' },
-          });
+        const desired = candidates.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, budget);
+        const wanted = new Set(desired.map(item => item.identifier));
+        for (const item of old) if (!wanted.has(item.identifier)) await Notifications.cancelScheduledNotificationAsync(item.identifier);
+        for (const item of desired) {
+          const previous = old.find(old => old.identifier === item.identifier);
+          if (previous && previous.content.title === item.content.title && previous.content.body === item.content.body
+            && previous.content.sound === item.content.sound && JSON.stringify(previous.content.data) === JSON.stringify(item.content.data)) continue;
+          if (previous) await Notifications.cancelScheduledNotificationAsync(item.identifier);
+          await Notifications.scheduleNotificationAsync({ identifier: item.identifier, content: item.content,
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: item.date, channelId: 'default' } });
         }
-        // Nothing waits on this: the reminders already going out use the
-        // written bank, and these lines are for the next refresh.
-        if (echoConfig.writeReminders) void echoWriter.topUpWrittenLines([
-          ...plan.map(item => ({ key: 'habit:' + item.habit.id, kind: 'habit' as const, name: item.habit.name, person: echoConfig.useName ? name : undefined })),
-          ...taskPlan.map(item => ({ key: 'task:' + item.task.id, kind: 'task' as const, name: item.task.title, person: echoConfig.useName ? name : undefined })),
+        if (allowed && config.writeReminders) void writer.topUpWrittenLines([
+          ...plan.map(item => ({ key: 'habit:' + item.habit.id, kind: 'habit' as const, name: item.habit.name, person: name })),
+          ...taskPlan.map(item => ({ key: 'task:' + item.task.id, kind: 'task' as const, name: item.task.title, person: name })),
         ], voice).catch(() => undefined);
       } finally {
         // Arrival reminders are independent of time reminders, including on failure.
         await LocationService.refreshGeofences();
       }
     };
-    reminderQueue = reminderQueue.catch(() => undefined).then(refresh);
-    return reminderQueue;
+    const work = async () => {
+      do { refreshAgain = false; await refresh(); } while (refreshAgain);
+    };
+    reminderQueue = reminderQueue.catch(() => undefined).then(work);
+    refreshPromise = reminderQueue.finally(() => { refreshPromise = null; });
+    return refreshPromise;
   }
 
   /** Habits and tasks are planned together; this is the one entry point. */
   static refreshReminders(): Promise<void> {
     return this.refreshHabitReminders();
+  }
+
+  static async waitForReminderSync() { await reminderQueue.catch(() => undefined); }
+
+  /** Notification actions are explicit check-ins, never evidence the activity happened. */
+  static async handleEchoResponse(response: Notifications.NotificationResponse): Promise<boolean> {
+    const action = response.actionIdentifier;
+    if (!['ECHO_DONE', 'ECHO_SNOOZE'].includes(action)) return false;
+    const { content, identifier } = response.notification.request;
+    const data = content.data;
+    if (data?.kind !== 'echo-alive') return false;
+    const habits: typeof import('./habitsSQLite') = require('./habitsSQLite');
+    const tasks: typeof import('./tasks') = require('./tasks');
+    const date = typeof data.scheduledDate === 'string' ? data.scheduledDate : localDateKey(new Date());
+    let unfinished = false;
+    if (typeof data.taskId === 'string') {
+      const task = (await tasks.getTasks({ includeDone: true })).find(task => task.id === data.taskId);
+      unfinished = task?.status === 'open';
+      if (unfinished && action === 'ECHO_DONE') { await tasks.setTaskStatus(data.taskId, 'done'); emit('tasks_changed'); }
+    } else if (typeof data.habitId === 'string') {
+      const habit = (await habits.getHabits()).find(habit => habit.id === data.habitId && !habit.isArchived && !habit.isGoal);
+      const [done, skipped] = await Promise.all([habits.getCompletions(date), habits.getSkipped(date)]);
+      unfinished = !!habit && !done[data.habitId] && !skipped[data.habitId];
+      if (unfinished && action === 'ECHO_DONE') {
+        const { measurementFor }: typeof import('./habitMeasurement') = require('./habitMeasurement');
+        await habits.setCompletionValue(data.habitId, measurementFor(habit!).target, date);
+      }
+    }
+    if (unfinished && action === 'ECHO_SNOOZE') {
+      const until = Date.now() + 15 * 60000;
+      await Notifications.scheduleNotificationAsync({ identifier: identifier + ':snooze',
+        content: { title: 'Echo · Ready for another try?', body: content.body, sound: 'default', categoryIdentifier: 'ECHO_ALIVE',
+          data: { ...data, snoozedUntil: until } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(until), channelId: 'default' } });
+    }
+    await this.refreshReminders();
+    return true;
   }
 
   static async cancelHabitReminder(habitId: string) {
@@ -326,6 +341,8 @@ export class NotificationService {
 
   static async sendCompletionNotification(habitName: string) {
     try {
+      const config = JSON.parse((await AsyncStorage.getItem('app_settings')) ?? '{}');
+      if (config.notificationsEnabled === false) return;
       const permission = await Notifications.getPermissionsAsync();
       if (!permission.granted && permission.ios?.status !== Notifications.IosAuthorizationStatus.PROVISIONAL) return;
 

@@ -1,4 +1,5 @@
 import type { Task } from './tasks';
+import { localDateKey } from './habitSchedule';
 
 /**
  * How tasks sit alongside habits in the numbers.
@@ -29,7 +30,7 @@ export interface TaskDayStats {
 }
 
 const completedOn = (task: Task, day: string): boolean =>
-    task.status === 'done' && !!task.completedAt && task.completedAt.slice(0, 10) === day;
+    task.status === 'done' && !!task.completedAt && localDateKey(new Date(task.completedAt)) === day;
 
 /** What a given day asked of the user in tasks, and what they did. */
 export function taskStatsForDay(tasks: Task[], day: string): TaskDayStats {
@@ -60,7 +61,7 @@ export function taskStatsForDay(tasks: Task[], day: string): TaskDayStats {
 export function onTimeRate(tasks: Task[]): number | null {
     const dated = tasks.filter(task => task.status === 'done' && task.dueDate && task.completedAt);
     if (dated.length === 0) return null;
-    const onTime = dated.filter(task => task.completedAt!.slice(0, 10) <= task.dueDate!).length;
+    const onTime = dated.filter(task => localDateKey(new Date(task.completedAt!)) <= task.dueDate!).length;
     return Math.round((onTime / dated.length) * 100);
 }
 

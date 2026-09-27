@@ -61,7 +61,6 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
             <Outer {...(embedded
                 ? { style: styles.content }
                 : { contentContainerStyle: styles.content, showsVerticalScrollIndicator: false, scrollEnabled: !scrub })}>
-                <Text numberOfLines={1} style={[styles.goalName, { color: colors.textSecondary }]}>{goal.name}</Text>
 
                 {/* Headline: the number, how it moved, and whether that is enough. */}
                 <View style={styles.headline}>

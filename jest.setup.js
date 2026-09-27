@@ -40,7 +40,11 @@ jest.mock('expo-secure-store', () => ({
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
   const { View, Text, ScrollView, Image } = require('react-native');
-  const shared = (value) => ({ value });
+  const shared = (value) => ({
+    value,
+    get() { return this.value; },
+    set(next) { this.value = typeof next === 'function' ? next(this.value) : next; },
+  });
   const identity = (value) => value;
   const builder = () => new Proxy(function () {}, {
     get: (_target, key) => (typeof key === 'symbol' ? undefined : () => builder()),

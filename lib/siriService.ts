@@ -19,7 +19,7 @@ export class SiriService {
 
         try {
             const habitsJson = JSON.stringify(habits);
-            await SharedDefaults.set('habitsData', habitsJson);
+            await SharedDefaults.set('siriHabitsData', habitsJson);
             await SharedDefaults.set('siri_last_sync', String(Date.now()));
         } catch (e) {
             console.warn('SiriService: Failed to sync progress:', e);

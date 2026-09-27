@@ -6,6 +6,9 @@ import { ComposerModal } from '@/components/Create/ComposerModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
+import { GoalCalendar } from '@/components/Create/GoalCalendar';
+import { CreationTextInput } from '@/components/Create/CreationTextInput';
+import { taskTextSegments } from '@/lib/creationTextHighlight';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
@@ -79,7 +82,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
-    const { primary: accent } = useAccentGradient();
+    const { primary: accent, foreground: accentText } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
@@ -88,7 +91,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<string | null>(null);
-    const [picker, setPicker] = useState<'date' | 'time' | null>(null);
+    const [picker, setPicker] = useState<'time' | null>(null);
     const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -157,7 +160,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
 
     const save = async () => {
         const title = draft.title.trim() || text.trim();
-        if (!title || savingRef.current) return;
+        if (!text.trim() || !title || savingRef.current) return;
         savingRef.current = true;
         setSaving(true);
         setError(null);
@@ -190,7 +193,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         const base = draft.dueDate ? new Date(`${draft.dueDate}T12:00:00`) : new Date();
         if (picker === 'time' && draft.dueTime) {
             const [hour, minute] = draft.dueTime.split(':').map(Number);
-            base.setHours(hour || 9, minute || 0, 0, 0);
+            base.setHours(Number.isFinite(hour) ? hour : 9, Number.isFinite(minute) ? minute : 0, 0, 0);
         }
         return base;
     })();
@@ -201,7 +204,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         return localDateKey(date);
     };
     const goalName = goals.find(goal => goal.id === draft.goalId)?.name;
-    const canSave = !!(draft.title.trim() || text.trim());
+    const canSave = !!text.trim();
 
     const items: DetailItem[] = [
         {
@@ -219,22 +222,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         accent={accent}
                         onChange={id => { setPicker(null); change({ dueDate: id || undefined }); }}
                     />
-                    <Pressable onPress={() => { lightFeedback(); setPicker(picker === 'date' ? null : 'date'); }} style={styles.link}>
-                        <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.medium }}>Pick a day</Text>
-                    </Pressable>
-                    {picker === 'date' ? (
-                        <DateTimePicker
-                            value={pickerValue}
-                            mode="date"
-                            display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                            style={styles.picker}
-                            themeVariant={isLight ? 'light' : 'dark'}
-                            onChange={(_event, selected) => {
-                                if (Platform.OS !== 'ios') setPicker(null);
-                                if (selected) change({ dueDate: localDateKey(selected) });
-                            }}
-                        />
-                    ) : null}
+                    <GoalCalendar allowPast value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
+
                 </>
             ),
         },
@@ -336,9 +325,10 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <TextInput
-                        value={text}
+                    <CreationTextInput
+                        key={session} text={text} segments={taskTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
                         onChangeText={setText}
+                        onFocus={() => setOpenRow(null)}
                         // Open ready to type, editing as well as creating: the
                         // caret lands after what is already written, so the first
                         // keystroke adds to it rather than replacing it.
@@ -374,7 +364,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     ) : null}
                 </ScrollView>
 
-                <DetailBar items={items} open={openRow} onToggle={setOpenRow} accent={accent} />
+                <DetailBar fitContent items={items} open={openRow} onToggle={setOpenRow} accent={accent} />
 
                 <View style={styles.footer}>
                     <Pressable
@@ -407,7 +397,7 @@ const styles = StyleSheet.create({
     read: { flexShrink: 1, fontSize: 11, fontFamily: FontFamily.regular },
     link: { paddingVertical: 6 },
     picker: { alignSelf: 'flex-start' },
-    notes: { flex: 1, minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
+    notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     error: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1 },
     errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },
     footer: { paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8 },

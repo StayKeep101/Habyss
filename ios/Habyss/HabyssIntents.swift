@@ -50,7 +50,7 @@ struct CheckProgressIntent: AppIntent {
         let defaults = UserDefaults(suiteName: "group.com.habyss.data")
         
         // Read habits data from shared defaults
-        if let habitsString = defaults?.string(forKey: "habitsData"),
+        if let habitsString = defaults?.string(forKey: "siriHabitsData") ?? defaults?.string(forKey: "habitsData"),
            let habitsData = habitsString.data(using: .utf8) {
             struct SimpleHabit: Codable {
                 let id: String

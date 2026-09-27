@@ -16,7 +16,7 @@ import { DarkTheme, LightTheme } from "../constants/Themes";
 import React from "react";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import {View, AppState} from 'react-native';
+import {View, AppState, Alert} from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import '@/lib/LocationService'; // Register background tasks
@@ -26,6 +26,7 @@ import { AccentProvider, useAccentGradient } from '@/constants/AccentContext';
 import { FocusTimeProvider, useFocusTime } from '@/constants/FocusTimeContext';
 import { CreationModal } from '@/components/CreationModal';
 import { DayCompleteCelebration } from '@/components/DayCompleteCelebration';
+import { MilestoneCelebration } from '@/components/MilestoneCelebration';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { GoalSheet } from '@/components/Create/GoalSheet';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
@@ -36,7 +37,7 @@ import { BiometricGuard } from '@/components/BiometricGuard';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { QuietLoading } from '@/components/Loading/QuietLoading';
 import { SiriService } from '@/lib/siriService';
-import { emit, on } from '@/lib/appEvents';
+import { emit, on, onAny } from '@/lib/appEvents';
 
 SplashScreen.preventAutoHideAsync().catch(() => { });
 
@@ -108,20 +109,24 @@ export default function MobileLayout() {
 
   // --- Notification Deep Linking ---
   useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-      const url = response.notification.request.content.data?.url;
-      if (url && typeof url === 'string') {
-        // Use setTimeout to ensure navigation is ready
-        setTimeout(() => {
-          try {
-            const { router } = require('expo-router');
-            router.push(url);
-          } catch (e) {
-            console.warn('Deep link navigation failed:', e);
-          }
-        }, 500);
+    const handle = async (response: Notifications.NotificationResponse | null) => {
+      if (!response) return;
+      try {
+        await NotificationService.handleEchoResponse(response);
+        await Notifications.clearLastNotificationResponseAsync();
+        const url = response.notification.request.content.data?.url;
+        if (typeof url === 'string' && url.startsWith('/')) {
+          setTimeout(() => { require('expo-router').router.push(url); }, 500);
+        }
+      } catch (error) {
+        console.warn('Could not apply notification action', error);
+        if (['ECHO_DONE', 'ECHO_SNOOZE'].includes(response.actionIdentifier)) {
+          Alert.alert('Action could not finish', 'Open the item in Habyss and try again.');
+        }
       }
-    });
+    };
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => { void handle(response); });
+    void Notifications.getLastNotificationResponseAsync().then(handle).catch(() => undefined);
 
     return () => subscription.remove();
   }, []);
@@ -204,9 +209,6 @@ function InnerLayout() {
     },
   };
 
-  // Connect Live Activity to Focus Context
-  // ... (existing code for Live Activity?)
-
   // --- App Intents Listener (Siri/Shortcuts) ---
   const { startTimer, stopTimer: globalStopTimer } = useFocusTime();
 
@@ -270,57 +272,45 @@ function InnerLayout() {
       subscription.remove();
     };
   }, []);
-  const { isRunning, activeHabitName, totalDuration, timeLeft } = useFocusTime();
-
   useEffect(() => {
-    // One place decides what "today" is for the widget, the lock screen and
-    // the Dynamic Island, so they can never disagree with the app.
-    const push = async () => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let running = false;
+    let again = false;
+    const refresh = async () => {
+      if (!alive || AppState.currentState !== 'active') return;
+      if (running) { again = true; return; }
+      running = true;
       try {
-        const { syncWidgets } = require('@/lib/widgetSync');
-        const { LiveActivityService } = require('@/lib/liveActivityService');
-        const day = await syncWidgets();
-        if (!day) return;
-
-        await LiveActivityService.startDailyProgress({
-          completed: day.completed,
-          total: day.total,
-          streakDays: day.streak || undefined,
-          // While the timer runs the activity counts that down instead.
-          ...(isRunning && activeHabitName
-            ? { activeHabitName, targetDate: Date.now() + timeLeft * 1000 }
-            : { topHabitName: day.nextUp }),
-          habits: day.items,
-        });
-      } catch (error) {
-        // The widget being out of date is never worth an error on screen.
-        console.log('Widget update failed:', error);
-      }
+        do {
+          again = false;
+          const { drainWidgetToggles, syncWidgets } = require('@/lib/widgetSync');
+          const applied = await drainWidgetToggles();
+          if (applied.habits || applied.tasks) {
+            emit('habit_completion_updated', {});
+            emit('tasks_changed');
+          }
+          await syncWidgets();
+          await require('@/lib/scheduledActivities').refreshScheduledActivities();
+          await require('@/lib/dayComplete').checkDayComplete();
+          await require('@/lib/milestones').checkMilestones();
+        } while (again && alive);
+      } catch (error) { console.warn('Could not refresh widgets or scheduled activities', error); }
+      finally { running = false; }
     };
-
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'active') push();
-    });
-    push();
-
-    const completionListener = on('habit_completion_updated', () => {
-      push();
-      // Finishing the last thing due today is worth marking, once a day.
-      require('@/lib/dayComplete').checkDayComplete();
-    });
-    const taskListener = on('tasks_changed', () => {
-      push();
-      require('@/lib/dayComplete').checkDayComplete();
-    });
-    const habitListener = on('habit_updated', () => push());
-
-    return () => {
-      subscription.remove();
-      completionListener.remove();
-      taskListener.remove();
-      habitListener.remove();
+    const enqueue = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { void refresh(); }, 150);
     };
-  }, [isRunning, activeHabitName, timeLeft]);
+    const stop = onAny(['habit_completion_updated', 'habit_created', 'habit_updated', 'habit_deleted',
+      'goal_deleted', 'tasks_changed', 'cloud_restored', 'engagement_settings_changed'], enqueue);
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') enqueue(); });
+    // Native ActivityKit schedules the exact start. This foreground fallback
+    // also covers older iOS and replenishes the upcoming cards while browsing.
+    const interval = setInterval(enqueue, 60000);
+    enqueue();
+    return () => { alive = false; stop(); subscription.remove(); clearInterval(interval); if (timer) clearTimeout(timer); };
+  }, [foreground]);
 
   return (
     <NavigationThemeProvider value={navigationTheme}>
@@ -332,6 +322,7 @@ function InnerLayout() {
           <Stack.Screen name="+not-found" />
         </Stack>
         <DayCompleteCelebration />
+        <MilestoneCelebration />
         <CreationModal />
         <HabitSheet listenToGlobalEvents />
         <GoalSheet listenToGlobalEvents />

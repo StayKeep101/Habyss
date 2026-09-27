@@ -3,6 +3,7 @@ import React, { useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
 import { TouchableOpacity, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SwipeRow } from '@/components/Common/SwipeRow';
+import { BadgeRow, MeasureBadge, ReminderBadge } from '@/components/Common/CardBadges';
 import { CheckPop } from '@/components/Common/CheckPop';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
@@ -132,7 +133,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
           } : undefined}
           right={[
             { icon: 'pencil', label: 'Edit', color: '#F59E0B', onPress: () => { selectionFeedback(); onEdit(habit); } },
-            { icon: 'trash', label: 'Delete', color: '#EF4444', onPress: () => { mediumFeedback(); onDelete(habit); } },
+            { icon: 'trash', label: 'Delete', color: '#EF4444', destructive: true, onPress: () => { mediumFeedback(); onDelete(habit); } },
           ]}
         >
           <TouchableOpacity
@@ -253,11 +254,17 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                 </Text>
               ) : (
                 <>
-                  {habit.goalValue > 1 && habit.unit && habit.unit !== 'count' && !isSmall && (
-                    <Text style={{ fontSize: 9, color: colors.textTertiary, fontFamily: FontFamily.regular, marginBottom: 1 }}>
-                      {habit.goalValue} {habit.unit}
-                    </Text>
-                  )}
+                  <View style={{ marginBottom: 2 }}>
+                    <BadgeRow>
+                      {/* Whether it will remind you, and what it asks for —
+                          both drawn the same way as on a task. The bell is a
+                          few pixels; a compact card can carry it. */}
+                      <ReminderBadge on={(habit.reminders?.length ?? 0) > 0} size={isSmall ? 10 : undefined} />
+                      {!isSmall && habit.unit && habit.unit !== 'count' ? (
+                        <MeasureBadge value={habit.goalValue} unit={habit.unit} />
+                      ) : null}
+                    </BadgeRow>
+                  </View>
                   <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>
                     {habit.startTime || '--:--'}{habit.durationMinutes ? ` · ${habit.durationMinutes}m` : ''}
                   </Text>

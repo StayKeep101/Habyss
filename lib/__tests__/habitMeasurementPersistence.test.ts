@@ -12,6 +12,7 @@ const mockDb = {
         if (sql.includes('INSERT INTO completions')) mockState.completion = args[4];
         if (sql.includes('UPDATE completions SET deleted = 1')) mockState.completion = null;
     }),
+    withTransactionAsync: jest.fn(async (work: () => Promise<void>) => { await work(); }),
     withExclusiveTransactionAsync: jest.fn(async (work: (db: any) => Promise<void>) => {
         const previous = { ...mockState };
         try { await work(mockDb); } catch (error) { Object.assign(mockState, previous); throw error; }
@@ -24,7 +25,7 @@ jest.mock('@/components/Layout/VoidCard', () => ({ VoidCard: () => null }));
 jest.mock('../notificationService', () => ({ NotificationService: { refreshHabitReminders: jest.fn(async () => undefined) } }));
 jest.mock('../SharedDefaults', () => ({ __esModule: true, default: { set: jest.fn(), reloadTimelines: jest.fn() } }));
 jest.mock('../siriService', () => ({ SiriService: { syncProgressForSiri: jest.fn() } }));
-import { DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter, Platform } from 'react-native';
 import { getHabitMeasurement, saveHabitMeasurement } from '../habitsSQLite';
 
 beforeEach(() => { jest.clearAllMocks(); mockState.amount = null; mockState.completion = null; mockState.fail = false; });
@@ -71,4 +72,15 @@ describe('saved habit amounts', () => {
         for (const value of [NaN, Infinity, -1, 100000001]) await expect(saveHabitMeasurement('h', value)).rejects.toThrow('valid amount');
         expect(mockDb.runAsync).not.toHaveBeenCalled();
     });
+});
+
+it('uses the supported transaction API on web', async () => {
+    const original = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+    try {
+        await saveHabitMeasurement('h', 3, '2026-09-22');
+        expect(mockDb.withTransactionAsync).toHaveBeenCalledTimes(1);
+        expect(mockDb.withExclusiveTransactionAsync).not.toHaveBeenCalled();
+        expect(mockState.amount).toBe(3);
+    } finally { Object.defineProperty(Platform, 'OS', { configurable: true, value: original }); }
 });

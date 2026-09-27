@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 let dbInstance: any = null;
 /**
@@ -49,21 +49,24 @@ export async function getDatabase(): Promise<any | null> {
 }
 
 async function openDatabase(): Promise<any | null> {
+    let connection: any = null;
     try {
-        dbInstance = await SQLite.openDatabaseAsync(DATABASE_NAME);
+        connection = await SQLite.openDatabaseAsync(DATABASE_NAME);
 
         // Enable WAL mode for better concurrent read/write performance
-        await dbInstance.execAsync('PRAGMA journal_mode = WAL;');
+        await connection.execAsync('PRAGMA journal_mode = WAL;');
         // NORMAL sync is safe with WAL and significantly faster than FULL
-        await dbInstance.execAsync('PRAGMA synchronous = NORMAL;');
+        await connection.execAsync('PRAGMA synchronous = NORMAL;');
         // 8MB cache for faster reads on repeated queries
-        await dbInstance.execAsync('PRAGMA cache_size = -8000;');
+        await connection.execAsync('PRAGMA cache_size = -8000;');
         // Store temp tables in memory for faster joins/sorts
-        await dbInstance.execAsync('PRAGMA temp_store = MEMORY;');
+        await connection.execAsync('PRAGMA temp_store = MEMORY;');
 
         // Run migrations
-        await runMigrations(dbInstance);
+        await runMigrations(connection);
 
+        // Never expose a connection while its tables are still being migrated.
+        dbInstance = connection;
         return dbInstance;
     } catch (error) {
         console.error('[Database] Failed to open database:', error);
@@ -74,6 +77,7 @@ async function openDatabase(): Promise<any | null> {
         // retries instead.
         dbInstance = null;
         openPromise = null;
+        if (connection) await connection.closeAsync().catch(() => undefined);
         return null;
     }
 }
@@ -118,6 +122,7 @@ async function runMigrations(db: any): Promise<void> {
         [8, migrateToV8],
         [9, migrateToV9],
         [10, migrateToV10],
+        [11, migrateToV11],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -135,6 +140,20 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 11 — what a reminder says.
+ *
+ * Reminders were written by Echo or by the built-in coach lines, which is
+ * right most of the time and useless for the habit that needs one specific
+ * sentence. The column is local only for now: the cloud `habits` table has no
+ * matching column yet, so it is deliberately left out of the sync mapping
+ * rather than breaking every upload.
+ */
+async function migrateToV11(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'habits', 'reminder_message', 'TEXT');
+    console.log('[Database] Migrated to schema v11');
 }
 
 /** Partial progress stays separate from check-ins so existing streaks count only finished habits. */
@@ -360,12 +379,13 @@ async function migrateToV6(db: any): Promise<void> {
  * Close the database connection
  */
 export async function closeDatabase(): Promise<void> {
+    // Finish any startup before closing, including callers still in migrations.
+    if (openPromise) await openPromise;
     // Drop the shared open too, or the next caller receives the closed handle.
     openPromise = null;
-    if (dbInstance) {
-        await dbInstance.closeAsync();
-        dbInstance = null;
-    }
+    const connection = dbInstance;
+    dbInstance = null;
+    if (connection) await connection.closeAsync();
 }
 
 /**

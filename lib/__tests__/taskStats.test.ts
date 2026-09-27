@@ -91,3 +91,11 @@ describe('habits and tasks are never blended', () => {
         expect(describeDay({ done: 0, scheduled: 0 }, { due: 0, done: 0, overdue: 0 })).toBe('Nothing scheduled');
     });
 });
+
+it('counts a late-night completion on its local calendar date', () => {
+    const stamp = new Date(2026, 8, 17, 23, 45).toISOString();
+    const completed = task({ status: 'done', completedAt: stamp, dueDate: '2026-09-17' });
+    expect(taskStatsForDay([completed], '2026-09-17').done).toBe(1);
+    expect(taskStatsForDay([completed], '2026-09-18').done).toBe(0);
+    expect(onTimeRate([completed])).toBe(100);
+});

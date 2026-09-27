@@ -18,7 +18,6 @@ import { hasAnyIntegration, integrationsSummary } from '@/lib/integrationAvailab
 import { APP_SLOGAN } from '@/constants/brand';
 import { currentAccount, onAccountChange } from '@/lib/account';
 import Constants from 'expo-constants';
-import { EditProfileModal } from '@/components/Profile/EditProfileModal';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -95,18 +94,69 @@ const Row = ({ icon, label, value, toggle, onPress }: {
     );
 };
 
-export default function ProfileScreen() {
+/**
+ * Two switches in the room of one.
+ *
+ * Sound and haptics are the same decision — how loudly the app answers you —
+ * so they read better as one row with two channels than as two rows repeating
+ * the same shape. Each is still a separate switch; it just stops spending a
+ * full row each to say so.
+ */
+const FeedbackRow = ({ sounds, haptics, onSounds, onHaptics }: {
+    sounds: boolean; haptics: boolean; onSounds: () => void; onHaptics: () => void;
+}) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: accentColor } = useAccentGradient();
+    const { selectionFeedback } = useHaptics();
+
+    const channels = [
+        { on: sounds, icon: 'volume-medium' as const, off: 'volume-mute-outline' as const, label: 'Sounds', press: onSounds },
+        { on: haptics, icon: 'phone-portrait' as const, off: 'phone-portrait-outline' as const, label: 'Haptics', press: onHaptics },
+    ];
+
+    return (
+        <View style={styles.row}>
+            <View style={[styles.rowIcon, { backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)' }]}>
+                <Ionicons name="pulse-outline" size={16} color={colors.textSecondary} />
+            </View>
+            <Text numberOfLines={1} style={[styles.rowLabel, { color: colors.textPrimary }]}>Sound &amp; haptics</Text>
+            <View style={styles.channels}>
+                {channels.map(channel => (
+                    <TouchableOpacity
+                        key={channel.label}
+                        accessibilityRole="switch"
+                        accessibilityState={{ checked: channel.on }}
+                        accessibilityLabel={channel.label}
+                        activeOpacity={0.7}
+                        onPress={() => { selectionFeedback(); channel.press(); }}
+                        style={[styles.channel, {
+                            backgroundColor: channel.on ? accentColor + '24' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)'),
+                            borderColor: channel.on ? accentColor + '66' : 'transparent',
+                        }]}
+                    >
+                        <Ionicons
+                            name={channel.on ? channel.icon : channel.off}
+                            size={15}
+                            color={channel.on ? accentColor : colors.textTertiary}
+                        />
+                    </TouchableOpacity>
+                ))}
+            </View>
+        </View>
+    );
+};
+
+export default function ProfileScreen() {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
     const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
     // User state
     const { selectionFeedback } = useHaptics();
     const dailyTarget = useDailyTarget();
     const [username, setUsername] = useState('');
-    const [showEditProfile, setShowEditProfile] = useState(false);
 
     // Settings state - use global context
     const {
@@ -160,7 +210,7 @@ export default function ProfileScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Edit your profile"
                         activeOpacity={0.85}
-                        onPress={() => { selectionFeedback(); setShowEditProfile(true); }}
+                        onPress={() => { selectionFeedback(); router.push('/(root)/profile'); }}
                         style={styles.profileRow}
                     >
                         <View style={[styles.avatar, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
@@ -223,18 +273,12 @@ export default function ProfileScreen() {
                     </Section>
 
                     <Section title="Appearance & feedback">
-                        <Row icon="color-palette-outline" label="Theme & accent" onPress={() => router.push('/(root)/appearance')} />
-                        <Row
-                            icon="volume-medium-outline"
-                            label="Sounds"
-                            toggle={soundsEnabled}
-                            onPress={() => { setSoundsEnabled(!soundsEnabled); selectionFeedback(); }}
-                        />
-                        <Row
-                            icon="phone-portrait-outline"
-                            label="Haptics"
-                            toggle={hapticsEnabled}
-                            onPress={() => { setHapticsEnabled(!hapticsEnabled); selectionFeedback(); }}
+                        <Row icon="color-palette-outline" label="Appearance" onPress={() => router.push('/(root)/appearance')} />
+                        <FeedbackRow
+                            sounds={soundsEnabled}
+                            haptics={hapticsEnabled}
+                            onSounds={() => setSoundsEnabled(!soundsEnabled)}
+                            onHaptics={() => setHapticsEnabled(!hapticsEnabled)}
                         />
                     </Section>
 
@@ -262,19 +306,6 @@ export default function ProfileScreen() {
 
                 </ScrollView>
             </SafeAreaView>
-            <EditProfileModal
-                visible={showEditProfile}
-                onClose={() => setShowEditProfile(false)}
-                currentUsername={username}
-                currentAvatarUri={avatarUri}
-                onProfileUpdate={(newAvatarUri) => {
-                    // Reload username from local storage
-                    AsyncStorage.getItem('profile_nickname').then(name => {
-                        if (name) setUsername(name);
-                    });
-                    if (newAvatarUri) setAvatarUri(newAvatarUri);
-                }}
-            />
         </VoidShell>
     );
 }
@@ -295,6 +326,8 @@ const styles = StyleSheet.create({
     sectionCardPlain: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
     rowDivider: { height: StyleSheet.hairlineWidth, marginLeft: 52 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
+    channels: { flexDirection: 'row', gap: 8 },
+    channel: { width: 34, height: 30, borderRadius: 9, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
     rowIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     rowLabel: { flex: 1, fontSize: 15, fontFamily: FontFamily.regular },
     rowValue: { fontSize: 13, fontFamily: FontFamily.regular, maxWidth: 150 },

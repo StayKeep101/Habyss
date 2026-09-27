@@ -9,9 +9,9 @@ import { ViewSwitcher, type SwitcherOption } from '@/components/Common/ViewSwitc
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { HabitProgressCard } from '@/components/Habit/HabitProgressCard';
+import { SharedWith } from '@/components/Habit/SharedWith';
 import { HabitGraphRenderer } from '@/components/Habit/HabitGraphRenderer';
 import { DetailedHeatmap } from '@/components/Habit/DetailedHeatmap';
-import { SpotifyPage } from '@/components/Habit/SpotifyPage';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { Colors } from '@/constants/Colors';
@@ -31,12 +31,11 @@ const entering = FadeIn.duration(200).reduceMotion(ReduceMotion.System);
 const param = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 const validDate = (value?: string) => !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && localHabitDate(new Date(value + 'T12:00:00')) === value;
 type HistoryDay = { date: string; completed: boolean; skipped: boolean; scheduled: boolean };
-type View3 = 'today' | 'stats' | 'music';
+type HabitView = 'today' | 'stats';
 
-const VIEWS: SwitcherOption<View3>[] = [
+const VIEWS: SwitcherOption<HabitView>[] = [
     { id: 'today', label: 'Today', icon: 'today-outline' },
     { id: 'stats', label: 'Stats', icon: 'stats-chart-outline' },
-    { id: 'music', label: 'Music', icon: 'musical-notes-outline' },
 ];
 
 export default function HabitDetailScreen() {
@@ -62,7 +61,7 @@ export default function HabitDetailScreen() {
     const [undo, setUndo] = useState<number | null>(null);
     const [showEditor, setShowEditor] = useState(false);
     const [showShare, setShowShare] = useState(false);
-    const [view, setView] = useState<View3>('today');
+    const [view, setView] = useState<HabitView>('today');
     const pending = useRef(0);
     const generation = useRef(0);
     const mounted = useRef(true);
@@ -237,17 +236,16 @@ export default function HabitDetailScreen() {
                             </VoidCard>
                         </Animated.View>
 
+                        {/* Only renders when somebody else is on it. */}
+                        <SharedWith habitId={habit.id} doneToday={history.find(day => day.date === today)?.completed ?? false} />
+
                         {habit.description ? <Animated.View layout={transition} style={styles.note}><Text style={[Typography.label, { color: colors.textTertiary }]}>Your intention</Text><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{habit.description}</Text></Animated.View> : null}
-                    </> : view === 'stats' ? (
+                    </> : (
                         /* The same numbers, in place of today rather than under it. */
                         <Animated.View key="stats" entering={entering} style={styles.swapped}>
                             <Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Your longest streak: {stats.bestStreak} {stats.bestStreak === 1 ? 'day' : 'days'}</Text>
                             <HabitGraphRenderer graphStyle={habit.graphStyle || 'bar'} color={accent} goalValue={target} unit={habit.unit || 'times'} completionData={history} currentStreak={stats.currentStreak} todayValue={date === today ? value : undefined} />
                             <VoidCard style={styles.heatmap}><DetailedHeatmap completionData={history} color={accent} description="YOUR YEAR IN CHECK-INS" /></VoidCard>
-                        </Animated.View>
-                    ) : (
-                        <Animated.View key="music" entering={entering} style={styles.swapped}>
-                            <SpotifyPage habitId={habit.id} />
                         </Animated.View>
                     )}
                 </ScrollView>

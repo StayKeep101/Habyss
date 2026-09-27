@@ -90,35 +90,33 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     const title = input.title?.trim();
     if (!title) return null;
 
-    // An external id means "this already exists somewhere else", so a second
-    // import of the same plan updates that row rather than adding another.
-    if (input.externalId) {
-        const existing = await db.getFirstAsync(
-            'SELECT * FROM tasks WHERE external_id = ? AND deleted = 0',
-            input.externalId,
-        );
-        if (existing) {
-            await updateTask(existing.id, input);
-            const refreshed = await db.getFirstAsync('SELECT * FROM tasks WHERE id = ?', existing.id);
-            return refreshed ? rowToTask(refreshed) : null;
-        }
-    }
-
     const id = generateId();
     const now = nowISO();
     const uid = await getLocalUserId().catch(() => null);
 
+    const importedColumns: [keyof TaskInput, string][] = [
+        ['title', 'title'], ['description', 'description'], ['dueDate', 'due_date'],
+        ['dueTime', 'due_time'], ['estimatedMinutes', 'estimated_minutes'],
+        ['priority', 'priority'], ['goalId', 'goal_id'], ['source', 'source'],
+    ];
+    const updates = importedColumns.filter(([key]) => Object.prototype.hasOwnProperty.call(input, key))
+        .map(([, column]) => `${column} = excluded.${column}`);
+    const conflict = input.externalId
+        ? `ON CONFLICT(external_id) WHERE external_id IS NOT NULL DO UPDATE SET ${[...updates, 'deleted = 0', 'synced = 0', 'updated_at = excluded.updated_at'].join(', ')}`
+        : '';
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
             priority, goal_id, status, source, external_id, created_at, updated_at, deleted, synced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, 0, 0)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, 0, 0) ${conflict}`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
         input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
         input.source ?? 'app', input.externalId ?? null, now, now,
     );
 
-    const row = await db.getFirstAsync('SELECT * FROM tasks WHERE id = ?', id);
+    const row = input.externalId
+        ? await db.getFirstAsync('SELECT * FROM tasks WHERE external_id = ?', input.externalId)
+        : await db.getFirstAsync('SELECT * FROM tasks WHERE id = ?', id);
     return row ? rowToTask(row) : null;
 }
 
@@ -128,9 +126,8 @@ export type TaskPatch = { [K in keyof TaskInput]?: TaskInput[K] | null };
 const REQUIRED: (keyof TaskInput)[] = ['title', 'priority'];
 
 export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
-    if (!isSQLiteAvailable()) return;
     const db = await getDatabase();
-    if (!db) return;
+    if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
 
     const columns: Record<keyof TaskInput, string> = {
         title: 'title', description: 'description', dueDate: 'due_date', dueTime: 'due_time',
@@ -157,9 +154,8 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
 
 /** Marks a task done, or reopens it. Completion time is recorded, never guessed. */
 export async function setTaskStatus(id: string, status: TaskStatus): Promise<void> {
-    if (!isSQLiteAvailable()) return;
     const db = await getDatabase();
-    if (!db) return;
+    if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
     const now = nowISO();
     await db.runAsync(
         'UPDATE tasks SET status = ?, completed_at = ?, updated_at = ?, synced = 0 WHERE id = ?',
@@ -168,17 +164,15 @@ export async function setTaskStatus(id: string, status: TaskStatus): Promise<voi
 }
 
 export async function deleteTask(id: string): Promise<void> {
-    if (!isSQLiteAvailable()) return;
     const db = await getDatabase();
-    if (!db) return;
+    if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
     await db.runAsync('UPDATE tasks SET deleted = 1, updated_at = ?, synced = 0 WHERE id = ?', nowISO(), id);
 }
 
 /** A goal's tasks go with it, the same way its habits do. */
 export async function deleteTasksForGoal(goalId: string): Promise<void> {
-    if (!isSQLiteAvailable()) return;
     const db = await getDatabase();
-    if (!db) return;
+    if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
     await db.runAsync(
         'UPDATE tasks SET deleted = 1, updated_at = ?, synced = 0 WHERE goal_id = ? AND deleted = 0',
         nowISO(), goalId,

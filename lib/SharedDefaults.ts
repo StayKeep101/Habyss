@@ -7,6 +7,7 @@ export interface SharedDefaultsType {
     get(key: string): Promise<string | null>;
     getInteger(key: string): Promise<number>;
     getDouble(key: string): Promise<number>;
+    getPendingWidgetEvents?(): Promise<string[]>;
     getArray(key: string): Promise<any[] | null>;
     remove(key: string): Promise<boolean>;
     saveImage(base64: string, fileName: string): Promise<string>;

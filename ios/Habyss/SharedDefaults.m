@@ -21,4 +21,6 @@ RCT_EXTERN_METHOD(saveImage : (NSString *)base64 fileName : (NSString *)
 RCT_EXTERN_METHOD(reloadTimelines : (RCTPromiseResolveBlock)
                       resolve rejecter : (RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(getPendingWidgetEvents : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject)
+
 @end

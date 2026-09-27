@@ -4,6 +4,7 @@ import { closeDatabase, getDatabase } from './database';
 import { SecureTokenService } from './secureStorage';
 import SharedDefaults from './SharedDefaults';
 import { resetLocalUserCache } from './localUser';
+import { engagementLifecycle } from './engagementLifecycle';
 
 /**
  * Account deletion.
@@ -11,9 +12,8 @@ import { resetLocalUserCache } from './localUser';
  * Habyss stores everything on the device: habits and completions in SQLite,
  * settings and the local user id in AsyncStorage, integration tokens in the
  * keychain, and a small summary in the App Group container that the widget,
- * Live Activity and Watch app read. There is no server-side account — the app
- * ships without a Supabase client and never signs a user in — so deleting an
- * account means removing all of that local state.
+ * Live Activity and Watch app read. Remote account deletion is handled by
+ * account.ts; this clears the phone after deletion or sign-out.
  *
  * Every step is attempted even if an earlier one fails, and the result says
  * which succeeded, so the UI can report the truth instead of a blanket
@@ -29,10 +29,13 @@ const SHARED_DEFAULT_KEYS = [
     'timerEndDate',
     'todayStats',
     'widgetSummary',
+    'widgetDashboard', 'siriHabitsData', 'siri_last_sync', 'streakCount', 'topHabitName',
+    'dayKey', 'accentFrom', 'accentTo', 'pending_widget_toggles', 'pending_habit_logs',
+    'intent_start_focus_duration', 'intent_stop_focus', 'intent_stop_focus_timestamp',
 ];
 
 /** Integrations that may have left OAuth tokens in the keychain. */
-const TOKEN_SERVICES = ['spotify', 'strava', 'garmin', 'plaid'];
+const TOKEN_SERVICES = ['strava', 'garmin', 'plaid'];
 
 export interface DeletionStep {
     key: string;
@@ -59,6 +62,19 @@ const run = async (key: string, label: string, work: () => Promise<void>): Promi
 
 export async function deleteAllLocalData(): Promise<DeletionReport> {
     const steps: DeletionStep[] = [];
+    engagementLifecycle.paused = true;
+    steps.push(await run('reminders', 'Reminders and Live Activities', async () => {
+        const { NotificationService } = require('./notificationService') as typeof import('./notificationService');
+        const { waitForWidgetSync } = require('./widgetSync') as typeof import('./widgetSync');
+        const { waitForScheduledActivitySync } = require('./scheduledActivities') as typeof import('./scheduledActivities');
+        await Promise.all([NotificationService.waitForReminderSync(), waitForWidgetSync(), waitForScheduledActivitySync()]);
+        const Notifications = require('expo-notifications') as typeof import('expo-notifications');
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        const native = (require('@/modules/habyss-live-activity') as typeof import('@/modules/habyss-live-activity')).default;
+        if (native) for (const id of native.listActivities()) {
+            await native.stopActivity(id, { title: 'Habyss', subtitle: '', progress: 0 });
+        }
+    }));
 
     // Detach the purchase identity first so a fresh install is not handed the
     // previous anonymous id. The purchase itself belongs to the Apple ID and is
@@ -78,6 +94,11 @@ export async function deleteAllLocalData(): Promise<DeletionReport> {
 
     // Otherwise the widget and Watch app keep showing the deleted user's habits.
     steps.push(await run('shared', 'Widget and Watch data', async () => {
+        for (const raw of await SharedDefaults.getPendingWidgetEvents?.() ?? []) {
+            let event;
+            try { event = JSON.parse(raw); } catch { continue; }
+            if (typeof event?.eventId === 'string') await SharedDefaults.remove('widget_event_' + event.eventId);
+        }
         for (const key of SHARED_DEFAULT_KEYS) {
             await SharedDefaults.remove(key);
         }
@@ -117,6 +138,8 @@ export async function deleteAllLocalData(): Promise<DeletionReport> {
     }));
 
     steps.push(await run('tokens', 'Connected accounts', async () => {
+        const SecureStore = require('expo-secure-store') as typeof import('expo-secure-store');
+        await SecureStore.deleteItemAsync('habyss_apple_pending_profile');
         for (const service of TOKEN_SERVICES) {
             await SecureTokenService.clearServiceTokens(service);
         }
@@ -127,8 +150,10 @@ export async function deleteAllLocalData(): Promise<DeletionReport> {
     steps.push(await run('settings', 'Profile and settings', async () => {
         await AsyncStorage.clear();
         resetLocalUserCache();
+        (require('./habitsSQLite') as typeof import('./habitsSQLite')).clearHabitsCache();
     }));
 
+    engagementLifecycle.paused = false;
     const failed = steps.filter(step => !step.ok);
     return { steps, ok: failed.length === 0, failed };
 }

@@ -11,8 +11,7 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { IntegrationService, Integration } from '@/lib/integrationService';
-import { SpotifyService } from '@/lib/spotifyService';
-import { isHealthAvailable, isSpotifyConfigured } from '@/lib/integrationAvailability';
+import { isHealthAvailable } from '@/lib/integrationAvailability';
 import { HealthKitService } from '@/lib/healthKit';
 // import * as Calendar from 'expo-calendar'; // Removed static import
 
@@ -34,15 +33,6 @@ const ALL_INTEGRATIONS: IntegrationItem[] = [
         icon: 'heart-outline',
         service: 'apple_health',
         available: isHealthAvailable(),
-    },
-    {
-        id: 'spotify',
-        name: 'Spotify',
-        description: 'Play music while building habits',
-        icon: 'musical-notes',
-        service: 'spotify',
-        available: isSpotifyConfigured(),
-        badge: 'Beta',
     },
 ];
 
@@ -73,44 +63,11 @@ export default function IntegrationsScreen() {
                 statuses[i.service_name] = i.is_connected;
             });
 
-            statuses.spotify = await SpotifyService.isConnected();
             setIntegrations(statuses);
         } catch (e) {
             console.error('Error loading integrations:', e);
         }
     }, []);
-
-    useEffect(() => {
-        const handleSpotifyCallback = async (url: string | null) => {
-            if (!url || !url.includes('spotify-callback')) return;
-
-            setLoading(prev => ({ ...prev, spotify: true }));
-            try {
-                const connected = await SpotifyService.handleCallback(url);
-                if (connected) {
-                    successFeedback();
-                    await loadIntegrations();
-                    Alert.alert('Connected', 'Spotify integration enabled');
-                } else {
-                    Alert.alert('Spotify', 'Could not complete Spotify sign-in.');
-                }
-            } catch (e) {
-                console.error('Spotify callback handling error:', e);
-                Alert.alert('Error', 'Failed to finish Spotify connection');
-            } finally {
-                setLoading(prev => ({ ...prev, spotify: false }));
-            }
-        };
-
-        Linking.getInitialURL().then(handleSpotifyCallback).catch(() => undefined);
-        const subscription = Linking.addEventListener('url', ({ url }) => {
-            handleSpotifyCallback(url);
-        });
-
-        return () => {
-            subscription.remove();
-        };
-    }, [loadIntegrations, successFeedback]);
 
     const handleHealthToggle = async (enabled: boolean) => {
         setLoading(prev => ({ ...prev, apple_health: true }));
@@ -144,27 +101,8 @@ export default function IntegrationsScreen() {
         }
     };
 
-    const handleSpotifyToggle = async (enabled: boolean) => {
-        setLoading(prev => ({ ...prev, spotify: true }));
-        try {
-            if (enabled) {
-                await SpotifyService.connect();
-                Alert.alert('Spotify', 'Complete the login in your browser, then return to the app.');
-            } else {
-                await SpotifyService.disconnect();
-                setIntegrations(prev => ({ ...prev, spotify: false }));
-                lightFeedback();
-            }
-        } catch (e) {
-            console.error('Spotify toggle error:', e);
-            Alert.alert('Error', 'Failed to connect to Spotify');
-        }
-        setLoading(prev => ({ ...prev, spotify: false }));
-    };
-
     const getToggleHandler = (service: string) => {
         switch (service) {
-            case 'spotify': return handleSpotifyToggle;
             case 'apple_health': return handleHealthToggle;
             default: return () => { };
         }

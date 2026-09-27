@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { emit } from './appEvents';
 import { PERSONALITY_MODES, type PersonalityModeId } from '@/constants/AIPersonalities';
 import { PROFILE_NICKNAME_KEY } from './localUser';
 
@@ -90,6 +91,10 @@ export async function getEchoPersonality(): Promise<PersonalityModeId> {
 /* -------------------------------------------------------------------------- */
 
 export interface EchoConfig {
+    /** Opt-in advance encouragement for timed habits and tasks. */
+    alive?: boolean;
+    /** At most one check-in after the planned session, if still unfinished. */
+    aliveFollowUp?: boolean;
     /** A nudge shortly after waking, with what the day asks of you. */
     morning: boolean;
     /** A nudge before bed, with whatever is still open. */
@@ -104,7 +109,7 @@ export interface EchoConfig {
     writeReminders: boolean;
 }
 
-export const DEFAULT_ECHO: EchoConfig = { morning: false, evening: false, useName: true, writeReminders: false };
+export const DEFAULT_ECHO: EchoConfig = { morning: false, evening: false, useName: true, writeReminders: false, alive: false, aliveFollowUp: true };
 
 const ECHO_KEY = 'habyss_echo_config';
 
@@ -117,7 +122,8 @@ export async function getEchoConfig(): Promise<EchoConfig> {
 }
 
 export async function saveEchoConfig(config: EchoConfig): Promise<void> {
-    await AsyncStorage.setItem(ECHO_KEY, JSON.stringify(config)).catch(() => undefined);
+    await AsyncStorage.setItem(ECHO_KEY, JSON.stringify(config));
+    emit('engagement_settings_changed');
 }
 
 /** When the morning check-in lands: shortly after they said they wake. */
