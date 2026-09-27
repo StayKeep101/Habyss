@@ -114,7 +114,15 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 - [~] Reactions. Five, one tap, tap again to take back, remembered per day on
       the device. They do not reach the friend until the migration below is
       applied.
-- [ ] Comments on a day. Table is in the migration; no UI yet.
+- [~] Comments on a day (`lib/dayNotes.ts`, 10 tests). The reaction row ends
+      with a bubble that opens a composer, and what has been said sits under it
+      with the writer's name; you can take back your own. Five emoji cannot ask
+      "how was the long run", so a word can.
+      **Local, like the reactions**, and for the same reason: `feed_comments` is
+      in the migration below and it has not been applied, so there is nowhere on
+      the server to put one. The stored shape is that table's shape, so applying
+      it makes this the local half of a sync rather than something to throw
+      away. Notes are kept per day and clear themselves tomorrow.
 - [ ] Messages and emoji between friends.
 - [~] Shared habits **and tasks**: the rule is built and tested (`lib/shared.ts`,
       12 tests) — not done until everyone on it has done it, two people or

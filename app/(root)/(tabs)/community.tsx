@@ -19,6 +19,7 @@ import Animated from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from '@/lib/habitSchedule';
 import { DayCard } from '@/components/Community/DayCard';
+import { addNote, getNotes, removeNote, type DayNote } from '@/lib/dayNotes';
 import { buildFeed, summarise } from '@/lib/feed';
 import { evidenceListToday } from '@/lib/evidence';
 import type { Evidence } from '@/lib/proof';
@@ -34,7 +35,7 @@ export default function CommunityScreen() {
     const isLight = theme === 'light';
     const isTrueDark = theme === 'trueDark';
     const { primary: accentColor } = useAccentGradient();
-    const { thud, lightFeedback, mediumFeedback } = useHaptics();
+    const { thud, lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
     const router = useRouter();
     const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
     const [refreshing, setRefreshing] = useState(false);
@@ -207,6 +208,26 @@ export default function CommunityScreen() {
         if (!taken) await FriendsService.sendReaction(friendId, reaction);
     };
 
+    /**
+     * Saying something about someone's day.
+     *
+     * Local for the same reason the reactions are: `feed_comments` is in the
+     * migration that has not been applied, so there is nowhere on the server to
+     * put one. Stored by the day, so it clears itself tomorrow.
+     */
+    const handleComment = async (cardId: string, text: string) => {
+        const note = await addNote(localDateKey(new Date()), cardId, text);
+        if (!note) return;
+        selectionFeedback();
+        setNotes(current => ({ ...current, [cardId]: [...(current[cardId] ?? []), note] }));
+    };
+
+    const handleDeleteNote = async (cardId: string, id: string) => {
+        lightFeedback();
+        setNotes(current => ({ ...current, [cardId]: (current[cardId] ?? []).filter(note => note.id !== id) }));
+        await removeNote(localDateKey(new Date()), cardId, id);
+    };
+
     const getTimeAgo = (dateStr: string) => {
         const diff = Date.now() - new Date(dateStr).getTime();
         const mins = Math.floor(diff / 60000);
@@ -221,6 +242,7 @@ export default function CommunityScreen() {
     // Your own evidence is known exactly — the app has your Health habits and
     // your timer sessions. A friend's arrives with the feed migration; until
     // then theirs reads as logged, which is the truthful default.
+    const [notes, setNotes] = useState<Record<string, DayNote[]>>({});
     const [myEvidence, setMyEvidence] = useState<Record<string, Evidence[]>>({});
     useEffect(() => {
         const me = friends.find(friend => friend.isCurrentUser);
@@ -243,6 +265,7 @@ export default function CommunityScreen() {
         AsyncStorage.getItem(reactionsKey())
             .then(raw => { if (raw) setSentReactions(JSON.parse(raw)); })
             .catch(() => undefined);
+        getNotes(localDateKey(new Date())).then(setNotes).catch(() => undefined);
     }, []);
 
     const handleFriendPress = (friend: Friend) => {
@@ -386,6 +409,9 @@ export default function CommunityScreen() {
                                 const found = friends.find(item => (item.id || item.userId) === card.id);
                                 if (found) handleFriendPress(found);
                             }}
+                            notes={notes[card.id]}
+                            onComment={text => void handleComment(card.id, text)}
+                            onDeleteNote={id => void handleDeleteNote(card.id, id)}
                         />
                     ))}
                 </View>

@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, {
-    Easing, ReduceMotion, useAnimatedProps, useAnimatedStyle,
+    Easing, FadeIn, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle,
     useSharedValue, withSpring, withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
@@ -14,11 +14,14 @@ import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { LOOK } from '@/lib/proof';
+import { NOTE_LIMIT, type DayNote } from '@/lib/dayNotes';
 import type { DayCard as Card } from '@/lib/feed';
 import type { ReactionType } from '@/lib/friendsService';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const EASE = { duration: 640, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
+/** Timed, never sprung: the card grows a composer and a spring would bounce it. */
+const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
 
 export const REACTIONS: { id: ReactionType; glyph: string; label: string }[] = [
     { id: 'fire', glyph: '🔥', label: 'Fire' },
@@ -46,7 +49,11 @@ export const DayCard: React.FC<{
     reaction?: ReactionType;
     onReact: (reaction: ReactionType) => void;
     onOpen: () => void;
-}> = ({ card, reaction, onReact, onOpen }) => {
+    /** Notes already on this day, oldest first. */
+    notes?: DayNote[];
+    onComment?: (text: string) => void;
+    onDeleteNote?: (id: string) => void;
+}> = ({ card, reaction, onReact, onOpen, notes = [], onComment, onDeleteNote }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -65,8 +72,18 @@ export const DayCard: React.FC<{
 
     const look = LOOK[card.evidence];
     const tint = card.complete ? colors.success : primary;
+    const [writing, setWriting] = useState(false);
+    const [draft, setDraft] = useState('');
+
+    const send = () => {
+        if (!draft.trim()) { setWriting(false); Keyboard.dismiss(); return; }
+        onComment?.(draft);
+        setDraft('');
+        Keyboard.dismiss();
+    };
 
     return (
+        <Animated.View layout={MORPH}>
         <VoidCard
             glass={!isTrueDark}
             intensity={isLight ? 20 : 80}
@@ -156,8 +173,74 @@ export const DayCard: React.FC<{
                         onPress={() => { selectionFeedback(); onReact(item.id); }}
                     />
                 ))}
+                {/* The other half of it. Five emoji cannot ask "how was the
+                    long run" — a word can, so the row ends with one. */}
+                {onComment ? (
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={notes.length ? `Say something · ${notes.length} already said` : 'Say something'}
+                        accessibilityState={{ expanded: writing }}
+                        hitSlop={6}
+                        onPress={() => { selectionFeedback(); setWriting(!writing); }}
+                        style={styles.reactionPress}
+                    >
+                        <Ionicons name={writing ? 'chatbubble' : 'chatbubble-outline'} size={ms(17)}
+                            color={writing || notes.length ? primary : colors.textTertiary} />
+                        {notes.length ? (
+                            <Text style={[styles.noteCount, { color: primary }]}>{notes.length}</Text>
+                        ) : null}
+                    </Pressable>
+                ) : null}
             </View>
+
+            {notes.length ? (
+                <Animated.View layout={MORPH} style={[styles.notes, { borderTopColor: colors.border }]}>
+                    {notes.map(note => (
+                        <Animated.View key={note.id} entering={FadeIn.duration(160)} layout={MORPH} style={styles.note}>
+                            <Text style={[styles.noteText, { color: colors.textSecondary }]}>
+                                <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.semibold }}>
+                                    {note.mine ? 'You' : card.username}
+                                </Text>
+                                {`  ${note.text}`}
+                            </Text>
+                            {note.mine && onDeleteNote ? (
+                                <Pressable accessibilityRole="button" accessibilityLabel="Take that back" hitSlop={8}
+                                    onPress={() => onDeleteNote(note.id)}>
+                                    <Ionicons name="close" size={ms(12)} color={colors.textTertiary} />
+                                </Pressable>
+                            ) : null}
+                        </Animated.View>
+                    ))}
+                </Animated.View>
+            ) : null}
+
+            {writing && onComment ? (
+                <Animated.View layout={MORPH} entering={FadeIn.duration(160)}
+                    style={[styles.composer, { borderTopColor: colors.border }]}>
+                    <TextInput
+                        autoFocus
+                        value={draft}
+                        onChangeText={setDraft}
+                        placeholder={card.isYou ? 'A note for your own day' : `Say something to ${card.username}`}
+                        placeholderTextColor={colors.textTertiary}
+                        maxLength={NOTE_LIMIT}
+                        returnKeyType="send"
+                        onSubmitEditing={send}
+                        accessibilityLabel="Your note"
+                        style={[styles.input, {
+                            color: colors.textPrimary, borderColor: colors.border,
+                            backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
+                        }]}
+                    />
+                    <Pressable accessibilityRole="button" accessibilityLabel="Send the note"
+                        disabled={!draft.trim()} onPress={send}
+                        style={[styles.send, { backgroundColor: draft.trim() ? primary : 'transparent', borderColor: colors.border }]}>
+                        <Ionicons name="arrow-up" size={ms(15)} color={draft.trim() ? '#fff' : colors.textTertiary} />
+                    </Pressable>
+                </Animated.View>
+            ) : null}
         </VoidCard>
+        </Animated.View>
     );
 };
 
@@ -215,7 +298,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
         borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: vs(8),
     },
-    reactionPress: { paddingHorizontal: s(10), paddingVertical: vs(4), alignItems: 'center', justifyContent: 'center' },
+    reactionPress: { paddingHorizontal: s(10), paddingVertical: vs(4), alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: s(3) },
+    noteCount: { fontSize: ms(11), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
+    notes: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: s(15), paddingVertical: vs(8), gap: vs(6) },
+    note: { flexDirection: 'row', alignItems: 'flex-start', gap: s(8) },
+    noteText: { flex: 1, fontSize: ms(12), lineHeight: ms(17), fontFamily: FontFamily.regular },
+    composer: { flexDirection: 'row', alignItems: 'center', gap: s(8), borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: s(15), paddingVertical: vs(9) },
+    input: { flex: 1, minHeight: vs(38), borderWidth: StyleSheet.hairlineWidth, borderRadius: s(12), paddingHorizontal: s(12), fontSize: ms(13), fontFamily: FontFamily.regular },
+    send: { width: s(38), height: s(38), borderRadius: s(19), borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
     halo: { position: 'absolute', width: s(34), height: s(34), borderRadius: s(17) },
     glyph: { fontSize: ms(20) },
 });

@@ -77,3 +77,51 @@ describe('reacting', () => {
         expect(onOpen).toHaveBeenCalled();
     });
 });
+
+describe('saying something', () => {
+    const notes = [
+        { id: 'n1', cardId: 'f1', date: '2026-09-27', text: 'How was the long run?', at: 1, mine: true },
+        { id: 'n2', cardId: 'f1', date: '2026-09-27', text: 'Brutal, worth it.', at: 2, mine: false },
+    ];
+
+    it('says nothing about notes on a card that cannot take them', () => {
+        const screen = show({ todayCompleted: 1, todayTotal: 1 });
+        expect(screen.queryByLabelText(/^Say something/)).toBeNull();
+    });
+
+    it('sends what was typed, once', () => {
+        const onComment = jest.fn();
+        const screen = show({ todayCompleted: 1, todayTotal: 1 }, { onComment });
+        fireEvent.press(screen.getByLabelText('Say something'));
+        fireEvent.changeText(screen.getByLabelText('Your note'), 'Nice work');
+        fireEvent.press(screen.getByLabelText('Send the note'));
+        expect(onComment).toHaveBeenCalledWith('Nice work');
+        expect(onComment).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not send an empty note', () => {
+        const onComment = jest.fn();
+        const screen = show({ todayCompleted: 1, todayTotal: 1 }, { onComment });
+        fireEvent.press(screen.getByLabelText('Say something'));
+        fireEvent.press(screen.getByLabelText('Send the note'));
+        expect(onComment).not.toHaveBeenCalled();
+    });
+
+    it('shows what has been said, and who said it', () => {
+        const screen = show({ todayCompleted: 1, todayTotal: 1 }, { notes, onComment: jest.fn() });
+        expect(screen.getByLabelText('Say something · 2 already said')).toBeTruthy();
+        expect(screen.getByText(/How was the long run\?/)).toBeTruthy();
+        expect(screen.getByText('You')).toBeTruthy();
+        // Their name is on the card as well as on their note.
+        expect(screen.getAllByText('sam').length).toBeGreaterThan(1);
+    });
+
+    it('only offers to take back what you wrote', () => {
+        const onDeleteNote = jest.fn();
+        const screen = show({ todayCompleted: 1, todayTotal: 1 }, { notes, onComment: jest.fn(), onDeleteNote });
+        const backs = screen.getAllByLabelText('Take that back');
+        expect(backs).toHaveLength(1);
+        fireEvent.press(backs[0]);
+        expect(onDeleteNote).toHaveBeenCalledWith('n1');
+    });
+});
