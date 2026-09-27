@@ -16,9 +16,14 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Carried over from round two
 
-- [ ] Look tab: custom icon, a rainbow circle that opens the colour wheel, the
-      whole icon collection with search, and drop the preview on the left —
-      the "Look" chip already shows the change.
+- [x] Look tab (`components/Create/GoalLookPicker.tsx`): all 42 icons are on
+      screen with the search always visible — "Browse all 42 icons" was a tap
+      to reach the thing the tab is for — inside a panel with a ceiling so the
+      sentence you are writing never scrolls away. The colour wheel now sits
+      behind a circle of the spectrum at the end of the swatch row, where the
+      eye is already looking for a colour, instead of a text link reading
+      "Custom color". The 48-point preview on the left is gone; the "Look"
+      chip above the keyboard already shows the icon and colour.
 - [ ] Reminders: a real duration before — minutes, hours or days — and
       location triggers in both directions, arriving and leaving.
 - [ ] The keyboard still flickers on leaving a create sheet. One attempt has

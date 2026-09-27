@@ -147,12 +147,11 @@ describe('the goal sheet', () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Read 12 books this year');
         fireEvent.press(screen.getByLabelText('Look'));
-        fireEvent.press(screen.getByText('Browse all 42 icons'));
         fireEvent.changeText(screen.getByLabelText('Search goal icons'), 'travel');
         fireEvent.press(screen.getByLabelText('Icon Airplane'));
         fireEvent.press(screen.getByLabelText('Goal color'));
         fireEvent.press(screen.getByLabelText('Color Pink'));
-        fireEvent.press(screen.getByLabelText('Custom color'));
+        fireEvent.press(screen.getByLabelText('Any colour'));
         fireEvent.changeText(screen.getByLabelText('Exact hex color'), '#123456');
         fireEvent.press(screen.getByLabelText('Apply hex color'));
         await act(async () => { fireEvent.press(screen.getByText('Create goal')); });
