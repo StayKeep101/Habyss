@@ -39,17 +39,23 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Task flow — Date tab
 
-- [ ] Move Today / Tomorrow / Next week directly under the calendar, where the
-      small "Today" currently sits.
-- [ ] Remove "No date".
+- [x] Today / Tomorrow / Next week now sit under the calendar, and the
+      calendar's own "Today" link is hidden there so the word does not appear
+      twice a few points apart.
+- [x] "No date" removed. **Consequence worth knowing:** a task created without
+      touching this row is still undated, but once a date is set the sheet has
+      no way to unset it. Say the word if you want a way back.
 
 ## Habits and tasks — Time
 
-- [ ] Replace the separate "Time" and "How long" rows with one Time row: a
-      start time and an optional end time.
-- [ ] Keep 15 / 30 / 45 min and 1 hour; remove "No length".
-- [ ] The start time should be visible immediately, not behind a "Set a start
-      time" button.
+- [x] One Time row for both sheets (`components/Create/TimeRange.tsx`): a start
+      and an optional end. The wheel is on screen the moment the row opens —
+      hiding it behind "Set a start time" cost a tap to reach the thing the row
+      exists for.
+- [x] 15 / 30 / 45 / 1 hour kept; "No length" and "Not set" gone. Tapping the
+      length already chosen takes it off, which is what tapping a chosen thing
+      should do anyway.
+- [x] The chip reads "06:00 → 06:45" rather than a start and a length.
 
 ## Profile page
 

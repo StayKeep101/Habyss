@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
+import { TimeRange, endTime } from '@/components/Create/TimeRange';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
@@ -36,7 +36,6 @@ const PRIORITIES: { id: TaskPriority; label: string }[] = [
     { id: 2, label: 'Normal' },
     { id: 3, label: 'Low' },
 ];
-const ESTIMATES = [5, 15, 30, 60, 120];
 
 interface Draft {
     title: string;
@@ -83,7 +82,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: accent, foreground: accentText } = useAccentGradient();
-    const { lightFeedback, successFeedback } = useHaptics();
+    const { successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
     const [editing, setEditing] = useState<Task | null>(null);
@@ -91,7 +90,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<string | null>(null);
-    const [picker, setPicker] = useState<'time' | null>(null);
     const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -109,7 +107,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         setText(current?.title ?? '');
         setEdits({});
         setOpenRow(null);
-        setPicker(null);
         setError(null);
     }
 
@@ -188,16 +185,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             setSaving(false);
         }
     };
-
-    const pickerValue = (() => {
-        const base = draft.dueDate ? new Date(`${draft.dueDate}T12:00:00`) : new Date();
-        if (picker === 'time' && draft.dueTime) {
-            const [hour, minute] = draft.dueTime.split(':').map(Number);
-            base.setHours(Number.isFinite(hour) ? hour : 9, Number.isFinite(minute) ? minute : 0, 0, 0);
-        }
-        return base;
-    })();
-
     const quickDay = (days: number) => {
         const date = new Date();
         date.setDate(date.getDate() + days);
@@ -211,64 +198,35 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             id: 'due', icon: 'calendar-outline', label: 'Date', value: shortDate(draft.dueDate),
             content: (
                 <>
+                    {/* The calendar answers the question; the shortcuts sit
+                        underneath it, next to "Today", where the eye already
+                        is once it has finished reading the month. */}
+                    <GoalCalendar allowPast showToday={false} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
                     <Choices
                         options={[
                             { id: quickDay(0), label: 'Today' },
                             { id: quickDay(1), label: 'Tomorrow' },
                             { id: quickDay(7), label: 'Next week' },
-                            { id: '', label: 'No date' },
                         ]}
                         value={draft.dueDate ?? ''}
                         accent={accent}
-                        onChange={id => { setPicker(null); change({ dueDate: id || undefined }); }}
+                        onChange={id => change({ dueDate: id || undefined })}
                     />
-                    <GoalCalendar allowPast value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
-
                 </>
             ),
         },
         {
-            id: 'time', icon: 'time-outline', label: 'Time', value: draft.dueTime,
+            id: 'time', icon: 'time-outline', label: 'Time',
+            value: draft.dueTime
+                ? (draft.estimate ? `${draft.dueTime} → ${endTime(draft.dueTime, draft.estimate)}` : draft.dueTime)
+                : undefined,
             content: (
-                <>
-                    <Choices
-                        options={[
-                            { id: '09:00', label: 'Morning' }, { id: '14:00', label: 'Afternoon' },
-                            { id: '19:00', label: 'Evening' }, { id: '', label: 'No time' },
-                        ]}
-                        value={draft.dueTime ?? ''}
-                        accent={accent}
-                        onChange={id => { setPicker(null); change({ dueTime: id || undefined }); }}
-                    />
-                    <Pressable onPress={() => { lightFeedback(); setPicker(picker === 'time' ? null : 'time'); }} style={styles.link}>
-                        <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.medium }}>Pick a time</Text>
-                    </Pressable>
-                    {picker === 'time' ? (
-                        <DateTimePicker
-                            value={pickerValue}
-                            mode="time"
-                            display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                            style={styles.picker}
-                            themeVariant={isLight ? 'light' : 'dark'}
-                            onChange={(_event, selected) => {
-                                if (Platform.OS !== 'ios') setPicker(null);
-                                if (!selected) return;
-                                change({ dueTime: `${String(selected.getHours()).padStart(2, '0')}:${String(selected.getMinutes()).padStart(2, '0')}` });
-                            }}
-                        />
-                    ) : null}
-                </>
-            ),
-        },
-        {
-            id: 'estimate', icon: 'hourglass-outline', label: 'How long',
-            value: draft.estimate ? `${draft.estimate} min` : undefined,
-            content: (
-                <Choices
-                    options={[...ESTIMATES.map(minutes => ({ id: minutes, label: minutes >= 60 ? `${minutes / 60} hr` : `${minutes} min` })), { id: 0, label: 'Not set' }]}
-                    value={draft.estimate ?? 0}
+                <TimeRange
+                    start={draft.dueTime}
+                    minutes={draft.estimate}
                     accent={accent}
-                    onChange={minutes => change({ estimate: minutes || undefined })}
+                    startLabel="Due at"
+                    onChange={next => change({ dueTime: next.start, estimate: next.minutes })}
                 />
             ),
         },

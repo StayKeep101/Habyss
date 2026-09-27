@@ -29,7 +29,8 @@ describe('the habit sheet', () => {
         // The chips read as what they are set to, not as their own names —
         // and a schedule now reads back as a sentence, not as abbreviations.
         expect(screen.getByText('Monday, Wednesday and Friday')).toBeTruthy();
-        expect(screen.getByText('06:00 · 45m')).toBeTruthy();
+        // The chip now says when it starts and when it ends, not a length.
+        expect(screen.getByText('06:00 → 06:45')).toBeTruthy();
         // The habit itself is what is left once the schedule is taken out.
         expect(screen.getAllByText('Gym').length).toBeGreaterThan(0);
     });
@@ -152,11 +153,13 @@ describe('shared habit controls', () => {
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
         expect(addHabit).toHaveBeenCalledWith(expect.objectContaining({ goalValue: 1, unit: 'books', trackingMethod: 'numeric' }));
     });
-    it('keeps midnight when opening the time control', async () => {
+    it('keeps midnight rather than falling back to a default hour', async () => {
+        // 00:00 is falsy in every obvious check, which is how it used to turn
+        // into 08:00 on the way to the wheel.
         const screen = render(<HabitSheet visible />);
         write(screen, 'Stretch at 00:00');
         fireEvent.press(screen.getByLabelText('Time, 00:00'));
-        fireEvent.press(screen.getByText('Starts at 00:00'));
+        // The wheel is on screen the moment the row opens, not behind a button.
         expect(screen.UNSAFE_getByType('DateTimePicker' as any).props.value.getHours()).toBe(0);
         await act(async () => {});
     });

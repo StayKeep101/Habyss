@@ -8,6 +8,7 @@ import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
 import { RepeatPicker } from '@/components/Create/RepeatPicker';
+import { TimeRange, endTime } from '@/components/Create/TimeRange';
 import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, type Recurrence, type Weekday } from '@/lib/recurrence';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
@@ -325,41 +326,16 @@ export const HabitSheet: React.FC<{
         },
         {
             id: 'time', icon: 'time-outline', label: 'Time',
-            value: draft.startTime ? `${draft.startTime}${draft.durationMinutes ? ` · ${draft.durationMinutes}m` : ''}` : undefined,
+            value: draft.startTime
+                ? (draft.durationMinutes ? `${draft.startTime} → ${endTime(draft.startTime, draft.durationMinutes)}` : draft.startTime)
+                : undefined,
             content: (
-                <>
-                    <Choices
-                        options={[{ id: 0, label: 'No length' }, { id: 15, label: '15 min' }, { id: 30, label: '30 min' }, { id: 45, label: '45 min' }, { id: 60, label: '1 hr' }]}
-                        value={draft.durationMinutes ?? 0}
-                        accent={accent}
-                        onChange={minutes => change({ durationMinutes: minutes || undefined })}
-                    />
-                    <View style={styles.inline}>
-                        <Pressable onPress={() => { lightFeedback(); setPicker(picker === 'time' ? null : 'time'); }} style={styles.link}>
-                            <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.medium }}>
-                                {draft.startTime ? `Starts at ${draft.startTime}` : 'Set a start time'}
-                            </Text>
-                        </Pressable>
-                        {draft.startTime ? (
-                            <Pressable onPress={() => change({ startTime: undefined })} style={styles.link}>
-                                <Text style={{ color: colors.textTertiary, fontSize: 12 }}>Clear</Text>
-                            </Pressable>
-                        ) : null}
-                    </View>
-                    {picker === 'time' ? (
-                        <DateTimePicker
-                            value={timeValue(draft.startTime)}
-                            mode="time"
-                            display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                            style={styles.picker}
-                            themeVariant={isLight ? 'light' : 'dark'}
-                            onChange={(_event, selected) => {
-                                if (Platform.OS !== 'ios') setPicker(null);
-                                if (selected) change({ startTime: asTime(selected) });
-                            }}
-                        />
-                    ) : null}
-                </>
+                <TimeRange
+                    start={draft.startTime}
+                    minutes={draft.durationMinutes}
+                    accent={accent}
+                    onChange={next => change({ startTime: next.start, durationMinutes: next.minutes })}
+                />
             ),
         },
         {

@@ -23,15 +23,25 @@ it('opens the calendar directly and saves the selected date', async () => {
     expect(updateTask).toHaveBeenCalledWith('t1', expect.objectContaining({ title: saved.title, dueDate: '2026-09-25' }));
 });
 
-it('clears a date and preserves midnight when editing', async () => {
+it('preserves midnight when editing', async () => {
+    // 00:00 is falsy in every obvious check, which is how it used to become
+    // 08:00 on the way to the wheel.
     const screen = render(<TaskFormModal visible task={saved} />);
-    fireEvent.press(screen.getByLabelText(/^Date,/));
-    fireEvent.press(screen.getByText('No date'));
     fireEvent.press(screen.getByLabelText('Time, 00:00'));
-    fireEvent.press(screen.getByText('Pick a time'));
+    // The wheel is on screen the moment the row opens, not behind "Pick a time".
     expect(screen.UNSAFE_getByType('DateTimePicker' as any).props.value.getHours()).toBe(0);
     await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
-    expect(updateTask).toHaveBeenCalledWith('t1', expect.objectContaining({ dueDate: undefined, dueTime: '00:00' }));
+    expect(updateTask).toHaveBeenCalledWith('t1', expect.objectContaining({ dueTime: '00:00' }));
+});
+
+it('puts the date shortcuts under the calendar, and offers no "No date"', async () => {
+    const screen = render(<TaskFormModal visible task={saved} />);
+    fireEvent.press(screen.getByLabelText(/^Date,/));
+    for (const label of ['Today', 'Tomorrow', 'Next week']) {
+        expect(screen.getByText(label)).toBeTruthy();
+    }
+    expect(screen.queryByText('No date')).toBeNull();
+    await act(async () => {});
 });
 
 it('highlights recognized details inside the input', async () => {

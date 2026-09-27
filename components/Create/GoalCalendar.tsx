@@ -16,8 +16,10 @@ const firstOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(
 const shiftMonth = (date: Date, delta: number) => new Date(date.getFullYear(), date.getMonth() + delta, 1, 12);
 const monthRows = (date: Date) => Math.ceil(((date.getDay() + 6) % 7 + new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()) / 7);
 
-export function GoalCalendar({ value, onChange, accent, allowPast = false }: {
+export function GoalCalendar({ value, onChange, accent, allowPast = false, showToday = true }: {
     allowPast?: boolean;
+    /** Off where the surrounding sheet already has a Today button. */
+    showToday?: boolean;
     value?: string; onChange: (date: string) => void; accent: string;
 }) {
     const { theme } = useTheme();
@@ -124,9 +126,13 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false }: {
             </Animated.View>
         </>}
         <View style={styles.footer}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Go to current month" onPress={() => { showMonth(thisMonth); setJump(false); }} style={styles.today}>
-                <Text style={[styles.hint, { color: accent }]}>Today</Text>
-            </Pressable>
+            {/* Hidden where the sheet offers a Today shortcut of its own, so
+                the word does not appear twice a few points apart. */}
+            {showToday ? (
+                <Pressable accessibilityRole="button" accessibilityLabel="Go to current month" onPress={() => { showMonth(thisMonth); setJump(false); }} style={styles.today}>
+                    <Text style={[styles.hint, { color: accent }]}>Today</Text>
+                </Pressable>
+            ) : <View />}
             <Text style={[styles.hint, { color: colors.textTertiary }]}>{jump ? 'Pick a month' : ''}</Text>
         </View>
     </View>;
