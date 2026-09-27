@@ -28,8 +28,11 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Goals
 
-- [ ] Tapping a goal in Goals Progress should show its graph in place, not
-      open the goal detail page. The small graph should scrub like the big one.
+- [x] Tapping a goal opens its chart **in place** — the same chart as the one
+      at the top of the page, with ranges and a line you can drag across. The
+      card's status line becomes the scrub readout while you drag, so the
+      number you are looking for is where you were already looking. Tapping
+      again closes it; a long press still opens the full stats page.
 
 ## Lock screen
 

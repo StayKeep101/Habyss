@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
+
+/** Timed, never sprung: a card growing a chart should not bounce. */
+const MORPH = LinearTransition.duration(240).easing(Easing.out(Easing.cubic));
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
@@ -36,6 +40,11 @@ export default function GoalsOverview() {
     const { lightFeedback } = useHaptics();
     const { goals, insightsById, overall, overallSeries, loaded } = useGoalsInsights();
     const [scrub, setScrub] = useState<GoalPoint | null>(null);
+    // Tapping a goal opens its chart here rather than pushing a screen: the
+    // question "how is this one going" is answered by the line, and a screen
+    // that has to be navigated back out of is a poor way to ask it repeatedly.
+    const [openGoal, setOpenGoal] = useState<string | null>(null);
+    const [goalScrub, setGoalScrub] = useState<GoalPoint | null>(null);
 
     const statusColor = (status: GoalStatus) =>
         status === 'ahead' || status === 'on_pace' ? colors.success : status === 'behind' ? colors.error : colors.textTertiary;
@@ -109,8 +118,14 @@ export default function GoalsOverview() {
                                     key={goal.id}
                                     activeOpacity={0.85}
                                     accessibilityRole="button"
-                                    accessibilityLabel={`${goal.name}, ${insights.progress}% done, ${STATUS_LABEL[insights.status]}. Open stats.`}
-                                    onPress={() => { lightFeedback(); router.push({ pathname: '/goal-stats', params: { goalId: goal.id } }); }}
+                                    accessibilityLabel={`${goal.name}, ${insights.progress}% done, ${STATUS_LABEL[insights.status]}. Show its chart.`}
+                                    accessibilityState={{ expanded: openGoal === goal.id }}
+                                    onPress={() => {
+                                        lightFeedback();
+                                        setGoalScrub(null);
+                                        setOpenGoal(current => (current === goal.id ? null : goal.id));
+                                    }}
+                                    onLongPress={() => { lightFeedback(); router.push({ pathname: '/goal-stats', params: { goalId: goal.id } }); }}
                                     style={[styles.goalCard, { backgroundColor: isLight ? '#FFFFFF' : 'rgba(255,255,255,0.05)', borderColor: colors.border }]}
                                 >
                                     <View style={styles.goalTop}>
@@ -119,8 +134,9 @@ export default function GoalsOverview() {
                                             <View style={styles.statusRow}>
                                                 <View style={[styles.statusDot, { backgroundColor: statusColor(insights.status) }]} />
                                                 <Text style={[styles.goalMeta, { color: colors.textTertiary }]}>
-                                                    {STATUS_LABEL[insights.status]}
-                                                    {insights.daysLeft !== null ? ` · ${insights.daysLeft} days left` : ''}
+                                                    {openGoal === goal.id && goalScrub
+                                                        ? `${dateAt(goalScrub.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${Math.round(goalScrub.actual)}% · pace ${Math.round(goalScrub.pace)}%`
+                                                        : `${STATUS_LABEL[insights.status]}${insights.daysLeft !== null ? ` · ${insights.daysLeft} days left` : ''}`}
                                                 </Text>
                                             </View>
                                         </View>
@@ -132,9 +148,22 @@ export default function GoalsOverview() {
                                         </View>
                                     </View>
                                     {insights.series.length > 1 ? (
-                                        <View style={{ marginTop: 10 }}>
-                                            <GoalProgressChart series={insights.series} color={color} height={64} compact />
-                                        </View>
+                                        <Animated.View layout={MORPH} style={{ marginTop: 10 }}>
+                                            {openGoal === goal.id ? (
+                                                // The same chart as the one at
+                                                // the top: ranges, and a line
+                                                // you can drag across.
+                                                <Animated.View entering={FadeIn.duration(180)}>
+                                                    <GoalProgressChart
+                                                        series={insights.series}
+                                                        color={color}
+                                                        onScrub={setGoalScrub}
+                                                    />
+                                                </Animated.View>
+                                            ) : (
+                                                <GoalProgressChart series={insights.series} color={color} height={64} compact />
+                                            )}
+                                        </Animated.View>
                                     ) : null}
                                 </TouchableOpacity>
                             );
