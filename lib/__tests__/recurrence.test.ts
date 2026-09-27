@@ -148,3 +148,53 @@ describe('storing a rule', () => {
             .toEqual({ kind: 'monthly', every: 1, dates: [1] });
     });
 });
+
+describe('a habit that carries a rule', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createHabitSchedule } = require('../habitSchedule') as typeof import('../habitSchedule');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    type Habit = import('../habitsSQLite').Habit;
+
+    const habit = (over: Partial<Habit> = {}): Habit => ({
+        id: 'h', name: 'Deep clean', startDate: '2026-01-01', createdAt: '2026-01-01',
+        taskDays: [], isArchived: false, ...over,
+    } as Habit);
+
+    it('schedules by the rule instead of the weekday list', () => {
+        const rule: Recurrence = { kind: 'monthly', every: 2, ordinal: 3, day: 'sun' };
+        // taskDays says every day; the rule must win.
+        const scheduled = createHabitSchedule(habit({
+            recurrence: serialiseRecurrence(rule),
+            taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+        }));
+        expect(scheduled(at(2026, 3, 15))).toBe(true);  // third Sunday of March
+        expect(scheduled(at(2026, 3, 16))).toBe(false); // the Monday after
+        expect(scheduled(at(2026, 2, 15))).toBe(false); // wrong month
+    });
+
+    it('still stops at the habit’s end date', () => {
+        const scheduled = createHabitSchedule(habit({
+            recurrence: serialiseRecurrence({ kind: 'daily', every: 1 }),
+            endDate: '2026-01-10',
+        }));
+        expect(scheduled(at(2026, 1, 10))).toBe(true);
+        expect(scheduled(at(2026, 1, 11))).toBe(false);
+    });
+
+    it('falls back to the old reading when the rule will not parse', () => {
+        // A hand-edited or out-of-date value must not cost the habit its
+        // schedule entirely.
+        const scheduled = createHabitSchedule(habit({
+            recurrence: '{"kind":"nonsense"}',
+            taskDays: ['thu'],
+        }));
+        expect(scheduled(at(2026, 1, 1))).toBe(true);  // a Thursday
+        expect(scheduled(at(2026, 1, 2))).toBe(false);
+    });
+
+    it('leaves a habit with no rule exactly as it was', () => {
+        const scheduled = createHabitSchedule(habit({ taskDays: ['mon'] }));
+        expect(scheduled(at(2026, 1, 5))).toBe(true);
+        expect(scheduled(at(2026, 1, 6))).toBe(false);
+    });
+});

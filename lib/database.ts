@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 let dbInstance: any = null;
 /**
@@ -123,6 +123,7 @@ async function runMigrations(db: any): Promise<void> {
         [9, migrateToV9],
         [10, migrateToV10],
         [11, migrateToV11],
+        [12, migrateToV12],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -140,6 +141,23 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 12 — how often something comes round.
+ *
+ * The old fields could say "these weekdays, every N weeks", and monthly or
+ * yearly off the start date. They could not say "the third Sunday of every
+ * second month", so this carries a rule from lib/recurrence as JSON.
+ *
+ * Local only for now, and deliberately outside the sync mapping: the cloud
+ * `habits` table has no matching column, and uploading one it does not have
+ * would fail every habit sync. The older columns are still written alongside
+ * it, so a habit stays readable by a build that knows nothing about this.
+ */
+async function migrateToV12(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'habits', 'recurrence', 'TEXT');
+    console.log('[Database] Migrated to schema v12');
 }
 
 /**

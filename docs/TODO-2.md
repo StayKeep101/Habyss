@@ -37,7 +37,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Habit flow — Repeat
 
-- [~] The **grammar** is built and tested (`lib/recurrence.ts`, 21 tests): every
+- [x] The **grammar** is built and tested (`lib/recurrence.ts`, 25 tests): every
       N hours / days / weeks / months / years, weekly on chosen days, monthly
       on set dates or on the {first…fifth, last} {weekday, day, weekday-kind,
       weekend}, and yearly with months plus the same ordinal option. It can
@@ -45,18 +45,19 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       third Sunday". Intervals count from the habit's start so a fortnightly
       rule never drifts, and the 31st lands on the last day of a short month
       rather than being skipped.
-      **Still to do: the UI, and teaching `createHabitSchedule` to read it.**
-- [ ] Custom takes a unit and an interval — every N hours / days / weeks /
-      months / years:
-      - **Weekly** — every N, on chosen weekdays.
-      - **Monthly** — every N, either "on the {first…fifth, last}
-        {Mon…Sun, day, weekday, weekend}" or "each" with a 1–31 grid.
-      - **Yearly** — every N, months of the year, plus the same ordinal +
-        weekday option.
-      So: every 2 months on the third Sunday; every 3 months on the last
-      weekend; the 27th of each month.
-- [ ] The chip above the keyboard must grow to fit whatever the rule reads as,
-      however long that gets.
+- [x] `createHabitSchedule` reads the rule when a habit carries one, and keeps
+      the old weekday reading for habits saved before it. A rule that will not
+      parse falls back rather than costing the habit its schedule. Stored in
+      schema v12 (`habits.recurrence`), local-only for the same reason as the
+      reminder message.
+- [x] The picker: seven presets on top — Daily, Weekdays, Weekends, Weekly,
+      Monthly, Yearly, Hourly — and each one opens only the detail it needs.
+      Monthly offers "Each" with a 1–31 grid or "On the {first…fifth, last}
+      {Mon…Sun, day, weekday, weekend}"; yearly offers months plus the same.
+      Underneath, one sentence saying what the rule means.
+- [x] The chip grows to fit. Its 190pt cap is gone — the row scrolls sideways,
+      so "Every 2 months on the third Sunday" is no longer cut to "Every 2
+      mont…".
 
 ## Reminders — habits and tasks
 

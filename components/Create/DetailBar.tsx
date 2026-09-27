@@ -201,7 +201,9 @@ const styles = StyleSheet.create({
     chip: {
         flexDirection: 'row', alignItems: 'center', gap: 6,
         paddingHorizontal: 12, height: 36, borderRadius: 18, borderWidth: 1,
-        maxWidth: 190,
+        // No cap: the chip says what the setting is, and a rule like "Every 2
+        // months on the third Sunday" is useless cut off at "Every 2 mont…".
+        // The row scrolls sideways, so a long one costs nothing but its width.
     },
     chipText: { fontSize: 13, fontFamily: FontFamily.medium },
     choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

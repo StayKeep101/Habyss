@@ -62,6 +62,8 @@ export interface Habit {
     reminderOffset?: number; // Minutes before start time
     /** One specific sentence for this habit's reminder; Echo writes it when unset. */
     reminderMessage?: string;
+    /** A lib/recurrence rule as JSON, when the schedule needs more than weekdays. */
+    recurrence?: string;
     healthKitMetric?: 'steps' | 'sleep' | 'mindfulness' | 'workout'; // New
     healthKitTarget?: number; // New
 }
@@ -174,6 +176,7 @@ export async function getHabits(): Promise<Habit[]> {
                     reminderOffset: row.reminder_offset,
                     locationReminders: storedArray(row.location_reminders).filter(location => location && typeof location.name === 'string' && Number.isFinite(location.latitude) && Number.isFinite(location.longitude)),
                     reminderMessage: row.reminder_message || undefined,
+                    recurrence: row.recurrence || undefined,
                     graphStyle: row.graph_style,
                     trackingMethod: row.tracking_method,
                     healthKitMetric: row.health_kit_metric,
@@ -216,8 +219,8 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                         task_days, reminders, start_date, end_date, duration_minutes, start_time, end_time,
                         type, color, goal_period, goal_value, unit, chart_type, is_archived, show_memo,
                         frequency, week_interval, time_of_day, graph_style, tracking_method,
-                        ringtone, goal_spec, reminder_offset, reminder_message, location_reminders, health_kit_metric, health_kit_target, created_at, updated_at, synced, deleted
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+                        ringtone, goal_spec, reminder_offset, reminder_message, recurrence, location_reminders, health_kit_metric, health_kit_target, created_at, updated_at, synced, deleted
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                 `,
                     id,
                     uid,
@@ -252,6 +255,7 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
                     habitData.goalSpec || null,
                     habitData.reminderOffset || null,
                     habitData.reminderMessage?.trim() || null,
+                    habitData.recurrence || null,
                     JSON.stringify(habitData.locationReminders || []),
                     habitData.healthKitMetric || null,
                     habitData.healthKitTarget || null,
@@ -367,6 +371,7 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'reminderOffset')) { setClauses.push('reminder_offset = ?'); params.push(updatedHabit.reminderOffset ?? null); }
                 if (updatedHabit.locationReminders !== undefined) { setClauses.push('location_reminders = ?'); params.push(JSON.stringify(updatedHabit.locationReminders)); }
                 if (updatedHabit.reminderMessage !== undefined) { setClauses.push('reminder_message = ?'); params.push(updatedHabit.reminderMessage?.trim() || null); }
+                if (updatedHabit.recurrence !== undefined) { setClauses.push('recurrence = ?'); params.push(updatedHabit.recurrence || null); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'healthKitMetric')) { setClauses.push('health_kit_metric = ?'); params.push(updatedHabit.healthKitMetric ?? null); }
                 if (Object.prototype.hasOwnProperty.call(updatedHabit, 'healthKitTarget')) { setClauses.push('health_kit_target = ?'); params.push(updatedHabit.healthKitTarget ?? null); }
 

@@ -97,3 +97,16 @@ describe('the bar above the keyboard', () => {
     });
 
 });
+
+describe('a chip that has a lot to say', () => {
+    it('is not capped, so a long rule is not cut off mid-word', () => {
+        // "Every 2 months on the third Sunday" is useless as "Every 2 mont…".
+        const rule = 'Every 2 months on the third Sunday';
+        const long: DetailItem[] = [{ id: 'repeat', icon: 'repeat', label: 'Repeat', value: rule, content: <Text>panel</Text> }];
+        const screen = render(<DetailBar items={long} open={null} onToggle={jest.fn()} accent="#6B8AF5" />);
+        expect(screen.getByText(rule)).toBeTruthy();
+
+        const chip = flatten(screen.getByLabelText(`Repeat, ${rule}`).props.style);
+        expect(chip.maxWidth).toBeUndefined();
+    });
+});

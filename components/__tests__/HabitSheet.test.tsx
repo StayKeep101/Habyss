@@ -26,8 +26,9 @@ describe('the habit sheet', () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Gym monday wednesday friday at 6am for 45 minutes');
 
-        // The chips read as what they are set to, not as their own names.
-        expect(screen.getByText('Mon, Wed, Fri')).toBeTruthy();
+        // The chips read as what they are set to, not as their own names —
+        // and a schedule now reads back as a sentence, not as abbreviations.
+        expect(screen.getByText('Monday, Wednesday and Friday')).toBeTruthy();
         expect(screen.getByText('06:00 · 45m')).toBeTruthy();
         // The habit itself is what is left once the schedule is taken out.
         expect(screen.getAllByText('Gym').length).toBeGreaterThan(0);
@@ -36,12 +37,12 @@ describe('the habit sheet', () => {
     it('keeps a day the user taps even as they keep typing', () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Read monday');
-        fireEvent.press(screen.getByLabelText('Repeat, Mon'));
-        fireEvent.press(screen.getByLabelText('sat'));
-        expect(screen.getByText('Mon, Sat')).toBeTruthy();
+        fireEvent.press(screen.getByLabelText(/^Repeat/));
+        fireEvent.press(screen.getByLabelText('Saturday'));
+        expect(screen.getAllByText('Monday and Saturday').length).toBeGreaterThan(0);
 
         write(screen, 'Read monday 20 pages');
-        expect(screen.getByText('Mon, Sat')).toBeTruthy();
+        expect(screen.getAllByText('Monday and Saturday').length).toBeGreaterThan(0);
         expect(screen.getByLabelText('Measure, 20 pages')).toBeTruthy();
     });
 
@@ -79,7 +80,8 @@ describe('the habit sheet', () => {
 
         const screen = render(<HabitSheet visible habit={habit} />);
         expect(screen.getByText('Save changes')).toBeTruthy();
-        expect(screen.getByText('Mon')).toBeTruthy();
+        // An existing habit's weekdays read back as the rule they describe.
+        expect(screen.getByText('Monday')).toBeTruthy();
 
         await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
         await waitFor(() => expect(updateHabit).toHaveBeenCalled());
@@ -161,29 +163,41 @@ describe('shared habit controls', () => {
 });
 
 describe('how often a habit comes round', () => {
-    it('offers fortnightly and monthly, not just which weekdays', () => {
+    it('offers every ordinary answer as a preset', () => {
         const screen = render(<HabitSheet visible />);
         fireEvent.press(screen.getByLabelText(/^Repeat/));
-        for (const label of ['Weekly', 'Every 2 weeks', 'Day of month', 'Yearly']) {
+        for (const label of ['Daily', 'Weekdays', 'Weekends', 'Weekly', 'Monthly', 'Yearly', 'Hourly']) {
             expect(screen.getByText(label)).toBeTruthy();
         }
     });
 
-    it('hides the weekday grid for a cadence that does not use it', () => {
+    it('opens the detail a preset needs, and nothing else', () => {
         const screen = render(<HabitSheet visible />);
         fireEvent.press(screen.getByLabelText(/^Repeat/));
-        expect(screen.getByText('Weekdays')).toBeTruthy();
 
-        fireEvent.press(screen.getByText('Day of month'));
-        // Nothing to pick: it repeats off the start date, and says so.
-        expect(screen.getByText(/same date each month/)).toBeTruthy();
-        expect(screen.queryByText('Weekdays')).toBeNull();
+        fireEvent.press(screen.getByText('Monthly'));
+        // A month wants dates or an ordinal, never a row of weekday toggles.
+        expect(screen.getByText('Each')).toBeTruthy();
+        expect(screen.getByText('On the')).toBeTruthy();
+        expect(screen.queryByLabelText('Saturday')).toBeNull();
     });
 
-    it('says how often it repeats on the closed row', () => {
+    it('can say every 2 months on the third Sunday', () => {
         const screen = render(<HabitSheet visible />);
         fireEvent.press(screen.getByLabelText(/^Repeat/));
-        fireEvent.press(screen.getByText('Every 2 weeks'));
-        expect(screen.getByText(/every 2 weeks/)).toBeTruthy();
+        fireEvent.press(screen.getByText('Monthly'));
+        fireEvent.press(screen.getByText('On the'));
+        fireEvent.changeText(screen.getByLabelText('How often it repeats'), '2');
+        fireEvent.press(screen.getByText('Third'));
+        fireEvent.press(screen.getByText('Sun'));
+        expect(screen.getAllByText('Every 2 months on the third Sunday').length).toBeGreaterThan(0);
+    });
+
+    it('says the whole rule on the closed row, however long it gets', () => {
+        const screen = render(<HabitSheet visible />);
+        fireEvent.press(screen.getByLabelText(/^Repeat/));
+        fireEvent.press(screen.getByText('Weekly'));
+        fireEvent.changeText(screen.getByLabelText('How often it repeats'), '2');
+        expect(screen.getAllByText(/every 2 weeks/).length).toBeGreaterThan(0);
     });
 });

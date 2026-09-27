@@ -1,7 +1,7 @@
 import { closeDatabase, getDatabase } from '../database';
 const mockOpen = jest.fn();
 /** Kept in step with SCHEMA_VERSION in lib/database.ts. */
-const CURRENT_SCHEMA = 11;
+const CURRENT_SCHEMA = 12;
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: (...args: unknown[]) => mockOpen(...args) }));
 
 

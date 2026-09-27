@@ -7,6 +7,8 @@ import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
+import { RepeatPicker } from '@/components/Create/RepeatPicker';
+import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, type Recurrence, type Weekday } from '@/lib/recurrence';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
@@ -30,7 +32,6 @@ const DAYS: { id: string; label: string }[] = [
     { id: 'thu', label: 'T' }, { id: 'fri', label: 'F' }, { id: 'sat', label: 'S' }, { id: 'sun', label: 'S' },
 ];
 const EVERY_DAY = DAYS.map(day => day.id);
-const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
 type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'goal' | 'look' | 'notes' | null;
 
 interface Draft {
@@ -51,39 +52,11 @@ interface Draft {
     reminderMessage?: string;
     /** Arrival reminders — the geofences this habit listens for. */
     places: { name: string; latitude: number; longitude: number; radius?: number }[];
-    /** 'weekly' honours the chosen days; the rest repeat off the start date. */
-    cadence: Cadence;
-    /** Weeks between repeats, for the weekly cadence only. */
-    every: number;
+    /** How often it comes round, in the full grammar. */
+    rule: Recurrence;
 }
 
-/**
- * How often a habit comes round.
- *
- * The schedule already understood every one of these — a week interval, a day
- * of the month, a date in the year — but the sheet only ever offered which
- * weekdays, so a fortnightly habit could be stored and never asked for.
- */
-export type Cadence = 'weekly' | 'monthly' | 'yearly';
-
-const CADENCES: { id: string; label: string }[] = [
-    { id: 'w1', label: 'Weekly' },
-    { id: 'w2', label: 'Every 2 weeks' },
-    { id: 'w3', label: 'Every 3 weeks' },
-    { id: 'w4', label: 'Every 4 weeks' },
-    { id: 'monthly', label: 'Day of month' },
-    { id: 'yearly', label: 'Yearly' },
-];
-
-const cadenceId = (cadence: Cadence, every: number): string =>
-    cadence === 'weekly' ? `w${Math.min(4, Math.max(1, every))}` : cadence;
-
-const fromCadenceId = (id: string): { cadence: Cadence; every: number } =>
-    id === 'monthly' ? { cadence: 'monthly', every: 1 }
-        : id === 'yearly' ? { cadence: 'yearly', every: 1 }
-            : { cadence: 'weekly', every: Number(id.slice(1)) || 1 };
-
-const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline', color: '#6B8AF5', cadence: 'weekly', every: 1, places: [] });
+const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline', color: '#6B8AF5', rule: DAILY, places: [] });
 
 const fromHabit = (from: Habit): Draft => ({
     name: from.name,
@@ -97,31 +70,22 @@ const fromHabit = (from: Habit): Draft => ({
     icon: (from.icon as IconName) || 'ellipse-outline',
     color: from.color || '#6B8AF5',
     description: from.description,
-    cadence: from.frequency === 'monthly' ? 'monthly' : from.frequency === 'yearly' ? 'yearly' : 'weekly',
-    every: Math.min(4, Math.max(1, Math.floor(from.weekInterval || 1))),
+    // A habit saved before the fuller grammar is read back from the columns
+    // it does have, so editing it does not silently change its schedule.
+    rule: parseRecurrence(from.recurrence) ?? ruleFromColumns(from),
     reminderOffset: from.reminderOffset,
     reminderMessage: from.reminderMessage,
     places: from.locationReminders ?? [],
 });
 
-const describeDays = (days: string[]): string => {
-    if (days.length === 0) return 'Choose days';
-    if (days.length === 7) return 'Every day';
-    if (days.length === 5 && WEEKDAYS.every(day => days.includes(day))) return 'Weekdays';
-    if (days.length === 2 && days.includes('sat') && days.includes('sun')) return 'Weekends';
-    return DAYS.filter(day => days.includes(day.id))
-        .map(day => day.id.charAt(0).toUpperCase() + day.id.slice(1))
-        .join(', ');
-};
-
-/** What the Repeat chip says when it is closed. */
-const describeRepeat = (draft: Draft): string => {
-    if (draft.cadence === 'monthly') return 'Day of month';
-    if (draft.cadence === 'yearly') return 'Yearly';
-    const days = describeDays(draft.days);
-    // "Weekdays, every 2 weeks" — the days, and how often they come round.
-    return draft.every > 1 ? `${days}, every ${draft.every} weeks` : days;
-};
+/** The rule a habit saved under the older columns was really describing. */
+function ruleFromColumns(from: Habit): Recurrence {
+    const every = Math.max(1, Math.floor(from.weekInterval || 1));
+    if (from.frequency === 'monthly') return { kind: 'monthly', every: 1, dates: [1] };
+    if (from.frequency === 'yearly') return { kind: 'yearly', every: 1, months: [] };
+    const weekdays = (from.taskDays?.length ? from.taskDays : EVERY_DAY) as Weekday[];
+    return { kind: 'weekly', every, weekdays };
+}
 
 /** What the Reminder chip says when it is closed. */
 const describeReminder = (draft: Draft): string | undefined => {
@@ -132,11 +96,6 @@ const describeReminder = (draft: Draft): string | undefined => {
     if (draft.places.length) parts.push(draft.places.length === 1 ? draft.places[0].name : `${draft.places.length} places`);
     return parts.length ? parts.join(' · ') : undefined;
 };
-
-const presetOf = (days: string[]): string =>
-    days.length === 7 ? 'all'
-        : days.length === 5 && WEEKDAYS.every(day => days.includes(day)) ? 'week'
-            : days.length === 2 && days.includes('sat') && days.includes('sun') ? 'end' : '';
 
 /**
  * Making a habit, and changing one, in one sheet.
@@ -269,10 +228,18 @@ export const HabitSheet: React.FC<{
 
     const draft = useMemo<Draft>(() => {
         const start = current ? fromHabit(current) : { ...blank(), goalId: eventGoal };
+        const days = parsed?.taskDays?.length ? parsed.taskDays : rules?.matched.days ? EVERY_DAY : start.days;
         const read: Draft = parsed ? {
             ...start,
             name: parsed.name || start.name,
-            days: parsed.taskDays?.length ? parsed.taskDays : rules?.matched.days ? EVERY_DAY : start.days,
+            days,
+            // Days read out of the sentence have to reach the schedule, and the
+            // schedule is the rule now. Naming days is always a weekly rule,
+            // whatever the draft started as; a rule the user built by hand
+            // still wins, because their edits are applied after this.
+            rule: parsed.taskDays?.length
+                ? { kind: 'weekly', every: start.rule.kind === 'weekly' ? start.rule.every : 1, weekdays: days as Weekday[] }
+                : start.rule,
             startTime: parsed.startTime ?? start.startTime,
             durationMinutes: parsed.durationMinutes ?? start.durationMinutes,
             amount: parsed.targetValue ?? start.amount,
@@ -312,8 +279,9 @@ export const HabitSheet: React.FC<{
                 icon: draft.icon,
                 color: draft.color,
                 type: current?.type ?? 'build',
-                frequency: draft.cadence === 'weekly' ? 'daily' : draft.cadence,
-                weekInterval: draft.cadence === 'weekly' ? draft.every : 1,
+                recurrence: serialiseRecurrence(draft.rule),
+                frequency: draft.rule.kind === 'monthly' ? 'monthly' : draft.rule.kind === 'yearly' ? 'yearly' : 'daily',
+                weekInterval: draft.rule.kind === 'weekly' ? draft.rule.every : 1,
                 reminderOffset: draft.reminderOffset,
                 reminderMessage: draft.reminderMessage?.trim() || undefined,
                 locationReminders: draft.places,
@@ -352,58 +320,8 @@ export const HabitSheet: React.FC<{
 
     const items: DetailItem[] = [
         {
-            id: 'repeat', icon: 'repeat', label: 'Repeat', value: describeRepeat(draft),
-            content: (
-                <>
-                    <Choices
-                        options={CADENCES}
-                        value={cadenceId(draft.cadence, draft.every)}
-                        accent={accent}
-                        onChange={id => change(fromCadenceId(id))}
-                    />
-                    {draft.cadence === 'weekly' ? (
-                    <View style={styles.days}>
-                        {DAYS.map(day => {
-                            const on = draft.days.includes(day.id);
-                            return (
-                                <Pressable
-                                    key={day.id}
-                                    accessibilityRole="checkbox"
-                                    accessibilityState={{ checked: on }}
-                                    accessibilityLabel={day.id}
-                                    onPress={() => {
-                                        lightFeedback();
-                                        change({ days: on ? draft.days.filter(item => item !== day.id) : [...draft.days, day.id] });
-                                    }}
-                                    style={[styles.day, {
-                                        backgroundColor: on ? accent + '22' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                        borderColor: on ? accent + '66' : 'transparent',
-                                    }]}
-                                >
-                                    <Text style={{ color: on ? accent : colors.textSecondary, fontSize: 13, fontFamily: FontFamily.medium }}>{day.label}</Text>
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-                    ) : null}
-                    {draft.cadence === 'weekly' ? (
-                        <Choices
-                            options={[{ id: 'all', label: 'Every day' }, { id: 'week', label: 'Weekdays' }, { id: 'end', label: 'Weekends' }]}
-                            value={presetOf(draft.days)}
-                            accent={accent}
-                            onChange={id => change({ days: id === 'all' ? EVERY_DAY : id === 'week' ? WEEKDAYS : ['sat', 'sun'] })}
-                        />
-                    ) : (
-                        // Monthly and yearly repeat off the start date, so there
-                        // is nothing to pick here — say which day it lands on.
-                        <Text style={{ color: colors.textSecondary, fontSize: 13, fontFamily: FontFamily.regular, paddingHorizontal: 14 }}>
-                            {draft.cadence === 'monthly'
-                                ? 'Repeats on the same date each month as the day it starts.'
-                                : 'Repeats on the same date each year as the day it starts.'}
-                        </Text>
-                    )}
-                </>
-            ),
+            id: 'repeat', icon: 'repeat', label: 'Repeat', value: describeRule(draft.rule),
+            content: <RepeatPicker value={draft.rule} accent={accent} onChange={rule => change({ rule })} />,
         },
         {
             id: 'time', icon: 'time-outline', label: 'Time',

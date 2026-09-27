@@ -1,4 +1,5 @@
 import type { Habit } from './habitsSQLite';
+import { matches as recurrenceMatches, parseRecurrence } from './recurrence';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -34,6 +35,21 @@ export function isHabitScheduledForDate(habit: Habit, date: Date): boolean {
 export function createHabitSchedule(habit: Habit): (date: Date) => boolean {
     const start = parseHabitDate(habit.startDate) ?? parseHabitDate(habit.createdAt);
     if (!start) return () => false;
+
+    // A habit written with the fuller grammar carries its rule; anything older
+    // keeps the weekday-and-interval reading below, which is what it was saved
+    // with. A rule that will not parse falls back rather than failing.
+    const rule = parseRecurrence(habit.recurrence);
+    if (rule) {
+        const ends = [habit.endDate, habit.targetDate].map(parseHabitDate).filter((date): date is Date => date !== null);
+        const endDay = ends.length ? Math.min(...ends.map(calendarDay)) : Infinity;
+        return date => {
+            if (!Number.isFinite(date.getTime())) return false;
+            if (calendarDay(date) > endDay) return false;
+            return recurrenceMatches(rule, date, start);
+        };
+    }
+
     const startDay = calendarDay(start);
     const startWeek = startOfWeek(start);
     const startMonth = start.getMonth();
