@@ -88,7 +88,13 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       tenth (or last week, whichever is longer) and red once the day has gone.
 - [x] Today tab: habit and task buttons removed. Building the plan belongs on
       the roadmap; Today is for what today asks of you.
-- [ ] Roadmap tab: moving a task to another day should be the only action.
+- [x] Roadmap tab: moving a task to another day is the only action. The swipes
+      are Sooner / Later / Next week instead of Done, Edit and Delete; the
+      checkbox is a mark rather than a control, because ticking things off
+      belongs to the day and not to the map of it; and tapping a task opens its
+      sheet **already on the Date row**, since nobody came to the plan to
+      rewrite a title. The full set of actions is untouched on the Roadmap tab,
+      where the task itself lives.
 
 ## Habit detail — redesign
 

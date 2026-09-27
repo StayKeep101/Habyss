@@ -27,6 +27,16 @@ interface Props {
     /** Shown when the task is listed outside its goal. */
     goalName?: string;
     size?: RoadMapCardSize;
+    /**
+     * What the row's gestures do.
+     *
+     * `all` is the roadmap tab: tick it, edit it, delete it. `reschedule` is
+     * the goal's plan, where the only question being asked is *when* — so the
+     * swipes move the day and nothing else is offered.
+     */
+    actions?: 'all' | 'reschedule';
+    /** Days to move by, when `actions` is `reschedule`. */
+    onMove?: (task: Task, days: number) => void;
     /** Hold and drag onto a goal to move it there, exactly like a habit. */
     onDragStart?: (task: Task, x: number, y: number) => void;
     onDragMove?: (task: Task, x: number, y: number) => void;
@@ -51,7 +61,7 @@ const shortLength = (minutes: number) =>
  */
 const TaskItemComponent: React.FC<Props> = ({
     task, today, onToggle, onPress, onEdit, onDelete, goalName, size = 'standard',
-    onDragStart, onDragMove, onDragEnd, isDragging = false,
+    actions = 'all', onMove, onDragStart, onDragMove, onDragEnd, isDragging = false,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -97,16 +107,26 @@ const TaskItemComponent: React.FC<Props> = ({
         <GestureDetector gesture={drag}>
         <View style={isDragging ? styles.dragging : undefined}>
         <SwipeRow
-            left={{
-                icon: done ? 'arrow-undo' : 'checkmark',
-                label: done ? 'Undo' : 'Done',
-                color: done ? colors.textTertiary : TASK_COLOR,
-                onPress: () => onToggle(task),
-            }}
-            right={[
-                { icon: 'pencil', label: 'Edit', color: TASK_COLOR, onPress: () => { selectionFeedback(); onEdit(task); } },
-                { icon: 'trash', label: 'Delete', color: '#EF4444', destructive: true, onPress: () => { mediumFeedback(); onDelete(task); } },
-            ]}
+            left={actions === 'reschedule'
+                ? {
+                    icon: 'chevron-back', label: 'Sooner', color: TASK_COLOR,
+                    onPress: () => { selectionFeedback(); onMove?.(task, -1); },
+                }
+                : {
+                    icon: done ? 'arrow-undo' : 'checkmark',
+                    label: done ? 'Undo' : 'Done',
+                    color: done ? colors.textTertiary : TASK_COLOR,
+                    onPress: () => onToggle(task),
+                }}
+            right={actions === 'reschedule'
+                ? [
+                    { icon: 'chevron-forward', label: 'Later', color: TASK_COLOR, onPress: () => { selectionFeedback(); onMove?.(task, 1); } },
+                    { icon: 'play-forward', label: 'Next week', color: TASK_COLOR, onPress: () => { selectionFeedback(); onMove?.(task, 7); } },
+                ]
+                : [
+                    { icon: 'pencil', label: 'Edit', color: TASK_COLOR, onPress: () => { selectionFeedback(); onEdit(task); } },
+                    { icon: 'trash', label: 'Delete', color: '#EF4444', destructive: true, onPress: () => { mediumFeedback(); onDelete(task); } },
+                ]}
         >
             <TouchableOpacity
                 activeOpacity={0.8}
@@ -115,8 +135,12 @@ const TaskItemComponent: React.FC<Props> = ({
                 onPress={() => onPress(task)}
             >
                 <VoidCard intensity={40} style={[styles.card, { paddingVertical: paddingV }, done && { opacity: 0.7 }]}>
-                    {/* Square, where a habit is round: the difference at a glance. */}
+                    {/* Square, where a habit is round: the difference at a glance.
+                        On the plan it is a mark rather than a control: ticking
+                        things off belongs to the day, not to the map of it. */}
                     <TouchableOpacity
+                        disabled={actions === 'reschedule'}
+                        accessible={actions !== 'reschedule'}
                         activeOpacity={0.6}
                         accessibilityRole="checkbox"
                         accessibilityState={{ checked: done }}

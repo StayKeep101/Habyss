@@ -93,6 +93,9 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    /** A row the opener asked for, and the one this session actually opened on. */
+    const [requestedRow, setRequestedRow] = useState<string | null>(null);
+    const [openedWith, setOpenedWith] = useState<string | null>(null);
     const savingRef = useRef(false);
 
     const current = task ?? editing;
@@ -106,7 +109,10 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         setLastSession(session);
         setText(current?.title ?? '');
         setEdits({});
-        setOpenRow(null);
+        // Whatever the opener asked to land on, or nothing.
+        setOpenRow(requestedRow);
+        setOpenedWith(requestedRow);
+        setRequestedRow(null);
         setError(null);
     }
 
@@ -116,6 +122,9 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             emit('close_creation_modal');
             setEditing((data?.task ?? null) as Task | null);
             setEventGoal(typeof data?.goalId === 'string' ? data.goalId : undefined);
+            // Opened from somewhere that already knows which question is being
+            // asked — the goal roadmap only ever asks about the date.
+            setRequestedRow(data?.focus ?? null);
             setEventVisible(true);
         });
         return () => subscription.remove();
@@ -289,8 +298,10 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         onFocus={() => setOpenRow(null)}
                         // Open ready to type, editing as well as creating: the
                         // caret lands after what is already written, so the first
-                        // keystroke adds to it rather than replacing it.
-                        autoFocus
+                        // keystroke adds to it rather than replacing it. Unless
+                        // the sheet was opened on a row, in which case the
+                        // keyboard would take the screen the row needs.
+                        autoFocus={!openedWith}
                         multiline
                         placeholder="Call the bank tomorrow at 2pm for 30 min"
                         placeholderTextColor={colors.textTertiary}

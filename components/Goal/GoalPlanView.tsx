@@ -12,9 +12,9 @@ import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
-import { dateAt, daysBetween, friendlyDate } from '@/lib/goalInsights';
+import { addDays, dateAt, daysBetween, friendlyDate } from '@/lib/goalInsights';
 import { toggleCompletion, type Habit } from '@/lib/habitsSQLite';
-import { deleteTask, setTaskStatus, type Task } from '@/lib/tasks';
+import { deleteTask, setTaskStatus, updateTask, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 
 /**
@@ -44,9 +44,24 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
     const color = goal.color || accent;
     const { tasks } = insights;
 
+    /**
+     * The plan asks one question about a task: when.
+     *
+     * Tapping opens the sheet already on its Date row, rather than on a title
+     * nobody came here to rewrite. Ticking it off, editing it and deleting it
+     * all live where the task itself lives.
+     */
     const openTask = (task?: Task) => {
         lightFeedback();
-        emit('show_task_form', task ? { task } : { goalId: goal.id });
+        emit('show_task_form', task ? { task, focus: 'due' } : { goalId: goal.id });
+    };
+
+    /** Moving a day at a time, from where the task is or from today. */
+    const moveTask = async (task: Task, days: number) => {
+        try {
+            await updateTask(task.id, { dueDate: addDays(task.dueDate ?? today, days) });
+            emit('tasks_changed');
+        } catch { Alert.alert('Could not move the task', 'Please try again.'); }
     };
     const toggleTask = async (task: Task) => {
         selectionFeedback();
@@ -82,7 +97,14 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
     }
 
     const renderTask = (task: Task) => (
-        <TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} />
+        <TaskItem
+            key={task.id} task={task} today={today}
+            actions="reschedule"
+            onMove={(moved, days) => void moveTask(moved, days)}
+            onPress={() => openTask(task)}
+            // Kept for the shape of the row; on the plan the swipes move days.
+            onToggle={toggleTask} onEdit={() => openTask(task)} onDelete={removeTask}
+        />
     );
 
     return (
