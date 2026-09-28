@@ -44,6 +44,19 @@ export interface FriendRequest {
     createdAt: string;
 }
 
+/** A note on somebody's day, as the server holds it. */
+export interface DayComment {
+    id: string;
+    author: string;
+    toUser: string;
+    day: string;
+    body: string;
+    createdAt: string;
+    /** Written by you: only your own can be taken back. */
+    mine: boolean;
+    authorName?: string;
+}
+
 export interface FriendActivity {
     id: string;
     userId: string;
@@ -447,17 +460,106 @@ export class FriendsService {
         return [];
     }
 
-    /** Reactions need a feed to react to; see getFriendsFeed. */
-    static async addReaction(_activityId: string, _reaction: ReactionType): Promise<boolean> {
-        return false;
+    /* ------------------------------------------------- reacting to a day */
+
+    /**
+     * What has been said with a tap, both ways.
+     *
+     * `mine` is keyed by the person it was aimed at, which is how the feed draws
+     * it — one card, one reaction. `received` is keyed by whoever sent it. RLS
+     * returns only rows you are one half of, so this asks for both in one go
+     * rather than trusting a filter written here.
+     */
+    static async getDayReactions(day = localDateKey(new Date())): Promise<{
+        mine: Record<string, ReactionType>;
+        received: Record<string, ReactionType>;
+    }> {
+        const ctx = await signedIn();
+        if (!ctx) return { mine: {}, received: {} };
+        const { data, error } = await ctx.sb.from('feed_reactions')
+            .select('from_user, to_user, reaction').eq('day', day);
+        if (error) return { mine: {}, received: {} };
+
+        const mine: Record<string, ReactionType> = {};
+        const received: Record<string, ReactionType> = {};
+        for (const row of data ?? []) {
+            if (row.from_user === ctx.me) mine[row.to_user] = row.reaction;
+            else received[row.from_user] = row.reaction;
+        }
+        return { mine, received };
     }
 
-    static async sendReaction(_activityId: string, _reaction: ReactionType): Promise<boolean> {
-        return false;
+    /**
+     * One reaction per person per day, so a second one replaces the first.
+     *
+     * That is the primary key on the table rather than a rule written here: the
+     * identity of the act is who, to whom, on what day.
+     */
+    static async reactToDay(toUserId: string, reaction: ReactionType, day = localDateKey(new Date())): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('feed_reactions')
+            .upsert({ from_user: ctx.me, to_user: toUserId, day, reaction }, { onConflict: 'from_user,to_user,day' });
+        return !error;
     }
 
-    static async removeReaction(_activityId: string, _reaction: ReactionType): Promise<boolean> {
-        return false;
+    /** Taking it back. A reaction you cannot withdraw is one people hesitate to give. */
+    static async clearDayReaction(toUserId: string, day = localDateKey(new Date())): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('feed_reactions').delete()
+            .eq('from_user', ctx.me).eq('to_user', toUserId).eq('day', day);
+        return !error;
+    }
+
+    /* ------------------------------------------------ saying something */
+
+    /** Every note on this day that you are allowed to see, by whose day it is. */
+    static async getDayComments(day = localDateKey(new Date())): Promise<Record<string, DayComment[]>> {
+        const ctx = await signedIn();
+        if (!ctx) return {};
+        const { data, error } = await ctx.sb.from('feed_comments')
+            .select('id, author, to_user, day, body, created_at').eq('day', day)
+            .order('created_at', { ascending: true });
+        if (error) return {};
+
+        const names = await profiles(ctx, (data ?? []).map((row: any) => row.author));
+        const byCard: Record<string, DayComment[]> = {};
+        for (const row of data ?? []) {
+            const comment: DayComment = {
+                id: row.id, author: row.author, toUser: row.to_user, day: row.day,
+                body: row.body, createdAt: row.created_at,
+                mine: row.author === ctx.me,
+                authorName: names.get(row.author)?.username ?? undefined,
+            };
+            (byCard[row.to_user] ??= []).push(comment);
+        }
+        return byCard;
+    }
+
+    /** Returns the row the server made, so the id it is deleted by is the real one. */
+    static async addDayComment(toUserId: string, body: string, day = localDateKey(new Date())): Promise<DayComment | null> {
+        const ctx = await signedIn();
+        if (!ctx) return null;
+        const text = body.trim();
+        // The same bounds the table checks, so a hopeless insert is not attempted.
+        if (!text || text.length > 500) return null;
+        const { data, error } = await ctx.sb.from('feed_comments')
+            .insert({ author: ctx.me, to_user: toUserId, day, body: text })
+            .select('id, author, to_user, day, body, created_at').single();
+        if (error || !data) return null;
+        return {
+            id: data.id, author: data.author, toUser: data.to_user, day: data.day,
+            body: data.body, createdAt: data.created_at, mine: true,
+        };
+    }
+
+    /** Only your own; the policy enforces it, this only saves a pointless call. */
+    static async deleteDayComment(id: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('feed_comments').delete().eq('id', id).eq('author', ctx.me);
+        return !error;
     }
 
     /* ---------------------------------------------------------------- sharing */

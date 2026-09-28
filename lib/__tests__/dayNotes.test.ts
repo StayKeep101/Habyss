@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NOTE_LIMIT, NOTES_PER_CARD, addNote, cleanNote, getNotes, removeNote } from '../dayNotes';
+import { NOTE_LIMIT, NOTES_PER_CARD, addNote, cleanNote, getNotes, mergeNotes, pendingNotes, removeNote } from '../dayNotes';
 
 const DAY = '2026-09-27';
 
@@ -62,5 +62,40 @@ describe('notes on a day', () => {
     it('survives a corrupt store rather than throwing at the feed', async () => {
         await AsyncStorage.setItem(`feed_notes_${DAY}`, 'not json');
         expect(await getNotes(DAY)).toEqual({});
+    });
+});
+
+describe('what a card shows when some notes have not sent', () => {
+    it('puts what the server has first, then what has not reached it', () => {
+        const server = [{ id: 's1', cardId: 'f1', date: DAY, text: 'arrived', at: 1, mine: true }];
+        const waiting = [{ id: 'p1', cardId: 'f1', date: DAY, text: 'not yet', at: 2, mine: true, pending: true }];
+        expect(mergeNotes(server, waiting).map(note => note.text)).toEqual(['arrived', 'not yet']);
+    });
+
+    it('never shows one twice', () => {
+        const both = [{ id: 'x', cardId: 'f1', date: DAY, text: 'once', at: 1, mine: true }];
+        expect(mergeNotes(both, [{ ...both[0], pending: true }])).toHaveLength(1);
+    });
+
+    it('copes with either side being empty', () => {
+        expect(mergeNotes()).toEqual([]);
+        expect(mergeNotes([], [{ id: 'p', cardId: 'f1', date: DAY, text: 'alone', at: 1, mine: true, pending: true }])).toHaveLength(1);
+    });
+});
+
+describe('what is waiting to be sent', () => {
+    beforeEach(async () => { await AsyncStorage.clear(); });
+
+    it('is everything written locally, oldest first, across people', async () => {
+        await addNote(DAY, 'friend-2', 'second');
+        await addNote(DAY, 'friend-1', 'first');
+        const waiting = await pendingNotes(DAY);
+        expect(waiting).toHaveLength(2);
+        expect(waiting[0].at).toBeLessThanOrEqual(waiting[1].at);
+        expect(waiting.every(note => note.pending)).toBe(true);
+    });
+
+    it('is nothing when nothing was written', async () => {
+        expect(await pendingNotes(DAY)).toEqual([]);
     });
 });

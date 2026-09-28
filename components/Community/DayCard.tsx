@@ -199,9 +199,15 @@ export const DayCard: React.FC<{
                         <Animated.View key={note.id} entering={FadeIn.duration(160)} layout={MORPH} style={styles.note}>
                             <Text style={[styles.noteText, { color: colors.textSecondary }]}>
                                 <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.semibold }}>
-                                    {note.mine ? 'You' : card.username}
+                                    {/* A note on your own day was written by a
+                                        friend, so the name comes with it. */}
+                                    {note.mine ? 'You' : (note.authorName ?? card.username)}
                                 </Text>
                                 {`  ${note.text}`}
+                                {/* Said, but not yet arrived. Quiet: it will. */}
+                                {note.pending ? (
+                                    <Text style={{ color: colors.textTertiary }}>  · sending</Text>
+                                ) : null}
                             </Text>
                             {note.mine && onDeleteNote ? (
                                 <Pressable accessibilityRole="button" accessibilityLabel="Take that back" hitSlop={8}

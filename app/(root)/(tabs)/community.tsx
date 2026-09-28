@@ -9,7 +9,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { FriendsService, Friend, FriendRequest, ReactionType, getMyUsername, inviteMessage } from '@/lib/friendsService';
+import { FriendsService, Friend, FriendRequest, ReactionType, type DayComment, getMyUsername, inviteMessage } from '@/lib/friendsService';
 import { onAccountChange } from '@/lib/account';
 import { FriendsGate } from '@/components/Community/FriendsGate';
 import { FriendStatsModal } from '@/components/FriendStatsModal';
@@ -19,7 +19,7 @@ import Animated from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from '@/lib/habitSchedule';
 import { DayCard } from '@/components/Community/DayCard';
-import { addNote, getNotes, removeNote, type DayNote } from '@/lib/dayNotes';
+import { addNote, getNotes, mergeNotes, pendingNotes, removeNote, type DayNote } from '@/lib/dayNotes';
 import { buildFeed, summarise } from '@/lib/feed';
 import { evidenceListToday } from '@/lib/evidence';
 import type { Evidence } from '@/lib/proof';
@@ -28,6 +28,12 @@ import { on } from '@/lib/appEvents';
 
 /** Reactions are a thing about today, so they are stored under today. */
 const reactionsKey = () => `feed_reactions_${localDateKey(new Date())}`;
+
+/** A server comment as the card draws it. One shape, whichever side it came from. */
+const asNote = (comment: DayComment): DayNote => ({
+    id: comment.id, cardId: comment.toUser, date: comment.day, text: comment.body,
+    at: Date.parse(comment.createdAt) || 0, mine: comment.mine, authorName: comment.authorName,
+});
 
 export default function CommunityScreen() {
     const { theme } = useTheme();
@@ -192,11 +198,10 @@ export default function CommunityScreen() {
      * Reacting to someone's day.
      *
      * Tapping the same one again takes it back, because a reaction you cannot
-     * withdraw is a reaction people hesitate to give. It is remembered on this
-     * device and keyed by the day, so it survives a reload and clears itself
-     * tomorrow; `sendReaction` is still a stub until the feed_reactions table
-     * exists, and it is called anyway so nothing has to change here when it
-     * does.
+     * withdraw is a reaction people hesitate to give. It now reaches the person
+     * — `feed_reactions` holds one per pair per day, so a second reaction
+     * replaces the first — and it is still written to the device as well, so the
+     * feed does not lose its answer while the insert is in flight.
      */
     const handleReaction = async (friendId: string, reaction: ReactionType) => {
         mediumFeedback();
@@ -205,18 +210,26 @@ export default function CommunityScreen() {
         if (taken) delete next[friendId]; else next[friendId] = reaction;
         setSentReactions(next);
         void AsyncStorage.setItem(reactionsKey(), JSON.stringify(next)).catch(() => undefined);
-        if (!taken) await FriendsService.sendReaction(friendId, reaction);
+        if (taken) await FriendsService.clearDayReaction(friendId);
+        else await FriendsService.reactToDay(friendId, reaction);
     };
 
     /**
      * Saying something about someone's day.
      *
-     * Local for the same reason the reactions are: `feed_comments` is in the
-     * migration that has not been applied, so there is nowhere on the server to
-     * put one. Stored by the day, so it clears itself tomorrow.
+     * Sent to `feed_comments`, and kept on the device when it cannot be: signed
+     * out, or the insert failed. A note kept that way is marked pending and goes
+     * on the next visit, so nothing typed is lost to a dropped connection.
      */
     const handleComment = async (cardId: string, text: string) => {
-        const note = await addNote(localDateKey(new Date()), cardId, text);
+        const day = localDateKey(new Date());
+        const sent = await FriendsService.addDayComment(cardId, text);
+        if (sent) {
+            selectionFeedback();
+            setNotes(current => ({ ...current, [cardId]: [...(current[cardId] ?? []), asNote(sent)] }));
+            return;
+        }
+        const note = await addNote(day, cardId, text);
         if (!note) return;
         selectionFeedback();
         setNotes(current => ({ ...current, [cardId]: [...(current[cardId] ?? []), note] }));
@@ -225,7 +238,11 @@ export default function CommunityScreen() {
     const handleDeleteNote = async (cardId: string, id: string) => {
         lightFeedback();
         setNotes(current => ({ ...current, [cardId]: (current[cardId] ?? []).filter(note => note.id !== id) }));
-        await removeNote(localDateKey(new Date()), cardId, id);
+        // One of the two holds it; asking both is cheaper than remembering which.
+        await Promise.all([
+            FriendsService.deleteDayComment(id),
+            removeNote(localDateKey(new Date()), cardId, id),
+        ]);
     };
 
     const getTimeAgo = (dateStr: string) => {
@@ -261,11 +278,44 @@ export default function CommunityScreen() {
 
     const dayFeed = useMemo(() => buildFeed(friends, myEvidence), [friends, myEvidence]);
 
+    /**
+     * What has already been said today, from the server and from this device.
+     *
+     * Anything still pending here is sent first, so a note written offline
+     * arrives before the card is drawn and is then held in one place rather
+     * than two. The server's rows are the truth; `mergeNotes` puts whatever has
+     * not reached it after them.
+     */
     useEffect(() => {
-        AsyncStorage.getItem(reactionsKey())
-            .then(raw => { if (raw) setSentReactions(JSON.parse(raw)); })
-            .catch(() => undefined);
-        getNotes(localDateKey(new Date())).then(setNotes).catch(() => undefined);
+        const day = localDateKey(new Date());
+        (async () => {
+            const [stored, waiting] = await Promise.all([
+                AsyncStorage.getItem(reactionsKey()).catch(() => null),
+                pendingNotes(day).catch(() => []),
+            ]);
+            if (stored) { try { setSentReactions(JSON.parse(stored)); } catch { /* keep none */ } }
+
+            for (const note of waiting) {
+                if (await FriendsService.addDayComment(note.cardId, note.text, day)) {
+                    await removeNote(day, note.cardId, note.id);
+                }
+            }
+
+            const [fromServer, local, reactions] = await Promise.all([
+                FriendsService.getDayComments(day),
+                getNotes(day),
+                FriendsService.getDayReactions(day),
+            ]);
+            const cards = new Set([...Object.keys(fromServer), ...Object.keys(local)]);
+            const merged: Record<string, DayNote[]> = {};
+            for (const cardId of cards) {
+                merged[cardId] = mergeNotes((fromServer[cardId] ?? []).map(asNote), local[cardId]);
+            }
+            setNotes(merged);
+            // The server knows what was sent from any device; the local copy is
+            // only a guess made while an insert was in flight.
+            if (Object.keys(reactions.mine).length) setSentReactions(reactions.mine);
+        })().catch(() => undefined);
     }, []);
 
     const handleFriendPress = (friend: Friend) => {

@@ -21,8 +21,12 @@ export interface DayNote {
     date: string;
     text: string;
     at: number;
-    /** Written by you. Everything is, until the table exists. */
+    /** Written by you: only your own can be taken back. */
     mine: boolean;
+    /** Not on the server yet. Sent on the next visit, then dropped from here. */
+    pending?: boolean;
+    /** Whose name to put on it, when it is not yours. */
+    authorName?: string;
 }
 
 export const NOTE_LIMIT = 240;
@@ -56,11 +60,14 @@ async function read(date: string): Promise<Record<string, DayNote[]>> {
             // stored object is only ever as good as the version that wrote it.
             notes[cardId] = list
                 .filter(note => note && typeof note.text === 'string' && typeof note.id === 'string')
-                .map(note => ({
+                .map((note): DayNote => ({
                     id: note.id, cardId, date,
                     text: String(note.text).slice(0, NOTE_LIMIT),
                     at: Number.isFinite(note.at) ? note.at : 0,
                     mine: note.mine !== false,
+                    // Anything still on the device has not reached the server;
+                    // once it has, it is deleted from here rather than marked.
+                    pending: true,
                 }))
                 .slice(-NOTES_PER_CARD);
         }
@@ -76,7 +83,7 @@ export const getNotes = read;
 export async function addNote(date: string, cardId: string, raw: string): Promise<DayNote | null> {
     const text = cleanNote(raw);
     if (!text) return null;
-    const note: DayNote = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, cardId, date, text, at: Date.now(), mine: true };
+    const note: DayNote = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, cardId, date, text, at: Date.now(), mine: true, pending: true };
     const all = await read(date);
     all[cardId] = [...(all[cardId] ?? []), note].slice(-NOTES_PER_CARD);
     try { await AsyncStorage.setItem(key(date), JSON.stringify(all)); } catch { return note; }
@@ -93,3 +100,21 @@ export async function removeNote(date: string, cardId: string, id: string): Prom
 
 /** "3 notes" for the bubble, or nothing when there are none. */
 export const noteCount = (notes?: DayNote[]): number => notes?.length ?? 0;
+
+/**
+ * What a card shows: what the server has, then what has not reached it.
+ *
+ * In that order because the server's rows are older by definition — anything
+ * still pending was written after the last successful send — and because a
+ * conversation reads forwards.
+ */
+export function mergeNotes(fromServer: DayNote[] = [], pending: DayNote[] = []): DayNote[] {
+    const seen = new Set(fromServer.map(note => note.id));
+    return [...fromServer, ...pending.filter(note => !seen.has(note.id))].slice(-NOTES_PER_CARD);
+}
+
+/** Everything waiting to be sent, flattened, oldest first. */
+export async function pendingNotes(date: string): Promise<DayNote[]> {
+    const all = await read(date);
+    return Object.values(all).flat().filter(note => note.pending).sort((a, b) => a.at - b.at);
+}

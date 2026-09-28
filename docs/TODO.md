@@ -111,18 +111,23 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       **Decision taken: feed-only.** Completion, streaks, momentum and recovery
       are untouched — tying "done" to evidence everywhere would change every
       number in the app and punish habits that cannot be proved.
-- [~] Reactions. Five, one tap, tap again to take back, remembered per day on
-      the device. They do not reach the friend until the migration below is
-      applied.
-- [~] Comments on a day (`lib/dayNotes.ts`, 10 tests). The reaction row ends
+- [x] Reactions. Five, one tap, tap again to take back — and they **reach the
+      friend** now: `feed_reactions` holds one per pair per day, so a second
+      reaction replaces the first because that is the table's primary key rather
+      than a rule written in the app. Still written to the device as well, so
+      the feed does not lose its answer while the insert is in flight; the
+      server wins on the next load, since it knows what was sent from any
+      device.
+- [x] Comments on a day (`lib/dayNotes.ts`, 15 tests). The reaction row ends
       with a bubble that opens a composer, and what has been said sits under it
       with the writer's name; you can take back your own. Five emoji cannot ask
       "how was the long run", so a word can.
-      **Local, like the reactions**, and for the same reason: `feed_comments` is
-      in the migration below and it has not been applied, so there is nowhere on
-      the server to put one. The stored shape is that table's shape, so applying
-      it makes this the local half of a sync rather than something to throw
-      away. Notes are kept per day and clear themselves tomorrow.
+      They reach the person now, through `feed_comments`. A note that cannot be
+      sent — signed out, or the insert failed — is kept on the device, marked
+      pending, drawn with a quiet "· sending", and sent on the next visit, then
+      dropped from the device so it is never held in two places. The server's
+      rows are the truth and `mergeNotes` puts anything still waiting after
+      them, so nothing is ever shown twice. Notes are kept per day.
 - [ ] Messages and emoji between friends. **Blocked, and deliberately not
       faked.** Notes on a day could be kept locally because a note is still a
       record of what you thought; a message that never leaves the phone is a
@@ -149,17 +154,21 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Waiting on you
 
-- [ ] `supabase/migrations/20260927_feed_reactions_and_proof.sql` — **written,
-      not applied.** Adds `feed_reactions` and `feed_comments` (both with RLS
-      scoped so only the two people involved can read a reaction), and
-      `evidence` / `witnessed_by` on `habit_completions`. Until it runs, the
-      feed works from the day numbers `friend_stats` already returns, reactions
-      stay on the device that made them, and every completion reads as logged.
-- [ ] `supabase/migrations/20260926_habit_reminder_message.sql` is written but
-      **not applied**. Until it is, a habit's custom reminder message lives only
-      on the device — it is kept out of `cloudMapping.ts` on purpose, because
-      uploading a column the server lacks would fail every habit sync. Apply it
-      and I will wire the field into backup/restore.
+- [x] **All three migrations applied, 2026-09-27.**
+      `20260926_habit_reminder_message.sql`,
+      `20260927_feed_reactions_and_proof.sql` and a new
+      `20260927_habit_recurrence.sql`. The feed migration needed two
+      corrections before it would run: `shared_completions.item_id` and
+      `shared_tasks.task_id` were declared `text`, and every id they can hold is
+      a `uuid` on this server, so the RLS policy comparing them failed with
+      `operator does not exist: uuid = text`; and the new tables were pointed at
+      `auth.users`, where every other social table on this project points at
+      `profiles`. Four tables, RLS on, policies attached, and PostgREST can see
+      all four.
+      `reminder_message` and `recurrence` are now in `cloudMapping.ts` in both
+      directions — until this, a habit that repeats on the third Sunday of every
+      second month came back from a restore as whatever the legacy weekday
+      columns alone describe.
 
 ## Launch crash on device — diagnosis in progress (2026-09-26)
 
