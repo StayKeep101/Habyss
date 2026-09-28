@@ -1,5 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSupabase } from './supabase';
 import { localDateKey } from './habitSchedule';
+
+/** Which habits and tasks are shared, cached so a tick costs no network call. */
+const SHARED_IDS_KEY = 'habyss_shared_item_ids';
 
 /**
  * Friends, backed by real accounts.
@@ -588,6 +592,7 @@ export class FriendsService {
         const { error } = await ctx.sb.from('shared_habits').insert({
             habit_id: habitId, owner_id: ctx.me, shared_with_id: friendId, status: 'accepted',
         });
+        if (!error) void this.refreshSharedIds();
         return !error;
     }
 
@@ -596,7 +601,42 @@ export class FriendsService {
         if (!ctx) return false;
         const { error } = await ctx.sb.from('shared_habits').delete()
             .eq('habit_id', habitId).eq('owner_id', ctx.me).eq('shared_with_id', friendId);
+        if (!error) void this.refreshSharedIds();
         return !error;
+    }
+
+    /**
+     * Shares a task. Habits and goals could already be shared and tasks could
+     * not, which made "we are doing this together" impossible for the one kind
+     * of thing that is usually a one-off favour between two people.
+     */
+    static async shareTaskWithFriend(taskId: string, friendId: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        await ensureBackedUp();
+
+        const { data: existing } = await ctx.sb.from('shared_tasks').select('id')
+            .eq('task_id', taskId).eq('owner_id', ctx.me).eq('shared_with_id', friendId).is('deleted_at', null);
+        if ((existing ?? []).length > 0) return true;
+
+        const { error } = await ctx.sb.from('shared_tasks').insert({
+            task_id: taskId, owner_id: ctx.me, shared_with_id: friendId, status: 'accepted',
+        });
+        if (!error) void this.refreshSharedIds();
+        return !error;
+    }
+
+    static async unshareTask(taskId: string, friendId: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('shared_tasks').delete()
+            .eq('task_id', taskId).eq('owner_id', ctx.me).eq('shared_with_id', friendId);
+        if (!error) void this.refreshSharedIds();
+        return !error;
+    }
+
+    static async getTaskSharedWith(taskId: string): Promise<Friend[]> {
+        return this.sharedWith('shared_tasks', 'task_id', taskId);
     }
 
     static async getHabitSharedWith(habitId: string): Promise<Friend[]> {
@@ -683,8 +723,8 @@ export class FriendsService {
     static async getSharedItemParticipants(itemId: string, itemType: string = 'habit'): Promise<any[]> {
         const ctx = await signedIn();
         if (!ctx) return [];
-        const table = itemType === 'goal' ? 'shared_goals' : 'shared_habits';
-        const column = itemType === 'goal' ? 'goal_id' : 'habit_id';
+        const table = itemType === 'goal' ? 'shared_goals' : itemType === 'task' ? 'shared_tasks' : 'shared_habits';
+        const column = itemType === 'goal' ? 'goal_id' : itemType === 'task' ? 'task_id' : 'habit_id';
 
         const { data } = await ctx.sb.from(table).select('owner_id, shared_with_id')
             .eq(column, itemId).eq('status', 'accepted').is('deleted_at', null);
@@ -696,7 +736,17 @@ export class FriendsService {
             ownerId = row.owner_id;
         }
 
-        const rows = await stats(ctx);
+        const day = localDateKey(new Date());
+        // Who finished *this* item today. Until `shared_completions` existed the
+        // only available answer was "did they do anything today", which called a
+        // friend done because they had ticked something else.
+        const { data: finished, error } = await ctx.sb.from('shared_completions')
+            .select('user_id').eq('item_id', itemId).eq('day', day);
+        const exact = !error;
+        const doneIds = new Set((finished ?? []).map((row: any) => row.user_id));
+
+        // Only as a fallback, and only when the exact answer was unavailable.
+        const rows = exact ? [] : await stats(ctx);
         const people = await profiles(ctx, [...ids]);
         return [...ids].map(id => {
             const row = rows.find(item => item.user_id === id);
@@ -704,10 +754,79 @@ export class FriendsService {
                 userId: id,
                 username: people.get(id)?.username ?? 'Friend',
                 avatarUrl: people.get(id)?.avatar_url ?? undefined,
-                completedToday: (row?.today_done ?? 0) > 0,
+                completedToday: exact ? doneIds.has(id) : (row?.today_done ?? 0) > 0,
+                /** Whether this person has published a completion for this item. */
+                exactCompletion: exact,
+                /** Who shared it. Not the same as you, and not interchangeable. */
                 isOwner: id === ownerId,
+                isYou: id === ctx.me,
             };
         });
+    }
+
+    /* --------------------------------------------- shared, item by item */
+
+    /**
+     * The ids of every habit and task you are on with somebody, kept locally.
+     *
+     * Completions are published only for these, so ticking an ordinary habit
+     * costs no network call at all. The list is refreshed whenever a share is
+     * made or withdrawn and whenever the community tab loads, which is every
+     * moment it can change for you.
+     */
+    static async refreshSharedIds(): Promise<string[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        const mine = `owner_id.eq.${ctx.me},shared_with_id.eq.${ctx.me}`;
+        const [habits, tasks] = await Promise.all([
+            ctx.sb.from('shared_habits').select('habit_id').eq('status', 'accepted').is('deleted_at', null).or(mine),
+            ctx.sb.from('shared_tasks').select('task_id').eq('status', 'accepted').is('deleted_at', null).or(mine),
+        ]);
+        const ids = [
+            ...(habits.data ?? []).map((row: any) => row.habit_id),
+            ...(tasks.data ?? []).map((row: any) => row.task_id),
+        ].filter(Boolean);
+        try { await AsyncStorage.setItem(SHARED_IDS_KEY, JSON.stringify(ids)); } catch { /* cache only */ }
+        return ids;
+    }
+
+    /** The cached list. Empty is a safe answer: nothing gets published. */
+    static async sharedIds(): Promise<Set<string>> {
+        try {
+            const raw = await AsyncStorage.getItem(SHARED_IDS_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return new Set(Array.isArray(parsed) ? parsed.filter((id: unknown) => typeof id === 'string') : []);
+        } catch {
+            return new Set();
+        }
+    }
+
+    /**
+     * Tells the people sharing an item that you have done it.
+     *
+     * The row carries its evidence, so "waiting on Sam" and "Sam's run was
+     * recorded" come from the same place. Only what you did: the insert policy
+     * is `auth.uid() = user_id`, so this cannot speak for anyone else.
+     */
+    static async publishCompletion(
+        itemId: string, itemType: 'habit' | 'task' | 'goal', day: string, evidence?: string | null,
+    ): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('shared_completions').upsert(
+            { user_id: ctx.me, item_id: itemId, item_type: itemType, day, evidence: evidence ?? null },
+            { onConflict: 'user_id,item_id,day' },
+        );
+        return !error;
+    }
+
+    /** Taking it back, when a completion is undone. */
+    static async withdrawCompletion(itemId: string, day: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('shared_completions').delete()
+            .eq('user_id', ctx.me).eq('item_id', itemId).eq('day', day);
+        return !error;
     }
 
     static async acceptShareRequest(type: string, itemId: string, ownerId: string): Promise<boolean> {

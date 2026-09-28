@@ -94,6 +94,9 @@ export default function CommunityScreen() {
             setGate(username ? null : 'needs_username');
 
             await FriendsService.repairFriendshipsFromAcceptedRequests();
+            // Which habits and tasks are shared, so ticking one tells the
+            // people on it without a network call on every ordinary tick.
+            void FriendsService.refreshSharedIds().catch(() => undefined);
 
             const [friendsList, requests] = await Promise.all([
                 FriendsService.getFriendsWithProgress(),

@@ -4,6 +4,8 @@ import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { TimeRange, endTime } from '@/components/Create/TimeRange';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { ShareButton } from '@/components/Common/ShareButton';
+import { ShareItemModal } from '@/components/ShareHabitModal';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { GoalCalendar } from '@/components/Create/GoalCalendar';
@@ -82,7 +84,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: accent, foreground: accentText } = useAccentGradient();
-    const { successFeedback } = useHaptics();
+    const { selectionFeedback, successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
     const [editing, setEditing] = useState<Task | null>(null);
@@ -93,6 +95,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [sharing, setSharing] = useState(false);
     /** A row the opener asked for, and the one this session actually opened on. */
     const [requestedRow, setRequestedRow] = useState<string | null>(null);
     const [openedWith, setOpenedWith] = useState<string | null>(null);
@@ -282,7 +285,14 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             {/* The chips and the save button ride above the keyboard, so the
                 day and the time are one tap away while you are still typing. */}
             <>
-                <ModalHeader title={current ? 'Edit task' : 'New task'} onBack={close} backIcon="close" />
+                <ModalHeader
+                    title={current ? 'Edit task' : 'New task'} onBack={close} backIcon="close"
+                    // Only once it exists: there is nobody to share a task with
+                    // until the task has an id to share.
+                    rightSlot={current ? (
+                        <ShareButton variant="friend" onPress={() => { selectionFeedback(); setSharing(true); }} />
+                    ) : undefined}
+                />
 
                 <ScrollView
                     style={styles.written}
@@ -350,6 +360,14 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         )}
                     </Pressable>
                 </View>
+
+                {current ? (
+                    <ShareItemModal
+                        visible={sharing} kind="task"
+                        itemId={current.id} itemName={current.title}
+                        onClose={() => setSharing(false)}
+                    />
+                ) : null}
             </>
         </ComposerModal>
     );

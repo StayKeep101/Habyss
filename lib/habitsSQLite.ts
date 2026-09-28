@@ -604,8 +604,27 @@ async function stampEvidence(habitId: string, dateISO: string): Promise<void> {
             'UPDATE completions SET evidence = ?, synced = 0 WHERE user_id = ? AND habit_id = ? AND date = ? AND deleted = 0',
             evidence, uid, habitId, dateISO,
         );
+        void publishIfShared(habitId, dateISO, evidence);
     } catch {
         // Nothing to do: the row is already saved, only unattributed.
+    }
+}
+
+/**
+ * Tells whoever is sharing this habit that it is done, or no longer is.
+ *
+ * Only for habits somebody is actually on, checked against a locally cached
+ * list, so ticking an ordinary habit costs no network call. Somebody waiting on
+ * you should not have to wait for a sync to find out either way.
+ */
+async function publishIfShared(habitId: string, dateISO: string, evidence: string | null): Promise<void> {
+    try {
+        const { FriendsService } = require('./friendsService') as typeof import('./friendsService');
+        if (!(await FriendsService.sharedIds()).has(habitId)) return;
+        if (evidence === null) await FriendsService.withdrawCompletion(habitId, dateISO);
+        else await FriendsService.publishCompletion(habitId, 'habit', dateISO, evidence);
+    } catch {
+        // The completion is saved; only the other person's view of it is late.
     }
 }
 
@@ -663,6 +682,7 @@ export function toggleCompletion(habitId: string, dateISO = todayString()): Prom
         });
         progressSaved(habitId, dateISO, completed);
         if (completed) void stampEvidence(habitId, dateISO);
+        else void publishIfShared(habitId, dateISO, null);
         const habit = cachedHabits?.find(h => h.id === habitId);
         if (completed && habit) void NotificationService.sendCompletionNotification(habit.name).catch(() => undefined);
         return getCompletions(dateISO);
@@ -1047,6 +1067,7 @@ export function saveHabitMeasurement(habitId: string, amount: number, dateISO = 
         delete completionsCache[dateISO];
         delete skippedCache[dateISO];
         if (value >= target) void stampEvidence(habitId, dateISO);
+        else void publishIfShared(habitId, dateISO, null);
         emit('habit_completion_updated', { habitId, date: dateISO, completed: value >= target, value });
         void NotificationService.refreshHabitReminders().catch(() => undefined);
 

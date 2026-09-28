@@ -68,3 +68,29 @@ describe('naming the people on it', () => {
         expect(nameList([])).toBe('');
     });
 });
+
+describe('whose day it is, when a friend shared it with you', () => {
+    const person = (over: Partial<Participant>): Participant =>
+        ({ userId: 'u', username: 'sam', done: false, isYou: false, ...over });
+
+    it('waits on the person who has not done it, whoever owns it', () => {
+        // The bug this pins: participants were marked "you" by who *shared* the
+        // item, so a habit a friend shared with you made them you — and gave
+        // them your check-in.
+        const state = sharedState([
+            person({ userId: 'me', username: 'you', isYou: true, done: true }),
+            person({ userId: 'them', username: 'sam', done: false }),
+        ]);
+        expect(state.waitingOnYou).toBe(false);
+        expect(state.line).toBe('Waiting on sam');
+    });
+
+    it('says so when you are the one holding it up', () => {
+        const state = sharedState([
+            person({ userId: 'me', username: 'you', isYou: true, done: false }),
+            person({ userId: 'them', username: 'sam', done: true }),
+        ]);
+        expect(state.waitingOnYou).toBe(true);
+        expect(state.line).toBe('Waiting on you');
+    });
+});

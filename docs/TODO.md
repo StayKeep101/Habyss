@@ -145,18 +145,27 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       conversation with nobody. This needs a `friend_messages` table with RLS
       scoped to the two people in it, which means the migration below has to be
       applied first — say the word and it goes in the same one.
-- [~] Shared habits **and tasks**: the rule is built and tested (`lib/shared.ts`,
-      12 tests) — not done until everyone on it has done it, two people or
-      five — and surfaced on the habit page as who is on it, who it is waiting
-      on, and a tick per person. Task sharing needs the `shared_tasks` table in
-      the migration; the rule itself is already indifferent to which it is.
+- [x] Shared habits **and tasks** (`lib/shared.ts`, 14 tests) — not done until
+      everyone on it has done it, two people or five — surfaced on the habit
+      page as who is on it, who it is waiting on, and a tick per person. A task
+      can be shared from its own sheet now (`ShareItemModal`, the same sheet the
+      habit uses, because they share the rule).
+      **The data is exact as of 2026-09-28.** `shared_completions` records who
+      finished which item on which day, so "waiting on Sam" means Sam has not
+      done *this*; before it, the only answer available was "did Sam do anything
+      today", which called them done because they had ticked something else. A
+      completion is published only for items somebody is actually on, checked
+      against a locally cached id list, so ticking an ordinary habit costs no
+      network call — and undoing one withdraws it, because somebody waiting on
+      you should not be told the wrong thing either way. The row carries its
+      evidence, so who is waiting and how it was proved come from one place.
+      **A bug found on the way:** participants were marked as "you" by who
+      *shared* the item, so a habit a friend shared with you made *them* you —
+      and handed them your check-in.
       **Streaks deliberately untouched.** Tying your run to someone else's
       behaviour is a much heavier promise than it sounds: one friend's quiet
       week would end a streak you kept perfectly. That should be a decision
       taken on purpose, not one that arrives with a feature — say the word.
-      **Data caveat:** the server answers "did they do anything today", not
-      "did they do this". The rule is right; its input is approximate until the
-      feed migration adds per-habit completion.
 
 ## Done
 

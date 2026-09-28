@@ -19,10 +19,10 @@ const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
  * Shown only when somebody else is actually on it: a card announcing that a
  * habit is yours alone is noise on every screen in the app.
  *
- * The caveat worth knowing is in `completedToday` below — the server answers
- * "did they do anything today", not "did they do this". The rule in
- * lib/sharedHabits is right; the data feeding it is approximate until the feed
- * migration adds per-habit completion.
+ * A friend's state is now exact: `shared_completions` records who finished
+ * which item on which day, so "waiting on Sam" means Sam has not done *this*.
+ * Before that table the only available answer was "did Sam do anything today",
+ * which called them done because they had ticked something else.
  */
 export const SharedWith: React.FC<{ habitId: string; doneToday: boolean }> = ({ habitId, doneToday }) => {
     const { theme } = useTheme();
@@ -35,6 +35,9 @@ export const SharedWith: React.FC<{ habitId: string; doneToday: boolean }> = ({ 
 
     useEffect(() => {
         let alive = true;
+        // Opening a shared habit is the other moment the cached list can be
+        // stale: somebody may have shared this one with you since last time.
+        void FriendsService.refreshSharedIds().catch(() => undefined);
         FriendsService.getSharedItemParticipants(habitId, 'habit')
             .then(rows => {
                 if (!alive) return;
@@ -42,10 +45,11 @@ export const SharedWith: React.FC<{ habitId: string; doneToday: boolean }> = ({ 
                     userId: row.userId,
                     username: row.username,
                     avatarUrl: row.avatarUrl,
-                    // Your own state is known exactly; a friend's is the best
-                    // the server can currently say.
-                    done: row.isOwner ? doneToday : !!row.completedToday,
-                    isYou: !!row.isOwner,
+                    // Your own state is known exactly, and it is *yours* — not
+                    // the owner's. A habit a friend shared with you made them
+                    // "you" here, and gave them your check-in.
+                    done: row.isYou ? doneToday : !!row.completedToday,
+                    isYou: !!row.isYou,
                 })));
             })
             .catch(() => { if (alive) setPeople([]); });
