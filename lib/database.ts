@@ -150,10 +150,10 @@ async function runMigrations(db: any): Promise<void> {
  * yearly off the start date. They could not say "the third Sunday of every
  * second month", so this carries a rule from lib/recurrence as JSON.
  *
- * Local only for now, and deliberately outside the sync mapping: the cloud
- * `habits` table has no matching column, and uploading one it does not have
- * would fail every habit sync. The older columns are still written alongside
- * it, so a habit stays readable by a build that knows nothing about this.
+ * It backs up: `recurrence` was added to the cloud `habits` table on
+ * 2026-09-27 and is in the sync mapping. The older columns are still written
+ * alongside it, so a habit stays readable by a build that knows nothing about
+ * this one.
  */
 async function migrateToV12(db: any): Promise<void> {
     await addColumnIfMissing(db, 'habits', 'recurrence', 'TEXT');
@@ -165,9 +165,8 @@ async function migrateToV12(db: any): Promise<void> {
  *
  * Reminders were written by Echo or by the built-in coach lines, which is
  * right most of the time and useless for the habit that needs one specific
- * sentence. The column is local only for now: the cloud `habits` table has no
- * matching column yet, so it is deliberately left out of the sync mapping
- * rather than breaking every upload.
+ * sentence. It backs up: the cloud `habits` table gained `reminder_message` on
+ * 2026-09-27 and it is in the sync mapping.
  */
 async function migrateToV11(db: any): Promise<void> {
     await addColumnIfMissing(db, 'habits', 'reminder_message', 'TEXT');

@@ -1,6 +1,6 @@
 -- The community feed: reactions, comments, and how a completion was evidenced.
 --
--- NOT APPLIED. Written so it can be reviewed before it touches a live database.
+-- Applied 2026-09-27.
 -- Apply with:
 --   node scripts/apply-migration.mjs supabase/migrations/20260927_feed_reactions_and_proof.sql
 --
@@ -12,8 +12,8 @@
 -- One reaction per person per day per friend. Re-reacting replaces, so the
 -- primary key is the identity of the act rather than a generated id.
 create table if not exists public.feed_reactions (
-    from_user   uuid not null references auth.users (id) on delete cascade,
-    to_user     uuid not null references auth.users (id) on delete cascade,
+    from_user   uuid not null references public.profiles (id) on delete cascade,
+    to_user     uuid not null references public.profiles (id) on delete cascade,
     day         date not null,
     reaction    text not null check (reaction in ('fire', 'clap', 'heart', 'star', 'muscle')),
     created_at  timestamptz not null default now(),
@@ -49,8 +49,8 @@ create policy feed_reactions_delete on public.feed_reactions
 -- ----------------------------------------------------------------- comments
 create table if not exists public.feed_comments (
     id          uuid primary key default gen_random_uuid(),
-    author      uuid not null references auth.users (id) on delete cascade,
-    to_user     uuid not null references auth.users (id) on delete cascade,
+    author      uuid not null references public.profiles (id) on delete cascade,
+    to_user     uuid not null references public.profiles (id) on delete cascade,
     day         date not null,
     body        text not null check (char_length(btrim(body)) between 1 and 500),
     created_at  timestamptz not null default now()
@@ -79,12 +79,13 @@ create policy feed_comments_delete on public.feed_comments
 
 -- ------------------------------------------------------------ shared tasks
 -- Habits and goals could already be shared; tasks could not. Same shape as
--- shared_habits so the participant query does not have to special-case them.
+-- shared_habits, down to pointing at profiles rather than auth.users, so the
+-- participant query does not have to special-case them.
 create table if not exists public.shared_tasks (
     id              uuid primary key default gen_random_uuid(),
-    task_id         text not null,
-    owner_id        uuid not null references auth.users (id) on delete cascade,
-    shared_with_id  uuid not null references auth.users (id) on delete cascade,
+    task_id         uuid not null references public.tasks (id) on delete cascade,
+    owner_id        uuid not null references public.profiles (id) on delete cascade,
+    shared_with_id  uuid not null references public.profiles (id) on delete cascade,
     status          text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
     created_at      timestamptz not null default now(),
     deleted_at      timestamptz,
@@ -119,8 +120,10 @@ create policy shared_tasks_update on public.shared_tasks
 -- item, on which day. friend_stats only answers "did they do anything today",
 -- which is why the rule currently runs on an approximation.
 create table if not exists public.shared_completions (
-    user_id     uuid not null references auth.users (id) on delete cascade,
-    item_id     text not null,
+    user_id     uuid not null references public.profiles (id) on delete cascade,
+    -- uuid, not text: every id it can hold — a habit's, a task's, a goal's — is
+    -- a uuid on this server, and text would not compare against them.
+    item_id     uuid not null,
     item_type   text not null check (item_type in ('habit', 'task', 'goal')),
     day         date not null,
     evidence    text check (evidence is null or evidence in ('verified', 'context', 'self')),

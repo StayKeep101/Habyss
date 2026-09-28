@@ -15,6 +15,8 @@ const localHabit = {
     goal_period: 'daily', goal_value: 3.6, unit: 'km', chart_type: 'bar', is_archived: 0,
     show_memo: 1, frequency: 'daily', week_interval: 1, time_of_day: 'evening',
     graph_style: 'progress', tracking_method: 'numeric', reminder_offset: 10,
+    reminder_message: 'Shoes on. Ten minutes is enough.',
+    recurrence: '{"kind":"monthly","every":2,"ordinal":3,"day":"sun"}',
     location_reminders: '[{"name":"Gym","latitude":1,"longitude":2}]', health_kit_metric: null,
     health_kit_target: null, ringtone: 'default', goal_spec: '{"type":"volume","target":50}',
     created_at: '2026-09-18T10:00:00.000Z', updated_at: '2026-09-18T11:00:00.000Z',
@@ -45,6 +47,20 @@ describe('habits, phone to server', () => {
     it('trims the name and never sends it empty', () => {
         expect(remote.name).toBe('Evening run');
         expect(habitToRemote({ ...localHabit, name: '   ' }, USER).name).toBe('Untitled');
+    });
+
+    it('carries the rule it repeats on and the sentence its reminder says', () => {
+        // Both were held out of the mapping while the server had no column for
+        // them; a habit that came back from a backup without its recurrence
+        // would be restored as whatever the legacy columns alone describe.
+        expect(remote.recurrence).toBe('{"kind":"monthly","every":2,"ordinal":3,"day":"sun"}');
+        expect(remote.reminder_message).toBe('Shoes on. Ten minutes is enough.');
+    });
+
+    it('sends null for a habit that has neither', () => {
+        const bare = habitToRemote({ ...localHabit, recurrence: undefined, reminder_message: undefined }, USER);
+        expect(bare.recurrence).toBeNull();
+        expect(bare.reminder_message).toBeNull();
     });
 
     it('maps a local deletion to a deletion time', () => {
@@ -90,6 +106,10 @@ describe('habits, server to phone', () => {
         });
         expect(JSON.parse(back.task_days)).toEqual(['mon', 'wed']);
         expect(JSON.parse(back.goal_spec)).toEqual({ type: 'volume', target: 50 });
+        // The rule comes back as the text the phone stores, key order and all,
+        // which is why it is text on the server rather than jsonb.
+        expect(back.recurrence).toBe(localHabit.recurrence);
+        expect(back.reminder_message).toBe(localHabit.reminder_message);
     });
 
     it('marks what came from the server as already backed up', () => {

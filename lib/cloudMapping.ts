@@ -92,6 +92,12 @@ export function habitToRemote(row: Row, userId: string): Row {
         graph_style: GRAPH_STYLES.includes(row.graph_style) ? row.graph_style : null,
         tracking_method: TRACKING.includes(row.tracking_method) ? row.tracking_method : 'boolean',
         reminder_offset: finite(row.reminder_offset),
+        // Both of these were held out of the mapping while the server had no
+        // column for them — uploading a column it lacks fails the whole batch.
+        // It has both now, so a restored habit keeps the sentence its reminder
+        // says and the rule it actually repeats on.
+        reminder_message: row.reminder_message ?? null,
+        recurrence: row.recurrence ?? null,
         location_reminders: parseJson(row.location_reminders, []),
         health_kit_metric: row.health_kit_metric ?? null,
         health_kit_target: finite(row.health_kit_target),
@@ -137,6 +143,8 @@ export function habitToLocal(row: Row): Row {
         // names for amounts, which would otherwise not display.
         tracking_method: row.tracking_method === 'boolean' || !row.tracking_method ? 'boolean' : 'numeric',
         reminder_offset: row.reminder_offset ?? null,
+        reminder_message: row.reminder_message ?? null,
+        recurrence: row.recurrence ?? null,
         location_reminders: toJsonText(row.location_reminders, '[]'),
         health_kit_metric: row.health_kit_metric ?? null,
         health_kit_target: finite(row.health_kit_target),
