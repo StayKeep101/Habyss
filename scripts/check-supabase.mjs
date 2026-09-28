@@ -28,21 +28,36 @@ const TABLES = {
         'chart_type', 'is_archived', 'show_memo', 'frequency', 'week_interval', 'time_of_day',
         'graph_style', 'tracking_method', 'reminder_offset', 'location_reminders',
         'health_kit_metric', 'health_kit_target', 'ringtone', 'goal_spec',
+        'reminder_message', 'recurrence',
         'created_at', 'updated_at', 'deleted_at',
     ],
     habit_completions: [
         'id', 'user_id', 'habit_id', 'date', 'value', 'memo', 'completed',
-        'created_at', 'updated_at', 'skipped', 'deleted_at',
+        'created_at', 'updated_at', 'skipped', 'evidence', 'deleted_at',
     ],
     tasks: [
         'id', 'user_id', 'title', 'description', 'due_date', 'due_time', 'estimated_minutes',
         'priority', 'goal_id', 'status', 'completed_at', 'source', 'external_id',
         'created_at', 'updated_at', 'deleted_at',
     ],
+    // The social half. Each of these is useless without RLS, which is checked
+    // separately below — a table here and no policy there is the bad case.
+    feed_reactions: ['from_user', 'to_user', 'day', 'reaction', 'created_at'],
+    feed_comments: ['id', 'author', 'to_user', 'day', 'body', 'created_at'],
+    shared_tasks: ['id', 'task_id', 'owner_id', 'shared_with_id', 'status', 'created_at', 'deleted_at'],
+    shared_completions: ['user_id', 'item_id', 'item_type', 'day', 'evidence', 'created_at'],
+    user_blocks: ['blocker', 'blocked', 'created_at'],
+    content_reports: ['id', 'reporter', 'reported_user', 'kind', 'reference', 'reason', 'created_at'],
 };
 
+/** Tables that must never be readable or writable without a matching policy. */
+const GUARDED = [
+    'feed_reactions', 'feed_comments', 'shared_tasks', 'shared_completions',
+    'user_blocks', 'content_reports',
+];
+
 /** Called by live code paths only; lib/_premium is not reachable from the app. */
-const FUNCTIONS = ['friend_stats', 'delete_my_account'];
+const FUNCTIONS = ['friend_stats', 'delete_my_account', 'blocked_between'];
 
 function env() {
     const out = {};
@@ -156,6 +171,31 @@ for (const table of ['profiles', 'habits', 'tasks']) {
     const response = await rest(`/rest/v1/${table}?select=id&limit=1`);
     const open = response.ok && (await response.json()).length > 0;
     say(!open, `${table} rows`, open ? 'readable while signed out' : 'not readable');
+}
+
+/* -------------------------------------------------- the social tables' guards */
+// These hold what one person wrote for another to read. A table with RLS off,
+// or with no policy at all, is the failure worth catching before a release.
+console.log('\nRow level security on what people write');
+if (token) {
+    const rows = await sql(`
+        select c.relname as t, c.relrowsecurity as rls,
+               (select count(*) from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname) as policies
+        from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relname in (${GUARDED.map(t => `'${t}'`).join(',')});
+    `);
+    for (const table of GUARDED) {
+        const found = rows.find(row => row.t === table);
+        if (!found) { say(false, table, 'the table does not exist'); continue; }
+        const guarded = found.rls && Number(found.policies) > 0;
+        say(guarded, table, guarded ? `${found.policies} policies` : found.rls ? 'RLS on but NO POLICIES' : 'RLS IS OFF');
+    }
+} else {
+    for (const table of GUARDED) {
+        const response = await rest(`/rest/v1/${table}?select=*&limit=1`);
+        const open = response.ok && (await response.json()).length > 0;
+        say(!open, `${table} rows`, open ? 'READABLE WHILE SIGNED OUT' : 'not readable');
+    }
 }
 
 /* ---------------------------------------------------------------- the ways in */

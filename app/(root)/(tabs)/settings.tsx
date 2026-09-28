@@ -239,6 +239,7 @@ export default function ProfileScreen() {
                             onPress={() => router.push('/(root)/account')}
                         />
                         <Row icon="shield-checkmark-outline" label="Privacy & security" onPress={() => router.push('/(root)/privacy')} />
+                        <Row icon="hand-left-outline" label="Blocked accounts" onPress={() => router.push('/(root)/blocked')} />
                         {PAYWALL_ENABLED ? (
                             <Row icon="star-outline" label="Subscription" value="Manage" onPress={() => router.push('/(root)/paywall')} />
                         ) : null}

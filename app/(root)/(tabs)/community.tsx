@@ -478,6 +478,8 @@ export default function CommunityScreen() {
                 friend={selectedFriend}
                 onClose={() => setShowFriendStats(false)}
                 onNudge={handleNudge}
+                // Their card has to go straight away, not at the next refresh.
+                onBlocked={() => { void loadData(true); }}
             />
 
             {/* Add Friend Modal */}

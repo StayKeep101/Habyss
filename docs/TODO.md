@@ -139,12 +139,44 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       dropped from the device so it is never held in two places. The server's
       rows are the truth and `mergeNotes` puts anything still waiting after
       them, so nothing is ever shown twice. Notes are kept per day.
-- [ ] Messages and emoji between friends. **Blocked, and deliberately not
-      faked.** Notes on a day could be kept locally because a note is still a
-      record of what you thought; a message that never leaves the phone is a
-      conversation with nobody. This needs a `friend_messages` table with RLS
-      scoped to the two people in it, which means the migration below has to be
-      applied first — say the word and it goes in the same one.
+- [~] Messages and emoji between friends. Emoji: done, as reactions. Words:
+      done, as notes on a day — which is a message to a friend, in the place the
+      app is actually about.
+      **A separate inbox is deliberately not built, and it is a decision for
+      you, not a missing piece.** Two reasons. It would compete with day notes
+      for the same job, and open-ended direct messaging is the part of App Review
+      that bites: guideline 1.2 wants filtering, reporting, blocking and a
+      contact route before it will take an app carrying private conversation. The
+      groundwork is now in place (see below), so say the word and it is a table
+      and a screen rather than a rethink.
+
+## Keeping people safe — done 2026-09-28
+
+Not on any of your lists, and it belongs here anyway: the app now carries what
+one person writes for another to read — the feed, reactions, notes on a day.
+App Review asks for a way to block and a way to report before it takes an app
+that does that (guideline 1.2), and more to the point it is the right thing to
+have before strangers can reach each other by username.
+
+- [x] **Blocking, enforced in Postgres, not hidden in the interface.** A block
+      that only stops the app drawing something is not a block: the row still
+      arrives, and an older build, the next build, or anything reading the API
+      sees it. `blocked_between()` is consulted by the insert policies on
+      `feed_comments`, `feed_reactions`, `friend_requests` and `friendships`,
+      and `friend_stats` leaves a blocked account out of the feed entirely.
+      It is security definer on purpose: `user_blocks` deliberately hides the
+      rows that block *you*, and the check still has to see them.
+      Blocking also ends the friendship and deletes reactions you had sent them,
+      because a friendship nothing can pass through is a worse state than none.
+- [x] **Reporting**, as a fixed list of reasons rather than a text box — one tap
+      instead of typing, and a chosen reason is more use to whoever reads it.
+      `content_reports` keeps them; nothing decides anything about an account on
+      its own.
+- [x] **Blocked accounts** has a screen of its own in Settings → it cannot live
+      on their card, since a block is what makes that card disappear.
+- [x] `scripts/check-supabase.mjs` now checks all six social tables have RLS on
+      *and at least one policy* — a table with RLS and no policy is the quiet
+      failure worth catching before a release.
 - [x] Shared habits **and tasks** (`lib/shared.ts`, 14 tests) — not done until
       everyone on it has done it, two people or five — surfaced on the habit
       page as who is on it, who it is waiting on, and a tick per person. A task

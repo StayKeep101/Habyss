@@ -574,6 +574,86 @@ export class FriendsService {
         return !error;
     }
 
+    /* ------------------------------------------------ blocking, reporting */
+
+    /**
+     * Stops somebody, for good and on the server.
+     *
+     * A block that only stops the interface drawing something is not a block:
+     * the row still arrives, and an older build, the next build, or anything
+     * reading the API sees it. The policies on `feed_comments`,
+     * `feed_reactions`, `friend_requests` and `friendships` all refuse a write
+     * between two people where either has blocked the other, and `friend_stats`
+     * leaves them out of the feed.
+     *
+     * The friendship goes too. Leaving it in place while nothing can pass
+     * through it is a worse state than not being friends.
+     */
+    static async blockUser(userId: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx || userId === ctx.me) return false;
+
+        const { error } = await ctx.sb.from('user_blocks')
+            .upsert({ blocker: ctx.me, blocked: userId }, { onConflict: 'blocker,blocked' });
+        if (error) return false;
+
+        // Best effort, and in this order: the block is what matters, and it is
+        // already in place if any of the tidying up fails.
+        await Promise.all([
+            ctx.sb.from('friendships').delete().eq('user_id', ctx.me).eq('friend_id', userId),
+            ctx.sb.from('friendships').delete().eq('user_id', userId).eq('friend_id', ctx.me),
+            ctx.sb.from('friend_requests').delete().eq('from_user_id', ctx.me).eq('to_user_id', userId),
+            ctx.sb.from('feed_reactions').delete().eq('from_user', ctx.me).eq('to_user', userId),
+        ]);
+        void this.refreshSharedIds();
+        return true;
+    }
+
+    static async unblockUser(userId: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx) return false;
+        const { error } = await ctx.sb.from('user_blocks').delete()
+            .eq('blocker', ctx.me).eq('blocked', userId);
+        return !error;
+    }
+
+    /** Who you have blocked, so there is a screen to undo it from. */
+    static async blockedUsers(): Promise<Friend[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+        const { data } = await ctx.sb.from('user_blocks').select('blocked').eq('blocker', ctx.me);
+        const ids = (data ?? []).map((row: any) => row.blocked);
+        const people = await profiles(ctx, ids);
+        return ids.map((id: string) => ({
+            id, userId: id,
+            username: people.get(id)?.username ?? 'Account',
+            avatarUrl: people.get(id)?.avatar_url ?? undefined,
+        }));
+    }
+
+    /**
+     * Reports something to be read by a person.
+     *
+     * Nothing here decides anything about an account: it is a record that
+     * somebody objected, which is what a report should be.
+     */
+    static async reportContent(input: {
+        userId: string;
+        kind: 'comment' | 'reaction' | 'profile' | 'other';
+        reason: string;
+        reference?: string;
+    }): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx || input.userId === ctx.me) return false;
+        const reason = input.reason.trim().slice(0, 1000);
+        if (!reason) return false;
+        const { error } = await ctx.sb.from('content_reports').insert({
+            reporter: ctx.me, reported_user: input.userId,
+            kind: input.kind, reference: input.reference ?? null, reason,
+        });
+        return !error;
+    }
+
     /* ---------------------------------------------------------------- sharing */
 
     /**

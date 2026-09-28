@@ -20,6 +20,8 @@ interface FriendStatsModalProps {
     friend: Friend | null;
     onClose: () => void;
     onNudge: (friend: Friend) => void;
+    /** Called after a block, so the feed can stop showing them at once. */
+    onBlocked?: (friend: Friend) => void;
 }
 
 interface FriendDetailedStats {
@@ -35,6 +37,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
     friend,
     onClose,
     onNudge,
+    onBlocked,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -117,6 +120,55 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
     const radius = (size - strokeWidth) / 2;
     const circumference = radius * 2 * Math.PI;
     const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
+
+    /**
+     * Blocking and reporting, as two native prompts rather than a screen.
+     *
+     * A report asks for a reason from a fixed list instead of free text: it is
+     * one tap instead of typing, and a chosen reason is more use to whoever
+     * reads it than a sentence.
+     */
+    const report = (person: Friend) => {
+        const file = async (reason: string) => {
+            const ok = await FriendsService.reportContent({ userId: person.userId || person.id, kind: 'profile', reason });
+            Alert.alert(
+                ok ? 'Reported' : 'Could not send that',
+                ok ? 'Thank you. Somebody will read it.' : 'Please try again.',
+            );
+        };
+        Alert.alert(`Report ${person.username}`, 'What is wrong?', [
+            { text: 'Spam', onPress: () => void file('spam') },
+            { text: 'Harassment', onPress: () => void file('harassment') },
+            { text: 'Something else', onPress: () => void file('other') },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    };
+
+    const block = (person: Friend) => {
+        Alert.alert(
+            `Block ${person.username}?`,
+            'They will not see your day, and cannot react or write to you. It also removes them as a friend.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Block', style: 'destructive', onPress: async () => {
+                        const ok = await FriendsService.blockUser(person.userId || person.id);
+                        if (!ok) { Alert.alert('Could not block them', 'Please try again.'); return; }
+                        onBlocked?.(person);
+                        onClose();
+                    },
+                },
+            ],
+        );
+    };
+
+    const safety = (person: Friend) => {
+        Alert.alert(person.username, undefined, [
+            { text: 'Block', style: 'destructive', onPress: () => block(person) },
+            { text: 'Report', onPress: () => report(person) },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    };
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
@@ -291,6 +343,20 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                             </TouchableOpacity>
                         </Animated.View>
                     )}
+                    {/* Quiet, and at the bottom, but present: an app that
+                        carries what one person writes for another needs a way
+                        to stop somebody and a way to report them. */}
+                    {friend.username !== 'You' ? (
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={`Block or report ${friend.username}`}
+                            onPress={() => safety(friend)}
+                            style={styles.safety}
+                        >
+                            <Ionicons name="ellipsis-horizontal" size={14} color={colors.textTertiary} />
+                            <Text style={[styles.safetyText, { color: colors.textTertiary }]}>Block or report</Text>
+                        </TouchableOpacity>
+                    ) : null}
                 </ScrollView>
             </View>
         </VoidModal>
@@ -298,6 +364,8 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
 };
 
 const styles = StyleSheet.create({
+    safety: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, marginTop: 4 },
+    safetyText: { fontSize: 12, fontFamily: FontFamily.medium },
     iconButton: {
         width: 36,
         height: 36,
