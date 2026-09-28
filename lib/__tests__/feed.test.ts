@@ -94,3 +94,36 @@ describe('the line above the feed', () => {
         expect(summarise(cards)).toBe('Nobody has started yet');
     });
 });
+
+describe('a friend’s evidence, as the server sends it', () => {
+    it('carries what friend_stats reported', () => {
+        const [card] = buildFeed([friend({ todayCompleted: 2, todayTotal: 2, todayEvidence: ['verified', 'self'] })]);
+        expect(card.evidenceAll).toEqual(['verified', 'self']);
+        expect(card.evidence).toBe('verified');
+    });
+
+    it('reads an unstamped completion as self rather than as absent', () => {
+        // A friend on a build that never stamped evidence sends nothing, and the
+        // badge still has to agree with "3 of 3 done".
+        const [card] = buildFeed([friend({ todayCompleted: 3, todayTotal: 3 })]);
+        expect(card.evidenceAll).toEqual(['self', 'self', 'self']);
+    });
+
+    it('never claims more evidence than there were completions', () => {
+        const [card] = buildFeed([friend({ todayCompleted: 1, todayTotal: 4, todayEvidence: ['verified', 'verified', 'context'] })]);
+        expect(card.evidenceAll).toEqual(['verified']);
+    });
+
+    it('ignores a value the app does not know', () => {
+        const [card] = buildFeed([friend({ todayCompleted: 1, todayTotal: 1, todayEvidence: ['vouched'] })]);
+        expect(card.evidenceAll).toEqual(['self']);
+    });
+
+    it('prefers what the caller worked out, which is only ever your own', () => {
+        const [card] = buildFeed(
+            [friend({ isCurrentUser: true, todayCompleted: 1, todayTotal: 1, todayEvidence: ['self'] })],
+            { f: ['context'] },
+        );
+        expect(card.evidenceAll).toEqual(['context']);
+    });
+});

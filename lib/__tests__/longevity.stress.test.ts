@@ -169,7 +169,7 @@ it('persists edits across database reopen and passes SQLite integrity checks', a
     await getDatabase();
     // Bump with SCHEMA_VERSION in lib/database.ts: this asserts every migration
     // ran, so it is meant to notice a new one.
-    expect(await mockAdapter.getFirstAsync('SELECT version FROM schema_version')).toEqual({ version: 12 });
+    expect(await mockAdapter.getFirstAsync('SELECT version FROM schema_version')).toEqual({ version: 13 });
     expect(await mockAdapter.getFirstAsync('SELECT title, due_date FROM tasks WHERE id = ?', 't0')).toEqual({ title: 'Edited repeatedly', due_date: null });
     expect(await mockAdapter.getFirstAsync('PRAGMA integrity_check')).toEqual({ integrity_check: 'ok' });
 });

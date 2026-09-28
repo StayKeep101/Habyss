@@ -25,12 +25,30 @@ export interface DayCard {
     streak: number;
     /** True once the day is fully kept. */
     complete: boolean;
-    /** The strongest claim on their day; `self` until the server carries more. */
+    /** The strongest claim on their day. */
     evidence: Evidence;
+    /** Every claim on it, so a card can count rather than crown. */
+    evidenceAll: Evidence[];
     /** A short, true line for the card. */
     line: string;
     isYou: boolean;
 }
+
+/**
+ * The day's claims, one per completion counted.
+ *
+ * The server sends text, and only three values mean anything. It is also padded
+ * or trimmed to `done`, because the count on the card and the count in the badge
+ * have to be the same number: a friend on a build that never stamped evidence
+ * sends nothing, and a completion nobody can say anything about is self-logged,
+ * not absent.
+ */
+const asEvidence = (all: string[] | undefined, done: number): Evidence[] => {
+    const known = (all ?? []).slice(0, done)
+        .map<Evidence>(one => (one === 'verified' || one === 'context' ? one : 'self'));
+    while (known.length < done) known.push('self');
+    return known;
+};
 
 /** Zero rather than NaN, which is what `0/0` gives and what renders as "NaN%". */
 const shareOf = (done: number, total: number): number =>
@@ -70,13 +88,17 @@ export function buildFeed(friends: Friend[], evidenceByFriend: Record<string, Ev
             done, total, complete, isYou,
             streak: Math.max(0, Math.floor(friend.currentStreak ?? friend.streak ?? 0)),
         };
+        // What the caller worked out beats what the server sent: the app knows
+        // its own timer sessions exactly, and only ever passes its own.
+        const claims = evidenceByFriend[friend.userId] ?? asEvidence(friend.todayEvidence, done);
         return {
             id: friend.id || friend.userId,
             username: friend.username,
             avatarUrl: friend.avatarUrl,
             ...base,
             share: shareOf(done, total),
-            evidence: strongest(evidenceByFriend[friend.userId] ?? []),
+            evidenceAll: claims,
+            evidence: strongest(claims),
             line: lineFor(base),
         };
     });

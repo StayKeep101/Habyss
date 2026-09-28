@@ -19,6 +19,8 @@ export const isUuid = (value: unknown): value is string => typeof value === 'str
 const GRAPH_STYLES = ['progress', 'bar', 'line', 'heatmap', 'streak'];
 const TRACKING = ['boolean', 'numeric', 'quantity', 'duration', 'rating'];
 const TASK_STATUS = ['open', 'done', 'cancelled'];
+/** The three the server's check constraint allows; anything else uploads as null. */
+const EVIDENCE = ['verified', 'context', 'self'];
 const TASK_SOURCE = ['app', 'mcp', 'shortcut'];
 
 export function parseJson<T>(value: unknown, fallback: T): T {
@@ -174,6 +176,10 @@ export function completionToRemote(row: Row, userId: string): Row {
         created_at: row.created_at ?? null,
         updated_at: row.updated_at ?? row.created_at ?? null,
         skipped: bool(row.skipped),
+        // How it was evidenced, so a friend's feed card can tell a recorded run
+        // from a ticked box. Null on every row written before schema v13, which
+        // reads as self-logged.
+        evidence: EVIDENCE.includes(row.evidence) ? row.evidence : null,
         deleted_at: deletedAt({ ...row, updated_at: row.updated_at ?? row.created_at }),
     };
 }
@@ -188,6 +194,7 @@ export function completionToLocal(row: Row): Row {
         memo: row.memo ?? null,
         created_at: row.created_at ?? new Date().toISOString(),
         updated_at: row.updated_at ?? row.created_at ?? new Date().toISOString(),
+        evidence: EVIDENCE.includes(row.evidence) ? row.evidence : null,
         // A completion the server marks as not completed is treated as removed.
         skipped: row.skipped ? 1 : 0,
         deleted: row.deleted_at || row.completed === false ? 1 : 0,

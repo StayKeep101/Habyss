@@ -579,6 +579,36 @@ function progressSaved(habitId: string, date: string, completed: boolean, skippe
 
 }
 
+/**
+ * Records how a check-in was evidenced, just after it is written.
+ *
+ * Deliberately after the transaction rather than inside it. Working it out
+ * means reading the saved focus sessions out of AsyncStorage, which has no
+ * business holding a write lock open, and the screen has already been told the
+ * habit is done by then. `synced` goes back to 0 so the stamp rides along with
+ * the upload even if a sync slipped between the two writes.
+ *
+ * It never throws: a completion without its provenance reads as self-logged,
+ * which is the honest default, and is not worth losing a check-in over.
+ */
+async function stampEvidence(habitId: string, dateISO: string): Promise<void> {
+    try {
+        const { uid, db } = await progressStorage();
+        const habit = (cachedHabits ?? await getHabits()).find(item => item.id === habitId);
+        if (!habit) return;
+        const { timedToday, readsHealth } = require('./evidence') as typeof import('./evidence');
+        const { evidenceFor } = require('./proof') as typeof import('./proof');
+        const timed = await timedToday(dateISO);
+        const evidence = evidenceFor({ fromHealth: readsHealth(habit), timed: timed.has(habitId) });
+        await db.runAsync(
+            'UPDATE completions SET evidence = ?, synced = 0 WHERE user_id = ? AND habit_id = ? AND date = ? AND deleted = 0',
+            evidence, uid, habitId, dateISO,
+        );
+    } catch {
+        // Nothing to do: the row is already saved, only unattributed.
+    }
+}
+
 export function setSkipped(habitId: string, skipped: boolean, dateISO = todayString()): Promise<void> {
     return writeProgress(async () => {
         const { uid, db } = await progressStorage();
@@ -632,6 +662,7 @@ export function toggleCompletion(habitId: string, dateISO = todayString()): Prom
             }
         });
         progressSaved(habitId, dateISO, completed);
+        if (completed) void stampEvidence(habitId, dateISO);
         const habit = cachedHabits?.find(h => h.id === habitId);
         if (completed && habit) void NotificationService.sendCompletionNotification(habit.name).catch(() => undefined);
         return getCompletions(dateISO);
@@ -950,6 +981,7 @@ export function setCompletionValue(habitId: string, value: number, dateISO = tod
             );
         });
         progressSaved(habitId, dateISO, true);
+        void stampEvidence(habitId, dateISO);
         emit('habit_completed', { habitId, date: dateISO, value });
     });
 }
@@ -1014,6 +1046,7 @@ export function saveHabitMeasurement(habitId: string, amount: number, dateISO = 
         });
         delete completionsCache[dateISO];
         delete skippedCache[dateISO];
+        if (value >= target) void stampEvidence(habitId, dateISO);
         emit('habit_completion_updated', { habitId, date: dateISO, completed: value >= target, value });
         void NotificationService.refreshHabitReminders().catch(() => undefined);
 

@@ -236,3 +236,30 @@ describe('rows written by older versions of the app', () => {
         expect(habitToLocal({ id: HABIT, user_id: USER, name: 'x' }).tracking_method).toBe('boolean');
     });
 });
+
+describe('how a completion was evidenced', () => {
+    const local = {
+        id: 'c1', user_id: 'old', habit_id: HABIT, date: '2026-09-27', value: 1, memo: null,
+        skipped: 0, created_at: '2026-09-27T08:00:00.000Z', updated_at: '2026-09-27T08:00:00.000Z',
+        synced: 0, deleted: 0,
+    };
+
+    it('uploads the stamp the phone put on it', () => {
+        expect(completionToRemote({ ...local, evidence: 'verified' }, USER).evidence).toBe('verified');
+        expect(completionToRemote({ ...local, evidence: 'context' }, USER).evidence).toBe('context');
+    });
+
+    it('sends null for a row written before the column existed', () => {
+        expect(completionToRemote(local, USER).evidence).toBeNull();
+    });
+
+    it('refuses a value the server would reject, rather than failing the batch', () => {
+        // One bad row fails everyone's upload, so an unknown tier becomes null.
+        expect(completionToRemote({ ...local, evidence: 'vouched' }, USER).evidence).toBeNull();
+    });
+
+    it('reads one back', () => {
+        expect(completionToLocal({ ...local, evidence: 'context', deleted_at: null }).evidence).toBe('context');
+        expect(completionToLocal({ ...local, evidence: 'nonsense', deleted_at: null }).evidence).toBeNull();
+    });
+});

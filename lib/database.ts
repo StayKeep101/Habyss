@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 let dbInstance: any = null;
 /**
@@ -124,6 +124,7 @@ async function runMigrations(db: any): Promise<void> {
         [10, migrateToV10],
         [11, migrateToV11],
         [12, migrateToV12],
+        [13, migrateToV13],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -141,6 +142,23 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 13 — how a check-in was evidenced.
+ *
+ * `lib/evidence.ts` has always worked this out on the fly, which is fine for
+ * your own feed card and no use for a friend's: the server cannot see your
+ * timer sessions or which of your habits reads Health. Stamping it on the row
+ * at the moment it is written is the only time the answer is cheap and certain,
+ * and it means a completion carries its own provenance to the server.
+ *
+ * Null on every row written before this, which reads as self-logged — the
+ * honest reading of a tick nobody checked.
+ */
+async function migrateToV13(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'completions', 'evidence', 'TEXT');
+    console.log('[Database] Migrated to schema v13');
 }
 
 /**

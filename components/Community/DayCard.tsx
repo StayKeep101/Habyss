@@ -13,7 +13,7 @@ import { ms, s, vs } from '@/constants/Layout';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { LOOK } from '@/lib/proof';
+import { LOOK, describeDay } from '@/lib/proof';
 import { NOTE_LIMIT, type DayNote } from '@/lib/dayNotes';
 import type { DayCard as Card } from '@/lib/feed';
 import type { ReactionType } from '@/lib/friendsService';
@@ -154,7 +154,10 @@ export const DayCard: React.FC<{
                             color={card.evidence === 'self' ? colors.textTertiary : tint}
                         />
                         <Text style={[styles.proofText, { color: card.evidence === 'self' ? colors.textTertiary : tint }]}>
-                            {look.label}
+                            {/* Counted, not crowned: one verified run among nine
+                                ticks is a different day from nine verified runs,
+                                and a single badge reads the same for both. */}
+                            {describeDay(card.evidenceAll)}
                         </Text>
                     </View>
                 ) : null}

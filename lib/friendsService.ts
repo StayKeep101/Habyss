@@ -32,6 +32,8 @@ export interface Friend {
     todayCompletion?: number;
     todayTotal?: number;
     weeklyActivity?: number[];
+    /** How today's check-ins were evidenced: 'verified' | 'context' | 'self'. */
+    todayEvidence?: string[];
     isCurrentUser?: boolean;
 }
 
@@ -90,6 +92,8 @@ interface StatsRow {
     active_habits: number;
     week_done: number[];
     current_streak: number;
+    /** How each of today's check-ins was evidenced; absent on older servers. */
+    today_evidence?: string[] | null;
 }
 
 async function stats(ctx: Context): Promise<StatsRow[]> {
@@ -119,6 +123,10 @@ function toFriend(row: StatsRow, me: string): Friend {
         todayCompletion: percent(row.today_done, row.active_habits),
         // The charts read these as percentages of the day, not raw counts.
         weeklyActivity: (row.week_done ?? []).map(done => percent(done, row.active_habits)),
+        // Narrowed here rather than trusted: this is the only place the server's
+        // strings become the app's three, and anything else reads as self.
+        todayEvidence: (row.today_evidence ?? []).map(value =>
+            value === 'verified' || value === 'context' ? value : 'self'),
         isCurrentUser: row.user_id === me,
     };
 }

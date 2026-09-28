@@ -107,7 +107,18 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       and the timer's saved sessions — your own feed card carries true
       evidence today; a friend's needs the migration. 20 tests.
       Counted rather than crowned: one verified among nine ticks reads
-      "1 of 4 backed", not a single badge that flatters the day.
+      "1 of 4 backed", not a single badge that flatters the day — and that
+      counting is now what the card actually prints.
+      **A friend's evidence is real too, as of 2026-09-28.** Three pieces had to
+      meet: `habit_completions.evidence` (migration), a local `evidence` column
+      stamped at the moment a check-in is written (schema v13 — the only time the
+      answer is cheap and certain, since the server cannot see your timer
+      sessions or which habits read Health), and `friend_stats` returning
+      `today_evidence`, because a friend's completions are not readable by you,
+      which is the entire reason that function exists. The array is exactly as
+      long as `today_done` — same predicate — and is padded with `self` for a
+      friend on a build that never stamped anything, so the badge can never
+      disagree with the count beside it.
       **Decision taken: feed-only.** Completion, streaks, momentum and recovery
       are untouched — tying "done" to evidence everywhere would change every
       number in the app and punish habits that cannot be proved.
