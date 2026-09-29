@@ -184,6 +184,17 @@ async function ensureBackedUp(): Promise<void> {
 
 export const USERNAME_RULE = /^[a-z0-9_.]{3,20}$/;
 
+/**
+ * A handle, written the one way it is stored.
+ *
+ * Lowercase, because @Pen and @pen are plainly meant to be the same person, and
+ * without the @ people habitually type in front of one. Everything that reads a
+ * username goes through here, and `profiles.username` is now constrained to the
+ * same shape — the two disagreeing is exactly what made a scanned QR code for
+ * @Pen report that nobody was called @pen.
+ */
+export const normaliseUsername = (raw: string): string => raw.trim().replace(/^@+/, '').toLowerCase();
+
 export type UsernameResult = { ok: true } | { ok: false; error: string };
 
 export async function getMyUsername(): Promise<string | null> {
@@ -197,7 +208,7 @@ export async function getMyUsername(): Promise<string | null> {
 export async function setMyUsername(raw: string): Promise<UsernameResult> {
     const ctx = await signedIn();
     if (!ctx) return { ok: false, error: 'Sign in first.' };
-    const username = raw.trim().toLowerCase();
+    const username = normaliseUsername(raw);
     if (!USERNAME_RULE.test(username)) {
         return { ok: false, error: '3 to 20 characters: letters, numbers, dots and underscores.' };
     }
@@ -226,8 +237,12 @@ export function usernameFrom(input: string): string | null {
         if (parsed && typeof parsed.code === 'string') text = parsed.code;
     } catch { /* not JSON */ }
     const fromLink = text.match(/[?&]u=([^&\s]+)/);
-    if (fromLink) text = decodeURIComponent(fromLink[1]);
-    const username = text.replace(/^@/, '').toLowerCase();
+    if (fromLink) {
+        // A hand-mangled link can carry a stray percent, which throws here
+        // rather than returning anything: a broken invite is not a crash.
+        try { text = decodeURIComponent(fromLink[1]); } catch { text = fromLink[1]; }
+    }
+    const username = normaliseUsername(text);
     return USERNAME_RULE.test(username) ? username : null;
 }
 
@@ -325,7 +340,7 @@ export class FriendsService {
 
     static async searchUsers(query: string): Promise<Friend[]> {
         const ctx = await signedIn();
-        const term = query.trim().toLowerCase().replace(/^@/, '');
+        const term = normaliseUsername(query);
         if (!ctx || term.length < 2) return [];
 
         // Escape the pattern characters so a search for "a_b" matches literally.

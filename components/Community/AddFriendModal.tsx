@@ -91,23 +91,45 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     const handleBarCodeScanned = ({ data }: { data: string }) => {
         if (scanned) return;
         setScanned(true);
+
+        const friendCode = usernameFrom(data);
+        if (!friendCode) {
+            // It used to offer to add whatever the code happened to contain, so
+            // scanning a bus timetable proposed adding @https://…
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert(
+                'Not a Habyss code',
+                'That is some other kind of QR code. Ask your friend for the one in their Add friend screen.',
+                [{ text: 'OK', onPress: () => setScanned(false) }],
+            );
+            return;
+        }
+
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        const friendCode = usernameFrom(data) ?? data;
-
         Alert.alert(
-            "Friend Detected",
+            'Friend found',
             `Add @${friendCode}?`,
             [
-                { text: "Cancel", onPress: () => setScanned(false), style: "cancel" },
-                { text: "Add Friend", onPress: () => handleAddFriend(friendCode) }
-            ]
+                { text: 'Cancel', onPress: () => setScanned(false), style: 'cancel' },
+                { text: 'Add friend', onPress: () => handleAddFriend(friendCode) },
+            ],
         );
     };
 
     const renderContent = () => {
         switch (activeTab) {
             case 'qr':
+                // Without a username the link would be `?u=` — a code that
+                // cannot be scanned into anything.
+                if (!usernameFrom(userCode)) {
+                    return (
+                        <View style={styles.qrContainer}>
+                            <Text style={[styles.qrLabel, { color: colors.textSecondary }]}>
+                                Choose a username first — it is what your code points at.
+                            </Text>
+                        </View>
+                    );
+                }
                 return (
                     <View style={styles.qrContainer}>
                         <View style={[styles.qrWrapper, { backgroundColor: 'white' }]}>
