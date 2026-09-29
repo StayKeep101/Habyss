@@ -6,6 +6,8 @@ import { SwipeRow } from '@/components/Common/SwipeRow';
 import { BadgeRow, MeasureBadge, ReminderBadge } from '@/components/Common/CardBadges';
 import { CheckPop } from '@/components/Common/CheckPop';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { SharedFaces } from '@/components/Common/SharedFaces';
+import type { SharedState } from '@/lib/shared';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
@@ -42,6 +44,13 @@ interface SwipeableHabitItemProps {
   onDragMove?: (habit: ExtendedHabit, x: number, y: number) => void;
   onDragEnd?: (habit: ExtendedHabit, x: number, y: number) => void;
   isDragging?: boolean;
+  /**
+   * Who else is on this one, when anybody is.
+   *
+   * Passed in rather than fetched here: a list of thirty rows would otherwise
+   * open thirty requests and re-render thirty times while somebody scrolls.
+   */
+  shared?: SharedState | null;
   /** Stand down for today, on purpose: neither done nor missed. */
   onSkip?: (habit: ExtendedHabit) => void;
   skipped?: boolean;
@@ -53,7 +62,7 @@ const ACTION_WIDTH = 70; // Slightly larger for better touch targets
 const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   habit, onPress, onToggle, onEdit, onDelete, onShare, size, completed, goalName, isActive, timeLeft, totalDuration,
   canFocusNow, onFocusPress,
-  onDragStart, onDragMove, onDragEnd, isDragging = false, onSkip, skipped = false
+  onDragStart, onDragMove, onDragEnd, isDragging = false, onSkip, skipped = false, shared = null
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -66,7 +75,16 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
 
 
   // Prefer dedicated prop, fallback to object property
-  const isCompleted = completed !== undefined ? completed : habit.completed;
+  const doneByMe = completed !== undefined ? completed : habit.completed;
+  /**
+   * A shared habit is not done until everybody on it is done.
+   *
+   * Your own tick is still your own tick — it is recorded, it still counts
+   * towards your streak, and the box stays filled. What changes is what the
+   * *row* claims: it reads as finished only when nobody is being waited on,
+   * which is the whole reason for sharing it.
+   */
+  const isCompleted = shared ? shared.complete : doneByMe;
 
   // Dynamic Sizing (Habits must be smaller than Goals)
   const isSmall = size === 'small';
@@ -196,19 +214,19 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
             <TouchableOpacity
               activeOpacity={0.6}
               accessibilityRole="checkbox"
-              accessibilityState={{ checked: !!isCompleted }}
+              accessibilityState={{ checked: !!doneByMe }}
               accessibilityLabel={skipped ? `${habit.name}, skipped today` : isCompleted ? `Undo ${habit.name}` : `Mark ${habit.name} done`}
               onPress={() => onToggle && onToggle(habit)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <CheckPop active={!!isCompleted} color={accentColor} size={checkboxSize}>
+              <CheckPop active={!!doneByMe} color={accentColor} size={checkboxSize}>
                 <View style={[
                   styles.checkbox,
                   { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 },
-                  isCompleted && { backgroundColor: accentColor + '30', borderColor: accentColor },
+                  doneByMe && { backgroundColor: accentColor + '30', borderColor: accentColor },
                   isActive && { borderColor: accentColor, backgroundColor: accentColor + '20' },
                   // A skipped day is drawn as set aside, not as failed.
-                  skipped && !isCompleted && { borderStyle: 'dashed', borderColor: colors.textTertiary },
+                  skipped && !doneByMe && { borderStyle: 'dashed', borderColor: colors.textTertiary },
                 ]}>
                   {isCompleted || isActive ? (
                     <Ionicons name={isCompleted ? 'checkmark' : 'play'} size={checkboxSize * 0.7} color={accentColor} />
@@ -229,7 +247,14 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }, isActive && { fontFamily: FontFamily.bold, color: accentColor }]} numberOfLines={1}>
                 {habit.name}
               </Text>
-              {skipped && !isCompleted && !isSmall ? (
+              {shared && !isSmall ? (
+                <View style={styles.sharedRow}>
+                  <SharedFaces people={shared.people} tint={accentColor} size={18} />
+                  <Text numberOfLines={1} style={{ fontSize: 10, color: shared.waitingOnYou ? colors.warning : colors.textTertiary, fontFamily: FontFamily.medium }}>
+                    {shared.line}
+                  </Text>
+                </View>
+              ) : skipped && !isCompleted && !isSmall ? (
                 <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.medium, marginTop: 2 }}>Skipped today</Text>
               ) : goalName && !isSmall ? (
                 <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.regular, marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
@@ -323,6 +348,7 @@ const styles = StyleSheet.create({
 
     fontFamily: FontFamily.medium, // Lighter weight for items
   },
+  sharedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
   streakText: {
     fontSize: 9,
     fontFamily: FontFamily.bold,

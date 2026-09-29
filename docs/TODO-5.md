@@ -53,9 +53,17 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Shared habits and tasks
 
-- [ ] The card shows the profile picture of everybody who has access to it.
-- [ ] It is not complete until **all of them** have completed it. (Asked for
-      twice now; the streak question is the part to settle — see below.)
+- [x] The card shows everybody's face, overlapping, always on the row rather
+      than behind a tap — the point of sharing is seeing who is holding it up.
+      A ringed face has done their half. Deliberately not a count: "3 people"
+      tells you nothing you can act on; a face tells you whom to message.
+- [x] It is not complete until **all of them** have completed it. The row reads
+      as finished only when nobody is being waited on.
+      **What I did not change, and you should overrule me if you disagree:**
+      your own tick still counts for your own streak. The row's *claim* is
+      shared; your record is not. One friend's quiet week ending a streak you
+      kept perfectly is a much heavier promise than it sounds, and it should be
+      a decision taken on purpose rather than one that arrives with a feature.
 
 ## Text
 

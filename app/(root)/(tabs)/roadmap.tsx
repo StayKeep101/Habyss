@@ -12,6 +12,7 @@ import { useTheme } from '@/constants/themeContext';
 import { Colors } from '@/constants/Colors';
 import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
+import { useSharedItems } from '@/hooks/useSharedItems';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
@@ -72,6 +73,19 @@ const CalendarScreen = () => {
     const [habitsStore, setHabitsStore] = useState<StoreHabit[]>([]);
     // habits state removed - usage replaced by memoized derivation
     const [completions, setCompletions] = useState<Record<string, boolean>>({});
+
+    /**
+     * Who else is on each habit on screen, in one query for the whole list.
+     *
+     * A shared habit is not done until everyone on it is done, so every row
+     * needs to know — but thirty rows asking separately is thirty requests and
+     * thirty re-renders while somebody is trying to scroll.
+     */
+    const habitIds = useMemo(
+        () => habitsStore.filter(habit => !habit.isGoal && !habit.isArchived).map(habit => habit.id),
+        [habitsStore],
+    );
+    const { stateFor: sharedFor } = useSharedItems(habitIds, completions);
     // Tasks live here too, so the roadmap is the whole plan rather than only rhythms.
     const [tasks, setTasks] = useState<Task[]>([]);
     const [todayCompletions, setTodayCompletions] = useState<Record<string, boolean>>({});
@@ -953,6 +967,7 @@ const CalendarScreen = () => {
                                                                         habit={habit}
                                                                         size={cardSize}
                                                                         completed={!!completions[habit.id]}
+                                                                        shared={sharedFor(habit.id)}
                                                                         isDragging={draggingHabit?.id === habit.id}
                                                                         skipped={!!skipped[habit.id]}
                                                                         onSkip={handleHabitSkip}
@@ -1051,6 +1066,7 @@ const CalendarScreen = () => {
                                                 key={habit.id}
                                                 habit={habit}
                                                 completed={!!completions[habit.id]}
+                                                shared={sharedFor(habit.id)}
                                                 isDragging={draggingHabit?.id === habit.id}
                                                 isActive={habit.id === activeHabitId}
                                                 timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
