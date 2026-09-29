@@ -34,7 +34,6 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="ai-config" options={{ presentation: 'modal' }} />
         <Stack.Screen name="goals-overview" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="roadmap" options={{ presentation: 'modal' }} />
         <Stack.Screen
           name="notifications"
           options={{
