@@ -2,11 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon } from '@/components/Common/AppIcon';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
-import { Control, FontFamily, Radius, Typography } from '@/constants/DesignSystem';
+import { Control, FontFamily, Radius, Typography, surfaceFor } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useFocusTime } from '@/constants/FocusTimeContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -47,6 +46,12 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     const ink = readableAccent(accent, colors.surfaceSecondary);
     const successInk = readableAccent(colors.success, colors.surfaceSecondary);
     const { kind, target, unit, unitKind, step, quickAmounts, secondsPerUnit } = measurementFor(habit);
+    // One step above the card, for the things that sit on it: the dial's well,
+    // the chips, the amount field. Reading these off the surface tones rather
+    // than tinting the accent keeps the accent meaning "this is the progress".
+    const tone = surfaceFor(theme);
+    const raised = tone.raised;
+    const track = theme === 'light' ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)';
     const focus = useFocusTime();
     const { selectionFeedback, mediumFeedback } = useHaptics();
     const [editing, setEditing] = useState(false);
@@ -164,10 +169,9 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
 
     return (
         <Animated.View layout={morph}>
-            <VoidCard style={[styles.card, { borderColor: complete ? colors.success + '55' : colors.border }]}>
-                <LinearGradient pointerEvents="none" colors={[accent + '12', 'transparent']} style={StyleSheet.absoluteFill} />
+            <VoidCard matte style={styles.card}>
                 <View style={styles.cardTop}>
-                    <View style={[styles.datePill, { backgroundColor: colors.surfaceTertiary }]}>
+                    <View style={[styles.datePill, { backgroundColor: raised }]}>
                         <View style={[styles.dot, { backgroundColor: complete ? colors.success : accent }]} />
                         <Text style={[Typography.caption, { color: colors.textPrimary }]}>{isToday ? 'Today' : new Date(date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
                     </View>
@@ -180,9 +184,12 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                 </View>
                 <View style={styles.dial} accessible accessibilityRole="progressbar" accessibilityLabel={`${habit.name} progress`} accessibilityValue={{ min: 0, max: target, now: Math.min(displayValue, target), text: `${formatMeasurement(displayValue)} of ${formatMeasurement(target)} ${unit}` }}>
                     <Svg width={156} height={156} style={StyleSheet.absoluteFill}>
-                        <Circle cx={78} cy={78} r={76} stroke={accent + '12'} strokeWidth={1} fill="none" />
-                        <Circle cx={78} cy={78} r={RING} stroke={colors.surfaceTertiary} strokeWidth={6} fill="none" />
-                        <AnimatedCircle cx={78} cy={78} r={RING} stroke={complete ? colors.success : accent} strokeWidth={6} strokeLinecap="round" fill="none" strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`} animatedProps={ringProps} rotation={-90} origin="78,78" opacity={progress > 0 ? 1 : 0} />
+                        {/* A filled well, not a hoop drawn on the background:
+                            the track needs something behind it or the ring is
+                            a line floating in space. */}
+                        <Circle cx={78} cy={78} r={72} fill={raised} />
+                        <Circle cx={78} cy={78} r={RING} stroke={track} strokeWidth={7} fill="none" />
+                        <AnimatedCircle cx={78} cy={78} r={RING} stroke={complete ? colors.success : accent} strokeWidth={7} strokeLinecap="round" fill="none" strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`} animatedProps={ringProps} rotation={-90} origin="78,78" opacity={progress > 0 ? 1 : 0} />
                     </Svg>
                     <Animated.View style={[styles.dialIcon, { backgroundColor: (complete ? colors.success : accent) + '18' }, iconStyle]}>
                         <AppIcon name={complete ? 'checkmark' : habit.icon || 'sparkles-outline'} size={17} color={complete ? successInk : ink} />
@@ -197,7 +204,7 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                 <Text accessibilityLiveRegion="polite" style={[Typography.heading, styles.status, { color: complete ? successInk : colors.textPrimary }]}>{status}</Text>
 
                 {!isToday ? (
-                    <Pressable onPress={onToday} accessibilityRole="button" style={[styles.secondary, { backgroundColor: colors.surfaceTertiary }]}>
+                    <Pressable onPress={onToday} accessibilityRole="button" style={[styles.secondary, { backgroundColor: raised }]}>
                         <AppIcon name="arrow-forward-outline" color={ink} size={18} />
                         <Text style={[Typography.button, { color: ink }]}>Back to today</Text>
                     </Pressable>
@@ -205,7 +212,7 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                     <Animated.View entering={enter} exiting={exit} layout={morph} style={styles.editor}>
                         <Text style={[Typography.caption, { color: colors.textSecondary }]}>Total for today · {unit}</Text>
                         <View style={styles.entryRow}>
-                            <TextInput autoFocus value={draft} onChangeText={text => { setDraft(text); setInputError(null); }} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={saveDraft} selectTextOnFocus accessibilityLabel={`Total ${unit} for today`} style={[styles.input, { color: colors.textPrimary, backgroundColor: colors.surfaceTertiary, borderColor: inputError ? colors.error : colors.border }]} />
+                            <TextInput autoFocus value={draft} onChangeText={text => { setDraft(text); setInputError(null); }} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={saveDraft} selectTextOnFocus accessibilityLabel={`Total ${unit} for today`} style={[styles.input, { color: colors.textPrimary, backgroundColor: raised, borderColor: inputError ? colors.error : tone.line }]} />
                             <Pressable onPress={saveDraft} accessibilityRole="button" accessibilityLabel="Save total" style={[styles.save, { backgroundColor: accent }]}><AppIcon name="checkmark" color={readableAccent('#FFFFFF', accent)} /></Pressable>
                         </View>
                         {inputError && <Text accessibilityRole="alert" style={[Typography.caption, { color: colors.error }]}>{inputError}</Text>}
@@ -218,7 +225,7 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                                 {/* A static style, deliberately: a Pressable whose style is a
                                     function does not lay out with flex on this
                                     React Native, and these must share the row. */}
-                                {quickAmounts.map(amount => <Pressable key={amount} onPress={() => onAdd(amount)} disabled={!editable} accessibilityRole="button" accessibilityLabel={`Add ${formatMeasurement(amount)} ${unit}`} style={[styles.quick, { backgroundColor: accent + '1c', borderColor: accent + '3d', opacity: editable ? 1 : 0.5 }]}><Text style={[Typography.button, { color: ink }]}>+{formatMeasurement(amount)}</Text></Pressable>)}
+                                {quickAmounts.map(amount => <Pressable key={amount} onPress={() => onAdd(amount)} disabled={!editable} accessibilityRole="button" accessibilityLabel={`Add ${formatMeasurement(amount)} ${unit}`} style={[styles.quick, { backgroundColor: raised, opacity: editable ? 1 : 0.5 }]}><Text style={[Typography.button, { color: colors.textPrimary }]}>+{formatMeasurement(amount)}</Text></Pressable>)}
                             </View>
                         )}
                         <Animated.View style={[buttonStyle, !ready && styles.disabled]}>
@@ -265,7 +272,7 @@ const styles = StyleSheet.create({
     quick: {
         flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0,
         minHeight: Control.hitTarget, alignItems: 'center', justifyContent: 'center',
-        borderRadius: Radius.small, borderWidth: 1,
+        borderRadius: Radius.small,
     },
     primary: { minHeight: Control.height, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     secondary: { minHeight: Control.height, borderRadius: Radius.control, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },

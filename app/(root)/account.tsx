@@ -53,6 +53,10 @@ export default function AccountScreen() {
     const { lightFeedback, successFeedback } = useHaptics();
     const { restore } = useLocalSearchParams<{ restore?: string }>();
     const restoring = restore === '1';
+    const closeAccount = () => {
+        if (router.canGoBack()) router.back();
+        else router.replace(restoring ? '/(auth)/onboarding' : '/(root)/(tabs)/home');
+    };
 
     const [account, setAccount] = useState<Account | null>(null);
     const [loading, setLoading] = useState(true);
@@ -146,7 +150,7 @@ export default function AccountScreen() {
                 router.replace('/(root)/(tabs)/home');
             } else {
                 Alert.alert('Nothing to restore yet', 'This account has no backup. Build your plan and it will be backed up from now on.', [
-                    { text: 'Build my plan', onPress: () => router.back() },
+                    { text: 'Build my plan', onPress: () => router.replace('/(auth)/onboarding') },
                 ]);
             }
             return;
@@ -376,7 +380,7 @@ export default function AccountScreen() {
     );
 
     return (
-        <SheetScreen title="Account & backup" onBack={() => router.back()}>
+        <SheetScreen title="Account & backup" onBack={closeAccount}>
 
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

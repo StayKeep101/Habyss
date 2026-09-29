@@ -36,6 +36,9 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    // The square a day gets when nothing happened. A step above the card rather
+    // than a ghost of the text colour, so the grid is legible on its own.
+    const empty = theme === 'light' ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.07)';
     const scrollViewRef = useRef<ScrollView>(null);
     const [scrolled, setScrolled] = useState(false);
 
@@ -167,10 +170,14 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                             // four different facts that used to render as two.
                             const kept = d.completed || (d.value ?? 0) > 0;
                             const intensity = d.completed ? 1 : Math.min((d.value ?? 0) / 5, 1);
-                            const fillColor = kept ? color : colors.textTertiary;
-                            const opacity = kept ? 0.3 + intensity * 0.7
-                                : d.skipped ? 0.22
-                                    : d.scheduled ? 0.1 : 0.03;
+                            // An empty day is a *square*, not an absence. Drawn
+                            // at three percent it disappeared into the card and
+                            // took the grid with it, so a year of check-ins read
+                            // as a blank panel until you had months of them.
+                            const fillColor = kept ? color : empty;
+                            const opacity = kept ? 0.35 + intensity * 0.65
+                                : d.skipped ? 0.9
+                                    : d.scheduled ? 0.75 : 0.45;
 
                             return (
                                 <Rect
@@ -179,7 +186,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                                     y={d.dayIndex * WEEK_WIDTH}
                                     width={CELL_SIZE}
                                     height={CELL_SIZE}
-                                    rx={2}
+                                    rx={3}
                                     fill={fillColor}
                                     opacity={opacity}
                                 />
@@ -201,8 +208,8 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                                 width: 10,
                                 height: 10,
                                 borderRadius: 2,
-                                backgroundColor: op === 0 ? colors.textTertiary : color,
-                                opacity: op === 0 ? 0.08 : 0.3 + (op * 0.7)
+                                backgroundColor: op === 0 ? empty : color,
+                                opacity: op === 0 ? 0.75 : 0.35 + (op * 0.65)
                             }}
                         />
                     ))}

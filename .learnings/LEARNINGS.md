@@ -394,3 +394,20 @@ A public Google authorization followed by a diagnostic cancellation returned loc
 ### Metadata
 - Source: investigation
 - Related Files: scripts/check-auth.mjs, scripts/check-ios-auth.py, lib/account.ts, patches/expo-apple-authentication+57.0.2.patch
+
+## [LRN-20260929-NAV] correction
+
+**Logged**: 2026-09-29
+**Priority**: high
+**Status**: resolved
+**Area**: frontend
+
+### Summary
+Successful email sign-in can leave Account & backup as the only route. Its back action must have a fallback.
+
+### Details
+The user confirmed email returned to Habyss, but every attempt to leave Account triggered an unhandled GO_BACK. Account's header unconditionally called router.back(). Added canGoBack with Home/onboarding fallback, an explicit onboarding destination for Build my plan, and a tabs anchor beneath directly opened root modals. Added account-screen regression tests for signed-in cold starts and normal pushed navigation. The initial test mock omitted buttonColors required by AppButton; corrected the fixture.
+
+### Metadata
+- Source: user_feedback
+- Related Files: app/(root)/account.tsx, app/(root)/_layout.tsx, lib/__tests__/accountNavigation.test.tsx

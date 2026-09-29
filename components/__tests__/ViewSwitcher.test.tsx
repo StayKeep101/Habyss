@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { ViewSwitcher, type SwitcherOption } from '../Common/ViewSwitcher';
+import { surfaceFor } from '@/constants/DesignSystem';
 
 jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 
@@ -37,7 +38,9 @@ describe('the view switcher', () => {
         // getByRole has no mapping for 'tablist', so it is found by the prop.
         const bar = screen.UNSAFE_getByProps({ accessibilityRole: 'tablist' });
         const background = StyleSheetFlatten(bar.props.style).backgroundColor as string;
-        expect(background).toBe('#121826');
+        // The matte fill for a dark theme, read from the tokens rather than
+        // pinned to a hex, so retuning the palette is not a failing test.
+        expect(background).toBe(surfaceFor('dark').fill);
         expect(background).not.toMatch(/rgba|transparent/);
     });
 });

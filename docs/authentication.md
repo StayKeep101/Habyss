@@ -47,3 +47,7 @@ After installing the new build, check Apple authorization on the signed-in physi
 - The owner confirmed the Google app name is already Habyss, changed its audience from Testing to Production, and owns `habyss.app`. Brand verification/publication is still separate. The homepage resolves to `https://www.habyss.app/`; `auth.habyss.app` is not configured in DNS.
 
 If a branded auth hostname is also wanted, Supabase custom domains are a paid add-on on a paid plan. Use `auth.habyss.app` (not the website's apex), add a CNAME to `wlbjhtlznzdumqxetilx.supabase.co`, and add the verification TXT record Supabase generates. **Before activation**, add `https://auth.habyss.app/auth/v1/callback` to the Google OAuth client's authorized redirect URIs alongside the existing Supabase URI. After verification and activation, update the app's Supabase URL only after checking the new endpoint. Keep `habyss://auth-callback` as the mobile return URL. No custom-domain purchase, DNS mutation, or activation was performed in this task.
+
+### Email navigation follow-up
+
+The owner confirmed the email flow returned to Habyss but Account & backup could not close: its back action dispatched GO_BACK with no previous route. Account now checks history and falls back to Home (or onboarding for a restore entry). Direct root links have a tabs anchor beneath their modal. These are JavaScript changes delivered by the running Metro server; no native rebuild is required.

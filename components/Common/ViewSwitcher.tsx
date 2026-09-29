@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { AppIcon, type IconName } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily, elevationFor, surfaceFor } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -33,6 +33,7 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const tone = surfaceFor(theme);
     const { selectionFeedback } = useHaptics();
     const [width, setWidth] = useState(0);
 
@@ -47,14 +48,16 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
         <View
             accessibilityRole="tablist"
             onLayout={event => setWidth(event.nativeEvent.layout.width)}
-            style={[styles.bar, {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                shadowColor: theme === 'light' ? '#0F172A' : '#000',
+            style={[styles.bar, elevationFor(theme, 'floating'), {
+                backgroundColor: tone.fill,
+                borderColor: tone.lip,
             }]}
         >
             {slot > 0 ? (
-                <Animated.View style={[styles.pill, pill, { backgroundColor: accent + '24', borderColor: accent + '55' }]} />
+                // A solid pill, not a tinted outline of one. The selected half
+                // used to be a wash of the accent behind a brighter edge, which
+                // reads as a hole cut in the bar rather than a thing on top of it.
+                <Animated.View style={[styles.pill, pill, { backgroundColor: tone.raised }]} />
             ) : null}
 
             {options.map(option => {
@@ -83,9 +86,8 @@ const styles = StyleSheet.create({
     bar: {
         flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch',
         height: 48, padding: 4, borderRadius: 24, borderWidth: StyleSheet.hairlineWidth,
-        shadowOpacity: 0.22, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 8,
     },
-    pill: { position: 'absolute', left: 4, top: 4, bottom: 4, borderRadius: 20, borderWidth: 1 },
+    pill: { position: 'absolute', left: 4, top: 4, bottom: 4, borderRadius: 20 },
     segment: {
         flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: '100%',

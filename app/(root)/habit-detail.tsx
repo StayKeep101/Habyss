@@ -15,7 +15,7 @@ import { DetailedHeatmap } from '@/components/Habit/DetailedHeatmap';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { Colors } from '@/constants/Colors';
-import { FontFamily, Typography } from '@/constants/DesignSystem';
+import { FontFamily, Typography, surfaceFor } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Habit, getHabits, getHabitMeasurement, getHabitStats, getLastNDaysCompletions, saveHabitMeasurement } from '@/lib/habitsSQLite';
@@ -169,6 +169,10 @@ export default function HabitDetailScreen() {
     };
     const accent = habit?.color || colors.primary;
     const ink = readableAccent(accent, colors.surfaceSecondary);
+    // The card's own steps, so nothing on this page has to invent a colour by
+    // putting the accent behind an alpha value.
+    const tone = surfaceFor(theme);
+    const track = theme === 'light' ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.07)';
     const target = habit ? measurementFor(habit).target : 1;
     const week = Array.from({ length: 7 }, (_, i) => {
         const day = new Date(today + 'T12:00:00');
@@ -205,14 +209,14 @@ export default function HabitDetailScreen() {
                             card: they are the same story, and two cards cost a
                             gap and a heading to say so. */}
                         <Animated.View layout={transition}>
-                            <VoidCard style={styles.rhythm}>
+                            <VoidCard matte style={styles.rhythm}>
                                 <View style={styles.week}>
                                     {week.map(day => {
                                         const scheduled = isHabitScheduledForDate(habit, day.day);
                                         const selected = date === day.date;
-                                        return <Pressable key={day.date} onPress={() => selectDate(day.date)} disabled={saving} accessibilityRole="button" accessibilityState={{ selected, disabled: saving }} accessibilityLabel={`${day.day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}, ${day.completed ? 'completed' : day.skipped ? 'skipped' : scheduled ? 'not completed' : 'not scheduled'}`} style={[styles.day, { backgroundColor: selected ? accent + '14' : 'transparent', borderColor: selected ? accent + '66' : 'transparent' }]}>
-                                            <Text style={[styles.weekday, { color: selected ? ink : colors.textTertiary }]}>{day.day.toLocaleDateString(undefined, { weekday: 'narrow' })}</Text>
-                                            <View style={[styles.dayCircle, { backgroundColor: day.completed ? accent : colors.surfaceTertiary }]}>{day.completed ? <AppIcon name="checkmark" size={14} color={readableAccent('#FFFFFF', accent)} /> : <Text style={[styles.dayNumber, { color: colors.textSecondary }]}>{day.skipped || !scheduled ? '–' : day.day.getDate()}</Text>}</View>
+                                        return <Pressable key={day.date} onPress={() => selectDate(day.date)} disabled={saving} accessibilityRole="button" accessibilityState={{ selected, disabled: saving }} accessibilityLabel={`${day.day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}, ${day.completed ? 'completed' : day.skipped ? 'skipped' : scheduled ? 'not completed' : 'not scheduled'}`} style={[styles.day, { backgroundColor: selected ? tone.raised : 'transparent' }]}>
+                                            <Text style={[styles.weekday, { color: selected ? colors.textPrimary : colors.textTertiary }]}>{day.day.toLocaleDateString(undefined, { weekday: 'narrow' })}</Text>
+                                            <View style={[styles.dayCircle, { backgroundColor: day.completed ? accent : (selected ? track : tone.raised) }]}>{day.completed ? <AppIcon name="checkmark" size={14} color={readableAccent('#FFFFFF', accent)} /> : <Text style={[styles.dayNumber, { color: colors.textSecondary }]}>{day.skipped || !scheduled ? '–' : day.day.getDate()}</Text>}</View>
                                             <View style={[styles.todayDot, { backgroundColor: day.date === today ? accent : 'transparent' }]} />
                                         </Pressable>;
                                     })}
@@ -245,7 +249,7 @@ export default function HabitDetailScreen() {
                         <Animated.View key="stats" entering={entering} style={styles.swapped}>
                             <Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Your longest streak: {stats.bestStreak} {stats.bestStreak === 1 ? 'day' : 'days'}</Text>
                             <HabitGraphRenderer graphStyle={habit.graphStyle || 'bar'} color={accent} goalValue={target} unit={habit.unit || 'times'} completionData={history} currentStreak={stats.currentStreak} todayValue={date === today ? value : undefined} />
-                            <VoidCard style={styles.heatmap}><DetailedHeatmap completionData={history} color={accent} description="YOUR YEAR IN CHECK-INS" /></VoidCard>
+                            <VoidCard matte style={styles.heatmap}><DetailedHeatmap completionData={history} color={accent} description="YOUR YEAR IN CHECK-INS" /></VoidCard>
                         </Animated.View>
                     )}
                 </ScrollView>
@@ -271,9 +275,9 @@ const styles = StyleSheet.create({
     content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 84, gap: 14 },
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     retry: { minHeight: 44, padding: 12, alignItems: 'center', justifyContent: 'center' },
-    rhythm: { paddingVertical: 10, paddingHorizontal: 8 },
+    rhythm: { paddingVertical: 12, paddingHorizontal: 10 },
     week: { flexDirection: 'row', gap: 2 },
-    day: { flex: 1, paddingVertical: 8, borderRadius: 14, borderWidth: 1, gap: 5, alignItems: 'center', justifyContent: 'center' },
+    day: { flex: 1, paddingVertical: 8, borderRadius: 14, gap: 5, alignItems: 'center', justifyContent: 'center' },
     weekday: { fontFamily: FontFamily.medium, fontSize: 10 },
     dayCircle: { width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     dayNumber: { fontFamily: FontFamily.regular, fontSize: 12 },

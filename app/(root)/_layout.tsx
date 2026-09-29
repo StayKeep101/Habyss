@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 
+// A direct account/email link still needs a screen beneath its modal.
+export const unstable_settings = { anchor: '(tabs)' };
+
 export default function RootLayout() {
 
   // Initialize SQLite database (sync removed — local-only mode)

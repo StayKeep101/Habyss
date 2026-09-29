@@ -128,6 +128,10 @@ function BarChart({ color, completionData, goalValue }: {
 
     const points = prepare(completionData, goalValue).slice(-7);
     const barWidth = (GRAPH_WIDTH - 48) / 7;
+    const track = isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.045)';
+    // A missed day is a real answer, so it gets a mark rather than a smudge of
+    // the accent you can barely see.
+    const missed = isLight ? 'rgba(15,23,42,0.14)' : 'rgba(255,255,255,0.13)';
     const ceiling = ceilingOf(points, goalValue);
     const floor = GRAPH_HEIGHT - 20;
     const span = GRAPH_HEIGHT - 30;
@@ -154,21 +158,27 @@ function BarChart({ color, completionData, goalValue }: {
 
                     return (
                         <G key={point.date}>
+                            {/* The slot the day could have filled. Without it a
+                                week of missed days is seven two-pixel slivers
+                                and the card reads as broken rather than empty. */}
+                            <Rect
+                                x={x + 2} y={floor - span} width={barWidth - 6} height={span} rx={6}
+                                fill={track}
+                            />
                             {point.state === 'off' ? (
-                                // Not due: an empty slot, so the week keeps its
-                                // shape without claiming you scored nothing.
+                                // Not due: the track alone, so the week keeps
+                                // its shape without claiming you scored nothing.
                                 <Rect
-                                    x={x + 2} y={floor - 6} width={barWidth - 6} height={6} rx={3}
-                                    fill="none" stroke={colors.textTertiary} strokeWidth={1}
-                                    strokeDasharray="2 2" opacity={0.4}
+                                    x={x + 2} y={floor - 4} width={barWidth - 6} height={4} rx={2}
+                                    fill={colors.textTertiary} opacity={0.35}
                                 />
                             ) : (
                                 <Rect
-                                    x={x + 2} y={y} width={barWidth - 6} height={Math.max(height, 2)} rx={4}
+                                    x={x + 2} y={y} width={barWidth - 6} height={Math.max(height, 4)} rx={6}
                                     fill={point.state === 'kept' ? `url(#${gid})`
                                         : point.state === 'skipped' ? colors.textTertiary
-                                            : color + (isLight ? '20' : '15')}
-                                    opacity={point.state === 'skipped' ? 0.35 : 1}
+                                            : missed}
+                                    opacity={point.state === 'skipped' ? 0.5 : 1}
                                 />
                             )}
                             <SvgText
@@ -383,12 +393,9 @@ export const HabitGraphRenderer: React.FC<HabitGraphRendererProps> = ({
     };
 
     return (
-        <VoidCard glass intensity={30} style={styles.container}>
+        <VoidCard matte style={styles.container}>
             <View style={styles.header}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
-                </View>
+                <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
             </View>
             {renderGraph()}
         </VoidCard>
@@ -397,19 +404,18 @@ export const HabitGraphRenderer: React.FC<HabitGraphRendererProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        padding: 16,
-        borderRadius: 16,
+        padding: 18,
         marginBottom: 16,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 4,
     },
     title: {
-        fontSize: 13,
+        fontSize: 15,
         fontFamily: FontFamily.semibold,
-        letterSpacing: 0.3,
+        letterSpacing: -0.2,
     },
 });

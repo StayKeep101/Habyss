@@ -59,11 +59,28 @@ describe('a day the habit was never due', () => {
 });
 
 describe('the bar chart', () => {
-    it('shows a day off as an empty slot rather than a zero bar', () => {
-        const data = [0, 1, 2, 3, 4, 5, 6].map(i => day(i, i === 3 ? { completed: false, scheduled: false } : {}));
+    // The colours the bars are drawn from, named here so the assertions below
+    // read as what they mean rather than as a wall of rgba.
+    const TRACK = 'rgba(255,255,255,0.045)';
+    const OFF = '#8B9AB0';
+
+    it('gives every column a track, so an empty week still reads as a chart', () => {
+        // Seven missed days used to be seven two-pixel slivers at eight percent
+        // opacity, which looked like the card had failed to load.
+        const data = [0, 1, 2, 3, 4, 5, 6].map(i => day(i, { completed: false }));
         const screen = chart('bar', data);
-        const dashed = screen.UNSAFE_getAllByType(Rect).filter(node => node.props.strokeDasharray === '2 2');
-        expect(dashed).toHaveLength(1);
+        const tracks = screen.UNSAFE_getAllByType(Rect).filter(node => node.props.fill === TRACK);
+        expect(tracks).toHaveLength(7);
+    });
+
+    it('shows a day off as a marked slot rather than a zero bar', () => {
+        const data = [0, 1, 2, 3, 4, 5, 6].map(i => day(i, i === 3 ? { completed: false, scheduled: false } : {}));
+        const rects = chart('bar', data).UNSAFE_getAllByType(Rect);
+
+        // The six days that were kept are drawn from the gradient; the day off
+        // is not one of them, and is marked in its own right instead.
+        expect(rects.filter(node => String(node.props.fill).startsWith('url('))).toHaveLength(6);
+        expect(rects.filter(node => node.props.fill === OFF)).toHaveLength(1);
     });
 
     it('draws the goal line so a bar can be read against something', () => {
