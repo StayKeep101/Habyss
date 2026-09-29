@@ -162,10 +162,11 @@ export const GoalSheet: React.FC<{
         () => (text.trim() ? parseGoalText(text, { today: new Date(), habits }) : null),
         [text, habits],
     );
-    const smart = useSmartParse(text, value => smartParseGoal(value, { habits }));
     // An existing goal is left exactly as it was saved until the user edits the
-    // sentence; re-reading its own title would quietly rewrite its target.
+    // sentence; re-reading its own title would quietly rewrite its target. The
+    // model is not asked either — its answer would only be thrown away.
     const untouched = !!current && text.trim() === (current.name ?? '').trim();
+    const smart = useSmartParse(text, value => smartParseGoal(value, { habits }), 650, !untouched);
     const result = untouched ? null : (smart.result ?? rules);
 
     const draft = useMemo<Draft>(() => {

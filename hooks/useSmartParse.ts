@@ -9,12 +9,25 @@ import { isOnDeviceAIReady } from '@/lib/onDeviceAI';
  * answer for words the user has since changed. `thinking` is true while the
  * model is working; `available` is false when no model is ready on this phone.
  */
-export function useSmartParse<T>(text: string, parse: (text: string) => Promise<T | null>, delay = 650) {
+export function useSmartParse<T>(
+    text: string,
+    parse: (text: string) => Promise<T | null>,
+    delay = 650,
+    /**
+     * Whether to bother at all.
+     *
+     * Opening an existing habit or goal to edit it fills the field with its own
+     * saved title, and both sheets then throw the model's reading away — but
+     * the model still ran. Waking an on-device LLM to re-read a sentence whose
+     * answer is going to be discarded is the most expensive no-op in the app.
+     */
+    enabled = true,
+) {
     const [result, setResult] = useState<{ text: string; value: T } | null>(null);
     const [thinking, setThinking] = useState(false);
     const latest = useRef(text);
     latest.current = text;
-    const available = isOnDeviceAIReady();
+    const available = isOnDeviceAIReady() && enabled;
 
     useEffect(() => {
         const trimmed = text.trim();

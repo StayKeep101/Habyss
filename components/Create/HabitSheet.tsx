@@ -225,12 +225,13 @@ export const HabitSheet: React.FC<{
     // What the sentence says, read by rules at once and by the model a moment
     // later. Anything it finds fills the rows in, where it can still be changed.
     const rules = useMemo(() => (text.trim() ? parseHabitText(text) : null), [text]);
-    const smart = useSmartParse(text, smartParseHabit);
     // Opening an existing habit must not rewrite it. "Run everyday" reads as a
     // habit called "Run" that repeats daily, which is right for a sentence
     // someone just typed and wrong for a name they chose and saved. So nothing
-    // is read out of the text until they actually change it.
+    // is read out of the text until they actually change it — and the model is
+    // not woken to read it either.
     const untouched = !!current && text.trim() === (current.name ?? '').trim();
+    const smart = useSmartParse(text, smartParseHabit, 650, !untouched);
     const parsed = untouched ? null : (smart.result ?? rules);
 
     const draft = useMemo<Draft>(() => {

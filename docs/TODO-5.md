@@ -7,8 +7,19 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Broken
 
-- [ ] **Edit goal freezes the whole app.** Console shows
-      `[com.apple.CFNetwork] SocketStream write error 1 32`.
+- [~] **Edit goal freezes the whole app.** Not reproducible from here, so two
+      plausible causes were removed rather than one confirmed:
+      1. It emitted `show_goal_quick_add`, which raises the sheet mounted at the
+         *root* — and goal-detail is itself a modal route. The habit sheet on
+         that same screen has always been mounted locally; the goal was the one
+         that got away. It is local now.
+      2. Opening it to edit fills the field with the goal's own title, which
+         woke the on-device model 650ms later to re-read a sentence whose answer
+         both sheets then throw away. `useSmartParse` is no longer even
+         scheduled for text the user has not touched.
+      The `SocketStream write error ... 1 32` is EPIPE on the dev server's
+      socket — a symptom of the JavaScript thread having stopped answering,
+      not the cause. **Say if it still freezes.**
 - [x] `No route named "create"` — a `Stack.Screen` for a file deleted long ago.
 - [x] `InteractionManager has been deprecated` — `lib/afterPaint.ts` wraps
       `requestIdleCallback`, which returns a bare number and has no `cancel`, in

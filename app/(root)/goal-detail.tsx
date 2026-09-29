@@ -1,5 +1,6 @@
 import { FontFamily } from '@/constants/DesignSystem';
 import { HabitSheet } from '@/components/Create/HabitSheet';
+import { GoalSheet } from '@/components/Create/GoalSheet';
 import { ViewSwitcher } from '@/components/Common/ViewSwitcher';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, Image, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
@@ -160,10 +161,24 @@ const GoalDetail = () => {
     scrollY.value = event.contentOffset.y;
   });
 
+  const [editingGoal, setEditingGoal] = useState(false);
+
+  /**
+   * Opens the same sheet the goal was created in, mounted *here*.
+   *
+   * It used to emit `show_goal_quick_add`, which raises the copy of the sheet
+   * mounted at the root — and this screen is itself a modal route. Asking iOS
+   * to present a second modal from a view controller that already has one
+   * presented froze the app rather than warning about it, and the
+   * `SocketStream write error ... 1 32` in the console was the dev server's
+   * socket giving up on a JavaScript thread that had stopped answering.
+   *
+   * The habit sheet below this has always been mounted locally for the same
+   * reason; the goal was simply the one that got away.
+   */
   const handleEditGoal = () => {
     if (!goal) return;
-    // The same sheet the goal was created in, so editing asks the same questions.
-    emit('show_goal_quick_add', { goal });
+    setEditingGoal(true);
   };
 
 
@@ -517,6 +532,9 @@ const GoalDetail = () => {
 
 
       {editingHabit && <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />}
+      {editingGoal && goal && (
+        <GoalSheet visible goal={goal} onClose={() => setEditingGoal(false)} onSaved={() => setEditingGoal(false)} />
+      )}
       <ShareGoalModal
         visible={showShareModal}
         onClose={() => setShowShareModal(false)}
