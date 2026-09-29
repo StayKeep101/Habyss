@@ -1,6 +1,7 @@
 import { FontFamily } from '@/constants/DesignSystem';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager, InteractionManager, DeviceEventEmitter, ScrollView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager, DeviceEventEmitter, ScrollView, Image } from 'react-native';
+import { afterPaint } from '@/lib/afterPaint';
 import Animated, {
     useAnimatedScrollHandler,
     useSharedValue,
@@ -256,7 +257,7 @@ const CalendarScreen = () => {
         if (goals.length === 0) return;
 
         // Defer heavy calculation to after navigation animation
-        const task = InteractionManager.runAfterInteractions(() => {
+        const task = afterPaint(() => {
             const progressMap: Record<string, number> = {};
             goals.forEach(g => {
                 // IMPORTANT: Pass todayCompletions, NOT current view completions
@@ -300,7 +301,7 @@ const CalendarScreen = () => {
 
         if (habitsStore.length > 0) {
             // Defer heavy calculation until after navigation animation
-            const task = InteractionManager.runAfterInteractions(() => {
+            const task = afterPaint(() => {
                 calcWeeklyCompletions();
             });
             return () => task.cancel();

@@ -51,13 +51,6 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
-          name="create"
-          options={{
-            headerShown: false,
-            presentation: 'modal',
-          }}
-        />
-        <Stack.Screen
           name="habit-detail"
           options={{
             headerShown: false,

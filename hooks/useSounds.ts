@@ -9,7 +9,6 @@ import { useAppSettings } from '@/constants/AppSettingsContext';
 import {
     playSound as playSoundService,
     preloadCommonSounds,
-    initializeAudio,
     SoundEffect
 } from '@/lib/soundService';
 
@@ -23,11 +22,10 @@ export const useSounds = () => {
         // Context not available, default to enabled
     }
 
-    // Initialize audio on first render
-    useEffect(() => {
-        initializeAudio();
-        preloadCommonSounds();
-    }, []);
+    // Nothing on mount. Claiming an audio session for sound that does not exist
+    // is what filled the console with CoreAudio complaints, and the session is
+    // now taken by the first sound that will actually play.
+    useEffect(() => { void preloadCommonSounds(); }, []);
 
     // Generic play function that respects user settings
     const play = useCallback((effect: SoundEffect, volume: number = 0.7) => {

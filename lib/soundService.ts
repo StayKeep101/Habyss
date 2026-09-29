@@ -38,6 +38,12 @@ const SOUND_ASSETS: Partial<Record<SoundEffect, number>> = {
 
 let warnedAboutMissingSounds = false;
 
+/** Whether any audio actually ships. Everything below is pointless without it. */
+export const hasBundledSounds = (): boolean => Object.keys(SOUND_ASSETS).length > 0;
+
+/** Asked for once per launch at most, rather than once per screen mount. */
+let audioReady: Promise<void> | null = null;
+
 function sourceFor(effect: SoundEffect): number | null {
     const asset = SOUND_ASSETS[effect];
     if (asset === undefined) {
@@ -54,16 +60,22 @@ function sourceFor(effect: SoundEffect): number | null {
 const playerCache: Map<SoundEffect, AudioPlayer | null> = new Map();
 
 /**
- * Initialize the audio mode for the app
+ * Claims an audio session, but only if there is any audio to play.
+ *
+ * This used to run from a `useEffect` on Home, so every mount asked CoreAudio
+ * to build a session for sound effects that do not exist — which is where the
+ * endless `HALC_ProxyObjectMap::_CreateSystemObject: there is no system object`
+ * in the console came from. A habit tracker with no bundled audio has no
+ * business holding an audio session at all.
+ *
+ * Also memoised: the session is a property of the process, not of a screen.
  */
 export async function initializeAudio(): Promise<void> {
-    try {
-        await setAudioModeAsync({
-            playsInSilentMode: false, // Respect silent mode
-        });
-    } catch (error) {
-        console.warn('Failed to initialize audio mode:', error);
-    }
+    if (!hasBundledSounds()) return;
+    audioReady ??= setAudioModeAsync({ playsInSilentMode: false })
+        .then(() => undefined)
+        .catch(error => { console.warn('Failed to initialize audio mode:', error); });
+    return audioReady;
 }
 
 /**
@@ -85,6 +97,7 @@ export async function preloadSound(effect: SoundEffect): Promise<void> {
  * Pre-load all common sound effects
  */
 export async function preloadCommonSounds(): Promise<void> {
+    if (!hasBundledSounds()) return;
     const commonSounds: SoundEffect[] = ['complete', 'tap', 'success', 'toggle'];
     await Promise.all(commonSounds.map(preloadSound));
 }
@@ -96,6 +109,8 @@ export async function playSound(effect: SoundEffect, volume: number = 0.7): Prom
     try {
         const source = sourceFor(effect);
         if (source === null) return;
+        // The session is claimed on the first sound that will really play.
+        await initializeAudio();
 
         // Try to use cached player
         let player = playerCache.get(effect);

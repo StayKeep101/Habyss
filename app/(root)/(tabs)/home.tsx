@@ -1,6 +1,7 @@
 import { FontFamily } from '@/constants/DesignSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import {View, Text, ScrollView, TouchableOpacity, InteractionManager, RefreshControl} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, RefreshControl} from 'react-native';
+import { afterPaint } from '@/lib/afterPaint';
 import { s, vs, ms } from '@/constants/Layout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
@@ -197,7 +198,7 @@ const Home = () => {
   // Sync HealthKit on focus/mount
   useFocusEffect(
     useCallback(() => {
-      InteractionManager.runAfterInteractions(() => {
+      afterPaint(() => {
         syncHealthKitData().catch(e => console.log('HealthKit sync error:', e));
       });
     }, [])
