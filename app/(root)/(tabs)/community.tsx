@@ -60,6 +60,7 @@ export default function CommunityScreen() {
     const [showFriendStats, setShowFriendStats] = useState(false);
     const [showAddFriendModal, setShowAddFriendModal] = useState(false);
     const [userCode, setUserCode] = useState('');
+    const [unread, setUnread] = useState(0);
     // Friends need an account and a username; until then the tab says so.
     const [gate, setGate] = useState<'signed_out' | 'needs_username' | null>(null);
 
@@ -91,6 +92,7 @@ export default function CommunityScreen() {
             }
             const username = await getMyUsername();
             setUserCode(username ?? '');
+            FriendsService.unreadCount().then(setUnread).catch(() => undefined);
             setGate(username ? null : 'needs_username');
 
             await FriendsService.repairFriendshipsFromAcceptedRequests();
@@ -393,20 +395,52 @@ export default function CommunityScreen() {
                         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COMMUNITY</Text>
                         <Text style={[styles.headerSubtitle, { color: accentColor }]}>CREW STATUS</Text>
                     </View>
-                    {!gate && <TouchableOpacity
-                        onPress={() => {
-                            mediumFeedback();
-                            setShowAddFriendModal(true);
-                        }}
-                        style={{
-                            width: 40, height: 40, borderRadius: 20,
-                            backgroundColor: colors.surfaceSecondary,
-                            alignItems: 'center', justifyContent: 'center',
-                            borderWidth: 1, borderColor: colors.border
-                        }}
-                    >
-                        <Ionicons name="person-add" size={20} color={accentColor} />
-                    </TouchableOpacity>}
+                    {!gate && <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {/* Where a friend request waits. Without somewhere to
+                            put it, being asked was invisible unless you came
+                            here and scrolled past the feed. */}
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={unread > 0 ? `Inbox, ${unread} waiting` : 'Inbox'}
+                            onPress={() => { lightFeedback(); router.push('/(root)/inbox'); }}
+                            style={{
+                                width: 40, height: 40, borderRadius: 20,
+                                backgroundColor: colors.surfaceSecondary,
+                                alignItems: 'center', justifyContent: 'center',
+                                borderWidth: 1, borderColor: colors.border,
+                            }}
+                        >
+                            <Ionicons name={unread > 0 ? 'notifications' : 'notifications-outline'} size={20} color={unread > 0 ? accentColor : colors.textSecondary} />
+                            {unread > 0 ? (
+                                <View style={{
+                                    position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16, borderRadius: 8,
+                                    paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center',
+                                    backgroundColor: colors.error, borderWidth: 2, borderColor: colors.background,
+                                }}>
+                                    <Text style={{ color: '#fff', fontSize: 9, fontFamily: FontFamily.bold }}>
+                                        {unread > 9 ? '9+' : unread}
+                                    </Text>
+                                </View>
+                            ) : null}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Add a friend"
+                            onPress={() => {
+                                mediumFeedback();
+                                setShowAddFriendModal(true);
+                            }}
+                            style={{
+                                width: 40, height: 40, borderRadius: 20,
+                                backgroundColor: colors.surfaceSecondary,
+                                alignItems: 'center', justifyContent: 'center',
+                                borderWidth: 1, borderColor: colors.border
+                            }}
+                        >
+                            <Ionicons name="person-add" size={20} color={accentColor} />
+                        </TouchableOpacity>
+                    </View>}
                 </View>
 
                 {gate ? (

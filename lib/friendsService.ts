@@ -50,6 +50,21 @@ export interface FriendRequest {
     createdAt: string;
 }
 
+/** One thing waiting in your inbox. */
+export interface InboxItem {
+    id: string;
+    kind: 'friend_request' | 'friend_accepted' | 'nudge';
+    title: string;
+    body: string;
+    read: boolean;
+    createdAt: string;
+    fromUserId?: string;
+    fromUsername?: string;
+    fromAvatarUrl?: string;
+    /** Present only while the request is still open, and answerable. */
+    requestId?: string;
+}
+
 /** A note on somebody's day, as the server holds it. */
 export interface DayComment {
     id: string;
@@ -133,6 +148,12 @@ function toFriend(row: StatsRow, me: string): Friend {
             value === 'verified' || value === 'context' ? value : 'self'),
         isCurrentUser: row.user_id === me,
     };
+}
+
+/** Your own handle, for a notification written in the second person. */
+async function myName(ctx: Context): Promise<string> {
+    const { data } = await ctx.sb.from('profiles').select('username').eq('id', ctx.me).maybeSingle();
+    return data?.username ?? 'Someone';
 }
 
 async function profiles(ctx: Context, ids: string[]) {
@@ -380,6 +401,33 @@ export class FriendsService {
 
         const { error } = await ctx.sb.from('friend_requests')
             .insert({ from_user_id: ctx.me, to_user_id: userId, status: 'pending' });
+        if (error) return false;
+
+        // The request existing is not the same as the other person being told.
+        // Until this, one sat in a table nobody reads unless they happen to
+        // open the Community tab.
+        await this.notify(ctx, userId, 'friend_request', {
+            title: `@${await myName(ctx)} wants to be friends`,
+            body: 'Accept or decline from here.',
+        });
+        return true;
+    }
+
+    /**
+     * Puts something in somebody's inbox.
+     *
+     * Deliberately forgiving: a notification that does not save is worse than
+     * useless to complain about, because the thing it describes — the request,
+     * the acceptance — has already happened and is not being undone for it.
+     */
+    private static async notify(
+        ctx: Context, userId: string, type: 'friend_request' | 'friend_accepted' | 'nudge',
+        content: { title: string; body: string },
+    ): Promise<boolean> {
+        const { error } = await ctx.sb.from('notifications').insert({
+            user_id: userId, from_user_id: ctx.me, type, title: content.title, body: content.body,
+        });
+        if (error) console.warn('[Friends] Could not write the notification:', error.message);
         return !error;
     }
 
@@ -422,6 +470,12 @@ export class FriendsService {
                 .insert({ user_id: ctx.me, friend_id: request.from_user_id });
             if (linkError) return false;
         }
+
+        // The person who asked is the one waiting to hear.
+        await this.notify(ctx, request.from_user_id, 'friend_accepted', {
+            title: `@${await myName(ctx)} accepted`,
+            body: 'You can see each other\u2019s days now.',
+        });
         return true;
     }
 
@@ -464,15 +518,11 @@ export class FriendsService {
     static async nudgeFriend(friendId: string, username?: string): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;
-        const me = (await profiles(ctx, [ctx.me])).get(ctx.me)?.username ?? 'A friend';
-        const { error } = await ctx.sb.from('notifications').insert({
-            user_id: friendId,
-            from_user_id: ctx.me,
-            type: 'nudge',
+        const me = await myName(ctx);
+        return this.notify(ctx, friendId, 'nudge', {
             title: `${me} nudged you`,
             body: `${username ? `${username}, ` : ''}keep your streak going today.`,
         });
-        return !error;
     }
 
     /**
@@ -586,6 +636,96 @@ export class FriendsService {
         const ctx = await signedIn();
         if (!ctx) return false;
         const { error } = await ctx.sb.from('feed_comments').delete().eq('id', id).eq('author', ctx.me);
+        return !error;
+    }
+
+    /* ---------------------------------------------------------------- inbox */
+
+    /**
+     * What is waiting for you.
+     *
+     * A friend request is carried as the notification it caused *plus* the
+     * request it is about, because the two can come apart: the request can be
+     * answered on another device, and a notification whose buttons no longer do
+     * anything is worse than one that says so.
+     */
+    static async getInbox(limit = 50): Promise<InboxItem[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+
+        const [notifications, requests] = await Promise.all([
+            ctx.sb.from('notifications')
+                .select('id, from_user_id, type, title, body, read, created_at')
+                .eq('user_id', ctx.me).is('deleted_at', null)
+                .order('created_at', { ascending: false }).limit(limit),
+            this.getFriendRequests(),
+        ]);
+
+        const pendingFrom = new Map(requests.map(request => [request.fromUserId, request.id]));
+        const rows = notifications.data ?? [];
+        const people = await profiles(ctx, rows.map((row: any) => row.from_user_id).filter(Boolean));
+        const kindOf = (type: string): InboxItem['kind'] =>
+            type === 'friend_request' || type === 'friend_accepted' ? type : 'nudge';
+
+        const items: InboxItem[] = rows.map((row: any) => ({
+            id: row.id,
+            kind: kindOf(row.type),
+            title: row.title ?? '',
+            body: row.body ?? '',
+            read: !!row.read,
+            createdAt: row.created_at,
+            fromUserId: row.from_user_id ?? undefined,
+            fromUsername: row.from_user_id ? people.get(row.from_user_id)?.username ?? undefined : undefined,
+            fromAvatarUrl: row.from_user_id ? people.get(row.from_user_id)?.avatar_url ?? undefined : undefined,
+            // Only a request that is still open can be answered.
+            requestId: row.type === 'friend_request' && row.from_user_id ? pendingFrom.get(row.from_user_id) : undefined,
+        }));
+
+        // A request that arrived before any of this existed — or whose
+        // notification failed to save — still has to be answerable rather than
+        // invisible, so it is shown from the request itself.
+        const announced = new Set(items.map(item => item.requestId).filter(Boolean));
+        for (const request of requests) {
+            if (announced.has(request.id)) continue;
+            items.push({
+                id: `request:${request.id}`,
+                kind: 'friend_request',
+                title: `@${request.fromUsername} wants to be friends`,
+                body: 'Accept or decline from here.',
+                read: false,
+                createdAt: request.createdAt,
+                fromUserId: request.fromUserId,
+                fromUsername: request.fromUsername,
+                fromAvatarUrl: request.fromAvatarUrl,
+                requestId: request.id,
+            });
+        }
+
+        return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+
+    /** For the badge: what is genuinely waiting, whether or not it was announced. */
+    static async unreadCount(): Promise<number> {
+        const ctx = await signedIn();
+        if (!ctx) return 0;
+        const { count } = await ctx.sb.from('notifications').select('id', { count: 'exact', head: true })
+            .eq('user_id', ctx.me).eq('read', false).is('deleted_at', null);
+        return count ?? 0;
+    }
+
+    static async markInboxRead(): Promise<void> {
+        const ctx = await signedIn();
+        if (!ctx) return;
+        await ctx.sb.from('notifications').update({ read: true })
+            .eq('user_id', ctx.me).eq('read', false);
+    }
+
+    /** Clearing one is a real delete: an inbox nobody can empty is a to-do list. */
+    static async dismissNotification(id: string): Promise<boolean> {
+        const ctx = await signedIn();
+        if (!ctx || id.startsWith('request:')) return false;
+        const { error } = await ctx.sb.from('notifications').delete()
+            .eq('id', id).eq('user_id', ctx.me);
         return !error;
     }
 
