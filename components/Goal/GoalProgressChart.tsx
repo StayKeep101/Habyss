@@ -1,10 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { GestureResponderEvent, LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
+import React, { useEffect, useMemo, useState } from 'react';
+import { LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useAnimatedReaction, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import { ScrubDot, ScrubLine } from '@/components/Common/ScrubReadout';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useScrub } from '@/hooks/useScrub';
 import type { GoalPoint } from '@/lib/goalInsights';
 
 type Range = '1W' | '1M' | '3M' | 'ALL';
@@ -23,7 +27,13 @@ interface Props {
 /**
  * Progress drawn the way a portfolio is: the solid line is what has been
  * banked, the dashed line is where a perfectly consistent plan would be.
- * Dragging across the chart reads out any day, like a stock chart.
+ *
+ * Dragging reads any day out of it, and the reading is done entirely on the UI
+ * thread. This used to run on React Native's responder system, which loses the
+ * touch to the scroll view around it — and losing it fires a termination, which
+ * cleared the crosshair. That was the line jumping back to the end while you
+ * were still dragging. A pan gesture that gives vertical movement to the page
+ * and keeps horizontal movement for itself does not have to fight anybody.
  */
 export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact }) => {
     const { theme } = useTheme();
@@ -31,7 +41,6 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
     const { selectionFeedback } = useHaptics();
     const [width, setWidth] = useState(0);
     const [range, setRange] = useState<Range>('ALL');
-    const [scrubIndex, setScrubIndex] = useState<number | null>(null);
     // Unique per chart: several charts on one screen must not share a gradient.
     const gradientId = React.useId().replace(/:/g, '');
 
@@ -64,43 +73,43 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
             visible.map((point, index) => `${index === 0 ? 'M' : 'L'}${x(index).toFixed(1)},${y(point[key]).toFixed(1)}`).join(' ');
         const actual = line('actual');
         const area = `${actual} L${x(visible.length - 1).toFixed(1)},${height} L${x(0).toFixed(1)},${height} Z`;
-        return { x, y, actual, area, pace: line('pace') };
+        // Handed to the UI thread so the dot can ride the curve without asking
+        // React where the curve is on every frame.
+        const ys = visible.map(point => y(point.actual));
+        return { x, y, actual, area, pace: line('pace'), ys };
     }, [visible, width, height]);
 
-    const scrubTo = (event: GestureResponderEvent) => {
-        if (!geometry || visible.length === 0) return;
-        const ratio = Math.min(1, Math.max(0, event.nativeEvent.locationX / width));
-        const index = Math.round(ratio * (visible.length - 1));
-        if (index !== scrubIndex) {
-            selectionFeedback();
-            setScrubIndex(index);
-            onScrub?.(visible[index]);
-        }
-    };
-    const endScrub = () => { setScrubIndex(null); onScrub?.(null); };
-
     const last = visible.length - 1;
-    const marker = scrubIndex ?? last;
+    const dotY = useSharedValue(0);
 
-    return (
-        <View>
-            <View
-                style={{ height }}
-                onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
-                onStartShouldSetResponder={() => !compact}
-                onMoveShouldSetResponder={() => !compact}
-                onResponderTerminationRequest={() => false}
-                onResponderGrant={scrubTo}
-                onResponderMove={scrubTo}
-                onResponderRelease={endScrub}
-                onResponderTerminate={endScrub}
-                accessible
-                accessibilityRole="image"
-                accessibilityLabel={visible.length
-                    ? `Progress chart. ${visible[last].actual}% done, pace ${visible[last].pace}%.`
-                    : 'Progress chart, no data yet.'}
-            >
-                {geometry ? (
+    const report = React.useCallback((index: number | null) => {
+        onScrub?.(index === null ? null : visible[index] ?? null);
+    }, [onScrub, visible]);
+
+    const scrub = useScrub({ count: compact ? 0 : visible.length, width, mode: 'points', onIndex: report });
+
+    // The dot's height follows the same index the line does, one frame later at
+    // worst, because both are read from shared values rather than from props.
+    const ys = useSharedValue<number[]>([]);
+    useEffect(() => { ys.set(geometry?.ys ?? []); }, [geometry, ys]);
+    useEffect(() => {
+        if (geometry) dotY.set(geometry.ys[last] ?? 0);
+    }, [geometry, last, dotY]);
+
+    useDotOnCurve(scrub.index, ys, dotY, geometry?.ys[last] ?? 0);
+
+    const chart = (
+        <View
+            style={{ height }}
+            onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={visible.length
+                ? `Progress chart. ${visible[last].actual}% done, pace ${visible[last].pace}%. Drag across it to read any day.`
+                : 'Progress chart, no data yet.'}
+        >
+            {geometry ? (
+                <>
                     <Svg width={width} height={height}>
                         <Defs>
                             <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -111,13 +120,36 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                         <Path d={geometry.area} fill={`url(#${gradientId})`} />
                         <Path d={geometry.pace} stroke={colors.textTertiary} strokeWidth={1.5} strokeDasharray="4 5" fill="none" />
                         <Path d={geometry.actual} stroke={color} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
-                        {scrubIndex !== null ? (
-                            <Line x1={geometry.x(scrubIndex)} x2={geometry.x(scrubIndex)} y1={0} y2={height} stroke={colors.textTertiary} strokeWidth={1} />
-                        ) : null}
-                        <Circle cx={geometry.x(marker)} cy={geometry.y(visible[marker].actual)} r={5} fill={color} stroke={colors.background} strokeWidth={2} />
                     </Svg>
-                ) : null}
-            </View>
+
+                    {/* Over the drawing rather than inside it: a view that moves
+                        by transform costs nothing per frame, where re-rendering
+                        an SVG element costs a render. */}
+                    {!compact ? (
+                        <>
+                            <ScrubLine x={scrub.x} active={scrub.active} color={colors.textTertiary} height={height} />
+                            <ScrubDot x={scrub.x} y={dotY} active={scrub.active} color={color} ring={colors.background} />
+                        </>
+                    ) : null}
+
+                    {/* Where the line ends, always. The scrubbing dot fades in
+                        over it rather than replacing it, so the chart never has
+                        a moment with no marker at all. */}
+                    <View
+                        pointerEvents="none"
+                        style={[styles.end, {
+                            left: geometry.x(last) - 5.5, top: geometry.ys[last] - 5.5,
+                            backgroundColor: color, borderColor: colors.background,
+                        }]}
+                    />
+                </>
+            ) : null}
+        </View>
+    );
+
+    return (
+        <View>
+            {compact ? chart : <GestureDetector gesture={scrub.gesture}>{chart}</GestureDetector>}
 
             {ranges.length > 1 ? (
                 <View style={styles.ranges}>
@@ -141,8 +173,31 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
     );
 };
 
+/**
+ * Keeps the dot on the curve.
+ *
+ * On the UI thread and nowhere else: the heights were handed over once, so
+ * following the finger costs a lookup rather than a render. It rests at the
+ * last point when nothing is being read, which is where the line ends.
+ */
+function useDotOnCurve(
+    index: SharedValue<number>,
+    ys: SharedValue<number[]>,
+    dotY: SharedValue<number>,
+    resting: number,
+) {
+    const rest = useSharedValue(resting);
+    useEffect(() => { rest.set(resting); }, [resting, rest]);
+
+    useAnimatedReaction(
+        () => index.value,
+        now => { dotY.set(now >= 0 ? (ys.get()[now] ?? rest.get()) : rest.get()); },
+    );
+}
+
 const styles = StyleSheet.create({
     ranges: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
     range: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 999 },
     rangeText: { fontSize: 12, fontFamily: FontFamily.semibold, letterSpacing: 0.4 },
+    end: { position: 'absolute', width: 11, height: 11, borderRadius: 5.5, borderWidth: 2 },
 });

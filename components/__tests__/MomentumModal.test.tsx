@@ -67,10 +67,14 @@ describe('opening a day', () => {
     const label = new Date(`${yesterday}T12:00:00`)
         .toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
-    it('says nothing about any single day until one is tapped', () => {
+    it('reads out the last day without opening it', () => {
         const screen = show([habit()], history(() => ['h1']));
-        expect(screen.getByText('Tap a day')).toBeTruthy();
-        expect(screen.queryByText(label)).toBeNull();
+        // The chart always says which day it is showing, the way a portfolio
+        // shows its latest value — but the panel underneath stays shut until a
+        // day is chosen.
+        expect(screen.getByText('Drag across the days')).toBeTruthy();
+        expect(screen.getByDisplayValue(label)).toBeTruthy();
+        expect(screen.queryByTestId('day-detail')).toBeNull();
     });
 
     it('opens the tapped day and shows what it asked for', () => {

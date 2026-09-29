@@ -219,3 +219,50 @@ describe('recoverable sign-in failures and cold starts', () => {
         expect(paramsFrom('habyss://auth-callback?code=abc=def&error_description=Please+try+again')).toEqual({ code: 'abc=def', error_description: 'Please try again' });
     });
 });
+
+describe('email callbacks and callback safety', () => {
+    const complete = (url: string) => require('../socialSignIn').completeOAuthSignIn(url);
+
+    it('exchanges a magic-link PKCE code through the same account sync', async () => {
+        mockAuth.exchangeCodeForSession.mockResolvedValueOnce({ data: { session: { user: { id: USER } } }, error: null });
+        expect((await complete(`${GOOGLE_REDIRECT}?code=email-link-code`)).ok).toBe(true);
+        expect(mockAuth.exchangeCodeForSession).toHaveBeenCalledWith('email-link-code');
+        expect(finishSignIn).toHaveBeenCalledWith(USER);
+    });
+
+    it('surfaces expired email links from a fragment without exchanging a code', async () => {
+        expect(await complete(`${GOOGLE_REDIRECT}#error=access_denied&error_code=otp_expired&error_description=Email+link+has+expired`))
+            .toEqual({ ok: false, error: 'Email link has expired' });
+        expect(mockAuth.exchangeCodeForSession).not.toHaveBeenCalled();
+    });
+
+    it('rejects other hosts even when their names start with the callback', async () => {
+        expect((await complete('habyss://auth-callback.evil?code=stolen')).ok).toBe(false);
+        expect((await complete('https://auth-callback?code=stolen')).ok).toBe(false);
+        expect(mockAuth.exchangeCodeForSession).not.toHaveBeenCalled();
+    });
+
+    it('does not crash or exchange malformed callback parameters', async () => {
+        expect((await complete(`${GOOGLE_REDIRECT}?code=%E0%A4%A`)).ok).toBe(false);
+        expect(mockAuth.exchangeCodeForSession).not.toHaveBeenCalled();
+    });
+
+    it('explains how to recover when the email was requested on another device', async () => {
+        mockAuth.exchangeCodeForSession.mockResolvedValueOnce({ data: { session: null },
+            error: { code: 'flow_state_not_found', message: 'Flow state not found' } });
+        const result = await complete(`${GOOGLE_REDIRECT}?code=other-phone`);
+        expect(result).toMatchObject({ ok: false, error: expect.stringContaining('phone where you requested it') });
+        expect(finishSignIn).not.toHaveBeenCalled();
+    });
+
+    it('does not overwrite the Google PKCE verifier on duplicate taps', async () => {
+        mockAuth.signInWithOAuth.mockResolvedValueOnce({ data: { url: 'https://x.supabase.co/auth/v1/authorize' }, error: null });
+        (WebBrowser.openAuthSessionAsync as jest.Mock).mockResolvedValueOnce({ type: 'success', url: `${GOOGLE_REDIRECT}?code=double-google` });
+        mockAuth.exchangeCodeForSession.mockResolvedValueOnce({ data: { session: { user: { id: USER } } }, error: null });
+        const results = await Promise.all([signInWithGoogle(), signInWithGoogle()]);
+        expect(results.every(result => result.ok)).toBe(true);
+        expect(mockAuth.signInWithOAuth).toHaveBeenCalledTimes(1);
+        expect(WebBrowser.openAuthSessionAsync).toHaveBeenCalledTimes(1);
+        expect(mockAuth.exchangeCodeForSession).toHaveBeenCalledTimes(1);
+    });
+});

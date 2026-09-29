@@ -8,6 +8,7 @@ import { finishSignIn, friendly, type Result } from './account';
 import { getName, saveName } from './echo';
 import { hasExpoModule } from './nativeModules';
 import type { SyncReport } from './cloudSync';
+import { AUTH_REDIRECT, isAuthCallbackURL } from './authRedirect';
 
 /**
  * Sign in with Apple and with Google.
@@ -70,7 +71,7 @@ const NOT_IN_BUILD: SocialResult = { ok: false, error: 'This version of the app 
 export type SocialResult = Result<SyncReport> | { ok: false; cancelled: true; error: '' };
 
 const CANCELLED: SocialResult = { ok: false, cancelled: true, error: '' };
-export const GOOGLE_REDIRECT = 'habyss://auth-callback';
+export const GOOGLE_REDIRECT = AUTH_REDIRECT;
 
 export async function isAppleSignInAvailable(): Promise<boolean> {
     if (Platform.OS !== 'ios' || !getSupabase()) return false;
@@ -167,9 +168,14 @@ async function performAppleSignIn(): Promise<SocialResult> {
     return finishSignIn(data.session.user.id);
 }
 
-export async function signInWithGoogle(): Promise<SocialResult> {
-    try { return await performGoogleSignIn(); }
-    catch (error: any) { return { ok: false, error: friendly(error?.message || 'Sign in with Google did not work. Try again.') }; }
+let googleSignIn: Promise<SocialResult> | null = null;
+export function signInWithGoogle(): Promise<SocialResult> {
+    // Starting a second PKCE request overwrites the first request's verifier.
+    if (googleSignIn) return googleSignIn;
+    googleSignIn = performGoogleSignIn()
+        .catch((error): SocialResult => ({ ok: false, error: friendly(error?.message || 'Sign in with Google did not work. Try again.') }))
+        .finally(() => { googleSignIn = null; });
+    return googleSignIn;
 }
 
 async function performGoogleSignIn(): Promise<SocialResult> {
@@ -202,19 +208,25 @@ const exchanges = new Map<string, Promise<SocialResult>>();
 export async function completeOAuthSignIn(url: string): Promise<SocialResult> {
     const sb = getSupabase();
     if (!sb) return { ok: false, error: 'Accounts are not set up in this build.' };
+    if (!isAuthCallbackURL(url)) return { ok: false, error: 'This is not a Habyss sign-in link.' };
     const params = paramsFrom(url);
-    if (params.error) {
-        return { ok: false, error: params.error_description?.replace(/\+/g, ' ') || 'Google sign-in was refused.' };
+    if (params.error || params.error_code) {
+        return { ok: false, error: params.error_description || 'Sign-in was refused. Please try again.' };
     }
-    if (!params.code) return { ok: false, error: 'Google did not return a sign-in code.' };
+    if (!params.code) return { ok: false, error: 'This sign-in link is incomplete. Request a new email or try signing in again.' };
 
     const existing = exchanges.get(params.code);
     if (existing) return existing;
     const exchange = (async (): Promise<SocialResult> => {
         try {
             const result = await sb.auth.exchangeCodeForSession(params.code);
-            if (result.error || !result.data.session?.user) return { ok: false, error: friendly(result.error?.message ?? 'Google sign-in did not work.') };
-            return finishSignIn(result.data.session.user.id);
+            if (result.error || !result.data.session?.user) {
+                if (/code verifier|flow state|flow_state|pkce/i.test(`${result.error?.code} ${result.error?.message}`)) {
+                    return { ok: false, error: 'Open the newest sign-in link on the phone where you requested it, or enter the email code in Habyss.' };
+                }
+                return { ok: false, error: friendly(result.error?.message ?? 'Sign-in did not work.') };
+            }
+            return await finishSignIn(result.data.session.user.id);
         } catch (error: any) {
             return { ok: false, error: friendly(error?.message || 'Sign-in could not finish. Please try again.') };
         }
@@ -247,7 +259,7 @@ async function openForSignIn(url: string): Promise<string | null> {
             resolve(value);
         };
         const subscription = Linking.addEventListener('url', event => {
-            if (event.url?.startsWith(GOOGLE_REDIRECT)) finish(event.url);
+            if (isAuthCallbackURL(event.url)) finish(event.url);
         });
         // Five minutes is long enough to sign in and far short of forever.
         const timer = setTimeout(() => finish(null), 5 * 60 * 1000);
@@ -264,7 +276,9 @@ export function paramsFrom(url: string): Record<string, string> {
             const separator = pair.indexOf('=');
             const key = separator < 0 ? pair : pair.slice(0, separator);
             const value = separator < 0 ? '' : pair.slice(separator + 1);
-            if (key) out[decodeURIComponent(key)] = decodeURIComponent(value.replace(/\+/g, ' '));
+            try {
+                if (key) out[decodeURIComponent(key)] = decodeURIComponent(value.replace(/\+/g, ' '));
+            } catch { /* A malformed link must not crash the callback screen. */ }
         }
     }
     return out;

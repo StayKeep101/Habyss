@@ -1,9 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Dimensions, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
 import { router } from 'expo-router';
+import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming, type SharedValue,
 } from 'react-native-reanimated';
+import { ScrubLine, ScrubReadout } from '@/components/Common/ScrubReadout';
+import { centreOf, useScrub } from '@/hooks/useScrub';
 import Svg, { Circle } from 'react-native-svg';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
@@ -81,6 +84,57 @@ export default function ProgressScreen() {
         });
     };
 
+    /**
+     * What the chart can say about each day, worked out once.
+     *
+     * A worklet picks one of these while the finger moves; it never formats a
+     * date itself, which would be slow on that side and would ignore the phone's
+     * own idea of how a date reads.
+     */
+    const labels = useMemo(() => ({
+        days: days.map(day => dateAt(day.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })),
+        totals: days.map(day => {
+            if (day.future) return 'Still to come';
+            const parts = [
+                day.scheduled ? `${day.done.length} of ${day.scheduled} habits` : null,
+                day.tasks.length ? `${day.tasks.length} task${day.tasks.length === 1 ? '' : 's'}` : null,
+            ].filter(Boolean);
+            return parts.length ? parts.join(' · ') : 'Nothing scheduled';
+        }),
+    }), [days]);
+
+    const [chartWidth, setChartWidth] = useState(0);
+    const chartRef = React.useRef<View>(null);
+    const chartFrame = React.useRef<LayoutRectangle | null>(null);
+    const onChartWidth = useCallback((event: LayoutChangeEvent) => {
+        setChartWidth(event.nativeEvent.layout.width);
+        // Where the bars are on screen, so the card can grow out of the one the
+        // finger lifted from rather than appearing from nowhere.
+        chartRef.current?.measureInWindow((x, y, width, height) => { chartFrame.current = { x, y, width, height }; });
+    }, []);
+
+    /**
+     * Lifting the finger opens the day it was on, growing the card out of the
+     * bar rather than out of nowhere.
+     *
+     * Nothing about the drag itself goes through React — no state is set while
+     * the finger moves, so a whole month can be read without a single render.
+     * Only the release is worth one. A tap on the chart is not a release: the
+     * calendar above is where days are tapped.
+     */
+    const onScrubRelease = useCallback((index: number) => {
+        const day = days[index];
+        const frame = chartFrame.current;
+        if (!day || !frame || day.future) return;
+        const centre = centreOf(index, frame.width, days.length, 'slots', 1);
+        openDay(day, { x: frame.x + centre - 7, y: frame.y, width: 14, height: frame.height });
+        // openDay is stable for the life of the screen; `days` is not, and this
+        // has to see the month that is actually on screen.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [days]);
+
+    const scrub = useScrub({ count: days.length, width: chartWidth, mode: 'slots', gap: 1, onRelease: onScrubRelease });
+
     // Weeks start on Monday, so the first row is padded to that.
     const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
     const screen = Dimensions.get('window');
@@ -136,23 +190,43 @@ export default function ProgressScreen() {
                     </View>
                 </View>
 
-                {/* One bar per day, so a good week is visible as a shape. */}
-                <View style={styles.chart}>
-                    {days.map(day => {
-                        const height = totals.busiest ? (day.total / totals.busiest) * 74 : 0;
-                        return (
-                            <View key={day.date} style={styles.barSlot}>
-                                <View style={[styles.bar, {
-                                    height: Math.max(day.total ? 6 : 2, height),
-                                    backgroundColor: day.total ? accent : (isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)'),
-                                    opacity: day.future ? 0.35 : 1,
-                                }]} />
-                            </View>
-                        );
-                    })}
+                {/* One bar per day, so a good week is visible as a shape — and
+                    readable with a finger, the way a portfolio chart is. The
+                    reading runs on the UI thread, so it keeps up with the drag
+                    however much the rest of the page is doing. */}
+                <View style={styles.chartHead}>
+                    <ScrubReadout
+                        labels={labels.days} idle="Every day"
+                        index={scrub.index}
+                        style={[styles.readDay, { color: colors.textPrimary }]}
+                        accessibilityLabel="The day being read"
+                    />
+                    <ScrubReadout
+                        labels={labels.totals} idle={`${totals.checkIns + totals.tasks} this month`}
+                        index={scrub.index}
+                        style={[styles.readTotal, { color: colors.textSecondary }]}
+                    />
                 </View>
+
+                <GestureDetector gesture={scrub.gesture}>
+                    <View ref={chartRef} style={styles.chart} onLayout={onChartWidth}>
+                        {days.map((day, index) => (
+                            <DayBar
+                                key={day.date}
+                                day={day}
+                                index={index}
+                                reading={scrub.index}
+                                busiest={totals.busiest}
+                                accent={accent}
+                                idle={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)'}
+                            />
+                        ))}
+                        <ScrubLine x={scrub.x} active={scrub.active} color={colors.textTertiary} height={80} />
+                    </View>
+                </GestureDetector>
                 <View style={styles.chartAxis}>
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>1</Text>
+                    <Text style={[styles.axisText, { color: colors.textTertiary }]}>Drag, then lift to open a day</Text>
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>{days.length}</Text>
                 </View>
             </ScrollView>
@@ -222,6 +296,32 @@ const DayCell = ({ day, today, accent, colors, onPress }: {
                     </Text>
                 </View>
             </Pressable>
+        </View>
+    );
+};
+
+/**
+ * One day's bar, which lights up under the finger.
+ *
+ * It compares itself with the scrubbing index on the UI thread rather than
+ * being told by React, so dragging across a month costs no renders at all.
+ */
+const DayBar = ({ day, index, reading, busiest, accent, idle }: {
+    day: DaySummary; index: number; reading: SharedValue<number>;
+    busiest: number; accent: string; idle: string;
+}) => {
+    const height = busiest ? (day.total / busiest) * 74 : 0;
+    const style = useAnimatedStyle(() => {
+        const on = reading.get() === index;
+        return { opacity: (day.future ? 0.35 : 1) * (on ? 1 : 0.9), transform: [{ scaleX: on ? 1.6 : 1 }] };
+    });
+
+    return (
+        <View style={styles.barSlot}>
+            <Animated.View style={[styles.bar, style, {
+                height: Math.max(day.total ? 6 : 2, height),
+                backgroundColor: day.total ? accent : idle,
+            }]} />
         </View>
     );
 };
@@ -357,7 +457,10 @@ const styles = StyleSheet.create({
     stat: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     statValue: { fontSize: 15, fontFamily: FontFamily.semibold, minWidth: 40 },
     statLabel: { fontSize: 12, fontFamily: FontFamily.regular },
-    chart: { flexDirection: 'row', alignItems: 'flex-end', height: 80, marginTop: 24, gap: 1 },
+    chartHead: { marginTop: 24, gap: 1 },
+    readDay: { fontSize: 15, fontFamily: FontFamily.semibold },
+    readTotal: { fontSize: 12, fontFamily: FontFamily.regular },
+    chart: { flexDirection: 'row', alignItems: 'flex-end', height: 80, marginTop: 10, gap: 1 },
     barSlot: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
     bar: { width: '70%', borderRadius: 3 },
     chartAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },

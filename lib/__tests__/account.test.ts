@@ -52,7 +52,8 @@ describe('signing in', () => {
 
     it('sends the code to a normalised address', async () => {
         await requestCode('  Erwan@Example.COM ');
-        expect(mockAuth.signInWithOtp).toHaveBeenCalledWith(expect.objectContaining({ email: 'erwan@example.com' }));
+        expect(mockAuth.signInWithOtp).toHaveBeenCalledWith({ email: 'erwan@example.com',
+            options: { shouldCreateUser: true, emailRedirectTo: 'habyss://auth-callback' } });
     });
 
     it('refuses a malformed code without calling the server', async () => {
@@ -247,6 +248,8 @@ describe('signing in with a password', () => {
     it('says so rather than hanging when the server wants the email confirmed', async () => {
         mockAuth.signUp.mockResolvedValue({ data: { session: null, user: { id: ACCOUNT } }, error: null });
         const result = await signUpWithPassword('new@example.com', 'secret123');
+        expect(mockAuth.signUp).toHaveBeenCalledWith({ email: 'new@example.com', password: 'secret123',
+            options: { emailRedirectTo: 'habyss://auth-callback' } });
         // Signed up, but no session: the caller tells them to confirm.
         expect(result).toEqual({ ok: true, value: null });
     });

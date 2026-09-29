@@ -1,9 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion,
-    useAnimatedStyle, useSharedValue, withDelay, withTiming,
+    useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue,
 } from 'react-native-reanimated';
+import { ScrubLine, ScrubReadout } from '@/components/Common/ScrubReadout';
+import { useScrub } from '@/hooks/useScrub';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { VoidModal } from '@/components/Layout/VoidModal';
@@ -71,6 +74,38 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
     const surface = { glass: !isTrueDark, intensity: isLight ? 20 : 80 };
     const tint = { backgroundColor: colors.surfaceSecondary };
     const glassy = (extra?: object) => [isLight ? tint : null, extra] as never;
+
+    // What the readout can say, worked out once. A worklet picks from these; it
+    // never formats a date, which would be slow and locale-blind on that side.
+    const labels = useMemo(() => ({
+        days: result.window.map(each => longDay(each.date)),
+        kept: result.window.map(each => {
+            const countable = each.scheduled.length - each.skipped.length;
+            return countable === 0 ? 'Nothing due' : `${each.done.length} of ${countable} kept`;
+        }),
+    }), [result.window]);
+    const last = result.window.length - 1;
+
+    const [chartWidth, setChartWidth] = useState(0);
+    const onChartWidth = useCallback((event: LayoutChangeEvent) => setChartWidth(event.nativeEvent.layout.width), []);
+
+    /**
+     * The day panel opens where the finger lifted, not while it moves.
+     *
+     * Its contents are a list of habits, and re-rendering that thirty times
+     * across one flick is the sort of thing that makes a drag feel cheap. The
+     * readout above the chart follows the finger; the panel waits for it. While
+     * the finger is down nothing here runs at all — not one render for a drag
+     * across the whole month.
+     */
+    const onScrubRelease = useCallback((index: number) => {
+        setPicked(result.window[index]?.date ?? null);
+    }, [result.window]);
+
+    const scrub = useScrub({
+        count: result.window.length, width: chartWidth,
+        mode: 'slots', gap: s(2), onRelease: onScrubRelease,
+    });
 
     const day = picked ? result.window.find(each => each.date === picked) ?? null : null;
     const direction = !result.comparable ? colors.textSecondary
@@ -145,28 +180,48 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
 
                 <Animated.View layout={MORPH}>
                     <VoidCard {...surface} style={[styles.chartCard, glassy()]}>
-                        <View style={styles.chart}>
-                            {result.window.map((each, index) => (
-                                <Bar
-                                    key={each.date}
-                                    day={each}
-                                    index={index}
-                                    selected={each.date === picked}
-                                    tint={primary}
-                                    success={colors.success}
-                                    idle={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.09)'}
-                                    onPress={() => {
-                                        lightFeedback();
-                                        setPicked(current => (current === each.date ? null : each.date));
-                                    }}
-                                />
-                            ))}
+                        {/* The live reading, the way a portfolio puts its value
+                            above the line. Both of these are written straight
+                            from the gesture, so they keep up with the finger
+                            rather than a render behind it. */}
+                        <View style={styles.readout}>
+                            <ScrubReadout
+                                labels={labels.days} idle={labels.days[last] ?? ''} index={scrub.index}
+                                style={[styles.readDay, { color: colors.textPrimary }]}
+                                accessibilityLabel="The day being read"
+                            />
+                            <ScrubReadout
+                                labels={labels.kept} idle={labels.kept[last] ?? ''} index={scrub.index}
+                                style={[styles.readKept, { color: colors.textSecondary }]}
+                            />
                         </View>
+
+                        <GestureDetector gesture={scrub.gesture}>
+                            <View style={styles.chart} onLayout={onChartWidth}>
+                                {result.window.map((each, index) => (
+                                    <Bar
+                                        key={each.date}
+                                        day={each}
+                                        index={index}
+                                        pinned={each.date === picked}
+                                        reading={scrub.index}
+                                        tint={primary}
+                                        success={colors.success}
+                                        idle={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.09)'}
+                                        onPress={() => {
+                                            lightFeedback();
+                                            setPicked(current => (current === each.date ? null : each.date));
+                                        }}
+                                    />
+                                ))}
+                                <ScrubLine x={scrub.x} active={scrub.active} color={colors.textTertiary} height={vs(96)} />
+                            </View>
+                        </GestureDetector>
 
                         <View style={styles.chartFoot}>
                             <Text style={[styles.foot, { color: colors.textTertiary }]}>{shortDay(result.window[0]?.date ?? '')}</Text>
                             <Text style={[styles.foot, { color: colors.textTertiary }]}>
-                                {picked ? 'Tap again to close' : 'Tap a day'}
+                                {picked ? 'Tap again to close' : 'Drag across the days'}
                             </Text>
                             <Text style={[styles.foot, { color: colors.textTertiary }]}>Yesterday</Text>
                         </View>
@@ -284,29 +339,37 @@ const DayDetail = ({ day, names, colors, tint }: {
 };
 
 /** One day. Grows on first paint, and lifts when it is the one being read. */
-const Bar = ({ day, index, selected, tint, success, idle, onPress }: {
-    day: HabitDay; index: number; selected: boolean; tint: string; success: string; idle: string; onPress: () => void;
+const Bar = ({ day, index, pinned, reading, tint, success, idle, onPress }: {
+    day: HabitDay; index: number; pinned: boolean;
+    /** The day under the finger, as a shared value, so a drag costs no render. */
+    reading: SharedValue<number>;
+    tint: string; success: string; idle: string; onPress: () => void;
 }) => {
     const countable = day.scheduled.length - day.skipped.length;
     const share = countable > 0 ? day.done.length / countable : 0;
     const perfect = countable > 0 && day.done.length === countable;
 
     const grown = useSharedValue(0);
-    const lift = useSharedValue(selected ? 1 : 0);
+    const pin = useSharedValue(pinned ? 1 : 0);
     React.useEffect(() => {
-        grown.value = withDelay(index * 8, withTiming(Math.max(share, day.done.length > 0 ? 0.12 : 0.04), EASE));
+        grown.set(withDelay(index * 8, withTiming(Math.max(share, day.done.length > 0 ? 0.12 : 0.04), EASE)));
     }, [share, index, grown, day.done.length]);
     React.useEffect(() => {
-        lift.value = withTiming(selected ? 1 : 0, { duration: 200, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System });
-    }, [selected, lift]);
+        pin.set(withTiming(pinned ? 1 : 0, { duration: 200, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
+    }, [pinned, pin]);
 
-    const height = useAnimatedStyle(() => ({ height: `${grown.value * 100}%` }));
-    const focus = useAnimatedStyle(() => ({ opacity: 0.55 + lift.value * 0.45, transform: [{ scaleX: 1 + lift.value * 0.6 }] }));
+    const height = useAnimatedStyle(() => ({ height: `${grown.get() * 100}%` }));
+    // The lift under the finger is instant and unanimated on purpose: a 200ms
+    // ease would always be trailing where the finger actually is.
+    const focus = useAnimatedStyle(() => {
+        const on = Math.max(pin.get(), reading.get() === index ? 1 : 0);
+        return { opacity: 0.55 + on * 0.45, transform: [{ scaleX: 1 + on * 0.6 }] };
+    });
 
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityState={{ selected }}
+            accessibilityState={{ selected: pinned }}
             accessibilityLabel={`${longDay(day.date)}, ${day.done.length} of ${countable} kept`}
             hitSlop={{ top: 6, bottom: 6 }}
             onPress={onPress}
@@ -353,6 +416,9 @@ const styles = StyleSheet.create({
     window: { paddingHorizontal: s(11), paddingVertical: vs(6), borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
     windowText: { fontSize: ms(11), fontFamily: FontFamily.medium },
     chartCard: { padding: s(16), gap: vs(10) },
+    readout: { gap: vs(1) },
+    readDay: { fontSize: ms(14), lineHeight: ms(20), fontFamily: FontFamily.bold },
+    readKept: { fontSize: ms(12), lineHeight: ms(18), fontFamily: FontFamily.regular },
     chart: { flexDirection: 'row', alignItems: 'flex-end', gap: s(2), height: vs(96) },
     barTrack: { flex: 1, height: '100%', justifyContent: 'flex-end' },
     bar: { width: '100%', borderRadius: s(3), minHeight: vs(3) },

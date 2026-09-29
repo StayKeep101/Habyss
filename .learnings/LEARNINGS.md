@@ -377,3 +377,20 @@ Three physical-device crash reports pointed to NDArrayCache::Load during the sta
 - Source: error
 - Related Files: lib/localModelFiles.ts, lib/LocalLLMService.ts, lib/__tests__/localModelFiles.test.ts, lib/__tests__/LocalLLMService.test.ts
 - Pattern-Key: harden.native_model_loading
+
+## [LRN-20260929-AUTH] best_practice
+
+**Logged**: 2026-09-29
+**Priority**: high
+**Status**: resolved
+**Area**: config
+
+### Summary
+Verify authentication redirects against the live server and Apple capabilities in the signed app, not just repository configuration.
+
+### Details
+A public Google authorization followed by a diagnostic cancellation returned localhost:3000 despite the app requesting habyss://auth-callback. After the owner changed Supabase URL Configuration, the probe returned to Habyss. The old physical-device .app and embedded provisioning profile lacked the Apple entitlement even though both source entitlement files requested it. Email OTP/password signup also omitted emailRedirectTo. Added live callback and signed-app verification scripts. Expo Apple presentation used UIApplication.keyWindow and a background module queue despite the app's scene lifecycle; patches use a foreground scene and the main queue.
+
+### Metadata
+- Source: investigation
+- Related Files: scripts/check-auth.mjs, scripts/check-ios-auth.py, lib/account.ts, patches/expo-apple-authentication+57.0.2.patch

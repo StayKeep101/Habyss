@@ -1,0 +1,47 @@
+diff --git a/node_modules/expo-apple-authentication/ios/AppleAuthenticationModule.swift b/node_modules/expo-apple-authentication/ios/AppleAuthenticationModule.swift
+--- a/node_modules/expo-apple-authentication/ios/AppleAuthenticationModule.swift
++++ b/node_modules/expo-apple-authentication/ios/AppleAuthenticationModule.swift
+@@ -22,6 +22,7 @@
+         }
+       }
+     }
++    .runOnQueue(.main)
+ 
+     AsyncFunction("getCredentialStateAsync") { (userId: String, promise: Promise) in
+       let appleIdProvider = ASAuthorizationAppleIDProvider()
+diff --git a/node_modules/expo-apple-authentication/ios/AppleAuthenticationRequest.swift b/node_modules/expo-apple-authentication/ios/AppleAuthenticationRequest.swift
+--- a/node_modules/expo-apple-authentication/ios/AppleAuthenticationRequest.swift
++++ b/node_modules/expo-apple-authentication/ios/AppleAuthenticationRequest.swift
+@@ -11,12 +11,20 @@
+   let options: AppleAuthenticationRequestOptions
+   var callback: AuthenticationRequestCallback?
+   var authController: ASAuthorizationController?
++  var presentationWindow: UIWindow?
+ 
+   init(options: AppleAuthenticationRequestOptions) {
+     self.options = options
+   }
+ 
+   func performRequest(callback: @escaping AuthenticationRequestCallback) {
++    // Habyss uses the scene lifecycle; UIApplication.keyWindow may be nil.
++    guard let scene = SceneGeometry.foregroundScene(),
++          let window = scene.windows.first(where: { $0.isKeyWindow }) else {
++      callback(nil, RequestNotInteractiveException())
++      return
++    }
++    presentationWindow = window
+     self.callback = callback
+ 
+     do {
+@@ -81,9 +89,7 @@
+   // MARK: - ASAuthorizationControllerPresentationContextProviding
+ 
+   func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+-    guard let window = UIApplication.shared.keyWindow else {
+-      fatalError("Unable to present authentication modal because UIApplication.shared.keyWindow is not available")
+-    }
+-    return window
++    // Captured before starting the request, while the app was foregrounded.
++    return presentationWindow!
+   }
+ }

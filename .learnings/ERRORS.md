@@ -193,3 +193,26 @@ the last entry for want of a trailing newline.
 ### Metadata
 - Related Files: lib/polyfills.ts, lib/LocationService.ts
 - Reproducible: yes
+
+## [ERR-20260929-AUTH] Supabase configuration access
+
+**Logged**: 2026-09-29
+**Priority**: medium
+**Status**: resolved
+**Area**: config
+
+### Summary
+The existing Supabase CLI credential cannot read auth configuration (HTTP 403, missing auth_config_read).
+
+### Resolution
+Used a public OAuth cancellation round trip to validate the return destination without personal data or account authorization. The owner made the exact dashboard correction; the repeat probe passed. Do not assume a credential used for database work has auth configuration permissions.
+
+## [ERR-20260929-PATCH] Patch generation registry wait
+
+**Logged**: 2026-09-29
+**Priority**: low
+**Status**: resolved
+**Area**: infra
+
+### Summary
+patch-package generation stalled while fetching a clean Expo package. Generated focused unified diffs from the inspected original source and verified all patches using patch-package --error-on-fail.

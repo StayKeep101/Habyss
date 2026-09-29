@@ -17,6 +17,7 @@
     "postinstall": "patch-package",
     "check:ui": "node scripts/check-ui-consistency.cjs",
     "check:supabase": "node scripts/check-supabase.mjs",
+    "check:auth": "node scripts/check-auth.mjs",
     "apply:migration": "node scripts/apply-migration.mjs"
   },
   "dependencies": {

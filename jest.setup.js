@@ -64,6 +64,16 @@ jest.mock('react-native-reanimated', () => {
     useAnimatedRef: () => React.useRef(null),
     useDerivedValue: (factory) => shared(factory()),
     useAnimatedProps: (factory) => factory(),
+    // The reaction runs once for the first value, which is what a render test
+    // needs: the effect of scrubbing is exercised by calling the callback.
+    useAnimatedReaction: (prepare, react) => { react(prepare(), undefined); },
+    // Gesture handler asks Reanimated for an event handler when a
+    // GestureDetector mounts. Without this the charts cannot even render here,
+    // never mind be dragged; the drag itself is still not exercisable, because
+    // it happens on a thread Jest does not have.
+    useEvent: () => ({ current: null, workletEventHandler: undefined }),
+    useHandler: () => ({ context: {}, doDependenciesDiffer: false, useWeb: false }),
+    setGestureState: () => undefined,
     useReducedMotion: () => false,
     useAnimatedKeyboard: () => ({ height: shared(0), state: shared(0) }),
     withTiming: identity,

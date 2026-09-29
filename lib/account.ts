@@ -5,6 +5,7 @@ import { adoptUserId, getLocalUserId } from './localUser';
 import { resetSyncCursor, syncNow, type SyncReport } from './cloudSync';
 import { deleteAllLocalData } from './accountDeletion';
 import { emit } from './appEvents';
+import { AUTH_REDIRECT } from './authRedirect';
 
 /**
  * Accounts: signing in, out, and deleting.
@@ -65,7 +66,7 @@ export async function requestCode(email: string): Promise<Result> {
 
     const { error } = await sb.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
-        options: { shouldCreateUser: true },
+        options: { shouldCreateUser: true, emailRedirectTo: AUTH_REDIRECT },
     });
     if (error) return { ok: false, error: friendly(error.message) };
     return { ok: true, value: undefined };
@@ -119,7 +120,10 @@ export async function signUpWithPassword(email: string, password: string): Promi
     if (!isEmail(email)) return { ok: false, error: 'That does not look like an email address.' };
     if (password.length < 6) return { ok: false, error: 'Use at least 6 characters.' };
 
-    const { data, error } = await sb.auth.signUp({ email: email.trim().toLowerCase(), password });
+    const { data, error } = await sb.auth.signUp({
+        email: email.trim().toLowerCase(), password,
+        options: { emailRedirectTo: AUTH_REDIRECT },
+    });
     if (error) {
         const message = String(error.message);
         if (/already registered/i.test(message)) {
