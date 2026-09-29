@@ -92,7 +92,14 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Habit detail
 
-- [ ] Stats: the heatmap only, from the day the habit was made, respecting how
-      often it actually repeats.
-- [ ] Today: drop the streak / consistency / check-ins row.
-- [ ] Swipe left and right between Today and Stats.
+- [x] Stats: the heatmap only, from the day the habit was made. Everything
+      before the start date is **left out** rather than drawn as an empty
+      square, so a habit made last week no longer opens on eleven months of
+      blanks that read as eleven months of failure. Days it was never due were
+      already drawn differently from days it was missed.
+- [x] Today: the streak / consistency / check-ins row is gone.
+- [x] Swipe left and right between Today and Stats. Horizontal only — a
+      vertical drag goes to the page, so scrolling never changes the tab.
+- [ ] **Consequence:** `HabitGraphRenderer` is now unreachable. It is a real,
+      tested chart with a stored `graphStyle` behind it, so it has been left in
+      place rather than deleted — say if it should go, or come back somewhere.

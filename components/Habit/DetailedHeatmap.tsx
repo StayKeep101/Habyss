@@ -26,10 +26,19 @@ interface DetailedHeatmapProps {
     color: string;
     description?: string;
     fullYear?: boolean; // Whether to always show full 365 days or just provided data
+    /**
+     * The day the habit began, as YYYY-MM-DD.
+     *
+     * Everything before it is left out rather than drawn as an empty square. A
+     * habit made last week should not open on eleven months of blanks that read
+     * as eleven months of failure.
+     */
+    startDate?: string;
 }
 
 export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
     completionData,
+    startDate,
     color,
     description,
     fullYear = true
@@ -78,8 +87,8 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                 const dateStr = localDateKey(date);
                 const existing = dataMap.get(dateStr);
 
-                // Only add if date is not in future relative to today
-                if (date <= endDate) {
+                // Not the future, and not before the habit existed.
+                if (date <= endDate && (!startDate || dateStr >= startDate)) {
                     filledData.push({
                         date: dateStr,
                         completed: existing?.completed || false,
@@ -119,7 +128,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
         }
 
         return { gridData: filledData, monthLabels: labels, totalWeeks };
-    }, [completionData, fullYear]);
+    }, [completionData, fullYear, startDate]);
 
     // Auto scroll to end on mount
     useEffect(() => {

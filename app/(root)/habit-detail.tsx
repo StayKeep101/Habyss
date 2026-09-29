@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { Easing, FadeIn, LinearTransition, ReduceMotion } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { Easing, FadeIn, LinearTransition, ReduceMotion, runOnJS } from 'react-native-reanimated';
 import { AppIcon } from '@/components/Common/AppIcon';
 import { IconButton } from '@/components/Common/IconButton';
 import { ShareButton } from '@/components/Common/ShareButton';
@@ -10,7 +11,6 @@ import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { HabitProgressCard } from '@/components/Habit/HabitProgressCard';
 import { SharedWith } from '@/components/Habit/SharedWith';
-import { HabitGraphRenderer } from '@/components/Habit/HabitGraphRenderer';
 import { DetailedHeatmap } from '@/components/Habit/DetailedHeatmap';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
 import { HabitSheet } from '@/components/Create/HabitSheet';
@@ -18,7 +18,7 @@ import { Colors } from '@/constants/Colors';
 import { FontFamily, Typography, surfaceFor } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Habit, getHabits, getHabitMeasurement, getHabitStats, getLastNDaysCompletions, saveHabitMeasurement } from '@/lib/habitsSQLite';
+import { Habit, getHabits, getHabitMeasurement, getLastNDaysCompletions, saveHabitMeasurement } from '@/lib/habitsSQLite';
 import { localHabitDate, measurementFor } from '@/lib/habitMeasurement';
 import { isHabitScheduledForDate, parseHabitDate } from '@/lib/habitSchedule';
 import { readableAccent } from '@/lib/colorContrast';
@@ -57,7 +57,6 @@ export default function HabitDetailScreen() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [history, setHistory] = useState<HistoryDay[]>([]);
-    const [stats, setStats] = useState({ currentStreak: 0, bestStreak: 0, completionRate: 0, totalCompletions: 0 });
     const [undo, setUndo] = useState<number | null>(null);
     const [showEditor, setShowEditor] = useState(false);
     const [showShare, setShowShare] = useState(false);
@@ -83,10 +82,9 @@ export default function HabitDetailScreen() {
             if (!mounted.current || request !== generation.current) return;
             setHabit(found);
             if (!found) return;
-            const [amount, days, metrics] = await Promise.all([
+            const [amount, days] = await Promise.all([
                 getHabitMeasurement(habitId, measurementFor(found).target, date),
                 getLastNDaysCompletions(366),
-                getHabitStats(habitId),
             ]);
             if (!mounted.current || request !== generation.current || pending.current) return;
             valueRef.current = amount;
@@ -102,7 +100,6 @@ export default function HabitDetailScreen() {
                     scheduled: when ? isHabitScheduledForDate(found, when) : true,
                 };
             }));
-            setStats(metrics);
             setLoadedFor(`${habitId}:${date}`);
             setError(null);
         } catch {
@@ -161,6 +158,23 @@ export default function HabitDetailScreen() {
         }
     };
 
+    /**
+     * Left and right move between Today and Stats.
+     *
+     * `activeOffsetX` keeps the page's vertical scroll intact — the gesture has
+     * to travel sideways before it claims anything — and `failOffsetY` hands a
+     * vertical drag straight back, so neither has to steal from the other.
+     */
+    const swap = useMemo(() => Gesture.Pan()
+        .activeOffsetX([-24, 24])
+        .failOffsetY([-16, 16])
+        .onEnd(event => {
+            'worklet';
+            if (Math.abs(event.translationX) < 60) return;
+            runOnJS(setView)(event.translationX < 0 ? 'stats' : 'today');
+            runOnJS(selectionFeedback)();
+        }), [selectionFeedback]);
+
     const selectDate = (next: string) => {
         if (saving || next === date) return;
         selectionFeedback();
@@ -200,6 +214,10 @@ export default function HabitDetailScreen() {
             {!habit ? <View style={styles.empty}>
                 {loading ? <ActivityIndicator color={accent} /> : <><Text style={[Typography.body, { color: colors.textSecondary }]}>{error || 'This habit is unavailable.'}</Text><Pressable onPress={error ? load : () => router.back()} style={styles.retry} accessibilityRole="button"><Text style={[Typography.button, { color: ink }]}>{error ? 'Retry' : 'Go back'}</Text></Pressable></>}
             </View> : <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                {/* Swiping between the two is the gesture the switcher implies.
+                    Horizontal only, and it fails to the page for anything
+                    vertical, so scrolling never accidentally changes the tab. */}
+                <GestureDetector gesture={swap}>
                 <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                     {view === 'today' ? <>
                         <HabitProgressCard key={`${habit.id}:${date}`} habit={habit} date={date} value={value} saving={saving} ready={ready} error={error} canUndo={undo !== null} onChange={next => void changeValue(next)} onAdd={amount => void changeValue(Math.round((valueRef.current + amount) * 1000) / 1000)} onUndo={() => { if (undo !== null) void changeValue(undo, true); }} onToday={() => selectDate(today)} />
@@ -221,22 +239,6 @@ export default function HabitDetailScreen() {
                                         </Pressable>;
                                     })}
                                 </View>
-                                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                                <View style={styles.statRow}>
-                                    {[
-                                        { value: stats.currentStreak, label: 'Streak', icon: 'flame-outline' },
-                                        { value: `${stats.completionRate}%`, label: 'Consistency', icon: 'pulse-outline' },
-                                        { value: stats.totalCompletions, label: 'Check-ins', icon: 'checkmark-done-outline' },
-                                    ].map((stat, index) => (
-                                        <View key={stat.label} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-                                            <View style={styles.statTop}>
-                                                <AppIcon name={stat.icon} size={13} color={ink} />
-                                                <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
-                                            </View>
-                                            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
-                                        </View>
-                                    ))}
-                                </View>
                             </VoidCard>
                         </Animated.View>
 
@@ -245,14 +247,22 @@ export default function HabitDetailScreen() {
 
                         {habit.description ? <Animated.View layout={transition} style={styles.note}><Text style={[Typography.label, { color: colors.textTertiary }]}>Your intention</Text><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{habit.description}</Text></Animated.View> : null}
                     </> : (
-                        /* The same numbers, in place of today rather than under it. */
+                        /* Every day since it began, and nothing else. A bar
+                           chart of the last week and a ring of today were two
+                           more ways of saying what the squares already say. */
                         <Animated.View key="stats" entering={entering} style={styles.swapped}>
-                            <Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Your longest streak: {stats.bestStreak} {stats.bestStreak === 1 ? 'day' : 'days'}</Text>
-                            <HabitGraphRenderer graphStyle={habit.graphStyle || 'bar'} color={accent} goalValue={target} unit={habit.unit || 'times'} completionData={history} currentStreak={stats.currentStreak} todayValue={date === today ? value : undefined} />
-                            <VoidCard matte style={styles.heatmap}><DetailedHeatmap completionData={history} color={accent} description="YOUR YEAR IN CHECK-INS" /></VoidCard>
+                            <VoidCard matte style={styles.heatmap}>
+                                <DetailedHeatmap
+                                    completionData={history}
+                                    color={accent}
+                                    startDate={habit.startDate?.slice(0, 10)}
+                                    description="EVERY DAY SINCE YOU STARTED"
+                                />
+                            </VoidCard>
                         </Animated.View>
                     )}
                 </ScrollView>
+                </GestureDetector>
             </KeyboardAvoidingView>}
 
             {habit ? (
