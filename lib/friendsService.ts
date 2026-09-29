@@ -53,7 +53,7 @@ export interface FriendRequest {
 /** One thing waiting in your inbox. */
 export interface InboxItem {
     id: string;
-    kind: 'friend_request' | 'friend_accepted' | 'nudge';
+    kind: 'friend_request' | 'friend_accepted' | 'nudge' | 'local';
     title: string;
     body: string;
     read: boolean;
@@ -63,6 +63,8 @@ export interface InboxItem {
     fromAvatarUrl?: string;
     /** Present only while the request is still open, and answerable. */
     requestId?: string;
+    /** Whatever the local notification chose to draw itself with. */
+    icon?: string;
 }
 
 /** A note on somebody's day, as the server holds it. */
@@ -148,6 +150,32 @@ function toFriend(row: StatsRow, me: string): Friend {
             value === 'verified' || value === 'context' ? value : 'self'),
         isCurrentUser: row.user_id === me,
     };
+}
+
+/**
+ * The notifications the app raised on this phone — a reminder that fired, a
+ * streak kept, a milestone.
+ *
+ * Folded into the same inbox rather than kept in a second one. There used to be
+ * a bell on Home opening a separate list, which meant two places to check for
+ * "did anything happen", and the answer was split between them.
+ */
+async function localNotifications(): Promise<InboxItem[]> {
+    try {
+        const { NotificationService } = require('./notificationService') as typeof import('./notificationService');
+        const rows = await NotificationService.getInboxNotifications();
+        return rows.map(row => ({
+            id: `local:${row.id}`,
+            kind: 'local' as const,
+            title: row.title,
+            body: row.message,
+            read: row.read,
+            createdAt: new Date(row.timestamp).toISOString(),
+            icon: row.icon,
+        }));
+    } catch {
+        return [];
+    }
 }
 
 /** Your own handle, for a notification written in the second person. */
@@ -650,8 +678,9 @@ export class FriendsService {
      * anything is worse than one that says so.
      */
     static async getInbox(limit = 50): Promise<InboxItem[]> {
+        const local = await localNotifications();
         const ctx = await signedIn();
-        if (!ctx) return [];
+        if (!ctx) return local;
 
         const [notifications, requests] = await Promise.all([
             ctx.sb.from('notifications')
@@ -701,19 +730,23 @@ export class FriendsService {
             });
         }
 
-        return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        return [...items, ...local].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
 
     /** For the badge: what is genuinely waiting, whether or not it was announced. */
     static async unreadCount(): Promise<number> {
+        const { NotificationService } = require('./notificationService') as typeof import('./notificationService');
+        const here = await NotificationService.getUnreadCount().catch(() => 0);
         const ctx = await signedIn();
-        if (!ctx) return 0;
+        if (!ctx) return here;
         const { count } = await ctx.sb.from('notifications').select('id', { count: 'exact', head: true })
             .eq('user_id', ctx.me).eq('read', false).is('deleted_at', null);
-        return count ?? 0;
+        return here + (count ?? 0);
     }
 
     static async markInboxRead(): Promise<void> {
+        const { NotificationService } = require('./notificationService') as typeof import('./notificationService');
+        await NotificationService.markAllNotificationsRead().catch(() => undefined);
         const ctx = await signedIn();
         if (!ctx) return;
         await ctx.sb.from('notifications').update({ read: true })
@@ -722,8 +755,14 @@ export class FriendsService {
 
     /** Clearing one is a real delete: an inbox nobody can empty is a to-do list. */
     static async dismissNotification(id: string): Promise<boolean> {
+        if (id.startsWith('request:')) return false;
+        if (id.startsWith('local:')) {
+            const { NotificationService } = require('./notificationService') as typeof import('./notificationService');
+            await NotificationService.markNotificationRead(id.slice(6)).catch(() => undefined);
+            return true;
+        }
         const ctx = await signedIn();
-        if (!ctx || id.startsWith('request:')) return false;
+        if (!ctx) return false;
         const { error } = await ctx.sb.from('notifications').delete()
             .eq('id', id).eq('user_id', ctx.me);
         return !error;

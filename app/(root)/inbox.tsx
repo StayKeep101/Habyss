@@ -5,6 +5,7 @@ import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-nativ
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
+import { SwipeRow } from '@/components/Common/SwipeRow';
 import { Colors } from '@/constants/Colors';
 import { FontFamily, surfaceFor } from '@/constants/DesignSystem';
 import { ms, s, vs } from '@/constants/Layout';
@@ -20,6 +21,8 @@ const LOOK: Record<InboxItem['kind'], { icon: string; tint: (colors: typeof Colo
     friend_request: { icon: 'person-add', tint: (_colors, accent) => accent },
     friend_accepted: { icon: 'checkmark-circle', tint: colors => colors.success },
     nudge: { icon: 'hand-right', tint: colors => colors.warning },
+    // Raised by the app itself — a reminder that fired, a streak, a milestone.
+    local: { icon: 'notifications', tint: (_colors, accent) => accent },
 };
 
 /** "3 hours ago", without pulling in a date library for one line. */
@@ -119,7 +122,8 @@ export default function InboxScreen() {
                     <View style={styles.empty}>
                         <Ionicons name="mail-outline" size={s(30)} color={colors.textTertiary} />
                         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Nothing waiting. Friend requests and nudges land here.
+                            Nothing waiting. Friend requests, nudges and anything the app
+                            wants to tell you all land here.
                         </Text>
                     </View>
                 ) : (
@@ -129,6 +133,14 @@ export default function InboxScreen() {
                             const tint = look.tint(colors, accent);
                             return (
                                 <Animated.View key={item.id} entering={FadeIn.duration(180)} exiting={FadeOut.duration(140)} layout={MORPH}>
+                                    <SwipeRow
+                                        // An open request is answered, not swept away: the
+                                        // buttons are the point of it being here.
+                                        right={item.requestId ? [] : [{
+                                            icon: 'trash', label: 'Clear', color: colors.error,
+                                            destructive: true, onPress: () => void dismiss(item),
+                                        }]}
+                                    >
                                     <VoidCard matte style={styles.row}>
                                         <View style={styles.head}>
                                             <View style={[styles.badge, { backgroundColor: tone.raised }]}>
@@ -171,17 +183,9 @@ export default function InboxScreen() {
                                                         : <Text style={[styles.actionText, { color: '#fff' }]}>Accept</Text>}
                                                 </Pressable>
                                             </View>
-                                        ) : (
-                                            <Pressable
-                                                accessibilityRole="button"
-                                                accessibilityLabel="Clear this"
-                                                onPress={() => void dismiss(item)}
-                                                style={styles.clear}
-                                            >
-                                                <Text style={[styles.clearText, { color: colors.textTertiary }]}>Clear</Text>
-                                            </Pressable>
-                                        )}
+                                        ) : null}
                                     </VoidCard>
+                                    </SwipeRow>
                                 </Animated.View>
                             );
                         })}

@@ -71,16 +71,24 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Community
 
-- [ ] Replace the spinning Habyss logo with an ordinary spinner.
+- [x] The spinning logo is an ordinary spinner. A brand animation is not what
+      waiting is for.
 - [ ] A friend's profile should be the page you see for yourself.
-- [ ] Inbox: swipe left to delete a notification.
+- [x] Inbox: swipe left to clear. An **open friend request** deliberately has
+      no swipe — it is answered, not swept away, and the buttons are the reason
+      it is there.
 - [ ] Show the **profile name**, not the username, when inviting or viewing.
 
 ## Home
 
-- [ ] Drop the notification icon — it lives on Community now.
-- [ ] Echo's line moves up beside the profile picture.
-- [ ] A red dot on the Community tab when something has happened.
+- [x] The Home bell is gone — **and so is the second inbox behind it**. It
+      opened a separate list of the app's own notifications, so there were two
+      places to check "did anything happen" and the answer was split between
+      them. They are one list now, in Community.
+- [x] Echo's line sits beside the ring, in the room the bell left.
+- [x] A red dot on the Community tab. It lives in the dock, which is the one
+      component on screen whatever anybody is doing, so it appears the moment
+      something arrives rather than the next time that tab is opened.
 
 ## Habit detail
 

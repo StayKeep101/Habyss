@@ -9,7 +9,9 @@ import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { emit } from '@/lib/appEvents';
+import { emit, on } from '@/lib/appEvents';
+import { AppState } from 'react-native';
+import { FriendsService } from '@/lib/friendsService';
 
 interface TabIconProps {
     routeName: string;
@@ -19,7 +21,7 @@ interface TabIconProps {
     foreground: string;
 }
 
-const TabIcon = ({ routeName, focused, colors, isDark, foreground }: TabIconProps) => {
+const TabIcon = ({ routeName, focused, colors, isDark, foreground, unread, background }: TabIconProps & { unread?: boolean; background: string }) => {
     const scale = useSharedValue(focused ? 1 : 1);
 
     React.useEffect(() => {
@@ -54,7 +56,10 @@ const TabIcon = ({ routeName, focused, colors, isDark, foreground }: TabIconProp
     return (
         <Animated.View style={[animatedStyle, styles.iconContainer]}>
             <Ionicons name={getIconName()} size={24} color={iconColor} />
-            {/* Dot removed per request */}
+            {/* Something has happened and nobody has looked at it. A dot rather
+                than a number: on a tab bar the question is only ever whether to
+                go and look. */}
+            {unread ? <View style={[styles.unread, { borderColor: background }]} /> : null}
         </Animated.View>
     );
 };
@@ -66,6 +71,27 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { mediumFeedback } = useHaptics();
     const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth } = useResponsiveLayout();
     const orbRef = React.useRef<any>(null);
+
+    /**
+     * Whether anything is waiting, for the dot on Community.
+     *
+     * Read here rather than passed down: the dock is the one component that is
+     * on screen whatever anybody is doing, which makes it the only place a
+     * notice can appear the moment it arrives.
+     */
+    const [unread, setUnread] = React.useState(0);
+    React.useEffect(() => {
+        let alive = true;
+        const check = () => {
+            FriendsService.unreadCount()
+                .then(count => { if (alive) setUnread(count); })
+                .catch(() => undefined);
+        };
+        check();
+        const stop = on('social_state_updated', check);
+        const app = AppState.addEventListener('change', state => { if (state === 'active') check(); });
+        return () => { alive = false; stop.remove(); app.remove(); };
+    }, []);
 
     return (
         <View style={[
@@ -138,6 +164,8 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                     colors={accentColors}
                                     isDark={theme !== 'light'}
                                     foreground={foreground}
+                                    unread={route.name === 'community' && unread > 0}
+                                    background={palette.background}
                                 />
                             </TouchableOpacity>
                         );
@@ -221,6 +249,11 @@ const styles = StyleSheet.create({
     tabButton: {
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    unread: {
+        position: 'absolute', top: -1, right: -2,
+        width: 10, height: 10, borderRadius: 5,
+        backgroundColor: '#EF4444', borderWidth: 2,
     },
     iconContainer: {
         alignItems: 'center',

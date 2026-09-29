@@ -1,6 +1,6 @@
 import { FontFamily, Typography, UIStyles } from '@/constants/DesignSystem';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {View, Text, ScrollView, RefreshControl, StyleSheet, TouchableOpacity, Alert, Share} from 'react-native';
+import {View, Text, ScrollView, RefreshControl, StyleSheet, TouchableOpacity, Alert, Share, ActivityIndicator} from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { vs } from '@/constants/Layout';
 import { useTheme } from '@/constants/themeContext';
@@ -423,11 +423,10 @@ export default function CommunityScreen() {
                         zIndex: 100,
                     }}
                 >
-                    {(() => {
-                        const { SpinningLogo } = require('@/components/SpinningLogo');
-                        return <SpinningLogo />;
-                    })()}
-                    <Text style={{ color: colors.textSecondary, marginTop: vs(16), fontFamily: FontFamily.regular }}>Getting crew data...</Text>
+                    {/* An ordinary spinner. A logo turning over is a brand
+                        animation, and waiting is not the moment for one. */}
+                    <ActivityIndicator size="large" color={accentColor} />
+                    <Text style={{ color: colors.textSecondary, marginTop: vs(16), fontFamily: FontFamily.regular }}>Loading your people…</Text>
                 </Animated.View>
             )}
 
@@ -444,13 +443,9 @@ export default function CommunityScreen() {
                     />
                 }
             >
-                {/* Custom Refresh Spinner */}
                 {refreshing && (
                     <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                        {(() => {
-                            const { SpinningLogo } = require('@/components/SpinningLogo');
-                            return <SpinningLogo />;
-                        })()}
+                        <ActivityIndicator color={colors.textTertiary} />
                     </View>
                 )}
                 {/* Header */}

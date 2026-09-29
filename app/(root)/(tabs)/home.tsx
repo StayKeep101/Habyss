@@ -1,18 +1,15 @@
 import { FontFamily } from '@/constants/DesignSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import {View, Text, ScrollView, TouchableOpacity, RefreshControl} from 'react-native';
+import {View, Text, ScrollView, RefreshControl} from 'react-native';
 import { afterPaint } from '@/lib/afterPaint';
-import { s, vs, ms } from '@/constants/Layout';
+import { s, ms } from '@/constants/Layout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { VoidShell } from '@/components/Layout/VoidShell';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
-import { NotificationService } from '@/lib/notificationService';
-import { NotificationsModal } from '@/components/NotificationsModal';
 import { CelebrationAnimation } from '@/components/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
@@ -52,7 +49,6 @@ const Home = () => {
   const router = useRouter();
   const { theme } = useTheme();
   const colors = Colors[theme];
-  const isLight = theme === 'light';
   const { primary: accentColor } = useAccentGradient();
   const { lightFeedback, selectionFeedback } = useHaptics();
   const { playComplete } = useSounds();
@@ -69,12 +65,10 @@ const Home = () => {
   // Stats are now derived, removed explicit state
 
   // UI state
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showMomentumModal, setShowMomentumModal] = useState(false);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [motivationalQuote, setMotivationalQuote] = useState('');
   const [displayedQuote, setDisplayedQuote] = useState('');
@@ -139,8 +133,6 @@ const Home = () => {
       const loadData = async () => {
         const savedAvatar = await AsyncStorage.getItem('profile_avatar');
         if (savedAvatar) setProfileAvatar(savedAvatar);
-        const count = await NotificationService.getUnreadCount();
-        setUnreadCount(count);
       };
 
       loadData();
@@ -342,48 +334,42 @@ const Home = () => {
           }
         >
 
-          {/* Header Row */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: topSpacing }}>
-            {/* Left: Profile */}
-            <View>
-              {/* The ring is today: empty at nothing done, closed and green
-                  when the day is kept. */}
-              <ProgressAvatar
-                uri={profileAvatar}
-                done={dayTally.done}
-                total={dayTally.total}
-                onPress={() => router.push('/(root)/profile')}
-              />
-            </View>
+          {/* Header Row
+              The bell has gone: everything it announced now waits in the
+              Community inbox, and two places to check for the same thing is one
+              too many. Echo takes the room it left, beside the ring rather than
+              under it, which is where the eye already is. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(14), marginTop: topSpacing }}>
+            {/* The ring is today: empty at nothing done, closed and green
+                when the day is kept. */}
+            <ProgressAvatar
+              uri={profileAvatar}
+              done={dayTally.done}
+              total={dayTally.total}
+              onPress={() => router.push('/(root)/profile')}
+            />
 
-            {/* Right: Action Buttons */}
-            <View style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: vs(4) }}>
-              <TouchableOpacity onPress={() => { lightFeedback(); setShowNotifications(true); }} style={{ width: s(40), height: s(40), borderRadius: s(20), backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="notifications" size={s(20)} color={colors.textPrimary} />
-                {unreadCount > 0 && <View style={{ position: 'absolute', top: s(10), right: s(10), width: s(8), height: s(8), borderRadius: s(4), backgroundColor: '#EF4444' }} />}
-              </TouchableOpacity>
-            </View>
+            {motivationalQuote ? (
+              <Animated.View entering={FadeInDown.duration(400)} style={{ flex: 1 }}>
+                {/* Echo is the voice behind this line and the reminders. */}
+                <Text style={{ fontSize: ms(10), letterSpacing: 1.4, color: accentColor, fontFamily: FontFamily.semibold, marginBottom: 2 }}>ECHO</Text>
+                <Text
+                  numberOfLines={3}
+                  style={{
+                    fontSize: ms(13),
+                    color: colors.text,
+                    fontFamily: FontFamily.medium,
+                    lineHeight: ms(18),
+                  }}
+                >
+                  {displayedQuote}
+                  {displayedQuote.length < motivationalQuote.length && (
+                    <Text style={{ color: colors.primary }}>|</Text>
+                  )}
+                </Text>
+              </Animated.View>
+            ) : <View style={{ flex: 1 }} />}
           </View>
-
-          {/* AI Greeting - Full Width Below Header */}
-          {motivationalQuote ? (
-            <Animated.View entering={FadeInDown.duration(400)} style={{ marginTop: sectionGap }}>
-              {/* Echo is the voice behind this line and the reminders. */}
-              <Text style={{ fontSize: ms(11), letterSpacing: 1.4, color: accentColor, fontFamily: FontFamily.semibold, marginBottom: 4 }}>ECHO</Text>
-              <Text style={{
-                fontSize: ms(15),
-                color: colors.text,
-                fontFamily: FontFamily.semibold,
-                textAlign: 'left',
-                lineHeight: ms(22),
-              }}>
-                {displayedQuote}
-                {displayedQuote.length < motivationalQuote.length && (
-                  <Text style={{ color: colors.primary }}>|</Text>
-                )}
-              </Text>
-            </Animated.View>
-          ) : null}
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
@@ -442,15 +428,6 @@ const Home = () => {
           habits={habits}
           history={historyData}
           completions={completions}
-        />
-        <NotificationsModal
-          visible={showNotifications}
-          onClose={async () => {
-            setShowNotifications(false);
-            // Refresh unread count to update badge
-            const count = await NotificationService.getUnreadCount();
-            setUnreadCount(count);
-          }}
         />
         <CelebrationAnimation visible={showCelebration} onComplete={() => setShowCelebration(false)} />
       </SafeAreaView>
