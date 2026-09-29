@@ -1,4 +1,4 @@
-import { isCounted, kindOf, quickAmountsFor, stepFor, KIND_LABEL, unitsOfKind } from '../unitKind';
+import { isCounted, kindOf, quickAmountsFor, stepFor, KIND_LABEL, unitsOfKind, canConvert, convert } from '../unitKind';
 
 describe('what a unit measures', () => {
     it('knows the physical kinds apart', () => {
@@ -107,5 +107,51 @@ describe('one grouping, shared by the picker and the controls', () => {
             expect({ name, count: units.length }).toEqual({ name, count: units.length });
             expect(units.length).toBeGreaterThan(0);
         }
+    });
+});
+
+describe('converting between units of the same kind', () => {
+    it('converts time, which is where the damage would be worst', () => {
+        // A habit of eight hours' sleep filled from a reading in minutes would
+        // otherwise read as 450 and look like a triumph.
+        expect(convert(450, 'minutes', 'hours')).toBe(7.5);
+        expect(convert(2, 'hours', 'min')).toBe(120);
+    });
+
+    it('converts distance, including miles', () => {
+        expect(convert(1, 'km', 'm')).toBe(1000);
+        expect(convert(5, 'km', 'miles')).toBeCloseTo(3.107, 2);
+    });
+
+    it('knows a glass is 250ml, the same figure the quick amounts assume', () => {
+        expect(convert(2000, 'ml', 'glasses')).toBe(8);
+        expect(convert(1, 'l', 'ml')).toBe(1000);
+    });
+
+    it('converts mass', () => {
+        expect(convert(1, 'kg', 'g')).toBe(1000);
+    });
+
+    it('returns the same number for the same unit', () => {
+        expect(convert(12, 'pages', 'pages')).toBe(12);
+    });
+
+    it('refuses rather than guessing across kinds', () => {
+        // Grams and millilitres both have a scale, and neither is the other.
+        expect(convert(100, 'g', 'ml')).toBeNull();
+        expect(canConvert('g', 'ml')).toBe(false);
+    });
+
+    it('refuses anything it has no scale for', () => {
+        // A step is a count of strides, not a distance: how long one is depends
+        // on whose legs they are.
+        expect(convert(8000, 'steps', 'km')).toBeNull();
+        expect(convert(10, 'pages', 'words')).toBeNull();
+        expect(convert(5, 'usd', 'eur')).toBeNull();
+    });
+
+    it('refuses an empty unit rather than treating it as a match', () => {
+        expect(convert(5, '', '')).toBeNull();
+        expect(canConvert(undefined, undefined)).toBe(false);
     });
 });

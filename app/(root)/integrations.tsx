@@ -1,243 +1,213 @@
-import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
-import { useState, useEffect, useCallback } from 'react';
-import { ScrollView, View, Text, StyleSheet, Switch, Alert, Platform } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import * as Linking from 'expo-linking';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useHaptics } from '@/hooks/useHaptics';
-import { useAccentGradient } from '@/constants/AccentContext';
+import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { IntegrationService, Integration } from '@/lib/integrationService';
-import { isHealthAvailable } from '@/lib/integrationAvailability';
-import { HealthKitService } from '@/lib/healthKit';
-import { HealthKitService as HealthReader } from '@/lib/HealthKitService';
-// import * as Calendar from 'expo-calendar'; // Removed static import
+import { Colors } from '@/constants/Colors';
+import { FontFamily, surfaceFor } from '@/constants/DesignSystem';
+import { ms, s, vs } from '@/constants/Layout';
+import { useTheme } from '@/constants/themeContext';
+import { useAccentGradient } from '@/constants/AccentContext';
+import { useHaptics } from '@/hooks/useHaptics';
+import { INTEGRATIONS, ROUTE_LABEL, type Integration } from '@/lib/integrations';
+import { HEALTH_METRICS } from '@/lib/healthMetrics';
+import { HealthKitService } from '@/lib/HealthKitService';
+import { syncHealthKitData } from '@/lib/habitsSQLite';
 
-interface IntegrationItem {
-    id: string;
-    name: string;
-    description: string;
-    icon: keyof typeof Ionicons.glyphMap;
-    service: string;
-    available: boolean;
-    badge?: string;
-}
+const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
-const ALL_INTEGRATIONS: IntegrationItem[] = [
-    {
-        id: 'health',
-        name: 'Apple Health',
-        description: 'Save focus sessions as mindful minutes',
-        icon: 'heart-outline',
-        service: 'apple_health',
-        available: isHealthAvailable(),
-    },
-];
-
-// Anything unavailable is filtered out rather than shown as a dead switch.
-const INTEGRATIONS: IntegrationItem[] = ALL_INTEGRATIONS.filter(item => item.available);
-
+/**
+ * What can fill a habit in for you.
+ *
+ * Written around the one fact that matters and is easy to miss: on iOS, Apple
+ * Health is a hub rather than another app. Garmin, Whoop, Oura, Strava, Peloton
+ * and the rest all write into it, so connecting Health once connects every
+ * device somebody already owns — and this screen says so plainly instead of
+ * listing a dozen logos it cannot actually reach.
+ *
+ * The ones that genuinely cannot be reached are listed too, with what it would
+ * take. A screen that quietly omits them reads as a screen that is finished.
+ */
 export default function IntegrationsScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
-    const { primary: accentColor } = useAccentGradient();
+    const tone = surfaceFor(theme);
+    const { primary: accent } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
-    const [integrations, setIntegrations] = useState<Record<string, boolean>>({});
-    const [loading, setLoading] = useState<Record<string, boolean>>({});
+    const [connected, setConnected] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [filled, setFilled] = useState<number | null>(null);
 
-    // Load integration statuses
     useEffect(() => {
-        loadIntegrations();
+        let alive = true;
+        // Asking whether it is authorised is not the same as asking for it: this
+        // must not put a permission sheet in front of somebody who only opened
+        // a settings screen.
+        HealthKitService.authorised()
+            .then(yes => { if (alive) setConnected(yes); })
+            .catch(() => undefined);
+        return () => { alive = false; };
     }, []);
 
-    const loadIntegrations = useCallback(async () => {
-        try {
-            const data = await IntegrationService.getIntegrations();
-            const statuses: Record<string, boolean> = {};
-            data.forEach((i: Integration) => {
-                statuses[i.service_name] = i.is_connected;
-            });
-
-            setIntegrations(statuses);
-        } catch (e) {
-            console.error('Error loading integrations:', e);
+    const connect = useCallback(async (on: boolean) => {
+        if (!on) {
+            // iOS gives no way to revoke from inside an app, and pretending
+            // otherwise would leave the switch lying about the system state.
+            Alert.alert(
+                'Turn it off in Settings',
+                'Only iOS can withdraw Health access: Settings → Privacy & Security → Health → Habyss.',
+            );
+            return;
         }
-    }, []);
-
-    const handleHealthToggle = async (enabled: boolean) => {
-        setLoading(prev => ({ ...prev, apple_health: true }));
-        try {
-            if (enabled) {
-                const available = await HealthKitService.isAvailable();
-                if (!available) {
-                    Alert.alert('Not Available', 'Apple Health is not available on this device.');
-                    return;
-                }
-
-                // The reader's own request, so the one prompt covers steps,
-                // sleep, mindful minutes and workouts — everything a habit can
-                // now ask Health to answer for, not mindfulness alone.
-                const granted = await HealthReader.init();
-                if (granted) {
-                    await IntegrationService.connectService('apple_health', { accessToken: 'local' });
-                    setIntegrations(prev => ({ ...prev, apple_health: true }));
-                    successFeedback();
-                    Alert.alert('Connected', 'A habit measured in steps or minutes can now be counted by Health.');
-                } else {
-                    Alert.alert('Permission Denied', 'Habyss needs Health access to read steps, sleep, mindful minutes and workouts.');
-                }
-            } else {
-                await IntegrationService.disconnectService('apple_health');
-                setIntegrations(prev => ({ ...prev, apple_health: false }));
-                lightFeedback();
-            }
-        } catch (e) {
-            console.error('Health toggle error:', e);
-            Alert.alert('Error', 'Failed to toggle Health integration');
-        } finally {
-            setLoading(prev => ({ ...prev, apple_health: false }));
+        if (!HealthKitService.isAvailable) {
+            Alert.alert('Not available here', 'Apple Health only exists on iPhone.');
+            return;
         }
-    };
 
-    const getToggleHandler = (service: string) => {
-        switch (service) {
-            case 'apple_health': return handleHealthToggle;
-            default: return () => { };
+        setBusy(true);
+        const granted = await HealthKitService.init();
+        if (!granted) {
+            setBusy(false);
+            Alert.alert('Health said no', 'Nothing will be filled in automatically until it is allowed.');
+            return;
         }
-    };
+        setConnected(true);
+        successFeedback();
+
+        // Straight away, so the first thing anybody sees is it working rather
+        // than a promise that it will.
+        const count = await syncHealthKitData().catch(() => 0);
+        setFilled(count);
+        setBusy(false);
+    }, [successFeedback]);
+
+    const groups: { title: string; note?: string; items: Integration[] }[] = [
+        {
+            title: 'THE HUB',
+            note: 'One prompt. Everything below writes into it.',
+            items: INTEGRATIONS.filter(item => item.route === 'direct'),
+        },
+        {
+            title: 'THROUGH APPLE HEALTH',
+            note: 'Already connected if the app is set to share with Health. Nothing to do here.',
+            items: INTEGRATIONS.filter(item => item.route === 'health'),
+        },
+        {
+            title: 'NO SENSOR CAN SEE IT',
+            note: 'Run the timer and the check-in counts as backed rather than taken on your word.',
+            items: INTEGRATIONS.filter(item => item.route === 'timer'),
+        },
+        {
+            title: 'NOT YET',
+            note: 'Each of these needs something Habyss does not have: a server, or a permission Apple grants case by case.',
+            items: INTEGRATIONS.filter(item => item.route === 'needsServer' || item.route === 'needsEntitlement'),
+        },
+    ];
 
     return (
         <SheetScreen title="Integrations" onBack={() => router.back()}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <Animated.View layout={MORPH}>
+                    <VoidCard matte style={styles.hero}>
+                        <View style={styles.heroTop}>
+                            <View style={[styles.heroIcon, { backgroundColor: tone.raised }]}>
+                                <Ionicons name="heart" size={s(19)} color="#FF4757" />
+                            </View>
+                            <View style={styles.heroText}>
+                                <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>Apple Health</Text>
+                                <Text style={[styles.heroLine, { color: colors.textSecondary }]}>
+                                    {connected
+                                        ? `Reading ${HEALTH_METRICS.length} kinds of thing.`
+                                        : 'Let Habyss read what your watch already knows.'}
+                                </Text>
+                            </View>
+                            {busy
+                                ? <ActivityIndicator color={accent} />
+                                : <Switch
+                                    value={connected}
+                                    onValueChange={value => { lightFeedback(); void connect(value); }}
+                                    trackColor={{ false: tone.raised, true: accent }}
+                                    accessibilityLabel="Connect Apple Health"
+                                />}
+                        </View>
 
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                        CONNECTED SERVICES
-                    </Text>
-                    <Text style={[styles.sectionDesc, { color: colors.textTertiary }]}>
-                        Sync your habits with other apps
-                    </Text>
+                        {filled !== null ? (
+                            <Animated.Text entering={FadeIn.duration(200)} style={[styles.filled, { color: colors.success }]}>
+                                {filled === 0
+                                    ? 'Nothing to fill in yet — link a habit to a metric in its Measure row.'
+                                    : `Filled in ${filled} habit${filled === 1 ? '' : 's'} just now.`}
+                            </Animated.Text>
+                        ) : null}
+                    </VoidCard>
+                </Animated.View>
 
-                    <VoidCard
-                        glass={!isTrueDark}
-                        intensity={isLight ? 20 : 80}
-                        style={[
-                            styles.card,
-                            {
-                                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
-                                borderColor: colors.border
-                            }
-                        ]}
-                    >
-                        {INTEGRATIONS.map((item, index) => (
-                            <View key={item.id}>
-                                {index > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
-                                <View style={styles.row}>
-                                    <View style={[styles.iconBox, { backgroundColor: accentColor + '20' }]}>
-                                        <Ionicons name={item.icon} size={20} color={accentColor} />
-                                    </View>
-                                    <View style={styles.textContent}>
-                                        <View style={styles.nameRow}>
-                                            <Text style={[styles.itemName, { color: colors.textPrimary }]}>
-                                                {item.name}
-                                            </Text>
-                                            {item.badge ? (
-                                                <View style={[styles.badge, { backgroundColor: colors.surface }]}>
-                                                    <Text style={[styles.badgeText, { color: colors.textSecondary }]}>
-                                                        {item.badge}
-                                                    </Text>
-                                                </View>
+                {groups.map(group => group.items.length === 0 ? null : (
+                    <View key={group.title} style={styles.group}>
+                        <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>{group.title}</Text>
+                        {group.note ? (
+                            <Text style={[styles.groupNote, { color: colors.textTertiary }]}>{group.note}</Text>
+                        ) : null}
+
+                        <VoidCard matte style={styles.list}>
+                            {group.items.map((item, index) => (
+                                <View key={item.id}>
+                                    {index > 0 ? <View style={[styles.divider, { backgroundColor: tone.line }]} /> : null}
+                                    <View style={styles.row}>
+                                        <View style={[styles.icon, { backgroundColor: tone.raised }]}>
+                                            <Ionicons name={item.icon} size={s(16)} color={colors.textSecondary} />
+                                        </View>
+                                        <View style={styles.rowText}>
+                                            <Text style={[styles.name, { color: colors.textPrimary }]}>{item.name}</Text>
+                                            <Text style={[styles.covers, { color: colors.textSecondary }]}>{item.covers}</Text>
+                                            {item.step ? (
+                                                <Text style={[styles.step, { color: colors.textTertiary }]}>{item.step}</Text>
                                             ) : null}
                                         </View>
-                                        <Text style={[styles.itemDesc, { color: colors.textTertiary }]}>
-                                            {item.description}
+                                        <Text style={[styles.route, {
+                                            color: item.route === 'needsServer' || item.route === 'needsEntitlement'
+                                                ? colors.textTertiary : colors.success,
+                                        }]}>
+                                            {item.route === 'direct' ? (connected ? 'On' : ROUTE_LABEL[item.route]) : ROUTE_LABEL[item.route]}
                                         </Text>
                                     </View>
-                                    <Switch
-                                        value={integrations[item.service] || false}
-                                        onValueChange={(v) => getToggleHandler(item.service)(v)}
-                                        disabled={loading[item.service]}
-                                        trackColor={{ false: colors.border, true: accentColor }}
-                                    />
                                 </View>
-                            </View>
-                        ))}
-                    </VoidCard>
+                            ))}
+                        </VoidCard>
+                    </View>
+                ))}
 
-                    {Platform.OS === 'ios' && (
-                        <Text style={[styles.footnote, { color: colors.textTertiary }]}>
-                            Note: Apple Health requires additional native setup
-                        </Text>
-                    )}
-                </ScrollView>
-            </SheetScreen>
+                <Text style={[styles.footnote, { color: colors.textTertiary }]}>
+                    A habit reads from Health once you pick a metric in its Measure row. Anything filled in
+                    this way counts as verified to your friends, which is what makes a pact worth making.
+                </Text>
+            </ScrollView>
+        </SheetScreen>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    content: { ...UIStyles.screenContent },
-    sectionTitle: UIStyles.sectionTitle,
-    sectionDesc: UIStyles.sectionDescription,
-    card: {
-        borderRadius: Radius.card,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        gap: 12,
-    },
-    iconBox: {
-        width: 40,
-        height: 40,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    textContent: {
-        flex: 1,
-    },
-    nameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    itemName: {
-        fontSize: 15,
-        fontFamily: FontFamily.semibold,
-    },
-    badge: {
-        borderRadius: 999,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-    },
-    badgeText: {
-        fontSize: 10,
-        fontFamily: FontFamily.regular,
-        textTransform: 'uppercase',
-    },
-    itemDesc: {
-        fontSize: 11,
-        marginTop: 2,
-        fontFamily: FontFamily.regular,
-    },
-    divider: {
-        height: 1,
-        marginHorizontal: 16,
-    },
-    footnote: {
-        fontSize: 11,
-        marginTop: 16,
-        textAlign: 'center',
-        fontStyle: 'italic',
-        fontFamily: FontFamily.regular,
-    },
+    content: { paddingHorizontal: s(20), paddingBottom: vs(40), gap: vs(18) },
+    hero: { padding: s(16), gap: vs(10) },
+    heroTop: { flexDirection: 'row', alignItems: 'center', gap: s(12) },
+    heroIcon: { width: s(40), height: s(40), borderRadius: s(20), alignItems: 'center', justifyContent: 'center' },
+    heroText: { flex: 1, gap: vs(2) },
+    heroTitle: { fontSize: ms(16), fontFamily: FontFamily.semibold },
+    heroLine: { fontSize: ms(12), lineHeight: ms(17), fontFamily: FontFamily.regular },
+    filled: { fontSize: ms(12), lineHeight: ms(17), fontFamily: FontFamily.medium },
+    group: { gap: vs(6) },
+    groupTitle: { fontSize: ms(10), letterSpacing: 1.4, fontFamily: FontFamily.bold },
+    groupNote: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular, marginBottom: vs(2) },
+    list: { paddingVertical: vs(4) },
+    divider: { height: StyleSheet.hairlineWidth, marginLeft: s(58) },
+    row: { flexDirection: 'row', alignItems: 'flex-start', gap: s(11), padding: s(13) },
+    icon: { width: s(32), height: s(32), borderRadius: s(10), alignItems: 'center', justifyContent: 'center' },
+    rowText: { flex: 1, gap: vs(2) },
+    name: { fontSize: ms(14), fontFamily: FontFamily.medium },
+    covers: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular },
+    step: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular, fontStyle: 'italic' },
+    route: { fontSize: ms(10), fontFamily: FontFamily.semibold, maxWidth: s(78), textAlign: 'right' },
+    footnote: { fontSize: ms(11), lineHeight: ms(17), fontFamily: FontFamily.regular },
 });

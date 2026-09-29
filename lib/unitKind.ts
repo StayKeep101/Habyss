@@ -108,3 +108,64 @@ export const KINDS_IN_ORDER: UnitKind[] = ['count', 'duration', 'length', 'volum
 
 /** The known units of a kind, for grouping a picker by what things measure. */
 export const unitsOfKind = (kind: UnitKind): readonly string[] => KINDS[kind];
+
+/**
+ * How many of the kind's base unit one of this unit is.
+ *
+ * Base units: seconds, metres, millilitres, grams. Only the kinds where a
+ * conversion is exact are listed — a currency is not convertible without a rate
+ * and a `count` has no base at all, and guessing at either would be worse than
+ * refusing.
+ *
+ * A glass is 250ml here, the same figure the quick amounts already assume, so
+ * "eight glasses" and "2,000ml" are the same habit rather than two habits that
+ * disagree by a factor of 250.
+ */
+const PER_BASE: Record<string, number> = {
+    // Time, in seconds.
+    second: 1, seconds: 1, sec: 1, secs: 1,
+    minute: 60, minutes: 60, min: 60, mins: 60,
+    hour: 3600, hours: 3600, hr: 3600, hrs: 3600,
+    // Length, in metres. Steps are deliberately absent: a step is a count of
+    // strides, not a distance, and how long one is depends on whose legs.
+    m: 1, meter: 1, meters: 1, metre: 1, metres: 1,
+    km: 1000,
+    mi: 1609.344, mile: 1609.344, miles: 1609.344,
+    yard: 0.9144, yards: 0.9144, ft: 0.3048, feet: 0.3048,
+    // Volume, in millilitres.
+    ml: 1, l: 1000, liter: 1000, liters: 1000, litre: 1000, litres: 1000,
+    glass: 250, glasses: 250, cup: 250, cups: 250,
+    oz: 29.5735, floz: 29.5735,
+    // Mass, in grams.
+    g: 1, gram: 1, grams: 1,
+    kg: 1000, kilogram: 1000, kilograms: 1000,
+    lb: 453.592, lbs: 453.592, pound: 453.592, pounds: 453.592,
+};
+
+const clean = (unit: string | undefined | null): string => (unit ?? '').trim().toLowerCase();
+
+/** Whether a number in one unit can be stated exactly in another. */
+export function canConvert(from: string | undefined | null, to: string | undefined | null): boolean {
+    const a = clean(from);
+    const b = clean(to);
+    if (a === b) return !!a;
+    if (!PER_BASE[a] || !PER_BASE[b]) return false;
+    // Same kind as well as both convertible: grams and millilitres both have a
+    // scale, and neither is the other.
+    return kindOf(a) === kindOf(b);
+}
+
+/**
+ * The same quantity, said in another unit.
+ *
+ * Returns null rather than a guess when the two do not convert, because a
+ * silently wrong number is the worst thing a measurement can be — a habit of
+ * eight hours' sleep filled in from a reading in minutes would read as 450.
+ */
+export function convert(value: number, from: string | undefined | null, to: string | undefined | null): number | null {
+    const a = clean(from);
+    const b = clean(to);
+    if (a === b) return a ? value : null;
+    if (!canConvert(a, b)) return null;
+    return (value * PER_BASE[a]) / PER_BASE[b];
+}

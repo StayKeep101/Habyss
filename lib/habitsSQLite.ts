@@ -9,6 +9,7 @@ import { HealthKitService } from './HealthKitService';
 import { Platform } from 'react-native';
 import { getLocalUserId } from './localUser';
 import { NotificationService } from './notificationService';
+import type { HealthMetric } from './healthMetrics';
 import { isHabitScheduledForDate, localDateKey, parseHabitDate } from './habitSchedule';
 import type { Task } from './tasks';
 import { addDays, daysBetween, goalProgress } from './goalInsights';
@@ -64,7 +65,8 @@ export interface Habit {
     reminderMessage?: string;
     /** A lib/recurrence rule as JSON, when the schedule needs more than weekdays. */
     recurrence?: string;
-    healthKitMetric?: 'steps' | 'sleep' | 'mindfulness' | 'workout'; // New
+    /** Which Apple Health metric answers for this habit; see lib/healthMetrics. */
+    healthKitMetric?: HealthMetric;
     healthKitTarget?: number; // New
 }
 
@@ -1075,63 +1077,65 @@ export function saveHabitMeasurement(habitId: string, amount: number, dateISO = 
     });
 }
 
-export async function syncHealthKitData() {
-    if (!HealthKitService.isAvailable) return;
+/**
+ * Fills in every habit Health can answer for, for today.
+ *
+ * This is the part that makes the app worth carrying: a watch already knows
+ * whether you ran, so being asked to tell it again is the app failing to do its
+ * job. Run on foreground, and safe to run as often as that happens.
+ *
+ * Three rules, all of them about not overwriting a person with a sensor:
+ *
+ *   A reading is a floor.  Somebody who walked on a second phone, or logged a
+ *                          set the watch missed, has a number Health cannot
+ *                          see. `mergeHealth` never lowers what is stored.
+ *   Null is not zero.      "Health did not answer" and "you did nothing" are
+ *                          different facts. Only one of them is written down.
+ *   The habit's own unit.  A reading is converted before it is stored, or a
+ *                          habit of eight hours' sleep would be filled in as
+ *                          450 and look like a triumph.
+ */
+export async function syncHealthKitData(): Promise<number> {
+    if (!HealthKitService.isAvailable) return 0;
 
-    // Check if we have any habits that need syncing BEFORE asking for permission/init
-    const habits = await getHabits();
-    const hkHabits = habits.filter(h => h.healthKitMetric && !h.isArchived && !h.isGoal);
+    const habits = (await getHabits()).filter(habit =>
+        habit.healthKitMetric && !habit.isArchived && !habit.isGoal);
+    if (habits.length === 0) return 0;
 
-    if (hkHabits.length === 0) return;
+    // Only now: asking for Health permission on behalf of nobody is rude.
+    if (!(await HealthKitService.init())) return 0;
 
-    // Now init (will prompt if not authorized, or just return false if denied/restricted)
-    const authorized = await HealthKitService.init();
-    if (!authorized) return;
-
-    console.log('[Habits] Syncing HealthKit data for', hkHabits.length, 'habits');
-
+    const { readHealth, inHabitUnit, mergeHealth, metricFits } = require('./healthMetrics') as typeof import('./healthMetrics');
     const today = new Date();
     const dateStr = todayString(today);
+    let filled = 0;
 
-    for (const habit of hkHabits) {
-        let value = 0;
+    for (const habit of habits) {
+        const metric = habit.healthKitMetric;
+        if (!metric) continue;
         try {
-            switch (habit.healthKitMetric) {
-                case 'steps': value = await HealthKitService.getSteps(today); break;
-                case 'sleep': value = await HealthKitService.getSleep(today); break; // mins
-                case 'mindfulness': value = await HealthKitService.getMindfulness(today); break;
-                case 'workout': value = await HealthKitService.getWorkout(today); break;
-            }
+            // An edit can leave a habit measured in pages linked to a step
+            // count; the link is ignored rather than acted on.
+            if (habit.unit && !metricFits(habit.unit, metric)) continue;
 
-            // Only update if we have data. 
-            // Also logic: should we only complete if value >= target? 
-            // For numeric tracking, we store the value. 
-            // For boolean tracking, we might want to toggle?
-            // Let's store the value regardless. The UI can decide if it shows as "checked" based on target.
+            const reading = await readHealth(metric, today);
+            if (reading === null) continue;
 
-            if (value > 0) {
-                // If it's a "Steps" habit, goalValue 10000. 
-                // We store 5000 in completions. 
-                // Does getCompletions return values? currently it returns boolean map.
-                // We might need to upgrade getCompletions to return values map or similar.
-                // For now, let's just use setCompletionValue which inserts into DB.
-                // But does UI see it? 
+            const value = inHabitUnit(reading, metric, habit.unit);
+            if (value === null) continue;
 
-                // If the habit is "boolean" tracking (default), we only mark complete if target reached.
-                if (habit.trackingMethod === 'numeric') {
-                    await setCompletionValue(habit.id, value, dateStr);
-                } else {
-                    // Boolean tracking (e.g. Ring)
-                    const target = habit.healthKitTarget || habit.goalValue || 1;
-                    if (value >= target) {
-                        // Check if already completed?
-                        // Just force complete
-                        await setCompletionValue(habit.id, value, dateStr);
-                    }
-                }
-            }
-        } catch (e) {
-            console.error('[Habits] Error syncing habit', habit.id, e);
+            const target = habit.healthKitTarget || habit.goalValue || 1;
+            const stored = await getHabitMeasurement(habit.id, target, dateStr).catch(() => 0);
+            const merged = mergeHealth(stored, value);
+            if (merged <= stored) continue;
+
+            await setCompletionValue(habit.id, merged, dateStr);
+            filled += 1;
+        } catch (error) {
+            console.warn('[Habits] Could not fill', habit.id, 'from Health:', error);
         }
     }
+
+    if (filled > 0) emit('habit_completion_updated', {});
+    return filled;
 }
