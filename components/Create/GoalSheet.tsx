@@ -376,6 +376,10 @@ export const GoalSheet: React.FC<{
             value: draft.description ? 'Written' : undefined,
             content: (
                 <TextInput
+                    // Opening the row opens the keyboard, as on a habit and a
+                    // task: the row is the question, so it should be ready for
+                    // the answer.
+                    autoFocus
                     value={draft.description ?? ''}
                     onChangeText={description => change({ description })}
                     multiline

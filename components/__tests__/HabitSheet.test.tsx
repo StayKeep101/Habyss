@@ -77,12 +77,13 @@ describe('the habit sheet', () => {
         write(screen, 'Pack the bag at 18:00');
         fireEvent.press(screen.getByText('Reminder'));
         fireEvent.press(screen.getByText('At the start time'));
-        fireEvent.press(screen.getByText('Hours'));
-        fireEvent.press(screen.getByText('2 hr'));
+        // Two wheels now: how much, and of what.
+        fireEvent.press(screen.getByLabelText('Hours'));
+        fireEvent.press(screen.getByLabelText('2'));
         expect(screen.getAllByText('2 hr before').length).toBeGreaterThan(0);
 
-        fireEvent.press(screen.getByText('Days'));
-        fireEvent.press(screen.getByText('1 day'));
+        fireEvent.press(screen.getByLabelText('Days'));
+        fireEvent.press(screen.getByLabelText('1'));
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
 
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
@@ -96,9 +97,9 @@ describe('the habit sheet', () => {
         } as unknown as Habit;
         const screen = render(<HabitSheet visible habit={habit} />);
         fireEvent.press(screen.getByLabelText(/^Reminder/));
-        // The amounts on screen are hours, because that is what 120 minutes is.
-        expect(screen.getByText('12 hr')).toBeTruthy();
-        expect(screen.queryByText('45 min')).toBeNull();
+        // The unit wheel opens on hours, because that is what 120 minutes is.
+        expect(screen.getByLabelText('Hours').props.accessibilityState).toEqual({ selected: true });
+        expect(screen.getByLabelText('Minutes').props.accessibilityState).toEqual({ selected: false });
         expect(screen.getAllByText('2 hr before').length).toBeGreaterThan(0);
     });
 

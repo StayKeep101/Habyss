@@ -515,6 +515,10 @@ export const HabitSheet: React.FC<{
             value: draft.description ? 'Written' : undefined,
             content: (
                 <TextInput
+                    // The row exists to be typed in, so opening it opens the
+                    // keyboard. Anything else is a tap to reach the only thing
+                    // the row does.
+                    autoFocus
                     value={draft.description ?? ''}
                     onChangeText={description => change({ description })}
                     multiline

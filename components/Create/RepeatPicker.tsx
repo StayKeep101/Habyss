@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Choices } from '@/components/Create/DetailBar';
+import { Wheel } from '@/components/Common/Wheel';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
@@ -105,10 +106,14 @@ export const RepeatPicker: React.FC<{
 
     return (
         <Animated.View layout={MORPH} style={styles.wrap}>
-            <Choices
+            {/* One answer at a time, turned rather than tapped.
+                Seven chips wrap onto two lines and stop looking like a control,
+                and the eye has to read all seven to pick one. */}
+            <Wheel
+                testID="repeat-wheel"
                 options={PRESETS}
                 value={preset}
-                accent={accent}
+                visible={3}
                 onChange={id => onChange(ruleForPreset(id as Preset, value))}
             />
 
@@ -190,12 +195,12 @@ export const RepeatPicker: React.FC<{
                             })}
                         </View>
                     ) : (
-                        <>
-                            <Choices options={ORDINALS} value={value.ordinal} accent={accent}
-                                onChange={id => onChange({ ...value, ordinal: id as Ordinal })} />
-                            <Choices options={SELECTORS} value={value.day} accent={accent}
-                                onChange={id => onChange({ ...value, day: id as DaySelector })} />
-                        </>
+                        <OnThe
+                            ordinal={value.ordinal}
+                            day={value.day}
+                            onOrdinal={ordinal => onChange({ ...value, ordinal })}
+                            onDay={day => onChange({ ...value, day })}
+                        />
                     )}
                 </Animated.View>
             ) : null}
@@ -232,12 +237,12 @@ export const RepeatPicker: React.FC<{
                             : { kind: 'yearly', every, months: value.months })}
                     />
                     {'ordinal' in value ? (
-                        <>
-                            <Choices options={ORDINALS} value={value.ordinal} accent={accent}
-                                onChange={id => onChange({ ...value, ordinal: id as Ordinal })} />
-                            <Choices options={SELECTORS} value={value.day} accent={accent}
-                                onChange={id => onChange({ ...value, day: id as DaySelector })} />
-                        </>
+                        <OnThe
+                            ordinal={value.ordinal}
+                            day={value.day}
+                            onOrdinal={ordinal => onChange({ ...value, ordinal })}
+                            onDay={day => onChange({ ...value, day })}
+                        />
                     ) : null}
                 </Animated.View>
             ) : null}
@@ -250,7 +255,35 @@ export const RepeatPicker: React.FC<{
     );
 };
 
+/**
+ * "The third Sunday", as two wheels beside each other.
+ *
+ * Stacked rows of chips made the reader assemble the phrase out of two
+ * unrelated lists — and with five ordinals and ten day kinds, both of them
+ * wrapped. Side by side, the two columns read left to right as the sentence
+ * they are: "the" / "third" / "Sunday".
+ */
+const OnThe: React.FC<{
+    ordinal: Ordinal;
+    day: DaySelector;
+    onOrdinal: (value: Ordinal) => void;
+    onDay: (value: DaySelector) => void;
+}> = ({ ordinal, day, onOrdinal, onDay }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+
+    return (
+        <View style={styles.onThe}>
+            <Text style={[styles.onTheWord, { color: colors.textSecondary }]}>the</Text>
+            <Wheel options={ORDINALS} value={ordinal} onChange={value => onOrdinal(value as Ordinal)} />
+            <Wheel options={SELECTORS} value={day} onChange={value => onDay(value as DaySelector)} />
+        </View>
+    );
+};
+
 const styles = StyleSheet.create({
+    onThe: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    onTheWord: { fontSize: 13, fontFamily: FontFamily.regular },
     wrap: { gap: 10 },
     everyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14 },
     label: { fontSize: 14, fontFamily: FontFamily.regular },

@@ -25,6 +25,22 @@ export function timeValue(time?: string): Date {
 export const asTime = (date: Date): string =>
     `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
+/**
+ * How long from one time to another, rolling past midnight.
+ *
+ * An end before the start is read as the next day rather than as a negative
+ * length — somebody setting 23:00 to 00:30 means an hour and a half, not minus
+ * twenty-two and a half hours.
+ */
+export function lengthBetween(start: string, end: string): number {
+    const minutes = (time: string) => {
+        const [hour, minute] = time.split(':').map(Number);
+        return (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0);
+    };
+    const span = minutes(end) - minutes(start);
+    return span > 0 ? span : span + 24 * 60;
+}
+
 /** Where a start plus a length lands, rolling past midnight if it has to. */
 export function endTime(start: string, minutes: number): string {
     const date = timeValue(start);
@@ -61,6 +77,9 @@ export const TimeRange: React.FC<{
     const { lightFeedback, selectionFeedback } = useHaptics();
 
     const chosen = minutes && LENGTHS.includes(minutes) ? minutes : 0;
+    /** The start the end is measured from, whether or not one was set. */
+    const from = start ?? asTime(timeValue(start));
+    const end = minutes ? endTime(from, minutes) : null;
 
     return (
         <Animated.View layout={MORPH} style={styles.wrap}>
@@ -87,6 +106,47 @@ export const TimeRange: React.FC<{
                 ) : null}
             </View>
 
+            {/* An end of its own, not only a length. The wheel is the answer;
+                the buttons below are shortcuts to common ones. */}
+            <View style={styles.row}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Ends at</Text>
+                {end ? (
+                    <DateTimePicker
+                        value={timeValue(end)}
+                        mode="time"
+                        display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                        themeVariant={isLight ? 'light' : 'dark'}
+                        accessibilityLabel="End time"
+                        onChange={(_event, selected) => {
+                            if (!selected) return;
+                            // Stored as a length, because a habit that moves
+                            // should keep how long it takes rather than when it
+                            // used to finish.
+                            onChange({ start: from, minutes: lengthBetween(from, asTime(selected)) });
+                        }}
+                    />
+                ) : (
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Give it an end time"
+                        onPress={() => { selectionFeedback(); onChange({ start: from, minutes: 30 }); }}
+                        style={styles.add}
+                    >
+                        <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.medium }}>Add one</Text>
+                    </Pressable>
+                )}
+                {end ? (
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear the end time"
+                        onPress={() => { lightFeedback(); onChange({ start, minutes: undefined }); }}
+                        style={styles.clear}
+                    >
+                        <Text style={{ color: colors.textTertiary, fontSize: 12, fontFamily: FontFamily.regular }}>Clear</Text>
+                    </Pressable>
+                ) : null}
+            </View>
+
             <Choices
                 options={LENGTHS.map(value => ({ id: value, label: lengthLabel(value) }))}
                 value={chosen}
@@ -94,21 +154,21 @@ export const TimeRange: React.FC<{
                 onChange={value => {
                     selectionFeedback();
                     // Tapping the one already chosen takes the end off again.
-                    onChange({ start: start ?? asTime(timeValue(start)), minutes: value === chosen ? undefined : value });
+                    onChange({ start: from, minutes: value === chosen ? undefined : value });
                 }}
             />
 
-            {start && chosen ? (
+            {start && minutes ? (
                 <Animated.Text
                     layout={MORPH}
                     entering={FadeIn.duration(160)}
                     style={[styles.ends, { color: accent }]}
                 >
-                    {`${start} → ${endTime(start, chosen)}`}
+                    {`${start} → ${endTime(start, minutes)} · ${lengthLabel(minutes)}`}
                 </Animated.Text>
             ) : (
                 <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                    Pick a length to give it an end, or leave it open.
+                    Give it an end, or leave it open.
                 </Text>
             )}
         </Animated.View>
@@ -120,6 +180,7 @@ const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 },
     label: { fontSize: 14, fontFamily: FontFamily.regular },
     clear: { paddingVertical: 4, paddingHorizontal: 6 },
+    add: { paddingVertical: 6, paddingHorizontal: 4 },
     ends: { fontSize: 13, fontFamily: FontFamily.medium, paddingHorizontal: 14, fontVariant: ['tabular-nums'] },
     hint: { fontSize: 12, fontFamily: FontFamily.regular, paddingHorizontal: 14 },
 });

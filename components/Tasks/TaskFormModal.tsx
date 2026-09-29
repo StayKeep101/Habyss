@@ -265,6 +265,9 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             value: draft.description ? 'Written' : undefined,
             content: (
                 <TextInput
+                    // Opening the row opens the keyboard: it exists to be
+                    // typed in, and a tap to reach that is a tap too many.
+                    autoFocus
                     value={draft.description ?? ''}
                     onChangeText={description => change({ description })}
                     multiline
