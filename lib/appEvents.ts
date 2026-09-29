@@ -54,6 +54,8 @@ export interface AppEvents {
     show_goal_quick_add: { goal?: Habit } | undefined;
     show_quick_add: { goalId?: string } | undefined;
     openModal: { modal: string };
+    /** Raise the feedback sheet from anywhere. `screen` is collected, not typed. */
+    show_feedback: { screen?: string } | undefined;
 }
 
 export type AppEvent = keyof AppEvents;

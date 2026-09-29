@@ -30,6 +30,8 @@ import { MilestoneCelebration } from '@/components/MilestoneCelebration';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { GoalSheet } from '@/components/Create/GoalSheet';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
+import { FeedbackSheet } from '@/components/Common/FeedbackSheet';
+import { flushFeedback } from '@/lib/feedback';
 import RevenueCatService from '@/lib/RevenueCat';
 // import { SuperwallProvider, SuperwallExpoModule } from 'expo-superwall';
 // import * as Linking from 'expo-linking';
@@ -209,6 +211,10 @@ function InnerLayout() {
     },
   };
 
+  // Anything written without signal is sent now rather than waiting for the
+  // person to remember they ever wrote it.
+  useEffect(() => { void flushFeedback().catch(() => undefined); }, []);
+
   // --- App Intents Listener (Siri/Shortcuts) ---
   const { startTimer, stopTimer: globalStopTimer } = useFocusTime();
 
@@ -327,6 +333,9 @@ function InnerLayout() {
         <HabitSheet listenToGlobalEvents />
         <GoalSheet listenToGlobalEvents />
         <TaskFormModal listenToGlobalEvents />
+        {/* Mounted once, raised from anywhere with `show_feedback`. Telling us
+            something should never depend on being on the right screen. */}
+        <FeedbackSheet />
         <StatusBar style={isDark ? "light" : "dark"} />
       </VoidShell>
     </View>

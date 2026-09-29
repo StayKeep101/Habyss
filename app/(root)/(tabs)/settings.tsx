@@ -18,6 +18,7 @@ import { hasAnyIntegration, integrationsSummary } from '@/lib/integrationAvailab
 import { APP_SLOGAN } from '@/constants/brand';
 import { currentAccount, onAccountChange } from '@/lib/account';
 import Constants from 'expo-constants';
+import { emit } from '@/lib/appEvents';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -295,6 +296,14 @@ export default function ProfileScreen() {
                     ) : null}
 
                     <Section title="Support">
+                        {/* First, because it is the one people actually need,
+                            and it opens a box rather than another screen. */}
+                        <Row
+                            icon="paper-plane-outline"
+                            label="Send feedback"
+                            value="Or hold the Settings tab"
+                            onPress={() => emit('show_feedback', { screen: 'settings' })}
+                        />
                         <Row icon="help-circle-outline" label="Help centre" onPress={() => router.push('/(root)/help')} />
                         <Row icon="chatbubble-ellipses-outline" label="Contact support" onPress={() => router.push('/(root)/contact')} />
                         <Row icon="information-circle-outline" label="About Habyss" onPress={() => router.push('/(root)/about')} />

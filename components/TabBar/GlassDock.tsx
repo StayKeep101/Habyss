@@ -113,9 +113,17 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                                 key={route.key}
                                 accessibilityRole="tab"
                                 accessibilityLabel={options.title ?? route.name}
+                                accessibilityHint={route.name === 'settings' ? 'Hold to send feedback' : undefined}
                                 accessibilityState={{ selected: isFocused }}
                                 activeOpacity={0.7}
                                 onPress={onPress}
+                                // Holding the last tab opens the feedback box.
+                                // It costs no room on any screen, and the row in
+                                // Settings says it is there so it is not a
+                                // secret only the author knows.
+                                onLongPress={route.name === 'settings'
+                                    ? () => { mediumFeedback(); emit('show_feedback', { screen: state.routes[state.index]?.name }); }
+                                    : undefined}
                                 style={[
                                     styles.tabButton,
                                     {

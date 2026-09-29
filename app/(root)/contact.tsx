@@ -3,6 +3,7 @@ import { AppTextField } from '@/components/Common/AppTextField';
 import { SheetSection } from '@/components/Layout/SheetSection';
 import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
 import { useState } from 'react';
+import { sendFeedback } from '@/lib/feedback';
 import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
@@ -25,14 +26,21 @@ const Contact = () => {
 
     const [message, setMessage] = useState('');
 
-    const handleSend = () => {
-        if (!message.trim()) {
-            Alert.alert('Error', 'Please enter a message.');
-            return;
-        }
+    const [sending, setSending] = useState(false);
+
+    /**
+     * This used to show "Sent!" and clear the field. Nothing left the phone,
+     * which is worse than having no contact form at all — the person who took
+     * the trouble to write it believed it had arrived.
+     */
+    const handleSend = async () => {
+        if (!message.trim() || sending) return;
+        setSending(true);
+        await sendFeedback(message, { screen: 'contact' });
+        setSending(false);
         successFeedback();
-        Alert.alert('Sent!', 'Thanks for reaching out. We\'ll get back to you soon.');
         setMessage('');
+        Alert.alert('Sent', 'Thank you. It goes straight to the person who builds this.');
     };
 
     const openTwitter = () => {
@@ -72,7 +80,7 @@ const Contact = () => {
                     <SheetSection title="Send a message">
                         <AppTextField label="Message" placeholder="What's on your mind?" value={message}
                             onChangeText={setMessage} multiline numberOfLines={4} />
-                        <AppButton label="Send" icon="send-outline" onPress={handleSend} disabled={!message.trim()} style={{ marginTop: 16 }} />
+                        <AppButton label={sending ? 'Sending…' : 'Send'} icon="send-outline" onPress={() => void handleSend()} disabled={!message.trim() || sending} style={{ marginTop: 16 }} />
                     </SheetSection>
                 </ScrollView>
             </SheetScreen>
