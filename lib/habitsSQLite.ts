@@ -623,8 +623,16 @@ async function publishIfShared(habitId: string, dateISO: string, evidence: strin
     try {
         const { FriendsService } = require('./friendsService') as typeof import('./friendsService');
         if (!(await FriendsService.sharedIds()).has(habitId)) return;
-        if (evidence === null) await FriendsService.withdrawCompletion(habitId, dateISO);
-        else await FriendsService.publishCompletion(habitId, 'habit', dateISO, evidence);
+        if (evidence === null) { await FriendsService.withdrawCompletion(habitId, dateISO); return; }
+
+        await FriendsService.publishCompletion(habitId, 'habit', dateISO, evidence);
+        // Only for today, and only if they want to hear it: being told at
+        // midnight that somebody finished a Tuesday is not news.
+        if (dateISO !== todayString()) return;
+        const { sharedDoneAlerts } = require('./notificationPrefs') as typeof import('./notificationPrefs');
+        if (!(await sharedDoneAlerts())) return;
+        const habit = (cachedHabits ?? []).find(item => item.id === habitId);
+        await FriendsService.announceCompletion(habitId, habit?.name ?? 'a shared habit');
     } catch {
         // The completion is saved; only the other person's view of it is late.
     }

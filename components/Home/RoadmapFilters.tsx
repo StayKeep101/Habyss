@@ -25,6 +25,8 @@ interface Props {
     show: Show; onShow: (value: Show) => void;
     focus: Focus; onFocus: (value: Focus) => void;
     goal: string | null; onGoal: (value: string | null) => void;
+    /** Only the habits, tasks and goals somebody else is on too. */
+    sharedOnly: boolean; onSharedOnly: (value: boolean) => void;
     order: Order; direction: 1 | -1; onOrder: (value: Order) => void; onReset: () => void;
 }
 
@@ -80,7 +82,8 @@ export const RoadmapFilters = (props: Props) => {
         ],
     }));
 
-    const active = props.show !== 'all' || props.focus !== 'all' || !!props.goal || props.order !== 'default';
+    const active = props.show !== 'all' || props.focus !== 'all' || !!props.goal
+        || props.order !== 'default' || props.sharedOnly;
     const close = () => { lightFeedback(); props.onClose(); };
 
     if (!mounted) return null;
@@ -135,6 +138,19 @@ export const RoadmapFilters = (props: Props) => {
                         ]}
                         value={props.show}
                         onChange={value => props.onShow(value as Show)}
+                        primary={primary}
+                        colors={colors}
+                    />
+                </Row>
+
+                <Row label="With">
+                    <Segmented
+                        options={[
+                            { id: 'anyone', label: 'Everything' },
+                            { id: 'shared', label: 'Shared only' },
+                        ]}
+                        value={props.sharedOnly ? 'shared' : 'anyone'}
+                        onChange={value => props.onSharedOnly(value === 'shared')}
                         primary={primary}
                         colors={colors}
                     />

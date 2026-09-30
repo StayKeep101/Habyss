@@ -62,7 +62,8 @@ export interface FriendRequest {
 /** One thing waiting in your inbox. */
 export interface InboxItem {
     id: string;
-    kind: 'friend_request' | 'friend_accepted' | 'nudge' | 'local';
+    kind: 'friend_request' | 'friend_accepted' | 'nudge' | 'local'
+        | 'share_offer' | 'share_accepted' | 'share_declined' | 'shared_done';
     title: string;
     body: string;
     read: boolean;
@@ -74,6 +75,8 @@ export interface InboxItem {
     requestId?: string;
     /** Whatever the local notification chose to draw itself with. */
     icon?: string;
+    /** A habit, task or goal waiting to be accepted or turned down. */
+    share?: { type: 'habit' | 'task' | 'goal'; itemId: string; ownerId: string };
 }
 
 /** A note on somebody's day, as the server holds it. */
@@ -477,7 +480,8 @@ export class FriendsService {
      * the acceptance — has already happened and is not being undone for it.
      */
     private static async notify(
-        ctx: Context, userId: string, type: 'friend_request' | 'friend_accepted' | 'nudge',
+        ctx: Context, userId: string,
+        type: 'friend_request' | 'friend_accepted' | 'nudge' | 'share_offer' | 'share_accepted' | 'share_declined' | 'shared_done',
         content: { title: string; body: string },
     ): Promise<boolean> {
         const { error } = await ctx.sb.from('notifications').insert({
@@ -749,19 +753,23 @@ export class FriendsService {
         const ctx = await signedIn();
         if (!ctx) return local;
 
-        const [notifications, requests] = await Promise.all([
+        const [notifications, requests, shares] = await Promise.all([
             ctx.sb.from('notifications')
                 .select('id, from_user_id, type, title, body, read, created_at')
                 .eq('user_id', ctx.me).is('deleted_at', null)
                 .order('created_at', { ascending: false }).limit(limit),
             this.getFriendRequests(),
+            this.pendingShares(),
         ]);
 
         const pendingFrom = new Map(requests.map(request => [request.fromUserId, request.id]));
         const rows = notifications.data ?? [];
         const people = await profiles(ctx, rows.map((row: any) => row.from_user_id).filter(Boolean));
+        const KINDS: InboxItem['kind'][] = [
+            'friend_request', 'friend_accepted', 'share_offer', 'share_accepted', 'share_declined', 'shared_done',
+        ];
         const kindOf = (type: string): InboxItem['kind'] =>
-            type === 'friend_request' || type === 'friend_accepted' ? type : 'nudge';
+            (KINDS.includes(type as InboxItem['kind']) ? type : 'nudge') as InboxItem['kind'];
 
         const items: InboxItem[] = rows.map((row: any) => ({
             id: row.id,
@@ -797,7 +805,26 @@ export class FriendsService {
             });
         }
 
-        return [...items, ...local].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        // An offer is read from its own row rather than from the notification
+        // announcing it, and the announcement is dropped so it appears once.
+        const offers: InboxItem[] = shares.map(share => ({
+            id: share.id,
+            kind: 'share_offer',
+            title: `${share.fromName} shared a ${share.type} with you`,
+            body: `“${share.itemName}” — accept and it joins your list.`,
+            read: false,
+            createdAt: share.createdAt,
+            fromUserId: share.fromUserId,
+            fromUsername: share.fromName,
+            fromAvatarUrl: share.fromAvatarUrl,
+            share: { type: share.type, itemId: share.itemId, ownerId: share.fromUserId },
+        }));
+
+        // The offer rows replace the notifications announcing them, so an
+        // invitation appears once rather than twice.
+        const kept = offers.length ? items.filter(item => item.kind !== 'share_offer') : items;
+
+        return [...kept, ...offers, ...local].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
 
     /** For the badge: what is genuinely waiting, whether or not it was announced. */
@@ -931,10 +958,14 @@ export class FriendsService {
         if ((existing ?? []).length > 0) return true;
 
         const { error } = await ctx.sb.from('shared_habits').insert({
-            habit_id: habitId, owner_id: ctx.me, shared_with_id: friendId, status: 'accepted',
+            habit_id: habitId, owner_id: ctx.me, shared_with_id: friendId, status: 'pending',
         });
-        if (!error) void this.refreshSharedIds();
-        return !error;
+        if (error) return false;
+        // Offered, not imposed. Landing somebody else's habit in your list
+        // without asking is the same manners as adding yourself to their diary.
+        await this.announceShare(ctx, friendId, 'habit', habitId);
+        void this.refreshSharedIds();
+        return true;
     }
 
     static async unshareHabit(habitId: string, friendId: string): Promise<boolean> {
@@ -961,10 +992,12 @@ export class FriendsService {
         if ((existing ?? []).length > 0) return true;
 
         const { error } = await ctx.sb.from('shared_tasks').insert({
-            task_id: taskId, owner_id: ctx.me, shared_with_id: friendId, status: 'accepted',
+            task_id: taskId, owner_id: ctx.me, shared_with_id: friendId, status: 'pending',
         });
-        if (!error) void this.refreshSharedIds();
-        return !error;
+        if (error) return false;
+        await this.announceShare(ctx, friendId, 'task', taskId);
+        void this.refreshSharedIds();
+        return true;
     }
 
     static async unshareTask(taskId: string, friendId: string): Promise<boolean> {
@@ -1161,6 +1194,27 @@ export class FriendsService {
         return !error;
     }
 
+    /**
+     * Tells the other people on a shared item that you have done your half.
+     *
+     * The moment worth telling somebody about: a row they are waiting on just
+     * stopped waiting on you. Quiet when nobody else is on it, which is most
+     * of the time.
+     */
+    static async announceCompletion(itemId: string, itemName: string): Promise<void> {
+        const ctx = await signedIn();
+        if (!ctx) return;
+        const people = await this.getSharedItemParticipants(itemId, 'habit').catch(() => []);
+        const others = (people as any[]).filter(person => !person.isYou);
+        if (others.length === 0) return;
+
+        const me = await myName(ctx);
+        await Promise.all(others.map(person => this.notify(ctx, person.userId, 'shared_done', {
+            title: `@${me} finished ${itemName}`,
+            body: 'Your half is the one it is waiting on now.',
+        })));
+    }
+
     /** Taking it back, when a completion is undone. */
     static async withdrawCompletion(itemId: string, day: string): Promise<boolean> {
         const ctx = await signedIn();
@@ -1181,10 +1235,90 @@ export class FriendsService {
     private static async answerShare(type: string, itemId: string, ownerId: string, status: 'accepted' | 'declined') {
         const ctx = await signedIn();
         if (!ctx) return false;
-        const table = type === 'goal' ? 'shared_goals' : 'shared_habits';
-        const column = type === 'goal' ? 'goal_id' : 'habit_id';
+        const { table, column } = shareTable(type);
         const { error } = await ctx.sb.from(table).update({ status })
-            .eq(column, itemId).eq('owner_id', ownerId).eq('shared_with_id', ctx.me);
-        return !error;
+            .eq(column, itemId).eq('owner_id', ctx.me === ownerId ? ctx.me : ownerId).eq('shared_with_id', ctx.me);
+        if (error) return false;
+
+        // Either answer is news to the person who asked. Silence after a share
+        // is the same as not knowing whether it arrived.
+        const me = await myName(ctx);
+        await this.notify(ctx, ownerId, status === 'accepted' ? 'share_accepted' : 'share_declined', {
+            title: status === 'accepted' ? `@${me} accepted your ${type}` : `@${me} passed on your ${type}`,
+            body: status === 'accepted'
+                ? 'It is on their list now, and neither of you has kept it until both of you have.'
+                : 'Nothing has changed on your side.',
+        });
+        void this.refreshSharedIds();
+        return true;
     }
+
+    /** Tells somebody they have been offered a habit, task or goal. */
+    private static async announceShare(
+        ctx: Context, friendId: string, type: 'habit' | 'task' | 'goal', itemId: string,
+    ): Promise<void> {
+        const name = await itemName(ctx, type, itemId);
+        const me = await myName(ctx);
+        await this.notify(ctx, friendId, 'share_offer', {
+            title: `@${me} shared a ${type} with you`,
+            body: name ? `“${name}” — accept and it joins your list.` : 'Accept and it joins your list.',
+        });
+    }
+
+    /**
+     * Everything offered to you and not yet answered.
+     *
+     * Read from the share tables rather than from the notifications, because
+     * the offer is the row that matters: a notification can fail to save, be
+     * cleared, or arrive on a build that did not know the type, and none of
+     * those should lose somebody's invitation.
+     */
+    static async pendingShares(): Promise<{
+        id: string; type: 'habit' | 'task' | 'goal'; itemId: string; itemName: string;
+        fromUserId: string; fromName: string; fromAvatarUrl?: string; createdAt: string;
+    }[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+
+        const kinds: ('habit' | 'task' | 'goal')[] = ['habit', 'task', 'goal'];
+        const found = await Promise.all(kinds.map(async type => {
+            const { table, column } = shareTable(type);
+            const { data } = await ctx.sb.from(table)
+                .select(`id, owner_id, created_at, ${column}`)
+                .eq('shared_with_id', ctx.me).eq('status', 'pending').is('deleted_at', null);
+            return (data ?? []).map((row: any) => ({ ...row, type, itemId: row[column] as string }));
+        }));
+
+        const rows = found.flat();
+        if (rows.length === 0) return [];
+
+        const people = await profiles(ctx, rows.map(row => row.owner_id));
+        const named = await Promise.all(rows.map(row => itemName(ctx, row.type, row.itemId)));
+
+        return rows.map((row, index) => ({
+            id: `share:${row.type}:${row.id}`,
+            type: row.type,
+            itemId: row.itemId,
+            itemName: named[index] || `A ${row.type}`,
+            fromUserId: row.owner_id,
+            fromName: people.get(row.owner_id)?.display_name?.trim() || people.get(row.owner_id)?.username || 'A friend',
+            fromAvatarUrl: people.get(row.owner_id)?.avatar_url ?? undefined,
+            createdAt: row.created_at,
+        }));
+    }
+}
+
+/** Which table and column hold a share of each kind. */
+function shareTable(type: string): { table: string; column: string } {
+    if (type === 'goal') return { table: 'shared_goals', column: 'goal_id' };
+    if (type === 'task') return { table: 'shared_tasks', column: 'task_id' };
+    return { table: 'shared_habits', column: 'habit_id' };
+}
+
+/** What the thing being shared is called, for a notification worth reading. */
+async function itemName(ctx: Context, type: string, itemId: string): Promise<string> {
+    const from = type === 'task' ? 'tasks' : 'habits';
+    const field = type === 'task' ? 'title' : 'name';
+    const { data } = await ctx.sb.from(from).select(field).eq('id', itemId).maybeSingle();
+    return (data as any)?.[field] ?? '';
 }

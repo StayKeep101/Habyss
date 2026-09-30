@@ -239,6 +239,7 @@ export default function ProfileScreen() {
                             value={accountEmail ? 'Signed in' : 'Sign in'}
                             onPress={() => router.push('/(root)/account')}
                         />
+                        <Row icon="people-outline" label="Sharing & friends" value="What friends see" onPress={() => router.push('/(root)/sharing')} />
                         <Row icon="shield-checkmark-outline" label="Privacy & security" onPress={() => router.push('/(root)/privacy')} />
                         <Row icon="hand-left-outline" label="Blocked accounts" onPress={() => router.push('/(root)/blocked')} />
                         {PAYWALL_ENABLED ? (

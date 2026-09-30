@@ -6,6 +6,8 @@ import { Gesture, GestureDetector, TouchableOpacity } from 'react-native-gesture
 import { runOnJS } from 'react-native-reanimated';
 import { SwipeRow } from '@/components/Common/SwipeRow';
 import { BadgeRow, PriorityFlag, ReminderBadge } from '@/components/Common/CardBadges';
+import { SharedFaces } from '@/components/Common/SharedFaces';
+import type { SharedState } from '@/lib/shared';
 import { CheckPop } from '@/components/Common/CheckPop';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
@@ -26,6 +28,13 @@ interface Props {
     onDelete: (task: Task) => void;
     /** Shown when the task is listed outside its goal. */
     goalName?: string;
+    /**
+     * Who else is on it, when anybody is.
+     *
+     * Passed in rather than fetched here, for the same reason as on a habit
+     * row: a list of thirty would otherwise open thirty requests.
+     */
+    shared?: SharedState | null;
     size?: RoadMapCardSize;
     /**
      * What the row's gestures do.
@@ -60,7 +69,7 @@ const shortLength = (minutes: number) =>
  * task is finished once and then gone.
  */
 const TaskItemComponent: React.FC<Props> = ({
-    task, today, onToggle, onPress, onEdit, onDelete, goalName, size = 'standard',
+    task, today, onToggle, onPress, onEdit, onDelete, goalName, shared = null, size = 'standard',
     actions = 'all', onMove, onDragStart, onDragMove, onDragEnd, isDragging = false,
 }) => {
     const { theme } = useTheme();
@@ -76,7 +85,10 @@ const TaskItemComponent: React.FC<Props> = ({
     const fontSize = isSmall ? 11 : (isBig ? 14 : 13);
     const boxSize = isSmall ? 14 : (isBig ? 20 : 18);
 
-    const done = task.status === 'done';
+    const doneByMe = task.status === 'done';
+    // A shared task is not finished until everybody on it is, the same rule the
+    // habit rows follow. Your own tick still fills your own box.
+    const done = shared ? shared.complete : doneByMe;
     const overdue = !done && !!task.dueDate && task.dueDate < today;
     const dueToday = !done && task.dueDate === today;
 
@@ -143,18 +155,18 @@ const TaskItemComponent: React.FC<Props> = ({
                         accessible={actions !== 'reschedule'}
                         activeOpacity={0.6}
                         accessibilityRole="checkbox"
-                        accessibilityState={{ checked: done }}
+                        accessibilityState={{ checked: doneByMe }}
                         accessibilityLabel={done ? `Reopen ${task.title}` : `Mark ${task.title} done`}
                         onPress={() => onToggle(task)}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <CheckPop active={done} color={TASK_COLOR} size={boxSize}>
+                        <CheckPop active={doneByMe} color={TASK_COLOR} size={boxSize}>
                             <View style={[styles.box, {
                                 width: boxSize, height: boxSize, borderRadius: isSmall ? 4 : 5,
-                                borderColor: done ? TASK_COLOR : overdue ? colors.error : 'rgba(128,128,128,0.4)',
-                                backgroundColor: done ? TASK_COLOR + '30' : 'transparent',
+                                borderColor: doneByMe ? TASK_COLOR : overdue ? colors.error : 'rgba(128,128,128,0.4)',
+                                backgroundColor: doneByMe ? TASK_COLOR + '30' : 'transparent',
                             }]}>
-                                {done ? <Ionicons name="checkmark" size={boxSize * 0.7} color={TASK_COLOR} /> : null}
+                                {doneByMe ? <Ionicons name="checkmark" size={boxSize * 0.7} color={TASK_COLOR} /> : null}
                             </View>
                         </CheckPop>
                     </TouchableOpacity>
@@ -183,7 +195,9 @@ const TaskItemComponent: React.FC<Props> = ({
                                 {/* A dated task is one the reminder can reach. */}
                                 <ReminderBadge on={!done && !!task.dueDate} size={isSmall ? 10 : undefined} />
                             </BadgeRow>
-                            {goalName && !isSmall ? (
+                            {shared && !isSmall ? (
+                                <SharedFaces people={shared.people} tint={TASK_COLOR} size={16} />
+                            ) : goalName && !isSmall ? (
                                 <Text numberOfLines={1} style={[styles.meta, { color: colors.textTertiary }]}>{goalName}</Text>
                             ) : null}
                         </View>

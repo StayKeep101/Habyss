@@ -23,6 +23,8 @@ const props = (over: Partial<React.ComponentProps<typeof RoadmapFilters>> = {}) 
     onFocus: jest.fn(),
     goal: null,
     onGoal: jest.fn(),
+    sharedOnly: false,
+    onSharedOnly: jest.fn(),
     order: 'default' as const,
     direction: 1 as const,
     onOrder: jest.fn(),
@@ -33,7 +35,7 @@ const props = (over: Partial<React.ComponentProps<typeof RoadmapFilters>> = {}) 
 describe('the roadmap filter menu', () => {
     it('shows every choice at once, without a page of its own', () => {
         const screen = render(<RoadmapFilters {...props()} />);
-        for (const label of ['All', 'Goals', 'Habits', 'Any', 'Morning', 'Created', 'Name', 'Progress', 'Any goal']) {
+        for (const label of ['All', 'Goals', 'Habits', 'Everything', 'Shared only', 'Any', 'Morning', 'Created', 'Name', 'Progress', 'Any goal']) {
             expect(screen.getByText(label)).toBeTruthy();
         }
         // Goals are listed to filter by, with an "All" that clears it.
@@ -86,5 +88,26 @@ describe('the roadmap filter menu', () => {
     it('renders nothing while closed', () => {
         const screen = render(<RoadmapFilters {...props({ visible: false })} />);
         expect(screen.queryByText('Filter')).toBeNull();
+    });
+});
+
+describe('filtering to what is shared', () => {
+    it('offers it alongside the rest', () => {
+        const screen = render(<RoadmapFilters {...props()} />);
+        expect(screen.getByText('Shared only')).toBeTruthy();
+    });
+
+    it('reports the choice', () => {
+        const onSharedOnly = jest.fn();
+        const screen = render(<RoadmapFilters {...props({ onSharedOnly })} />);
+        fireEvent.press(screen.getByText('Shared only'));
+        expect(onSharedOnly).toHaveBeenCalledWith(true);
+    });
+
+    it('counts as an active filter, so Reset lights up', () => {
+        // Otherwise the one filter you cannot see the effect of is also the one
+        // you cannot clear.
+        const screen = render(<RoadmapFilters {...props({ sharedOnly: true })} />);
+        expect(screen.getByLabelText('Reset filters').props.accessibilityState?.disabled).toBeFalsy();
     });
 });

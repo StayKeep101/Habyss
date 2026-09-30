@@ -23,6 +23,10 @@ const LOOK: Record<InboxItem['kind'], { icon: string; tint: (colors: typeof Colo
     nudge: { icon: 'hand-right', tint: colors => colors.warning },
     // Raised by the app itself — a reminder that fired, a streak, a milestone.
     local: { icon: 'notifications', tint: (_colors, accent) => accent },
+    share_offer: { icon: 'share-social', tint: (_colors, accent) => accent },
+    share_accepted: { icon: 'checkmark-circle', tint: colors => colors.success },
+    share_declined: { icon: 'close-circle', tint: colors => colors.textTertiary },
+    shared_done: { icon: 'checkmark-done', tint: colors => colors.success },
 };
 
 /** "3 hours ago", without pulling in a date library for one line. */
@@ -97,6 +101,30 @@ export default function InboxScreen() {
         emit('social_state_updated');
     };
 
+    /**
+     * Taking on somebody's habit, or turning it down.
+     *
+     * Either way they hear about it — silence after a share is the same as not
+     * knowing whether it arrived.
+     */
+    const answerShare = async (item: InboxItem, accept: boolean) => {
+        if (!item.share || busy) return;
+        setBusy(item.id);
+        const done = accept
+            ? await FriendsService.acceptShareRequest(item.share.type, item.share.itemId, item.share.ownerId)
+            : await FriendsService.declineShareRequest(item.share.type, item.share.itemId, item.share.ownerId);
+        setBusy(null);
+        if (!done) return;
+
+        if (accept) successFeedback(); else lightFeedback();
+        setItems(current => (current ?? []).map(each => each.id === item.id
+            ? { ...each, share: undefined, body: accept ? 'It is on your list now.' : 'Turned down.' }
+            : each));
+        // The roadmap has a new row in it, or does not.
+        emit('social_state_updated');
+        emit('habit_completion_updated', {});
+    };
+
     const dismiss = async (item: InboxItem) => {
         lightFeedback();
         setItems(current => (current ?? []).filter(each => each.id !== item.id));
@@ -136,7 +164,7 @@ export default function InboxScreen() {
                                     <SwipeRow
                                         // An open request is answered, not swept away: the
                                         // buttons are the point of it being here.
-                                        right={item.requestId ? [] : [{
+                                        right={item.requestId || item.share ? [] : [{
                                             icon: 'trash', label: 'Clear', color: colors.error,
                                             destructive: true, onPress: () => void dismiss(item),
                                         }]}
@@ -160,7 +188,30 @@ export default function InboxScreen() {
                                             </View>
                                         </View>
 
-                                        {item.requestId ? (
+                                        {item.share ? (
+                                            <View style={styles.actions}>
+                                                <Pressable
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Decline the ${item.share.type}`}
+                                                    disabled={busy === item.id}
+                                                    onPress={() => void answerShare(item, false)}
+                                                    style={[styles.action, { backgroundColor: tone.raised }]}
+                                                >
+                                                    <Text style={[styles.actionText, { color: colors.textSecondary }]}>No thanks</Text>
+                                                </Pressable>
+                                                <Pressable
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Accept the ${item.share.type}`}
+                                                    disabled={busy === item.id}
+                                                    onPress={() => void answerShare(item, true)}
+                                                    style={[styles.action, { backgroundColor: accent }]}
+                                                >
+                                                    {busy === item.id
+                                                        ? <ActivityIndicator size="small" color="#fff" />
+                                                        : <Text style={[styles.actionText, { color: '#fff' }]}>Add to my list</Text>}
+                                                </Pressable>
+                                            </View>
+                                        ) : item.requestId ? (
                                             <View style={styles.actions}>
                                                 <Pressable
                                                     accessibilityRole="button"

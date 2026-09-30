@@ -1,6 +1,6 @@
 import { FontFamily } from '@/constants/DesignSystem';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager, DeviceEventEmitter, ScrollView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { afterPaint } from '@/lib/afterPaint';
 import Animated, {
     useAnimatedScrollHandler,
@@ -18,7 +18,6 @@ import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
 
 import { getSkipped, setSkipped as setSkippedHabit, subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgressInstant, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
-import { FriendsService } from '@/lib/friendsService';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useHistory } from '@/hooks/useHistory';
@@ -92,12 +91,12 @@ const CalendarScreen = () => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [goalProgress, setGoalProgress] = useState<Record<string, number>>({});
     const [skipped, setSkipped] = useState<Record<string, boolean>>({});
-    const [sharedHabits, setSharedHabits] = useState<any[]>([]);
-    const [sharedGoals, setSharedGoals] = useState<any[]>([]);
 
     // UI State
     const [showFilter, setShowFilter] = useState(false);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+    /** Show only what somebody else is on too. */
+    const [sharedOnly, setSharedOnly] = useState(false);
     const [activeSort, setActiveSort] = useState<SortType>('default');
     const [sortDirection, setSortDirection] = useState<1 | -1>(-1);
     const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>('all');
@@ -241,22 +240,6 @@ const CalendarScreen = () => {
         loadToday();
     }, []);
 
-    // Load shared items
-    useEffect(() => {
-        const loadShared = async () => {
-            try {
-                const [habits, goals] = await Promise.all([
-                    FriendsService.getHabitsSharedWithMe(),
-                    FriendsService.getGoalsSharedWithMe()
-                ]);
-                setSharedHabits(habits);
-                setSharedGoals(goals);
-            } catch (e) {
-                console.log('Error loading shared items:', e);
-            }
-        };
-        loadShared();
-    }, []);
 
     // Optimized History Lookup Maps
     const historyMap = useMemo(() => {
@@ -649,6 +632,13 @@ const CalendarScreen = () => {
             filtered = filtered.filter(h => getTimeCategory(h.startTime) === activeTimeFilter);
         }
 
+        // Only what somebody else is on too. Read from the same shared state
+        // the rows draw their faces from, so the filter and the faces can never
+        // disagree about what "shared" means.
+        if (sharedOnly) {
+            filtered = filtered.filter(h => !!sharedFor(h.id));
+        }
+
         filtered.sort((a, b) => {
             if (activeSort === 'name') return sortDirection * a.name.localeCompare(b.name);
             if (activeSort === 'progress') return sortDirection * (Number(!!completions[a.id]) - Number(!!completions[b.id]));
@@ -664,7 +654,7 @@ const CalendarScreen = () => {
         });
 
         return { allHabits: filtered, habitsByGoal: byGoal };
-    }, [habitsStore, selectedDate, selectedGoalFilter, selectedCategoryFilter, activeTimeFilter, activeSort, sortDirection, completions]);
+    }, [habitsStore, selectedDate, selectedGoalFilter, selectedCategoryFilter, activeTimeFilter, activeSort, sortDirection, completions, sharedOnly, sharedFor]);
 
     // Habits are already filtered to the day being looked at; tasks were not,
     // so everything ever written sat in every day's list. A task belongs to the
@@ -681,7 +671,7 @@ const CalendarScreen = () => {
 
     const isGoalFilter = activeFilter === 'goals_only';
     const isHabitFilter = activeFilter === 'habits_only';
-    const hasActiveFilters = selectedGoalFilter !== null || selectedCategoryFilter !== null;
+    const hasActiveFilters = selectedGoalFilter !== null || selectedCategoryFilter !== null || sharedOnly;
 
     const activeGoalName = selectedGoalFilter ? goals.find(g => g.id === selectedGoalFilter)?.name : null;
     const visibleHabitCount = activeFilter === 'all'
@@ -706,6 +696,7 @@ const CalendarScreen = () => {
         setSelectedGoalFilter(null);
         setSelectedCategoryFilter(null);
         setActiveTimeFilter('all');
+        setSharedOnly(false);
     }, [selectionFeedback]);
 
     const sortedGoals = useMemo(() => goals
@@ -805,112 +796,12 @@ const CalendarScreen = () => {
                                 </View>
                             )}
 
-                            {/* SHARED ITEMS SECTION */}
-                            {(sharedHabits.length > 0 || sharedGoals.length > 0) && !hasActiveFilters && activeFilter === 'all' && (
-                                <View style={{ marginBottom: 24 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                        <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2 }}>
-                                            SHARED WITH YOU
-                                        </Text>
-                                    </View>
-
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
-                                        <View style={{ flexDirection: 'row', gap: 12 }}>
-                                            {/* Shared Habits */}
-                                            {sharedHabits.map((item, index) => (
-                                                <VoidCard key={`sh-${index}`} glass={!theme.includes('trueDark')} intensity={30} style={{ width: 220, padding: 12, marginRight: 0 }}>
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                                                        <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.surfaceTertiary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                                                            <Ionicons name={item.habit.icon || 'checkbox-outline'} size={18} color={colors.textPrimary} />
-                                                        </View>
-                                                        <View style={{ flex: 1 }}>
-                                                            <Text style={{ color: colors.text, fontSize: 13, fontFamily: FontFamily.semibold }} numberOfLines={1}>{item.habit.name}</Text>
-                                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                                                                {item.owner.avatarUrl ? (
-                                                                    <Image source={{ uri: item.owner.avatarUrl }} style={{ width: 14, height: 14, borderRadius: 7, marginRight: 4 }} />
-                                                                ) : (
-                                                                    <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: colors.primary, marginRight: 4, alignItems: 'center', justifyContent: 'center' }}>
-                                                                        <Text style={{ color: '#fff', fontSize: 8, fontFamily: FontFamily.bold }}>{item.owner.username.charAt(0).toUpperCase()}</Text>
-                                                                    </View>
-                                                                )}
-                                                                <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{item.owner.username}</Text>
-                                                            </View>
-                                                        </View>
-                                                    </View>
-                                                    <TouchableOpacity
-                                                        style={{ backgroundColor: accentColor, borderRadius: 8, paddingVertical: 6, alignItems: 'center', marginTop: 4 }}
-                                                        onPress={() => {
-                                                            lightFeedback();
-                                                            Alert.alert(
-                                                                'Add Habit',
-                                                                `Add "${item.habit.name}" to your habits?`,
-                                                                [
-                                                                    { text: 'Cancel', style: 'cancel' },
-                                                                    {
-                                                                        text: 'Add',
-                                                                        onPress: async () => {
-                                                                            const newHabit = await addHabit({
-                                                                                name: item.habit.name,
-                                                                                icon: item.habit.icon,
-                                                                                category: item.habit.category,
-                                                                                taskDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                                                                            });
-                                                                            if (newHabit) {
-                                                                                Alert.alert('Success', 'Habit added!');
-                                                                                // Refresh shared list to remove added one? Or just keep it?
-                                                                                // Ideally we should call API to accept/remove from pending view.
-                                                                                setSharedHabits(prev => prev.filter(h => h.habit.id !== item.habit.id));
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                ]
-                                                            );
-                                                        }}
-                                                    >
-                                                        <Text style={{ color: '#fff', fontSize: 11, fontFamily: FontFamily.semibold }}>Add to list</Text>
-                                                    </TouchableOpacity>
-                                                </VoidCard>
-                                            ))}
-
-                                            {/* Shared Goals */}
-                                            {sharedGoals.map((item, index) => (
-                                                <VoidCard key={`sg-${index}`} glass={!theme.includes('trueDark')} intensity={30} style={{ width: 220, padding: 12, marginRight: 0 }}>
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                                                        <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(16, 185, 129, 0.15)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                                                            <Ionicons name={item.goal.icon || 'flag-outline'} size={18} color={colors.textPrimary} />
-                                                        </View>
-                                                        <View style={{ flex: 1 }}>
-                                                            <Text style={{ color: colors.text, fontSize: 13, fontFamily: FontFamily.semibold }} numberOfLines={1}>{item.goal.name}</Text>
-                                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                                                                {item.owner.avatarUrl ? (
-                                                                    <Image source={{ uri: item.owner.avatarUrl }} style={{ width: 14, height: 14, borderRadius: 7, marginRight: 4 }} />
-                                                                ) : (
-                                                                    <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: colors.primary, marginRight: 4, alignItems: 'center', justifyContent: 'center' }}>
-                                                                        <Text style={{ color: '#fff', fontSize: 8, fontFamily: FontFamily.bold }}>{item.owner.username.charAt(0).toUpperCase()}</Text>
-                                                                    </View>
-                                                                )}
-                                                                <Text style={{ color: colors.textTertiary, fontSize: 10 }}>{item.owner.username}</Text>
-                                                            </View>
-                                                        </View>
-                                                    </View>
-                                                    <TouchableOpacity
-                                                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 6, alignItems: 'center', marginTop: 4 }}
-                                                        onPress={() => {
-                                                            lightFeedback();
-                                                            router.push({
-                                                                pathname: '/goal-detail',
-                                                                params: { goalId: item.goal.id }
-                                                            });
-                                                        }}
-                                                    >
-                                                        <Text style={{ color: colors.text, fontSize: 11, fontFamily: FontFamily.semibold }}>View Goal</Text>
-                                                    </TouchableOpacity>
-                                                </VoidCard>
-                                            ))}
-                                        </View>
-                                    </ScrollView>
-                                </View>
-                            )}
+                            {/* The "shared with you" carousel is gone. An
+                                offer waits in the inbox to be accepted or
+                                turned down, and once accepted the thing is
+                                simply in the list with the faces of whoever
+                                else is on it — which is where somebody looks
+                                for their own habits anyway. */}
 
                             {/* GOALS SECTION */}
                             {!isHabitFilter && (
@@ -1142,7 +1033,9 @@ const CalendarScreen = () => {
 
                     <RoadmapFilters visible={showFilter} onClose={closeFilterModal} goals={goals} anchor={filterAnchor}
                         show={activeFilter} onShow={setActiveFilter} focus={activeTimeFilter} onFocus={setActiveTimeFilter}
-                        goal={selectedGoalFilter} onGoal={setSelectedGoalFilter} order={activeSort} direction={sortDirection}
+                        goal={selectedGoalFilter} onGoal={setSelectedGoalFilter}
+                        sharedOnly={sharedOnly} onSharedOnly={setSharedOnly}
+                        order={activeSort} direction={sortDirection}
                         onOrder={value => { if (value === activeSort) setSortDirection(direction => direction === 1 ? -1 : 1); else { setActiveSort(value); setSortDirection(1); } }}
                         onReset={resetFilters} />
 
