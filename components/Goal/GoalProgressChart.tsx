@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useAnimatedReaction, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
@@ -86,7 +86,10 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
         onScrub?.(index === null ? null : visible[index] ?? null);
     }, [onScrub, visible]);
 
-    const scrub = useScrub({ count: compact ? 0 : visible.length, width, mode: 'points', onIndex: report });
+    // Sticky: the reading is the whole point of dragging along this chart, and
+    // one that vanished on release could only ever be read with a finger over
+    // the number. It is put away by tapping the chart again.
+    const scrub = useScrub({ count: compact ? 0 : visible.length, width, mode: 'points', onIndex: report, sticky: true });
 
     // The dot's height follows the same index the line does, one frame later at
     // worst, because both are read from shared values rather than from props.
@@ -149,7 +152,20 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
 
     return (
         <View>
-            {compact ? chart : <GestureDetector gesture={scrub.gesture}>{chart}</GestureDetector>}
+            {compact ? chart : (
+                <GestureDetector gesture={scrub.gesture}>
+                    {/* A tap on a chart already showing a reading puts it away.
+                        Without this the only way to dismiss it would be to drag
+                        somewhere else, so it could be moved but never cleared. */}
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Goal progress over time. Drag to read a day."
+                        onPress={scrub.clear}
+                    >
+                        {chart}
+                    </Pressable>
+                </GestureDetector>
+            )}
 
             {ranges.length > 1 ? (
                 <View style={styles.ranges}>

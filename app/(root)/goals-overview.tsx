@@ -68,7 +68,12 @@ export default function GoalsOverview() {
             onBack={() => router.back()}
             shareSummary={{ title: 'Goal progress', value: `${overall}%`, subtitle: `${goals.length} active goal${goals.length === 1 ? '' : 's'}` }}
         >
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!scrub}>
+            {/* Scrolling stays on. It used to be switched off whenever a point
+                was selected, which was only survivable because the selection
+                cleared the instant the finger lifted — now that a reading
+                stays, that rule would lock the page. The chart's own gesture
+                already hands a vertical drag back with `failOffsetY`. */}
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {!loaded ? <ActivityIndicator color={accent} style={{ marginTop: 40 }} /> : goals.length === 0 ? (
                     <VoidCard style={styles.emptyCard}>
                         <Ionicons name="flag-outline" size={32} color={colors.textTertiary} />

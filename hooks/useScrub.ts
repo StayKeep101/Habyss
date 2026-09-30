@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
 import {
     runOnJS, useAnimatedReaction, useSharedValue, withTiming,
@@ -43,6 +43,8 @@ export interface Scrub {
     index: SharedValue<number>;
     /** 0 idle, 1 reading. For fading a crosshair in and out. */
     active: SharedValue<number>;
+    /** Puts a sticky mark away. A no-op on a chart that clears itself. */
+    clear: () => void;
 }
 
 const FADE = { duration: 120, easing: Easing.out(Easing.quad) };
@@ -93,7 +95,7 @@ export function centreOf(index: number, width: number, count: number, mode: Scru
     return count === 1 ? width / 2 : (index / (count - 1)) * width;
 }
 
-export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRelease, haptics = true }: {
+export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRelease, haptics = true, sticky = false }: {
     count: number;
     width: number;
     mode?: ScrubMode;
@@ -111,6 +113,17 @@ export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRe
      */
     onRelease?: (index: number) => void;
     haptics?: boolean;
+    /**
+     * Whether the reading survives the finger lifting.
+     *
+     * A crosshair that disappears on release means the only way to read a value
+     * is to keep holding it there, with your own hand over the number — so
+     * letting go to look at it is exactly what clears it. On a chart whose
+     * whole purpose is reading off a day, the value should stay until something
+     * else is chosen. Callers that want the transient behaviour, like a
+     * scrubbing bar chart, leave this off.
+     */
+    sticky?: boolean;
 }): Scrub {
     const { selectionFeedback } = useHaptics();
     const x = useSharedValue(0);
@@ -166,12 +179,21 @@ export function useScrub({ count, width, mode = 'points', gap = 0, onIndex, onRe
             })
             .onFinalize(() => {
                 'worklet';
-                active.set(withTiming(0, FADE));
                 if (dragged.get() === 1 && onRelease && index.get() >= 0) runOnJS(onRelease)(index.get());
                 dragged.set(0);
+                // A sticky chart keeps the mark and the reading where they were
+                // left. Everything else takes both away with the finger.
+                if (sticky && index.get() >= 0) return;
+                active.set(withTiming(0, FADE));
                 index.set(-1);
             });
-    }, [count, width, mode, gap, onRelease, x, index, active, dragged]);
+    }, [count, width, mode, gap, onRelease, sticky, x, index, active, dragged]);
 
-    return { gesture, x, index, active };
+    /** Puts the mark away. For a sticky chart, whoever decides it is finished. */
+    const clear = useCallback(() => {
+        active.set(withTiming(0, FADE));
+        index.set(-1);
+    }, [active, index]);
+
+    return { gesture, x, index, active, clear };
 }

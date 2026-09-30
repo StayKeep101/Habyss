@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { Easing, FadeIn, LinearTransition, ReduceMotion, runOnJS } from 'react-native-reanimated';
+import Animated, { Easing, LinearTransition, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { AppIcon } from '@/components/Common/AppIcon';
 import { IconButton } from '@/components/Common/IconButton';
 import { ShareButton } from '@/components/Common/ShareButton';
@@ -27,7 +27,8 @@ import { on } from '@/lib/appEvents';
 // Timing rather than a spring, so nothing overshoots when the page
 // changes size under a tap.
 const transition = LinearTransition.duration(200).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
-const entering = FadeIn.duration(200).reduceMotion(ReduceMotion.System);
+/** Settles without a bounce: a page that overshoots reads as a mis-tap. */
+const SPRING = { damping: 22, stiffness: 190, mass: 0.7, reduceMotion: ReduceMotion.System };
 const param = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 const validDate = (value?: string) => !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && localHabitDate(new Date(value + 'T12:00:00')) === value;
 type HistoryDay = { date: string; completed: boolean; skipped: boolean; scheduled: boolean };
@@ -61,6 +62,32 @@ export default function HabitDetailScreen() {
     const [showEditor, setShowEditor] = useState(false);
     const [showShare, setShowShare] = useState(false);
     const [view, setView] = useState<HabitView>('today');
+    /**
+     * The two pages, as one strip that moves.
+     *
+     * It used to swap on release and fade the new view in from nothing, so a
+     * swipe did not move anything until it had already finished — which reads
+     * as the page jumping into place rather than being dragged there. Both
+     * pages are mounted side by side now and the strip follows the finger.
+     */
+    const { width: screenWidth } = useWindowDimensions();
+    const pageWidth = screenWidth;
+    const page = useSharedValue(0);
+    /**
+     * Which page is showing, for the worklet to compare against.
+     *
+     * A shared value rather than a ref: the gesture runs on the UI thread, and
+     * a ref read there is both a lint error and a read of whatever React last
+     * left behind.
+     */
+    const onStats = useSharedValue(false);
+    // Tapping the switcher has to move the strip too, or the two controls
+    // would disagree about which page is showing.
+    useEffect(() => {
+        onStats.set(view === 'stats');
+        page.set(withSpring(view === 'stats' ? -pageWidth : 0, SPRING));
+    }, [view, pageWidth, page, onStats]);
+    const strip = useAnimatedStyle(() => ({ transform: [{ translateX: page.get() }] }));
     const pending = useRef(0);
     const generation = useRef(0);
     const mounted = useRef(true);
@@ -168,12 +195,32 @@ export default function HabitDetailScreen() {
     const swap = useMemo(() => Gesture.Pan()
         .activeOffsetX([-24, 24])
         .failOffsetY([-16, 16])
+        .onChange(event => {
+            'worklet';
+            // Follows the finger, with the two ends rubber-banded: there is
+            // nothing to the left of Today or the right of Stats, and a page
+            // that slides freely into empty space says there is.
+            const at = page.get();
+            const next = at + event.changeX;
+            const limit = -pageWidth;
+            page.set(next > 0 ? next * 0.3 : next < limit ? limit + (next - limit) * 0.3 : next);
+        })
         .onEnd(event => {
             'worklet';
-            if (Math.abs(event.translationX) < 60) return;
-            runOnJS(setView)(event.translationX < 0 ? 'stats' : 'today');
-            runOnJS(selectionFeedback)();
-        }), [selectionFeedback]);
+            // Distance or speed. Distance alone makes a quick flick feel
+            // ignored; speed alone turns the page on a twitch.
+            const far = Math.abs(event.translationX) > pageWidth * 0.22;
+            const fast = Math.abs(event.velocityX) > 500;
+            const wants: HabitView = (far || fast)
+                ? (event.translationX < 0 ? 'stats' : 'today')
+                : (page.get() < -pageWidth / 2 ? 'stats' : 'today');
+            page.set(withSpring(wants === 'stats' ? -pageWidth : 0, SPRING));
+            if ((wants === 'stats') !== onStats.get()) {
+                onStats.set(wants === 'stats');
+                runOnJS(setView)(wants);
+                runOnJS(selectionFeedback)();
+            }
+        }), [selectionFeedback, page, pageWidth, onStats]);
 
     const selectDate = (next: string) => {
         if (saving || next === date) return;
@@ -218,8 +265,9 @@ export default function HabitDetailScreen() {
                     Horizontal only, and it fails to the page for anything
                     vertical, so scrolling never accidentally changes the tab. */}
                 <GestureDetector gesture={swap}>
-                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                    {view === 'today' ? <>
+                <Animated.View style={[styles.strip, strip, { width: pageWidth * 2 }]}>
+                <ScrollView style={{ width: pageWidth }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                    <>
                         <HabitProgressCard key={`${habit.id}:${date}`} habit={habit} date={date} value={value} saving={saving} ready={ready} error={error} canUndo={undo !== null} onChange={next => void changeValue(next)} onAdd={amount => void changeValue(Math.round((valueRef.current + amount) * 1000) / 1000)} onUndo={() => { if (undo !== null) void changeValue(undo, true); }} onToday={() => selectDate(today)} />
                         {!ready && error && <Pressable onPress={load} accessibilityRole="button" style={styles.retry}><Text style={[Typography.button, { color: ink }]}>Retry</Text></Pressable>}
 
@@ -246,22 +294,23 @@ export default function HabitDetailScreen() {
                         <SharedWith habitId={habit.id} doneToday={history.find(day => day.date === today)?.completed ?? false} />
 
                         {habit.description ? <Animated.View layout={transition} style={styles.note}><Text style={[Typography.label, { color: colors.textTertiary }]}>Your intention</Text><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{habit.description}</Text></Animated.View> : null}
-                    </> : (
-                        /* Every day since it began, and nothing else. A bar
-                           chart of the last week and a ring of today were two
-                           more ways of saying what the squares already say. */
-                        <Animated.View key="stats" entering={entering} style={styles.swapped}>
-                            <VoidCard matte style={styles.heatmap}>
-                                <DetailedHeatmap
-                                    completionData={history}
-                                    color={accent}
-                                    startDate={habit.startDate?.slice(0, 10)}
-                                    description="EVERY DAY SINCE YOU STARTED"
-                                />
-                            </VoidCard>
-                        </Animated.View>
-                    )}
+                    </>
                 </ScrollView>
+
+                {/* Every day since it began, and nothing else. A bar chart of
+                    the last week and a ring of today were two more ways of
+                    saying what the squares already say. */}
+                <ScrollView style={{ width: pageWidth }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                    <VoidCard matte style={styles.heatmap}>
+                        <DetailedHeatmap
+                            completionData={history}
+                            color={accent}
+                            startDate={habit.startDate?.slice(0, 10)}
+                            description="Every day since you started"
+                        />
+                    </VoidCard>
+                </ScrollView>
+                </Animated.View>
                 </GestureDetector>
             </KeyboardAvoidingView>}
 
@@ -278,6 +327,7 @@ export default function HabitDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+    strip: { flex: 1, flexDirection: 'row' },
     flex: { flex: 1 },
     swapped: { gap: 18 },
     switcher: { position: 'absolute', left: 20, right: 20, bottom: 16 },
