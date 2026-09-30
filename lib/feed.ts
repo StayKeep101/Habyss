@@ -15,6 +15,7 @@ import { strongest, type Evidence } from './proof';
 
 export interface DayCard {
     id: string;
+    /** What to call them: their chosen name, or their handle if they have none. */
     username: string;
     avatarUrl?: string;
     /** Completions today, and what the day asked of them. */
@@ -93,7 +94,7 @@ export function buildFeed(friends: Friend[], evidenceByFriend: Record<string, Ev
         const claims = evidenceByFriend[friend.userId] ?? asEvidence(friend.todayEvidence, done);
         return {
             id: friend.id || friend.userId,
-            username: friend.username,
+            username: friend.displayName || friend.username,
             avatarUrl: friend.avatarUrl,
             ...base,
             share: shareOf(done, total),

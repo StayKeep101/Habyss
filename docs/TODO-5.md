@@ -40,16 +40,30 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Creation flow — habits, and then tasks and goals
 
-- [ ] Time: a real end time, with 15 / 30 / 45 / 1 hr as shortcuts to it.
-- [ ] Reminder: at the start time, a **wheel** for how long before (days, hours,
-      minutes), and arriving at / leaving a place.
-- [ ] Look: more icons.
-- [ ] Notes: the keyboard opens with the row.
-- [ ] Repeat: one option visible at a time on a wheel — Daily, Weekdays,
-      Weekends, Weekly, Monthly, Yearly, Hourly — rather than every option at
-      once. Monthly and Yearly "on the" becomes **two wheels side by side**.
-- [ ] The same Time and Notes rows on a task; the same Notes row on a goal
-      ("Why it matters").
+- [x] Time: a real end time on its own, with 15 / 30 / 45 / 1 hr as shortcuts
+      to it. Stored as a **length**, so a habit that moves keeps how long it
+      takes rather than when it used to finish, and an end before the start
+      reads as the next day rather than a negative length.
+- [x] Reminder: two wheels, how much and of what, reading left to right as the
+      phrase they make. Nineteen chips across three units wrapped onto three
+      lines and stopped being a control — and there is room on a wheel for the
+      ordinary answers, so "40 minutes before" no longer rounds to 45. Arriving
+      at and leaving a place were already there.
+- [x] Look: 42 icons became 100, every one checked against the font. Chosen
+      because somebody would plausibly make a habit of each — a picker holding
+      every glyph in Ionicons is one nobody can find anything in.
+- [x] Notes: the keyboard opens with the row — on a habit, a task, and the
+      goal's "Why it matters".
+- [x] Repeat is a wheel. `components/Common/Wheel.tsx` is a ScrollView rather
+      than a native picker: there is none in this project's dependencies,
+      adding one means a native rebuild for forty lines of snapping, and two
+      ScrollViews will agree about their height where two `UIPickerView`s make
+      it surprisingly hard. Rows are **tappable as well as turnable**, which is
+      what a UIPickerView does and the only way somebody using a screen reader
+      can reach a row. "On the" is two wheels side by side, reading as the
+      phrase they make: the / third / Sunday.
+- [x] The same Notes behaviour on a task and a goal. The task Time row already
+      shares `TimeRange`, so the end time arrived there with it.
 
 ## Shared habits and tasks
 
@@ -73,11 +87,31 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 - [x] The spinning logo is an ordinary spinner. A brand animation is not what
       waiting is for.
-- [ ] A friend's profile should be the page you see for yourself.
+- [x] A friend's profile is the page you see for yourself —
+      `components/Profile/ProfileView.tsx`, rendered by both. The only
+      difference is whether the fields can be typed in, and read-only is not a
+      greyed-out version of editable: the camera badges and "Add a cover image"
+      belong to whoever owns the page, and showing them to a friend would be
+      offering something they cannot have.
+      **The numbers differ, and honestly.** Yours are momentum, recovery and
+      the rest, all worked out from habit history only you can read. A friend's
+      are the ones `friend_stats` actually returns: streak, done today, habits.
+      Showing them zeros for the others would be worse than showing three real
+      numbers.
 - [x] Inbox: swipe left to clear. An **open friend request** deliberately has
       no swipe — it is answered, not swept away, and the buttons are the reason
       it is there.
-- [ ] Show the **profile name**, not the username, when inviting or viewing.
+- [x] The name from your profile is what friends see. It had only ever been in
+      AsyncStorage, so everybody was shown a handle and the name somebody wrote
+      for themselves was visible only to them. `profiles.display_name` is a
+      **second column, not a rename**: a username is the address — unique,
+      lowercase, how somebody is found — and a name is what a person is called.
+      Both travel; the interface picks, and the handle stays visible under the
+      name so it can still be typed by somebody looking for you.
+- [ ] **Still device-only: the profile picture.** `profiles.avatar_url` exists,
+      but the app stores a local `file://` URI, which means nothing to anybody
+      else's phone. Showing a friend your picture needs the image uploaded to
+      storage first — a real piece of work, not a line.
 
 ## Home
 

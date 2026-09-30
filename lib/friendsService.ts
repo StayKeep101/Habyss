@@ -29,6 +29,15 @@ export interface Friend {
     username: string;
     email?: string;
     avatarUrl?: string;
+    /**
+     * What to call them.
+     *
+     * The name from their profile when they have set one, and their username
+     * otherwise. A username is an address — unique, lowercase, how somebody is
+     * found — and a name is what a person is called; neither substitutes for
+     * the other, so both are carried and the interface picks.
+     */
+    displayName?: string;
     streak?: number;
     currentStreak?: number;
     bestStreak?: number;
@@ -115,6 +124,8 @@ interface StatsRow {
     current_streak: number;
     /** How each of today's check-ins was evidenced; absent on older servers. */
     today_evidence?: string[] | null;
+    /** What they call themselves, when they have said. */
+    display_name?: string | null;
 }
 
 async function stats(ctx: Context): Promise<StatsRow[]> {
@@ -135,6 +146,7 @@ function toFriend(row: StatsRow, me: string): Friend {
         id: row.user_id,
         userId: row.user_id,
         username: row.username ?? 'New member',
+        displayName: row.display_name?.trim() || row.username || 'New member',
         avatarUrl: row.avatar_url ?? undefined,
         streak: row.current_streak,
         currentStreak: row.current_streak,
@@ -251,6 +263,21 @@ export async function getMyUsername(): Promise<string | null> {
     if (!ctx) return null;
     const { data } = await ctx.sb.from('profiles').select('username').eq('id', ctx.me).maybeSingle();
     return data?.username ?? null;
+}
+
+/**
+ * Puts the name from the profile page where friends can see it.
+ *
+ * It has always lived in AsyncStorage, which meant every friend was shown a
+ * handle and the name somebody had written for themselves was visible only to
+ * them. Quiet about failure: a name that did not upload is worth retrying, not
+ * an error in front of somebody editing their profile.
+ */
+export async function pushDisplayName(name: string): Promise<void> {
+    const ctx = await signedIn();
+    if (!ctx) return;
+    const clean = name.trim().slice(0, 40);
+    await ctx.sb.from('profiles').update({ display_name: clean || null }).eq('id', ctx.me);
 }
 
 /** Friends find each other by username, so a new account needs one. */
@@ -395,7 +422,7 @@ export class FriendsService {
         // Escape the pattern characters so a search for "a_b" matches literally.
         const pattern = `${term.replace(/[\\%_]/g, char => `\\${char}`)}%`;
         const { data } = await ctx.sb.from('profiles')
-            .select('id, username, avatar_url')
+            .select('id, username, display_name, avatar_url')
             .ilike('username', pattern)
             .neq('id', ctx.me)
             .limit(20);
@@ -404,6 +431,7 @@ export class FriendsService {
             id: row.id,
             userId: row.id,
             username: row.username,
+            displayName: row.display_name?.trim() || row.username,
             avatarUrl: row.avatar_url ?? undefined,
         }));
     }

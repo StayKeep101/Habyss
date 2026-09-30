@@ -87,6 +87,12 @@ export async function saveProfile(changes: Partial<Profile>): Promise<void> {
         if (writes.length) await AsyncStorage.multiSet(writes);
         if (removes.length) await AsyncStorage.multiRemove(removes);
         if (changes.avatar !== undefined) emit('profile_avatar_changed', changes.avatar ?? '');
+        // Your name is the one part of this that other people are shown, so it
+        // is the one part that has to leave the phone.
+        if (changes.name !== undefined) {
+            const { pushDisplayName } = require('./friendsService') as typeof import('./friendsService');
+            void pushDisplayName(changes.name).catch(() => undefined);
+        }
     } catch {
         // A profile that did not save is worth a retry, not a crash.
     }

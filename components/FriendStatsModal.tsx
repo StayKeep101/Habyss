@@ -1,15 +1,13 @@
 import { FontFamily } from '@/constants/DesignSystem';
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, Alert } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { ProfileView } from '@/components/Profile/ProfileView';
 import { Friend, FriendsService } from '@/lib/friendsService';
-import Svg, { Circle } from 'react-native-svg';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
-import { SheetSection } from '@/components/Layout/SheetSection';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
@@ -24,14 +22,6 @@ interface FriendStatsModalProps {
     onBlocked?: (friend: Friend) => void;
 }
 
-interface FriendDetailedStats {
-    totalHabits: number;
-    completedToday: number;
-    totalGoals: number;
-    weeklyActivity: boolean[]; // Last 7 days
-    longestStreak: number;
-}
-
 export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
     visible,
     friend,
@@ -41,15 +31,11 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
     const { primary: accentColor, colors: accentColors } = useAccentGradient();
 
-    const [detailedStats, setDetailedStats] = useState<FriendDetailedStats | null>(null);
-    const [loading, setLoading] = useState(false);
 
     // Animations
     const pulseScale = useSharedValue(1);
-    const avatarGlow = useSharedValue(0.5);
 
     useEffect(() => {
         if (visible) {
@@ -62,14 +48,6 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                 true
             );
 
-            avatarGlow.value = withRepeat(
-                withSequence(
-                    withTiming(0.8, { duration: 2000 }),
-                    withTiming(0.4, { duration: 2000 })
-                ),
-                -1,
-                true
-            );
         }
     }, [visible]);
 
@@ -77,49 +55,8 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
         transform: [{ scale: pulseScale.value }]
     }));
 
-    const animatedGlowStyle = useAnimatedStyle(() => ({
-        opacity: avatarGlow.value
-    }));
-
-    useEffect(() => {
-        if (visible && friend) {
-            loadDetailedStats(friend.id);
-        }
-    }, [visible, friend]);
-
-    const loadDetailedStats = async (friendId: string) => {
-        setLoading(true);
-        try {
-            const realStats = await FriendsService.getFriendDetailedStats(friendId);
-            if (realStats) {
-                setDetailedStats(realStats);
-            } else {
-                setDetailedStats({
-                    totalHabits: 0,
-                    completedToday: Math.floor((friend?.todayCompletion || 0) / 100 * 5),
-                    totalGoals: 0,
-                    weeklyActivity: friend?.weeklyActivity?.map(p => p >= 50) || Array(7).fill(false),
-                    longestStreak: friend?.bestStreak || friend?.currentStreak || 0,
-                });
-            }
-        } catch (e) {
-            console.error('Error loading friend stats:', e);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     if (!friend) return null;
-
-    const progressPercent = friend.todayCompletion || 0;
-    const streak = friend.currentStreak || 0;
-
-    // Circle progress calculations
-    const size = 120; // Slightly smaller for better fit
-    const strokeWidth = 10;
-    const radius = (size - strokeWidth) / 2;
-    const circumference = radius * 2 * Math.PI;
-    const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
 
     /**
      * Blocking and reporting, as two native prompts rather than a screen.
@@ -136,7 +73,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                 ok ? 'Thank you. Somebody will read it.' : 'Please try again.',
             );
         };
-        Alert.alert(`Report ${person.username}`, 'What is wrong?', [
+        Alert.alert(`Report ${person.displayName ?? person.username}`, 'What is wrong?', [
             { text: 'Spam', onPress: () => void file('spam') },
             { text: 'Harassment', onPress: () => void file('harassment') },
             { text: 'Something else', onPress: () => void file('other') },
@@ -146,7 +83,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
 
     const block = (person: Friend) => {
         Alert.alert(
-            `Block ${person.username}?`,
+            `Block ${person.displayName ?? person.username}?`,
             'They will not see your day, and cannot react or write to you. It also removes them as a friend.',
             [
                 { text: 'Cancel', style: 'cancel' },
@@ -163,7 +100,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
     };
 
     const safety = (person: Friend) => {
-        Alert.alert(person.username, undefined, [
+        Alert.alert(person.displayName ?? person.username, undefined, [
             { text: 'Block', style: 'destructive', onPress: () => block(person) },
             { text: 'Report', onPress: () => report(person) },
             { text: 'Cancel', style: 'cancel' },
@@ -184,7 +121,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                 </View>
 
                 <ModalHeader
-                    title={friend.username}
+                    title={friend.displayName ?? friend.username}
                     onBack={onClose}
                     backIcon="close"
                     rightSlot={friend.username !== 'You' ? (
@@ -215,111 +152,24 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                 />
 
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                    {/* Immersive Profile Header */}
-                    <View style={styles.profileHeader}>
-                        {/* Animated Glow Ring */}
-                        <Animated.View style={[styles.glowRing, { borderColor: accentColor }, animatedGlowStyle]} />
-
-                        <View style={[styles.avatarContainer, { borderColor: accentColor }]}>
-                            {friend.avatarUrl ? (
-                                <Image source={{ uri: friend.avatarUrl }} style={styles.avatarImage} />
-                            ) : (
-                                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceSecondary }]}>
-                                    <Text style={[styles.avatarText, { color: colors.textSecondary }]}>
-                                        {friend.username[0]?.toUpperCase()}
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-
-                        <Text style={[styles.username, { color: colors.textPrimary }]}>{friend.username}</Text>
-
-                        {/* Level / Status Badge */}
-                        <View style={[styles.statusBadge, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
-                            <Ionicons name="shield-checkmark" size={12} color={accentColor} />
-                            <Text style={[styles.statusText, { color: colors.textSecondary }]}>Level {Math.floor((friend.currentStreak || 0) / 7) + 1} Explorer</Text>
-                        </View>
-                    </View>
-
-                    {/* Stats HUD */}
-                    <View style={styles.hudContainer}>
-                        {/* Left: Focus Circle */}
-                        <View style={styles.hudItem}>
-                            <Svg width={size} height={size}>
-                                <Circle
-                                    stroke="rgba(255,255,255,0.1)"
-                                    fill="none"
-                                    cx={size / 2}
-                                    cy={size / 2}
-                                    r={radius}
-                                    strokeWidth={strokeWidth}
-                                />
-                                <Circle
-                                    stroke={accentColor}
-                                    fill="none"
-                                    cx={size / 2}
-                                    cy={size / 2}
-                                    r={radius}
-                                    strokeWidth={strokeWidth}
-                                    strokeDasharray={circumference}
-                                    strokeDashoffset={strokeDashoffset}
-                                    strokeLinecap="round"
-                                    rotation="-90"
-                                    origin={`${size / 2}, ${size / 2}`}
-                                />
-                            </Svg>
-                            <View style={styles.progressCenter}>
-                                <Text style={[styles.hudValue, { color: colors.textPrimary }]}>{progressPercent}%</Text>
-                                <Text style={[styles.hudLabel, { color: colors.textTertiary }]}>DAILY</Text>
-                            </View>
-                        </View>
-
-                        {/* Right: Streak & Best */}
-                        <View style={styles.hudStats}>
-                            <VoidCard glass intensity={30} style={styles.statBox}>
-                                <Ionicons name="flame" size={24} color="#FFD700" />
-                                <View>
-                                    <Text style={[styles.boxValue, { color: colors.textPrimary }]}>{streak}</Text>
-                                    <Text style={[styles.boxLabel, { color: colors.textTertiary }]}>CURR. STREAK</Text>
-                                </View>
-                            </VoidCard>
-
-                            <VoidCard glass intensity={30} style={styles.statBox}>
-                                <Ionicons name="trophy" size={24} color="#C0C0C0" />
-                                <View>
-                                    <Text style={[styles.boxValue, { color: colors.textPrimary }]}>{detailedStats?.longestStreak || streak}</Text>
-                                    <Text style={[styles.boxLabel, { color: colors.textTertiary }]}>BEST STREAK</Text>
-                                </View>
-                            </VoidCard>
-                        </View>
-                    </View>
-
-                    {/* Weekly Heatmap Strip */}
-                    <View style={styles.activitySection}>
-                        <SheetSection
-                            first
-                            title="Recent activity"
-                            description="Days checked in over the past week."
-                            style={{ marginBottom: 10 }}
-                        />
-                        <View style={styles.heatmapStrip}>
-                            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
-                                const isActive = detailedStats?.weeklyActivity?.[i] ?? false;
-                                return (
-                                    <View key={i} style={styles.heatmapColumn}>
-                                        <View style={[
-                                            styles.heatmapBlock,
-                                            {
-                                                backgroundColor: isActive ? accentColor : 'rgba(255,255,255,0.05)',
-                                                opacity: isActive ? 1 : 0.3
-                                            }
-                                        ]} />
-                                        <Text style={[styles.heatmapLabel, { color: colors.textTertiary }]}>{day}</Text>
-                                    </View>
-                                );
-                            })}
-                        </View>
-                    </View>
+                    {/* The page you see for yourself, for them.
+                        What you see of yourself should be what they see of you,
+                        or one of the two pages is lying. The numbers are the
+                        ones a friend's data actually supports: everything else
+                        on your own page is worked out from habits only you can
+                        read. */}
+                    <ProfileView
+                        name={friend.displayName ?? friend.username}
+                        bio={friend.displayName && friend.displayName !== friend.username ? `@${friend.username}` : ''}
+                        meta={`${friend.todayTotal ?? 0} habit${(friend.todayTotal ?? 0) === 1 ? '' : 's'} today`}
+                        avatar={friend.avatarUrl}
+                        initials={(friend.displayName ?? friend.username)[0]?.toUpperCase() ?? ''}
+                        stats={[
+                            { label: 'Day streak', value: `${friend.currentStreak ?? friend.streak ?? 0}` },
+                            { label: 'Done today', value: `${friend.todayCompleted ?? 0}` },
+                            { label: 'Habits', value: `${friend.todayTotal ?? 0}` },
+                        ]}
+                    />
 
                     {/* Nudge Action */}
                     {friend.username !== 'You' && (
@@ -414,6 +264,7 @@ const styles = StyleSheet.create({
         fontSize: 48,
         fontFamily: FontFamily.bold,
     },
+    handle: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 1 },
     username: {
         fontSize: 28,
         fontFamily: FontFamily.bold,
