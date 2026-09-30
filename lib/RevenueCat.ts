@@ -1,5 +1,6 @@
 import Purchases, { PurchasesOffering, PurchasesPackage, CustomerInfo, LOG_LEVEL } from 'react-native-purchases';
 import { Platform } from 'react-native';
+import { PAYWALL_ENABLED } from '@/constants/features';
 
 // No fallback key on purpose: a test-store key silently breaks real purchases and
 // App Review. Missing config must surface, not degrade quietly.
@@ -44,7 +45,10 @@ class RevenueCatService {
         const desiredUserId = userId || this.currentAppUserId;
 
         if (!this.isConfigured()) {
-            console.warn(`[RevenueCat] Missing API key for ${Platform.OS}`);
+            // Only worth saying when somebody is actually trying to sell
+            // something. With the paywall off this is a warning about a
+            // deliberate decision, printed on every launch.
+            if (PAYWALL_ENABLED) console.warn(`[RevenueCat] Missing API key for ${Platform.OS}`);
             return false;
         }
 
@@ -71,11 +75,17 @@ class RevenueCatService {
 
         const apiKey = this.getApiKeyForCurrentPlatform();
         if (!apiKey) {
-            const message = `[RevenueCat] No API key for ${Platform.OS}. Set EXPO_PUBLIC_REVENUECAT_${Platform.OS === 'ios' ? 'APPLE' : 'GOOGLE'}_API_KEY (eas env:create) - purchases cannot work without it.`;
             // A warning, not a throw: a missing key must only disable purchases,
             // never the notifications, Siri and widgets that start alongside it.
-            // The paywall shows its unconfigured state.
-            console.warn(message);
+            // The paywall shows its unconfigured state — and while the paywall
+            // is off, a missing key is the configuration rather than a fault.
+            if (PAYWALL_ENABLED) {
+                console.warn(
+                    `[RevenueCat] No API key for ${Platform.OS}. Set EXPO_PUBLIC_REVENUECAT_`
+                    + `${Platform.OS === 'ios' ? 'APPLE' : 'GOOGLE'}_API_KEY (eas env:create)`
+                    + ' — purchases cannot work without it.',
+                );
+            }
             return;
         }
 

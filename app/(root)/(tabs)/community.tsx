@@ -20,11 +20,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from '@/lib/habitSchedule';
 import { DayCard } from '@/components/Community/DayCard';
 import { addNote, getNotes, mergeNotes, pendingNotes, removeNote, type DayNote } from '@/lib/dayNotes';
-import { PactCard } from '@/components/Community/PactCard';
-import { MakePactSheet } from '@/components/Community/MakePactSheet';
-import { Embers } from '@/lib/embers';
-import { formatEmbers } from '@/lib/ember';
-import { isOver, type Pact } from '@/lib/pact';
 import { buildFeed, summarise } from '@/lib/feed';
 import { evidenceListToday } from '@/lib/evidence';
 import type { Evidence } from '@/lib/proof';
@@ -46,7 +41,7 @@ export default function CommunityScreen() {
     const isLight = theme === 'light';
     const isTrueDark = theme === 'trueDark';
     const { primary: accentColor } = useAccentGradient();
-    const { thud, lightFeedback, mediumFeedback, selectionFeedback, successFeedback } = useHaptics();
+    const { thud, lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
     const router = useRouter();
     const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
     const [refreshing, setRefreshing] = useState(false);
@@ -66,41 +61,12 @@ export default function CommunityScreen() {
     const [showAddFriendModal, setShowAddFriendModal] = useState(false);
     const [userCode, setUserCode] = useState('');
     const [unread, setUnread] = useState(0);
-    const [balance, setBalance] = useState(0);
-    const [pacts, setPacts] = useState<Pact[]>([]);
-    const [pactBusy, setPactBusy] = useState<string | null>(null);
-    const [showMakePact, setShowMakePact] = useState(false);
     // Friends need an account and a username; until then the tab says so.
     const [gate, setGate] = useState<'signed_out' | 'needs_username' | null>(null);
 
     const isLoadingRef = useRef(false);
     const refreshQueued = useRef(false);
 
-    /**
-     * The embers, and everything that has to happen before they can be counted.
-     *
-     * In this order on purpose: settle what is due, claim what today was worth,
-     * then read the balance. Doing it the other way round shows a number that
-     * is right for a moment that has already passed.
-     */
-    const loadEmbers = useCallback(async () => {
-        try {
-            await Embers.claimOpening();
-            await Embers.settleDue();
-            const day = localDateKey(new Date());
-            const { getHabits, getCompletions } = require('@/lib/habitsSQLite') as typeof import('@/lib/habitsSQLite');
-            const [habits, completions] = await Promise.all([getHabits(), getCompletions(day)]);
-            const doneIds = Object.keys(completions).filter(id => completions[id]);
-            const list = await evidenceListToday(habits, doneIds, day);
-            await Embers.claimDay(day, list.map(evidence => ({ evidence })));
-            const [found, mine] = await Promise.all([Embers.balance(), Embers.list()]);
-            setBalance(found);
-            setPacts(mine);
-        } catch {
-            // Embers are the least important thing on this screen; a tab that
-            // failed to load because of them would be a poor trade.
-        }
-    }, []);
 
     const loadData = useCallback(async (forceRefresh = false) => {
         // Skip if already loaded and not forcing refresh
@@ -128,9 +94,6 @@ export default function CommunityScreen() {
             const username = await getMyUsername();
             setUserCode(username ?? '');
             FriendsService.unreadCount().then(setUnread).catch(() => undefined);
-            // Anything whose day has gone is paid out before the balance is
-            // read, so the number on screen is never one settlement behind.
-            void loadEmbers();
             setGate(username ? null : 'needs_username');
 
             await FriendsService.repairFriendshipsFromAcceptedRequests();
@@ -238,30 +201,7 @@ export default function CommunityScreen() {
     };
 
 
-    /**
-     * What is worth showing: anything still in play, and anything that settled
-     * today — the outcome is the most interesting thing a pact ever says, and
-     * hiding it the moment it happens wastes it.
-     */
-    const live = useMemo(() => {
-        const today = localDateKey(new Date());
-        return pacts.filter(pact =>
-            pact.status === 'offered'
-            || pact.status === 'live'
-            || (pact.status === 'settled' && !isOver({ deadline: pact.deadline }, today)));
-    }, [pacts]);
 
-    const answerPact = async (pact: Pact, accept: boolean) => {
-        if (pactBusy) return;
-        setPactBusy(pact.id);
-        const result = accept ? await Embers.accept(pact.id) : (await Embers.cancel(pact.id) ? 'cancelled' : 'gone');
-        setPactBusy(null);
-
-        if (result === 'short') { Alert.alert('Not enough embers', `You need ${pact.mine.stake} to take this on.`); return; }
-        if (result === 'they_are_short') { Alert.alert('They cannot cover it', 'Their balance has dropped since they offered.'); return; }
-        if (accept) successFeedback(); else lightFeedback();
-        await loadEmbers();
-    };
 
     /**
      * Reacting to someone's day.
@@ -478,20 +418,6 @@ export default function CommunityScreen() {
                         <Text style={[styles.headerSubtitle, { color: accentColor }]}>CREW STATUS</Text>
                     </View>
                     {!gate && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        {/* What you have to put on the line. Beside the bell
-                            rather than in a card of its own: it is a fact about
-                            you, not a section of the page. */}
-                        <View style={{
-                            flexDirection: 'row', alignItems: 'center', gap: 5,
-                            height: 40, paddingHorizontal: 12, borderRadius: 20,
-                            backgroundColor: colors.surfaceSecondary,
-                            borderWidth: 1, borderColor: colors.border,
-                        }}>
-                            <Ionicons name="flame" size={14} color="#FF9D23" />
-                            <Text style={{ color: colors.textPrimary, fontSize: 13, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] }}>
-                                {formatEmbers(balance)}
-                            </Text>
-                        </View>
 
                         {/* Where a friend request waits. Without somewhere to
                             put it, being asked was invisible unless you came
@@ -574,49 +500,6 @@ export default function CommunityScreen() {
                     </View>
                 )}
 
-                {/* Pacts, before the feed. What somebody is waiting on you for
-                    outranks what they happened to do this morning. */}
-                <View style={styles.feed}>
-                    <View style={styles.feedHead}>
-                        <Text style={[styles.feedTitle, { color: colors.textPrimary }]}>PACTS</Text>
-                        <TouchableOpacity
-                            accessibilityRole="button" accessibilityLabel="Make a pact"
-                            onPress={() => { mediumFeedback(); setShowMakePact(true); }}
-                        >
-                            <Text style={[styles.feedSummary, { color: accentColor, fontFamily: FontFamily.semibold }]}>Make one</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {live.length === 0 ? (
-                        <VoidCard matte style={{ padding: 16, gap: 6 }}>
-                            <Text style={{ color: colors.textPrimary, fontSize: 14, fontFamily: FontFamily.semibold }}>
-                                Nothing on the line
-                            </Text>
-                            <Text style={{ color: colors.textSecondary, fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular }}>
-                                A streak is between you and yourself, and on a bad week that is very easy to
-                                argue with. Put embers on a habit with a friend: neither of you has kept it
-                                until both of you have.
-                            </Text>
-                        </VoidCard>
-                    ) : (
-                        <View style={{ gap: 10 }}>
-                            {live.map(pact => (
-                                <PactCard
-                                    key={pact.id}
-                                    pact={pact}
-                                    today={localDateKey(new Date())}
-                                    busy={pactBusy === pact.id}
-                                    // Only the side that was offered it can take it on; the
-                                    // side that offered gets Withdraw instead.
-                                    onAccept={pact.status === 'offered' && !pact.offeredByMe
-                                        ? () => void answerPact(pact, true) : undefined}
-                                    onDecline={pact.status === 'offered' ? () => void answerPact(pact, false) : undefined}
-                                />
-                            ))}
-                        </View>
-                    )}
-                </View>
-
                 {/* The day, as everyone finished it. This replaced a ranked
                     table: a leaderboard answers "who is winning", which rewards
                     whoever tracks the least demanding things and makes a bad
@@ -657,12 +540,6 @@ export default function CommunityScreen() {
                 onBlocked={() => { void loadData(true); }}
             />
 
-            <MakePactSheet
-                visible={showMakePact}
-                friends={friends.filter(friend => !friend.isCurrentUser)}
-                onClose={() => setShowMakePact(false)}
-                onMade={() => { void loadEmbers(); }}
-            />
 
             {/* Add Friend Modal */}
             <AddFriendModal

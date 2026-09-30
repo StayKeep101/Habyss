@@ -50,13 +50,16 @@ struct LiveActivityState: Record {
   }
 }
 
-final class LiveActivitiesUnavailableException: Exception {
+/// No stored state, so restating what the base class already promises is the
+/// whole of it — Swift 6 will not infer `@unchecked Sendable` through a
+/// subclass and says so on every build otherwise.
+final class LiveActivitiesUnavailableException: Exception, @unchecked Sendable {
   override var reason: String {
     "Live Activities require iOS 16.2 or later"
   }
 }
 
-final class ActivityNotFoundException: GenericException<String> {
+final class ActivityNotFoundException: GenericException<String>, @unchecked Sendable {
   override var reason: String {
     "Live Activity not found: \(param)"
   }

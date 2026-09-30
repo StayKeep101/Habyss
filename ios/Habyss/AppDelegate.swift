@@ -29,6 +29,14 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
   }
 
   // Linking API
+  //
+  // Apple deprecated this in iOS 26 in favour of the UIScene lifecycle, but it
+  // is still the method React Native's RCTLinkingManager and Expo's own
+  // AppDelegate are built around — there is nothing to move to until they move.
+  // Declaring the override deprecated in turn silences the warning without
+  // pretending the API is current, and it will fail loudly the day the base
+  // class stops declaring it.
+  @available(iOS, deprecated: 26.0, message: "Follows RCTLinkingManager; revisit when React Native adopts UIScene.")
   public override func application(
     _ app: UIApplication,
     open url: URL,

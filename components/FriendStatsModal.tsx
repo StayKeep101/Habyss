@@ -1,15 +1,14 @@
 import { FontFamily } from '@/constants/DesignSystem';
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { ProfileView } from '@/components/Profile/ProfileView';
-import { Friend, FriendsService } from '@/lib/friendsService';
+import { Friend, FriendProfile, FriendsService } from '@/lib/friendsService';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
 import { useAccentGradient } from '@/constants/AccentContext';
 
@@ -31,30 +30,22 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { primary: accentColor, colors: accentColors } = useAccentGradient();
+    const { primary: accentColor } = useAccentGradient();
 
 
     // Animations
-    const pulseScale = useSharedValue(1);
 
+
+    /** The parts of their profile the day numbers do not carry. */
+    const [profile, setProfile] = React.useState<FriendProfile>({});
     useEffect(() => {
-        if (visible) {
-            pulseScale.value = withRepeat(
-                withSequence(
-                    withTiming(1.05, { duration: 1000 }),
-                    withTiming(1, { duration: 1000 })
-                ),
-                -1,
-                true
-            );
-
-        }
-    }, [visible]);
-
-    const animatedPulseStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: pulseScale.value }]
-    }));
-
+        if (!visible || !friend) return;
+        let alive = true;
+        FriendsService.profileOf(friend.userId || friend.id)
+            .then(found => { if (alive) setProfile(found); })
+            .catch(() => undefined);
+        return () => { alive = false; };
+    }, [visible, friend]);
 
     if (!friend) return null;
 
@@ -99,13 +90,6 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
         );
     };
 
-    const safety = (person: Friend) => {
-        Alert.alert(person.displayName ?? person.username, undefined, [
-            { text: 'Block', style: 'destructive', onPress: () => block(person) },
-            { text: 'Report', onPress: () => report(person) },
-            { text: 'Cancel', style: 'cancel' },
-        ]);
-    };
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
@@ -128,22 +112,25 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                         <TouchableOpacity
                             style={[styles.iconButton, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
                             accessibilityLabel="Manage friendship"
+                            // One menu, not a menu and a button and a link:
+                            // nudging, removing, blocking and reporting are all
+                            // things you do *to* a person, so they belong in the
+                            // same place rather than scattered down the page.
                             onPress={() => {
-                                Alert.alert(
-                                    'Manage Friendship',
-                                    `Options for ${friend.username}`,
-                                    [
-                                        { text: 'Cancel', style: 'cancel' },
-                                        {
-                                            text: 'Remove Friend',
-                                            style: 'destructive',
-                                            onPress: async () => {
-                                                const success = await FriendsService.removeFriend(friend.id);
-                                                if (success) onClose();
-                                            }
-                                        }
-                                    ]
-                                );
+                                Alert.alert(friend.displayName ?? friend.username, undefined, [
+                                    { text: 'Nudge', onPress: () => { onNudge(friend); onClose(); } },
+                                    { text: 'Block', style: 'destructive', onPress: () => block(friend) },
+                                    { text: 'Report', onPress: () => report(friend) },
+                                    {
+                                        text: 'Remove friend',
+                                        style: 'destructive',
+                                        onPress: async () => {
+                                            const success = await FriendsService.removeFriend(friend.id);
+                                            if (success) onClose();
+                                        },
+                                    },
+                                    { text: 'Cancel', style: 'cancel' },
+                                ]);
                             }}
                         >
                             <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
@@ -160,9 +147,9 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                         read. */}
                     <ProfileView
                         name={friend.displayName ?? friend.username}
-                        bio={friend.displayName && friend.displayName !== friend.username ? `@${friend.username}` : ''}
-                        meta={`${friend.todayTotal ?? 0} habit${(friend.todayTotal ?? 0) === 1 ? '' : 's'} today`}
-                        avatar={friend.avatarUrl}
+                        bio={profile.bio ?? ''}
+                        meta={[`@${friend.username}`, `${friend.todayTotal ?? 0} habit${(friend.todayTotal ?? 0) === 1 ? '' : 's'} today`].join(' · ')}
+                        avatar={profile.avatarUrl ?? friend.avatarUrl}
                         initials={(friend.displayName ?? friend.username)[0]?.toUpperCase() ?? ''}
                         stats={[
                             { label: 'Day streak', value: `${friend.currentStreak ?? friend.streak ?? 0}` },
@@ -171,42 +158,6 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                         ]}
                     />
 
-                    {/* Nudge Action */}
-                    {friend.username !== 'You' && (
-                        <Animated.View style={[styles.actionContainer, animatedPulseStyle]}>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    onNudge(friend);
-                                    // Could show a success animation here before closing
-                                    onClose();
-                                }}
-                            >
-                                <LinearGradient
-                                    colors={accentColors}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.nudgeBtn}
-                                >
-                                    <Ionicons name="hand-right" size={24} color="#FFF" />
-                                    <Text style={styles.nudgeText}>SEND NUDGE</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    )}
-                    {/* Quiet, and at the bottom, but present: an app that
-                        carries what one person writes for another needs a way
-                        to stop somebody and a way to report them. */}
-                    {friend.username !== 'You' ? (
-                        <TouchableOpacity
-                            accessibilityRole="button"
-                            accessibilityLabel={`Block or report ${friend.username}`}
-                            onPress={() => safety(friend)}
-                            style={styles.safety}
-                        >
-                            <Ionicons name="ellipsis-horizontal" size={14} color={colors.textTertiary} />
-                            <Text style={[styles.safetyText, { color: colors.textTertiary }]}>Block or report</Text>
-                        </TouchableOpacity>
-                    ) : null}
                 </ScrollView>
             </View>
         </VoidModal>

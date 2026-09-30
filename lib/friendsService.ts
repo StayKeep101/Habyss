@@ -128,6 +128,12 @@ interface StatsRow {
     display_name?: string | null;
 }
 
+/** The parts of a profile that are not in `friend_stats`. */
+export interface FriendProfile {
+    bio?: string;
+    avatarUrl?: string;
+}
+
 async function stats(ctx: Context): Promise<StatsRow[]> {
     const { data, error } = await ctx.sb.rpc('friend_stats', { p_today: localDateKey(new Date()) });
     if (error) {
@@ -265,21 +271,6 @@ export async function getMyUsername(): Promise<string | null> {
     return data?.username ?? null;
 }
 
-/**
- * Puts the name from the profile page where friends can see it.
- *
- * It has always lived in AsyncStorage, which meant every friend was shown a
- * handle and the name somebody had written for themselves was visible only to
- * them. Quiet about failure: a name that did not upload is worth retrying, not
- * an error in front of somebody editing their profile.
- */
-export async function pushDisplayName(name: string): Promise<void> {
-    const ctx = await signedIn();
-    if (!ctx) return;
-    const clean = name.trim().slice(0, 40);
-    await ctx.sb.from('profiles').update({ display_name: clean || null }).eq('id', ctx.me);
-}
-
 /** Friends find each other by username, so a new account needs one. */
 export async function setMyUsername(raw: string): Promise<UsernameResult> {
     const ctx = await signedIn();
@@ -371,6 +362,15 @@ export class FriendsService {
 
     static async getFriendsWithProgress(): Promise<Friend[]> {
         return this.getFriends();
+    }
+
+    /** A friend's bio and picture, which the day numbers do not carry. */
+    static async profileOf(friendId: string): Promise<FriendProfile> {
+        const ctx = await signedIn();
+        if (!ctx) return {};
+        const { data } = await ctx.sb.from('profiles')
+            .select('bio, avatar_url').eq('id', friendId).maybeSingle();
+        return { bio: data?.bio ?? undefined, avatarUrl: data?.avatar_url ?? undefined };
     }
 
     static async getFriendProfile(friendId: string): Promise<Friend | null> {

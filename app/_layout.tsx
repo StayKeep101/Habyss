@@ -215,6 +215,13 @@ function InnerLayout() {
   // person to remember they ever wrote it.
   useEffect(() => { void flushFeedback().catch(() => undefined); }, []);
 
+  // Every account that existed before profiles were shared has a name and a
+  // picture on the phone and neither on the server, so friends see a handle and
+  // a grey circle. This sends them once and then does nothing.
+  useEffect(() => {
+    void require('@/lib/profileSync').backfillProfile().catch(() => undefined);
+  }, []);
+
   // --- App Intents Listener (Siri/Shortcuts) ---
   const { startTimer, stopTimer: globalStopTimer } = useFocusTime();
 
@@ -283,8 +290,8 @@ function InnerLayout() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let running = false;
     let again = false;
-    const refresh = async () => {
-      if (!alive || AppState.currentState !== 'active') return;
+    const refresh = async (leavingApp = false) => {
+      if (!alive || (!leavingApp && AppState.currentState !== 'active')) return;
       if (running) { again = true; return; }
       running = true;
       try {
@@ -297,6 +304,7 @@ function InnerLayout() {
             emit('tasks_changed');
           }
           await syncWidgets();
+          if (leavingApp) continue;
           await require('@/lib/scheduledActivities').refreshScheduledActivities();
           await require('@/lib/dayComplete').checkDayComplete();
           await require('@/lib/milestones').checkMilestones();
@@ -309,8 +317,15 @@ function InnerLayout() {
       timer = setTimeout(() => { void refresh(); }, 150);
     };
     const stop = onAny(['habit_completion_updated', 'habit_created', 'habit_updated', 'habit_deleted',
-      'goal_deleted', 'tasks_changed', 'cloud_restored', 'engagement_settings_changed'], enqueue);
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') enqueue(); });
+      'goal_deleted', 'tasks_changed', 'cloud_restored', 'engagement_settings_changed', 'daily_focus_target_changed'], enqueue);
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') enqueue();
+      else {
+        // Do not abandon the last task edit when the user immediately goes Home.
+        if (timer) clearTimeout(timer);
+        void refresh(true);
+      }
+    });
     // Native ActivityKit schedules the exact start. This foreground fallback
     // also covers older iOS and replenishes the upcoming cards while browsing.
     const interval = setInterval(enqueue, 60000);

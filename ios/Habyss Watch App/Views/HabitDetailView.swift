@@ -71,7 +71,7 @@ struct HabitDetailView: View {
                     }
                     .focusable()
                     .digitalCrownRotation($crownValue, from: 0, through: Double(habit.targetCount), sensitivity: .medium)
-                    .onChange(of: crownValue) { newValue in
+                    .onChange(of: crownValue) { _, newValue in
                         currentCount = Int(newValue.rounded())
                     }
                 }

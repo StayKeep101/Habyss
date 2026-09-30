@@ -3,7 +3,28 @@
  * Provides fun sound effects for the app
  */
 
-import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
+
+/**
+ * Loaded on the first sound that will really play, and never before.
+ *
+ * This was a plain top-level import, and that alone was the problem: pulling
+ * expo-audio in sets up its native side, which claims an AVAudioSession, which
+ * is what filled the console with
+ * `HALC_ProxyObjectMap::_CreateSystemObject: there is no system object` on
+ * every launch. Not calling into it was not enough — importing it was the call.
+ *
+ * With no bundled audio this never runs, so a habit tracker with no sounds
+ * never touches CoreAudio at all.
+ */
+function audio(): typeof import('expo-audio') | null {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        return require('expo-audio');
+    } catch {
+        return null;
+    }
+}
 
 // Sound effect types
 export type SoundEffect =
@@ -72,7 +93,9 @@ const playerCache: Map<SoundEffect, AudioPlayer | null> = new Map();
  */
 export async function initializeAudio(): Promise<void> {
     if (!hasBundledSounds()) return;
-    audioReady ??= setAudioModeAsync({ playsInSilentMode: false })
+    const expo = audio();
+    if (!expo) return;
+    audioReady ??= expo.setAudioModeAsync({ playsInSilentMode: false })
         .then(() => undefined)
         .catch(error => { console.warn('Failed to initialize audio mode:', error); });
     return audioReady;
@@ -86,8 +109,9 @@ export async function preloadSound(effect: SoundEffect): Promise<void> {
         const source = sourceFor(effect);
         if (source === null) return;
 
-        const player = createAudioPlayer(source);
-        playerCache.set(effect, player);
+        const expo = audio();
+        if (!expo) return;
+        playerCache.set(effect, expo.createAudioPlayer(source));
     } catch (error) {
         console.warn(`Failed to preload sound ${effect}:`, error);
     }
@@ -116,8 +140,9 @@ export async function playSound(effect: SoundEffect, volume: number = 0.7): Prom
         let player = playerCache.get(effect);
 
         if (!player) {
-            // Create new player if not cached
-            player = createAudioPlayer(source);
+            const expo = audio();
+            if (!expo) return;
+            player = expo.createAudioPlayer(source);
             playerCache.set(effect, player);
         }
 
