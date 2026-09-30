@@ -164,3 +164,40 @@ export function summarise(cards: DayCard[]): string {
     if (finished === 0) return `${moving} of ${others.length} under way`;
     return `${finished} finished, ${moving} under way`;
 }
+
+/** One face on the rail: a day, and whether it is stuck on you. */
+export interface PulsePerson {
+    card: DayCard;
+    /** True when you have not done your half of something the two of you share. */
+    waitingOnYou: boolean;
+}
+
+/**
+ * The rail along the top of the feed, in the order it should read.
+ *
+ * Sorted by who needs you, not by who is doing best. Somebody waiting on your
+ * half of a shared habit is the one fact on that screen you can act on, and a
+ * rail ordered by achievement would bury them behind whoever happens to track
+ * the least demanding things — which is the same failure the leaderboard had.
+ *
+ * You are always last. A rail of faces is a list of other people, and your own
+ * day is the one you already know.
+ */
+export function pulseOrder(
+    cards: DayCard[],
+    /** What each person and you are doing together today, by their card id. */
+    together: Record<string, { mineDone: boolean }[]> = {},
+): PulsePerson[] {
+    return cards
+        .map(card => ({
+            card,
+            // Only ever about your own half. Their unfinished share is their
+            // business; yours is the thing holding the row up.
+            waitingOnYou: !card.isYou && (together[card.id] ?? []).some(item => !item.mineDone),
+        }))
+        .sort((a, b) =>
+            Number(a.card.isYou) - Number(b.card.isYou)
+            || Number(b.waitingOnYou) - Number(a.waitingOnYou)
+            || b.card.share - a.card.share
+            || a.card.username.localeCompare(b.card.username));
+}

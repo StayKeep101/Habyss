@@ -1,4 +1,4 @@
-import { buildFeed, lineFor, summarise } from '../feed';
+import { buildFeed, lineFor, pulseOrder, summarise } from '../feed';
 import type { Friend } from '../friendsService';
 
 const friend = (over: Partial<Friend> = {}): Friend => ({
@@ -183,5 +183,40 @@ describe('the whole day, not a third of it', () => {
         })]);
         expect(card.evidenceAll).toEqual(['verified']);
         expect(card.evidence).toBe('verified');
+    });
+});
+
+describe('the rail, in the order it should read', () => {
+    const cards = () => buildFeed([
+        friend({ username: 'me', todayCompleted: 4, todayTotal: 4, isCurrentUser: true }),
+        friend({ username: 'ace', todayCompleted: 3, todayTotal: 3 }),
+        friend({ username: 'stuck', todayCompleted: 0, todayTotal: 5 }),
+    ]);
+
+    it('leads with whoever is waiting on you, not with whoever is doing best', () => {
+        const order = pulseOrder(cards(), { stuck: [{ mineDone: false }] });
+        expect(order.map(person => person.card.username)).toEqual(['stuck', 'ace', 'me']);
+    });
+
+    it('puts you last, because a rail of faces is a list of other people', () => {
+        const order = pulseOrder(cards());
+        expect(order[order.length - 1].card.isYou).toBe(true);
+    });
+
+    it('falls back to the fullest day, then the name, so it never flickers', () => {
+        const order = pulseOrder(cards());
+        expect(order.map(person => person.card.username)).toEqual(['ace', 'stuck', 'me']);
+    });
+
+    it('is about your own half only', () => {
+        // They have not done theirs. That is their business, and there is
+        // nothing you can do about it from here.
+        const order = pulseOrder(cards(), { stuck: [{ mineDone: true }] });
+        expect(order.find(person => person.card.username === 'stuck')?.waitingOnYou).toBe(false);
+    });
+
+    it('never says your own day is waiting on you', () => {
+        const order = pulseOrder(cards(), { me: [{ mineDone: false }] });
+        expect(order.find(person => person.card.isYou)?.waitingOnYou).toBe(false);
     });
 });

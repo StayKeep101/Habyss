@@ -19,8 +19,9 @@ import Animated from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from '@/lib/habitSchedule';
 import { DayCard } from '@/components/Community/DayCard';
+import { Pulse } from '@/components/Community/Pulse';
 import { addNote, getNotes, mergeNotes, pendingNotes, removeNote, type DayNote } from '@/lib/dayNotes';
-import { buildFeed, summarise } from '@/lib/feed';
+import { buildFeed, pulseOrder, summarise } from '@/lib/feed';
 import { evidenceListToday } from '@/lib/evidence';
 import type { Evidence } from '@/lib/proof';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -290,6 +291,44 @@ export default function CommunityScreen() {
     const dayFeed = useMemo(() => buildFeed(friends, myEvidence), [friends, myEvidence]);
 
     /**
+     * The rail along the top, and the one line above the feed.
+     *
+     * Ordered by who needs you rather than by who is doing best: somebody
+     * waiting on your half of a shared habit is the only fact on this screen
+     * you can act on, and sorting by achievement would bury them behind
+     * whoever tracks the most undemanding things. You are always last — a rail
+     * of faces is a list of other people.
+     */
+    const pulse = useMemo(() => pulseOrder(dayFeed, together), [dayFeed, together]);
+
+    const waiting = pulse.filter(person => person.waitingOnYou).length;
+
+    /**
+     * Where each card sits, so a tap on the rail can go to it.
+     *
+     * Measured rather than calculated: a card grows a composer, a notes list
+     * and a shared-items section, so its height is not something this screen
+     * can know in advance.
+     */
+    const cardTops = useRef<Record<string, number>>({});
+    /**
+     * Where the feed itself starts.
+     *
+     * `onLayout` reports a position inside the parent, not inside the scroll
+     * content, so a card's own `y` is measured from the top of the feed — and
+     * scrolling to it without this would land short by the height of the
+     * header, the requests and the rail above it.
+     */
+    const feedTop = useRef(0);
+    const scroller = useRef<ScrollView>(null);
+    const goToCard = useCallback((id: string) => {
+        const y = cardTops.current[id];
+        if (y === undefined) return;
+        // A little above it, so the card does not sit flush against the header.
+        scroller.current?.scrollTo({ y: Math.max(0, feedTop.current + y - vs(12)), animated: true });
+    }, []);
+
+    /**
      * The named part of each friend's day.
      *
      * Only for people who are actually friends, and only for what has been
@@ -394,6 +433,7 @@ export default function CommunityScreen() {
             )}
 
             <ScrollView
+                ref={scroller}
                 contentContainerStyle={{ paddingTop: topSpacing + vs(36), paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
@@ -504,26 +544,44 @@ export default function CommunityScreen() {
                     table: a leaderboard answers "who is winning", which rewards
                     whoever tracks the least demanding things and makes a bad
                     week public. */}
-                <View style={styles.feed}>
+                <View
+                    style={styles.feed}
+                    onLayout={event => { feedTop.current = event.nativeEvent.layout.y; }}
+                >
+                    {/* Everybody at once, before the feed shows anybody in
+                        detail. Tapping a face takes you to their card. */}
+                    <Pulse people={pulse} onPick={goToCard} />
+
                     <View style={styles.feedHead}>
                         <Text style={[styles.feedTitle, { color: colors.textPrimary }]}>TODAY</Text>
-                        <Text style={[styles.feedSummary, { color: colors.textTertiary }]}>{summarise(dayFeed)}</Text>
+                        {/* The line says what you can do about it when there is
+                            something, and how the group is going when there is
+                            not. Never who is winning. */}
+                        <Text style={[styles.feedSummary, { color: waiting > 0 ? accentColor : colors.textTertiary }]}>
+                            {waiting > 0
+                                ? (waiting === 1 ? '1 person is waiting on you' : `${waiting} people are waiting on you`)
+                                : summarise(dayFeed)}
+                        </Text>
                     </View>
                     {dayFeed.map(card => (
-                        <DayCard
+                        <View
                             key={card.id}
-                            card={card}
-                            reaction={sentReactions[card.id]}
-                            onReact={value => void handleReaction(card.id, value)}
-                            onOpen={() => {
-                                const found = friends.find(item => (item.id || item.userId) === card.id);
-                                if (found) handleFriendPress(found);
-                            }}
-                            together={together[card.id]}
-                            notes={notes[card.id]}
-                            onComment={text => void handleComment(card.id, text)}
-                            onDeleteNote={id => void handleDeleteNote(card.id, id)}
-                        />
+                            onLayout={event => { cardTops.current[card.id] = event.nativeEvent.layout.y; }}
+                        >
+                            <DayCard
+                                card={card}
+                                reaction={sentReactions[card.id]}
+                                onReact={value => void handleReaction(card.id, value)}
+                                onOpen={() => {
+                                    const found = friends.find(item => (item.id || item.userId) === card.id);
+                                    if (found) handleFriendPress(found);
+                                }}
+                                together={together[card.id]}
+                                notes={notes[card.id]}
+                                onComment={text => void handleComment(card.id, text)}
+                                onDeleteNote={id => void handleDeleteNote(card.id, id)}
+                            />
+                        </View>
                     ))}
                 </View>
 
