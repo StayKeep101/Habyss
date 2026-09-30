@@ -6,7 +6,7 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { addFriendByUsername, inviteLink, inviteMessage, usernameFrom } from '@/lib/friendsService';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { SheetSection } from '@/components/Layout/SheetSection';
@@ -25,6 +25,11 @@ const { width } = Dimensions.get('window');
 type Tab = 'code' | 'qr' | 'scan';
 
 export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose, userCode, onFriendAdded }) => {
+    // Through the hook rather than expo-haptics directly. A bare
+    // notificationAsync call drops a promise that rejects where there is no
+    // haptic engine, which React Native raises as a red screen, and it buzzes
+    // even for somebody who has turned haptics off in Settings.
+    const { successFeedback, errorFeedback } = useHaptics();
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -57,7 +62,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                 Alert.alert('Not added', result.error);
                 return;
             }
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            successFeedback();
             Alert.alert(
                 result.nowFriends ? 'Friends' : 'Request sent',
                 result.nowFriends
@@ -96,7 +101,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
         if (!friendCode) {
             // It used to offer to add whatever the code happened to contain, so
             // scanning a bus timetable proposed adding @https://…
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            errorFeedback();
             Alert.alert(
                 'Not a Habyss code',
                 'That is some other kind of QR code. Ask your friend for the one in their Add friend screen.',
@@ -105,7 +110,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
             return;
         }
 
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        successFeedback();
         Alert.alert(
             'Friend found',
             `Add @${friendCode}?`,

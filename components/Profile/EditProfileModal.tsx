@@ -5,7 +5,7 @@ import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { ScrollPickerModal } from './ScrollPickerModal';
-import * as Haptics from 'expo-haptics';
+import { useHaptics } from '@/hooks/useHaptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
@@ -28,6 +28,11 @@ interface EditProfileModalProps {
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onClose, currentUsername, currentAvatarUri, onProfileUpdate }) => {
+    // Through the hook rather than expo-haptics directly. A bare
+    // notificationAsync call drops a promise that rejects where there is no
+    // haptic engine, which React Native raises as a red screen, and it buzzes
+    // even for somebody who has turned haptics off in Settings.
+    const { successFeedback } = useHaptics();
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -153,7 +158,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             }
             if (gender) await AsyncStorage.setItem('profile_gender', gender);
 
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            successFeedback();
             onProfileUpdate(avatarUri || undefined);
             onClose();
         } catch (e) {
