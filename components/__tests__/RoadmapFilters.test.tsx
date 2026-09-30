@@ -35,7 +35,7 @@ const props = (over: Partial<React.ComponentProps<typeof RoadmapFilters>> = {}) 
 describe('the roadmap filter menu', () => {
     it('shows every choice at once, without a page of its own', () => {
         const screen = render(<RoadmapFilters {...props()} />);
-        for (const label of ['All', 'Goals', 'Habits', 'Everything', 'Shared only', 'Any', 'Morning', 'Created', 'Name', 'Progress', 'Any goal']) {
+        for (const label of ['Goals', 'Habits', 'Tasks', 'Shared with someone', 'Morning', 'Noon', 'Evening', 'Created', 'Name', 'Progress']) {
             expect(screen.getByText(label)).toBeTruthy();
         }
         // Goals are listed to filter by, with an "All" that clears it.
@@ -91,17 +91,63 @@ describe('the roadmap filter menu', () => {
     });
 });
 
+describe('nothing chosen is how you say "no filter"', () => {
+    it('offers no "All", "Any" or "Any goal" to spend a segment on', () => {
+        const screen = render(<RoadmapFilters {...props()} />);
+        for (const label of ['All', 'Any', 'Any goal', 'Everything']) {
+            expect(screen.queryByText(label)).toBeNull();
+        }
+    });
+
+    it('turns a choice off when it is chosen again', () => {
+        const onShow = jest.fn();
+        const screen = render(<RoadmapFilters {...props({ show: 'habits_only', onShow })} />);
+        fireEvent.press(screen.getByText('Habits'));
+        expect(onShow).toHaveBeenCalledWith('all');
+    });
+
+    it('turns a different one on rather than off', () => {
+        const onShow = jest.fn();
+        const screen = render(<RoadmapFilters {...props({ show: 'habits_only', onShow })} />);
+        fireEvent.press(screen.getByText('Tasks'));
+        expect(onShow).toHaveBeenCalledWith('tasks_only');
+    });
+
+    it('clears the time of day the same way', () => {
+        const onFocus = jest.fn();
+        const screen = render(<RoadmapFilters {...props({ focus: 'morning', onFocus })} />);
+        fireEvent.press(screen.getByText('Morning'));
+        expect(onFocus).toHaveBeenCalledWith('all');
+    });
+
+    it('still reverses the sort rather than clearing it', () => {
+        // There is no unsorted list, so Sort is the one row where tapping the
+        // chosen option has to mean something else.
+        const onOrder = jest.fn();
+        const screen = render(<RoadmapFilters {...props({ order: 'name', onOrder })} />);
+        fireEvent.press(screen.getByText('Name'));
+        expect(onOrder).toHaveBeenCalledWith('name');
+    });
+});
+
 describe('filtering to what is shared', () => {
     it('offers it alongside the rest', () => {
         const screen = render(<RoadmapFilters {...props()} />);
-        expect(screen.getByText('Shared only')).toBeTruthy();
+        expect(screen.getByText('Shared with someone')).toBeTruthy();
     });
 
     it('reports the choice', () => {
         const onSharedOnly = jest.fn();
         const screen = render(<RoadmapFilters {...props({ onSharedOnly })} />);
-        fireEvent.press(screen.getByText('Shared only'));
+        fireEvent.press(screen.getByText('Shared with someone'));
         expect(onSharedOnly).toHaveBeenCalledWith(true);
+    });
+
+    it('turns itself off the second time, being one toggle rather than two', () => {
+        const onSharedOnly = jest.fn();
+        const screen = render(<RoadmapFilters {...props({ sharedOnly: true, onSharedOnly })} />);
+        fireEvent.press(screen.getByText('Shared with someone'));
+        expect(onSharedOnly).toHaveBeenCalledWith(false);
     });
 
     it('counts as an active filter, so Reset lights up', () => {

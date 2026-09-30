@@ -44,7 +44,7 @@ interface Habit extends StoreHabit {
     completed?: boolean;
 }
 
-type FilterType = 'all' | 'goals_only' | 'habits_only';
+type FilterType = 'all' | 'goals_only' | 'habits_only' | 'tasks_only';
 type SortType = 'default' | 'name' | 'progress';
 type TimeFilter = 'all' | 'morning' | 'afternoon' | 'evening';
 
@@ -687,8 +687,13 @@ const CalendarScreen = () => {
         return allHabits.filter(h => !h.goalId || !goals.some(g => g.id === h.goalId));
     }, [allHabits, goals]);
 
-    const isGoalFilter = activeFilter === 'goals_only';
-    const isHabitFilter = activeFilter === 'habits_only';
+    // Stated as what each section shows rather than as what two of them are
+    // not: `!isGoalFilter` quietly meant "and also not tasks_only" the moment a
+    // fourth value existed, which is how a filter starts showing the wrong
+    // things.
+    const showGoals = activeFilter === 'all' || activeFilter === 'goals_only';
+    const showHabits = activeFilter === 'all' || activeFilter === 'habits_only';
+    const showTasks = activeFilter === 'all' || activeFilter === 'tasks_only';
     const hasActiveFilters = selectedGoalFilter !== null || selectedCategoryFilter !== null || sharedOnly;
 
     const activeGoalName = selectedGoalFilter ? goals.find(g => g.id === selectedGoalFilter)?.name : null;
@@ -794,7 +799,7 @@ const CalendarScreen = () => {
                                         <Ionicons name="filter" size={10} color={accentColor} />
                                         <Text style={{ color: accentColor, fontSize: 9, fontFamily: FontFamily.semibold, letterSpacing: 0.5 }}>
                                             {[
-                                                activeFilter !== 'all' && (activeFilter === 'goals_only' ? 'Goals' : 'Habits'),
+                                                activeFilter !== 'all' && (activeFilter === 'goals_only' ? 'Goals' : activeFilter === 'tasks_only' ? 'Tasks' : 'Habits'),
                                                 selectedGoalFilter && goals.find(g => g.id === selectedGoalFilter)?.name?.slice(0, 12),
                                                 selectedCategoryFilter && selectedCategoryFilter.charAt(0).toUpperCase() + selectedCategoryFilter.slice(1),
                                                 activeTimeFilter !== 'all' && activeTimeFilter.charAt(0).toUpperCase() + activeTimeFilter.slice(1),
@@ -822,7 +827,7 @@ const CalendarScreen = () => {
                                 for their own habits anyway. */}
 
                             {/* GOALS SECTION */}
-                            {!isHabitFilter && (
+                            {showGoals && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                                         <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2 }}>GOALS</Text>
@@ -935,13 +940,16 @@ const CalendarScreen = () => {
                             )}
 
                             {/* TASKS SECTION — one-off work, kept apart from the rhythms. */}
-                            {!isGoalFilter && dayTasks.some(task => !task.goalId) && (
+                            {/* When tasks are the only thing asked for, the ones
+                                under a goal belong here too — otherwise the
+                                filter hides exactly what it was set to show. */}
+                            {showTasks && dayTasks.some(task => activeFilter === 'tasks_only' || !task.goalId) && (
                                 <View style={{ marginBottom: 16 }}>
                                     <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2, marginBottom: 10 }}>
                                         TASKS
                                     </Text>
                                     {dayTasks
-                                        .filter(task => !task.goalId)
+                                        .filter(task => activeFilter === 'tasks_only' || !task.goalId)
                                         .map(task => (
                                             <TaskItem
                                                 key={task.id}
@@ -963,7 +971,7 @@ const CalendarScreen = () => {
                             )}
 
                             {/* HABITS SECTION */}
-                            {!isGoalFilter && (activeFilter === 'all' ? looseHabits : allHabits).length > 0 && (
+                            {showHabits && (activeFilter === 'all' ? looseHabits : allHabits).length > 0 && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
                                     <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2, marginBottom: 10 }}>
                                         {activeFilter === 'all' ? 'OTHER HABITS' : 'ALL HABITS'}

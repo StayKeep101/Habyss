@@ -12,7 +12,7 @@ import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
-type Show = 'all' | 'goals_only' | 'habits_only';
+type Show = 'all' | 'goals_only' | 'habits_only' | 'tasks_only';
 type Focus = 'all' | 'morning' | 'afternoon' | 'evening';
 type Order = 'default' | 'name' | 'progress';
 
@@ -129,28 +129,23 @@ export const RoadmapFilters = (props: Props) => {
                     </Pressable>
                 </View>
 
+                {/* No "All", no "Any", no "Any goal".
+                    Every one of these sections had a first option meaning "do
+                    not filter", which is what the section already means when
+                    nothing in it is chosen — a whole segment, in every row, to
+                    say nothing. Choosing the thing that is already chosen turns
+                    it off instead, and that is a rule worth having once rather
+                    than a word under every control explaining it. */}
                 <Row label="Show">
                     <Segmented
                         options={[
-                            { id: 'all', label: 'All' },
                             { id: 'goals_only', label: 'Goals' },
                             { id: 'habits_only', label: 'Habits' },
+                            { id: 'tasks_only', label: 'Tasks' },
                         ]}
                         value={props.show}
-                        onChange={value => props.onShow(value as Show)}
-                        primary={primary}
-                        colors={colors}
-                    />
-                </Row>
-
-                <Row label="With">
-                    <Segmented
-                        options={[
-                            { id: 'anyone', label: 'Everything' },
-                            { id: 'shared', label: 'Shared only' },
-                        ]}
-                        value={props.sharedOnly ? 'shared' : 'anyone'}
-                        onChange={value => props.onSharedOnly(value === 'shared')}
+                        onChange={value => props.onShow((value ?? 'all') as Show)}
+                        clearable
                         primary={primary}
                         colors={colors}
                     />
@@ -159,13 +154,25 @@ export const RoadmapFilters = (props: Props) => {
                 <Row label="Time">
                     <Segmented
                         options={[
-                            { id: 'all', label: 'Any' },
                             { id: 'morning', label: 'Morning' },
                             { id: 'afternoon', label: 'Noon' },
                             { id: 'evening', label: 'Evening' },
                         ]}
                         value={props.focus}
-                        onChange={value => props.onFocus(value as Focus)}
+                        onChange={value => props.onFocus((value ?? 'all') as Focus)}
+                        clearable
+                        primary={primary}
+                        colors={colors}
+                    />
+                </Row>
+
+                {/* One toggle rather than a two-option switch: "Everything" was
+                    a segment whose only job was to be the other one's opposite. */}
+                <Row label="Shared">
+                    <Chip
+                        label="Shared with someone"
+                        selected={props.sharedOnly}
+                        onPress={() => props.onSharedOnly(!props.sharedOnly)}
                         primary={primary}
                         colors={colors}
                     />
@@ -174,13 +181,6 @@ export const RoadmapFilters = (props: Props) => {
                 {props.goals.length > 0 ? (
                     <Row label="Goal">
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-                            <Chip
-                                label="Any goal"
-                                selected={!props.goal}
-                                onPress={() => props.onGoal(null)}
-                                primary={primary}
-                                colors={colors}
-                            />
                             {props.goals.map(goal => (
                                 <Chip
                                     key={goal.id}
@@ -195,7 +195,10 @@ export const RoadmapFilters = (props: Props) => {
                     </Row>
                 ) : null}
 
-                <Row label="Sort" hint="Tap again to reverse">
+                {/* Sort keeps every option: there is no "unsorted" list, so
+                    tapping the chosen one reverses it rather than clearing it.
+                    The arrow beside it says so without a line of text. */}
+                <Row label="Sort">
                     <Segmented
                         options={[
                             { id: 'default', label: 'Created' },
@@ -229,27 +232,45 @@ const Row = ({ label, hint, children }: { label: string; hint?: string; children
 };
 
 /** One pill that slides between the options, rather than buttons lighting up. */
-const Segmented = ({ options, value, onChange, primary, colors, trailingIcon }: {
+const Segmented = ({ options, value, onChange, primary, colors, trailingIcon, clearable }: {
     options: { id: string; label: string }[];
     value: string;
-    onChange: (id: string) => void;
+    onChange: (id: string | null) => void;
     primary: string;
     colors: typeof Colors.light;
     trailingIcon?: 'arrow-up' | 'arrow-down';
+    /**
+     * Whether choosing what is already chosen turns it off.
+     *
+     * The alternative was a first option in every row meaning "do not filter",
+     * which is a whole segment spent saying nothing — and it is what the row
+     * already means when none of them is on.
+     */
+    clearable?: boolean;
 }) => {
     const { selectionFeedback } = useHaptics();
     const [width, setWidth] = useState(0);
-    const index = Math.max(0, options.findIndex(option => option.id === value));
+    const found = options.findIndex(option => option.id === value);
+    // -1 is a real answer on a clearable row: nothing is chosen, and the pill
+    // has nowhere to be. It stays where it was and fades, rather than sliding
+    // back to the first option as though that had been picked.
+    const index = Math.max(0, found);
     const position = useSharedValue(index);
+    const chosen = found >= 0;
+    const shown = useSharedValue(chosen ? 1 : 0);
 
     useEffect(() => {
         position.value = withSpring(index, { damping: 18, stiffness: 240, mass: 0.6 });
     }, [index]);
+    useEffect(() => {
+        shown.value = withTiming(chosen ? 1 : 0, { duration: 140 });
+    }, [chosen]);
 
     const slot = width ? (width - 6) / options.length : 0;
     const pill = useAnimatedStyle(() => ({
         width: slot,
-        transform: [{ translateX: position.value * slot }],
+        opacity: shown.value,
+        transform: [{ translateX: position.value * slot }, { scale: 0.94 + shown.value * 0.06 }],
     }));
 
     return (
@@ -265,7 +286,10 @@ const Segmented = ({ options, value, onChange, primary, colors, trailingIcon }: 
                         key={option.id}
                         accessibilityRole="button"
                         accessibilityState={{ selected }}
-                        onPress={() => { selectionFeedback(); onChange(option.id); }}
+                        onPress={() => {
+                            selectionFeedback();
+                            onChange(clearable && selected ? null : option.id);
+                        }}
                         style={styles.segment}
                     >
                         <Text numberOfLines={1} style={[styles.segmentText, { color: selected ? primary : colors.textSecondary }]}>
@@ -301,21 +325,24 @@ const Chip = ({ label, selected, onPress, primary, colors }: {
 const styles = StyleSheet.create({
     panel: {
         position: 'absolute', borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
-        paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, gap: 12,
+        // Tight on purpose: this panel covers the list it is filtering, so
+        // every point it takes is a row of that list you cannot see while
+        // deciding. The labels are what carry the structure, not the gaps.
+        paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12, gap: 9,
         shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 12,
     },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     title: { fontSize: 15, fontFamily: FontFamily.semibold },
     reset: { fontSize: 13, fontFamily: FontFamily.medium },
-    row: { gap: 7 },
+    row: { gap: 5 },
     rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     rowLabel: { fontSize: 10, letterSpacing: 1.1, fontFamily: FontFamily.medium },
     hint: { fontSize: 10, fontFamily: FontFamily.regular },
     segmented: { flexDirection: 'row', borderRadius: 12, padding: 3 },
     pill: { position: 'absolute', top: 3, bottom: 3, left: 3, borderRadius: 9, borderWidth: 1 },
-    segment: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8 },
+    segment: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 7 },
     segmentText: { fontSize: 12, fontFamily: FontFamily.medium },
     chips: { gap: 6, paddingRight: 4 },
-    chip: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, maxWidth: 170 },
+    chip: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, maxWidth: 170 },
     chipText: { fontSize: 12, fontFamily: FontFamily.medium },
 });
