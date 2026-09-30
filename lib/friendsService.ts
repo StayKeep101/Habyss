@@ -47,6 +47,18 @@ export interface Friend {
     weeklyActivity?: number[];
     /** How today's check-ins were evidenced: 'verified' | 'context' | 'self'. */
     todayEvidence?: string[];
+    /**
+     * The rest of their day.
+     *
+     * Absent, rather than zeroed, when the server is older than these columns
+     * or when they have turned progress off — so a card can tell "nothing to
+     * show" apart from "nothing done", which are very different things to put
+     * in front of somebody's friends.
+     */
+    tasksDone?: number;
+    tasksTotal?: number;
+    goalsActive?: number;
+    goalsMoved?: number;
     isCurrentUser?: boolean;
 }
 
@@ -129,6 +141,11 @@ interface StatsRow {
     today_evidence?: string[] | null;
     /** What they call themselves, when they have said. */
     display_name?: string | null;
+    /** Today's tasks and goals; absent on servers older than the day card. */
+    tasks_done?: number | null;
+    tasks_total?: number | null;
+    goals_active?: number | null;
+    goals_moved?: number | null;
 }
 
 /** The parts of a profile that are not in `friend_stats`. */
@@ -169,6 +186,10 @@ function toFriend(row: StatsRow, me: string): Friend {
         // strings become the app's three, and anything else reads as self.
         todayEvidence: (row.today_evidence ?? []).map(value =>
             value === 'verified' || value === 'context' ? value : 'self'),
+        tasksDone: row.tasks_done ?? undefined,
+        tasksTotal: row.tasks_total ?? undefined,
+        goalsActive: row.goals_active ?? undefined,
+        goalsMoved: row.goals_moved ?? undefined,
         isCurrentUser: row.user_id === me,
     };
 }
@@ -1201,10 +1222,12 @@ export class FriendsService {
      * stopped waiting on you. Quiet when nobody else is on it, which is most
      * of the time.
      */
-    static async announceCompletion(itemId: string, itemName: string): Promise<void> {
+    static async announceCompletion(
+        itemId: string, itemName: string, kind: 'habit' | 'task' | 'goal' = 'habit',
+    ): Promise<void> {
         const ctx = await signedIn();
         if (!ctx) return;
-        const people = await this.getSharedItemParticipants(itemId, 'habit').catch(() => []);
+        const people = await this.getSharedItemParticipants(itemId, kind).catch(() => []);
         const others = (people as any[]).filter(person => !person.isYou);
         if (others.length === 0) return;
 

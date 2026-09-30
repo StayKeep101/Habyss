@@ -153,14 +153,49 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
 }
 
 /** Marks a task done, or reopens it. Completion time is recorded, never guessed. */
-export async function setTaskStatus(id: string, status: TaskStatus): Promise<void> {
+export async function setTaskStatus(id: string, status: TaskStatus, completedAt?: string): Promise<void> {
     const db = await getDatabase();
     if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
     const now = nowISO();
     await db.runAsync(
         'UPDATE tasks SET status = ?, completed_at = ?, updated_at = ?, synced = 0 WHERE id = ?',
-        status, status === 'done' ? now : null, now, id,
+        status, status === 'done' ? completedAt ?? now : null, now, id,
     );
+    // Not awaited: the task is already saved, and somebody else's view of it is
+    // not worth holding a tick behind a network call.
+    void publishIfShared(id, status === 'done');
+}
+
+/**
+ * Tells whoever is sharing this task that it is done, or no longer is.
+ *
+ * The same contract as a shared habit (`publishIfShared` in habitsSQLite), and
+ * for the same reason: a shared row is not complete until everyone on it is,
+ * so the other person's screen has to be told rather than left to a sync.
+ *
+ * Guarded by the locally cached list of shared ids, so ticking an ordinary
+ * task — which is nearly all of them — costs nothing.
+ */
+async function publishIfShared(taskId: string, done: boolean): Promise<void> {
+    try {
+        const { FriendsService } = require('./friendsService') as typeof import('./friendsService');
+        if (!(await FriendsService.sharedIds()).has(taskId)) return;
+        const day = todayKey();
+        if (!done) { await FriendsService.withdrawCompletion(taskId, day); return; }
+
+        // A task carries no evidence: there is no timer to have run and no
+        // place to have arrived at, so it is self-logged and says so.
+        await FriendsService.publishCompletion(taskId, 'task', day, null);
+        const { sharedDoneAlerts } = require('./notificationPrefs') as typeof import('./notificationPrefs');
+        if (!(await sharedDoneAlerts())) return;
+        // A whole-list read, but only ever on the shared path, which is a
+        // handful of tasks rather than all of them.
+        const row = (await getTasks({ includeDone: true }).catch(() => []))
+            .find(task => task.id === taskId);
+        await FriendsService.announceCompletion(taskId, row?.title ?? 'a shared task', 'task');
+    } catch {
+        // The task is saved; only the other person's view of it is late.
+    }
 }
 
 export async function deleteTask(id: string): Promise<void> {

@@ -127,3 +127,61 @@ describe('a friend’s evidence, as the server sends it', () => {
         expect(card.evidenceAll).toEqual(['context']);
     });
 });
+
+describe('the whole day, not a third of it', () => {
+    it('counts habits and tasks together in the ring', () => {
+        const [card] = buildFeed([friend({
+            todayCompleted: 2, todayTotal: 4, tasksDone: 1, tasksTotal: 2,
+        })]);
+        expect(card.done).toBe(3);
+        expect(card.total).toBe(6);
+        expect(card.share).toBeCloseTo(0.5);
+        expect(card.line).toBe('3 of 6 done');
+    });
+
+    it('is not finished while a task is still open', () => {
+        const [card] = buildFeed([friend({
+            todayCompleted: 4, todayTotal: 4, tasksDone: 0, tasksTotal: 1,
+        })]);
+        expect(card.complete).toBe(false);
+    });
+
+    it('keeps the three strands apart so the card can name them', () => {
+        const [card] = buildFeed([friend({
+            todayCompleted: 2, todayTotal: 4,
+            tasksDone: 1, tasksTotal: 2,
+            goalsMoved: 1, goalsActive: 3,
+        })]);
+        expect(card.strands.habits).toEqual({ done: 2, total: 4 });
+        expect(card.strands.tasks).toEqual({ done: 1, total: 2 });
+        expect(card.strands.goals).toEqual({ moved: 1, active: 3 });
+    });
+
+    it('leaves a strand out rather than at zero when nobody reported it', () => {
+        // An older server, and a friend who has turned progress off, both send
+        // nothing — and "no answer" must not render as "did none of it".
+        const [card] = buildFeed([friend({ todayCompleted: 1, todayTotal: 2 })]);
+        expect(card.strands.tasks).toBeUndefined();
+        expect(card.strands.goals).toBeUndefined();
+        expect(card.total).toBe(2);
+    });
+
+    it('reports a real zero as a zero', () => {
+        const [card] = buildFeed([friend({
+            todayCompleted: 1, todayTotal: 2, tasksDone: 0, tasksTotal: 0, goalsActive: 0,
+        })]);
+        expect(card.strands.tasks).toEqual({ done: 0, total: 0 });
+        expect(card.strands.goals).toEqual({ moved: 0, active: 0 });
+    });
+
+    it('does not stamp evidence on a ticked task', () => {
+        // Evidence is a claim about a check-in. Padding to the whole day would
+        // invent 'self' marks for rows nothing was ever claimed about.
+        const [card] = buildFeed([friend({
+            todayCompleted: 1, todayTotal: 1, todayEvidence: ['verified'],
+            tasksDone: 3, tasksTotal: 3,
+        })]);
+        expect(card.evidenceAll).toEqual(['verified']);
+        expect(card.evidence).toBe('verified');
+    });
+});

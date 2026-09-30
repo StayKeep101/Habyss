@@ -24,7 +24,19 @@ interface SharedRow {
  * that briefly claims to be yours alone and then sprouts faces is worse than
  * one that simply gains them.
  */
-export function useSharedItems(ids: string[], doneByMe: Record<string, boolean>) {
+export function useSharedItems(
+    ids: string[],
+    doneByMe: Record<string, boolean>,
+    /**
+     * Which table these ids live in.
+     *
+     * A habit id and a task id look identical and are stored apart, so asking
+     * `shared_habits` about a task quietly returns nobody — which reads as "not
+     * shared" rather than as "asked the wrong question". Call the hook once per
+     * kind instead of guessing.
+     */
+    kind: 'habit' | 'task' = 'habit',
+) {
     const [people, setPeople] = useState<Record<string, SharedRow[]>>({});
     const key = ids.slice().sort().join(',');
 
@@ -36,12 +48,12 @@ export function useSharedItems(ids: string[], doneByMe: Record<string, boolean>)
         if (wanted.length === 0) return {};
 
         const found = await Promise.all(wanted.map(async id => {
-            const rows = (await FriendsService.getSharedItemParticipants(id, 'habit').catch(() => [])) as SharedRow[];
+            const rows = (await FriendsService.getSharedItemParticipants(id, kind).catch(() => [])) as SharedRow[];
             return [id, rows] as const;
         }));
         // One person on it is not a shared item; it is an ordinary one.
         return Object.fromEntries(found.filter(([, rows]) => rows.length > 1));
-    }, [key]);
+    }, [key, kind]);
 
     const load = useCallback(() => { void fetch().then(setPeople); }, [fetch]);
 

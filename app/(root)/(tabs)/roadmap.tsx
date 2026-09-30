@@ -87,6 +87,20 @@ const CalendarScreen = () => {
     const { stateFor: sharedFor } = useSharedItems(habitIds, completions);
     // Tasks live here too, so the roadmap is the whole plan rather than only rhythms.
     const [tasks, setTasks] = useState<Task[]>([]);
+    /**
+     * The same question for tasks, asked separately.
+     *
+     * A task id and a habit id are both uuids and live in different tables, so
+     * one call cannot answer for both — asking `shared_habits` about a task
+     * returns nobody, which reads as "not shared" rather than as a wrong
+     * question, and a shared task would silently complete on one tick.
+     */
+    const taskIds = useMemo(() => tasks.filter(task => task.status !== 'cancelled').map(task => task.id), [tasks]);
+    const taskDone = useMemo(
+        () => Object.fromEntries(tasks.map(task => [task.id, task.status === 'done'])),
+        [tasks],
+    );
+    const { stateFor: sharedTaskFor } = useSharedItems(taskIds, taskDone, 'task');
     const [todayCompletions, setTodayCompletions] = useState<Record<string, boolean>>({});
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [goalProgress, setGoalProgress] = useState<Record<string, number>>({});
@@ -661,8 +675,12 @@ const CalendarScreen = () => {
     // day it was given, plus today for anything late or undated.
     const dayTasks = useMemo(() => {
         const day = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-        return tasksForDay(tasks, day, todayKey());
-    }, [tasks, selectedDate]);
+        const due = tasksForDay(tasks, day, todayKey());
+        // "Shared only" means the whole plan, not only its rhythms: a filter
+        // that hid shared habits' neighbours but left every private task in
+        // place would not be showing what is shared.
+        return sharedOnly ? due.filter(task => !!sharedTaskFor(task.id)) : due;
+    }, [tasks, selectedDate, sharedOnly, sharedTaskFor]);
 
     // Loose habits are those not linked to any goal, or linked to a non-existent goal
     const looseHabits = useMemo(() => {
@@ -893,6 +911,7 @@ const CalendarScreen = () => {
                                                                     onPress={openTask}
                                                                     onEdit={openTask}
                                                                     onDelete={handleTaskDelete}
+                                                                    shared={sharedTaskFor(task.id)}
                                                                 />
                                                             ))}
 
@@ -937,6 +956,7 @@ const CalendarScreen = () => {
                                                 onPress={openTask}
                                                 onEdit={openTask}
                                                 onDelete={handleTaskDelete}
+                                                shared={sharedTaskFor(task.id)}
                                             />
                                         ))}
                                 </View>
