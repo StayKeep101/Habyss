@@ -792,7 +792,15 @@ export class FriendsService {
         const kindOf = (type: string): InboxItem['kind'] =>
             (KINDS.includes(type as InboxItem['kind']) ? type : 'nudge') as InboxItem['kind'];
 
-        const items: InboxItem[] = rows.map((row: any) => ({
+        const items: InboxItem[] = rows
+            // `share_offer` is left out on purpose. `pendingShares` below adds
+            // the same offer as a card with Accept and No thanks on it, so
+            // keeping the notification too put the invitation in the inbox
+            // twice — once you could answer, once you could only read. The row
+            // is still written, because it is what raises the push on their
+            // phone; it just is not a second thing to look at in here.
+            .filter((row: any) => row.type !== 'share_offer')
+            .map((row: any) => ({
             id: row.id,
             kind: kindOf(row.type),
             title: row.title ?? '',
@@ -966,22 +974,18 @@ export class FriendsService {
     /* ---------------------------------------------------------------- sharing */
 
     /**
-     * Shares a habit with a friend. They are already mutual friends, so the
-     * share is accepted straight away rather than waiting on a second yes.
+     * Offers a habit to a friend.
+     *
+     * An offer, not an arrival: it lands in their inbox as something to accept
+     * or refuse. Putting your habit into somebody else's list because you
+     * decided to is the same manners as writing in their diary.
      */
     static async shareHabitWithFriend(habitId: string, friendId: string): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;
         await ensureBackedUp();
 
-        const { data: existing } = await ctx.sb.from('shared_habits').select('id')
-            .eq('habit_id', habitId).eq('owner_id', ctx.me).eq('shared_with_id', friendId).is('deleted_at', null);
-        if ((existing ?? []).length > 0) return true;
-
-        const { error } = await ctx.sb.from('shared_habits').insert({
-            habit_id: habitId, owner_id: ctx.me, shared_with_id: friendId, status: 'pending',
-        });
-        if (error) return false;
+        if (!await this.openShareRow(ctx, 'shared_habits', 'habit_id', habitId, friendId)) return false;
         // Offered, not imposed. Landing somebody else's habit in your list
         // without asking is the same manners as adding yourself to their diary.
         await this.announceShare(ctx, friendId, 'habit', habitId);
@@ -1008,14 +1012,7 @@ export class FriendsService {
         if (!ctx) return false;
         await ensureBackedUp();
 
-        const { data: existing } = await ctx.sb.from('shared_tasks').select('id')
-            .eq('task_id', taskId).eq('owner_id', ctx.me).eq('shared_with_id', friendId).is('deleted_at', null);
-        if ((existing ?? []).length > 0) return true;
-
-        const { error } = await ctx.sb.from('shared_tasks').insert({
-            task_id: taskId, owner_id: ctx.me, shared_with_id: friendId, status: 'pending',
-        });
-        if (error) return false;
+        if (!await this.openShareRow(ctx, 'shared_tasks', 'task_id', taskId, friendId)) return false;
         await this.announceShare(ctx, friendId, 'task', taskId);
         void this.refreshSharedIds();
         return true;
@@ -1056,17 +1053,24 @@ export class FriendsService {
         }));
     }
 
+    /**
+     * Offers a goal to friends.
+     *
+     * The same rule as a habit, which it did not follow: it inserted rows as
+     * `accepted` and told nobody, so a goal simply appeared in somebody's list
+     * without being asked for and without them knowing where it came from.
+     */
     static async batchShareGoal(goalId: string, friendIds: string[]): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;
         await ensureBackedUp();
 
-        const current = new Set((await this.getGoalSharedWith(goalId)).map(friend => friend.id));
-        const rows = friendIds.filter(id => !current.has(id))
-            .map(id => ({ goal_id: goalId, owner_id: ctx.me, shared_with_id: id, status: 'accepted' }));
-        if (rows.length === 0) return true;
-        const { error } = await ctx.sb.from('shared_goals').insert(rows);
-        return !error;
+        for (const friendId of friendIds) {
+            if (!await this.openShareRow(ctx, 'shared_goals', 'goal_id', goalId, friendId)) return false;
+            await this.announceShare(ctx, friendId, 'goal', goalId);
+        }
+        void this.refreshSharedIds();
+        return true;
     }
 
     static async batchUnshareGoal(goalId: string, friendIds: string[]): Promise<boolean> {
@@ -1274,6 +1278,40 @@ export class FriendsService {
         });
         void this.refreshSharedIds();
         return true;
+    }
+
+    /**
+     * Opens, or re-opens, an invitation.
+     *
+     * Asking again after a refusal has to work. The check here used to be "is
+     * there a row at all", and a declined offer leaves a row — so once somebody
+     * said no, every later attempt found it, returned success and told nobody.
+     * Sharing that habit with that person was permanently impossible, silently,
+     * and neither side had any way to tell. People change their minds.
+     *
+     * An offer already waiting is left alone: re-sending it would only move it
+     * to the top of their inbox, which is nagging rather than asking. One that
+     * was accepted is already done.
+     *
+     * @returns false only when the write failed; true means there is now an
+     * open offer, whether this call made it or found it.
+     */
+    private static async openShareRow(
+        ctx: Context, table: string, column: string, itemId: string, friendId: string,
+    ): Promise<boolean> {
+        const { data: existing } = await ctx.sb.from(table).select('id, status')
+            .eq(column, itemId).eq('owner_id', ctx.me).eq('shared_with_id', friendId).is('deleted_at', null);
+
+        const row = (existing ?? [])[0] as { id: string; status: string } | undefined;
+        if (row && row.status !== 'declined') return true;
+
+        if (row) {
+            const { error } = await ctx.sb.from(table).update({ status: 'pending' }).eq('id', row.id);
+            return !error;
+        }
+        const { error } = await ctx.sb.from(table)
+            .insert({ [column]: itemId, owner_id: ctx.me, shared_with_id: friendId, status: 'pending' });
+        return !error;
     }
 
     /** Tells somebody they have been offered a habit, task or goal. */

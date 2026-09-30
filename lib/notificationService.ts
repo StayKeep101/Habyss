@@ -129,9 +129,7 @@ export class NotificationService {
       const pushToken = tokenData.data;
       console.log('Expo push token:', pushToken);
 
-      // Store locally (cloud sync will be re-enabled with premium)
       await AsyncStorage.setItem('habyss_push_token', pushToken);
-
       return pushToken;
     } catch (e) {
       console.warn('Failed to register for push notifications:', e);

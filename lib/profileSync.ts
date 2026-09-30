@@ -202,6 +202,27 @@ export async function backfillProfile(): Promise<void> {
 }
 
 /**
+ * Puts this phone's push token where the server can reach it.
+ *
+ * It was fetched and then written to AsyncStorage, which is the one place
+ * nothing else can read it — so no device could ever notify another, and
+ * "@sam shared a habit with you" waited until that person happened to open the
+ * app and look. Nothing even called the registration.
+ *
+ * The column is readable only by its owner and by the trigger that sends the
+ * push, which runs as the definer: a token somebody else can read is a token
+ * somebody else can send to.
+ */
+export async function publishPushToken(): Promise<void> {
+    const ctx = await signedIn();
+    if (!ctx) return;
+    const { NotificationService } = require('./notificationService') as typeof import('./notificationService');
+    const token = await NotificationService.registerForPushNotificationsAsync().catch(() => null);
+    if (!token) return;
+    await ctx.sb.from('profiles').update({ push_token: token }).eq('id', ctx.me);
+}
+
+/**
  * Backfills now, and again whenever somebody signs in.
  *
  * On a cold launch this used to run once from a mount effect, which is before
@@ -213,7 +234,13 @@ export async function backfillProfile(): Promise<void> {
  * Returns an unsubscribe.
  */
 export function startProfileSync(): () => void {
-    void backfillProfile().catch(() => undefined);
+    const run = () => {
+        void backfillProfile().catch(() => undefined);
+        // Alongside, not inside: a phone that has declined notifications still
+        // needs its name and picture to travel.
+        void publishPushToken().catch(() => undefined);
+    };
+    run();
 
     const sb = getSupabase();
     if (!sb) return () => undefined;
@@ -222,7 +249,7 @@ export function startProfileSync(): () => void {
         // once the stored session has been read, which is the moment the first
         // attempt was too early for.
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            void backfillProfile().catch(() => undefined);
+            run();
         }
     });
     return () => data.subscription.unsubscribe();
