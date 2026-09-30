@@ -34,9 +34,18 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## The day, as a card people can react to
 
-- [ ] A card each day showing what somebody **said they would do** and what they
-      **actually did**, for friends to see and react to. The feed has the second
-      half; the promise is the missing part.
+- [~] The day card now names things rather than only counting them: what the
+      two of you are doing together, ticked as they do it, with where *you*
+      stand on the same thing beside it — so the row is about the pair of you
+      rather than about them. Reactions and notes were already there.
+      **The limit, and it is deliberate.** Only habits actually shared between
+      you appear by name. A friend's other habits are none of your business, and
+      the fact that the server *could* report them is exactly the reason it
+      does not. So a friend who shares nothing still reads as "2 of 5 done" —
+      which is the honest amount to say about somebody who has not shown you
+      their day.
+      If you want every habit named in the feed, that is a privacy decision to
+      take on purpose, and it changes what `friend_stats` is allowed to return.
 
 ## Creation flow — habits, and then tasks and goals
 

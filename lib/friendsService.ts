@@ -695,6 +695,45 @@ export class FriendsService {
         return !error;
     }
 
+    /**
+     * What the two of you are doing together today, and who has done it.
+     *
+     * The feed can say "2 of 5 done" from the numbers alone, but a count is not
+     * a day — it says how much without saying what, and there is nothing in it
+     * to react to. This is the part with names on it.
+     *
+     * Only items actually shared between the two of you. A friend's other
+     * habits are none of your business, and the fact that the server *could*
+     * report them is exactly why it should not.
+     */
+    static async sharedWithFriend(friendId: string, day = localDateKey(new Date())): Promise<{
+        id: string; name: string; mineDone: boolean; theirsDone: boolean;
+    }[]> {
+        const ctx = await signedIn();
+        if (!ctx) return [];
+
+        const pair = `and(owner_id.eq.${ctx.me},shared_with_id.eq.${friendId}),and(owner_id.eq.${friendId},shared_with_id.eq.${ctx.me})`;
+        const { data: shares } = await ctx.sb.from('shared_habits')
+            .select('habit_id').eq('status', 'accepted').is('deleted_at', null).or(pair);
+        const ids = [...new Set((shares ?? []).map((row: any) => row.habit_id))];
+        if (ids.length === 0) return [];
+
+        const [{ data: habits }, { data: done }] = await Promise.all([
+            ctx.sb.from('habits').select('id, name').in('id', ids),
+            ctx.sb.from('shared_completions').select('user_id, item_id').in('item_id', ids).eq('day', day),
+        ]);
+
+        const named = new Map((habits ?? []).map((row: any) => [row.id, row.name]));
+        const finished = new Set((done ?? []).map((row: any) => `${row.user_id}:${row.item_id}`));
+
+        return ids.map(id => ({
+            id,
+            name: named.get(id) ?? 'A habit',
+            mineDone: finished.has(`${ctx.me}:${id}`),
+            theirsDone: finished.has(`${friendId}:${id}`),
+        }));
+    }
+
     /* ---------------------------------------------------------------- inbox */
 
     /**

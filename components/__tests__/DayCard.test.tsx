@@ -125,3 +125,39 @@ describe('saying something', () => {
         expect(onDeleteNote).toHaveBeenCalledWith('n1');
     });
 });
+
+describe('what the two of you are doing together', () => {
+    const together = [
+        { id: 'h1', name: 'Morning run', mineDone: true, theirsDone: false },
+        { id: 'h2', name: 'Read', mineDone: false, theirsDone: true },
+    ];
+
+    it('says nothing when nothing is shared', () => {
+        // A count already says how much; this section exists to say what, and
+        // there is nothing to say when nothing was shared.
+        const screen = show({ todayCompleted: 1, todayTotal: 3 });
+        expect(screen.queryByText('Morning run')).toBeNull();
+    });
+
+    it('names what was shared, and marks what they have done', () => {
+        const screen = show({ todayCompleted: 1, todayTotal: 3 }, { together });
+        expect(screen.getByText('Morning run')).toBeTruthy();
+        expect(screen.getByText('Read')).toBeTruthy();
+    });
+
+    it('says where you stand on the same thing', () => {
+        // The row is about the two of you, not about them.
+        const screen = show({ todayCompleted: 1, todayTotal: 3 }, { together });
+        expect(screen.getByText('you did')).toBeTruthy();
+        expect(screen.getByText('not you yet')).toBeTruthy();
+    });
+
+    it('does not let a long list take over the card', () => {
+        const many = Array.from({ length: 7 }, (_, index) => ({
+            id: `h${index}`, name: `Habit ${index}`, mineDone: false, theirsDone: false,
+        }));
+        const screen = show({ todayCompleted: 0, todayTotal: 7 }, { together: many });
+        expect(screen.getByText('and 3 more')).toBeTruthy();
+        expect(screen.queryByText('Habit 6')).toBeNull();
+    });
+});

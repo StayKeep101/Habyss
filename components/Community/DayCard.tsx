@@ -49,11 +49,19 @@ export const DayCard: React.FC<{
     reaction?: ReactionType;
     onReact: (reaction: ReactionType) => void;
     onOpen: () => void;
+    /**
+     * What the two of you are doing together today, with names on it.
+     *
+     * "2 of 5 done" says how much without saying what, and there is nothing in
+     * a number to react to. Only what is actually shared between you appears
+     * here: their other habits are none of your business.
+     */
+    together?: { id: string; name: string; mineDone: boolean; theirsDone: boolean }[];
     /** Notes already on this day, oldest first. */
     notes?: DayNote[];
     onComment?: (text: string) => void;
     onDeleteNote?: (id: string) => void;
-}> = ({ card, reaction, onReact, onOpen, notes = [], onComment, onDeleteNote }) => {
+}> = ({ card, reaction, onReact, onOpen, together = [], notes = [], onComment, onDeleteNote }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -162,6 +170,41 @@ export const DayCard: React.FC<{
                     </View>
                 ) : null}
             </Pressable>
+
+            {/* What they said they would do, and what became of it. The ticks
+                are theirs; yours is the row you already have on Home. */}
+            {together.length ? (
+                <Animated.View layout={MORPH} style={[styles.together, { borderTopColor: colors.border }]}>
+                    {together.slice(0, 4).map(item => (
+                        <View key={item.id} style={styles.togetherRow}>
+                            <Ionicons
+                                name={item.theirsDone ? 'checkmark-circle' : 'ellipse-outline'}
+                                size={s(15)}
+                                color={item.theirsDone ? colors.success : colors.textTertiary}
+                            />
+                            <Text
+                                numberOfLines={1}
+                                style={[styles.togetherName, {
+                                    color: item.theirsDone ? colors.textSecondary : colors.textPrimary,
+                                    textDecorationLine: item.theirsDone ? 'line-through' : 'none',
+                                }]}
+                            >
+                                {item.name}
+                            </Text>
+                            {/* Where you stand on the same thing, so the row is
+                                about the two of you rather than about them. */}
+                            <Text style={[styles.togetherMine, { color: item.mineDone ? colors.success : colors.textTertiary }]}>
+                                {item.mineDone ? 'you did' : 'not you yet'}
+                            </Text>
+                        </View>
+                    ))}
+                    {together.length > 4 ? (
+                        <Text style={[styles.togetherMore, { color: colors.textTertiary }]}>
+                            {`and ${together.length - 4} more`}
+                        </Text>
+                    ) : null}
+                </Animated.View>
+            ) : null}
 
             {/* Reacting is the whole interaction. It has to be one tap, and it
                 has to be visible that it landed. */}
@@ -303,6 +346,11 @@ const styles = StyleSheet.create({
         borderRadius: 999, borderWidth: StyleSheet.hairlineWidth,
     },
     proofText: { fontSize: ms(10), fontFamily: FontFamily.medium },
+    together: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: s(15), paddingVertical: vs(9), gap: vs(7) },
+    togetherRow: { flexDirection: 'row', alignItems: 'center', gap: s(8) },
+    togetherName: { flex: 1, fontSize: ms(12), fontFamily: FontFamily.medium },
+    togetherMine: { fontSize: ms(10), fontFamily: FontFamily.regular },
+    togetherMore: { fontSize: ms(10), fontFamily: FontFamily.regular, marginLeft: s(23) },
     reactions: {
         flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
         borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: vs(8),

@@ -329,6 +329,8 @@ export default function CommunityScreen() {
     // your timer sessions. A friend's arrives with the feed migration; until
     // then theirs reads as logged, which is the truthful default.
     const [notes, setNotes] = useState<Record<string, DayNote[]>>({});
+    /** What each friend and I are doing together today, by their id. */
+    const [together, setTogether] = useState<Record<string, { id: string; name: string; mineDone: boolean; theirsDone: boolean }[]>>({});
     const [myEvidence, setMyEvidence] = useState<Record<string, Evidence[]>>({});
     useEffect(() => {
         const me = friends.find(friend => friend.isCurrentUser);
@@ -346,6 +348,27 @@ export default function CommunityScreen() {
     }, [friends]);
 
     const dayFeed = useMemo(() => buildFeed(friends, myEvidence), [friends, myEvidence]);
+
+    /**
+     * The named part of each friend's day.
+     *
+     * Only for people who are actually friends, and only for what has been
+     * shared between the two of you — a count can be derived from numbers the
+     * server already returns, but a name has to be something they chose to
+     * show you.
+     */
+    useEffect(() => {
+        const others = friends.filter(friend => !friend.isCurrentUser);
+        if (others.length === 0) { setTogether({}); return; }
+        let alive = true;
+        Promise.all(others.map(async friend => {
+            const items = await FriendsService.sharedWithFriend(friend.userId).catch(() => []);
+            return [friend.id || friend.userId, items] as const;
+        }))
+            .then(pairs => { if (alive) setTogether(Object.fromEntries(pairs.filter(([, items]) => items.length))); })
+            .catch(() => undefined);
+        return () => { alive = false; };
+    }, [friends]);
 
     /**
      * What has already been said today, from the server and from this device.
@@ -613,6 +636,7 @@ export default function CommunityScreen() {
                                 const found = friends.find(item => (item.id || item.userId) === card.id);
                                 if (found) handleFriendPress(found);
                             }}
+                            together={together[card.id]}
                             notes={notes[card.id]}
                             onComment={text => void handleComment(card.id, text)}
                             onDeleteNote={id => void handleDeleteNote(card.id, id)}
