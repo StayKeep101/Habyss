@@ -8,7 +8,11 @@ import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { readableAccent } from '@/lib/colorContrast';
+import { contrastRatio, readableAccent } from '@/lib/colorContrast';
+
+/** Whichever of black or white can actually be read on this swatch. */
+const tickOn = (swatch: string): string =>
+    contrastRatio('#000000', swatch) >= contrastRatio('#FFFFFF', swatch) ? '#000000' : '#FFFFFF';
 
 /** Loaded lazily: a build without the picker should still show the tab. */
 let ImagePicker: typeof import('expo-image-picker') | null = null;
@@ -113,7 +117,7 @@ const ICONS: { name: IconName; label: string; tags: string }[] = [
     { name: 'sparkles-outline', label: 'Sparkle', tags: 'habit special new' },
     { name: 'shield-checkmark-outline', label: 'Discipline', tags: 'resist protect promise' },
     { name: 'infinite-outline', label: 'Forever', tags: 'consistency endless' },
-    { name: 'sunny-outline', label: 'Sunshine', tags: 'outdoors daylight walk' },
+    { name: 'partly-sunny-outline', label: 'Fresh air', tags: 'outdoors daylight walk sunshine' },
     { name: 'cloud-outline', label: 'Breathe', tags: 'calm breathing air' },
     { name: 'happy-outline', label: 'Mood', tags: 'gratitude feelings journal' },
     { name: 'journal-outline', label: 'Journal', tags: 'write diary reflect' },
@@ -239,7 +243,11 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                     accessibilityState={{ selected: color.toUpperCase() === item.color.toUpperCase() }}
                     onPress={() => { selectionFeedback(); setWheel(false); onChange({ color: item.color }); }}
                     style={[styles.swatch, { backgroundColor: item.color, borderColor: color.toUpperCase() === item.color.toUpperCase() ? colors.textPrimary : 'transparent' }]}>
-                    {color.toUpperCase() === item.color.toUpperCase() ? <AppIcon name="checkmark" size={18} color="#000000" /> : null}
+                    {/* Black on amber reads; black on indigo does not. The
+                        tick takes whichever of black or white the swatch it
+                        sits on can actually carry. */}
+                    {color.toUpperCase() === item.color.toUpperCase()
+                        ? <AppIcon name="checkmark" size={18} color={tickOn(item.color)} /> : null}
                 </Pressable>)}
 
                 {/* The spectrum, as a swatch. A wheel hidden behind the words
@@ -249,7 +257,13 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                     accessibilityState={{ expanded: wheel }}
                     onPress={() => { selectionFeedback(); setWheel(!wheel); }}
                     style={[styles.swatch, styles.spectrumWrap, { borderColor: custom ? colors.textPrimary : 'transparent' }]}>
-                    <Svg width={38} height={38}>
+                    {/* Behind the tick rather than beside it. It used to be an
+                        ordinary child with the tick laid out after it, and the
+                        tick was pushed back on top with `absoluteFill` — which
+                        stretches a text glyph across the whole 38pt box and
+                        leaves it top-left rather than centred. That is the
+                        lopsided mark. */}
+                    <Svg width={38} height={38} style={StyleSheet.absoluteFill}>
                         <Defs>
                             <SvgGradient id={`spectrum-${subject}`} x1="0" y1="0" x2="1" y2="1">
                                 {SPECTRUM.map((stop, index) => (
@@ -259,7 +273,13 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                         </Defs>
                         <Circle cx={19} cy={19} r={19} fill={`url(#spectrum-${subject})`} />
                     </Svg>
-                    {custom ? <AppIcon name="checkmark" size={18} color="#000000" style={StyleSheet.absoluteFill as never} /> : null}
+                    {/* No single colour reads on a rainbow, so the tick brings
+                        its own ground with it. */}
+                    {custom ? (
+                        <View style={styles.spectrumTick}>
+                            <AppIcon name="checkmark" size={15} color="#FFFFFF" />
+                        </View>
+                    ) : null}
                 </Pressable>
             </View>
 
@@ -283,4 +303,5 @@ const styles = StyleSheet.create({
     icon: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
     swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     swatch: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+    spectrumTick: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
 });

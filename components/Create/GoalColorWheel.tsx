@@ -9,7 +9,9 @@ import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { hexToHsv, hsvToHex, normalizeHex } from '@/lib/goalColors';
 
-const SIZE = 168, RADIUS = 80, CENTER = SIZE / 2, TRACK = 160;
+const SIZE = 168, RADIUS = 80, CENTER = SIZE / 2;
+/** The thumb, and the travel it costs. */
+const THUMB = 18;
 const WheelArtwork = memo(function WheelArtwork() {
     return <Svg width={SIZE} height={SIZE}>
         <Defs><RadialGradient id="wheel-saturation" cx="50%" cy="50%" r="50%">
@@ -41,6 +43,17 @@ export function GoalColorWheel({ value, onChange, accent }: { value: string; onC
         }
     }, [value, h, s, v]);
     const commit = (hue: number, saturation: number, brightness: number) => onChange(hsvToHex(hue, saturation, brightness));
+
+    /**
+     * How wide the brightness track actually is.
+     *
+     * It used to be a constant 160, laid out inside a row that is as wide as
+     * the sheet — so on any phone wider than that the bar stopped part way
+     * across with black beside it, which is not a slider that ran out, it is a
+     * slider that was never measured. A shared value rather than state: the
+     * gesture reads it on the UI thread.
+     */
+    const width = useSharedValue(0);
     const position = (x: number, y: number) => {
         'worklet';
         const dx = x - CENTER, dy = y - CENTER;
@@ -51,9 +64,22 @@ export function GoalColorWheel({ value, onChange, accent }: { value: string; onC
         .onBegin(event => position(event.x, event.y))
         .onUpdate(event => position(event.x, event.y))
         .onFinalize(() => runOnJS(commit)(h.get(), s.get(), v.get()));
+    /**
+     * Where along the track a touch falls, in 0–1.
+     *
+     * Measured from the thumb's centre at each end rather than from the edges,
+     * so dragging fully left gives 0 and fully right gives 1 — with the old
+     * edge-to-edge mapping the thumb's own width made both ends unreachable,
+     * and half of it hung off the bar at each extreme.
+     */
+    const along = (x: number) => {
+        'worklet';
+        const travel = Math.max(1, width.get() - THUMB);
+        return Math.max(0, Math.min(1, (x - THUMB / 2) / travel));
+    };
     const brightness = Gesture.Pan().minDistance(0)
-        .onBegin(event => { v.set(Math.max(0, Math.min(1, event.x / TRACK))); })
-        .onUpdate(event => { v.set(Math.max(0, Math.min(1, event.x / TRACK))); })
+        .onBegin(event => { v.set(along(event.x)); })
+        .onUpdate(event => { v.set(along(event.x)); })
         .onFinalize(() => runOnJS(commit)(h.get(), s.get(), v.get()));
     const marker = useAnimatedStyle(() => ({ transform: [
         { translateX: Math.cos(h.get() * Math.PI / 180) * s.get() * RADIUS },
@@ -61,7 +87,9 @@ export function GoalColorWheel({ value, onChange, accent }: { value: string; onC
     ], backgroundColor: hsvToHex(h.get(), s.get(), v.get()) }));
     const preview = useAnimatedStyle(() => ({ backgroundColor: hsvToHex(h.get(), s.get(), v.get()) }));
     const track = useAnimatedStyle(() => ({ backgroundColor: hsvToHex(h.get(), s.get(), 1) }));
-    const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: v.get() * TRACK }] }));
+    const thumb = useAnimatedStyle(() => ({
+        transform: [{ translateX: v.get() * Math.max(0, width.get() - THUMB) }],
+    }));
     const shade = useAnimatedStyle(() => ({ opacity: 1 - v.get() }));
     const valid = normalizeHex(hex);
     return <View style={styles.content}>
@@ -81,7 +109,9 @@ export function GoalColorWheel({ value, onChange, accent }: { value: string; onC
         <View style={styles.brightness}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Brightness</Text>
             <GestureDetector gesture={brightness}>
-                <View style={styles.trackTouch} accessible accessibilityRole="adjustable" accessibilityLabel="Color brightness"
+                <View style={styles.trackTouch}
+                    onLayout={event => { width.set(event.nativeEvent.layout.width); }}
+                    accessible accessibilityRole="adjustable" accessibilityLabel="Color brightness"
                     accessibilityValue={{ min: 0, max: 100, now: Math.round(initial.v * 100) }}
                     accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
                     onAccessibilityAction={event => commit(h.get(), s.get(), Math.max(0, Math.min(1, v.get() + (event.nativeEvent.actionName === 'increment' ? 0.05 : -0.05))))}>
@@ -116,9 +146,13 @@ const styles = StyleSheet.create({
     hint: { fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },
     brightness: { flexDirection: 'row', alignItems: 'center', gap: 20 },
     label: { fontSize: 13, fontFamily: FontFamily.medium },
-    trackTouch: { width: TRACK, height: 44, justifyContent: 'center' },
+    // `flex: 1` rather than a fixed width: the track is however much room the
+    // row has left after the label, on whatever phone this is.
+    trackTouch: { flex: 1, height: 44, justifyContent: 'center' },
     track: { height: 14, borderRadius: 7, overflow: 'hidden' },
-    thumb: { position: 'absolute', left: -9, top: 13, width: 18, height: 18, borderRadius: 9, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#777777' },
+    // Travels from the left edge to `width - THUMB`, so it sits fully on the
+    // bar at both ends rather than half off it.
+    thumb: { position: 'absolute', left: 0, top: 13, width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#777777' },
     hexRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     hex: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, fontFamily: FontFamily.medium, fontSize: 14 },
     apply: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
