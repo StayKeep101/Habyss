@@ -16,6 +16,11 @@ import type { Participant } from '@/lib/shared';
  *
  * Deliberately not a count. "3 people" tells you nothing you can act on;
  * a face you recognise tells you whom to message.
+ *
+ * Somebody you have invited and who has not answered is here too, dimmed and
+ * with a dotted ring. They are not part of the rule — an unanswered invitation
+ * cannot hold a habit up — but leaving them off would mean a habit you had just
+ * shared looked exactly like one you had not.
  */
 export const SharedFaces: React.FC<{
     people: Participant[];
@@ -37,7 +42,7 @@ export const SharedFaces: React.FC<{
         <View
             style={styles.row}
             accessible
-            accessibilityLabel={`${people.filter(person => person.done).length} of ${people.length} done`}
+            accessibilityLabel={label(people)}
         >
             {shown.map((person, index) => (
                 <View
@@ -48,9 +53,12 @@ export const SharedFaces: React.FC<{
                         backgroundColor: tone.raised,
                         // The page's own colour behind each one, so overlapping
                         // faces stay separate instead of becoming a smear.
-                        borderColor: person.done ? tint : colors.background,
+                        borderColor: person.pending ? colors.textTertiary : person.done ? tint : colors.background,
+                        borderStyle: person.pending ? 'dotted' : 'solid',
                         zIndex: shown.length - index,
-                        opacity: person.done ? 1 : 0.55,
+                        // Three steps, not two: done, on it, and not yet
+                        // answered — which is fainter than either.
+                        opacity: person.pending ? 0.38 : person.done ? 1 : 0.55,
                     }]}
                 >
                     {person.avatarUrl ? (
@@ -78,6 +86,14 @@ export const SharedFaces: React.FC<{
         </View>
     );
 };
+
+/** What a screen reader is told, which a row of overlapping circles cannot say. */
+function label(people: Participant[]): string {
+    const agreed = people.filter(person => !person.pending);
+    const invited = people.length - agreed.length;
+    const done = `${agreed.filter(person => person.done).length} of ${agreed.length} done`;
+    return invited > 0 ? `${done}, ${invited} invited` : done;
+}
 
 const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center' },

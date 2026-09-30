@@ -1125,14 +1125,24 @@ export class FriendsService {
         const table = itemType === 'goal' ? 'shared_goals' : itemType === 'task' ? 'shared_tasks' : 'shared_habits';
         const column = itemType === 'goal' ? 'goal_id' : itemType === 'task' ? 'task_id' : 'habit_id';
 
-        const { data } = await ctx.sb.from(table).select('owner_id, shared_with_id')
-            .eq(column, itemId).eq('status', 'accepted').is('deleted_at', null);
+        // Pending rows come back too. Somebody you have invited belongs on the
+        // card — knowing at a glance who this is shared with is the whole point
+        // of the faces — but they are marked, because they are not part of the
+        // rule until they have said yes. Asking only for `accepted` meant a
+        // habit you had just shared looked exactly like one you had not.
+        const { data } = await ctx.sb.from(table).select('owner_id, shared_with_id, status')
+            .eq(column, itemId).in('status', ['accepted', 'pending']).is('deleted_at', null);
         const ids = new Set<string>([ctx.me]);
+        const pending = new Set<string>();
         let ownerId = ctx.me;
         for (const row of data ?? []) {
             ids.add(row.owner_id);
             ids.add(row.shared_with_id);
             ownerId = row.owner_id;
+            // Only the invitee is waiting on an answer; the owner already agreed
+            // to it by offering it.
+            if (row.status === 'pending') pending.add(row.shared_with_id);
+            else pending.delete(row.shared_with_id);
         }
 
         const day = localDateKey(new Date());
@@ -1159,6 +1169,8 @@ export class FriendsService {
                 /** Who shared it. Not the same as you, and not interchangeable. */
                 isOwner: id === ownerId,
                 isYou: id === ctx.me,
+                /** Invited, not yet answered. On the card, outside the rule. */
+                pending: pending.has(id),
             };
         });
     }

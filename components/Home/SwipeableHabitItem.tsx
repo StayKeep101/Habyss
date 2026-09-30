@@ -290,9 +290,21 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                       ) : null}
                     </BadgeRow>
                   </View>
-                  <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>
-                    {habit.startTime || '--:--'}{habit.durationMinutes ? ` · ${habit.durationMinutes}m` : ''}
-                  </Text>
+                  {/* Nothing at all when there is no time.
+                      It used to draw `--:--`, which is a placeholder shaped
+                      like a clock reading nothing — and plenty of habits have
+                      no time on purpose, because they are done when there is
+                      room. An empty slot says that; four dashes say the card
+                      is missing something. */}
+                  {habit.startTime ? (
+                    <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>
+                      {habit.startTime}{habit.durationMinutes ? ` · ${habit.durationMinutes}m` : ''}
+                    </Text>
+                  ) : habit.durationMinutes ? (
+                    <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>
+                      {`${habit.durationMinutes}m`}
+                    </Text>
+                  ) : null}
                 </>
               )}
             </View>

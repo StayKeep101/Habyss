@@ -94,3 +94,42 @@ describe('whose day it is, when a friend shared it with you', () => {
         expect(state.line).toBe('Waiting on you');
     });
 });
+
+describe('somebody who has been asked and has not answered', () => {
+    const invited = (username: string): Participant =>
+        ({ userId: username, username, done: false, isYou: false, pending: true });
+
+    it('cannot hold the habit up', () => {
+        // The alternative is an item that is impossible to finish until a
+        // friend replies — which is a share turning into a hostage.
+        expect(sharedState([you(true), invited('sam')]).complete).toBe(true);
+    });
+
+    it('is not somebody it is waiting on', () => {
+        const state = sharedState([you(false), them('ana', true), invited('sam')]);
+        expect(state.waitingOn.map(person => person.username)).toEqual(['me']);
+        expect(state.waitingOnYou).toBe(true);
+    });
+
+    it('is not counted in the total', () => {
+        const state = sharedState([you(true), them('ana', true), invited('sam')]);
+        expect(state.total).toBe(2);
+        expect(state.done).toBe(2);
+    });
+
+    it('is still on the card, because that is the point of the faces', () => {
+        const state = sharedState([you(true), invited('sam')]);
+        expect(state.people.map(person => person.username)).toEqual(['me', 'sam']);
+        expect(state.invited.map(person => person.username)).toEqual(['sam']);
+    });
+
+    it('says an invitation is out rather than claiming a shared habit', () => {
+        expect(sharedState([you(true), invited('sam')]).line).toBe('Invited · not answered');
+        expect(sharedState([you(true), invited('sam'), invited('ana')]).line).toBe('2 invited');
+    });
+
+    it('stops mattering to the line once somebody has accepted', () => {
+        expect(sharedState([you(true), them('ana', false), invited('sam')]).line)
+            .toBe('Waiting on ana');
+    });
+});

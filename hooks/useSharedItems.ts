@@ -10,6 +10,8 @@ interface SharedRow {
     avatarUrl?: string;
     completedToday?: boolean;
     isYou?: boolean;
+    /** Invited and not yet answered. */
+    pending?: boolean;
 }
 
 /**
@@ -51,7 +53,9 @@ export function useSharedItems(
             const rows = (await FriendsService.getSharedItemParticipants(id, kind).catch(() => [])) as SharedRow[];
             return [id, rows] as const;
         }));
-        // One person on it is not a shared item; it is an ordinary one.
+        // One person on it is not a shared item; it is an ordinary one. An
+        // invitation out counts as more than one — the card should say so from
+        // the moment it is sent, not only once somebody accepts.
         return Object.fromEntries(found.filter(([, rows]) => rows.length > 1));
     }, [key, kind]);
 
@@ -84,6 +88,7 @@ export function useSharedItems(
             avatarUrl: row.avatarUrl,
             done: row.isYou ? !!doneByMe[id] : !!row.completedToday,
             isYou: !!row.isYou,
+            pending: !!row.pending,
         })));
     }, [people, doneByMe]);
 

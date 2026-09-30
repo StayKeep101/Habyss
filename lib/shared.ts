@@ -23,11 +23,22 @@ export interface Participant {
     /** Whether this person has done *this* item today. */
     done: boolean;
     isYou: boolean;
+    /**
+     * Offered it, but has not answered yet.
+     *
+     * They belong on the card — the point of the faces is knowing at a glance
+     * who this is shared with — but they are **not** part of the rule. Somebody
+     * who has not said yes cannot be holding a habit up, and counting them
+     * would make an item impossible to finish until they replied.
+     */
+    pending?: boolean;
 }
 
 export interface SharedState {
-    /** Everyone on it, you first, then the rest by name. */
+    /** Everyone on it, you first, then the rest by name, invitees last. */
     people: Participant[];
+    /** Who has been asked and not answered. On the card, outside the rule. */
+    invited: Participant[];
     /** True only once every single person has done it. */
     complete: boolean;
     /** Done, out of everyone. */
@@ -58,21 +69,35 @@ export function nameList(people: Participant[]): string {
  */
 export function sharedState(participants: Participant[]): SharedState {
     const people = [...participants].sort((a, b) =>
-        Number(b.isYou) - Number(a.isYou) || a.username.localeCompare(b.username));
+        // Invited-but-unanswered sit at the end: they are on the card, not in
+        // the arrangement.
+        Number(!!a.pending) - Number(!!b.pending)
+        || Number(b.isYou) - Number(a.isYou)
+        || a.username.localeCompare(b.username));
 
-    const done = people.filter(person => person.done).length;
-    const total = people.length;
-    const waitingOn = people.filter(person => !person.done);
+    // Only the people who actually agreed to it are part of the rule.
+    const agreed = people.filter(person => !person.pending);
+    const done = agreed.filter(person => person.done).length;
+    const total = agreed.length;
+    const waitingOn = agreed.filter(person => !person.done);
     const waitingOnYou = waitingOn.some(person => person.isYou);
     const complete = total > 0 && done === total;
 
-    return { people, complete, done, total, waitingOn, waitingOnYou, line: lineFor({ complete, done, total, waitingOn, waitingOnYou }) };
+    const invited = people.filter(person => !!person.pending);
+    return {
+        people, invited, complete, done, total, waitingOn, waitingOnYou,
+        line: lineFor({ complete, done, total, waitingOn, waitingOnYou, invited: invited.length }),
+    };
 }
 
-function lineFor({ complete, done, total, waitingOn, waitingOnYou }: {
+function lineFor({ complete, done, total, waitingOn, waitingOnYou, invited }: {
     complete: boolean; done: number; total: number; waitingOn: Participant[]; waitingOnYou: boolean;
+    invited: number;
 }): string {
     if (total === 0) return '';
+    // Nobody has accepted yet, so there is nothing shared to report on — only
+    // an invitation out, which is the honest thing to say about it.
+    if (total === 1 && invited > 0) return invited === 1 ? 'Invited · not answered' : `${invited} invited`;
     if (total === 1) return complete ? 'Done' : 'Not done yet';
     if (complete) return 'Both done';
 
