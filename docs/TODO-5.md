@@ -34,18 +34,39 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## The day, as a card people can react to
 
-- [~] The day card now names things rather than only counting them: what the
+- [x] The day card now names things rather than only counting them: what the
       two of you are doing together, ticked as they do it, with where *you*
       stand on the same thing beside it — so the row is about the pair of you
       rather than about them. Reactions and notes were already there.
       **The limit, and it is deliberate.** Only habits actually shared between
       you appear by name. A friend's other habits are none of your business, and
       the fact that the server *could* report them is exactly the reason it
-      does not. So a friend who shares nothing still reads as "2 of 5 done" —
-      which is the honest amount to say about somebody who has not shown you
-      their day.
+      does not.
       If you want every habit named in the feed, that is a privacy decision to
       take on purpose, and it changes what `friend_stats` is allowed to return.
+- [x] **It is the whole day now, not the third of it that is habits.**
+      `friend_stats` counted habit completions only, so a card meant to show
+      somebody's progress showed a third of one — and tasks are most of what a
+      day in this app actually is. It returns tasks done, tasks due, goals
+      active and goals moved; the ring counts habits and tasks together, and
+      the card draws the three strands under it as bars.
+      **Goals are reported as *moved today*, not as a percentage.** A goal's
+      progress is worked out in the client from weights and history;
+      reproducing that in SQL would give two answers to one question and the
+      server's would be the wrong one. A bar that barely moves in a day is also
+      a bar nobody reads, where "2 goals moved" changes daily.
+      **A strand nobody reported is left off rather than drawn at zero.** An
+      older server and a friend who has turned progress off both send nothing,
+      and "no answer" must not read to their friends as "did none of it". The
+      sharing switch is enforced inside `friend_stats` itself: hiding something
+      in the client while the server still hands it over is not privacy, it is
+      decoration.
+- [x] **Shared tasks actually work now**, which they did not. `useSharedItems`
+      asked `shared_habits` about every id it was given, so a task id found
+      nobody — which reads as "not shared" rather than as a wrong question, and
+      a shared task completed on one person's tick. It takes a kind; ticking a
+      task publishes and announces the way a habit does; "shared only" filters
+      tasks as well as habits.
 
 ## Creation flow — habits, and then tasks and goals
 
@@ -94,6 +115,20 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Community
 
+- [x] **A rail of faces across the top.** The feed showed about one and a half
+      cards on a phone, so with a dozen friends "who is about today" cost a
+      dozen scrolls. Each face is ringed by that person's day, and tapping one
+      takes the feed to their card — which is what earns the vertical space. A
+      rail you can only look at is decoration.
+      **Ordered by who needs you, not by who is doing best.** Somebody waiting
+      on your half of a shared habit is the one fact on this screen you can act
+      on; sorting by achievement would bury them behind whoever tracks the
+      least demanding things, which is the leaderboard's failure rebuilt
+      smaller. The only badge is that — not a streak and not a score, because
+      those say how somebody is doing and this says there is something only you
+      can do. You are always last: it is a list of other people.
+      The line above the feed reads "2 people are waiting on you" when that is
+      true, and how the group is going when it is not.
 - [x] The spinning logo is an ordinary spinner. A brand animation is not what
       waiting is for.
 - [x] A friend's profile is the page you see for yourself —
@@ -117,10 +152,10 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
       lowercase, how somebody is found — and a name is what a person is called.
       Both travel; the interface picks, and the handle stays visible under the
       name so it can still be typed by somebody looking for you.
-- [ ] **Still device-only: the profile picture.** `profiles.avatar_url` exists,
-      but the app stores a local `file://` URI, which means nothing to anybody
-      else's phone. Showing a friend your picture needs the image uploaded to
-      storage first — a real piece of work, not a line.
+- [x] **The profile picture travels.** It had been a local `file://` URI, which
+      means nothing to anybody else's phone. It is uploaded to the `avatars`
+      bucket and the public URL is what `profiles.avatar_url` carries, so a
+      friend sees the picture on their card, on the rail and on your page.
 
 ## Home
 
@@ -146,3 +181,20 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done
 - [ ] **Consequence:** `HabitGraphRenderer` is now unreachable. It is a real,
       tested chart with a stored `graphStyle` behind it, so it has been left in
       place rather than deleted — say if it should go, or come back somewhere.
+
+## Still open
+
+- [ ] **The goal sentence parser needs to read more of what people write.**
+      The one item on this round's list that has not been touched.
+- [ ] `HabitGraphRenderer` is unreachable since Stats became the heatmap alone.
+      A real, tested chart with a stored `graphStyle` behind it, so it has been
+      left in place rather than deleted — say if it should go, or come back
+      somewhere.
+- [ ] **Native warnings are fixed but unverified.** No installed simulator
+      matches the iOS 27 deployment target — every one here is 18.5 — so the
+      app target cannot be built on this machine. The WidgetExtension builds
+      clean. This needs a run on your device to confirm.
+- [ ] Keyboard flicker on sheet exit. Needs a device to see.
+- [ ] Messaging between friends. Deliberately not faked with a stub.
+- [ ] `pacts` and `ember_ledger` are still on the server, empty and unused by
+      any build. Say the word and they go.
