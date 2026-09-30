@@ -44,7 +44,7 @@ export const ShareItemModal: React.FC<ShareItemModalProps> = ({ visible, itemId,
     return (
         <ShareParticipantsSheet
             visible={visible}
-            title={isTask ? 'SHARE TASK' : 'SHARE HABIT'}
+            title={isTask ? 'Share task' : 'Share habit'}
             subtitle={itemName}
             loadShared={loadShared}
             applyChanges={applyChanges}

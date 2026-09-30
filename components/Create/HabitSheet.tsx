@@ -3,6 +3,8 @@ import {ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AppIcon as Ionicons, type IconName } from '@/components/Common/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
+import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
+import { useShareDraft } from '@/hooks/useShareDraft';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
@@ -257,7 +259,10 @@ export const HabitSheet: React.FC<{
     }, [current, eventGoal, parsed, edits, rules]);
 
     const linkedGoal = goalId ?? draft.goalId;
-    const close = () => { setEventVisible(false); setEditing(null); onClose?.(); };
+    // Deciding to do this with somebody happens while writing it, not after —
+    // so the choice is held here and sent the moment the habit has an id.
+    const share = useShareDraft('habit', current?.id);
+    const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
     const toggleRow = (id: string | null) => { setOpenRow(id as Row); setUnitPicker(false); setPicker(null); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
@@ -303,7 +308,13 @@ export const HabitSheet: React.FC<{
             };
 
             if (current) await updateHabit({ id: current.id, ...fields });
-            else if (!(await addHabit(fields))?.id) throw new Error('not saved');
+            else {
+                const made = await addHabit(fields);
+                if (!made?.id) throw new Error('not saved');
+                // After it exists, and never blocking: the habit is saved, and
+                // an invitation that did not reach a friend is not a lost habit.
+                await share.applyTo(made.id);
+            }
 
             successFeedback();
             emit('habit_updated', { habitId: current?.id });
@@ -539,7 +550,15 @@ export const HabitSheet: React.FC<{
             {/* The bar and the save button ride above the keyboard, so the
                 sentence, every setting and saving are all in reach at once. */}
             <>
-                <ModalHeader title={current ? 'Edit habit' : 'New habit'} onBack={close} backIcon="close" />
+                <ModalHeader
+                    title={current ? 'Edit habit' : 'New habit'}
+                    onBack={close}
+                    backIcon="close"
+                    onAction={share.open}
+                    actionIcon="person-add-outline"
+                    actionLabel={share.pending.length
+                        ? `Sharing with ${share.pending.length}` : 'Share with a friend'}
+                />
 
                 <ScrollView
                     style={styles.written}
@@ -602,6 +621,14 @@ export const HabitSheet: React.FC<{
                     </Pressable>
                 </View>
             </>
+            <ShareParticipantsSheet
+                visible={share.picking}
+                title={current ? 'Share habit' : 'Do it together'}
+                subtitle={draft.name.trim() || text.trim() || 'This habit'}
+                loadShared={share.loadShared}
+                applyChanges={share.applyChanges}
+                onClose={share.close}
+            />
         </ComposerModal>
     );
 }

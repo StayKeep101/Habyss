@@ -39,7 +39,7 @@ export const ShareGoalModal: React.FC<ShareGoalModalProps> = ({ visible, goalId,
     return (
         <ShareParticipantsSheet
             visible={visible}
-            title="SHARE GOAL"
+            title="Share goal"
             subtitle={goalName}
             loadShared={loadShared}
             applyChanges={applyChanges}

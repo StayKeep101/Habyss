@@ -5,7 +5,8 @@ import { ComposerModal } from '@/components/Create/ComposerModal';
 import { TimeRange, endTime } from '@/components/Create/TimeRange';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { ShareButton } from '@/components/Common/ShareButton';
-import { ShareItemModal } from '@/components/ShareHabitModal';
+import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
+import { useShareDraft } from '@/hooks/useShareDraft';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { GoalCalendar } from '@/components/Create/GoalCalendar';
@@ -95,13 +96,15 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [sharing, setSharing] = useState(false);
     /** A row the opener asked for, and the one this session actually opened on. */
     const [requestedRow, setRequestedRow] = useState<string | null>(null);
     const [openedWith, setOpenedWith] = useState<string | null>(null);
     const savingRef = useRef(false);
 
     const current = task ?? editing;
+    // Held until the task has an id, so a task can be shared while it is still
+    // being written rather than only from a detail page afterwards.
+    const share = useShareDraft('task', current?.id);
     const isOpen = listenToGlobalEvents ? eventVisible : !!visible;
 
     // Opening on something new clears the last one, during render so the first
@@ -164,7 +167,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         return { ...read, ...edits };
     }, [current, eventGoal, parsed, edits]);
 
-    const close = () => { setEventVisible(false); setEditing(null); onClose?.(); };
+    const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
     const save = async () => {
@@ -184,7 +187,11 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 goalId: draft.goalId,
             };
             if (current) await updateTask(current.id, input);
-            else if (!(await createTask(input))) throw new Error('not saved');
+            else {
+                const made = await createTask(input);
+                if (!made) throw new Error('not saved');
+                await share.applyTo(made.id);
+            }
 
             successFeedback();
             onSaved?.();
@@ -290,11 +297,12 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             <>
                 <ModalHeader
                     title={current ? 'Edit task' : 'New task'} onBack={close} backIcon="close"
-                    // Only once it exists: there is nobody to share a task with
-                    // until the task has an id to share.
-                    rightSlot={current ? (
-                        <ShareButton variant="friend" onPress={() => { selectionFeedback(); setSharing(true); }} />
-                    ) : undefined}
+                    // On a new task too. There is no id yet to write a share row
+                    // against, so the choice is held and sent on save — deciding
+                    // to do something with somebody happens while writing it.
+                    rightSlot={
+                        <ShareButton variant="friend" onPress={() => { selectionFeedback(); share.open(); }} />
+                    }
                 />
 
                 <ScrollView
@@ -364,13 +372,14 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     </Pressable>
                 </View>
 
-                {current ? (
-                    <ShareItemModal
-                        visible={sharing} kind="task"
-                        itemId={current.id} itemName={current.title}
-                        onClose={() => setSharing(false)}
-                    />
-                ) : null}
+                <ShareParticipantsSheet
+                    visible={share.picking}
+                    title={current ? 'Share task' : 'Do it together'}
+                    subtitle={draft.title.trim() || text.trim() || 'This task'}
+                    loadShared={share.loadShared}
+                    applyChanges={share.applyChanges}
+                    onClose={share.close}
+                />
             </>
         </ComposerModal>
     );

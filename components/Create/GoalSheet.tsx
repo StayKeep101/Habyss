@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import { AppIcon as Ionicons, type IconName } from '@/components/Common/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
+import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
+import { useShareDraft } from '@/hooks/useShareDraft';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
@@ -188,7 +190,10 @@ export const GoalSheet: React.FC<{
         return { ...read, ...edits };
     }, [current, result, edits]);
 
-    const close = () => { setEventVisible(false); setEditing(null); onClose?.(); };
+    // Deciding to do this with somebody happens while writing it, not after —
+    // so the choice is held here and sent the moment the goal has an id.
+    const share = useShareDraft('goal', current?.id);
+    const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
     // A goal needs a starting point only when the target is relative to it.
@@ -251,7 +256,11 @@ export const GoalSheet: React.FC<{
             };
 
             if (current) await updateHabit({ id: current.id, ...fields });
-            else if (!(await addHabit(fields))?.id) throw new Error('not saved');
+            else {
+                const made = await addHabit(fields);
+                if (!made?.id) throw new Error('not saved');
+                await share.applyTo(made.id);
+            }
 
             successFeedback();
             emit('habit_updated', { habitId: current?.id });
@@ -400,7 +409,15 @@ export const GoalSheet: React.FC<{
             {/* Every setting rides above the keyboard, so writing the goal and
                 pinning down its number and its deadline are one motion. */}
             <>
-                <ModalHeader title={current ? 'Edit goal' : 'New goal'} onBack={close} backIcon="close" />
+                <ModalHeader
+                    title={current ? 'Edit goal' : 'New goal'}
+                    onBack={close}
+                    backIcon="close"
+                    onAction={share.open}
+                    actionIcon="person-add-outline"
+                    actionLabel={share.pending.length
+                        ? `Sharing with ${share.pending.length}` : 'Share with a friend'}
+                />
 
                 <ScrollView
                     style={styles.written}
@@ -472,6 +489,14 @@ export const GoalSheet: React.FC<{
                     </Pressable>
                 </View>
             </>
+            <ShareParticipantsSheet
+                visible={share.picking}
+                title={current ? 'Share goal' : 'Do it together'}
+                subtitle={draft.title.trim() || text.trim() || 'This goal'}
+                loadShared={share.loadShared}
+                applyChanges={share.applyChanges}
+                onClose={share.close}
+            />
         </ComposerModal>
     );
 };
