@@ -235,7 +235,10 @@ export async function addHabit(habitData: Partial<Habit>): Promise<Habit | null>
         try {
             const db = await getDatabase();
             if (db) {
-                const id = generateId();
+                // A shared habit arrives with the id it already has on the
+                // owner's device, because that id is what both sides publish
+                // completions against. Everything else gets a fresh one.
+                const id = habitData.id || generateId();
 
                 await db.runAsync(`
                     INSERT INTO habits (

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {ActivityIndicator, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
+import {ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, LinearTransition, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -46,7 +46,7 @@ export default function HabitDetailScreen() {
     const requestedDate = param(params.date);
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { selectionFeedback, successFeedback, errorFeedback } = useHaptics();
+    const { lightFeedback, selectionFeedback, successFeedback, errorFeedback } = useHaptics();
     const [today, setToday] = useState(localHabitDate);
     const [date, setDate] = useState(validDate(requestedDate) ? requestedDate! : localHabitDate());
     const [habit, setHabit] = useState<Habit | null>(null);
@@ -60,6 +60,33 @@ export default function HabitDetailScreen() {
     const [history, setHistory] = useState<HistoryDay[]>([]);
     const [undo, setUndo] = useState<number | null>(null);
     const [showEditor, setShowEditor] = useState(false);
+    /**
+     * Whether this habit is yours to change.
+     *
+     * One arrangement, two records: whoever offered a shared habit owns what it
+     * is, and everybody on it owns whether they did it. If both sides could
+     * edit, one of them moves it to 7am and the other is late for something
+     * they never agreed to — and there is no merge for a disagreement about
+     * what a habit is. `lib/sharedAdopt.ts` states the rule; this is where it
+     * is visible.
+     */
+    const [owner, setOwner] = useState<{ name: string; mine: boolean } | null>(null);
+    useEffect(() => {
+        if (!habitId) return;
+        let alive = true;
+        (async () => {
+            const { FriendsService } = require('@/lib/friendsService') as typeof import('@/lib/friendsService');
+            const rows = await FriendsService.getSharedItemParticipants(habitId, 'habit').catch(() => []);
+            // One person on it is not a shared habit, it is an ordinary one, and
+            // an ordinary habit has no owner to be told about.
+            if (!alive || rows.length < 2) return;
+            const found = (rows as { isOwner?: boolean; isYou?: boolean; username?: string }[])
+                .find(row => row.isOwner);
+            if (!found) return;
+            setOwner({ name: found.isYou ? 'You' : (found.username ?? 'A friend'), mine: !!found.isYou });
+        })().catch(() => undefined);
+        return () => { alive = false; };
+    }, [habitId]);
     const [showShare, setShowShare] = useState(false);
     const [view, setView] = useState<HabitView>('today');
     /**
@@ -254,8 +281,26 @@ export default function HabitDetailScreen() {
             subtitle={schedule}
             onBack={() => router.back()}
             rightSlot={habit ? <View style={styles.headerActions}>
-                <ShareButton variant="friend" onPress={() => setShowShare(true)} />
-                <IconButton icon="pencil-outline" label="Edit habit" variant="accent" onPress={() => { selectionFeedback(); setShowEditor(true); }} />
+                {/* Only the owner can offer it on, for the same reason only
+                    the owner can change it: it is theirs. */}
+                {owner && !owner.mine ? null : (
+                    <ShareButton variant="friend" onPress={() => setShowShare(true)} />
+                )}
+                {owner && !owner.mine ? (
+                    <IconButton
+                        icon="lock-closed-outline"
+                        label={`${owner.name} set this habit up, so only they can change it`}
+                        onPress={() => {
+                            lightFeedback();
+                            Alert.alert(
+                                `${owner.name}'s habit`,
+                                'You are doing this one together, so only the person who set it up can change what it is. You can still do it, skip it, or leave it from the menu.',
+                            );
+                        }}
+                    />
+                ) : (
+                    <IconButton icon="pencil-outline" label="Edit habit" variant="accent" onPress={() => { selectionFeedback(); setShowEditor(true); }} />
+                )}
             </View> : undefined}
         >
             {!habit ? <View style={styles.empty}>

@@ -50,6 +50,7 @@ export const SharedWith: React.FC<{ habitId: string; doneToday: boolean }> = ({ 
                     // "you" here, and gave them your check-in.
                     done: row.isYou ? doneToday : !!row.completedToday,
                     isYou: !!row.isYou,
+                    pending: !!row.pending,
                 })));
             })
             .catch(() => { if (alive) setPeople([]); });

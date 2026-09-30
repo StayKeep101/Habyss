@@ -1279,6 +1279,15 @@ export class FriendsService {
             .eq(column, itemId).eq('owner_id', ctx.me === ownerId ? ctx.me : ownerId).eq('shared_with_id', ctx.me);
         if (error) return false;
 
+        // Saying yes has to put it somewhere. Until now it changed a row's
+        // status and nothing else, so the habit you had just accepted appeared
+        // in no list, no roadmap and no reminder — the one step that makes a
+        // share mean anything was missing.
+        if (status === 'accepted') {
+            const { adoptShared } = require('./sharedAdopt') as typeof import('./sharedAdopt');
+            await adoptShared(type as 'habit' | 'task' | 'goal', itemId).catch(() => false);
+        }
+
         // Either answer is news to the person who asked. Silence after a share
         // is the same as not knowing whether it arrived.
         const me = await myName(ctx);
