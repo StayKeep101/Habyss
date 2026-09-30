@@ -148,6 +148,46 @@ interface StatsRow {
     goals_moved?: number | null;
 }
 
+/** A few of somebody's tasks for today, as the feed shows them. */
+export interface FriendTask {
+    id: string;
+    title: string;
+    done: boolean;
+    dueTime?: string;
+}
+
+/**
+ * Today's short list, for everybody in the feed at once.
+ *
+ * One call for the whole feed rather than one per card: a dozen friends would
+ * otherwise be a dozen requests arriving separately, which is a dozen
+ * re-renders while somebody is scrolling.
+ *
+ * Five each at most, unfinished first. A friend's backlog is not the feed's
+ * business, and a card that listed everything would stop being a card.
+ */
+export async function friendTasksToday(): Promise<Record<string, FriendTask[]>> {
+    const ctx = await signedIn();
+    if (!ctx) return {};
+    const { data, error } = await ctx.sb.rpc('friend_today_tasks', { p_today: localDateKey(new Date()) });
+    // An older server simply has no such function, and a feed without task
+    // names is the same feed it was yesterday.
+    if (error) return {};
+
+    const out: Record<string, FriendTask[]> = {};
+    for (const row of (data ?? []) as {
+        user_id: string; task_id: string; title: string; done: boolean; due_time: string | null;
+    }[]) {
+        (out[row.user_id] ??= []).push({
+            id: row.task_id,
+            title: row.title,
+            done: !!row.done,
+            dueTime: row.due_time ?? undefined,
+        });
+    }
+    return out;
+}
+
 /** The parts of a profile that are not in `friend_stats`. */
 export interface FriendProfile {
     bio?: string;

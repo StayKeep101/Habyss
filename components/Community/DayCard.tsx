@@ -57,11 +57,19 @@ export const DayCard: React.FC<{
      * here: their other habits are none of your business.
      */
     together?: { id: string; name: string; mineDone: boolean; theirsDone: boolean }[];
+    /**
+     * What is actually on their list today, by name.
+     *
+     * "1 of 2 tasks" is a number with nothing in it to answer. A name is
+     * something you can say back to somebody, which is the difference between
+     * a feed people read and a feed people post to.
+     */
+    tasks?: { id: string; title: string; done: boolean; dueTime?: string }[];
     /** Notes already on this day, oldest first. */
     notes?: DayNote[];
     onComment?: (text: string) => void;
     onDeleteNote?: (id: string) => void;
-}> = ({ card, reaction, onReact, onOpen, together = [], notes = [], onComment, onDeleteNote }) => {
+}> = ({ card, reaction, onReact, onOpen, together = [], tasks = [], notes = [], onComment, onDeleteNote }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -202,6 +210,34 @@ export const DayCard: React.FC<{
                             textColor={colors.textSecondary}
                             dimColor={colors.textTertiary}
                         />
+                    ))}
+                </Animated.View>
+            ) : null}
+
+            {/* Today's short list. Five at most, and only what is left plus
+                what has just been crossed off — a backlog is not a card. */}
+            {tasks.length ? (
+                <Animated.View layout={MORPH} style={[styles.together, { borderTopColor: colors.border }]}>
+                    {tasks.map(task => (
+                        <View key={task.id} style={styles.togetherRow}>
+                            <Ionicons
+                                name={task.done ? 'checkmark-circle' : 'ellipse-outline'}
+                                size={s(15)}
+                                color={task.done ? colors.success : colors.textTertiary}
+                            />
+                            <Text
+                                numberOfLines={1}
+                                style={[styles.togetherName, {
+                                    color: task.done ? colors.textSecondary : colors.textPrimary,
+                                    textDecorationLine: task.done ? 'line-through' : 'none',
+                                }]}
+                            >
+                                {task.title}
+                            </Text>
+                            {task.dueTime ? (
+                                <Text style={[styles.togetherMine, { color: colors.textTertiary }]}>{task.dueTime}</Text>
+                            ) : null}
+                        </View>
                     ))}
                 </Animated.View>
             ) : null}

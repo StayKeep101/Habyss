@@ -9,7 +9,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useAccentGradient } from '@/constants/AccentContext';
-import { FriendsService, Friend, FriendRequest, ReactionType, type DayComment, getMyUsername, inviteMessage } from '@/lib/friendsService';
+import { FriendsService, Friend, FriendRequest, ReactionType, type DayComment, friendTasksToday, getMyUsername, inviteMessage } from '@/lib/friendsService';
 import { onAccountChange } from '@/lib/account';
 import { FriendsGate } from '@/components/Community/FriendsGate';
 import { FriendStatsModal } from '@/components/FriendStatsModal';
@@ -273,6 +273,22 @@ export default function CommunityScreen() {
     /** What each friend and I are doing together today, by their id. */
     const [together, setTogether] = useState<Record<string, { id: string; name: string; mineDone: boolean; theirsDone: boolean }[]>>({});
     const [myEvidence, setMyEvidence] = useState<Record<string, Evidence[]>>({});
+    /**
+     * Today's short list for everybody in the feed, keyed by user id.
+     *
+     * One call for all of them rather than one per card: a dozen friends would
+     * be a dozen requests arriving separately, and a dozen re-renders while
+     * somebody is trying to scroll.
+     */
+    const [todayTasks, setTodayTasks] = useState<Record<string, { id: string; title: string; done: boolean; dueTime?: string }[]>>({});
+    useEffect(() => {
+        if (friends.length === 0) return;
+        let alive = true;
+        friendTasksToday()
+            .then(found => { if (alive) setTodayTasks(found); })
+            .catch(() => undefined);
+        return () => { alive = false; };
+    }, [friends]);
     useEffect(() => {
         const me = friends.find(friend => friend.isCurrentUser);
         if (!me) return;
@@ -577,6 +593,7 @@ export default function CommunityScreen() {
                                     if (found) handleFriendPress(found);
                                 }}
                                 together={together[card.id]}
+                                tasks={todayTasks[card.id]}
                                 notes={notes[card.id]}
                                 onComment={text => void handleComment(card.id, text)}
                                 onDeleteNote={id => void handleDeleteNote(card.id, id)}

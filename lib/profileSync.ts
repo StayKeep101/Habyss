@@ -21,9 +21,18 @@ export interface Sharing {
     progress: boolean;
     /** The names of habits you have shared, rather than only a count. */
     habits: boolean;
+    /**
+     * The few things on today's list, by name.
+     *
+     * Its own switch rather than riding on `progress`, because somebody may
+     * well be happy to show that their day is going well without publishing
+     * their to-do list — and collapsing those into one setting is how an app
+     * ends up sharing more than anybody agreed to.
+     */
+    tasks: boolean;
 }
 
-export const ALL_SHARED: Sharing = { name: true, bio: true, photo: true, progress: true, habits: true };
+export const ALL_SHARED: Sharing = { name: true, bio: true, photo: true, progress: true, habits: true, tasks: true };
 
 export const SHARING_LABELS: { id: keyof Sharing; label: string; detail: string }[] = [
     { id: 'name', label: 'Your name', detail: 'Otherwise friends see your username' },
@@ -31,6 +40,7 @@ export const SHARING_LABELS: { id: keyof Sharing; label: string; detail: string 
     { id: 'bio', label: 'Your bio', detail: 'The line about what you are working on' },
     { id: 'progress', label: 'Your progress', detail: 'Streak and how much of today is done' },
     { id: 'habits', label: 'Shared habit names', detail: 'Only ones you have shared with that person' },
+    { id: 'tasks', label: "Today's tasks", detail: 'Up to five, by name, on your card in the feed' },
 ];
 
 interface Context { sb: NonNullable<ReturnType<typeof getSupabase>>; me: string }
