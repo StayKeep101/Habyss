@@ -13,7 +13,7 @@ import { IconButton } from '@/components/Common/IconButton';
 import { AppTextField } from '@/components/Common/AppTextField';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SettingsModal } from '@/components/SettingsModal';
-import { emit } from '@/lib/appEvents';
+import { saveProfile } from '@/lib/profile';
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
@@ -142,21 +142,27 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     const handleSave = async () => {
         setSaving(true);
         try {
-            // Save profile locally
-            await AsyncStorage.setItem('profile_nickname', nickname);
-
-            if (avatarUri) {
-                await AsyncStorage.setItem('profile_avatar', avatarUri);
-                emit('profile_avatar_changed', avatarUri);
-            }
-            if (description) await AsyncStorage.setItem('profile_bio', description);
-            if (birthday) {
-                await AsyncStorage.setItem('profile_birthday', toDateKey(birthday));
-                await AsyncStorage.setItem('profile_age', ageFromBirthday(birthday));
-            } else if (age) {
-                await AsyncStorage.setItem('profile_age', age);
-            }
-            if (gender) await AsyncStorage.setItem('profile_gender', gender);
+            // Through `saveProfile`, not by setting the keys here.
+            //
+            // This screen wrote the six AsyncStorage keys by hand, and
+            // `saveProfile` is the only thing that sends a profile to the
+            // server — so editing your name and picture here changed them on
+            // this phone and told nobody. That is why friends saw a handle and
+            // a grey circle: the columns were never written, not withheld.
+            //
+            // It also derives the stored age from the birthday and announces
+            // the avatar change, both of which were repeated here by hand.
+            await saveProfile({
+                name: nickname,
+                // An empty field means "clear it", so these are passed even
+                // when blank — leaving them out would mean "unchanged" and a
+                // bio could never be deleted.
+                bio: description,
+                avatar: avatarUri || null,
+                birthday: birthday ? toDateKey(birthday) : null,
+                gender: gender || '',
+            });
+            if (!birthday && age) await AsyncStorage.setItem('profile_age', age);
 
             successFeedback();
             onProfileUpdate(avatarUri || undefined);

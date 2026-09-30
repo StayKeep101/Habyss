@@ -217,9 +217,14 @@ function InnerLayout() {
 
   // Every account that existed before profiles were shared has a name and a
   // picture on the phone and neither on the server, so friends see a handle and
-  // a grey circle. This sends them once and then does nothing.
+  // a grey circle. This sends whichever of them has not arrived yet.
+  //
+  // It listens rather than firing once: a mount effect runs before Supabase has
+  // restored the stored session, so the single attempt always found nobody
+  // signed in and quietly did nothing.
   useEffect(() => {
-    void require('@/lib/profileSync').backfillProfile().catch(() => undefined);
+    const stop = (require('@/lib/profileSync') as typeof import('@/lib/profileSync')).startProfileSync();
+    return stop;
   }, []);
 
   // --- App Intents Listener (Siri/Shortcuts) ---
