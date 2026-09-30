@@ -140,14 +140,19 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
         }
     }, [scrolled]);
 
+    const kept = completionData.filter(day => day.completed).length;
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.textPrimary }]}>
+                <Text numberOfLines={1} style={[styles.title, { color: colors.textPrimary }]}>
                     {description || 'Consistency Map'}
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textTertiary }]}>
-                    {completionData.filter(d => d.completed).length} completions / year
+                    {/* Not "/ year". The map starts the day the habit was made,
+                        so a habit three days old was being told it had kept 0
+                        out of a year it had not lived through. */}
+                    {kept === 0 ? 'Nothing yet' : kept === 1 ? '1 day kept' : `${kept} days kept`}
                 </Text>
             </View>
 
@@ -239,10 +244,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'baseline',
-        marginBottom: 16,
+        // The two ran into each other and read as one word: the title had no
+        // width of its own, so it grew until it touched the count.
+        gap: 10,
+        marginBottom: 14,
         paddingHorizontal: 4,
     },
     title: {
+        flexShrink: 1,
         fontSize: 14,
         fontFamily: FontFamily.semibold,
     },
