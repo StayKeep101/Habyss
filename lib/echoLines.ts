@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PersonalityModeId } from '@/constants/AIPersonalities';
 import { askForLine, isOnDeviceAIReady } from './onDeviceAI';
+import { speaksAsUser } from './echoWriter';
 
 /**
  * What Echo says at the top of Home, a new line every time the page is opened
@@ -74,26 +75,36 @@ const PUSH: Record<PersonalityModeId, ((s: EchoStats) => string)[]> = {
         () => 'A good day is one where you did what you planned. Aim for that.',
     ],
     dad_mode: [
-        s => `${s.name ? `${s.name}. ` : ''}You made a promise to yourself. Keep it.`,
-        () => 'Nobody is coming to do it for you. That is good news: it is yours.',
-        () => 'Do it tired. Do it busy. Just do it.',
-        () => 'Excuses and results do not share a room. Pick one.',
-        () => 'Discipline is doing it when you do not feel like it. Today is practice.',
-        () => 'I am not asking for perfect. I am asking for today.',
+        s => `${s.name ? `${s.name}. ` : ''}You gave your word. Keep it.`,
+        () => 'Nobody is coming to do it for you. Get up.',
+        () => 'Tired is not a reason. Busy is not a reason. Do it.',
+        () => 'I do not want to hear excuses. I want to see it done.',
+        () => 'You know better than this. Act like it.',
+        () => 'Finish what you started. Then we talk.',
+        () => 'Doing the minimum is not something to be proud of.',
+        () => 'I expect more from you, because you are capable of more.',
     ],
     bully_mode: [],
 };
 
+/**
+ * Bully mode, as asked for: it swears and it insults — your effort, your
+ * excuses, your laziness. Never your body, looks, identity, family or mental
+ * health, and no slurs; the point is to light a fire, not to wound.
+ */
 const ROASTS: ((s: EchoStats) => string)[] = [
-    s => `${s.name ? `${s.name}, y` : 'Y'}our excuses are more consistent than your habits.`,
-    () => 'Five minutes of work will not kill you. Start.',
-    () => '"I will start tomorrow" is a lie you have told before.',
-    () => 'Motivation is for amateurs. Show up without it.',
-    () => 'Nobody cares how you feel about it. Do it.',
-    () => 'You planned it. Now stop admiring the plan.',
-    () => 'Comfortable is how nothing changes.',
-    () => 'Your goals are not going to hit themselves while you negotiate.',
-    s => (s.todayTotal > 0 && s.todayDone === 0 ? `${s.todayTotal} scheduled today. Zero done. Get moving.` : 'Done is the only status that counts.'),
+    s => `${s.name ? `${s.name}, y` : 'Y'}our excuses are more consistent than your fucking habits.`,
+    () => 'Five minutes of work will not kill you, you lazy ass. Start.',
+    () => '"I will start tomorrow." Bullshit. You said that yesterday.',
+    () => 'Motivation is for amateurs. Get off your ass and show up.',
+    () => 'Nobody gives a shit how you feel about it. Do it.',
+    () => 'You planned it. Now stop jerking around and do it.',
+    () => 'Comfortable is how losers stay losers. Move.',
+    () => 'Your goals will not hit themselves while you scroll, genius.',
+    () => 'Stop being so damn soft. Do the work.',
+    () => 'Pathetic. You can do better than this crap.',
+    () => 'Quit whining and get it done.',
+    s => (s.todayTotal > 0 && s.todayDone === 0 ? `${s.todayTotal} scheduled today. Zero done. What the hell are you doing?` : 'Done is the only status that counts. Everything else is shit.'),
 ];
 
 function yours(s: EchoStats, personality: PersonalityModeId): string[] {
@@ -194,8 +205,8 @@ export function pickWrittenLine(
 const STYLE: Record<PersonalityModeId, string> = {
     friendly: 'warm, upbeat and supportive, like a best friend; one emoji at most',
     normal: 'calm, factual and encouraging, no emoji',
-    dad_mode: 'firm but caring, like a strict father who believes in them; no emoji',
-    bully_mode: 'a harsh drill sergeant roasting their excuses and lack of effort; never about their body, identity, worth or mental health; no slurs; no emoji',
+    dad_mode: 'a stern, strict father: short clipped sentences, disappointed when they slack, expects results, no praise for the bare minimum, no warmth, no emoji',
+    bully_mode: 'a foul-mouthed drill sergeant who swears freely (fuck, shit, damn, ass) and insults their laziness, excuses and lack of effort; never about their body, looks, identity, family or mental health; no slurs; no emoji',
 };
 
 /**
@@ -208,7 +219,7 @@ export async function nextEchoLine(personality: PersonalityModeId, stats: EchoSt
 
     if (style !== 'data' && isOnDeviceAIReady() && Math.random() < 0.4) {
         const facts = [
-            stats.name ? `Name: ${stats.name}` : null,
+            stats.name ? `The user you are speaking to is called ${stats.name}` : null,
             `Today: ${stats.todayDone} of ${stats.todayTotal} habits logged`,
             stats.streak ? `Streak: ${stats.streak} days` : null,
             `Active on ${stats.weekConsistency}% of the last 7 days`,
@@ -216,12 +227,13 @@ export async function nextEchoLine(personality: PersonalityModeId, stats: EchoSt
             stats.goalsCount ? `Goals: ${stats.overallProgress}% done overall` : null,
         ].filter(Boolean).join('. ');
         line = await askForLine(
-            `You are Echo, the voice of a habit tracker. Write ONE sentence, at most 18 words. Tone: ${STYLE[personality] ?? STYLE.normal}. `
+            `You are Echo, the voice of a habit tracker, talking TO the user. Write ONE sentence, at most 18 words. Tone: ${STYLE[personality] ?? STYLE.normal}. `
+            + 'Address them as "you"; never speak as them or introduce yourself by their name. '
             + 'Use only the facts given; never invent numbers, streaks or events. Say "not logged" rather than "skipped". No quotation marks.',
             facts,
             4000,
         );
-        if (line && (line.length > 160 || recent.includes(line))) line = null;
+        if (line && (line.length > 160 || recent.includes(line) || speaksAsUser(line, stats.name))) line = null;
     }
 
     line ??= pickWrittenLine(personality, stats, recent, Math.random, style);

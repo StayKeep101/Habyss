@@ -23,15 +23,14 @@ const localModel = () => (hasTurboModule('MLCEngine') ? require('@/lib/LocalLLMS
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
-import { ChipPicker } from '@/components/Common/ChipPicker';
 
 
 // Greeting style options
 const GREETING_STYLES: { id: GreetingStyle; label: string; icon: string; description: string }[] = [
-    { id: 'ai', label: 'Echo decides', icon: 'sparkles', description: 'The mix that fits its personality' },
-    { id: 'quotes', label: 'Facts & motivation', icon: 'bulb', description: 'Habit science and a push' },
+    { id: 'ai', label: 'Echo decides', icon: 'sparkles', description: 'The mix that suits the voice' },
+    { id: 'quotes', label: 'Motivation', icon: 'bulb', description: 'Habit science and a push' },
     { id: 'data', label: 'My data', icon: 'analytics', description: 'Only your own progress' },
-    { id: 'all', label: 'Everything', icon: 'shuffle', description: 'An even mix of all of it' },
+    { id: 'all', label: 'Everything', icon: 'shuffle', description: 'A bit of all of it' },
 ];
 
 // Separate component to handle Local LLM logic
@@ -73,12 +72,12 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     const canDownload = !!localModel();
     const title = engine === 'apple' ? 'Apple Intelligence' : 'Llama 3.2 (1B)';
     const status = engine === 'apple'
-        ? 'Built into your iPhone. Ready, nothing to download.'
+        ? 'Built in. Private.'
         : engine === 'llama'
-            ? 'On this phone and ready. About 1.2 GB.'
+            ? 'On this phone · 1.2 GB. Private.'
             : isDownloading
                 ? `Downloading… ${Math.round(progress)}%`
-                : 'Downloads by itself on Wi-Fi (about 1.2 GB). Until then, Habyss uses its built-in rules.';
+                : 'Downloads on Wi-Fi · 1.2 GB.';
 
     return (
         <VoidCard
@@ -92,7 +91,7 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
                 {engine ? <Text style={{ fontSize: 12, color: colors.success, fontFamily: FontFamily.semibold }}>Ready</Text> : null}
             </View>
             <Text style={{ fontSize: 13, lineHeight: 18, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
-                {status} It reads what you type when you add habits, tasks and goals, and gives Echo fresh things to say. Nothing leaves your phone.
+                {status}
             </Text>
             {isDownloading ? (
                 <View style={{ height: 4, backgroundColor: colors.surface, borderRadius: 2, overflow: 'hidden' }}>
@@ -178,41 +177,27 @@ const AISettings = () => {
                     </Text>
                 </View>
 
-                {/* Every voice stays on screen; only the one in use explains
-                    itself, which is the only one describing what Echo does. */}
-                <Group title="Voice" hint="How Echo talks to you, everywhere">
-                    <ChipPicker
-                        options={PERSONALITY_MODES.map(mode => ({
-                            id: mode.id,
-                            label: mode.name,
-                            icon: mode.icon as any,
-                            detail: mode.warning ? `${mode.description} · Harsh language` : mode.description,
-                        }))}
-                        value={aiPersonality}
-                        onChange={handleSelectPersonality}
-                        accent={colors.primary}
-                    />
-                </Group>
+                {/* Every option visible at once, as a grid; the one in use
+                    says what it is in a word or two underneath. */}
+                <Text style={[styles.groupTitle, styles.gridTitle, { color: colors.textSecondary }]}>VOICE</Text>
+                <OptionGrid
+                    options={PERSONALITY_MODES.map(mode => ({ id: mode.id, label: mode.name, icon: mode.icon as string, detail: mode.description }))}
+                    value={aiPersonality}
+                    onChange={handleSelectPersonality}
+                />
 
-                <Group title="On Home" hint="A new line every time you open it">
-                    <ChipPicker
-                        options={GREETING_STYLES.map(style => ({
-                            id: style.id,
-                            label: style.label,
-                            icon: style.icon as any,
-                            detail: style.description,
-                        }))}
-                        value={greetingStyle}
-                        onChange={handleSelectGreeting}
-                        accent={colors.primary}
-                    />
-                </Group>
+                <Text style={[styles.groupTitle, styles.gridTitle, { color: colors.textSecondary }]}>ON HOME</Text>
+                <OptionGrid
+                    options={GREETING_STYLES.map(style => ({ id: style.id, label: style.label, icon: style.icon, detail: style.description }))}
+                    value={greetingStyle}
+                    onChange={handleSelectGreeting}
+                />
 
-                <Group title="Check-ins" hint={`Your day runs ${day.wake} to ${day.sleep} — set in Notifications`}>
+                <Group title="Check-ins">
                     <ToggleRow
                         icon="sunny-outline"
                         label="Morning"
-                        detail={`What today asks of you, at ${morningCheckIn(day)}`}
+                        detail={morningCheckIn(day)}
                         value={echo.morning}
                         colors={colors}
                         accent={colors.primary}
@@ -221,7 +206,7 @@ const AISettings = () => {
                     <ToggleRow
                         icon="moon-outline"
                         label="Before bed"
-                        detail={`Whatever is still open, at ${eveningCheckIn(day)}`}
+                        detail={eveningCheckIn(day)}
                         value={echo.evening}
                         colors={colors}
                         accent={colors.primary}
@@ -230,7 +215,7 @@ const AISettings = () => {
                     <ToggleRow
                         icon="person-outline"
                         label="Call me by name"
-                        detail={name ? `Echo says “${name}”` : 'Set a name in your profile first'}
+                        detail={name ? `“${name}”` : 'Set a name in your profile'}
                         value={echo.useName && !!name}
                         disabled={!name}
                         colors={colors}
@@ -239,10 +224,8 @@ const AISettings = () => {
                     />
                     <ToggleRow
                         icon="create-outline"
-                        label="Echo writes the reminders"
-                        detail={hasModel
-                            ? 'Each reminder written on your phone, in this voice'
-                            : 'Needs the on-device model, below'}
+                        label="Echo writes reminders"
+                        detail={hasModel ? 'In this voice' : 'Needs on-device AI'}
                         value={echo.writeReminders && hasModel}
                         disabled={!hasModel}
                         colors={colors}
@@ -272,6 +255,46 @@ const AISettings = () => {
                 ) : null}
             </ScrollView>
         </SheetScreen>
+    );
+}
+
+/** Choices as a grid of tiles: all visible, one tap each. */
+function OptionGrid<T extends string>({ options, value, onChange }: {
+    options: { id: T; label: string; icon: string; detail: string }[];
+    value: T;
+    onChange: (id: T) => void;
+}) {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const accent = colors.primary;
+    const selected = options.find(option => option.id === value);
+    return (
+        <View>
+            <View style={styles.grid} accessibilityRole="radiogroup">
+                {options.map(option => {
+                    const on = option.id === value;
+                    return (
+                        <TouchableOpacity
+                            key={option.id}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: on }}
+                            accessibilityLabel={`${option.label}. ${option.detail}`}
+                            activeOpacity={0.75}
+                            onPress={() => onChange(option.id)}
+                            style={[styles.tile, {
+                                backgroundColor: on ? accent + '1F' : (isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.04)'),
+                                borderColor: on ? accent + '88' : colors.border,
+                            }]}
+                        >
+                            <Ionicons name={option.icon as any} size={18} color={on ? accent : colors.textSecondary} />
+                            <Text numberOfLines={1} style={[styles.tileLabel, { color: on ? colors.textPrimary : colors.textSecondary }]}>{option.label}</Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+            {selected ? <Text style={[styles.groupHint, { color: colors.textTertiary, marginTop: 8 }]}>{selected.detail}</Text> : null}
+        </View>
     );
 }
 
@@ -323,6 +346,10 @@ const styles = StyleSheet.create({
     sampleMark: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
     sampleText: { flex: 1, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, fontStyle: 'italic' },
     group: { marginTop: 22 },
+    gridTitle: { marginTop: 22, marginBottom: 8 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    tile: { width: '48.8%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 14, borderRadius: 14, borderWidth: 1 },
+    tileLabel: { flex: 1, fontSize: 14, fontFamily: FontFamily.semibold },
     groupTitle: { fontSize: 11, letterSpacing: 1.2, fontFamily: FontFamily.medium, marginLeft: 4 },
     groupHint: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 3, marginBottom: 8, marginLeft: 4 },
     groupCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },

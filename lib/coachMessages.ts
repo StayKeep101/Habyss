@@ -116,8 +116,8 @@ const VOICES: Record<PersonalityModeId, Voice> = {
             return week ? `${c.habitName} today. ${week}. Let's keep it up.` : `${c.habitName} is on today. Get it done.`;
         },
         preview: name => `You committed to ${name}. I will expect it done, and I will ask about it when it is not logged.`,
-        reminder: c => `${c.habitName}. You said you would${c.name ? `, ${c.name}` : ''}. Now's the time.`,
-        hello: name => `${name ? `${name}. ` : ''}You made a promise to yourself. I'll make sure you keep it.`,
+        reminder: c => `${c.habitName}. You said you would${c.name ? `, ${c.name}` : ''}. Do it now.`,
+        hello: name => `${name ? `${name}. ` : ''}You gave your word. I expect you to keep it.`,
     },
 
     bully_mode: {
@@ -134,8 +134,8 @@ const VOICES: Record<PersonalityModeId, Voice> = {
             return week ? `${c.habitName} today. ${week}. Move.` : `${c.habitName} today. Move.`;
         },
         preview: name => `${name}. Every scheduled day. I will not soften it when it is not logged.`,
-        reminder: c => `${c.habitName}. Now${c.name ? `, ${c.name}` : ''}. No excuses.`,
-        hello: name => `${name ? `${name}. ` : ''}No excuses, no hand-holding. Show up.`,
+        reminder: c => `${c.habitName}. Now${c.name ? `, ${c.name}` : ''}. Get off your ass.`,
+        hello: name => `${name ? `${name}. ` : ''}No excuses, no hand-holding. Show up or shut up.`,
     },
 };
 
