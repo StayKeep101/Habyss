@@ -15,6 +15,7 @@ struct HabyssWidgetBundle: WidgetBundle {
         HabyssHeatmapWidget()
         HabyssGoalsWidget()
         HabyssEchoWidget()
+        HabyssQuickAddWidget()
         // WidgetControl() // Requires iOS 18.0
         HabyssLiveActivity()
     }

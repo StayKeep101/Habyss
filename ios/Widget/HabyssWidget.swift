@@ -148,6 +148,11 @@ struct WidgetEntryView: View {
                     if !entry.needsSync {
                         Text("\(remaining) left").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(entry.accentSolid)
                     }
+                    // Medium only: a small widget has one tap target, its rows.
+                    if family == .systemMedium {
+                        QuickAddLink(kind: "task", label: "Task", accent: entry.accentSolid)
+                        QuickAddLink(kind: "habit", label: "Habit", accent: entry.accentSolid)
+                    }
                 }
                 if entry.needsSync {
                     emptyState("arrow.triangle.2.circlepath", "Let’s bring today in", "Open Habyss to sync")
@@ -203,6 +208,114 @@ struct HabyssWidget: Widget {
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
         .configurationDisplayName("Daily Tasks")
         .description("Your top 3 or 5 tasks, in priority order. Tap any row to complete it.")
+    }
+}
+
+// MARK: - Quick add
+
+/// A widget cannot hold a text field, so the nearest thing to typing a name
+/// into one is a single tap to the composer with the keyboard already up.
+/// Opens `habyss://add?kind=…`, handled by app/add.tsx. (Without opening the
+/// app at all: "Add a task in Habyss" to Siri, Spotlight or the Action button.)
+struct QuickAddLink: View {
+    let kind: String
+    let label: String
+    let accent: Color
+    var body: some View {
+        Link(destination: URL(string: "habyss://add?kind=\(kind)")!) {
+            HStack(spacing: 2) {
+                Image(systemName: "plus").font(.system(size: 9, weight: .bold))
+                Text(label).font(.system(size: 10, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(accent)
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(Capsule().fill(accent.opacity(0.16)))
+        }
+        .accessibilityLabel("Add a \(kind)")
+    }
+}
+
+struct QuickAddEntry: TimelineEntry {
+    let date: Date
+    let accent: Color
+}
+
+struct QuickAddProvider: TimelineProvider {
+    private func current() -> QuickAddEntry {
+        QuickAddEntry(date: .now, accent: Color(habyssHex: DashboardSnapshot.read()?.accent.from) ?? Habyss.fallbackFrom)
+    }
+    func placeholder(in context: Context) -> QuickAddEntry { QuickAddEntry(date: .now, accent: Habyss.fallbackFrom) }
+    func getSnapshot(in context: Context, completion: @escaping (QuickAddEntry) -> Void) { completion(current()) }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<QuickAddEntry>) -> Void) {
+        completion(Timeline(entries: [current()], policy: .after(Date().addingTimeInterval(6 * 60 * 60))))
+    }
+}
+
+struct QuickAddView: View {
+    let entry: QuickAddEntry
+    @Environment(\.widgetFamily) var family
+    var body: some View {
+        switch family {
+        case .accessoryCircular:
+            ZStack {
+                AccessoryWidgetBackground()
+                Image(systemName: "plus").font(.system(size: 22, weight: .semibold))
+            }
+            .accessibilityLabel("Add a task")
+        case .accessoryRectangular:
+            VStack(alignment: .leading, spacing: 2) {
+                Text("HABYSS").font(.caption.bold())
+                Label("Add a task", systemImage: "plus.circle").font(.headline)
+            }
+        case .systemMedium:
+            HStack(spacing: 10) {
+                tile(kind: "task", title: "Task", icon: "checklist")
+                tile(kind: "habit", title: "Habit", icon: "repeat")
+            }
+            .padding(12)
+        default:
+            VStack(alignment: .leading, spacing: 6) {
+                Text("ADD").sectionLabel()
+                Spacer(minLength: 0)
+                Image(systemName: "plus.circle.fill").font(.system(size: 34, weight: .light)).foregroundStyle(entry.accent)
+                Text("New task").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                Text("Tap and type").font(.system(size: 11)).foregroundStyle(Habyss.dim)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .padding(14)
+        }
+    }
+    private func tile(kind: String, title: String, icon: String) -> some View {
+        Link(destination: URL(string: "habyss://add?kind=\(kind)")!) {
+            VStack(alignment: .leading, spacing: 6) {
+                Image(systemName: icon).font(.system(size: 18, weight: .medium)).foregroundStyle(entry.accent)
+                Spacer(minLength: 0)
+                HStack(spacing: 4) {
+                    Image(systemName: "plus").font(.system(size: 12, weight: .bold))
+                    Text(title).font(.system(size: 15, weight: .semibold))
+                }.foregroundStyle(.white)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 16).fill(entry.accent.opacity(0.14)))
+        }
+        .accessibilityLabel("Add a \(kind)")
+    }
+}
+
+struct HabyssQuickAddWidget: Widget {
+    let kind = "HabyssQuickAddWidget"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: QuickAddProvider()) { entry in
+            QuickAddView(entry: entry)
+                // The small widget and the Lock Screen ones are one tap target.
+                .widgetURL(URL(string: "habyss://add?kind=task"))
+                .containerBackground(for: .widget) { DashboardBackground(accent: entry.accent) }
+        }
+        .contentMarginsDisabled()
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
+        .configurationDisplayName("Quick Add")
+        .description("Add a task or habit by name in one tap.")
     }
 }
 

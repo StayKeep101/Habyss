@@ -78,3 +78,72 @@ export async function drainPendingShortcutLogs(): Promise<ShortcutDrainResult> {
 
     return result;
 }
+
+/**
+ * Tasks and habits named from outside the app.
+ *
+ * `AddTaskIntent` and `AddHabitIntent` (HabyssIntents.swift) ask for a name in
+ * the system's own prompt — from Siri, Spotlight, the Action button or a
+ * Shortcut — and queue it here as `task|<name>` or `habit|<name>`, so nothing
+ * has to open. They become real rows the next time Habyss runs, read the same
+ * way the composers read what is typed: "Call 25 leads" is a count task, "Read
+ * 20 pages daily" a counted habit.
+ */
+const QUICK_ADD_KEY = 'pending_quick_adds';
+
+export interface QuickAddResult { tasks: string[]; habits: string[] }
+
+export function parseQuickAdd(entry: string): { kind: 'task' | 'habit'; title: string } | null {
+    const match = /^(task|habit)\|([\s\S]+)$/.exec(entry);
+    const title = match?.[2].trim().slice(0, 200);
+    return match && title ? { kind: match[1] as 'task' | 'habit', title } : null;
+}
+
+export async function drainQuickAdds(): Promise<QuickAddResult> {
+    const result: QuickAddResult = { tasks: [], habits: [] };
+    if (Platform.OS !== 'ios' || !SharedDefaults) return result;
+
+    let pending: string[] = [];
+    try {
+        const raw = await SharedDefaults.getArray(QUICK_ADD_KEY);
+        pending = Array.isArray(raw) ? raw.filter((item: unknown): item is string => typeof item === 'string') : [];
+        if (pending.length === 0) return result;
+        // Cleared first, as above: a crash loses at most one, never adds twice.
+        await SharedDefaults.remove(QUICK_ADD_KEY);
+    } catch {
+        return result;
+    }
+
+    const { createTask } = require('./tasks') as typeof import('./tasks');
+    const { readTaskMeasure, parseTaskText } = require('./taskParser') as typeof import('./taskParser');
+    const { parseHabitText, parsedToHabit } = require('./habitParser') as typeof import('./habitParser');
+    const { addHabit } = require('./habitsSQLite') as typeof import('./habitsSQLite');
+    const today = localDateKey(new Date());
+
+    for (const entry of pending) {
+        const item = parseQuickAdd(entry);
+        if (!item) continue;
+        try {
+            if (item.kind === 'task') {
+                const parsed = parseTaskText(item.title);
+                const measure = readTaskMeasure(item.title);
+                const made = await createTask({
+                    title: parsed.title || item.title,
+                    dueDate: parsed.dueDate ?? today,
+                    dueTime: parsed.dueTime,
+                    estimatedMinutes: parsed.estimatedMinutes,
+                    priority: parsed.priority,
+                    ...(measure ?? {}),
+                    source: 'shortcut',
+                });
+                if (made) result.tasks.push(made.title);
+            } else {
+                const made = await addHabit({ ...parsedToHabit(parseHabitText(item.title), today) });
+                if (made) result.habits.push(made.name);
+            }
+        } catch {
+            // One bad entry does not cost the rest.
+        }
+    }
+    return result;
+}

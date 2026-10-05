@@ -39,6 +39,61 @@ struct LogHabitIntent: AppIntent {
     }
 }
 
+/// Queues a task or habit by name in the App Group. Habyss turns the queue
+/// into real rows the next time it runs (`drainQuickAdds` in
+/// lib/shortcutsInbox.ts), so adding one never has to open the app.
+@available(iOS 16.0, *)
+enum QuickAddQueue {
+    static let key = "pending_quick_adds"
+
+    static func append(kind: String, title: String) -> Bool {
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, let defaults = UserDefaults(suiteName: "group.com.habyss.data") else { return false }
+        var pending = defaults.array(forKey: key) as? [String] ?? []
+        pending.append("\(kind)|\(name)")
+        defaults.set(pending, forKey: key)
+        return true
+    }
+}
+
+/// "Add a task in Habyss": the system asks for the name and it is saved.
+@available(iOS 16.0, *)
+struct AddTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Add Task"
+    static var description = IntentDescription("Add a task to today in Habyss, by name")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Task", requestValueDialog: "What's the task?")
+    var name: String
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard QuickAddQueue.append(kind: "task", title: name) else {
+            return .result(dialog: "Open Habyss once, then try again.")
+        }
+        return .result(dialog: "Added \(name) to today.")
+    }
+}
+
+/// "Add a habit in Habyss": the system asks for the name and it is saved.
+@available(iOS 16.0, *)
+struct AddHabitIntent: AppIntent {
+    static var title: LocalizedStringResource = "Add Habit"
+    static var description = IntentDescription("Add a daily habit in Habyss, by name")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Habit", requestValueDialog: "What's the habit?")
+    var name: String
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard QuickAddQueue.append(kind: "habit", title: name) else {
+            return .result(dialog: "Open Habyss once, then try again.")
+        }
+        return .result(dialog: "Added \(name).")
+    }
+}
+
 @available(iOS 16.0, *)
 struct CheckProgressIntent: AppIntent {
     static var title: LocalizedStringResource = "Check Today's Progress"
@@ -106,6 +161,25 @@ struct HabyssShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Start Focus",
             systemImageName: "timer"
+        )
+        AppShortcut(
+            intent: AddTaskIntent(),
+            phrases: [
+                "Add a task in \(.applicationName)",
+                "New task in \(.applicationName)",
+                "Add to my tasks in \(.applicationName)"
+            ],
+            shortTitle: "Add Task",
+            systemImageName: "plus.square"
+        )
+        AppShortcut(
+            intent: AddHabitIntent(),
+            phrases: [
+                "Add a habit in \(.applicationName)",
+                "New habit in \(.applicationName)"
+            ],
+            shortTitle: "Add Habit",
+            systemImageName: "plus.circle"
         )
         AppShortcut(
             intent: LogHabitIntent(),

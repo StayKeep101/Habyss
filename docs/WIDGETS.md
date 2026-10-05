@@ -17,7 +17,7 @@ app or the app group wiring back. Build from the checked-in project instead. If
 `ios/` ever has to be regenerated, the widget target must be added back in Xcode
 by hand (target → Widget Extension → App Groups: `group.com.habyss.data`).
 
-## The three Home Screen widgets
+## The Home Screen widgets
 
 - **Daily Tasks:** Tasks-list items only, ordered like the app: overdue, today,
   then undated, with priority and duration breaking ties. Small shows three,
@@ -28,6 +28,16 @@ by hand (target → Widget Extension → App Groups: `group.com.habyss.data`).
 - **Goal Progress:** historical progress from the app's goal calculation.
   Touch and hold → Edit Widget → Goal to select a goal. Multiple copies can
   follow different goals. Tapping the graph opens that goal in Habyss.
+
+- **Quick Add:** a widget cannot hold a text field, so the nearest thing is one
+  tap to the composer with the keyboard up. Small and Lock Screen open a new
+  task; medium has Task and Habit halves. Daily Tasks (medium) carries the same
+  + Task / + Habit links in its header. All open `habyss://add?kind=task|habit`
+  (`app/add.tsx`). To add one *without* opening Habyss: "Add a task in Habyss"
+  (or "Add a habit…") to Siri, Spotlight, the Action button or a Shortcut —
+  `AddTaskIntent` / `AddHabitIntent` ask for the name in the system prompt and
+  queue it in `pending_quick_adds`, which `drainQuickAdds()` turns into rows the
+  next time the app runs.
 
 Gallery previews contain examples. Installed widgets use only shared app data;
 missing data asks the user to open Habyss. A genuinely empty Tasks list remains

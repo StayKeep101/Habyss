@@ -262,6 +262,12 @@ function InnerLayout() {
           console.log('[AppIntents] Shortcut logs applied:', drained);
         }
 
+        // Tasks and habits named from Siri, Spotlight, the Action button or a Shortcut.
+        const { drainQuickAdds } = require('@/lib/shortcutsInbox');
+        const added = await drainQuickAdds();
+        if (added.tasks.length) emit('tasks_changed');
+        if (added.habits.length) emit('habit_updated', {});
+
         // Rows ticked on the widget while the app was closed, habits and tasks alike.
         const { drainWidgetToggles } = require('@/lib/widgetSync');
         const fromWidget = await drainWidgetToggles();
