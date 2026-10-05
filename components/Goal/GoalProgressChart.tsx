@@ -22,6 +22,13 @@ interface Props {
     onScrub?: (point: GoalPoint | null) => void;
     /** A small read-only sparkline: whole range, no buttons, no scrubbing. */
     compact?: boolean;
+    /**
+     * A running total rather than a percentage: no 0-100 bounds and no pace
+     * line. Marks are drawn this way.
+     */
+    unbounded?: boolean;
+    /** What the line is, for VoiceOver. */
+    label?: string;
 }
 
 /**
@@ -35,7 +42,7 @@ interface Props {
  * were still dragging. A pan gesture that gives vertical movement to the page
  * and keeps horizontal movement for itself does not have to fight anybody.
  */
-export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact }) => {
+export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, label }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
@@ -55,14 +62,15 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
 
     const geometry = useMemo(() => {
         if (width === 0 || visible.length === 0) return null;
-        const values = visible.flatMap(point => [point.actual, point.pace]);
+        const values = unbounded ? visible.map(point => point.actual) : visible.flatMap(point => [point.actual, point.pace]);
         let min = Math.min(...values);
         let max = Math.max(...values);
         // Leave room so a flat line is not glued to an edge.
         const pad = Math.max(2, (max - min) * 0.15);
+        const ceiling = unbounded ? Infinity : 100;
         min = Math.max(0, min - pad);
-        max = Math.min(100, max + pad);
-        if (max - min < 4) { max = Math.min(100, min + 4); min = Math.max(0, max - 4); }
+        max = Math.min(ceiling, max + pad);
+        if (max - min < 4) { max = Math.min(ceiling, min + 4); min = Math.max(0, max - 4); }
 
         const top = 8;
         const bottom = height - 8;
@@ -77,7 +85,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
         // React where the curve is on every frame.
         const ys = visible.map(point => y(point.actual));
         return { x, y, actual, area, pace: line('pace'), ys };
-    }, [visible, width, height]);
+    }, [visible, width, height, unbounded]);
 
     const last = visible.length - 1;
     const dotY = useSharedValue(0);
@@ -107,7 +115,9 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
             onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
             accessible
             accessibilityRole="image"
-            accessibilityLabel={visible.length
+            accessibilityLabel={unbounded && visible.length
+                ? `${label ?? 'Chart'}. ${visible[last].actual} now. Drag across it to read any day.`
+                : visible.length
                 ? `Progress chart. ${visible[last].actual}% done, pace ${visible[last].pace}%. Drag across it to read any day.`
                 : 'Progress chart, no data yet.'}
         >
@@ -121,7 +131,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                             </LinearGradient>
                         </Defs>
                         <Path d={geometry.area} fill={`url(#${gradientId})`} />
-                        <Path d={geometry.pace} stroke={colors.textTertiary} strokeWidth={1.5} strokeDasharray="4 5" fill="none" />
+                        {unbounded ? null : <Path d={geometry.pace} stroke={colors.textTertiary} strokeWidth={1.5} strokeDasharray="4 5" fill="none" />}
                         <Path d={geometry.actual} stroke={color} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
                     </Svg>
 
@@ -159,7 +169,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                         somewhere else, so it could be moved but never cleared. */}
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Goal progress over time. Drag to read a day."
+                        accessibilityLabel={`${label ?? 'Goal progress'} over time. Drag to read a day.`}
                         onPress={scrub.clear}
                     >
                         {chart}

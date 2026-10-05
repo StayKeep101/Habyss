@@ -29,6 +29,9 @@ import { useTheme } from '@/constants/themeContext';
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
 import { ProgressAvatar } from '@/components/Home/ProgressAvatar';
+import { MarksBar } from '@/components/Marks/MarksBar';
+import { MarksModal } from '@/components/Marks/MarksModal';
+import { useMarks } from '@/hooks/useMarks';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyFocus, useDailyTarget } from '@/hooks/useDailyFocus';
 import { streakFrom } from '@/lib/dayComplete';
@@ -199,7 +202,11 @@ const Home = () => {
   const dailyTarget = useDailyTarget();
 
   // The same number as the goals overview and each goal's stats.
-  const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = useGoalsInsights();
+  const goalsData = useGoalsInsights();
+  const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
+  // Marks, from the same habits, tasks and history already loaded here.
+  const marks = useMarks(goalsData);
+  const [showMarks, setShowMarks] = useState(false);
 
 
   /**
@@ -335,11 +342,9 @@ const Home = () => {
         >
 
           {/* Header Row
-              The bell has gone: everything it announced now waits in the
-              Community inbox, and two places to check for the same thing is one
-              too many. Echo takes the room it left, beside the ring rather than
-              under it, which is where the eye already is. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(14), marginTop: topSpacing }}>
+              Your picture, its ring for today, and your Marks beside it: who
+              you are today and the record you have built, side by side. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(16), marginTop: topSpacing }}>
             {/* The ring is today: empty at nothing done, closed and green
                 when the day is kept. */}
             <ProgressAvatar
@@ -348,28 +353,29 @@ const Home = () => {
               total={dayTally.total}
               onPress={() => router.push('/(root)/profile')}
             />
-
-            {motivationalQuote ? (
-              <Animated.View entering={FadeInDown.duration(400)} style={{ flex: 1 }}>
-                {/* Echo is the voice behind this line and the reminders. */}
-                <Text style={{ fontSize: ms(10), letterSpacing: 1.4, color: accentColor, fontFamily: FontFamily.semibold, marginBottom: 2 }}>ECHO</Text>
-                <Text
-                  numberOfLines={3}
-                  style={{
-                    fontSize: ms(13),
-                    color: colors.text,
-                    fontFamily: FontFamily.medium,
-                    lineHeight: ms(18),
-                  }}
-                >
-                  {displayedQuote}
-                  {displayedQuote.length < motivationalQuote.length && (
-                    <Text style={{ color: colors.primary }}>|</Text>
-                  )}
-                </Text>
-              </Animated.View>
-            ) : <View style={{ flex: 1 }} />}
+            <MarksBar marks={marks} onPress={() => setShowMarks(true)} />
           </View>
+
+          {/* Echo, full width below the header, where it reads as a line
+              rather than squeezed into a column beside the picture. */}
+          {motivationalQuote ? (
+            <Animated.View entering={FadeInDown.duration(400)} style={{ marginTop: sectionGap }}>
+              {/* Echo is the voice behind this line and the reminders. */}
+              <Text style={{ fontSize: ms(11), letterSpacing: 1.4, color: accentColor, fontFamily: FontFamily.semibold, marginBottom: 4 }}>ECHO</Text>
+              <Text style={{
+                fontSize: ms(15),
+                color: colors.text,
+                fontFamily: FontFamily.semibold,
+                textAlign: 'left',
+                lineHeight: ms(22),
+              }}>
+                {displayedQuote}
+                {displayedQuote.length < motivationalQuote.length && (
+                  <Text style={{ color: colors.primary }}>|</Text>
+                )}
+              </Text>
+            </Animated.View>
+          ) : null}
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
@@ -429,6 +435,7 @@ const Home = () => {
           history={historyData}
           completions={completions}
         />
+        <MarksModal visible={showMarks} onClose={() => setShowMarks(false)} marks={marks} />
         <CelebrationAnimation visible={showCelebration} onComplete={() => setShowCelebration(false)} />
       </SafeAreaView>
     </VoidShell>

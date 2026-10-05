@@ -23,6 +23,10 @@ export interface GoalsData {
     setCompletion: (habitId: string, done: boolean) => void;
     today: string;
     loaded: boolean;
+    /** Completed habit ids by day, today included. */
+    history: Record<string, string[]>;
+    /** Skipped habit ids by day, today included. */
+    skips: Record<string, string[]>;
 }
 
 /**
@@ -98,17 +102,22 @@ export function useGoalsInsights(): GoalsData {
         setCompletions(prev => ({ ...prev, [habitId]: done }));
     }, []);
 
+    const merged = useMemo(
+        () => ({ ...history, [today]: Object.keys(completions).filter(id => completions[id]) }),
+        [history, completions, today],
+    );
+    const mergedSkips = useMemo(
+        () => ({ ...skips, [today]: Object.keys(skippedToday).filter(id => skippedToday[id]) }),
+        [skips, skippedToday, today],
+    );
     const insightsById = useMemo(() => {
-        const doneToday = Object.keys(completions).filter(id => completions[id]);
-        const merged = { ...history, [today]: doneToday };
-        const mergedSkips = { ...skips, [today]: Object.keys(skippedToday).filter(id => skippedToday[id]) };
         const map: Record<string, GoalInsights> = {};
         // Archived goals too, so an archived goal's own page still opens.
         for (const goal of habits.filter(habit => habit.isGoal)) {
             map[goal.id] = buildGoalInsights({ goal, habits, tasks, history: merged, skips: mergedSkips, today });
         }
         return map;
-    }, [habits, tasks, history, skips, completions, skippedToday, today]);
+    }, [habits, tasks, merged, mergedSkips, today]);
 
     const overall = goals.length
         ? Math.round(goals.reduce((sum, goal) => sum + (insightsById[goal.id]?.progress ?? 0), 0) / goals.length)
@@ -118,7 +127,10 @@ export function useGoalsInsights(): GoalsData {
         [goals, insightsById],
     );
 
-    return { goals, habits, tasks, insightsById, overall, overallSeries, completions, skippedToday, setCompletion, today, loaded };
+    return {
+        goals, habits, tasks, insightsById, overall, overallSeries, completions, skippedToday, setCompletion, today, loaded,
+        history: merged, skips: mergedSkips,
+    };
 }
 
 export interface GoalData {
