@@ -215,7 +215,7 @@ export default function InboxScreen() {
                                             <View style={styles.actions}>
                                                 <Pressable
                                                     accessibilityRole="button"
-                                                    accessibilityLabel={`Decline @${item.fromUsername ?? 'them'}`}
+                                                    accessibilityLabel={`Decline ${item.fromName ?? item.fromUsername ?? 'them'}`}
                                                     disabled={busy === item.id}
                                                     onPress={() => void answer(item, false)}
                                                     style={[styles.action, { backgroundColor: tone.raised }]}
@@ -224,7 +224,7 @@ export default function InboxScreen() {
                                                 </Pressable>
                                                 <Pressable
                                                     accessibilityRole="button"
-                                                    accessibilityLabel={`Accept @${item.fromUsername ?? 'them'}`}
+                                                    accessibilityLabel={`Accept ${item.fromName ?? item.fromUsername ?? 'them'}`}
                                                     disabled={busy === item.id}
                                                     onPress={() => void answer(item, true)}
                                                     style={[styles.action, { backgroundColor: accent }]}

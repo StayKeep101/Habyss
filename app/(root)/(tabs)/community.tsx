@@ -186,9 +186,9 @@ export default function CommunityScreen() {
 
     const handleNudge = async (friend: Friend) => {
         mediumFeedback();
-        const success = await FriendsService.nudgeFriend(friend.id, friend.username);
+        const success = await FriendsService.nudgeFriend(friend.id, friend.displayName ?? friend.username);
         if (success) {
-            Alert.alert('Nudged! 👋', `${friend.username} has been notified.`);
+            Alert.alert('Nudged! 👋', `${friend.displayName ?? friend.username} has been notified.`);
         }
     };
 
@@ -533,10 +533,10 @@ export default function CommunityScreen() {
                             {friendRequests.map(request => (
                                 <View key={request.id} style={styles.requestRow}>
                                     <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
-                                        <Text style={{ fontSize: 16 }}>{request.fromUsername[0]?.toUpperCase()}</Text>
+                                        <Text style={{ fontSize: 16 }}>{(request.fromName ?? request.fromUsername)[0]?.toUpperCase()}</Text>
                                     </View>
                                     <Text style={[styles.username, { color: colors.textPrimary, flex: 1, marginLeft: 12 }]}>
-                                        {request.fromUsername}
+                                        {request.fromName ?? request.fromUsername}
                                     </Text>
                                     <TouchableOpacity
                                         onPress={() => handleAcceptRequest(request.id)}

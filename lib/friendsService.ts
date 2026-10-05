@@ -66,6 +66,8 @@ export interface FriendRequest {
     id: string;
     fromUserId: string;
     fromUsername: string;
+    /** What they call themselves; the username when they have not said. */
+    fromName?: string;
     fromAvatarUrl?: string;
     status: 'pending' | 'accepted' | 'rejected';
     createdAt: string;
@@ -82,6 +84,7 @@ export interface InboxItem {
     createdAt: string;
     fromUserId?: string;
     fromUsername?: string;
+    fromName?: string;
     fromAvatarUrl?: string;
     /** Present only while the request is still open, and answerable. */
     requestId?: string;
@@ -260,17 +263,26 @@ async function localNotifications(): Promise<InboxItem[]> {
     }
 }
 
-/** Your own handle, for a notification written in the second person. */
+/**
+ * What a person is called: the name they chose on their profile page, and their
+ * username only when they have not chosen one (or keep it private).
+ */
+export const nameOf = (row: { display_name?: string | null; username?: string | null } | null | undefined, fallback = 'Someone'): string =>
+    row?.display_name?.trim() || row?.username || fallback;
+
+/** Your own name, for a notification somebody else reads. */
 async function myName(ctx: Context): Promise<string> {
-    const { data } = await ctx.sb.from('profiles').select('username').eq('id', ctx.me).maybeSingle();
-    return data?.username ?? 'Someone';
+    const { data } = await ctx.sb.from('profiles').select('username, display_name').eq('id', ctx.me).maybeSingle();
+    return nameOf(data);
 }
+
+interface PersonRow { username: string | null; display_name: string | null; avatar_url: string | null }
 
 async function profiles(ctx: Context, ids: string[]) {
     const unique = [...new Set(ids.filter(Boolean))];
-    if (unique.length === 0) return new Map<string, { username: string | null; avatar_url: string | null }>();
-    const { data } = await ctx.sb.from('profiles').select('id, username, avatar_url').in('id', unique);
-    return new Map((data ?? []).map((row: any) => [row.id, row]));
+    if (unique.length === 0) return new Map<string, PersonRow>();
+    const { data } = await ctx.sb.from('profiles').select('id, username, display_name, avatar_url').in('id', unique);
+    return new Map<string, PersonRow>((data ?? []).map((row: any) => [row.id, row]));
 }
 
 /** Habit rows the server returns, in the shape the app's views read. */
@@ -527,7 +539,7 @@ export class FriendsService {
         // Until this, one sat in a table nobody reads unless they happen to
         // open the Community tab.
         await this.notify(ctx, userId, 'friend_request', {
-            title: `@${await myName(ctx)} wants to be friends`,
+            title: `${await myName(ctx)} wants to be friends`,
             body: 'Accept or decline from here.',
         });
         return true;
@@ -567,6 +579,7 @@ export class FriendsService {
             id: row.id,
             fromUserId: row.from_user_id,
             fromUsername: people.get(row.from_user_id)?.username ?? 'Someone',
+            fromName: nameOf(people.get(row.from_user_id)),
             fromAvatarUrl: people.get(row.from_user_id)?.avatar_url ?? undefined,
             status: 'pending' as const,
             createdAt: row.created_at,
@@ -594,7 +607,7 @@ export class FriendsService {
 
         // The person who asked is the one waiting to hear.
         await this.notify(ctx, request.from_user_id, 'friend_accepted', {
-            title: `@${await myName(ctx)} accepted`,
+            title: `${await myName(ctx)} accepted`,
             body: 'You can see each other\u2019s days now.',
         });
         return true;
@@ -728,7 +741,7 @@ export class FriendsService {
                 id: row.id, author: row.author, toUser: row.to_user, day: row.day,
                 body: row.body, createdAt: row.created_at,
                 mine: row.author === ctx.me,
-                authorName: names.get(row.author)?.username ?? undefined,
+                authorName: names.has(row.author) ? nameOf(names.get(row.author)) : undefined,
             };
             (byCard[row.to_user] ??= []).push(comment);
         }
@@ -849,6 +862,7 @@ export class FriendsService {
             createdAt: row.created_at,
             fromUserId: row.from_user_id ?? undefined,
             fromUsername: row.from_user_id ? people.get(row.from_user_id)?.username ?? undefined : undefined,
+            fromName: row.from_user_id && people.has(row.from_user_id) ? nameOf(people.get(row.from_user_id)) : undefined,
             fromAvatarUrl: row.from_user_id ? people.get(row.from_user_id)?.avatar_url ?? undefined : undefined,
             // Only a request that is still open can be answered.
             requestId: row.type === 'friend_request' && row.from_user_id ? pendingFrom.get(row.from_user_id) : undefined,
@@ -863,7 +877,7 @@ export class FriendsService {
             items.push({
                 id: `request:${request.id}`,
                 kind: 'friend_request',
-                title: `@${request.fromUsername} wants to be friends`,
+                title: `${request.fromName ?? request.fromUsername} wants to be friends`,
                 body: 'Accept or decline from here.',
                 read: false,
                 createdAt: request.createdAt,
@@ -1089,6 +1103,7 @@ export class FriendsService {
             id: row.shared_with_id,
             userId: row.shared_with_id,
             username: people.get(row.shared_with_id)?.username ?? 'Friend',
+            displayName: nameOf(people.get(row.shared_with_id), 'Friend'),
             avatarUrl: people.get(row.shared_with_id)?.avatar_url ?? undefined,
         }));
     }
@@ -1153,6 +1168,7 @@ export class FriendsService {
                         id: share.owner_id,
                         userId: share.owner_id,
                         username: owner?.username ?? 'Friend',
+                        displayName: nameOf(owner, 'Friend'),
                         avatarUrl: owner?.avatar_url ?? undefined,
                     } as Friend,
                 };
@@ -1201,7 +1217,9 @@ export class FriendsService {
             const row = rows.find(item => item.user_id === id);
             return {
                 userId: id,
-                username: people.get(id)?.username ?? 'Friend',
+                // A label on a face, so it is what they are called, not their handle.
+                username: nameOf(people.get(id), 'Friend'),
+                handle: people.get(id)?.username ?? undefined,
                 avatarUrl: people.get(id)?.avatar_url ?? undefined,
                 completedToday: exact ? doneIds.has(id) : (row?.today_done ?? 0) > 0,
                 /** Whether this person has published a completion for this item. */
@@ -1289,7 +1307,7 @@ export class FriendsService {
 
         const me = await myName(ctx);
         await Promise.all(others.map(person => this.notify(ctx, person.userId, 'shared_done', {
-            title: `@${me} finished ${itemName}`,
+            title: `${me} finished ${itemName}`,
             body: 'Your half is the one it is waiting on now.',
         })));
     }
@@ -1332,7 +1350,7 @@ export class FriendsService {
         // is the same as not knowing whether it arrived.
         const me = await myName(ctx);
         await this.notify(ctx, ownerId, status === 'accepted' ? 'share_accepted' : 'share_declined', {
-            title: status === 'accepted' ? `@${me} accepted your ${type}` : `@${me} passed on your ${type}`,
+            title: status === 'accepted' ? `${me} accepted your ${type}` : `${me} passed on your ${type}`,
             body: status === 'accepted'
                 ? 'It is on their list now, and neither of you has kept it until both of you have.'
                 : 'Nothing has changed on your side.',
@@ -1382,7 +1400,7 @@ export class FriendsService {
         const name = await itemName(ctx, type, itemId);
         const me = await myName(ctx);
         await this.notify(ctx, friendId, 'share_offer', {
-            title: `@${me} shared a ${type} with you`,
+            title: `${me} shared a ${type} with you`,
             body: name ? `“${name}” — accept and it joins your list.` : 'Accept and it joins your list.',
         });
     }
@@ -1423,7 +1441,7 @@ export class FriendsService {
             itemId: row.itemId,
             itemName: named[index] || `A ${row.type}`,
             fromUserId: row.owner_id,
-            fromName: people.get(row.owner_id)?.display_name?.trim() || people.get(row.owner_id)?.username || 'A friend',
+            fromName: nameOf(people.get(row.owner_id), 'A friend'),
             fromAvatarUrl: people.get(row.owner_id)?.avatar_url ?? undefined,
             createdAt: row.created_at,
         }));
