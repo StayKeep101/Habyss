@@ -14,6 +14,20 @@ class SharedDefaults: NSObject {
   
   @objc
   func set(_ key: String, value: String, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    // Publish the dashboard atomically before asking WidgetKit to reload.
+    // A file avoids cross-process UserDefaults cache delays on the Home Screen.
+    if key == "widgetDashboard" {
+      guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
+        reject("APP_GROUP_ERROR", "The Habyss App Group is missing from this signed build", nil)
+        return
+      }
+      do {
+        try Data(value.utf8).write(to: container.appendingPathComponent("widgetDashboard.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+      } catch {
+        reject("WIDGET_WRITE_ERROR", "Could not publish the widget snapshot", error)
+        return
+      }
+    }
     if let userDefaults = UserDefaults(suiteName: appGroup) {
       userDefaults.set(value, forKey: key)
       resolve(true)
@@ -68,13 +82,39 @@ class SharedDefaults: NSObject {
       reject("USER_DEFAULTS_ERROR", "Could not initialize shared storage", nil)
       return
     }
-    let events = defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("widget_event_") }
+    var events = defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("widget_event_") }
       .compactMap { $0.value as? String }
+    if let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) {
+      let inbox = container.appendingPathComponent("widget-events", isDirectory: true)
+      let files = (try? FileManager.default.contentsOfDirectory(at: inbox, includingPropertiesForKeys: nil)) ?? []
+      events += files.filter { $0.pathExtension == "json" }.compactMap { try? String(contentsOf: $0, encoding: .utf8) }
+    }
     resolve(events)
   }
 
   @objc
   func remove(_ key: String, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
+    if key.hasPrefix("widget_event_"),
+       let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) {
+      let id = String(key.dropFirst("widget_event_".count))
+      guard !id.contains("/"), !id.contains("..") else { reject("WIDGET_EVENT_ERROR", "Invalid widget event ID", nil); return }
+      let file = container.appendingPathComponent("widget-events").appendingPathComponent(id + ".json")
+      do {
+        if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
+      } catch { reject("WIDGET_EVENT_ERROR", "Could not acknowledge widget action", error); return }
+    }
+    if key == "widgetDashboard",
+       let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) {
+      let file = container.appendingPathComponent("widgetDashboard.json")
+      do {
+        // A tombstone prevents another process's cached legacy defaults from
+        // resurfacing the previous account's snapshot after logout.
+        try Data("{}".utf8).write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+      } catch {
+        reject("WIDGET_REMOVE_ERROR", "Could not clear the widget snapshot", error)
+        return
+      }
+    }
     if let userDefaults = UserDefaults(suiteName: appGroup) {
       userDefaults.removeObject(forKey: key)
       resolve(true)

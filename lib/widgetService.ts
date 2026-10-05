@@ -14,7 +14,9 @@ export const WidgetService = {
     async write(payload: WidgetPayload): Promise<void> {
         if (Platform.OS !== 'ios') return;
         try {
-            if (payload.dashboard) await SharedDefaults.set('widgetDashboard', JSON.stringify(payload.dashboard));
+            if (payload.dashboard && !(await SharedDefaults.set('widgetDashboard', JSON.stringify(payload.dashboard)))) {
+                throw new Error('The iOS widget storage bridge is unavailable. Rebuild Habyss with SharedDefaults and its App Group entitlement.');
+            }
             await SharedDefaults.set('habitsData', JSON.stringify(payload.items));
             // Siri asks about habits; the legacy widget list also contains tasks.
             await SharedDefaults.set('siriHabitsData', JSON.stringify(payload.items.filter(item => item.id.startsWith('habit:'))));
@@ -34,6 +36,7 @@ export const WidgetService = {
             await SharedDefaults.reloadTimelines();
         } catch (error) {
             console.warn('WidgetService: could not update the widget', error);
+            throw error;
         }
     },
 

@@ -41,3 +41,19 @@ defaults.set(String(data: try JSONEncoder().encode(many), encoding: .utf8)!, for
 try action("final", true, 4)
 assert(DashboardSnapshot.read(defaults: defaults)!.days[0].items[0].id == "task:two", "Checking a row must reveal the next unfinished task")
 print("Swift widget next-task check passed.")
+
+// File publication takes precedence over an older UserDefaults cache.
+var fresh = snapshot
+fresh.streak = 9
+fresh.goals[0].points = [GoalGraphPoint(date: today, actual: 50)]
+let freshRaw = String(data: try JSONEncoder().encode(fresh), encoding: .utf8)!
+defaults.removePersistentDomain(forName: suite)
+defaults.set("outdated-json", forKey: "widgetDashboard")
+let fileEvent = String(data: try JSONEncoder().encode(WidgetAction(eventId: "file-tap", id: "task:one", day: today, done: true, timestamp: 1)), encoding: .utf8)!
+let fileSnapshot = DashboardSnapshot.read(defaults: defaults, raw: freshRaw, events: [fileEvent])!
+assert(fileSnapshot.streak == 9)
+assert(fileSnapshot.days[0].completed == 1)
+assert(fileSnapshot.goals[0].points?.last?.actual == 100, "A widget completion must update the selected goal graph too")
+assert(DashboardSnapshot.read(defaults: defaults, raw: "{}") == nil, "An explicitly cleared snapshot must not resurrect old data")
+assert(DashboardSnapshot.read(defaults: defaults, raw: raw)?.goals[0].points == nil, "Existing v1 snapshots remain readable")
+print("Swift atomic snapshot checks passed: file precedence, durable event overlay, goal graph, streak, backwards compatibility.")

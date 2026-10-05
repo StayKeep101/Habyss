@@ -54,6 +54,11 @@ struct DashboardGoal: Codable, Identifiable {
     var progress: Double
     let color: String
     let taskWeights: [String: Double]
+    var points: [GoalGraphPoint]? = nil
+}
+struct GoalGraphPoint: Codable {
+    let date: String
+    var actual: Double
 }
 struct WidgetAction: Codable {
     let eventId: String
@@ -71,14 +76,24 @@ struct DashboardSnapshot: Codable {
     var days: [DashboardDay]
     let heatmap: [HeatmapDay]
     var goals: [DashboardGoal]
+    var streak: Int? = nil
 
-    static func read(defaults: UserDefaults? = UserDefaults(suiteName: "group.com.habyss.data")) -> DashboardSnapshot? {
+    static func read() -> DashboardSnapshot? {
+        let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.habyss.data")
+        let raw = container.flatMap { try? String(contentsOf: $0.appendingPathComponent("widgetDashboard.json"), encoding: .utf8) }
+        let files = container.flatMap { try? FileManager.default.contentsOfDirectory(at: $0.appendingPathComponent("widget-events"), includingPropertiesForKeys: nil) } ?? []
+        let events = files.filter { $0.pathExtension == "json" }.compactMap { try? String(contentsOf: $0, encoding: .utf8) }
+        return read(defaults: UserDefaults(suiteName: "group.com.habyss.data"), raw: raw, events: events)
+    }
+
+    static func read(defaults: UserDefaults?, raw: String? = nil, events: [String] = []) -> DashboardSnapshot? {
         guard let defaults,
-              let data = defaults.string(forKey: "widgetDashboard")?.data(using: .utf8),
+              let data = (raw ?? defaults.string(forKey: "widgetDashboard"))?.data(using: .utf8),
               var snapshot = try? JSONDecoder().decode(Self.self, from: data), snapshot.version == 1 else { return nil }
         // Events are separate durable records, so app refreshes cannot erase taps.
-        let actions = defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("widget_event_") }.compactMap { entry -> WidgetAction? in
-            guard let raw = entry.value as? String, let data = raw.data(using: .utf8) else { return nil }
+        let legacy = defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("widget_event_") }.compactMap { $0.value as? String }
+        let actions = (legacy + events).compactMap { raw -> WidgetAction? in
+            guard let data = raw.data(using: .utf8) else { return nil }
             return try? JSONDecoder().decode(WidgetAction.self, from: data)
         }.sorted { $0.timestamp == $1.timestamp ? $0.eventId < $1.eventId : $0.timestamp < $1.timestamp }
         // Final intent wins. Keeping the original rows until this reduction
@@ -106,6 +121,14 @@ struct DashboardSnapshot: Codable {
             for goal in snapshot.goals.indices {
                 if let weight = snapshot.goals[goal].taskWeights[action.id] {
                     snapshot.goals[goal].progress = min(100, max(0, snapshot.goals[goal].progress + delta * weight))
+                    if var points = snapshot.goals[goal].points, !points.isEmpty {
+                        if points[points.count - 1].date < action.day {
+                            points.append(GoalGraphPoint(date: action.day, actual: snapshot.goals[goal].progress))
+                        } else {
+                            points[points.count - 1].actual = snapshot.goals[goal].progress
+                        }
+                        snapshot.goals[goal].points = Array(points.suffix(90))
+                    }
                 }
             }
         }
@@ -126,7 +149,7 @@ struct ToggleHabitIntent: LiveActivityIntent {
     // into the app to do it would defeat it. The app catches up when opened.
     static var openAppWhenRun: Bool = false
 
-    @Parameter(title: "Habit ID")
+    @Parameter(title: "Task ID")
     var id: String
 
     init() {}
@@ -136,16 +159,18 @@ struct ToggleHabitIntent: LiveActivityIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        guard let defaults = UserDefaults(suiteName: "group.com.habyss.data") else { return .result() }
         let today = widgetDayKey()
         guard let snapshot = DashboardSnapshot.read(),
               let day = snapshot.days.first(where: { $0.date == today }),
-              let item = day.items.first(where: { $0.id == id }) else { return .result() }
+              let item = day.items.first(where: { $0.id == id }), !item.isCompleted else { return .result() }
         let action = WidgetAction(eventId: UUID().uuidString, id: id, day: today,
-                                  done: !item.isCompleted, timestamp: Date().timeIntervalSince1970 * 1000)
+                                  done: true, timestamp: Date().timeIntervalSince1970 * 1000)
         let encoded = try JSONEncoder().encode(action)
         guard let raw = String(data: encoded, encoding: .utf8) else { return .result() }
-        defaults.set(raw, forKey: "widget_event_" + action.eventId)
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.habyss.data") else { return .result() }
+        let inbox = container.appendingPathComponent("widget-events", isDirectory: true)
+        try FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
+        try Data(raw.utf8).write(to: inbox.appendingPathComponent(action.eventId + ".json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         if action.done {
             let notifications = await UNUserNotificationCenter.current().pendingNotificationRequests()
             let rawId = String(id.dropFirst(id.hasPrefix("task:") ? 5 : 6))

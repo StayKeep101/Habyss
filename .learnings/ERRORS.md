@@ -216,3 +216,32 @@ Used a public OAuth cancellation round trip to validate the return destination w
 
 ### Summary
 patch-package generation stalled while fetching a clean Expo package. Generated focused unified diffs from the inspected original source and verified all patches using patch-package --error-on-fail.
+
+## [ERR-20260929-WIDGET-BUILD] Native validation under workspace sandbox
+
+**Logged**: 2026-09-29
+**Priority**: medium
+**Status**: pending
+**Area**: infra
+
+### Summary
+A full Xcode WidgetExtension scheme build also builds the app/watch targets.
+The workspace sandbox denied Swift macro plugin sandbox creation
+(`sandbox-exec: sandbox_apply: Operation not permitted`), and device access
+was unavailable. Do not report this as a successful device build or install.
+
+### Validation available
+Passed iOS SDK Swift type-checking for WidgetShared, HabyssWidget and
+DashboardWidgets without DEBUG previews; passed the production Swift snapshot
+reducer harness using a writable temporary module cache; passed TypeScript
+checks and 87 relevant Jest tests. Native installation and visual/tap checks
+still require running Habyss from the checked-in Xcode workspace.
+
+### Additional test lesson
+A minimal whole-module react-native mock broke Expo/NativeWind setup at
+Appearance.getColorScheme. Keep the preset's native mock and mock only the
+SharedDefaults bridge for widget service tests.
+
+### Metadata
+- Related Files: docs/WIDGETS.md, scripts/check-widget-snapshot.mjs, lib/__tests__/widgetService.test.ts
+- Reproducible: yes

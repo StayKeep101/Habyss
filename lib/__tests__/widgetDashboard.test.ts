@@ -13,7 +13,7 @@ it('Daily Tasks includes overdue and undated work, and excludes future or cancel
     const snapshot = build({ habits: [habit()], tasks: [task(), task({ id: 'old', dueDate: '2026-09-25' }),
         task({ id: 'undated', dueDate: undefined }), task({ id: 'later', dueDate: '2026-09-27' }), task({ id: 'cancelled', status: 'cancelled' })] });
     expect(snapshot.days).toHaveLength(8);
-    expect(snapshot.days[0].items.map(item => item.id)).toEqual(['task:task', 'task:old', 'task:undated']);
+    expect(snapshot.days[0].items.map(item => item.id)).toEqual(['task:old', 'task:task', 'task:undated']);
     expect(snapshot.days[1].items.map(item => item.id)).toContain('task:later');
     expect(snapshot.days[0].total).toBe(3);
 });
@@ -41,4 +41,24 @@ it('rejects corrupt widget actions instead of writing them into history', () => 
     for (const raw of ['{broken', 'null', JSON.stringify({ ...valid, day: '2026-02-30' }), JSON.stringify({ ...valid, done: 'true' }), JSON.stringify({ ...valid, id: '' })]) {
         expect(parseWidgetEvent(raw)).toBeNull();
     }
+});
+
+it('carries the app streak and an actual history graph for each selectable goal', () => {
+    const snapshot = build({ streak: 7, habits: [habit({ id: 'goal', isGoal: true, targetDate: today }), habit({ goalId: 'goal' })],
+        history: { '2026-09-25': ['habit'], [today]: ['habit'] } });
+    expect(snapshot.streak).toBe(7);
+    expect(snapshot.goals[0].points).toEqual([{ date: '2026-09-25', actual: 50 }, { date: today, actual: 100 }]);
+    expect(snapshot.goals[0].progress).toBe(100);
+});
+it('bounds long goal graphs without losing their first and last dates', () => {
+    const snapshot = build({ habits: [habit({ id: 'goal', isGoal: true, startDate: '2025-01-01', targetDate: today })] });
+    expect(snapshot.goals[0].points).toHaveLength(90);
+    expect(snapshot.goals[0].points[0].date).toBe('2025-01-01');
+    expect(snapshot.goals[0].points.at(-1)?.date).toBe(today);
+});
+it('keeps habits out of Daily Tasks even when they are the only scheduled items', () => {
+    const snapshot = build({ habits: [habit()] });
+    expect(snapshot.days[0].items).toEqual([]);
+    expect(snapshot.days[0].total).toBe(0);
+    expect(snapshot.heatmap.find(day => day.date === today)?.total).toBe(1);
 });

@@ -15,6 +15,6 @@ try {
     const main = join(dir, 'main.swift');
     const tests = readFileSync(new URL('./tests/WidgetSnapshotChecks.swift', import.meta.url), 'utf8');
     writeFileSync(main, 'import Foundation\n' + source.slice(start, end) + tests);
-    execFileSync('xcrun', ['swiftc', main, '-o', join(dir, 'check')], { stdio: 'inherit' });
+    execFileSync('xcrun', ['swiftc', '-module-cache-path', join(dir, 'module-cache'), main, '-o', join(dir, 'check')], { stdio: 'inherit' });
     execFileSync(join(dir, 'check'), [], { stdio: 'inherit' });
 } finally { rmSync(dir, { recursive: true, force: true }); }

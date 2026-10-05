@@ -8,16 +8,9 @@ import { addDays, daysBetween, goalRange } from './goalInsights';
 import { engagementLifecycle } from './engagementLifecycle';
 
 /**
- * What the home screen, the lock screen and the Dynamic Island are told.
- *
- * The widget used to be sent every habit the user has ever kept, ticked or
- * not, which meant a Monday-only habit sat on the widget all Sunday and the
- * count never matched the app. What it gets now is exactly the day the app
- * shows: habits scheduled today, tasks due today, skipped things left out.
- *
- * Tasks travel with a `task:` prefix on their id. The widget passes the id
- * straight back when a row is ticked, so the prefix is what tells the app
- * whether to log a habit or close a task.
+ * One database read feeds the Home Screen dashboard and legacy Siri/Echo data.
+ * Dashboard Daily Tasks contains only Tasks-list items; the legacy items list
+ * also includes scheduled habits. Prefixed IDs keep their actions distinct.
  */
 
 export interface WidgetItem {
@@ -149,15 +142,15 @@ async function writeWidgets(): Promise<WidgetPayload | null> {
 
         const payload = buildWidgetPayload({ habits, tasks, completions, skipped, today, streak, target });
         payload.accent = await readAccent();
-        payload.dashboard = buildWidgetDashboard({ habits, tasks, history, skips, today, accent: payload.accent });
+        payload.dashboard = buildWidgetDashboard({ habits, tasks, history, skips, today, accent: payload.accent, streak });
         await WidgetService.write(payload);
         // Echo's hourly lines ride along with the day: they are built from the
         // same numbers, so writing them anywhere else would risk the lock
         // screen quoting a streak the widget above it disagrees with.
         await writeEchoHours(habits, payload, history, today);
         return payload;
-    } catch {
-        // A stale widget is not worth an error in front of the user.
+    } catch (error) {
+        console.warn('[Widget] Snapshot was not updated; keeping the last successful snapshot.', error);
         return null;
     }
 }
@@ -235,6 +228,7 @@ async function drain(): Promise<{ habits: number; tasks: number }> {
             return { eventId: '', id: `${parsed.kind}:${parsed.id}`, day: legacyDay, done: parsed.done, timestamp: 0 };
         });
         const completions: Record<string, Record<string, boolean>> = {};
+        const acknowledged: string[] = [];
         for (const event of [...oldEvents, ...events]) {
             const { kind, id } = parseWidgetId(event.id);
             if (kind === 'habit') {
@@ -246,15 +240,25 @@ async function drain(): Promise<{ habits: number; tasks: number }> {
             } else {
                 const task = tasks.find(task => task.id === id);
                 if (task && (task.status === 'done') !== event.done) {
-                    await setTaskStatus(id, event.done ? 'done' : 'open');
+                    if (event.done && event.timestamp > 0) {
+                        await setTaskStatus(id, 'done', new Date(event.timestamp).toISOString());
+                    } else {
+                        await setTaskStatus(id, event.done ? 'done' : 'open');
+                    }
                     task.status = event.done ? 'done' : 'open';
                     applied.tasks++;
                 }
             }
-            // Acknowledge only after SQLite commits; a failed write stays queued.
-            if (event.eventId) await SharedDefaults.remove('widget_event_' + event.eventId);
+            if (event.eventId) acknowledged.push('widget_event_' + event.eventId);
         }
-        if (legacy?.length) await SharedDefaults.remove('pending_widget_toggles');
+        // Keep the widget's overlay until the replacement snapshot includes
+        // every committed tap. Failed publication must not visually undo it.
+        if (acknowledged.length || legacy?.length) {
+            if (!(await syncWidgets())) return applied;
+            for (const key of acknowledged) await SharedDefaults.remove(key);
+            if (legacy?.length) await SharedDefaults.remove('pending_widget_toggles');
+            await SharedDefaults.reloadTimelines();
+        }
     } catch (error) { console.warn('[Widget] Could not apply all widget actions; retained for retry.', error); }
     return applied;
 }
