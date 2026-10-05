@@ -80,6 +80,22 @@ export async function setSharing(changes: Partial<Sharing>): Promise<Sharing> {
  * upload so a new picture is never hidden behind a cached old one.
  */
 async function uploadAvatar(ctx: Context, uri: string): Promise<string | null> {
+    return uploadToOwnFolder(ctx, uri, String(Date.now()));
+}
+
+/**
+ * Uploads any picture of yours (a goal's cover, say) and returns its public URL.
+ *
+ * Same bucket and the same folder rule as the avatar, so it needs no policy of
+ * its own: you can only ever write under your own id.
+ */
+export async function uploadPicture(uri: string, name: string): Promise<string | null> {
+    const ctx = await signedIn();
+    if (!ctx) return null;
+    return uploadToOwnFolder(ctx, uri, name);
+}
+
+async function uploadToOwnFolder(ctx: Context, uri: string, name: string): Promise<string | null> {
     try {
         if (/^https?:/.test(uri)) return uri;
 
@@ -88,7 +104,7 @@ async function uploadAvatar(ctx: Context, uri: string): Promise<string | null> {
 
         const extension = /\.png($|\?)/i.test(uri) ? 'png' : /\.webp($|\?)/i.test(uri) ? 'webp' : 'jpg';
         const type = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
-        const path = `${ctx.me}/${Date.now()}.${extension}`;
+        const path = `${ctx.me}/${name}.${extension}`;
 
         const { error } = await ctx.sb.storage.from('avatars').upload(path, bytes, { contentType: type, upsert: true });
         if (error) return null;

@@ -103,6 +103,10 @@ async function runSync(): Promise<SyncReport> {
             report.failed += pushed.failed;
         }
         report.downloaded = await download(db, sb, userId);
+        report.downloaded += await pullShared(db, sb, userId).catch(error => {
+            console.warn('[Backup] shared goals did not refresh:', error?.message);
+            return 0;
+        });
         report.failed += skippedOnDownload;
 
         if (absentTables.size > 0) report.waiting = [...absentTables];
@@ -297,6 +301,77 @@ async function download(db: any, sb: any, userId: string): Promise<number> {
     }
 
     if (newest && newest !== since) await AsyncStorage.setItem(cursorKey(userId), newest);
+    return written;
+}
+
+/**
+ * Everything you are on with somebody else, brought up to date.
+ *
+ * The pass above reads only rows whose `user_id` is yours. A shared goal is
+ * one plan with rows from two people in it: the owner's goal and habits, the
+ * tasks either of you added, and a friend's cover photo or reminder change on
+ * any of them. Those are read here and kept as your local copy, under your
+ * user id, so the rest of the app treats them like anything else on the phone.
+ *
+ * Read whole rather than from a cursor. A shared plan is tens of rows, and a
+ * cursor per friend is far more machinery than re-reading them.
+ */
+async function pullShared(db: any, sb: any, userId: string): Promise<number> {
+    const mine = `owner_id.eq.${userId},shared_with_id.eq.${userId}`;
+    const [goals, habits, tasks] = await Promise.all([
+        sb.from('shared_goals').select('goal_id').eq('status', 'accepted').is('deleted_at', null).or(mine),
+        sb.from('shared_habits').select('habit_id').eq('status', 'accepted').is('deleted_at', null).eq('shared_with_id', userId),
+        sb.from('shared_tasks').select('task_id').eq('status', 'accepted').is('deleted_at', null).eq('shared_with_id', userId),
+    ]);
+    const ids = (result: any, column: string): string[] =>
+        [...new Set<string>((result?.data ?? []).map((row: any) => row[column]).filter(isUuid))];
+    const goalIds = ids(goals, 'goal_id');
+    const habitIds = ids(habits, 'habit_id');
+    const taskIds = ids(tasks, 'task_id');
+    if (!goalIds.length && !habitIds.length && !taskIds.length) return 0;
+
+    const list = (values: string[]) => `(${values.join(',')})`;
+    const habitFilter = [
+        goalIds.length ? `id.in.${list(goalIds)}` : '',
+        goalIds.length ? `goal_id.in.${list(goalIds)}` : '',
+        habitIds.length ? `id.in.${list(habitIds)}` : '',
+    ].filter(Boolean).join(',');
+    const taskFilter = [
+        goalIds.length ? `goal_id.in.${list(goalIds)}` : '',
+        taskIds.length ? `id.in.${list(taskIds)}` : '',
+    ].filter(Boolean).join(',');
+
+    const [habitRows, taskRows] = await Promise.all([
+        habitFilter ? sb.from('habits').select('*').neq('user_id', userId).or(habitFilter) : { data: [] },
+        taskFilter && !absentTables.has('tasks') ? sb.from('tasks').select('*').neq('user_id', userId).or(taskFilter) : { data: [] },
+    ]);
+
+    let written = 0;
+    await db.withTransactionAsync(async () => {
+        for (const [spec, rows] of [[TABLES[0], habitRows.data], [TABLES[2], taskRows.data]] as const) {
+            for (const remote of rows ?? []) {
+                try {
+                    // Your copy of the row, so it is yours to tick, sync and see.
+                    written += await writeLocal(db, spec, { ...spec.toLocal(remote), user_id: userId });
+                } catch (error: any) {
+                    console.warn(`[Backup] could not refresh shared ${spec.remote} ${remote.id}:`, error?.message);
+                }
+            }
+        }
+    });
+    return written;
+}
+
+/** Refreshes shared goals now, without a whole backup — for right after accepting one. */
+export async function refreshShared(): Promise<number> {
+    const sb = getSupabase();
+    const db = await getDatabase();
+    if (!sb || !db) return 0;
+    const { data: { session } } = await sb.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return 0;
+    const written = await pullShared(db, sb, userId).catch(() => 0);
+    if (written > 0) await announceChanges();
     return written;
 }
 

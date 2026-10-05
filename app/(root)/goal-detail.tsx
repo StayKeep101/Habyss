@@ -14,7 +14,7 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { PanelCap } from '@/components/Goal/PanelCap';
 import { Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
 import { DeviceEventEmitter } from 'react-native';
 import { ShareGoalModal } from '@/components/ShareGoalModal';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
@@ -92,7 +92,9 @@ const GoalDetail = () => {
   const { primary: accentColor } = useAccentGradient();
 
   const { goal, completions, setCompletion, insights, today } = useGoalInsights(goalId);
-  const [bgImage, setBgImage] = useState<string | null>(null);
+  // Undefined until known, so the first frame never flashes the placeholder
+  // over a cover that is about to appear.
+  const [bgImage, setBgImage] = useState<string | null | undefined>(() => (goalId ? cachedCover(goalId) : null));
 
   // The picture's own proportions decide how it is hung, so it frames the same
   // way on every phone instead of being cropped to a number chosen per device.
@@ -129,11 +131,19 @@ const GoalDetail = () => {
     };
   });
 
+  // Re-resolved whenever the goal row changes, which is how a cover somebody
+  // else on the goal set arrives.
   useEffect(() => {
-    if (!goalId) return;
+    if (!goal) return;
     let isActive = true;
-    AsyncStorage.getItem(`goal_bg_${goalId}`).then(stored => { if (stored && isActive) setBgImage(stored); });
+    resolveCover(goal).then(uri => { if (isActive) setBgImage(uri); }).catch(() => { if (isActive) setBgImage(null); });
     return () => { isActive = false; };
+  }, [goal?.id, goal?.goalSpec]);
+
+  // Opening a goal is when its shared plan is most worth having fresh.
+  useEffect(() => {
+    const { refreshShared } = require('@/lib/cloudSync') as typeof import('@/lib/cloudSync');
+    void refreshShared().catch(() => 0);
   }, [goalId]);
 
   const progress = insights?.progress ?? 0;
@@ -304,9 +314,8 @@ const GoalDetail = () => {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') return Alert.alert('Permission Required');
             const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [16, 9], quality: 0.7 });
-            if (!result.canceled && result.assets[0]) {
-              setBgImage(result.assets[0].uri);
-              await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+            if (!result.canceled && result.assets[0] && goal) {
+              setBgImage(await setGoalCover(goal, result.assets[0].uri));
             }
           } catch (e) { }
         }
@@ -318,9 +327,8 @@ const GoalDetail = () => {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') return Alert.alert('Permission Required');
             const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', allowsEditing: true, aspect: [16, 9], quality: 0.7 });
-            if (!result.canceled && result.assets[0]) {
-              setBgImage(result.assets[0].uri);
-              await AsyncStorage.setItem(`goal_bg_${goalId}`, result.assets[0].uri);
+            if (!result.canceled && result.assets[0] && goal) {
+              setBgImage(await setGoalCover(goal, result.assets[0].uri));
             }
           } catch (e) { }
         }
@@ -354,11 +362,11 @@ const GoalDetail = () => {
       {/* The goal's picture, shown whole and unshaded. The only shadow on it
           is the one the panel casts. */}
       <View style={styles.heroClip} pointerEvents="none">
-        <ImageBackground
+        {bgImage !== undefined ? <ImageBackground
           source={bgImage ? { uri: bgImage } : require('@/assets/images/adaptive-icon.png')}
           style={{ position: 'absolute', top: heroBox.top, left: 0, right: 0, height: heroBox.height }}
           resizeMode="cover"
-        />
+        /> : null}
       </View>
 
       {/* Navigation Header */}

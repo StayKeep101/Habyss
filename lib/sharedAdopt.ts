@@ -18,10 +18,11 @@ import { emit } from './appEvents';
  * new id would give you a private habit that merely looked like theirs.
  *
  * You own your copy the way you own everything else on your phone: it syncs to
- * your account, it can be skipped, it can be archived. What you cannot do is
- * change what it *is* — see `canEditShared` — because the definition belongs to
- * whoever offered it, and two people quietly editing one arrangement is how
- * both end up doing different things while believing they are doing the same.
+ * your account, it can be skipped, it can be archived. And it is one row on
+ * the server, not two: an edit either of you makes — a cover photo, a reminder,
+ * a new task in a shared goal — is uploaded to that row and read back by the
+ * other on their next sync (see `pullShared` in cloudSync). One row is what
+ * keeps the two from drifting; last edit wins, as on any shared document.
  */
 
 type Kind = 'habit' | 'task' | 'goal';
@@ -73,6 +74,12 @@ export async function adoptShared(kind: Kind, itemId: string): Promise<boolean> 
     );
 
     emit(kind === 'task' ? 'tasks_changed' : 'habit_updated', {});
+    // A goal is its plan: its habits and tasks come with it, now rather than
+    // on the next backup, so the goal is not empty the moment it is accepted.
+    if (kind === 'goal') {
+        const { refreshShared } = require('./cloudSync') as typeof import('./cloudSync');
+        await refreshShared().catch(() => 0);
+    }
     return true;
 }
 
@@ -86,29 +93,23 @@ export async function dropShared(kind: Kind, itemId: string): Promise<void> {
     const db = await getDatabase();
     if (!db) return;
     const table = kind === 'task' ? 'tasks' : 'habits';
+    // Marked synced: leaving is said on the share row. Uploading the deletion
+    // would delete the owner's row now that participants may edit it.
     await db.runAsync(
-        `UPDATE ${table} SET deleted = 1, updated_at = ?, synced = 0 WHERE id = ?`,
+        `UPDATE ${table} SET deleted = 1, updated_at = ?, synced = 1 WHERE id = ?`,
         new Date().toISOString(), itemId,
     );
     emit(kind === 'task' ? 'tasks_changed' : 'habit_updated', {});
 }
 
 /**
- * Who may change what a shared thing *is*.
+ * Who may change what a shared thing *is*: everybody on it.
  *
- * Only the person who offered it. The rule exists because the alternative has
- * no good answer: if both sides can edit, then one of them moves the habit to
- * 7am and the other is late for something they never agreed to, or — worse —
- * the two copies drift and both people believe they are doing the same thing
- * while doing different ones. There is no merge that fixes a disagreement about
- * what the habit is.
- *
- * Everyone can still *do* it, skip it, and leave it. Those are statements about
- * your own day, and nobody else's.
- *
- * An item nobody else is on is yours by definition, so this says yes.
+ * A shared goal is a plan two people are carrying out together, so either of
+ * them can add to it, retime it or give it a picture, and the other sees it.
+ * Ownership of the row never moves (the server keeps `user_id`), so deleting a
+ * goal stays with whoever made it; everyone else leaves instead.
  */
-export function canEditShared(ownerId: string | undefined, me: string | undefined): boolean {
-    if (!ownerId || !me) return true;
-    return ownerId === me;
+export function canEditShared(_ownerId: string | undefined, _me: string | undefined): boolean {
+    return true;
 }
