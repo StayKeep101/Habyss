@@ -27,7 +27,7 @@ const EASE = { duration: 420, easing: Easing.out(Easing.cubic), reduceMotion: Re
  * letter-spaced heading, the same scaled type.
  */
 export const DailyFocusCard: React.FC<{
-    focus: DailyFocus;
+    focus: DailyFocus & { streak?: number };
     onToggle: (task: Task) => void;
     onOpen: () => void;
     onAdd: () => void;
@@ -62,6 +62,12 @@ export const DailyFocusCard: React.FC<{
                     <Text style={[styles.title, { color: colors.textPrimary }]}>TODAY&apos;S {focus.target}</Text>
                 </View>
 
+                {focus.streak ? (
+                    <View accessible accessibilityLabel={`${focus.streak} day streak`} style={[styles.badge, { backgroundColor: '#F9731618', marginLeft: 'auto', marginRight: 6 }]}>
+                        <Ionicons name="flame" size={s(12)} color="#F97316" />
+                        <Text style={[styles.badgeText, { color: '#F97316' }]}>{focus.streak}</Text>
+                    </View>
+                ) : null}
                 <View style={[styles.badge, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
                     <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{focus.done}/{focus.target}</Text>
                     <Ionicons name="chevron-forward" size={s(12)} color={colors.textTertiary} />

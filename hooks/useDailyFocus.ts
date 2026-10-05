@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import {
-    DEFAULT_TARGET, TARGET_CHANGED, dailyFocus, getDailyTarget,
+    DEFAULT_TARGET, TARGET_CHANGED, dailyFocus, focusHistory, focusStreak, getDailyTarget,
     type DailyFocus, type DailyTarget,
 } from '@/lib/dailyFocus';
 import { todayKey } from '@/lib/tasks';
@@ -20,7 +20,7 @@ export function useDailyTarget(): DailyTarget {
 }
 
 /** Today's promise: what is done, what is left, and how far through it is. */
-export function useDailyFocus(): DailyFocus & { loaded: boolean } {
+export function useDailyFocus(): DailyFocus & { loaded: boolean; streak: number } {
     const tasks = useTasks();
     const target = useDailyTarget();
     const [today, setToday] = useState(todayKey);
@@ -32,5 +32,7 @@ export function useDailyFocus(): DailyFocus & { loaded: boolean } {
     }, []);
 
     const focus = useMemo(() => dailyFocus(tasks, target, today, today), [tasks, target, today]);
-    return { ...focus, loaded: tasks.length > 0 || focus.rows.length === 0 };
+    // Days in a row the 3 (or 5) were done; today joins once it is won.
+    const streak = useMemo(() => focusStreak(focusHistory(tasks, target, 400, today)), [tasks, target, today]);
+    return { ...focus, streak, loaded: tasks.length > 0 || focus.rows.length === 0 };
 }
