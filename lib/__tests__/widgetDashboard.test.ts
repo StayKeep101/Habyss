@@ -33,7 +33,9 @@ it('uses the same goal progress as the app and supplies the exact task contribut
     const goal = habit({ id: 'goal', isGoal: true, targetDate: today, color: '#00FF00' });
     const snapshot = build({ habits: [goal, habit({ goalId: 'goal' })], tasks: [task({ goalId: 'goal' })],
         history: { '2026-09-25': ['habit'], [today]: ['habit'] } });
-    expect(snapshot.goals[0]).toMatchObject({ id: 'goal', progress: 50, color: '#00FF00', taskWeights: { 'task:task': 50 } });
+    // A goal with no number is a project: its one task is the whole of it, so
+    // ticking that task on the widget takes it from 0 to 100.
+    expect(snapshot.goals[0]).toMatchObject({ id: 'goal', progress: 0, color: '#00FF00', taskWeights: { 'task:task': 100 } });
 });
 it('rejects corrupt widget actions instead of writing them into history', () => {
     const valid = { eventId: 'uuid', id: 'habit:abc', day: today, done: true, timestamp: 1 };

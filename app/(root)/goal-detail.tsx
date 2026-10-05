@@ -21,6 +21,7 @@ import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';
 import { GoalPlanView } from '@/components/Goal/GoalPlanView';
+import { GoalPace } from '@/components/Goal/GoalPace';
 import { dateAt, friendlyDate } from '@/lib/goalInsights';
 import { TaskItem } from '@/components/Roadmap/TaskItem';
 import { setTaskStatus, deleteTask, type Task } from '@/lib/tasks';
@@ -451,6 +452,11 @@ const GoalDetail = () => {
              the whole plan replace it in place, from the tabs above. Building
              the plan happens on the roadmap, not here. */
           <Animated.View key="today" entering={FadeIn.duration(220)}>
+          {insights && insights.measure.total > 0 ? (
+            <View style={{ marginHorizontal: 20, marginTop: 18 }}>
+              <GoalPace measure={insights.measure} color={goal.color || accentColor} />
+            </View>
+          ) : null}
           <VoidCard glass style={[styles.mainPanel, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
             <View style={styles.todayHeader}>
               <View>

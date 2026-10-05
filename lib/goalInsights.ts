@@ -1,24 +1,60 @@
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
+import type { GoalKind, Milestone } from './goalParser';
 import { createHabitSchedule, localDateKey, parseHabitDate } from './habitSchedule';
 
 /**
  * Everything the goal screen shows, worked out in one place.
  *
- * A goal is made of habits (recurring) and tasks (one-off, on a date). Its
- * progress is the share of the whole plan that is done: each habit weighs as
- * much as each task, a habit's share is its completed check-ins over every
- * check-in it is scheduled for between the goal's start and target, and a
- * task's share is 1 once it is done. Because the denominator is the whole
- * plan, progress only ever rises, which is what makes it chartable like a
- * portfolio: the line is what you have banked, and the dashed pace line is
- * where a perfectly consistent you would be on each day.
+ * A goal is made of habits (recurring) and tasks (one-off). How far along it is
+ * depends on its kind, and is always "this much out of that much":
+ *
+ * - number: the amount delivered so far out of the target (750 / 2000 calls).
+ *   Habit check-ins and count tasks linked to the goal add to it.
+ * - time: the same, in minutes (timed habits and time tasks add to it).
+ * - complete: tasks done out of all its tasks (34 / 73 tasks).
+ *
+ * Progress only ever rises, which is what makes it chartable like a portfolio:
+ * the line is what you have banked, and the dashed pace line is where steady
+ * work from the start date would have you on each day.
+ *
+ * What is left is spread over the days that are left, today included — so a
+ * missed day raises tomorrow's figure instead of being quietly forgotten.
  */
 
 export type GoalStatus = 'ahead' | 'on_pace' | 'behind' | 'not_started' | 'empty';
 export type DayMark = 'done' | 'missed' | 'pending' | 'off' | 'skipped';
 
-export interface GoalPoint { date: string; actual: number; pace: number }
+export interface GoalPoint {
+    date: string;
+    /** Percent done by the end of this day. */
+    actual: number;
+    /** Percent steady work would have reached. */
+    pace: number;
+    /** The amount done by this day, in the goal's own unit (calls, minutes, tasks). */
+    value?: number;
+}
+
+/** A goal read as "this much out of that much", and what it now asks per day. */
+export interface GoalMeasure {
+    kind: GoalKind;
+    done: number;
+    total: number;
+    /** What is being counted: "calls", "minutes", "tasks". */
+    unit: string;
+    remaining: number;
+    /** Days left including today; null for a goal with no finish date. */
+    daysLeft: number | null;
+    /**
+     * What each remaining day now needs, worked out from the start of today:
+     * what was left this morning spread over today and the days after it.
+     */
+    perDay: number | null;
+    perWeek: number | null;
+    /** Done so far today, and what today still needs to stay on that pace. */
+    today: number;
+    leftToday: number | null;
+}
 
 export interface HabitSummary {
     habit: Habit;
@@ -66,6 +102,18 @@ export interface GoalInsights {
     };
     habits: HabitSummary[];
     upNext: UpNextItem[];
+    measure: GoalMeasure;
+    milestones: MilestoneProgress[];
+}
+
+/** One step of a complete goal, with the tasks that make it up. */
+export interface MilestoneProgress {
+    milestone: Milestone;
+    tasks: Task[];
+    done: number;
+    total: number;
+    /** Every task in it is done (and it has at least one). */
+    complete: boolean;
 }
 
 export interface GoalInsightInput {
@@ -157,6 +205,173 @@ export function contribution(habit: Habit): number {
     return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
+const readSpec = (goal: Habit): Record<string, any> => {
+    try { return goal.goalSpec ? JSON.parse(goal.goalSpec) ?? {} : {}; } catch { return {}; }
+};
+
+const MINUTES_PER: Record<string, number> = {
+    second: 1 / 60, seconds: 1 / 60, sec: 1 / 60, secs: 1 / 60,
+    minute: 1, minutes: 1, min: 1, mins: 1,
+    hour: 60, hours: 60, hr: 60, hrs: 60, h: 60,
+};
+
+/** Units that only say "how many", which any count can be added to. */
+const GENERIC_UNITS = new Set(['', 'count', 'times', 'time', 'x', 'sessions', 'session']);
+
+/** Which kind of goal this is; older goals are read from their target. */
+export function goalKind(goal: Habit): GoalKind {
+    const kind = readSpec(goal).kind;
+    if (kind === 'number' || kind === 'complete' || kind === 'time') return kind;
+    const target = goalTarget(goal);
+    if (!target) return 'complete';
+    return MINUTES_PER[target.unit] ? 'time' : 'number';
+}
+
+/** The steps of a complete goal, in order. */
+export function goalMilestones(goal: Habit): Milestone[] {
+    const list = readSpec(goal).milestones;
+    return Array.isArray(list)
+        ? list.filter((item: any) => item && typeof item.id === 'string' && typeof item.title === 'string')
+        : [];
+}
+
+/** What one check-in of a habit delivers toward a time goal, in minutes. */
+export function minutesPerCheckIn(habit: Habit): number {
+    const factor = MINUTES_PER[String(habit.unit ?? '').trim().toLowerCase()];
+    if (factor) return contribution(habit) * factor;
+    return Number(habit.durationMinutes) > 0 ? Number(habit.durationMinutes) : 0;
+}
+
+/** How much a task has delivered toward a number or time goal. */
+function taskAmount(task: Task, kind: GoalKind, unit: string): number {
+    if (!task.measure || !task.target) return 0;
+    const amount = task.status === 'done' ? Math.max(task.amount ?? 0, task.target) : (task.amount ?? 0);
+    if (kind === 'time') return task.measure === 'time' ? amount : 0;
+    if (kind !== 'number' || task.measure !== 'count') return 0;
+    const own = String(task.unit ?? '').trim().toLowerCase();
+    return GENERIC_UNITS.has(own) || GENERIC_UNITS.has(unit) || own === unit || own.replace(/s$/, '') === unit.replace(/s$/, '') ? amount : 0;
+}
+
+/** The day a task's amount landed: when it was finished, or last moved. */
+const taskDay = (task: Task): string | null => {
+    const stamp = task.status === 'done' ? (task.completedAt ?? task.updatedAt) : task.updatedAt;
+    const parsed = stamp ? new Date(stamp) : null;
+    return parsed && Number.isFinite(parsed.getTime()) ? localDateKey(parsed) : null;
+};
+
+/**
+ * The goal as one cumulative number by day, from its start to today.
+ *
+ * Returned per day so the chart and the headline come from the same place and
+ * cannot disagree.
+ */
+function measureByDay(input: GoalInsightInput): {
+    kind: GoalKind; unit: string; total: number; byDay: Map<string, number>;
+} {
+    const { goal, today } = input;
+    const habits = linkedHabits(goal, input.habits);
+    const tasks = linkedTasks(goal, input.tasks);
+    const { start, end } = goalRange(goal, today);
+    const last = today < end ? today : end;
+    const byDay = new Map<string, number>();
+    const add = (day: string | null, amount: number) => {
+        if (!day || !amount) return;
+        byDay.set(day, (byDay.get(day) ?? 0) + amount);
+    };
+    let kind = goalKind(goal);
+    const target = goalTarget(goal);
+
+    if (kind !== 'complete' && target) {
+        const unit = kind === 'time' ? 'minutes' : target.unit;
+        const total = kind === 'time' ? target.amount * (MINUTES_PER[target.unit] ?? 1) : target.amount;
+        const counted = kind === 'time'
+            ? habits.filter(habit => minutesPerCheckIn(habit) > 0)
+            : habits.filter(habit => {
+                if (!(Number(habit.goalValue) > 0)) return false;
+                const own = String(habit.unit ?? '').trim().toLowerCase();
+                return GENERIC_UNITS.has(own) || GENERIC_UNITS.has(unit) || own === unit;
+            });
+        for (let day = start; day <= last; day = addDays(day, 1)) {
+            const doneIds = new Set(input.history[day]);
+            for (const habit of counted) {
+                if (doneIds.has(habit.id)) add(day, kind === 'time' ? minutesPerCheckIn(habit) : contribution(habit));
+            }
+        }
+        for (const task of tasks) add(taskDay(task), taskAmount(task, kind, unit));
+        return { kind, unit, total, byDay };
+    }
+
+    // A complete goal, or one with no number: tasks done out of all of them.
+    kind = 'complete';
+    if (tasks.length > 0) {
+        for (const task of tasks) if (task.status === 'done') add(doneOn(task), 1);
+        return { kind, unit: 'tasks', total: tasks.length, byDay };
+    }
+
+    // Only habits so far: check-ins kept out of all those scheduled.
+    const schedules = habits.map(habit => ({ habit, scheduled: createHabitSchedule(habit) }));
+    let total = 0;
+    for (let day = start; day <= end; day = addDays(day, 1)) {
+        const date = dateAt(day);
+        const doneIds = new Set(input.history[day]);
+        for (const { habit, scheduled } of schedules) {
+            if (!scheduled(date) || wasSkipped(input.skips, day, habit.id)) continue;
+            total++;
+            if (day <= today && doneIds.has(habit.id)) add(day, 1);
+        }
+    }
+    return { kind, unit: 'check-ins', total, byDay };
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** "this much out of that much", and what every remaining day now needs. */
+export function goalMeasure(input: GoalInsightInput, measured = measureByDay(input)): GoalMeasure {
+    const { kind, unit, total, byDay } = measured;
+    const { start, end } = goalRange(input.goal, input.today);
+    let done = 0;
+    let beforeToday = 0;
+    for (const [day, amount] of byDay) {
+        // Finished before the goal started still counts, as day one.
+        if (day > input.today) continue;
+        done += amount;
+        if (day < input.today) beforeToday += amount;
+    }
+    const remaining = Math.max(0, total - done);
+    const dated = !!input.goal.targetDate;
+    const daysLeft = dated ? Math.max(0, daysBetween(input.today < start ? start : input.today, end) + 1) : null;
+    const leftThisMorning = Math.max(0, total - beforeToday);
+    const perDay = daysLeft ? leftThisMorning / daysLeft : null;
+    const todayAmount = done - beforeToday;
+    return {
+        kind, done: round1(done), total: round1(total), unit,
+        remaining: round1(remaining),
+        daysLeft,
+        perDay: perDay === null ? null : round1(perDay),
+        perWeek: perDay === null || daysLeft === null ? null : round1(daysLeft >= 7 ? perDay * 7 : leftThisMorning),
+        today: round1(todayAmount),
+        leftToday: perDay === null ? null : round1(Math.max(0, perDay - todayAmount)),
+    };
+}
+
+/** Each step of a complete goal and how much of it is done. Unsorted tasks come last. */
+export function milestoneProgress(goal: Habit, tasks: Task[]): MilestoneProgress[] {
+    const linked = linkedTasks(goal, tasks);
+    const steps = goalMilestones(goal);
+    const known = new Set(steps.map(step => step.id));
+    const out = steps.map(milestone => {
+        const own = linked.filter(task => task.milestoneId === milestone.id);
+        const done = own.filter(task => task.status === 'done').length;
+        return { milestone, tasks: own, done, total: own.length, complete: own.length > 0 && done === own.length };
+    });
+    const loose = linked.filter(task => !task.milestoneId || !known.has(task.milestoneId));
+    if (steps.length > 0 && loose.length > 0) {
+        const done = loose.filter(task => task.status === 'done').length;
+        out.push({ milestone: { id: '', title: 'Other tasks' }, tasks: loose, done, total: loose.length, complete: done === loose.length });
+    }
+    return out;
+}
+
 export function linkedHabits(goal: Habit, habits: Habit[]): Habit[] {
     return habits.filter(habit => habit.goalId === goal.id && !habit.isGoal && !habit.isArchived);
 }
@@ -170,41 +385,8 @@ const wasSkipped = (skips: Record<string, string[]> | undefined, day: string, ha
 
 /** Progress today only; the cheap path for lists of goals. */
 export function goalProgress(input: GoalInsightInput, rounded = true): number {
-    const habits = linkedHabits(input.goal, input.habits);
-    const tasks = linkedTasks(input.goal, input.tasks);
-    const schedules = habits.map(habit => ({ habit, scheduled: createHabitSchedule(habit) }));
-    const units = habits.length + tasks.length;
-    if (units === 0) return 0;
-    const { start, end } = goalRange(input.goal, input.today);
-
-    const target = goalTarget(input.goal);
-    const counted = target ? contributingHabits(habits, target) : [];
-    const countedIds = new Set(counted.map(habit => habit.id));
-
-    let expected = 0;
-    let completed = 0;
-    let delivered = 0;
-    for (let day = start; day <= end; day = addDays(day, 1)) {
-        const date = dateAt(day);
-        const doneIds = new Set(input.history[day]);
-        for (const { habit, scheduled } of schedules) {
-            if (!scheduled(date)) continue;
-            if (wasSkipped(input.skips, day, habit.id)) continue;
-            expected++;
-            if (day <= input.today && doneIds.has(habit.id)) {
-                completed++;
-                if (countedIds.has(habit.id)) delivered += contribution(habit);
-            }
-        }
-    }
-
-    // A goal that names a number is measured against it; everything else is
-    // measured by how much of its plan has been kept.
-    const habitShare = target && counted.length
-        ? Math.min(1, delivered / target.amount)
-        : expected === 0 ? 0 : completed / expected;
-    const tasksDone = tasks.filter(task => task.status === 'done').length;
-    const progress = ((habitShare * habits.length + tasksDone) / units) * 100;
+    const { done, total } = goalMeasure(input);
+    const progress = total > 0 ? Math.min(100, (done / total) * 100) : 0;
     return rounded ? Math.round(progress) : progress;
 }
 
@@ -212,79 +394,30 @@ export function buildGoalInsights(input: GoalInsightInput): GoalInsights {
     const { goal, history, today } = input;
     const habits = linkedHabits(goal, input.habits);
     const tasks = linkedTasks(goal, input.tasks);
-    const schedules = habits.map(habit => ({ habit, scheduled: createHabitSchedule(habit) }));
     const { start, end } = goalRange(goal, today);
     const units = habits.length + tasks.length;
+    const measured = measureByDay(input);
+    const { byDay } = measured;
+    const measure = goalMeasure(input, measured);
 
-    // One pass over the plan: what was expected and done on each day.
-    const target = goalTarget(goal);
-    const counted = target ? contributingHabits(habits, target) : [];
-    const countedIds = new Set(counted.map(habit => habit.id));
-    const quantified = !!target && counted.length > 0;
-
-    const days: { date: string; expected: number; done: number; delivered: number; owed: number }[] = [];
-    let totalExpected = 0;
-    for (let day = start; day <= end; day = addDays(day, 1)) {
-        const date = dateAt(day);
-        const doneIds = new Set(history[day]);
-        let expected = 0;
-        let done = 0;
-        let delivered = 0;
-        let owed = 0;
-        for (const { habit, scheduled } of schedules) {
-            if (!scheduled(date)) continue;
-            if (wasSkipped(input.skips, day, habit.id)) continue;
-            expected++;
-            if (countedIds.has(habit.id)) owed += contribution(habit);
-            if (day <= today && doneIds.has(habit.id)) {
-                done++;
-                if (countedIds.has(habit.id)) delivered += contribution(habit);
-            }
-        }
-        totalExpected += expected;
-        days.push({ date: day, expected, done, delivered, owed });
-    }
-
-    // Undated tasks are due by the end of the goal.
-    const taskDue = tasks.map(task => task.dueDate ?? end).sort();
-    const taskDone = tasks.map(doneOn).filter((day): day is string => day !== null).sort();
-    let tasksDone = 0;
-    let tasksDue = 0;
-
+    // Banked by each day against steady work from the start: the two lines.
     const series: GoalPoint[] = [];
-    let expectedSoFar = 0;
-    let doneSoFar = 0;
-    let deliveredSoFar = 0;
-    let owedSoFar = 0;
     const lastDay = today < end ? today : end;
-    for (const day of days) {
-        expectedSoFar += day.expected;
-        doneSoFar += day.done;
-        deliveredSoFar += day.delivered;
-        owedSoFar += day.owed;
-        if (day.date > lastDay) break;
-        const habitDone = quantified
-            ? Math.min(1, deliveredSoFar / target!.amount)
-            : totalExpected ? doneSoFar / totalExpected : 0;
-        // Pace is where a perfectly consistent plan would stand by this day.
-        const habitPace = quantified
-            ? Math.min(1, owedSoFar / target!.amount)
-            : totalExpected ? expectedSoFar / totalExpected : 0;
-        while (tasksDone < taskDone.length && taskDone[tasksDone] <= day.date) tasksDone++;
-        while (tasksDue < taskDue.length && taskDue[tasksDue] <= day.date) tasksDue++;
+    const span = Math.max(1, daysBetween(start, end) + 1);
+    const total = measure.total;
+    let soFar = 0;
+    for (const [day, amount] of byDay) if (day < start) soFar += amount;
+    for (let day = start, index = 1; day <= lastDay; day = addDays(day, 1), index++) {
+        soFar += byDay.get(day) ?? 0;
         series.push({
-            date: day.date,
-            actual: units ? Math.round(((habitDone * habits.length + tasksDone) / units) * 1000) / 10 : 0,
-            pace: units ? Math.round(((habitPace * habits.length + tasksDue) / units) * 1000) / 10 : 0,
+            date: day,
+            actual: total ? Math.round(Math.min(1, soFar / total) * 1000) / 10 : 0,
+            pace: Math.round(Math.min(1, index / span) * 1000) / 10,
+            value: round1(soFar),
         });
     }
 
-    // Tasks finished before the goal's start still count; they sit on day one.
-    const completedHabits = days.reduce((sum, day) => sum + day.done, 0);
-    const habitShare = quantified
-        ? Math.min(1, days.reduce((sum, day) => sum + day.delivered, 0) / target!.amount)
-        : totalExpected ? completedHabits / totalExpected : 0;
-    const progress = units ? Math.round(((habitShare * habits.length + tasks.filter(task => task.status === 'done').length) / units) * 100) : 0;
+    const progress = total ? Math.min(100, Math.round((measure.done / total) * 100)) : 0;
     if (series.length) series[series.length - 1].actual = progress;
 
     const pace = series.length >= 2 ? series[series.length - 2].pace : 0;
@@ -292,7 +425,7 @@ export function buildGoalInsights(input: GoalInsightInput): GoalInsights {
     const change7 = series.length ? Math.round(progress - weekAgo) : 0;
 
     let status: GoalStatus;
-    if (units === 0) status = 'empty';
+    if (units === 0 && measure.done === 0) status = 'empty';
     else if (today < start) status = 'not_started';
     else if (progress >= pace + PACE_TOLERANCE) status = 'ahead';
     else if (progress <= pace - PACE_TOLERANCE) status = 'behind';
@@ -352,6 +485,8 @@ export function buildGoalInsights(input: GoalInsightInput): GoalInsights {
         },
         habits: summaries,
         upNext,
+        measure,
+        milestones: milestoneProgress(goal, input.tasks),
     };
 }
 

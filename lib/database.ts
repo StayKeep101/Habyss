@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 let dbInstance: any = null;
 /**
@@ -125,6 +125,7 @@ async function runMigrations(db: any): Promise<void> {
         [11, migrateToV11],
         [12, migrateToV12],
         [13, migrateToV13],
+        [14, migrateToV14],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -142,6 +143,23 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 14 — what a task asks for, and where in a plan it sits.
+ *
+ * "Send the proposal" is done or not; "call 25 leads" is a count and "study two
+ * hours" is time. A task needs its target and how far it has got to say which,
+ * and a goal made of steps needs to know which step each task belongs to.
+ * All null on older rows, which is a done-or-not task in no step: what they were.
+ */
+async function migrateToV14(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'tasks', 'measure', 'TEXT');
+    await addColumnIfMissing(db, 'tasks', 'target', 'REAL');
+    await addColumnIfMissing(db, 'tasks', 'unit', 'TEXT');
+    await addColumnIfMissing(db, 'tasks', 'amount', 'REAL');
+    await addColumnIfMissing(db, 'tasks', 'milestone_id', 'TEXT');
+    console.log('[Database] Migrated to schema v14');
 }
 
 /**

@@ -19,8 +19,9 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseTask } from '@/lib/smartParse';
-import { describeParsedTask, parseTaskText } from '@/lib/taskParser';
-import { createTask, updateTask, type Task, type TaskPriority } from '@/lib/tasks';
+import { describeParsedTask, parseTaskText, readTaskMeasure } from '@/lib/taskParser';
+import { createTask, updateTask, type Task, type TaskMeasure, type TaskPriority } from '@/lib/tasks';
+import { goalMilestones } from '@/lib/goalInsights';
 import { localDateKey } from '@/lib/habitSchedule';
 import { getGoals, type Habit } from '@/lib/habitsSQLite';
 import { emit, on } from '@/lib/appEvents';
@@ -48,7 +49,18 @@ interface Draft {
     estimate?: number;
     priority: TaskPriority;
     goalId?: string;
+    measure: TaskMeasure;
+    /** A count, or minutes for time. */
+    target?: number;
+    unit?: string;
+    milestoneId?: string;
 }
+
+const MEASURES: { id: TaskMeasure; label: string }[] = [
+    { id: 'done', label: 'Done' },
+    { id: 'count', label: 'Count' },
+    { id: 'time', label: 'Time' },
+];
 
 const fromTask = (task: Task): Draft => ({
     title: task.title,
@@ -58,6 +70,10 @@ const fromTask = (task: Task): Draft => ({
     estimate: task.estimatedMinutes,
     priority: task.priority,
     goalId: task.goalId,
+    measure: task.measure ?? 'done',
+    target: task.target,
+    unit: task.unit,
+    milestoneId: task.milestoneId,
 });
 
 const shortDate = (date?: string) => {
@@ -90,6 +106,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const [eventVisible, setEventVisible] = useState(false);
     const [editing, setEditing] = useState<Task | null>(null);
     const [eventGoal, setEventGoal] = useState<string | undefined>(undefined);
+    const [eventMilestone, setEventMilestone] = useState<string | undefined>(undefined);
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<string | null>(null);
@@ -128,6 +145,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             emit('close_creation_modal');
             setEditing((data?.task ?? null) as Task | null);
             setEventGoal(typeof data?.goalId === 'string' ? data.goalId : undefined);
+            setEventMilestone(typeof data?.milestoneId === 'string' ? data.milestoneId : undefined);
             // Opened from somewhere that already knows which question is being
             // asked — the goal roadmap only ever asks about the date.
             setRequestedRow(data?.focus ?? null);
@@ -155,7 +173,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         // in Reminders — but only a brand new one.
         const start: Draft = current
             ? fromTask(current)
-            : { title: '', priority: 2, dueDate: localDateKey(new Date()), goalId: eventGoal };
+            : { title: '', priority: 2, dueDate: localDateKey(new Date()), goalId: eventGoal, measure: 'done', milestoneId: eventMilestone };
         const read: Draft = parsed ? {
             ...start,
             title: parsed.title || start.title,
@@ -164,8 +182,11 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             estimate: parsed.estimatedMinutes ?? start.estimate,
             priority: parsed.priority ?? start.priority,
         } : start;
-        return { ...read, ...edits };
-    }, [current, eventGoal, parsed, edits]);
+        // "Call 25 leads" is a count and "Study 2 hours" is time, unless chosen otherwise.
+        const named = !untouched && text.trim() ? readTaskMeasure(text) : null;
+        const measured: Draft = named && read.measure === 'done' ? { ...read, ...named } : read;
+        return { ...measured, ...edits };
+    }, [current, eventGoal, eventMilestone, parsed, edits, text, untouched]);
 
     const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
@@ -185,6 +206,10 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 estimatedMinutes: draft.estimate,
                 priority: draft.priority,
                 goalId: draft.goalId,
+                measure: draft.measure,
+                target: draft.measure === 'done' ? undefined : draft.target,
+                unit: draft.measure === 'count' ? draft.unit?.trim() || undefined : undefined,
+                milestoneId: draft.goalId && steps.some(step => step.id === draft.milestoneId) ? draft.milestoneId : undefined,
             };
             if (current) await updateTask(current.id, input);
             else {
@@ -209,10 +234,57 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         date.setDate(date.getDate() + days);
         return localDateKey(date);
     };
-    const goalName = goals.find(goal => goal.id === draft.goalId)?.name;
-    const canSave = !!text.trim();
+    const chosenGoal = goals.find(goal => goal.id === draft.goalId);
+    const goalName = chosenGoal?.name;
+    const steps = chosenGoal ? goalMilestones(chosenGoal) : [];
+    const needsTarget = draft.measure !== 'done' && !(Number(draft.target) > 0);
+    const canSave = !!text.trim() && !needsTarget;
+    const measureValue = draft.measure === 'time'
+        ? (draft.target ? `${Math.round((draft.target / 60) * 10) / 10} h` : 'Time')
+        : draft.measure === 'count'
+            ? (draft.target ? `${draft.target}${draft.unit ? ` ${draft.unit}` : ''}` : 'Count')
+            : undefined;
+    const field = [styles.amount, {
+        color: colors.textPrimary, borderColor: colors.border,
+        backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
+    }];
 
     const items: DetailItem[] = [
+        {
+            id: 'measure', icon: 'speedometer-outline', label: 'Type', value: measureValue,
+            content: (
+                <>
+                    <Choices options={MEASURES} value={draft.measure} accent={accent}
+                        onChange={measure => change({ measure, ...(measure === draft.measure ? {} : { target: undefined }) })} />
+                    {draft.measure === 'count' ? (
+                        <View style={styles.amountRow}>
+                            <TextInput
+                                value={draft.target ? String(draft.target) : ''}
+                                onChangeText={value => { const n = Number(value.replace(',', '.')); change({ target: Number.isFinite(n) && n > 0 ? n : undefined }); }}
+                                keyboardType="decimal-pad" placeholder="25" placeholderTextColor={colors.textTertiary}
+                                accessibilityLabel="Target count" style={field}
+                            />
+                            <TextInput
+                                value={draft.unit ?? ''}
+                                onChangeText={unit => change({ unit })}
+                                placeholder="leads, words…" placeholderTextColor={colors.textTertiary}
+                                accessibilityLabel="What is counted" style={[...field, { flex: 1 }]}
+                            />
+                        </View>
+                    ) : draft.measure === 'time' ? (
+                        <View style={styles.amountRow}>
+                            <TextInput
+                                value={draft.target ? String(Math.round((draft.target / 60) * 100) / 100) : ''}
+                                onChangeText={value => { const n = Number(value.replace(',', '.')); change({ target: Number.isFinite(n) && n > 0 ? Math.round(n * 60) : undefined }); }}
+                                keyboardType="decimal-pad" placeholder="2" placeholderTextColor={colors.textTertiary}
+                                accessibilityLabel="Target hours" style={field}
+                            />
+                            <Text style={[styles.read, { color: colors.textSecondary, fontSize: 13 }]}>hours</Text>
+                        </View>
+                    ) : null}
+                </>
+            ),
+        },
         {
             id: 'due', icon: 'calendar-outline', label: 'Date', value: shortDate(draft.dueDate),
             content: (
@@ -263,7 +335,19 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     options={[{ id: '', label: 'None' }, ...goals.map(goal => ({ id: goal.id, label: goal.name }))]}
                     value={draft.goalId ?? ''}
                     accent={accent}
-                    onChange={id => change({ goalId: id || undefined })}
+                    onChange={id => change({ goalId: id || undefined, milestoneId: undefined })}
+                />
+            ),
+        }] : []),
+        ...(steps.length > 0 ? [{
+            id: 'step', icon: 'git-commit-outline' as const, label: 'Step',
+            value: steps.find(step => step.id === draft.milestoneId)?.title,
+            content: (
+                <Choices
+                    options={[{ id: '', label: 'None' }, ...steps.map(step => ({ id: step.id, label: step.title }))]}
+                    value={draft.milestoneId ?? ''}
+                    accent={accent}
+                    onChange={id => change({ milestoneId: id || undefined })}
                 />
             ),
         }] : []),
@@ -366,7 +450,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     >
                         {saving ? <ActivityIndicator color="#000" size="small" /> : (
                             <Text style={[styles.saveText, { color: canSave ? '#000' : colors.textTertiary }]}>
-                                {current ? 'Save changes' : 'Add task'}
+                                {needsTarget ? (draft.measure === 'time' ? 'Add how many hours' : 'Add a count') : current ? 'Save changes' : 'Add task'}
                             </Text>
                         )}
                     </Pressable>
@@ -396,6 +480,8 @@ const styles = StyleSheet.create({
     read: { flexShrink: 1, fontSize: 11, fontFamily: FontFamily.regular },
     link: { paddingVertical: 6 },
     picker: { alignSelf: 'flex-start' },
+    amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+    amount: { minWidth: 90, borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, fontFamily: FontFamily.semibold },
     notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     error: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1 },
     errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },

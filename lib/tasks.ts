@@ -16,6 +16,11 @@ export type TaskStatus = 'open' | 'done' | 'cancelled';
 /** 1 is the most important. Kept numeric so ordering is obvious. */
 export type TaskPriority = 1 | 2 | 3;
 export type TaskSource = 'app' | 'mcp' | 'shortcut';
+/**
+ * What finishing a task means: ticking it ("Send proposal"), reaching a count
+ * ("Call 25 leads") or putting in time ("Study 2 hours", target in minutes).
+ */
+export type TaskMeasure = 'done' | 'count' | 'time';
 
 export interface Task {
     id: string;
@@ -33,6 +38,16 @@ export interface Task {
     source: TaskSource;
     /** Stable id from whatever created it, so re-importing updates in place. */
     externalId?: string;
+    /** Absent on a done-or-not task. */
+    measure?: TaskMeasure;
+    /** The count to reach, or minutes for a time task. */
+    target?: number;
+    /** What a count task counts ("leads", "words"). */
+    unit?: string;
+    /** How far it has got; a done task with no amount counts as its target. */
+    amount?: number;
+    /** The step of its goal's plan it belongs to. */
+    milestoneId?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -47,6 +62,11 @@ export interface TaskInput {
     goalId?: string;
     source?: TaskSource;
     externalId?: string;
+    measure?: TaskMeasure;
+    target?: number;
+    unit?: string;
+    amount?: number;
+    milestoneId?: string;
 }
 
 const rowToTask = (row: any): Task => ({
@@ -62,6 +82,11 @@ const rowToTask = (row: any): Task => ({
     completedAt: row.completed_at ?? undefined,
     source: (row.source ?? 'app') as TaskSource,
     externalId: row.external_id ?? undefined,
+    measure: row.measure === 'count' || row.measure === 'time' ? row.measure : undefined,
+    target: Number.isFinite(row.target) && row.target > 0 ? row.target : undefined,
+    unit: row.unit ?? undefined,
+    amount: Number.isFinite(row.amount) ? row.amount : undefined,
+    milestoneId: row.milestone_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
 });
@@ -98,6 +123,7 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
         ['title', 'title'], ['description', 'description'], ['dueDate', 'due_date'],
         ['dueTime', 'due_time'], ['estimatedMinutes', 'estimated_minutes'],
         ['priority', 'priority'], ['goalId', 'goal_id'], ['source', 'source'],
+        ['measure', 'measure'], ['target', 'target'], ['unit', 'unit'], ['milestoneId', 'milestone_id'],
     ];
     const updates = importedColumns.filter(([key]) => Object.prototype.hasOwnProperty.call(input, key))
         .map(([, column]) => `${column} = excluded.${column}`);
@@ -107,11 +133,15 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
-            priority, goal_id, status, source, external_id, created_at, updated_at, deleted, synced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, 0, 0) ${conflict}`,
+            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id,
+            created_at, updated_at, deleted, synced
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
         input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
-        input.source ?? 'app', input.externalId ?? null, now, now,
+        input.source ?? 'app', input.externalId ?? null,
+        input.measure && input.measure !== 'done' ? input.measure : null,
+        input.measure && input.measure !== 'done' ? input.target ?? null : null,
+        input.unit?.trim() || null, input.milestoneId ?? null, now, now,
     );
 
     const row = input.externalId
@@ -133,6 +163,7 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
         title: 'title', description: 'description', dueDate: 'due_date', dueTime: 'due_time',
         estimatedMinutes: 'estimated_minutes', priority: 'priority', goalId: 'goal_id',
         source: 'source', externalId: 'external_id',
+        measure: 'measure', target: 'target', unit: 'unit', amount: 'amount', milestoneId: 'milestone_id',
     };
 
     const sets: string[] = [];
@@ -150,6 +181,39 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
     sets.push('updated_at = ?', 'synced = 0');
     params.push(nowISO(), id);
     await db.runAsync(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`, ...params);
+}
+
+/**
+ * Records how far a count or time task has got, finishing it once the target
+ * is reached and reopening it if the amount is taken back below.
+ */
+export async function setTaskAmount(task: Task, amount: number): Promise<void> {
+    const db = await getDatabase();
+    if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
+    const value = Math.max(0, Math.round(amount * 100) / 100);
+    const done = !!task.target && value >= task.target;
+    const now = nowISO();
+    await db.runAsync(
+        `UPDATE tasks SET amount = ?, status = ?, completed_at = ?, updated_at = ?, synced = 0 WHERE id = ?`,
+        value, done ? 'done' : 'open', done ? (task.status === 'done' ? task.completedAt ?? now : now) : null, now, task.id,
+    );
+    if (done !== (task.status === 'done')) void publishIfShared(task.id, done);
+}
+
+/** How far a task has got, 0 to 1: done tasks are whole, open ones their share. */
+export function taskShare(task: Task): number {
+    if (task.status === 'done') return 1;
+    if (!task.measure || !task.target) return 0;
+    return Math.max(0, Math.min(1, (task.amount ?? 0) / task.target));
+}
+
+/** "12 / 25 leads", "40 / 120 min", or null for a done-or-not task. */
+export function taskAmountLabel(task: Task): string | null {
+    if (!task.measure || !task.target) return null;
+    const amount = task.status === 'done' ? Math.max(task.amount ?? 0, task.target) : task.amount ?? 0;
+    const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+    if (task.measure === 'time') return `${fmt(amount)} / ${fmt(task.target)} min`;
+    return `${fmt(amount)} / ${fmt(task.target)}${task.unit ? ` ${task.unit}` : ''}`;
 }
 
 /** Marks a task done, or reopens it. Completion time is recorded, never guessed. */

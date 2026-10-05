@@ -42,7 +42,10 @@ describe('the goal sheet', () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Get better at the guitar');
 
-        // Nothing measurable yet, so the button says what it still needs.
+        // No number in it, so it reads as a project and asks for its steps.
+        expect(screen.getByText('Add the major steps')).toBeTruthy();
+        // As a number goal, the button says what it still needs.
+        fireEvent.press(screen.getByRole('radio', { name: 'Number' }));
         const button = screen.getByText('Add a number to hit');
         await act(async () => { fireEvent.press(button); });
         expect(addHabit).not.toHaveBeenCalled();
@@ -58,6 +61,26 @@ describe('the goal sheet', () => {
         await act(async () => { fireEvent.press(screen.getByText('Create goal')); });
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
         expect(saved()).toMatchObject({ name: 'Get better at the guitar', goalValue: 30, unit: 'minutes', targetDate: date });
+    });
+
+    it('turns a project into ordered steps', async () => {
+        const screen = render(<GoalSheet visible />);
+        write(screen, 'Launch Habyss');
+        fireEvent.press(screen.getByText('Steps'));
+        fireEvent.changeText(screen.getByLabelText('Add a step'), 'Onboarding');
+        fireEvent(screen.getByLabelText('Add a step'), 'submitEditing');
+        fireEvent.changeText(screen.getByLabelText('Add a step'), 'Dashboard');
+        fireEvent.press(screen.getByLabelText('Add step'));
+        fireEvent.press(screen.getByText('By when'));
+        const today = new Date();
+        const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        fireEvent.press(screen.getByLabelText(`Choose ${date}`));
+
+        await act(async () => { fireEvent.press(screen.getByText('Create goal')); });
+        await waitFor(() => expect(addHabit).toHaveBeenCalled());
+        const spec = JSON.parse(saved().goalSpec);
+        expect(spec.kind).toBe('complete');
+        expect(spec.milestones.map((step: { title: string }) => step.title)).toEqual(['Onboarding', 'Dashboard']);
     });
 
     it('keeps a unit the user picked over the one it read', async () => {

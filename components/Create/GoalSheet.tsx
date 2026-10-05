@@ -20,14 +20,18 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseGoal } from '@/lib/smartParse';
-import { parseGoalText, type Direction, type GoalSpec, type GoalWindow, type HabitRef } from '@/lib/goalParser';
+import { parseGoalText, type Direction, type GoalKind, type GoalSpec, type GoalWindow, type HabitRef, type Milestone } from '@/lib/goalParser';
+import { generateId } from '@/lib/database';
 import { addHabit, updateHabit, getHabits, type Habit } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
 import { emit, on } from '@/lib/appEvents';
 
-type Row = 'target' | 'window' | 'baseline' | 'tracks' | 'look' | 'notes' | null;
+type Row = 'target' | 'window' | 'baseline' | 'steps' | 'tracks' | 'look' | 'notes' | null;
 
 interface Draft {
+    /** Unset until chosen; read from the sentence until then. */
+    kind?: GoalKind;
+    milestones: Milestone[];
     title: string;
     target?: number;
     unit?: string;
@@ -44,7 +48,15 @@ interface Draft {
     description?: string;
 }
 
-const blank = (): Draft => ({ title: '', direction: 'at_least', linked: [], icon: 'flag-outline', color: '#6B8AF5' });
+const blank = (): Draft => ({ title: '', direction: 'at_least', linked: [], milestones: [], icon: 'flag-outline', color: '#6B8AF5' });
+
+const KINDS: { id: GoalKind; label: string; icon: IconName; hint: string }[] = [
+    { id: 'number', label: 'Number', icon: 'stats-chart-outline', hint: '2000 calls by Dec 1' },
+    { id: 'complete', label: 'Complete', icon: 'flag-outline', hint: 'Launch the app by Jan 1' },
+    { id: 'time', label: 'Time', icon: 'time-outline', hint: '100 hours of piano' },
+];
+
+const TIME_UNITS = ['minutes', 'hours'];
 
 const dateFrom = (value?: string) => {
     const date = value ? new Date(`${value}T12:00:00`) : new Date(Date.now() + 30 * 86400000);
@@ -61,6 +73,8 @@ const fromGoal = (from: Habit): Draft => {
         ? { kind: 'fixed', start: from.startDate, end: from.targetDate } : undefined;
 
     return {
+        kind: spec.kind,
+        milestones: Array.isArray(spec.milestones) ? spec.milestones : [],
         title: from.name,
         target: spec.target ?? (from.unit === 'percent' ? from.goalValue / 100 : from.goalValue),
         unit: spec.metric_unit ?? from.unit,
@@ -187,8 +201,18 @@ export const GoalSheet: React.FC<{
             linked: spec.linked_habits.length ? spec.linked_habits : start.linked,
             suggested: spec.suggested_habit ?? start.suggested,
         } : start;
-        return { ...read, ...edits };
+        const merged = { ...read, ...edits };
+        // Until somebody picks, the sentence decides: hours read as time, a
+        // number as a number goal, and no number at all as a project.
+        if (!merged.kind) {
+            merged.kind = merged.target === undefined && merged.deltaFromBaseline === undefined
+                ? 'complete'
+                : TIME_UNITS.includes(merged.unit ?? '') ? 'time' : 'number';
+        }
+        return merged;
     }, [current, result, edits]);
+    const kind = draft.kind ?? 'number';
+    const [stepText, setStepText] = useState('');
 
     // Deciding to do this with somebody happens while writing it, not after —
     // so the choice is held here and sent the moment the goal has an id.
@@ -199,9 +223,11 @@ export const GoalSheet: React.FC<{
     // A goal needs a starting point only when the target is relative to it.
     const needsBaseline = draft.deltaFromBaseline !== undefined && draft.target === undefined;
     const missing: { row: Exclude<Row, null>; what: string }[] = [];
-    if (draft.target === undefined && draft.deltaFromBaseline === undefined) missing.push({ row: 'target', what: 'a number to hit' });
-    else if (!draft.unit) missing.push({ row: 'target', what: 'what it is measured in' });
-    if (needsBaseline && draft.baseline === undefined) missing.push({ row: 'baseline', what: 'where you are starting from' });
+    if (kind === 'complete') {
+        if (draft.milestones.length === 0) missing.push({ row: 'steps', what: 'the major steps' });
+    } else if (draft.target === undefined && draft.deltaFromBaseline === undefined) missing.push({ row: 'target', what: kind === 'time' ? 'how many hours' : 'a number to hit' });
+    else if (kind === 'number' && !draft.unit) missing.push({ row: 'target', what: 'what it is measured in' });
+    if (kind === 'number' && needsBaseline && draft.baseline === undefined) missing.push({ row: 'baseline', what: 'where you are starting from' });
     if (draft.window?.kind !== 'fixed') missing.push({ row: 'window', what: 'a finish date' });
     const ready = !!text.trim() && missing.length === 0;
 
@@ -219,13 +245,23 @@ export const GoalSheet: React.FC<{
                 ? draft.baseline - draft.deltaFromBaseline
                 : undefined);
             const window = draft.window!;
+            // Time is kept in minutes, whatever it was typed in.
+            const unit = kind === 'complete' ? 'tasks' : kind === 'time' ? 'minutes' : (draft.unit ?? 'sessions');
+            const amount = kind === 'complete' ? null
+                : kind === 'time' && draft.unit !== 'minutes' ? (target ?? 0) * 60 : target ?? null;
+            // Whatever else the goal carries (its shared cover, say) is kept.
+            let previous: Record<string, unknown> = {};
+            try { previous = current?.goalSpec ? JSON.parse(current.goalSpec) : {}; } catch { previous = {}; }
             const spec: GoalSpec = {
+                ...previous,
+                kind,
+                milestones: kind === 'complete' ? draft.milestones : undefined,
                 title,
                 type: result?.goal.type ?? (window.kind === 'recurring' ? 'frequency' : 'volume'),
-                metric_unit: draft.unit ?? 'sessions',
-                aggregation: result?.goal.aggregation ?? (draft.unit === 'percent' ? 'completion_rate' : 'sum'),
+                metric_unit: unit,
+                aggregation: result?.goal.aggregation ?? (unit === 'percent' ? 'completion_rate' : 'sum'),
                 direction: draft.direction,
-                target: target ?? null,
+                target: amount,
                 baseline: draft.baseline ?? null,
                 delta_from_baseline: draft.deltaFromBaseline ?? null,
                 window,
@@ -244,7 +280,7 @@ export const GoalSheet: React.FC<{
                 // percent targets are stored 0-1 in the spec; goal_value is an integer.
                 goalValue: spec.metric_unit === 'percent'
                     ? Math.round((spec.target ?? 0) * 100)
-                    : Math.round(spec.target ?? 1),
+                    : Math.max(1, Math.round(spec.target ?? 1)),
                 unit: spec.metric_unit ?? 'sessions',
                 goalPeriod: window.kind === 'recurring'
                     ? (window.period === 'day' ? 'daily' : window.period === 'week' ? 'weekly' : 'monthly')
@@ -277,9 +313,95 @@ export const GoalSheet: React.FC<{
     const segments = goalTextSegments(text, rules?.goal);
     const toggleRow = (id: string | null) => { setUnitPicker(false); setOpenRow(id as Row); };
 
+    const addStep = () => {
+        const title = stepText.trim();
+        if (!title) return;
+        lightFeedback();
+        change({ milestones: [...draft.milestones, { id: generateId(), title }] });
+        setStepText('');
+    };
+    const moveStep = (index: number, by: number) => {
+        const next = [...draft.milestones];
+        const [step] = next.splice(index, 1);
+        next.splice(Math.max(0, Math.min(next.length, index + by)), 0, step);
+        change({ milestones: next });
+    };
+
     const items: DetailItem[] = [
-        {
-            id: 'target', icon: 'flag-outline', label: 'Target',
+        ...(kind === 'complete' ? [{
+            id: 'steps', icon: 'git-commit-outline' as const, label: 'Steps',
+            value: draft.milestones.length ? `${draft.milestones.length} step${draft.milestones.length === 1 ? '' : 's'}` : undefined,
+            content: (
+                <>
+                    {draft.milestones.map((step, index) => (
+                        <View key={step.id} style={styles.stepRow}>
+                            <Text style={[styles.stepIndex, { color: accentText }]}>{index + 1}</Text>
+                            <TextInput
+                                value={step.title}
+                                onChangeText={value => change({ milestones: draft.milestones.map(item => item.id === step.id ? { ...item, title: value } : item) })}
+                                accessibilityLabel={`Step ${index + 1}`}
+                                style={[styles.stepInput, { color: colors.textPrimary }]}
+                            />
+                            {index > 0 ? (
+                                <Pressable accessibilityRole="button" accessibilityLabel={`Move step ${index + 1} up`} hitSlop={8} onPress={() => moveStep(index, -1)}>
+                                    <Ionicons name="chevron-up" size={16} color={colors.textTertiary} />
+                                </Pressable>
+                            ) : null}
+                            <Pressable accessibilityRole="button" accessibilityLabel={`Remove step ${index + 1}`} hitSlop={8}
+                                onPress={() => change({ milestones: draft.milestones.filter(item => item.id !== step.id) })}>
+                                <Ionicons name="close" size={16} color={colors.textTertiary} />
+                            </Pressable>
+                        </View>
+                    ))}
+                    <View style={styles.stepRow}>
+                        <Text style={[styles.stepIndex, { color: colors.textTertiary }]}>{draft.milestones.length + 1}</Text>
+                        <TextInput
+                            autoFocus={draft.milestones.length === 0}
+                            value={stepText}
+                            onChangeText={setStepText}
+                            onSubmitEditing={addStep}
+                            blurOnSubmit={false}
+                            returnKeyType="done"
+                            placeholder={draft.milestones.length ? 'Next step' : 'e.g. Onboarding'}
+                            placeholderTextColor={colors.textTertiary}
+                            accessibilityLabel="Add a step"
+                            style={[styles.stepInput, { color: colors.textPrimary }]}
+                        />
+                        <Pressable accessibilityRole="button" accessibilityLabel="Add step" hitSlop={8} onPress={addStep} disabled={!stepText.trim()}>
+                            <Ionicons name="add-circle" size={22} color={stepText.trim() ? accent : colors.textTertiary} />
+                        </Pressable>
+                    </View>
+                    <Text style={[styles.help, { color: colors.textTertiary }]}>The big phases, in order. You add each step&apos;s tasks on the goal&apos;s roadmap.</Text>
+                </>
+            ),
+        }] : []),
+        ...(kind === 'time' ? [{
+            id: 'target', icon: 'time-outline' as const, label: 'Hours',
+            value: draft.target === undefined ? undefined : `${draft.unit === 'minutes' ? Math.round((draft.target / 60) * 10) / 10 : draft.target} h`,
+            content: (
+                <View style={styles.targetRow}>
+                    <TextInput
+                        value={targetText ?? (draft.target === undefined ? '' : String(draft.unit === 'minutes' ? Math.round((draft.target / 60) * 10) / 10 : draft.target))}
+                        onChangeText={value => {
+                            setTargetText(value);
+                            const amount = Number(value.replace(',', '.'));
+                            change({ unit: 'hours', target: value.trim() && Number.isFinite(amount) ? amount : undefined });
+                        }}
+                        keyboardType="decimal-pad"
+                        placeholder="0"
+                        placeholderTextColor={colors.textTertiary}
+                        accessibilityLabel="Target hours"
+                        style={[styles.number, {
+                            color: colors.textPrimary, borderColor: colors.border,
+                            backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
+                        }]}
+                    />
+                    <Text style={[styles.help, { color: colors.textSecondary, flex: 1 }]}>hours in total, split into daily sessions.</Text>
+                </View>
+            ),
+        }] : []),
+        ...(kind === 'number' ? [{
+            id: 'target', icon: 'flag-outline' as const, label: 'Target',
             value: draft.target === undefined && draft.deltaFromBaseline === undefined ? undefined : describeTarget(draft),
             content: (
                 <>
@@ -320,7 +442,7 @@ export const GoalSheet: React.FC<{
 
                 </>
             ),
-        },
+        }] : []),
         {
             id: 'window', icon: 'calendar-outline', label: 'By when',
             value: draft.window ? describeWindow(draft) : undefined,
@@ -332,7 +454,7 @@ export const GoalSheet: React.FC<{
                         } })} />
             ),
         },
-        ...(needsBaseline ? [{
+        ...(kind === 'number' && needsBaseline ? [{
             id: 'baseline', icon: 'locate-outline' as const, label: 'Starting from',
             value: draft.baseline === undefined ? undefined : `${draft.baseline} ${draft.unit ?? ''}`.trim(),
             content: (
@@ -358,7 +480,7 @@ export const GoalSheet: React.FC<{
                 </>
             ),
         }] : []),
-        ...(habits.length > 0 ? [{
+        ...(kind !== 'complete' && habits.length > 0 ? [{
             id: 'tracks', icon: 'link-outline' as const, label: 'Counts from',
             value: draft.linked.length ? `${draft.linked.length} habit${draft.linked.length === 1 ? '' : 's'}` : undefined,
             content: (
@@ -438,7 +560,7 @@ export const GoalSheet: React.FC<{
                         // keystroke adds to it rather than replacing it.
                         autoFocus
                         multiline
-                        placeholder="Run 50km this month"
+                        placeholder={KINDS.find(option => option.id === kind)?.hint ?? 'Run 50km this month'}
                         placeholderTextColor={colors.textTertiary}
                         accessibilityLabel="Describe your goal"
                         style={[styles.input, {
@@ -450,6 +572,24 @@ export const GoalSheet: React.FC<{
                             <Text key={index} style={{ color: part.highlighted ? accentText : colors.textPrimary }}>{part.text}</Text>
                         )}</Text> : null}
                     </TextInput>
+
+                    <View style={styles.kinds} accessibilityRole="radiogroup">
+                        {KINDS.map(option => {
+                            const on = kind === option.id;
+                            return (
+                                <Pressable key={option.id} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                                    accessibilityHint={option.hint}
+                                    onPress={() => { lightFeedback(); setTargetText(null); change({ kind: option.id, ...(option.id === 'time' && !TIME_UNITS.includes(draft.unit ?? '') ? { unit: 'hours' } : {}) }); }}
+                                    style={[styles.kind, {
+                                        backgroundColor: on ? accent + '20' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
+                                        borderColor: on ? accent + '66' : 'transparent',
+                                    }]}>
+                                    <Ionicons name={option.icon} size={14} color={on ? accentText : colors.textSecondary} />
+                                    <Text style={[styles.kindText, { color: on ? accentText : colors.textSecondary }]}>{option.label}</Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
 
                     {draft.title && draft.title !== text.trim() ? (
                         <View style={styles.readRow}>
@@ -515,6 +655,12 @@ const styles = StyleSheet.create({
     unitButton: { minWidth: 118, minHeight: 46, borderWidth: 1, borderRadius: 11, paddingHorizontal: 14, flexDirection: 'row', gap: 14, alignItems: 'center', justifyContent: 'space-between' },
     unitLabel: { fontSize: 13, fontFamily: FontFamily.regular },
     help: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular },
+    kinds: { flexDirection: 'row', gap: 8 },
+    kind: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
+    kindText: { fontSize: 13, fontFamily: FontFamily.semibold },
+    stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+    stepIndex: { width: 18, textAlign: 'center', fontSize: 13, fontFamily: FontFamily.bold },
+    stepInput: { flex: 1, fontSize: 15, paddingVertical: 6, fontFamily: FontFamily.regular },
     notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     error: { flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1 },
     errorText: { flex: 1, fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },

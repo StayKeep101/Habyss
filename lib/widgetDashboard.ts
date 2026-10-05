@@ -38,13 +38,28 @@ export function buildWidgetDashboard({ habits, tasks, history, skips, today, acc
             items: due.slice(0, 12).map(task => ({ id: `task:${task.id}`, name: task.title, isCompleted: task.status === 'done', time: task.dueTime, dueDate: task.dueDate })) };
     });
     const visibleIds = new Set(days.flatMap(day => day.items.map(item => item.id.slice(5))));
-    const goals = habits.filter(habit => habit.isGoal && !habit.isArchived).map(goal => ({
-        id: goal.id, name: goal.name, color: goal.color || accent.from,
-        progress: goalProgress({ goal, habits, tasks, history, skips, today }, false),
-        points: sampleGoalPoints(buildGoalInsights({ goal, habits, tasks, history, skips, today }).series),
-        taskWeights: Object.fromEntries(tasks.filter(task => visibleIds.has(task.id) && task.goalId === goal.id && task.status !== 'cancelled')
-            .map(task => [`task:${task.id}`, 100 / Math.max(1, tasks.filter(item => item.goalId === goal.id && item.status !== 'cancelled').length + active.filter(({ habit }) => habit.goalId === goal.id).length)])),
-    }));
+    const goals = habits.filter(habit => habit.isGoal && !habit.isArchived).map(goal => {
+        const progress = goalProgress({ goal, habits, tasks, history, skips, today }, false);
+        // What ticking each task on the widget adds, worked out by the same
+        // measure the app uses rather than a formula of its own: progress with
+        // that task done, less progress now. Right for a project (one task of
+        // N), a number goal (its count) and a time goal (its minutes) alike.
+        const stamp = `${today}T12:00:00`;
+        const weightOf = (task: Task) => {
+            const ticked = tasks.map(item => item.id === task.id
+                ? { ...item, status: 'done' as const, completedAt: item.completedAt ?? stamp, updatedAt: stamp }
+                : item);
+            return Math.max(0, goalProgress({ goal, habits, tasks: ticked, history, skips, today }, false) - progress);
+        };
+        return {
+            id: goal.id, name: goal.name, color: goal.color || accent.from,
+            progress,
+            points: sampleGoalPoints(buildGoalInsights({ goal, habits, tasks, history, skips, today }).series),
+            taskWeights: Object.fromEntries(tasks
+                .filter(task => visibleIds.has(task.id) && task.goalId === goal.id && task.status === 'open')
+                .map(task => [`task:${task.id}`, weightOf(task)])),
+        };
+    });
     return { version: 1, generatedAt: new Date().toISOString(), dayKey: today, accent, days, heatmap, goals, streak };
 }
 

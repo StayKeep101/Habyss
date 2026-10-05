@@ -21,7 +21,28 @@ export type GoalWindow =
     | { kind: 'recurring'; period: 'day' | 'week' | 'month' }
     | { kind: 'fixed'; start: string; end: string };
 
+/**
+ * The three kinds of goal, and how each is measured.
+ *
+ * - number: reach an amount ("2000 calls by Dec 1"). What is left is spread over
+ *   the days left, so a missed day raises the daily figure rather than being
+ *   forgotten.
+ * - complete: finish a project ("Launch Habyss by Jan 1"), broken into steps
+ *   (milestones), each made of tasks. Measured as tasks done out of all tasks.
+ * - time: put in hours ("100 hours of piano"). A number goal counted in minutes.
+ */
+export type GoalKind = 'number' | 'complete' | 'time';
+
+/** One step of a complete goal. Tasks point at it by id. */
+export interface Milestone { id: string; title: string }
+
 export interface GoalSpec {
+    /** Absent on goals made before kinds existed; see `goalKind`. */
+    kind?: GoalKind;
+    /** The steps of a complete goal, in order. */
+    milestones?: Milestone[];
+    /** Shared cover photo URL; see lib/goalCover. */
+    cover?: string;
     title: string;
     type: GoalType | null;
     metric_unit: string | null;

@@ -1,6 +1,6 @@
 import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Gesture, GestureDetector, TouchableOpacity } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -14,7 +14,8 @@ import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import type { RoadMapCardSize } from '@/constants/AppSettingsContext';
-import type { Task } from '@/lib/tasks';
+import { setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
+import { emit } from '@/lib/appEvents';
 
 /** Tasks are amber throughout, so they read as a different kind of thing. */
 export const TASK_COLOR = '#F59E0B';
@@ -108,6 +109,37 @@ const TaskItemComponent: React.FC<Props> = ({
         goalName,
     ].filter(Boolean).join(', ');
 
+    const amountLabel = taskAmountLabel(task);
+    const share = taskShare(task);
+
+    /**
+     * A count or time task is ticked by logging what was done, not by a box:
+     * "how many calls?" adds to the running total and finishes it at the target.
+     */
+    const toggle = () => {
+        if (!amountLabel || doneByMe || Platform.OS !== 'ios') { onToggle(task); return; }
+        const isTime = task.measure === 'time';
+        Alert.prompt(
+            task.title,
+            `${amountLabel} so far. ${isTime ? 'Minutes' : 'How many'} to add?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Finish', onPress: () => onToggle(task) },
+                {
+                    text: 'Add', isPreferred: true, onPress: (value?: string) => {
+                        const amount = Number(String(value ?? '').replace(',', '.'));
+                        if (!Number.isFinite(amount) || amount <= 0) return;
+                        selectionFeedback();
+                        setTaskAmount(task, (task.amount ?? 0) + amount)
+                            .then(() => emit('tasks_changed'))
+                            .catch(() => Alert.alert('Could not save', 'Please try again.'));
+                    },
+                },
+            ],
+            'plain-text', '', 'decimal-pad',
+        );
+    };
+
     const drag = Gesture.Pan()
         .enabled(!!onDragStart)
         .activateAfterLongPress(250)
@@ -157,7 +189,7 @@ const TaskItemComponent: React.FC<Props> = ({
                         accessibilityRole="checkbox"
                         accessibilityState={{ checked: doneByMe }}
                         accessibilityLabel={done ? `Reopen ${task.title}` : `Mark ${task.title} done`}
-                        onPress={() => onToggle(task)}
+                        onPress={toggle}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
                         <CheckPop active={doneByMe} color={TASK_COLOR} size={boxSize}>
@@ -195,12 +227,20 @@ const TaskItemComponent: React.FC<Props> = ({
                                 {/* A dated task is one the reminder can reach. */}
                                 <ReminderBadge on={!done && !!task.dueDate} size={isSmall ? 10 : undefined} />
                             </BadgeRow>
+                            {amountLabel ? (
+                                <Text style={[styles.meta, { color: done ? colors.textTertiary : TASK_COLOR, fontVariant: ['tabular-nums'] }]}>{amountLabel}</Text>
+                            ) : null}
                             {shared && !isSmall ? (
                                 <SharedFaces people={shared.people} tint={TASK_COLOR} size={16} />
                             ) : goalName && !isSmall ? (
                                 <Text numberOfLines={1} style={[styles.meta, { color: colors.textTertiary }]}>{goalName}</Text>
                             ) : null}
                         </View>
+                        {amountLabel && !done && !isSmall ? (
+                            <View style={[styles.track, { backgroundColor: TASK_COLOR + '22' }]}>
+                                <View style={[styles.fill, { width: `${Math.round(share * 100)}%`, backgroundColor: TASK_COLOR }]} />
+                            </View>
+                        ) : null}
                     </View>
 
                     <View style={{ alignItems: 'flex-end' }}>
@@ -227,6 +267,8 @@ const styles = StyleSheet.create({
     title: { fontFamily: FontFamily.medium },
     meta: { fontSize: 10, fontFamily: FontFamily.regular, flexShrink: 1 },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+    track: { height: 3, borderRadius: 2, marginTop: 5, overflow: 'hidden' },
+    fill: { height: 3, borderRadius: 2 },
     estimate: { fontSize: 9, fontFamily: FontFamily.regular, marginBottom: 1 },
     when: { fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
 });

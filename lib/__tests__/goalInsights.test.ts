@@ -259,15 +259,15 @@ describe('a goal that names a number', () => {
     });
 
     it('ignores a habit measured in a unit that cannot add up to the goal', () => {
-        // Twenty minutes of reading does not make twenty of four books, so this
-        // falls back to how faithfully the plan was kept.
+        // Twenty minutes of reading does not make twenty of four books. A number
+        // goal reads "this much of that much", so it stays at 0 of 4 books
+        // rather than borrowing a percentage from how often you read.
         const minutes = reading({ goalValue: 20, unit: 'minutes' });
         const progress = goalProgress({
             goal: books(), habits: [minutes], tasks: [],
             history: { '2026-09-10': ['h'] }, today: TODAY,
         });
-        // Back to adherence: one of the three Thursdays in the goal's range.
-        expect(progress).toBe(33);
+        expect(progress).toBe(0);
     });
 
     it('still measures adherence for a goal that names no number', () => {
@@ -287,5 +287,59 @@ describe('a goal that names a number', () => {
         });
         expect(insights.progress).toBe(50);
         expect(insights.series[insights.series.length - 1].actual).toBe(50);
+    });
+});
+
+describe('goal kinds', () => {
+    const spec = (value: object) => JSON.stringify(value);
+
+    it('spreads what is left over the days left, so a missed day raises the daily figure', () => {
+        // 2000 calls in 30 days (Sept 1-30). 133 done over the first two days,
+        // nothing on the third: on the fourth, 1867 are left for 27 days.
+        const calls = goal({
+            name: 'Make 2000 calls', startDate: '2026-09-01', targetDate: '2026-09-30',
+            goalSpec: spec({ kind: 'number', target: 2000, metric_unit: 'calls' }),
+        });
+        const log = (id: string, amount: number, day: string): Task => task({
+            id, measure: 'count', target: amount, unit: 'calls', status: 'done',
+            completedAt: `${day}T15:00:00`, updatedAt: `${day}T15:00:00`,
+        });
+        const insights = buildGoalInsights({
+            goal: calls, habits: [], tasks: [log('a', 67, '2026-09-01'), log('b', 66, '2026-09-02')],
+            history: {}, today: '2026-09-04',
+        });
+        expect(insights.measure.done).toBe(133);
+        expect(insights.measure.total).toBe(2000);
+        expect(insights.measure.daysLeft).toBe(27);
+        expect(insights.measure.perDay).toBeCloseTo(69.1, 1);
+        expect(insights.measure.leftToday).toBeCloseTo(69.1, 1);
+        // The chart can say "133 / 2000", not only a percentage.
+        expect(insights.series[insights.series.length - 1].value).toBe(133);
+    });
+
+    it('counts a complete goal as tasks done out of all its tasks', () => {
+        const launch = goal({ name: 'Launch Habyss', goalSpec: spec({ kind: 'complete', milestones: [{ id: 'm1', title: 'Onboarding' }, { id: 'm2', title: 'Dashboard' }] }) });
+        const tasks = [
+            task({ milestoneId: 'm1', status: 'done', completedAt: '2026-09-12T10:00:00' }),
+            task({ milestoneId: 'm1', status: 'done', completedAt: '2026-09-13T10:00:00' }),
+            task({ milestoneId: 'm2' }),
+            task({ milestoneId: 'm2' }),
+        ];
+        const insights = buildGoalInsights({ goal: launch, habits: [habit()], tasks, history: doneThrough(TODAY), today: TODAY });
+        expect(insights.measure).toMatchObject({ kind: 'complete', done: 2, total: 4, unit: 'tasks' });
+        expect(insights.progress).toBe(50);
+        expect(insights.milestones.map(step => [step.milestone.title, step.done, step.total, step.complete]))
+            .toEqual([['Onboarding', 2, 2, true], ['Dashboard', 0, 2, false]]);
+    });
+
+    it('measures a time goal in minutes, from timed habits and time tasks', () => {
+        const piano = goal({ goalSpec: spec({ kind: 'time', target: 600, metric_unit: 'minutes' }) });
+        const practice = habit({ goalValue: 30, unit: 'minutes' });
+        const lesson = task({ measure: 'time', target: 90, amount: 45, updatedAt: '2026-09-18T10:00:00' });
+        const insights = buildGoalInsights({
+            goal: piano, habits: [practice], tasks: [lesson],
+            history: { '2026-09-10': ['h'], '2026-09-11': ['h'] }, today: TODAY,
+        });
+        expect(insights.measure).toMatchObject({ kind: 'time', done: 105, total: 600, unit: 'minutes' });
     });
 });

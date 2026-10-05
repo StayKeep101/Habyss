@@ -12,6 +12,7 @@ import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { dateAt, type GoalPoint, type GoalStatus } from '@/lib/goalInsights';
+import { goalAmount, goalFraction, paceLine } from '@/components/Goal/GoalPace';
 
 const STATUS_LABEL: Record<GoalStatus, string> = {
     ahead: 'Ahead of pace',
@@ -53,6 +54,13 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
     const tile = isLight ? '#FFFFFF' : 'rgba(255,255,255,0.05)';
     const { tasks } = insights;
     const openCount = tasks.upcoming.length + tasks.undated.length;
+    const { measure } = insights;
+    const fraction = goalFraction(measure);
+    // The amount, not only the percentage: "750 / 2000 calls".
+    const shownAmount = scrub?.value !== undefined
+        ? (measure.kind === 'time' ? goalAmount(measure, scrub.value).replace(/ (h|min)$/, '') : scrub.value.toLocaleString())
+        : fraction.done;
+    const pace = paceLine(measure);
 
     return (
         <>
@@ -64,7 +72,11 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
 
                 {/* Headline: the number, how it moved, and whether that is enough. */}
                 <View style={styles.headline}>
-                    <Text style={[styles.bigNumber, { color: colors.textPrimary }]}>{Math.round(shown)}%</Text>
+                    <Text style={[styles.bigNumber, { color: colors.textPrimary }]}>
+                        {shownAmount}
+                        <Text style={[styles.outOf, { color: colors.textTertiary }]}>{` / ${fraction.total}${fraction.unit ? ` ${fraction.unit}` : ''}`}</Text>
+                    </Text>
+                    <Text style={[styles.percentTag, { color }]}>{Math.round(shown)}%</Text>
                     {!scrub && insights.status !== 'empty' ? (
                         <View style={[styles.change, { backgroundColor: (insights.change7 > 0 ? colors.success : colors.textTertiary) + '22' }]}>
                             <Ionicons name={insights.change7 > 0 ? 'caret-up' : 'remove'} size={12} color={insights.change7 > 0 ? colors.success : colors.textTertiary} />
@@ -88,6 +100,7 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
                         </Text>
                     </View>
                 )}
+                {!scrub && pace ? <Text style={[styles.subline, { color, marginTop: 4 }]}>{pace}</Text> : null}
 
                 <View style={{ height: 18 }} />
                 {insights.series.length > 1 ? (
@@ -181,7 +194,9 @@ const styles = StyleSheet.create({
     empty: { textAlign: 'center', marginTop: 40, fontFamily: FontFamily.regular },
     goalName: { fontSize: 14, fontFamily: FontFamily.medium, marginTop: 4 },
     headline: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-    bigNumber: { fontSize: 52, fontFamily: FontFamily.bold, letterSpacing: -1.5 },
+    bigNumber: { fontSize: 44, fontFamily: FontFamily.bold, letterSpacing: -1.5, fontVariant: ['tabular-nums'], flexShrink: 1 },
+    outOf: { fontSize: 18, fontFamily: FontFamily.medium, letterSpacing: 0 },
+    percentTag: { fontSize: 15, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
     change: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
     changeText: { fontSize: 12, fontFamily: FontFamily.semibold },
     statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

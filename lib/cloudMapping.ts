@@ -22,6 +22,7 @@ const TASK_STATUS = ['open', 'done', 'cancelled'];
 /** The three the server's check constraint allows; anything else uploads as null. */
 const EVIDENCE = ['verified', 'context', 'self'];
 const TASK_SOURCE = ['app', 'mcp', 'shortcut'];
+const TASK_MEASURE = ['done', 'count', 'time'];
 
 export function parseJson<T>(value: unknown, fallback: T): T {
     if (value === null || value === undefined || value === '') return fallback;
@@ -228,6 +229,11 @@ export function taskToRemote(row: Row, userId: string): Row {
         completed_at: row.completed_at ?? null,
         source: TASK_SOURCE.includes(row.source) ? row.source : 'app',
         external_id: row.external_id ?? null,
+        measure: TASK_MEASURE.includes(row.measure) ? row.measure : null,
+        target: finite(row.target),
+        unit: typeof row.unit === 'string' ? row.unit.slice(0, 40) : null,
+        amount: finite(row.amount),
+        milestone_id: typeof row.milestone_id === 'string' ? row.milestone_id : null,
         created_at: row.created_at ?? null,
         updated_at: row.updated_at ?? null,
         deleted_at: deletedAt(row),
@@ -249,6 +255,11 @@ export function taskToLocal(row: Row): Row {
         completed_at: row.completed_at ?? null,
         source: row.source ?? 'app',
         external_id: row.external_id ?? null,
+        measure: TASK_MEASURE.includes(row.measure) ? row.measure : null,
+        target: finite(row.target),
+        unit: row.unit ?? null,
+        amount: finite(row.amount),
+        milestone_id: row.milestone_id ?? null,
         created_at: row.created_at ?? new Date().toISOString(),
         updated_at: row.updated_at ?? new Date().toISOString(),
         deleted: row.deleted_at ? 1 : 0,

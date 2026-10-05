@@ -221,3 +221,20 @@ export function describeParsedTask(parsed: ParsedTaskText, today: Date = new Dat
             : date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
     return `${when}${parsed.dueTime ? ` at ${parsed.dueTime}` : ''}${parsed.estimatedMinutes ? ` · ${parsed.estimatedMinutes} min` : ''}`;
 }
+
+/**
+ * Whether a task names a count or a time to reach: "Call 25 leads", "Write
+ * 1500 words", "Study 2 hours". Read only from a verb, a number and a noun at
+ * the start, so "Call the bank at 2pm" stays a done-or-not task.
+ */
+export function readTaskMeasure(text: string): { measure: 'count' | 'time'; target: number; unit?: string } | null {
+    const head = text.trim().match(/^[a-z]+\s+(\d[\d,]*(?:\.\d+)?)\s*([a-z]+)/i);
+    if (!head) return null;
+    const amount = Number(head[1].replace(/,/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    const word = head[2].toLowerCase();
+    if (/^(h|hr|hrs|hour|hours)$/.test(word)) return { measure: 'time', target: Math.round(amount * 60) };
+    if (/^(m|min|mins|minute|minutes)$/.test(word)) return { measure: 'time', target: Math.round(amount) };
+    if (/^(am|pm|st|nd|rd|th)$/.test(word) || amount < 2) return null;
+    return { measure: 'count', target: amount, unit: word };
+}

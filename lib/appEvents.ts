@@ -50,7 +50,7 @@ export interface AppEvents {
     show_creation_modal: { x: number; y: number; size: number; height?: number } | undefined;
     close_creation_modal: void;
     show_habit_modal: { goalId?: string; initialHabit?: Habit } | undefined;
-    show_task_form: { task?: Task; goalId?: string; /** A row id to open with, e.g. 'due'. */ focus?: string } | undefined;
+    show_task_form: { task?: Task; goalId?: string; milestoneId?: string; /** A row id to open with, e.g. 'due'. */ focus?: string } | undefined;
     show_goal_quick_add: { goal?: Habit } | undefined;
     show_quick_add: { goalId?: string } | undefined;
     openModal: { modal: string };
