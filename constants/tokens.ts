@@ -1,3 +1,4 @@
+import type { TextStyle } from 'react-native';
 import { contrastRatio } from '@/lib/colorContrast';
 import { FontFamily } from './DesignSystem';
 
@@ -178,9 +179,11 @@ export type RadiusToken = keyof typeof radius;
 /*  Type — one family, six styles. Numbers line up in columns.                */
 /* -------------------------------------------------------------------------- */
 
-export const typeScale = {
+export type TypeToken = 'display' | 'title' | 'heading' | 'body' | 'caption' | 'label';
+
+export const typeScale: Record<TypeToken, TextStyle> = {
     /** Big numbers: a goal's 62%, a Marks total. */
-    display: { fontFamily: FontFamily.bold, fontSize: 44, lineHeight: 48, letterSpacing: -1.2, fontVariant: ['tabular-nums'] as const },
+    display: { fontFamily: FontFamily.bold, fontSize: 44, lineHeight: 48, letterSpacing: -1.2, fontVariant: ['tabular-nums'] },
     /** Screen and card headlines. */
     title: { fontFamily: FontFamily.bold, fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },
     /** Row titles, section heads. */
@@ -190,10 +193,8 @@ export const typeScale = {
     /** Meta lines, hints, small print. */
     caption: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 18 },
     /** Section labels in capitals. */
-    label: { fontFamily: FontFamily.semibold, fontSize: 11, lineHeight: 14, letterSpacing: 1.4, textTransform: 'uppercase' as const },
-} as const;
-
-export type TypeToken = keyof typeof typeScale;
+    label: { fontFamily: FontFamily.semibold, fontSize: 11, lineHeight: 14, letterSpacing: 1.4, textTransform: 'uppercase' },
+};
 
 /* -------------------------------------------------------------------------- */
 /*  Elevation — three levels.                                                 */
