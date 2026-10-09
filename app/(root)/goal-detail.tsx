@@ -8,12 +8,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { PanelCap } from '@/components/Goal/PanelCap';
-import { Habit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
+import { Habit, isTimedHabit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
 import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
 import { DeviceEventEmitter } from 'react-native';
 import { ShareGoalModal } from '@/components/ShareGoalModal';
@@ -80,6 +81,21 @@ function heroFrame(aspect: number, screenWidth: number) {
     const height = Math.round(screenWidth / Math.max(0.2, aspect));
     return { height, top: Math.round(HERO_WINDOW / 2 - height / 2) };
 }
+/**
+ * A subtle two-tone gradient picked from the goal's id: different for each
+ * goal, identical every time the same goal opens. Deep and low-saturated, so it
+ * sits in the dark theme rather than shouting over it.
+ */
+function coverGradient(id: string, light: boolean): [string, string, string] {
+    let hash = 0;
+    for (let index = 0; index < id.length; index++) hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
+    const hue = hash % 360;
+    const shift = 30 + (hash >> 9) % 50;
+    return light
+        ? [`hsl(${hue}, 45%, 86%)`, `hsl(${(hue + shift) % 360}, 40%, 80%)`, `hsl(${(hue + shift) % 360}, 30%, 94%)`]
+        : [`hsl(${hue}, 42%, 26%)`, `hsl(${(hue + shift) % 360}, 38%, 14%)`, `hsl(${(hue + shift) % 360}, 30%, 7%)`];
+}
+
 /** HalfCircleProgress leaves this much box below its arc's baseline. */
 const ARC_BASELINE = 5;
 
@@ -280,6 +296,11 @@ const GoalDetail = () => {
 
   const handleHabitPress = (habit: Habit) => {
     const isCompleted = !completions[habit.id];
+    // A timed habit is done by running its timer: open it instead.
+    if (isCompleted && isTimedHabit(habit)) {
+      router.push({ pathname: '/habit-detail', params: { habitId: habit.id } });
+      return;
+    }
     if (isCompleted) {
       playComplete();
       selectionFeedback();
@@ -363,8 +384,18 @@ const GoalDetail = () => {
       {/* The goal's picture, shown whole and unshaded. The only shadow on it
           is the one the panel casts. */}
       <View style={styles.heroClip} pointerEvents="none">
-        {bgImage !== undefined ? <ImageBackground
-          source={bgImage ? { uri: bgImage } : require('@/assets/images/adaptive-icon.png')}
+        {/* No photo: a quiet gradient of its own, the same every time this
+            goal opens, rather than the app icon blown up behind it. */}
+        {bgImage === null ? (
+          <LinearGradient
+            colors={coverGradient(goal.id, theme === 'light')}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT + 40 }}
+          />
+        ) : null}
+        {bgImage ? <ImageBackground
+          source={{ uri: bgImage }}
           style={{ position: 'absolute', top: heroBox.top, left: 0, right: 0, height: heroBox.height }}
           resizeMode="cover"
         /> : null}

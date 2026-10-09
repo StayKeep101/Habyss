@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, { Easing, FadeIn, ReduceMotion, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, ReduceMotion, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { AppIcon } from '@/components/Common/AppIcon';
+import { Segmented } from '@/components/Common/Segmented';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { VoidCard } from '@/components/Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { s, vs, ms } from '@/constants/Layout';
@@ -17,226 +17,231 @@ import { focusHistory, focusInsights, type FocusDay } from '@/lib/dailyFocus';
 import { onTimeRate } from '@/lib/taskStats';
 import { todayKey } from '@/lib/tasks';
 
-const WINDOWS = [
-    { id: 30, label: '30 days' },
-    { id: 90, label: '90 days' },
-] as const;
+const PAD = 20;
+const HEAT_WEEKS = 18;
+const HEAT_GAP = 4;
+const WEEKDAY_LABELS = ['M', '', 'W', '', 'F', '', ''];
 
 const shortDay = (date: string) =>
     new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
-/** The glass the home cards are made of, so this page reads as their inside. */
-type Surface = { glass: boolean; intensity: number; tint: { backgroundColor: string } | null };
-
 /**
- * What the day's promise has actually been worth.
+ * Your tasks, said simply.
  *
- * One question answered first and in the largest type — how often the promise
- * was kept — because that is the only number that says whether the habit of
- * finishing is forming. Everything under it explains that number: the run of
- * days, the shape of the last month, and the few facts about tasks that habits
- * cannot have.
- *
- * Dressed like the card it opens from: the same glass surface, the same
- * letter-spaced headings, and type scaled with the screen rather than fixed.
+ * One number first — how many days you kept your 3 (or 5) — then the shape of
+ * it as bars, then every day for four months as a heatmap: a filled square is a
+ * day the promise was kept. That is the whole page for anyone who only wants
+ * to know how it is going. The rest is one tap away for anyone curious, and
+ * never in the way.
  */
 export default function TaskStatsScreen() {
     const router = useRouter();
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
+    const light = theme === 'light';
     const { primary } = useAccentGradient();
     const { selectionFeedback } = useHaptics();
+    const { width } = useWindowDimensions();
 
     const tasks = useTasks();
     const target = useDailyTarget();
-    const [days, setDays] = useState<number>(30);
+    const [days, setDays] = useState<30 | 90>(30);
+    const [more, setMore] = useState(false);
     const today = todayKey();
-
-    const surface: Surface = {
-        glass: !isTrueDark,
-        intensity: isLight ? 20 : 80,
-        tint: isLight ? { backgroundColor: colors.surfaceSecondary } : null,
-    };
 
     const history = useMemo(() => focusHistory(tasks, target, days, today), [tasks, target, days, today]);
     const insights = useMemo(() => focusInsights(history), [history]);
+    const year = useMemo(() => focusHistory(tasks, target, HEAT_WEEKS * 7 + 7, today), [tasks, target, today]);
+    const yearInsights = useMemo(() => focusInsights(year), [year]);
     const onTime = useMemo(() => onTimeRate(tasks), [tasks]);
 
     const open = tasks.filter(task => task.status === 'open');
     const overdue = open.filter(task => task.dueDate && task.dueDate < today).length;
     const everFinished = tasks.filter(task => task.status === 'done').length;
+    const idle = light ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.07)';
+
+    // The heatmap: whole weeks, Monday first, ending with this week.
+    const heat = useMemo(() => {
+        const byDate = new Map(year.map(day => [day.date, day]));
+        const end = new Date(`${today}T12:00:00`);
+        const mondayOffset = (end.getDay() + 6) % 7;
+        const start = new Date(end);
+        start.setDate(end.getDate() - mondayOffset - (HEAT_WEEKS - 1) * 7);
+        const weeks: { date: string; day: FocusDay | null; future: boolean }[][] = [];
+        for (let week = 0; week < HEAT_WEEKS; week++) {
+            const column: { date: string; day: FocusDay | null; future: boolean }[] = [];
+            for (let weekday = 0; weekday < 7; weekday++) {
+                const when = new Date(start);
+                when.setDate(start.getDate() + week * 7 + weekday);
+                const key = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, '0')}-${String(when.getDate()).padStart(2, '0')}`;
+                column.push({ date: key, day: byDate.get(key) ?? null, future: key > today });
+            }
+            weeks.push(column);
+        }
+        return weeks;
+    }, [year, today]);
+    const labelWidth = s(14);
+    const cell = Math.floor((width - PAD * 2 - labelWidth - HEAT_GAP * HEAT_WEEKS) / HEAT_WEEKS);
 
     return (
-        <SheetScreen title="Your tasks" subtitle={`${target} a day`} onBack={() => router.back()}>
+        <SheetScreen title="Tasks" subtitle={`${target} a day`} onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* How often the promise was kept. */}
-                <Animated.View entering={FadeIn.duration(220)}>
-                    <VoidCard glass={surface.glass} intensity={surface.intensity} style={[styles.hero, surface.tint]}>
-                        {/* A blunt 0% is only fair once there is something to be
-                            0% of; before that it reads as a verdict on someone
-                            who has not started yet. */}
-                        <Text style={[styles.heroValue, { color: colors.textPrimary }]}>
-                            {insights.finished === 0 ? `${target}` : `${insights.rate}%`}
-                        </Text>
-                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
-                            {insights.finished === 0
-                                ? `things a day is the promise. Finish ${target} today and this fills in.`
-                                : `of the last ${insights.days} days you finished ${target} or more`}
-                        </Text>
-                        <View style={[styles.heroSplit, { borderTopColor: colors.border }]}>
-                            <Stat label="Days kept" value={`${insights.hits}`} colors={colors} />
-                            <Stat label="On a run" value={`${insights.streak}`} colors={colors} divider />
-                            <Stat label="Best run" value={`${insights.bestStreak}`} colors={colors} divider />
-                        </View>
-                    </VoidCard>
+                {/* One number. */}
+                <Animated.View entering={FadeIn.duration(220)} style={styles.hero}>
+                    <View style={styles.heroRow}>
+                        <Text style={[styles.heroValue, { color: colors.textPrimary }]}>{insights.hits}</Text>
+                        {insights.streak > 0 ? (
+                            <View style={[styles.streak, { backgroundColor: '#F9731618' }]}>
+                                <AppIcon name="flame" size={s(13)} color="#F97316" />
+                                <Text style={styles.streakText}>{insights.streak} in a row</Text>
+                            </View>
+                        ) : null}
+                    </View>
+                    <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
+                        {insights.finished === 0
+                            ? `days you finished ${target}. Do it today and this starts counting.`
+                            : `of the last ${insights.days} days you finished ${target} or more · ${insights.rate}%`}
+                    </Text>
                 </Animated.View>
 
-                {/* The shape of it, day by day. */}
-                <View style={styles.sectionHead}>
-                    <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>EVERY DAY</Text>
-                    <View style={styles.windows}>
-                        {WINDOWS.map(window => {
-                            const on = window.id === days;
-                            return (
-                                <Pressable
-                                    key={window.id}
-                                    accessibilityRole="button"
-                                    accessibilityState={{ selected: on }}
-                                    onPress={() => { selectionFeedback(); setDays(window.id); }}
-                                    style={[styles.window, {
-                                        backgroundColor: on ? primary + '20' : 'transparent',
-                                        borderColor: on ? primary + '55' : colors.border,
-                                    }]}
-                                >
-                                    <Text style={[styles.windowText, { color: on ? primary : colors.textSecondary }]}>{window.label}</Text>
-                                </Pressable>
-                            );
-                        })}
+                {/* The shape of it. */}
+                <View style={styles.block}>
+                    <Segmented
+                        accessibilityLabel="How far back"
+                        options={[{ id: 30, label: '30 days' }, { id: 90, label: '90 days' }]}
+                        value={days}
+                        onChange={value => setDays(value as 30 | 90)}
+                    />
+                    <Chart history={history} target={target} tint={primary} idle={idle} line={colors.textTertiary} />
+                    <View style={styles.axis}>
+                        <Text style={[styles.axisText, { color: colors.textTertiary }]}>{shortDay(history[0]?.date ?? today)}</Text>
+                        <Text style={[styles.axisText, { color: colors.textTertiary }]}>{insights.perDay} a day</Text>
+                        <Text style={[styles.axisText, { color: colors.textTertiary }]}>Today</Text>
                     </View>
                 </View>
 
-                <VoidCard glass={surface.glass} intensity={surface.intensity} style={[styles.chartCard, surface.tint]}>
-                    <Chart history={history} tint={primary} success={colors.success} idle={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.09)'} />
-                    <View style={styles.chartFoot}>
-                        <Text style={[styles.foot, { color: colors.textTertiary }]}>{shortDay(history[0]?.date ?? today)}</Text>
-                        <Text style={[styles.foot, { color: colors.textTertiary }]}>
-                            {insights.perDay} a day on average
-                        </Text>
-                        <Text style={[styles.foot, { color: colors.textTertiary }]}>Today</Text>
+                {/* Every day, as a heatmap: filled is a day kept. */}
+                <View style={styles.block}>
+                    <View style={styles.blockHead}>
+                        <Text style={[styles.blockTitle, { color: colors.textPrimary }]}>Days kept</Text>
+                        <Text style={[styles.blockMeta, { color: colors.textTertiary }]}>{yearInsights.hits} in {HEAT_WEEKS} weeks</Text>
                     </View>
-                </VoidCard>
-
-                {/* The things only tasks can be measured on. */}
-                <Text style={[styles.sectionLabel, styles.sectionTop, { color: colors.textTertiary }]}>WHAT IT ADDS UP TO</Text>
-                <View style={styles.grid}>
-                    <Tile icon="checkmark-done-outline" value={`${insights.finished}`} label={`finished in ${insights.days} days`} colors={colors} tint={primary} surface={surface} />
-                    <Tile icon="trophy-outline" value={`${everFinished}`} label="finished in all" colors={colors} tint={primary} surface={surface} />
-                    <Tile
-                        icon="time-outline"
-                        value={onTime === null ? '—' : `${onTime}%`}
-                        label={onTime === null ? 'nothing dated yet' : 'landed on time'}
-                        colors={colors}
-                        tint={primary}
-                        surface={surface}
-                    />
-                    <Tile
-                        icon="alert-circle-outline"
-                        value={`${overdue}`}
-                        label="still late"
-                        colors={colors}
-                        tint={overdue > 0 ? colors.error : primary}
-                        surface={surface}
-                    />
+                    <View style={styles.heat} accessibilityRole="image" accessibilityLabel={`${yearInsights.hits} days kept in the last ${HEAT_WEEKS} weeks`}>
+                        <View style={{ width: labelWidth, gap: HEAT_GAP }}>
+                            {WEEKDAY_LABELS.map((label, index) => (
+                                <Text key={index} style={[styles.heatLabel, { height: cell, lineHeight: cell, color: colors.textTertiary }]}>{label}</Text>
+                            ))}
+                        </View>
+                        {heat.map((column, index) => (
+                            <View key={index} style={{ gap: HEAT_GAP, marginLeft: HEAT_GAP }}>
+                                {column.map(({ date, day, future }) => {
+                                    const share = day ? Math.min(1, day.done / Math.max(1, day.target)) : 0;
+                                    return (
+                                        <View
+                                            key={date}
+                                            style={{
+                                                width: cell, height: cell, borderRadius: Math.max(3, cell * 0.28),
+                                                backgroundColor: future ? 'transparent' : day?.hit ? primary : share > 0 ? primary : idle,
+                                                opacity: future ? 0 : day?.hit ? 1 : share > 0 ? 0.25 + share * 0.4 : 1,
+                                                borderWidth: date === today ? 1.5 : 0,
+                                                borderColor: colors.textPrimary,
+                                            }}
+                                        />
+                                    );
+                                })}
+                            </View>
+                        ))}
+                    </View>
+                    <View style={styles.legend}>
+                        <Text style={[styles.axisText, { color: colors.textTertiary }]}>Less</Text>
+                        {[0, 0.35, 0.65, 1].map(level => (
+                            <View key={level} style={[styles.legendCell, { backgroundColor: level ? primary : idle, opacity: level ? (level === 1 ? 1 : 0.25 + level * 0.4) : 1 }]} />
+                        ))}
+                        <Text style={[styles.axisText, { color: colors.textTertiary }]}>{target} done</Text>
+                    </View>
                 </View>
 
-                {insights.bestWeekday ? (
-                    <VoidCard glass={surface.glass} intensity={surface.intensity} style={[styles.note, surface.tint]}>
-                        <AppIcon name="calendar-outline" size={s(16)} color={primary} />
-                        <Text style={[styles.noteText, { color: colors.textSecondary }]}>
-                            <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.medium }}>{insights.bestWeekday}</Text>
-                            {' '}is the day you keep most often.
-                        </Text>
-                    </VoidCard>
+                {/* For the curious. */}
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded: more }}
+                    onPress={() => { selectionFeedback(); setMore(value => !value); }} style={styles.moreToggle}>
+                    <Text style={[styles.moreText, { color: colors.textSecondary }]}>{more ? 'Fewer details' : 'More details'}</Text>
+                    <AppIcon name={more ? 'chevron-up' : 'chevron-down'} size={s(14)} color={colors.textSecondary} />
+                </Pressable>
+                {more ? (
+                    <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} style={[styles.details, { borderColor: colors.border }]}>
+                        <Row label="Best run" value={`${insights.bestStreak} days`} colors={colors} />
+                        <Row label={`Finished in ${insights.days} days`} value={`${insights.finished}`} colors={colors} />
+                        <Row label="Finished in all" value={`${everFinished}`} colors={colors} />
+                        <Row label="Landed on time" value={onTime === null ? '—' : `${onTime}%`} colors={colors} />
+                        <Row label="Still late" value={`${overdue}`} colors={colors} tint={overdue ? colors.error : undefined} />
+                        {insights.bestWeekday ? <Row label="Your best day" value={insights.bestWeekday} colors={colors} last /> : null}
+                    </Animated.View>
                 ) : null}
-
             </ScrollView>
         </SheetScreen>
     );
 }
 
-const Stat = ({ label, value, colors, divider }: { label: string; value: string; colors: typeof Colors.light; divider?: boolean }) => (
-    <View style={[styles.stat, divider && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-        <Text style={[styles.statValue, { color: colors.textPrimary }]}>{value}</Text>
-        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+const Row = ({ label, value, colors, tint, last }: { label: string; value: string; colors: typeof Colors.light; tint?: string; last?: boolean }) => (
+    <View style={[styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
+        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>{label}</Text>
+        <Text style={[styles.rowValue, { color: tint ?? colors.textPrimary }]}>{value}</Text>
     </View>
 );
 
-const Tile = ({ icon, value, label, colors, tint, surface }: {
-    icon: any; value: string; label: string; colors: typeof Colors.light; tint: string; surface: Surface;
-}) => (
-    <VoidCard glass={surface.glass} intensity={surface.intensity} style={[styles.tile, surface.tint]}>
-        <AppIcon name={icon} size={s(16)} color={tint} />
-        <Text style={[styles.tileValue, { color: colors.textPrimary }]}>{value}</Text>
-        <Text style={[styles.tileLabel, { color: colors.textSecondary }]}>{label}</Text>
-    </VoidCard>
-);
-
-/** A bar per day, full where the promise was kept. */
-const Chart = ({ history, tint, success, idle }: { history: FocusDay[]; tint: string; success: string; idle: string }) => {
-    const ceiling = Math.max(...history.map(day => day.done), history[0]?.target ?? 3, 1);
+/** A bar per day, solid where the promise was kept, with the promise drawn across. */
+const Chart = ({ history, target, tint, idle, line }: { history: FocusDay[]; target: number; tint: string; idle: string; line: string }) => {
+    const ceiling = Math.max(...history.map(day => day.done), target + 1, 1);
     return (
         <View style={styles.chart} accessibilityRole="image" accessibilityLabel={`${history.filter(day => day.hit).length} of ${history.length} days kept`}>
+            <View pointerEvents="none" style={[styles.targetLine, { bottom: `${(target / ceiling) * 100}%`, borderColor: line }]} />
             {history.map((day, index) => (
-                <Bar key={day.date} day={day} ceiling={ceiling} index={index} tint={tint} success={success} idle={idle} />
+                <Bar key={day.date} day={day} ceiling={ceiling} index={index} tint={tint} idle={idle} />
             ))}
         </View>
     );
 };
 
-const Bar = ({ day, ceiling, index, tint, success, idle }: {
-    day: FocusDay; ceiling: number; index: number; tint: string; success: string; idle: string;
-}) => {
+const Bar = ({ day, ceiling, index, tint, idle }: { day: FocusDay; ceiling: number; index: number; tint: string; idle: string }) => {
     const grown = useSharedValue(0);
-    const share = Math.max(day.done / ceiling, day.done > 0 ? 0.12 : 0.04);
+    const share = Math.max(day.done / ceiling, 0.035);
     React.useEffect(() => {
-        grown.value = withDelay(index * 6, withTiming(share, { duration: 420, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
+        grown.value = withDelay(index * 5, withTiming(share, { duration: 420, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
     }, [share, index, grown]);
     const style = useAnimatedStyle(() => ({ height: `${grown.value * 100}%` }));
     return (
         <View style={styles.barTrack}>
-            <Animated.View style={[styles.bar, style, { backgroundColor: day.hit ? success : day.done > 0 ? tint : idle }]} />
+            <Animated.View style={[styles.bar, style, { backgroundColor: day.done ? tint : idle, opacity: day.hit || !day.done ? 1 : 0.45 }]} />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    content: { paddingHorizontal: s(20), paddingBottom: vs(40), gap: vs(12) },
-    hero: { padding: s(20), gap: vs(4) },
-    heroValue: { fontFamily: FontFamily.bold, fontSize: ms(46), lineHeight: ms(54), letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
-    heroLabel: { fontSize: ms(13), lineHeight: ms(19), fontFamily: FontFamily.regular },
-    heroSplit: { flexDirection: 'row', marginTop: vs(14), paddingTop: vs(14), borderTopWidth: StyleSheet.hairlineWidth },
-    stat: { flex: 1, alignItems: 'center', gap: vs(2) },
-    statValue: { fontFamily: FontFamily.bold, fontSize: ms(20), lineHeight: ms(26), fontVariant: ['tabular-nums'] },
-    statLabel: { fontSize: ms(10), lineHeight: ms(15), fontFamily: FontFamily.regular, textAlign: 'center' },
-    // The heading the home cards use: bold, wide, and quiet in colour.
-    sectionLabel: { fontSize: ms(11), lineHeight: ms(16), letterSpacing: 1.5, fontFamily: FontFamily.bold },
-    sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: vs(10) },
-    sectionTop: { marginTop: vs(10) },
-    windows: { flexDirection: 'row', gap: s(6) },
-    window: { paddingHorizontal: s(11), paddingVertical: vs(6), borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
-    windowText: { fontSize: ms(11), fontFamily: FontFamily.medium },
-    chartCard: { padding: s(16), gap: vs(10) },
-    chart: { flexDirection: 'row', alignItems: 'flex-end', gap: s(2), height: vs(92) },
+    content: { paddingHorizontal: PAD, paddingBottom: vs(48), gap: vs(28) },
+    hero: { gap: vs(4), marginTop: vs(6) },
+    heroRow: { flexDirection: 'row', alignItems: 'center', gap: s(12) },
+    heroValue: { fontFamily: FontFamily.bold, fontSize: ms(64), lineHeight: ms(70), letterSpacing: -2, fontVariant: ['tabular-nums'] },
+    heroLabel: { fontSize: ms(14), lineHeight: ms(20), fontFamily: FontFamily.regular },
+    streak: { flexDirection: 'row', alignItems: 'center', gap: s(5), paddingHorizontal: s(10), paddingVertical: vs(5), borderRadius: 999 },
+    streakText: { color: '#F97316', fontSize: ms(12), fontFamily: FontFamily.semibold },
+    block: { gap: vs(12) },
+    blockHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+    blockTitle: { fontSize: ms(16), fontFamily: FontFamily.bold },
+    blockMeta: { fontSize: ms(12), fontFamily: FontFamily.medium },
+    chart: { flexDirection: 'row', alignItems: 'flex-end', gap: s(2), height: vs(110) },
+    targetLine: { position: 'absolute', left: 0, right: 0, borderTopWidth: 1, borderStyle: 'dashed', opacity: 0.6 },
     barTrack: { flex: 1, height: '100%', justifyContent: 'flex-end' },
     bar: { width: '100%', borderRadius: s(3), minHeight: vs(3) },
-    chartFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    foot: { fontSize: ms(10), lineHeight: ms(15), fontFamily: FontFamily.regular },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: s(10) },
-    tile: { width: '47.8%', flexGrow: 1, padding: s(16), gap: vs(3) },
-    tileValue: { fontFamily: FontFamily.bold, fontSize: ms(24), lineHeight: ms(30), fontVariant: ['tabular-nums'] },
-    tileLabel: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular },
-    note: { flexDirection: 'row', alignItems: 'center', gap: s(10), padding: s(16) },
-    noteText: { flex: 1, fontSize: ms(13), lineHeight: ms(19), fontFamily: FontFamily.regular },
+    axis: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    axisText: { fontSize: ms(11), fontFamily: FontFamily.regular },
+    heat: { flexDirection: 'row' },
+    heatLabel: { fontSize: ms(9), fontFamily: FontFamily.medium, textAlign: 'left' },
+    legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: s(5) },
+    legendCell: { width: s(11), height: s(11), borderRadius: 3 },
+    moreToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: s(6), paddingVertical: vs(4) },
+    moreText: { fontSize: ms(13), fontFamily: FontFamily.medium },
+    details: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: -vs(16) },
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: vs(13) },
+    rowLabel: { fontSize: ms(14), fontFamily: FontFamily.regular },
+    rowValue: { fontSize: ms(14), fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
 });

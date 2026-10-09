@@ -1,4 +1,5 @@
 import { generateId, getDatabase, isSQLiteAvailable, nowISO } from './database';
+import { formatDuration } from './habitMeasurement';
 import { localDateKey } from './habitSchedule';
 import { getLocalUserId } from './localUser';
 
@@ -212,7 +213,7 @@ export function taskAmountLabel(task: Task): string | null {
     if (!task.measure || !task.target) return null;
     const amount = task.status === 'done' ? Math.max(task.amount ?? 0, task.target) : task.amount ?? 0;
     const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
-    if (task.measure === 'time') return `${fmt(amount)} / ${fmt(task.target)} min`;
+    if (task.measure === 'time') return `${formatDuration(amount * 60, true)} / ${formatDuration(task.target * 60, true)}`;
     return `${fmt(amount)} / ${fmt(task.target)}${task.unit ? ` ${task.unit}` : ''}`;
 }
 

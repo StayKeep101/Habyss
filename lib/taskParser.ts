@@ -1,4 +1,5 @@
 import { localDateKey } from './habitSchedule';
+import { formatDuration } from './habitMeasurement';
 import type { TaskPriority } from './tasks';
 
 /**
@@ -219,7 +220,7 @@ export function describeParsedTask(parsed: ParsedTaskText, today: Date = new Dat
     const when = parsed.dueDate === todayKey ? 'Today'
         : parsed.dueDate === tomorrowKey ? 'Tomorrow'
             : date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-    return `${when}${parsed.dueTime ? ` at ${parsed.dueTime}` : ''}${parsed.estimatedMinutes ? ` · ${parsed.estimatedMinutes} min` : ''}`;
+    return `${when}${parsed.dueTime ? ` at ${parsed.dueTime}` : ''}${parsed.estimatedMinutes ? ` · ${formatDuration(parsed.estimatedMinutes * 60, true)}` : ''}`;
 }
 
 /**

@@ -13,7 +13,7 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { addDays, dateAt, daysBetween, friendlyDate, minutesPerCheckIn, type MilestoneProgress } from '@/lib/goalInsights';
-import { toggleCompletion, updateHabit, type Habit } from '@/lib/habitsSQLite';
+import { isTimedHabit, toggleCompletion, updateHabit, type Habit } from '@/lib/habitsSQLite';
 import { generateId } from '@/lib/database';
 import { GoalPace, goalAmount } from '@/components/Goal/GoalPace';
 import { deleteTask, setTaskStatus, updateTask, type Task } from '@/lib/tasks';
@@ -112,6 +112,11 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
         ]);
     };
     const toggleHabit = (habit: Habit, done: boolean) => {
+        // A timed habit is done by running its timer: open it instead.
+        if (!done && isTimedHabit(habit)) {
+            router.push({ pathname: '/habit-detail', params: { habitId: habit.id } });
+            return;
+        }
         selectionFeedback();
         setCompletion(habit.id, !done);
         toggleCompletion(habit.id, today).catch(() => {

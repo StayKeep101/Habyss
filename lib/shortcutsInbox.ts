@@ -1,5 +1,5 @@
 import { Platform, NativeModules } from 'react-native';
-import { getCompletions, getHabits, toggleCompletion } from './habitsSQLite';
+import { getCompletions, getHabits, isTimedHabit, toggleCompletion } from './habitsSQLite';
 import { localDateKey } from './habitSchedule';
 
 const { SharedDefaults } = NativeModules;
@@ -65,6 +65,8 @@ export async function drainPendingShortcutLogs(): Promise<ShortcutDrainResult> {
 
             if (!match) { result.unmatched.push(name); continue; }
             if (completions[match.id]) { result.alreadyDone.push(match.name); continue; }
+            // A timed habit is done by running its timer, not by saying so.
+            if (isTimedHabit(match)) { result.unmatched.push(name); continue; }
 
             // toggleCompletion flips state, so it is only called when the habit
             // is not already complete for today.
@@ -115,7 +117,7 @@ export async function drainQuickAdds(): Promise<QuickAddResult> {
     }
 
     const { createTask } = require('./tasks') as typeof import('./tasks');
-    const { readTaskMeasure, parseTaskText } = require('./taskParser') as typeof import('./taskParser');
+    const { parseTaskText } = require('./taskParser') as typeof import('./taskParser');
     const { parseHabitText, parsedToHabit } = require('./habitParser') as typeof import('./habitParser');
     const { addHabit } = require('./habitsSQLite') as typeof import('./habitsSQLite');
     const today = localDateKey(new Date());
@@ -126,14 +128,12 @@ export async function drainQuickAdds(): Promise<QuickAddResult> {
         try {
             if (item.kind === 'task') {
                 const parsed = parseTaskText(item.title);
-                const measure = readTaskMeasure(item.title);
                 const made = await createTask({
                     title: parsed.title || item.title,
                     dueDate: parsed.dueDate ?? today,
                     dueTime: parsed.dueTime,
                     estimatedMinutes: parsed.estimatedMinutes,
                     priority: parsed.priority,
-                    ...(measure ?? {}),
                     source: 'shortcut',
                 });
                 if (made) result.tasks.push(made.title);
