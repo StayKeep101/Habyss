@@ -6,6 +6,7 @@ import type { Task } from './tasks';
 import { buildWidgetDashboard, parseWidgetEvent, type WidgetDashboard } from './widgetDashboard';
 import { addDays, daysBetween, goalRange } from './goalInsights';
 import { engagementLifecycle } from './engagementLifecycle';
+import { measurementFor } from './habitMeasurement';
 
 /**
  * One database read feeds the Home Screen dashboard and legacy Siri/Echo data.
@@ -232,7 +233,9 @@ async function drain(): Promise<{ habits: number; tasks: number }> {
         for (const event of [...oldEvents, ...events]) {
             const { kind, id } = parseWidgetId(event.id);
             if (kind === 'habit') {
-                if (habits.some(habit => habit.id === id && !habit.isGoal)) {
+                const found = habits.find(habit => habit.id === id && !habit.isGoal);
+                // A timed habit is completed by running its timer; a tap is acknowledged and ignored.
+                if (found && !(event.done && measurementFor(found).kind === 'timer')) {
                     const done = completions[event.day] ?? await getCompletions(event.day);
                     if (!!done[id] !== event.done) { await toggleCompletion(id, event.day); applied.habits++; }
                     completions[event.day] = { ...done, [id]: event.done };

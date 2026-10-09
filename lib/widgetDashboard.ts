@@ -2,6 +2,7 @@ import type { Habit } from './habitsSQLite';
 import { type Task, taskRank, tasksForDay } from './tasks';
 import { createHabitSchedule, parseHabitDate } from './habitSchedule';
 import { addDays, buildGoalInsights, goalProgress } from './goalInsights';
+import { doneOnDay } from './dailyFocus';
 
 export interface DashboardTask { id: string; name: string; isCompleted: boolean; time?: string; dueDate?: string; }
 export interface DashboardDay { date: string; total: number; completed: number; items: DashboardTask[]; }
@@ -32,7 +33,12 @@ export function buildWidgetDashboard({ habits, tasks, history, skips, today, acc
     });
     const days = Array.from({ length: 8 }, (_, offset) => {
         const date = addDays(today, offset);
-        const due = tasksForDay(tasks, date, date).sort((a, b) =>
+        // What the day holds, plus anything finished on it: a task ticked
+        // today stays on today's widget, struck through, even if it was due
+        // another day.
+        const listed = tasksForDay(tasks, date, date);
+        const listedIds = new Set(listed.map(task => task.id));
+        const due = [...listed, ...tasks.filter(task => !listedIds.has(task.id) && doneOnDay(task, date))].sort((a, b) =>
             Number(a.status === 'done') - Number(b.status === 'done') || taskRank(a, date) - taskRank(b, date) || a.createdAt.localeCompare(b.createdAt));
         return { date, total: due.length, completed: due.filter(task => task.status === 'done').length,
             items: due.slice(0, 12).map(task => ({ id: `task:${task.id}`, name: task.title, isCompleted: task.status === 'done', time: task.dueTime, dueDate: task.dueDate })) };

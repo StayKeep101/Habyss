@@ -39,8 +39,10 @@ many.days[0].total = 2
 many.days[0].items.append(DashboardTask(id: "task:two", name: "Next step", isCompleted: false, time: nil, dueDate: today))
 defaults.set(String(data: try JSONEncoder().encode(many), encoding: .utf8)!, forKey: "widgetDashboard")
 try action("final", true, 4)
-assert(DashboardSnapshot.read(defaults: defaults)!.days[0].items[0].id == "task:two", "Checking a row must reveal the next unfinished task")
-print("Swift widget next-task check passed.")
+let ticked = DashboardSnapshot.read(defaults: defaults)!
+assert(ticked.days[0].items[0].id == "task:one" && ticked.days[0].items[0].isCompleted, "A ticked row stays where it was, struck through")
+assert(ticked.days[0].items[1].id == "task:two" && !ticked.days[0].items[1].isCompleted, "The next task is still on the widget")
+print("Swift widget strike-in-place check passed.")
 
 // File publication takes precedence over an older UserDefaults cache.
 var fresh = snapshot

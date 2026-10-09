@@ -1,5 +1,5 @@
-// Compiled into BOTH the app and widget extension. LiveActivityIntent runs in
-// the app process, including when Habyss has not been opened in the foreground.
+// Compiled into BOTH the app and widget extension. The task tap is a plain
+// AppIntent, so it runs in the widget extension without waking the app.
 import Foundation
 import WidgetKit
 import AppIntents
@@ -107,7 +107,9 @@ struct DashboardSnapshot: Codable {
                 guard let index = snapshot.days[day].items.firstIndex(where: { $0.id == action.id }) else { continue }
                 let old = snapshot.days[day].items[index].isCompleted
                 if !found { delta = Double((action.done ? 1 : 0) - (old ? 1 : 0)); found = true }
-                if action.done && snapshot.days[day].items[index].dueDate != snapshot.days[day].date {
+                // Ticked on the day it was tapped, it stays put and is struck
+                // through; it only leaves the other days it was carried into.
+                if action.done && snapshot.days[day].date != action.day && snapshot.days[day].items[index].dueDate != snapshot.days[day].date {
                     snapshot.days[day].items.remove(at: index)
                     snapshot.days[day].total = max(0, snapshot.days[day].total - 1)
                     if old { snapshot.days[day].completed = max(0, snapshot.days[day].completed - 1) }
@@ -132,18 +134,13 @@ struct DashboardSnapshot: Codable {
                 }
             }
         }
-        for day in snapshot.days.indices {
-            snapshot.days[day].items = snapshot.days[day].items.enumerated().sorted {
-                if $0.element.isCompleted != $1.element.isCompleted { return !$0.element.isCompleted }
-                return $0.offset < $1.offset
-            }.map { $0.element }
-        }
+        // No re-sorting: a row you just ticked stays where your finger was.
         return snapshot
     }
 }
 
 // MARK: - App Intent for Interaction
-struct ToggleHabitIntent: LiveActivityIntent {
+struct ToggleHabitIntent: AppIntent {
     static var title: LocalizedStringResource = "Complete Task"
     // Ticking something off is the whole point of the widget; sending the user
     // into the app to do it would defeat it. The app catches up when opened.
@@ -158,33 +155,32 @@ struct ToggleHabitIntent: LiveActivityIntent {
         self.id = id
     }
 
+    /**
+     * Records the tap and nothing else, inside the widget.
+     *
+     * This used to be a LiveActivityIntent, which iOS runs in the *app's*
+     * process — so every tap woke Habyss in the background, often from cold,
+     * before the widget could redraw. It also asked for pending notifications
+     * (a widget cannot see the app's) and reloaded every widget on the Home
+     * Screen. Now it writes one small file and reloads the two widgets the tap
+     * changes; the app applies it, and tidies reminders, when it next runs.
+     *
+     * Tapping a struck-through row takes the tick back.
+     */
     func perform() async throws -> some IntentResult {
         let today = widgetDayKey()
         guard let snapshot = DashboardSnapshot.read(),
               let day = snapshot.days.first(where: { $0.date == today }),
-              let item = day.items.first(where: { $0.id == id }), !item.isCompleted else { return .result() }
+              let item = day.items.first(where: { $0.id == id }) else { return .result() }
         let action = WidgetAction(eventId: UUID().uuidString, id: id, day: today,
-                                  done: true, timestamp: Date().timeIntervalSince1970 * 1000)
+                                  done: !item.isCompleted, timestamp: Date().timeIntervalSince1970 * 1000)
         let encoded = try JSONEncoder().encode(action)
-        guard let raw = String(data: encoded, encoding: .utf8) else { return .result() }
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.habyss.data") else { return .result() }
         let inbox = container.appendingPathComponent("widget-events", isDirectory: true)
         try FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
-        try Data(raw.utf8).write(to: inbox.appendingPathComponent(action.eventId + ".json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        if action.done {
-            let notifications = await UNUserNotificationCenter.current().pendingNotificationRequests()
-            let rawId = String(id.dropFirst(id.hasPrefix("task:") ? 5 : 6))
-            let cancelled = notifications.filter { request in
-                let data = (request.content.userInfo["body"] as? [AnyHashable: Any]) ?? request.content.userInfo
-                if id.hasPrefix("task:") { return data["taskId"] as? String == rawId }
-                return data["habitId"] as? String == rawId && data["scheduledDate"] as? String == today
-            }.map { $0.identifier }
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: cancelled)
-            for activity in Activity<WidgetAttributes>.activities where activity.attributes.name.hasPrefix("scheduled:" + id + ":" + today) {
-                await activity.end(nil, dismissalPolicy: .immediate)
-            }
-        }
-        WidgetCenter.shared.reloadAllTimelines()
+        try encoded.write(to: inbox.appendingPathComponent(action.eventId + ".json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        WidgetCenter.shared.reloadTimelines(ofKind: "HabyssWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "HabyssGoals")
         return .result()
     }
 }

@@ -120,7 +120,8 @@ struct WidgetEntryView: View {
     let entry: SimpleEntry
     @Environment(\.widgetFamily) var family
     var limit: Int { family == .systemSmall ? 3 : 5 }
-    var rows: [HabitModel] { entry.needsSync ? [] : entry.habits.filter { !$0.isCompleted } }
+    // Done ones stay, struck through: seeing what you finished is half the point.
+    var rows: [HabitModel] { entry.needsSync ? [] : entry.habits }
     var remaining: Int { max(0, (entry.summary?.total ?? 0) - (entry.summary?.completed ?? 0)) }
     var progress: Double {
         let total = entry.summary?.total ?? 0
@@ -146,7 +147,7 @@ struct WidgetEntryView: View {
                     Text("TODAY").sectionLabel()
                     Spacer(minLength: 3)
                     if !entry.needsSync {
-                        Text("\(remaining) left").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(entry.accentSolid)
+                        Text(remaining == 0 && !rows.isEmpty ? "All done" : "\(remaining) left").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(remaining == 0 && !rows.isEmpty ? Habyss.done : entry.accentSolid)
                     }
                     // Medium only: a small widget has one tap target, its rows.
                     if family == .systemMedium {
@@ -165,20 +166,24 @@ struct WidgetEntryView: View {
                         ForEach(rows.prefix(limit)) { task in
                             Button(intent: ToggleHabitIntent(id: task.id)) {
                                 HStack(spacing: 8) {
-                                    Image(systemName: "circle").font(.system(size: 18, weight: .light)).foregroundStyle(entry.accentSolid)
-                                    Text(task.name).font(.system(size: 12, weight: .medium)).foregroundStyle(.white)
+                                    Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 18, weight: task.isCompleted ? .regular : .light))
+                                        .foregroundStyle(task.isCompleted ? Habyss.done : entry.accentSolid)
+                                    Text(task.name).font(.system(size: 12, weight: .medium))
+                                        .strikethrough(task.isCompleted, color: Habyss.dim)
+                                        .foregroundStyle(task.isCompleted ? Habyss.dim : .white)
                                         .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 .frame(maxWidth: .infinity, minHeight: family == .systemSmall ? 25 : 20, alignment: .leading)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Complete \(task.name)")
+                            .accessibilityLabel(task.isCompleted ? "Reopen \(task.name)" : "Complete \(task.name)")
                         }
                     }
                     Spacer(minLength: 0)
-                    if family == .systemSmall && remaining > limit {
-                        Text("+\(remaining - limit) more").font(.system(size: 10)).foregroundStyle(Habyss.faint)
+                    if family == .systemSmall && rows.count > limit {
+                        Text("+\(rows.count - limit) more").font(.system(size: 10)).foregroundStyle(Habyss.faint)
                     }
                 }
             }
