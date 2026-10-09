@@ -245,7 +245,18 @@ export async function publishPushToken(): Promise<void> {
     const { NotificationService } = require('./notificationService') as typeof import('./notificationService');
     const token = await NotificationService.registerForPushNotificationsAsync().catch(() => null);
     if (!token) return;
-    await ctx.sb.from('profiles').update({ push_token: token }).eq('id', ctx.me);
+    // Claimed rather than written: the token is this phone's, so it is taken off
+    // any other account that signed in here before. Without that, a second
+    // account on the same phone kept receiving the first one's notifications.
+    const { error } = await ctx.sb.rpc('claim_push_token', { p_token: token });
+    if (error) await ctx.sb.from('profiles').update({ push_token: token }).eq('id', ctx.me);
+}
+
+/** Takes this phone's token off the account, so a signed-out account stops ringing it. */
+export async function releasePushToken(): Promise<void> {
+    const ctx = await signedIn();
+    if (!ctx) return;
+    await ctx.sb.from('profiles').update({ push_token: null }).eq('id', ctx.me);
 }
 
 /**

@@ -251,6 +251,9 @@ export async function signOut(options: { discardUnsaved?: boolean } = {}): Promi
         }
     }
 
+    // This phone stops receiving the account's notifications once it leaves.
+    const { releasePushToken } = require('./profileSync') as typeof import('./profileSync');
+    await releasePushToken().catch(() => undefined);
     // Local sign-out: this phone only, so other devices stay signed in.
     await sb.auth.signOut({ scope: 'local' });
     await deleteAllLocalData();
