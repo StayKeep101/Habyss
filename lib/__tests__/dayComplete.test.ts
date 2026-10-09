@@ -114,15 +114,16 @@ describe('the run of finished days', () => {
         expect(run.streak).toBe(1);
     });
 
-    it('is not broken by a day that asked for nothing', () => {
-        // Scheduled on weekdays only: the weekend asks for nothing.
+    it('is broken by a day on which nothing at all was done', () => {
+        // One thing a day keeps it going; a day with nothing ends it.
         const weekdays = [habit({ id: 'a', taskDays: ['mon', 'tue', 'wed', 'thu', 'fri'] })];
         const run = streakFrom(weekdays, [], doneOn(['2026-09-22', '2026-09-21', '2026-09-18', '2026-09-17']), {}, TODAY);
-        expect(run.streak).toBe(4);
+        expect(run.streak).toBe(2);
     });
 
-    it('is zero when today is not finished yet', () => {
-        expect(streakFrom(daily, [], doneOn(['2026-09-21']), {}, TODAY).streak).toBe(0);
+    it('keeps yesterday\'s run while today is still empty', () => {
+        // An untouched today has not broken anything yet.
+        expect(streakFrom(daily, [], doneOn(['2026-09-21']), {}, TODAY).streak).toBe(1);
     });
 });
 
@@ -149,15 +150,15 @@ describe('one definition of a streak', () => {
         expect(run.streak).toBe(3);
     });
 
-    it('does not count a day with work still open on it', () => {
+    it('counts a day as soon as one thing is finished, with work still open', () => {
         const base = { title: 'x', priority: 2, source: 'app', dueDate: today, createdAt: '2026-09-01', updatedAt: '2026-09-01' };
         const tasks = [
             { ...base, id: 't1', status: 'done', completedAt: `${today}T10:00:00.000Z` },
             { ...base, id: 't2', status: 'open' },
             { ...base, id: 't3', status: 'open' },
         ] as never[];
-        // One of the three that exist today is not a kept day.
-        expect(streakFrom([], tasks, {}, {}, today, 70, 3).streak).toBe(0);
+        // One thing finished is enough to keep the streak going.
+        expect(streakFrom([], tasks, {}, {}, today, 70, 3).streak).toBe(1);
     });
 
     it('asks only for work that exists, so one task done is a kept day', () => {

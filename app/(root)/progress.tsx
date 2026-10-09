@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Dimensions, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
 import { router } from 'expo-router';
-import { GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-    Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming, type SharedValue,
+    Easing, SlideInLeft, SlideInRight, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { ScrubLine, ScrubReadout } from '@/components/Common/ScrubReadout';
-import { centreOf, useScrub } from '@/hooks/useScrub';
+import { useScrub } from '@/hooks/useScrub';
 import Svg, { Circle } from 'react-native-svg';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
@@ -18,6 +18,7 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useTasks } from '@/hooks/useTasks';
+import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useHistory } from '@/hooks/useHistory';
 import { dayFill, monthDays, monthTotals, type DaySummary } from '@/lib/progressMonth';
 import { dateAt } from '@/lib/goalInsights';
@@ -44,6 +45,7 @@ export default function ProgressScreen() {
     const { habits, completions, skippedToday, today } = useGoalsInsights();
     const tasks = useTasks();
     const { history, skips } = useHistory(400);
+    const dailyTarget = useDailyTarget();
 
     const [offset, setOffset] = useState(0);
     const [selected, setSelected] = useState<{ day: DaySummary; frame: LayoutRectangle } | null>(null);
@@ -113,27 +115,30 @@ export default function ProgressScreen() {
         chartRef.current?.measureInWindow((x, y, width, height) => { chartFrame.current = { x, y, width, height }; });
     }, []);
 
-    /**
-     * Lifting the finger opens the day it was on, growing the card out of the
-     * bar rather than out of nowhere.
-     *
-     * Nothing about the drag itself goes through React — no state is set while
-     * the finger moves, so a whole month can be read without a single render.
-     * Only the release is worth one. A tap on the chart is not a release: the
-     * calendar above is where days are tapped.
-     */
-    const onScrubRelease = useCallback((index: number) => {
-        const day = days[index];
-        const frame = chartFrame.current;
-        if (!day || !frame || day.future) return;
-        const centre = centreOf(index, frame.width, days.length, 'slots', 1);
-        openDay(day, { x: frame.x + centre - 7, y: frame.y, width: 14, height: frame.height });
-        // openDay is stable for the life of the screen; `days` is not, and this
-        // has to see the month that is actually on screen.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [days]);
+    // Reading only: dragging shows the day in the heading above the chart, and
+    // lifting the finger does nothing. Days open from the calendar.
+    const scrub = useScrub({ count: days.length, width: chartWidth, mode: 'slots', gap: 1 });
 
-    const scrub = useScrub({ count: days.length, width: chartWidth, mode: 'slots', gap: 1, onRelease: onScrubRelease });
+    /**
+     * Swipe the calendar sideways to change month, like Calendar does: left for
+     * the next month, right for the one before. Horizontal only, so the page
+     * still scrolls, and never past this month.
+     */
+    const [direction, setDirection] = useState<1 | -1>(1);
+    const goMonth = useCallback((by: 1 | -1) => {
+        if (by === 1 && offset >= 0) return;
+        selectionFeedback();
+        setDirection(by);
+        setOffset(offset + by);
+    }, [offset, selectionFeedback]);
+    const swipeMonth = useMemo(() => Gesture.Pan()
+        .activeOffsetX([-24, 24])
+        .failOffsetY([-14, 14])
+        .onEnd(event => {
+            'worklet';
+            if (Math.abs(event.translationX) < 50 && Math.abs(event.velocityX) < 400) return;
+            runOnJS(goMonth)(event.translationX < 0 ? 1 : -1);
+        }), [goMonth]);
 
     // Weeks start on Monday, so the first row is padded to that.
     const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
@@ -143,7 +148,7 @@ export default function ProgressScreen() {
         <SheetScreen title="Progress" onBack={() => router.back()} backIcon="close">
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
                 <View style={styles.monthRow}>
-                    <Pressable accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={10} onPress={() => { selectionFeedback(); setOffset(offset - 1); }}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={10} onPress={() => goMonth(-1)}>
                         <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
                     </Pressable>
                     <Text style={[styles.month, { color: colors.textPrimary }]}>
@@ -154,13 +159,18 @@ export default function ProgressScreen() {
                         accessibilityLabel="Next month"
                         disabled={offset >= 0}
                         hitSlop={10}
-                        onPress={() => { selectionFeedback(); setOffset(offset + 1); }}
+                        onPress={() => goMonth(1)}
                     >
                         <Ionicons name="chevron-forward" size={20} color={offset >= 0 ? colors.border : colors.textSecondary} />
                     </Pressable>
                 </View>
 
-                <View style={styles.grid}>
+                <GestureDetector gesture={swipeMonth}>
+                <Animated.View
+                    key={offset}
+                    entering={(direction === 1 ? SlideInRight : SlideInLeft).duration(220)}
+                    style={styles.grid}
+                >
                     {WEEKDAYS.map((label, index) => (
                         <Text key={index} style={[styles.weekday, { color: colors.textTertiary }]}>{label}</Text>
                     ))}
@@ -172,10 +182,12 @@ export default function ProgressScreen() {
                             today={today}
                             accent={accent}
                             colors={colors}
+                            taskTarget={dailyTarget}
                             onPress={frame => openDay(day, frame)}
                         />
                     ))}
-                </View>
+                </Animated.View>
+                </GestureDetector>
 
                 {/* The month in numbers. */}
                 <View style={styles.totals}>
@@ -226,7 +238,7 @@ export default function ProgressScreen() {
                 </GestureDetector>
                 <View style={styles.chartAxis}>
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>1</Text>
-                    <Text style={[styles.axisText, { color: colors.textTertiary }]}>Drag, then lift to open a day</Text>
+                    <Text style={[styles.axisText, { color: colors.textTertiary }]}>Drag to read a day</Text>
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>{days.length}</Text>
                 </View>
             </ScrollView>
@@ -250,16 +262,27 @@ export default function ProgressScreen() {
     );
 }
 
-/** One day: a ring that fills with how much of that day was done. */
-const DayCell = ({ day, today, accent, colors, onPress }: {
+/**
+ * One day as a ring, the way Activity draws them: a faint track, and an arc
+ * that closes as much of it as the day was done — half the day's habits and
+ * tasks, half a ring; all of them, a closed ring.
+ *
+ * The ring is drawn on its own square with nothing around it. It used to sit
+ * inside a box with a border, which shifted the drawing over by the border's
+ * width and clipped one side: the ring looked pushed off centre.
+ */
+const DayCell = ({ day, today, accent, colors, onPress, taskTarget }: {
     day: DaySummary; today: string; accent: string; colors: typeof Colors.light;
     onPress: (frame: LayoutRectangle) => void;
+    taskTarget: number;
 }) => {
     const ref = React.useRef<View>(null);
-    const fill = dayFill(day);
+    const fill = day.future ? 0 : dayFill(day, taskTarget);
+    const closed = fill >= 1;
     const isToday = day.date === today;
-    const size = 30;
-    const radius = (size - 3) / 2;
+    const size = 36;
+    const stroke = 3.5;
+    const radius = (size - stroke) / 2;
     const circumference = 2 * Math.PI * radius;
 
     return (
@@ -267,30 +290,27 @@ const DayCell = ({ day, today, accent, colors, onPress }: {
             <Pressable
                 ref={ref}
                 accessibilityRole="button"
-                accessibilityLabel={`${day.date}. ${day.done.length} of ${day.scheduled} habits, ${day.tasks.length} tasks`}
+                accessibilityLabel={`${day.date}. ${Math.round(fill * 100)}% done: ${day.done.length} of ${day.scheduled} habits, ${day.tasks.length} tasks`}
                 disabled={day.future}
                 onPress={() => ref.current?.measureInWindow((x, y, width, height) => onPress({ x, y, width, height }))}
                 style={[styles.dayButton, { opacity: day.future ? 0.3 : 1 }]}
             >
-                <View style={[styles.dayRing, {
-                    width: size, height: size,
-                    backgroundColor: day.complete ? accent : 'transparent',
-                    borderColor: isToday ? accent : 'transparent',
-                }]}>
-                    {!day.complete && fill > 0 ? (
-                        <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+                <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+                    <Svg width={size} height={size} style={styles.ringSvg}>
+                        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={accent} strokeOpacity={0.16} strokeWidth={stroke} fill="none" />
+                        {fill > 0 ? (
                             <Circle
                                 cx={size / 2} cy={size / 2} r={radius}
-                                stroke={accent} strokeWidth={2.5} fill="none"
-                                strokeDasharray={`${circumference * fill} ${circumference}`}
+                                stroke={accent} strokeWidth={stroke} fill="none"
+                                strokeDasharray={closed ? undefined : `${circumference * fill} ${circumference}`}
                                 strokeLinecap="round"
-                                transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                                rotation={-90} origin={`${size / 2}, ${size / 2}`}
                             />
-                        </Svg>
-                    ) : null}
+                        ) : null}
+                    </Svg>
                     <Text style={[styles.dayNumber, {
-                        color: day.complete ? '#fff' : colors.textSecondary,
-                        fontFamily: isToday ? FontFamily.semibold : FontFamily.regular,
+                        color: closed || isToday ? accent : colors.textSecondary,
+                        fontFamily: closed || isToday ? FontFamily.bold : FontFamily.regular,
                     }]}>
                         {Number(day.date.slice(-2))}
                     </Text>
@@ -448,7 +468,7 @@ const styles = StyleSheet.create({
     weekday: { width: '14.2857%', textAlign: 'center', fontSize: 10, fontFamily: FontFamily.medium, marginBottom: 8 },
     cell: { width: '14.2857%', alignItems: 'center', paddingVertical: 4 },
     dayButton: { alignItems: 'center', justifyContent: 'center' },
-    dayRing: { borderRadius: 999, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+    ringSvg: { position: 'absolute', top: 0, left: 0 },
     dayNumber: { fontSize: 12 },
     totals: { flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 24 },
     big: { fontSize: 46, fontFamily: FontFamily.bold, letterSpacing: -1.5 },

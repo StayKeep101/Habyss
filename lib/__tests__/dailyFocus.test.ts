@@ -148,3 +148,13 @@ describe('what the dashboard says', () => {
         expect(insights).toMatchObject({ hits: 0, days: 0, rate: 0, perDay: 0, bestWeekday: null });
     });
 });
+
+describe('a task finished in the evening', () => {
+    const { doneOnDay } = require('../dailyFocus') as typeof import('../dailyFocus');
+    it('counts for the day it was finished on your own clock, not in UTC', () => {
+        // 21:30 local on Oct 8 is already Oct 9 in UTC west of Greenwich.
+        const evening = new Date(2026, 9, 8, 21, 30).toISOString();
+        const task = { id: 't', title: 'Send it', priority: 2, status: 'done', source: 'app', completedAt: evening, createdAt: evening, updatedAt: evening } as const;
+        expect(doneOnDay(task as never, '2026-10-08')).toBe(true);
+    });
+});

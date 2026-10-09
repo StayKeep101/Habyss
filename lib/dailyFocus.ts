@@ -45,9 +45,19 @@ export async function saveDailyTarget(target: DailyTarget): Promise<void> {
     emit(TARGET_CHANGED, target);
 }
 
-/** A task finished on this particular day, whatever day it was due. */
-export const doneOnDay = (task: Task, day: string): boolean =>
-    task.status === 'done' && !!task.completedAt && task.completedAt.slice(0, 10) === day;
+/**
+ * A task finished on this particular day, whatever day it was due.
+ *
+ * The day is read in your own calendar. It used to take the first ten
+ * characters of the stored timestamp, which is UTC — so in Toronto anything
+ * finished after 8pm counted for tomorrow, and the Home card did not move
+ * when a task was ticked in the evening.
+ */
+export function doneOnDay(task: Task, day: string): boolean {
+    if (task.status !== 'done' || !task.completedAt) return false;
+    const when = new Date(task.completedAt);
+    return Number.isFinite(when.getTime()) ? localDateKey(when) === day : task.completedAt.slice(0, 10) === day;
+}
 
 export interface DailyFocus {
     /** The rows to show: what was finished today, then what to start next. */

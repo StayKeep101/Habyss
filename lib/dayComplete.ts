@@ -54,6 +54,17 @@ export const isDayComplete = (tally: DayTally): boolean => tally.total > 0 && ta
  * cannot ask for credit for a day it asked nothing of, and it must not punish
  * one either.
  */
+/**
+ * The streak: days in a row on which you finished at least one thing.
+ *
+ * One habit or one task is enough. It used to need the whole day — every habit
+ * plus the 3 (or 5) tasks — which made a single slip end a month-long run and
+ * gave nothing back for showing up on a hard day. Each habit still keeps its
+ * own streak; this one is about coming back.
+ *
+ * Today joins the run the moment something is done, and an empty today does
+ * not break it until the day is over. Skipping is not doing.
+ */
 export function streakFrom(
     habits: Habit[],
     tasks: Task[],
@@ -61,8 +72,9 @@ export function streakFrom(
     skips: Record<string, string[]>,
     today: string,
     back = 70,
-    target: DailyTarget = DEFAULT_TARGET,
+    _target: DailyTarget = DEFAULT_TARGET,
 ): { streak: number; completedDates: string[] } {
+    const known = new Set(habits.filter(habit => !habit.isGoal).map(habit => habit.id));
     const completedDates: string[] = [];
     let streak = 0;
     let counting = true;
@@ -71,23 +83,14 @@ export function streakFrom(
         const date = new Date(`${today}T12:00:00`);
         date.setDate(date.getDate() - offset);
         const day = localDateKey(date);
+        const skipped = new Set(skips[day] ?? []);
+        const did = (history[day] ?? []).some(id => known.has(id) && !skipped.has(id))
+            || tasks.some(task => doneOnDay(task, day));
 
-        const completions: Record<string, boolean> = {};
-        for (const id of history[day] ?? []) completions[id] = true;
-        const skipped: Record<string, boolean> = {};
-        for (const id of skips[day] ?? []) skipped[id] = true;
-
-        const tally = tallyDay(habits, completions, skipped, tasks, day, target);
-        if (tally.total === 0) continue;
-
-        if (isDayComplete(tally)) {
+        if (did) {
             completedDates.push(day);
             if (counting) streak++;
-        } else if (offset > 0 || tally.done > 0) {
-            // Today only breaks the run once it is over; an unfinished today
-            // simply has not been added yet.
-            counting = false;
-        } else {
+        } else if (offset > 0) {
             counting = false;
         }
     }
