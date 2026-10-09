@@ -29,6 +29,11 @@ interface Props {
     unbounded?: boolean;
     /** What the line is, for VoiceOver. */
     label?: string;
+    /**
+     * Whether a reading stays after the finger lifts. On by default; off where
+     * the chart sits in a page you scroll straight after reading it.
+     */
+    sticky?: boolean;
 }
 
 /**
@@ -42,7 +47,7 @@ interface Props {
  * were still dragging. A pan gesture that gives vertical movement to the page
  * and keeps horizontal movement for itself does not have to fight anybody.
  */
-export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, label }) => {
+export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170, onScrub, compact, unbounded, label, sticky = true }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
@@ -97,7 +102,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
     // Sticky: the reading is the whole point of dragging along this chart, and
     // one that vanished on release could only ever be read with a finger over
     // the number. It is put away by tapping the chart again.
-    const scrub = useScrub({ count: compact ? 0 : visible.length, width, mode: 'points', onIndex: report, sticky: true });
+    const scrub = useScrub({ count: compact ? 0 : visible.length, width, mode: 'points', onIndex: report, sticky });
 
     // The dot's height follows the same index the line does, one frame later at
     // worst, because both are read from shared values rather than from props.

@@ -207,6 +207,14 @@ const Home = () => {
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);
   const [showMarks, setShowMarks] = useState(false);
+  // Friends see your total; sent a moment after it settles, and only when it moved.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const { publishMarks } = require('@/lib/marksSync') as typeof import('@/lib/marksSync');
+      void publishMarks(marks.total);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [marks.total]);
 
 
   /**

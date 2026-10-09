@@ -60,6 +60,8 @@ export interface Friend {
     goalsActive?: number;
     goalsMoved?: number;
     isCurrentUser?: boolean;
+    /** Their Marks total, when they share their progress and the server has it. */
+    marks?: number;
 }
 
 export interface FriendRequest {
@@ -307,6 +309,17 @@ function toHabit(row: any) {
     };
 }
 
+/** Published Marks totals; empty on a server without the column yet. */
+async function marksOf(ctx: Context, ids: string[]): Promise<Map<string, number>> {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) return new Map();
+    const { data, error } = await ctx.sb.from('profiles').select('id, marks').in('id', unique);
+    if (error) return new Map();
+    return new Map((data ?? [])
+        .filter((row: any) => typeof row.marks === 'number')
+        .map((row: any) => [row.id as string, row.marks as number]));
+}
+
 async function friendIds(ctx: Context): Promise<string[]> {
     const { data } = await ctx.sb.from('friendships')
         .select('user_id, friend_id')
@@ -433,7 +446,16 @@ export class FriendsService {
     static async getFriends(): Promise<Friend[]> {
         const ctx = await signedIn();
         if (!ctx) return [];
-        return (await stats(ctx)).filter(row => row.user_id !== ctx.me).map(row => toFriend(row, ctx.me));
+        const friends = (await stats(ctx)).filter(row => row.user_id !== ctx.me).map(row => toFriend(row, ctx.me));
+        const marks = await marksOf(ctx, friends.map(friend => friend.id));
+        return friends.map(friend => (marks.has(friend.id) ? { ...friend, marks: marks.get(friend.id) } : friend));
+    }
+
+    /** Everybody's Marks, you included, for the Community tab. */
+    static async marksFor(ids: string[]): Promise<Map<string, number>> {
+        const ctx = await signedIn();
+        if (!ctx) return new Map();
+        return marksOf(ctx, [...ids, ctx.me]);
     }
 
     static async getFriendsWithProgress(): Promise<Friend[]> {

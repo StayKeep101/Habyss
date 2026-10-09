@@ -9,6 +9,7 @@ import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
+import { rankFor } from '@/lib/marks';
 import { ms, s, vs } from '@/constants/Layout';
 import { useTheme } from '@/constants/themeContext';
 import { useAccentGradient } from '@/constants/AccentContext';
@@ -69,7 +70,9 @@ export const DayCard: React.FC<{
     notes?: DayNote[];
     onComment?: (text: string) => void;
     onDeleteNote?: (id: string) => void;
-}> = ({ card, reaction, onReact, onOpen, together = [], tasks = [], notes = [], onComment, onDeleteNote }) => {
+    /** Their Marks total, when they share it. */
+    marks?: number;
+}> = ({ card, reaction, onReact, onOpen, together = [], tasks = [], notes = [], onComment, onDeleteNote, marks }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -160,6 +163,11 @@ export const DayCard: React.FC<{
                         <Text numberOfLines={1} style={[styles.name, { color: colors.textPrimary }]}>
                             {card.isYou ? 'You' : card.username}
                         </Text>
+                        {marks !== undefined ? (
+                            <Text numberOfLines={1} style={[styles.rankTag, { color: primary, borderColor: primary + '55' }]}>
+                                {`${rankFor(marks).rank.name} · ${marks.toLocaleString()}`}
+                            </Text>
+                        ) : null}
                         {card.streak > 1 ? (
                             <View style={styles.streak}>
                                 <Ionicons name="flame" size={s(11)} color="#F59E0B" />
@@ -438,6 +446,7 @@ const Reaction: React.FC<{
 };
 
 const styles = StyleSheet.create({
+    rankTag: { fontSize: 10, fontFamily: FontFamily.semibold, letterSpacing: 0.3, borderWidth: StyleSheet.hairlineWidth, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 1, overflow: 'hidden' },
     card: { padding: 0, overflow: 'hidden' },
     top: { flexDirection: 'row', alignItems: 'center', gap: s(13), padding: s(15) },
     avatar: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },

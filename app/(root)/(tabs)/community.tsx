@@ -22,6 +22,7 @@ import { DayCard } from '@/components/Community/DayCard';
 import { Pulse } from '@/components/Community/Pulse';
 import { addNote, getNotes, mergeNotes, pendingNotes, removeNote, type DayNote } from '@/lib/dayNotes';
 import { buildFeed, pulseOrder, summarise } from '@/lib/feed';
+import { MarksBoard, type MarksPerson } from '@/components/Community/MarksBoard';
 import { evidenceListToday } from '@/lib/evidence';
 import type { Evidence } from '@/lib/proof';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -108,6 +109,11 @@ export default function CommunityScreen() {
             ]);
             setFriends(friendsList);
             setFriendRequests(requests);
+            // Your own published total, beside theirs.
+            void FriendsService.getCurrentUser().then(async me => {
+                const map = await FriendsService.marksFor([]);
+                if (me && map.has(me.id)) setMyMarks({ id: me.id, marks: map.get(me.id)!, avatarUrl: me.avatarUrl });
+            }).catch(() => undefined);
 
             hasLoadedOnce.current = true;
         } catch (error) {
@@ -305,6 +311,14 @@ export default function CommunityScreen() {
     }, [friends]);
 
     const dayFeed = useMemo(() => buildFeed(friends, myEvidence), [friends, myEvidence]);
+    const [myMarks, setMyMarks] = useState<{ id: string; marks: number; avatarUrl?: string } | null>(null);
+    const marksPeople = useMemo<MarksPerson[]>(() => [
+        ...(myMarks ? [{ id: myMarks.id, name: 'You', marks: myMarks.marks, avatarUrl: myMarks.avatarUrl, isYou: true }] : []),
+        ...friends.filter(friend => typeof friend.marks === 'number').map(friend => ({
+            id: friend.id, name: friend.displayName || friend.username, avatarUrl: friend.avatarUrl, marks: friend.marks!,
+        })),
+    ], [friends, myMarks]);
+    const marksById = useMemo(() => new Map(marksPeople.map(person => [person.id, person.marks])), [marksPeople]);
 
     /**
      * The rail along the top, and the one line above the feed.
@@ -568,6 +582,9 @@ export default function CommunityScreen() {
                         detail. Tapping a face takes you to their card. */}
                     <Pulse people={pulse} onPick={goToCard} />
 
+                    {/* Everybody's Marks: something to keep up with. */}
+                    <MarksBoard people={marksPeople} onPick={goToCard} />
+
                     <View style={styles.feedHead}>
                         <Text style={[styles.feedTitle, { color: colors.textPrimary }]}>TODAY</Text>
                         {/* The line says what you can do about it when there is
@@ -597,6 +614,7 @@ export default function CommunityScreen() {
                                 notes={notes[card.id]}
                                 onComment={text => void handleComment(card.id, text)}
                                 onDeleteNote={id => void handleDeleteNote(card.id, id)}
+                                marks={marksById.get(card.id)}
                             />
                         </View>
                     ))}

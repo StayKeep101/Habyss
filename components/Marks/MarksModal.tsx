@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
@@ -33,6 +34,9 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
     const isLight = theme === 'light';
     const { primary, foreground } = useAccentGradient();
     const [scrub, setScrub] = useState<GoalPoint | null>(null);
+    // The ranks and the rules are reference: there when asked for, out of the
+    // way of the number and the chart otherwise.
+    const [info, setInfo] = useState(false);
 
     const series = useMemo<GoalPoint[]>(
         () => marks.series.map(point => ({ date: point.date, actual: point.value, pace: point.value, value: point.value })),
@@ -46,8 +50,15 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
-            <ModalHeader title="MARKS" onBack={onClose} />
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!scrub}>
+            <ModalHeader
+                title="MARKS"
+                onBack={onClose}
+                onAction={() => setInfo(true)}
+                actionIcon="information-circle-outline"
+                actionLabel="Ranks and how Marks are earned"
+            />
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
                 <Text style={[styles.rankLabel, { color: foreground }]}>{marks.rank.name.toUpperCase()}</Text>
                 <Text style={[styles.balance, { color: colors.textPrimary }]}>{shown.toLocaleString()}</Text>
                 {scrub ? (
@@ -61,35 +72,12 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
 
                 <View style={{ height: 18 }} />
                 {series.length > 1 ? (
-                    <GoalProgressChart series={series} color={primary} height={190} onScrub={setScrub} unbounded label="Marks" />
+                    <GoalProgressChart series={series} color={primary} height={190} onScrub={setScrub} unbounded label="Marks" sticky={false} />
                 ) : (
                     <View style={[styles.empty, { backgroundColor: tile }]}>
                         <Text style={[styles.sub, { color: colors.textTertiary }]}>The chart draws from your second day.</Text>
                     </View>
                 )}
-
-                <Text style={[styles.section, { color: colors.textTertiary }]}>RANKS</Text>
-                <View style={[styles.card, { backgroundColor: tile }]}>
-                    {RANKS.map((rank, index) => {
-                        const next = RANKS[index + 1];
-                        const current = rank.name === marks.rank.name;
-                        const reached = marks.total >= rank.min;
-                        return (
-                            <View key={rank.name} style={[styles.rankRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
-                                <View style={[styles.rankDot, { backgroundColor: reached ? primary : 'transparent', borderColor: reached ? primary : colors.border }]} />
-                                <Text style={[styles.rankName, { color: current ? colors.textPrimary : reached ? colors.textSecondary : colors.textTertiary, fontFamily: current ? FontFamily.bold : FontFamily.medium }]}>
-                                    {rank.name}
-                                </Text>
-                                {current && marks.next ? (
-                                    <Text style={[styles.rankHint, { color: foreground }]}>{marks.toNext.toLocaleString()} to go</Text>
-                                ) : null}
-                                <Text style={[styles.rankRange, { color: colors.textTertiary }]}>
-                                    {next ? `${rank.min.toLocaleString()}–${(next.min - 1).toLocaleString()}` : `${rank.min.toLocaleString()}+`}
-                                </Text>
-                            </View>
-                        );
-                    })}
-                </View>
 
                 {marks.events.length ? (
                     <>
@@ -110,35 +98,78 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                     </>
                 ) : null}
 
+            </ScrollView>
+            {/* Ranks and rules, in a small window over the page: there when
+                asked for, gone with a tap anywhere outside it. */}
+            {info ? (
+                <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(120)} style={styles.overlay}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setInfo(false)}
+                        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
+                    <View style={[styles.window, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                        <View style={styles.windowHead}>
+                            <Text style={[styles.windowTitle, { color: colors.textPrimary }]}>How Marks work</Text>
+                            <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} onPress={() => setInfo(false)}>
+                                <Ionicons name="close" size={20} color={colors.textSecondary} />
+                            </Pressable>
+                        </View>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.windowBody}>
+
                 <Text style={[styles.section, { color: colors.textTertiary }]}>HOW MARKS ARE EARNED</Text>
-                <View style={[styles.rules, { backgroundColor: tile }]}>
-                    <View style={styles.ruleHead}>
-                        <Text style={[styles.ruleCell, styles.ruleFirst]} />
-                        {(['Habit', 'Task', 'Goal'] as const).map(label => (
-                            <Text key={label} style={[styles.ruleCell, { color: colors.textTertiary, fontFamily: FontFamily.semibold }]}>{label}</Text>
-                        ))}
-                    </View>
-                    {(['add', 'complete', 'miss'] as const).map(kind => (
-                        <View key={kind} style={styles.ruleRow}>
-                            <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>{VERB[kind]}</Text>
-                            {(['habit', 'task', 'goal'] as const).map(item => {
-                                const points = MARKS[kind][item];
+                        <View style={[styles.rules, { backgroundColor: tile }]}>
+                            <View style={styles.ruleHead}>
+                                <Text style={[styles.ruleCell, styles.ruleFirst]} />
+                                {(['Habit', 'Task', 'Goal'] as const).map(label => (
+                                    <Text key={label} style={[styles.ruleCell, { color: colors.textTertiary, fontFamily: FontFamily.semibold }]}>{label}</Text>
+                                ))}
+                            </View>
+                            {(['add', 'complete', 'miss'] as const).map(kind => (
+                                <View key={kind} style={styles.ruleRow}>
+                                    <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>{VERB[kind]}</Text>
+                                    {(['habit', 'task', 'goal'] as const).map(item => {
+                                        const points = MARKS[kind][item];
+                                        return (
+                                            <Text key={item} style={[styles.ruleCell, { color: points > 0 ? colors.textPrimary : colors.error }]}>
+                                                {points > 0 ? '+' : '−'}{Math.abs(points)}
+                                            </Text>
+                                        );
+                                    })}
+                                </View>
+                            ))}
+                            <View style={styles.note}>
+                                <Ionicons name="information-circle-outline" size={14} color={colors.textTertiary} />
+                                <Text style={[styles.noteText, { color: colors.textTertiary }]}>
+                                    A habit is missed when its day ends undone, unless you skipped it. A task is missed the day after it was due.
+                                </Text>
+                            </View>
+                        </View>
+                <Text style={[styles.section, { color: colors.textTertiary }]}>RANKS</Text>
+                        <View style={[styles.card, { backgroundColor: tile }]}>
+                            {RANKS.map((rank, index) => {
+                                const next = RANKS[index + 1];
+                                const current = rank.name === marks.rank.name;
+                                const reached = marks.total >= rank.min;
                                 return (
-                                    <Text key={item} style={[styles.ruleCell, { color: points > 0 ? colors.textPrimary : colors.error }]}>
-                                        {points > 0 ? '+' : '−'}{Math.abs(points)}
-                                    </Text>
+                                    <View key={rank.name} style={[styles.rankRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+                                        <View style={[styles.rankDot, { backgroundColor: reached ? primary : 'transparent', borderColor: reached ? primary : colors.border }]} />
+                                        <Text style={[styles.rankName, { color: current ? colors.textPrimary : reached ? colors.textSecondary : colors.textTertiary, fontFamily: current ? FontFamily.bold : FontFamily.medium }]}>
+                                            {rank.name}
+                                        </Text>
+                                        {current && marks.next ? (
+                                            <Text style={[styles.rankHint, { color: foreground }]}>{marks.toNext.toLocaleString()} to go</Text>
+                                        ) : null}
+                                        <Text style={[styles.rankRange, { color: colors.textTertiary }]}>
+                                            {next ? `${rank.min.toLocaleString()}–${(next.min - 1).toLocaleString()}` : `${rank.min.toLocaleString()}+`}
+                                        </Text>
+                                    </View>
                                 );
                             })}
                         </View>
-                    ))}
-                    <View style={styles.note}>
-                        <Ionicons name="information-circle-outline" size={14} color={colors.textTertiary} />
-                        <Text style={[styles.noteText, { color: colors.textTertiary }]}>
-                            A habit is missed when its day ends undone, unless you skipped it. A task is missed the day after it was due.
-                        </Text>
+
+                    
+                        </ScrollView>
                     </View>
-                </View>
-            </ScrollView>
+                </Animated.View>
+            ) : null}
         </VoidModal>
     );
 };
@@ -157,6 +188,11 @@ const Change: React.FC<{ value: number; label: string }> = ({ value, label }) =>
 
 const styles = StyleSheet.create({
     content: { paddingHorizontal: 20, paddingBottom: 48 },
+    overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 20 },
+    window: { width: '100%', maxHeight: '78%', borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, paddingTop: 16, overflow: 'hidden' },
+    windowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18 },
+    windowTitle: { fontSize: 17, fontFamily: FontFamily.bold },
+    windowBody: { paddingHorizontal: 18, paddingBottom: 20 },
     rankLabel: { fontSize: 12, letterSpacing: 1.8, fontFamily: FontFamily.semibold, marginTop: 4 },
     balance: { fontSize: 48, fontFamily: FontFamily.bold, letterSpacing: -1.5, fontVariant: ['tabular-nums'], marginTop: 2 },
     sub: { fontSize: 13, fontFamily: FontFamily.regular },
