@@ -1,4 +1,5 @@
 import { FontFamily } from '@/constants/DesignSystem';
+import { formatClock, formatDuration } from '@/lib/habitMeasurement';
 import React, { useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
 import { TouchableOpacity, Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -98,12 +99,8 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   const checkboxSize = isSmall ? 14 : (isBig ? 20 : 18);
 
   // Timer Progress Logic
-  const formattedTime = React.useMemo(() => {
-    if (!timeLeft) return null;
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  }, [timeLeft]);
+  // Hours, minutes and seconds — "3:56:07", never "236:07".
+  const formattedTime = React.useMemo(() => (timeLeft ? formatClock(timeLeft) : null), [timeLeft]);
 
   const progress = React.useMemo(() => {
     if (!timeLeft || !totalDuration) return 0;
@@ -298,11 +295,11 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                       is missing something. */}
                   {habit.startTime ? (
                     <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>
-                      {habit.startTime}{habit.durationMinutes ? ` · ${habit.durationMinutes}m` : ''}
+                      {habit.startTime}{habit.durationMinutes ? ` · ${formatDuration(habit.durationMinutes * 60, true)}` : ''}
                     </Text>
                   ) : habit.durationMinutes ? (
                     <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>
-                      {`${habit.durationMinutes}m`}
+                      {formatDuration(habit.durationMinutes * 60, true)}
                     </Text>
                   ) : null}
                 </>

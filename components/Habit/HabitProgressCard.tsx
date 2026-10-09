@@ -10,7 +10,8 @@ import { useTheme } from '@/constants/themeContext';
 import { useFocusTime } from '@/constants/FocusTimeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Habit } from '@/lib/habitsSQLite';
-import { formatMeasurement, localHabitDate, measurementFor, parseMeasurement } from '@/lib/habitMeasurement';
+import { describeAmount, formatDuration, formatMeasurement, localHabitDate, measurementFor, parseMeasurement } from '@/lib/habitMeasurement';
+import { FocusDial } from '@/components/Habit/FocusDial';
 import { KIND_LABEL } from '@/lib/unitKind';
 import { healthLabel, mergeHealth, metricFits, readHealth } from '@/lib/healthMetrics';
 import { readableAccent } from '@/lib/colorContrast';
@@ -97,7 +98,8 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     // Only worth a line when something is happening, or cannot: "progress
     // saves as you go" on every visit is furniture, not information.
     const note = saving ? 'Saving your progress…' : !ready ? 'Loading your progress…'
-        : live ? 'Your timer keeps going when you leave this screen'
+        : live ? 'Keeps running when you leave this screen'
+        : kind === 'timer' && isToday && !complete ? 'Completes when the time has actually been run'
         : !isToday ? 'Past days are read-only' : null;
 
     /**
@@ -162,10 +164,12 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
         else if (kind === 'boolean') onChange(target);
         else onAdd(step);
     };
-    const mainLabel = live ? (focus.isPaused ? 'Resume session' : 'Pause session') : complete ? 'Completed'
-        : kind === 'timer' ? 'Start focus session' : kind === 'boolean' ? (habit.type === 'quit' ? 'I stayed on track' : 'Mark as done') : `Add ${formatMeasurement(step)} ${unit}`;
-    const seconds = live ? focus.timeLeft : 0;
-    const clock = `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
+    const mainLabel = live ? (focus.isPaused ? 'Resume' : 'Pause') : complete ? 'Completed'
+        : kind === 'timer' ? (value > 0 ? 'Continue' : 'Start') : kind === 'boolean' ? (habit.type === 'quit' ? 'I stayed on track' : 'Mark as done') : `Add ${formatMeasurement(step)} ${unit}`;
+    // Timed habits: what is left of the day's target, in seconds, ticking live.
+    const remaining = secondsPerUnit ? Math.max(0, (target - displayValue) * secondsPerUnit) : 0;
+    const targetLabel = describeAmount(habit, target);
+    const banked = secondsPerUnit && displayValue > 0 && !complete ? `${formatDuration(displayValue * secondsPerUnit, true)} done` : null;
 
     return (
         <Animated.View layout={morph}>
@@ -178,10 +182,23 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                     <Text style={[Typography.caption, { color: colors.textSecondary }]}>
                         {health ? `Apple Health · ${formatMeasurement(target)} ${unit}`
                             : kind === 'boolean' ? 'Daily check-in'
-                                : kind === 'timer' ? `${KIND_LABEL.duration} · ${formatMeasurement(target)} ${unit}`
+                                : kind === 'timer' ? `${KIND_LABEL.duration} · ${targetLabel}`
                                     : `${KIND_LABEL[unitKind]} · ${formatMeasurement(target)} ${unit}`}
                     </Text>
                 </View>
+                {kind === 'timer' ? (
+                    <FocusDial
+                        progress={progress}
+                        remaining={remaining}
+                        targetLabel={targetLabel}
+                        doneLabel={banked}
+                        running={live}
+                        paused={live && focus.isPaused}
+                        complete={complete}
+                        color={accent}
+                        success={colors.success}
+                    />
+                ) : (
                 <View style={styles.dial} accessible accessibilityRole="progressbar" accessibilityLabel={`${habit.name} progress`} accessibilityValue={{ min: 0, max: target, now: Math.min(displayValue, target), text: `${formatMeasurement(displayValue)} of ${formatMeasurement(target)} ${unit}` }}>
                     <Svg width={156} height={156} style={StyleSheet.absoluteFill}>
                         {/* A filled well, not a hoop drawn on the background:
@@ -194,13 +211,14 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                     <Animated.View style={[styles.dialIcon, { backgroundColor: (complete ? colors.success : accent) + '18' }, iconStyle]}>
                         <AppIcon name={complete ? 'checkmark' : habit.icon || 'sparkles-outline'} size={17} color={complete ? successInk : ink} />
                     </Animated.View>
-                    <Animated.Text key={live ? 'clock' : kind === 'boolean' ? String(complete) : String(value)} entering={enter} style={[styles.value, { color: colors.textPrimary, fontSize: live ? 30 : kind === 'boolean' ? 27 : 34 }]} numberOfLines={1} adjustsFontSizeToFit>
-                        {!ready ? '—' : live ? clock : kind === 'boolean' ? (complete ? 'Done' : 'Ready') : formatMeasurement(value)}
+                    <Animated.Text key={kind === 'boolean' ? String(complete) : String(value)} entering={enter} style={[styles.value, { color: colors.textPrimary, fontSize: kind === 'boolean' ? 27 : 34 }]} numberOfLines={1} adjustsFontSizeToFit>
+                        {!ready ? '—' : kind === 'boolean' ? (complete ? 'Done' : 'Ready') : formatMeasurement(value)}
                     </Animated.Text>
                     <Text style={[Typography.caption, { color: complete ? successInk : colors.textSecondary }]}>
-                        {live ? (focus.isPaused ? 'PAUSED' : focus.activeMode === 'flow' ? 'ELAPSED' : 'REMAINING') : kind === 'boolean' ? (complete ? 'you showed up' : 'when you are') : `${unit} ${complete ? 'logged' : 'so far'}`}
+                        {kind === 'boolean' ? (complete ? 'you showed up' : 'when you are') : `${unit} ${complete ? 'logged' : 'so far'}`}
                     </Text>
                 </View>
+                )}
                 <Text accessibilityLiveRegion="polite" style={[Typography.heading, styles.status, { color: complete ? successInk : colors.textPrimary }]}>{status}</Text>
 
                 {!isToday ? (
@@ -235,8 +253,10 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                             </Pressable>
                         </Animated.View>
                         <View style={styles.utilityRow}>
-                            {live ? <Pressable onPress={finishSession} accessibilityRole="button" style={styles.textButton}><AppIcon name="stop-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Finish & save time</Text></Pressable>
-                                : kind !== 'boolean' ? <Pressable disabled={!editable} onPress={beginEditing} accessibilityRole="button" style={styles.textButton}><AppIcon name="create-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{kind === 'timer' ? 'Log time manually' : 'Set exact total'}</Text></Pressable> : null}
+                            {/* Ending keeps only the time actually run; there is no
+                                way to type time into a timed habit. */}
+                            {live ? <Pressable onPress={finishSession} accessibilityRole="button" accessibilityHint="Saves the time you have run so far" style={styles.textButton}><AppIcon name="stop-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>End session</Text></Pressable>
+                                : kind === 'counter' ? <Pressable disabled={!editable} onPress={beginEditing} accessibilityRole="button" style={styles.textButton}><AppIcon name="create-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Set exact total</Text></Pressable> : null}
                             {health && !live ? (
                                 <Pressable disabled={asking} onPress={() => void askHealth(true)} accessibilityRole="button"
                                     accessibilityLabel={`Read ${healthLabel(health)} from Apple Health`} style={styles.textButton}>

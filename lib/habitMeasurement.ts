@@ -38,3 +38,37 @@ export function parseMeasurement(input: string): number | null {
     const value = Number(normalized);
     return Number.isFinite(value) && value <= 100000000 ? value : null;
 }
+
+/**
+ * A length of time the way you would say it: "4 hours", "1 hour 30 minutes",
+ * "45 minutes", "30 seconds" — never "240 minutes". `short` gives "1 h 30 min".
+ */
+export function formatDuration(totalSeconds: number, short = false): string {
+    const seconds = Math.max(0, Math.round(totalSeconds));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const rest = seconds % 60;
+    const word = (n: number, one: string, many: string, abbr: string) => short ? `${n} ${abbr}` : `${n} ${n === 1 ? one : many}`;
+    const parts: string[] = [];
+    if (hours) parts.push(word(hours, 'hour', 'hours', 'h'));
+    if (minutes) parts.push(word(minutes, 'minute', 'minutes', 'min'));
+    if (!hours && !minutes) parts.push(word(rest, 'second', 'seconds', 's'));
+    return parts.join(' ');
+}
+
+/** A running clock: "3:59:58" past an hour, "45:00" under it. */
+export function formatClock(totalSeconds: number): string {
+    const seconds = Math.max(0, Math.round(totalSeconds));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const rest = seconds % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return hours ? `${hours}:${pad(minutes)}:${pad(rest)}` : `${pad(minutes)}:${pad(rest)}`;
+}
+
+/** A habit's amount in its own words: "4 hours" for time, "20 pages" otherwise. */
+export function describeAmount(habit: Pick<Habit, 'unit' | 'goalValue' | 'durationMinutes' | 'type' | 'trackingMethod'>, amount: number, short = false): string {
+    const { secondsPerUnit, unit } = measurementFor(habit);
+    if (secondsPerUnit) return formatDuration(amount * secondsPerUnit, short);
+    return `${formatMeasurement(amount)} ${unit}`;
+}

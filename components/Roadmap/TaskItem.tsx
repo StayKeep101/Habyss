@@ -1,4 +1,5 @@
 import { FontFamily } from '@/constants/DesignSystem';
+import { formatDuration } from '@/lib/habitMeasurement';
 import React from 'react';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
@@ -58,7 +59,7 @@ const shortDate = (day: string) =>
     new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 const shortLength = (minutes: number) =>
-    minutes < 60 ? `${minutes}m` : `${Math.round((minutes / 60) * 10) / 10}h`;
+    formatDuration(minutes * 60, true);
 
 /**
  * A task in the roadmap, alongside habits.

@@ -307,12 +307,12 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (habit) {
                 const measurement = measurementFor(habit);
                 if (measurement.kind === 'timer' && session.actualDuration > 0) {
-                    await saveHabitMeasurement(habit.id, session.actualDuration / measurement.secondsPerUnit, localHabitDate(session.startedAt), true);
+                    await saveHabitMeasurement(habit.id, session.actualDuration / measurement.secondsPerUnit, localHabitDate(session.startedAt), true, true);
                 }
             }
         } catch (e) {
             console.log('Failed to save focus session locally:', e);
-            Alert.alert('Progress wasn’t saved', 'Your session ended, but its time could not be added to your habit. You can log the time manually on the habit page.');
+            Alert.alert('Progress wasn’t saved', 'Your session ended, but its time could not be added to your habit. Please start a new session.');
         }
     }, []);
 

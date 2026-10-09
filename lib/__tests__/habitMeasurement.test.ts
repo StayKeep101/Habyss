@@ -31,3 +31,19 @@ describe('habit measurement contract', () => {
         expect(localHabitDate(date)).toBe('2026-09-22');
     });
 });
+
+describe('time, the way it is said', () => {
+    const { formatClock, formatDuration } = require('../habitMeasurement') as typeof import('../habitMeasurement');
+    it('says hours rather than a pile of minutes', () => {
+        expect(formatDuration(240 * 60)).toBe('4 hours');
+        expect(formatDuration(120 * 60)).toBe('2 hours');
+        expect(formatDuration(90 * 60)).toBe('1 hour 30 minutes');
+        expect(formatDuration(45 * 60)).toBe('45 minutes');
+        expect(formatDuration(90 * 60, true)).toBe('1 h 30 min');
+    });
+    it('runs a clock with hours, minutes and seconds', () => {
+        expect(formatClock(4 * 3600)).toBe('4:00:00');
+        expect(formatClock(3 * 3600 + 59 * 60 + 58)).toBe('3:59:58');
+        expect(formatClock(45 * 60)).toBe('45:00');
+    });
+});

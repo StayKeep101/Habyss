@@ -666,6 +666,33 @@ export function setSkipped(habitId: string, skipped: boolean, dateISO = todayStr
     });
 }
 
+/**
+ * A habit measured in time is done by doing the time.
+ *
+ * Ticking it, or typing "240 minutes" into it, would let a four-hour session be
+ * banked in a tap; the only thing that adds time to one is the focus timer
+ * actually running. Undoing and resetting are still allowed — taking time away
+ * never claims anything.
+ */
+export class TimedHabitError extends Error {
+    constructor() {
+        super('A timed habit is completed by running its timer.');
+        this.name = 'TimedHabitError';
+    }
+}
+
+async function isTimed(db: any, uid: string, habitId: string): Promise<boolean> {
+    const row = await db.getFirstAsync(
+        'SELECT goal_value AS goalValue, unit, duration_minutes AS durationMinutes, type, tracking_method AS trackingMethod FROM habits WHERE id = ? AND user_id = ?',
+        habitId, uid,
+    );
+    return !!row && measurementFor(row).kind === 'timer';
+}
+
+/** Whether a habit can only be completed through its timer. */
+export const isTimedHabit = (habit: Pick<Habit, 'unit' | 'goalValue' | 'durationMinutes' | 'type' | 'trackingMethod'>): boolean =>
+    measurementFor(habit).kind === 'timer';
+
 export function toggleCompletion(habitId: string, dateISO = todayString()): Promise<Record<string, boolean>> {
     return writeProgress(async () => {
         const { uid, db } = await progressStorage();
@@ -677,6 +704,7 @@ export function toggleCompletion(habitId: string, dateISO = todayString()): Prom
                 uid, habitId, dateISO,
             );
             completed = !existing;
+            if (completed && await isTimed(tx, uid, habitId)) throw new TimedHabitError();
             await tx.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateISO);
             if (!completed) {
                 await tx.runAsync(
@@ -697,7 +725,8 @@ export function toggleCompletion(habitId: string, dateISO = todayString()): Prom
         if (completed) void stampEvidence(habitId, dateISO);
         else void publishIfShared(habitId, dateISO, null);
         const habit = cachedHabits?.find(h => h.id === habitId);
-        if (completed && habit) void NotificationService.sendCompletionNotification(habit.name).catch(() => undefined);
+        // No notification for a tick: you just did it, on this screen. A
+        // banner saying so was noise on every single check-in.
         return getCompletions(dateISO);
     });
 }
@@ -998,10 +1027,12 @@ export async function getHeatmapData(): Promise<{ date: string; count: number }[
     return [];
 }
 
-export function setCompletionValue(habitId: string, value: number, dateISO = todayString()): Promise<void> {
+/** `verified` is for values Apple Health recorded, which are real time rather than a claim. */
+export function setCompletionValue(habitId: string, value: number, dateISO = todayString(), verified = false): Promise<void> {
     return writeProgress(async () => {
         if (!Number.isFinite(value) || value < 0) throw new Error('Enter a valid amount.');
         const { uid, db } = await progressStorage();
+        if (value > 0 && !verified && await isTimed(db, uid, habitId)) throw new TimedHabitError();
         const now = new Date().toISOString();
         await progressTransaction(db, async (tx: any) => {
             await tx.runAsync('DELETE FROM habit_measurements WHERE user_id = ? AND habit_id = ? AND date = ?', uid, habitId, dateISO);
@@ -1040,7 +1071,11 @@ async function readMeasurement(db: any, uid: string, habitId: string, target: nu
 }
 
 // Serialize taps and completed focus sessions. A rejected write must not block the next one.
-export function saveHabitMeasurement(habitId: string, amount: number, dateISO = todayString(), add = false): Promise<number> {
+/**
+ * `fromTimer` is the focus timer's own write. Anything else may lower a timed
+ * habit's total (undo, reset) but never raise it.
+ */
+export function saveHabitMeasurement(habitId: string, amount: number, dateISO = todayString(), add = false, fromTimer = false): Promise<number> {
     return writeProgress(async () => {
         if (!Number.isFinite(amount) || amount < 0 || amount > 100000000) throw new Error('Enter a valid amount.');
         const uid = await getUserId();
@@ -1055,7 +1090,9 @@ export function saveHabitMeasurement(habitId: string, amount: number, dateISO = 
         const now = new Date().toISOString();
         let value = amount;
         await progressTransaction(db, async (tx: any) => {
-            if (add) value += await readMeasurement(tx, uid, habitId, target, dateISO);
+            const current = await readMeasurement(tx, uid, habitId, target, dateISO);
+            if (add) value += current;
+            if (!fromTimer && value > current && measurementFor(habit).kind === 'timer') throw new TimedHabitError();
             if (!Number.isFinite(value) || value > 100000000) throw new Error('Enter a valid amount.');
             value = Math.round(value * 1000) / 1000;
             await tx.runAsync(
@@ -1140,7 +1177,7 @@ export async function syncHealthKitData(): Promise<number> {
             const merged = mergeHealth(stored, value);
             if (merged <= stored) continue;
 
-            await setCompletionValue(habit.id, merged, dateStr);
+            await setCompletionValue(habit.id, merged, dateStr, true);
             filled += 1;
         } catch (error) {
             console.warn('[Habits] Could not fill', habit.id, 'from Health:', error);

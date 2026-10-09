@@ -3,19 +3,17 @@ import {ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Pres
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, LinearTransition, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { AppIcon } from '@/components/Common/AppIcon';
 import { IconButton } from '@/components/Common/IconButton';
 import { ShareButton } from '@/components/Common/ShareButton';
 import { ViewSwitcher, type SwitcherOption } from '@/components/Common/ViewSwitcher';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { VoidCard } from '@/components/Layout/VoidCard';
 import { HabitProgressCard } from '@/components/Habit/HabitProgressCard';
 import { SharedWith } from '@/components/Habit/SharedWith';
-import { DetailedHeatmap } from '@/components/Habit/DetailedHeatmap';
+import { HabitCalendarMap } from '@/components/Habit/HabitCalendarMap';
 import { ShareHabitModal } from '@/components/ShareHabitModal';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { Colors } from '@/constants/Colors';
-import { FontFamily, Typography, surfaceFor } from '@/constants/DesignSystem';
+import { FontFamily, Typography } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Habit, getHabits, getHabitMeasurement, getLastNDaysCompletions, saveHabitMeasurement } from '@/lib/habitsSQLite';
@@ -257,18 +255,6 @@ export default function HabitDetailScreen() {
     };
     const accent = habit?.color || colors.primary;
     const ink = readableAccent(accent, colors.surfaceSecondary);
-    // The card's own steps, so nothing on this page has to invent a colour by
-    // putting the accent behind an alpha value.
-    const tone = surfaceFor(theme);
-    const track = theme === 'light' ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.07)';
-    const target = habit ? measurementFor(habit).target : 1;
-    const week = Array.from({ length: 7 }, (_, i) => {
-        const day = new Date(today + 'T12:00:00');
-        day.setDate(day.getDate() - 6 + i);
-        const key = localHabitDate(day);
-        const record = history.find(item => item.date === key);
-        return { date: key, day, completed: key === date && ready ? value >= target : !!record?.completed, skipped: !!record?.skipped };
-    });
     const schedule = habit
         ? `${habit.frequency === 'daily' || !habit.frequency ? 'Daily' : habit.frequency.charAt(0).toUpperCase() + habit.frequency.slice(1)}${habit.startTime ? ` · ${habit.startTime}` : ' · Anytime'}`
         : undefined;
@@ -316,25 +302,6 @@ export default function HabitDetailScreen() {
                         <HabitProgressCard key={`${habit.id}:${date}`} habit={habit} date={date} value={value} saving={saving} ready={ready} error={error} canUndo={undo !== null} onChange={next => void changeValue(next)} onAdd={amount => void changeValue(Math.round((valueRef.current + amount) * 1000) / 1000)} onUndo={() => { if (undo !== null) void changeValue(undo, true); }} onToday={() => selectDate(today)} />
                         {!ready && error && <Pressable onPress={load} accessibilityRole="button" style={styles.retry}><Text style={[Typography.button, { color: ink }]}>Retry</Text></Pressable>}
 
-                        {/* The week and the three numbers it adds up to, in one
-                            card: they are the same story, and two cards cost a
-                            gap and a heading to say so. */}
-                        <Animated.View layout={transition}>
-                            <VoidCard matte style={styles.rhythm}>
-                                <View style={styles.week}>
-                                    {week.map(day => {
-                                        const scheduled = isHabitScheduledForDate(habit, day.day);
-                                        const selected = date === day.date;
-                                        return <Pressable key={day.date} onPress={() => selectDate(day.date)} disabled={saving} accessibilityRole="button" accessibilityState={{ selected, disabled: saving }} accessibilityLabel={`${day.day.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}, ${day.completed ? 'completed' : day.skipped ? 'skipped' : scheduled ? 'not completed' : 'not scheduled'}`} style={[styles.day, { backgroundColor: selected ? tone.raised : 'transparent' }]}>
-                                            <Text style={[styles.weekday, { color: selected ? colors.textPrimary : colors.textTertiary }]}>{day.day.toLocaleDateString(undefined, { weekday: 'narrow' })}</Text>
-                                            <View style={[styles.dayCircle, { backgroundColor: day.completed ? accent : (selected ? track : tone.raised) }]}>{day.completed ? <AppIcon name="checkmark" size={14} color={readableAccent('#FFFFFF', accent)} /> : <Text style={[styles.dayNumber, { color: colors.textSecondary }]}>{day.skipped || !scheduled ? '–' : day.day.getDate()}</Text>}</View>
-                                            <View style={[styles.todayDot, { backgroundColor: day.date === today ? accent : 'transparent' }]} />
-                                        </Pressable>;
-                                    })}
-                                </View>
-                            </VoidCard>
-                        </Animated.View>
-
                         {/* Only renders when somebody else is on it. */}
                         <SharedWith habitId={habit.id} doneToday={history.find(day => day.date === today)?.completed ?? false} />
 
@@ -346,14 +313,7 @@ export default function HabitDetailScreen() {
                     the last week and a ring of today were two more ways of
                     saying what the squares already say. */}
                 <ScrollView style={{ width: pageWidth }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                    <VoidCard matte style={styles.heatmap}>
-                        <DetailedHeatmap
-                            completionData={history}
-                            color={accent}
-                            startDate={habit.startDate?.slice(0, 10)}
-                            description="Every day since you started"
-                        />
-                    </VoidCard>
+                    <HabitCalendarMap history={history} color={accent} startDate={habit.startDate?.slice(0, 10)} today={today} inset={20} />
                 </ScrollView>
                 </Animated.View>
                 </GestureDetector>
