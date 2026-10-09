@@ -122,7 +122,9 @@ describe('task reminders', () => {
 
         expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(expect.objectContaining({
             content: expect.objectContaining({
-                title: 'Send the proposal',
+                // From Echo, like a text; the line itself names the task.
+                title: 'Echo',
+                body: expect.stringContaining('Send the proposal'),
                 data: expect.objectContaining({ kind: 'task-reminder', taskId: 'task-1' }),
             }),
             trigger: expect.objectContaining({ date: new Date(2026, 8, 17, 15, 0) }),

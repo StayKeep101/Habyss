@@ -217,12 +217,13 @@ export class NotificationService {
         const dayOf = (date: Date) => Math.floor(date.getTime() / 86400000);
         for (const { task, date } of taskPlan) candidates.push({
           identifier: `task:${task.id}:${date.getTime()}`, date,
-          content: { title: task.title, body: writer.pickLine(written, 'task:' + task.id, voice, dayOf(date)) ?? coachReminder(voice, { habitName: task.title, name }),
+          // From Echo, like a text: the line names the task itself.
+          content: { title: 'Echo', body: writer.pickLine(written, 'task:' + task.id, voice, dayOf(date)) ?? coachReminder(voice, { habitName: task.title, name }),
             sound: 'default', data: { kind: 'task-reminder', taskId: task.id, url: '/(root)/(tabs)/roadmap' } },
         });
         for (const { habit, date, scheduledDate } of plan) candidates.push({
           identifier: `habit:${habit.id}:${date.getTime()}`, date,
-          content: { title: habit.name, body: (habit.reminderOffset ? `Starts in ${longLead(habit.reminderOffset)}. ` : '')
+          content: { title: 'Echo', body: (habit.reminderOffset ? `${habit.name} in ${longLead(habit.reminderOffset)}. ` : '')
               // A sentence the user wrote for this habit beats anything Echo
               // or the coach lines would have chosen for them.
               + (habit.reminderMessage?.trim()
@@ -310,15 +311,17 @@ export class NotificationService {
       const habit = (await habits.getHabits()).find(habit => habit.id === data.habitId && !habit.isArchived && !habit.isGoal);
       const [done, skipped] = await Promise.all([habits.getCompletions(date), habits.getSkipped(date)]);
       unfinished = !!habit && !done[data.habitId] && !skipped[data.habitId];
-      if (unfinished && action === 'ECHO_DONE') {
-        const { measurementFor }: typeof import('./habitMeasurement') = require('./habitMeasurement');
+      // A timed habit is done by running its timer, so "Done" from a
+      // notification does nothing to it.
+      const { measurementFor }: typeof import('./habitMeasurement') = require('./habitMeasurement');
+      if (unfinished && action === 'ECHO_DONE' && measurementFor(habit!).kind !== 'timer') {
         await habits.setCompletionValue(data.habitId, measurementFor(habit!).target, date);
       }
     }
     if (unfinished && action === 'ECHO_SNOOZE') {
       const until = Date.now() + 15 * 60000;
       await Notifications.scheduleNotificationAsync({ identifier: identifier + ':snooze',
-        content: { title: 'Echo · Ready for another try?', body: content.body, sound: 'default', categoryIdentifier: 'ECHO_ALIVE',
+        content: { title: 'Echo', body: content.body, sound: 'default', categoryIdentifier: 'ECHO_ALIVE',
           data: { ...data, snoozedUntil: until } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(until), channelId: 'default' } });
     }

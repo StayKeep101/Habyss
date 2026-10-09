@@ -14,25 +14,53 @@ const awake = (date: Date, window: DayWindow) => {
     return wake === sleep || (wake < sleep ? minutes >= wake && minutes < sleep : minutes >= wake || minutes < sleep);
 };
 
+/** Verbs a habit or task name usually starts with, so it can be said as an action. */
+const VERBS = new Set(['go', 'read', 'run', 'write', 'call', 'meditate', 'study', 'walk', 'drink', 'do', 'finish', 'send',
+    'work', 'practice', 'practise', 'stretch', 'journal', 'clean', 'cook', 'train', 'pray', 'eat', 'take', 'make', 'learn',
+    'review', 'plan', 'pack', 'lift', 'swim', 'bike', 'cycle', 'pay', 'email', 'text', 'build', 'ship', 'post', 'record',
+    'practise', 'play', 'draw', 'paint', 'sleep', 'wake', 'brush', 'floss', 'visit', 'fix', 'prepare', 'prep', 'book', 'buy']);
+
+/**
+ * A name as something you do: "Go to the gym" stays a verb phrase ("go to the
+ * gym"), and "Gym" becomes "your gym" — so a line can ask "Did you go to the
+ * gym yet?" the way a friend would text it, instead of quoting a title.
+ */
+export function asAction(title: string): { verb: boolean; phrase: string } {
+    const clean = title.trim();
+    const first = clean.split(/\s+/)[0]?.toLowerCase() ?? '';
+    if (VERBS.has(first)) return { verb: true, phrase: clean.charAt(0).toLowerCase() + clean.slice(1) };
+    return { verb: false, phrase: clean };
+}
+
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * What Echo texts you, before and after something you planned.
+ *
+ * Written like a message from a person: from Echo, one short line, the thing
+ * named the way you would say it — not a title in quotation marks with a
+ * heading over it.
+ */
 export function aliveLine(moment: ScheduledMoment, phase: AliveReminder['phase'], voice: PersonalityModeId, name?: string) {
-    const who = name ? `${name}, ` : '';
-    const title = phase === 'before' ? 'Echo · You’re up in 10' : 'Echo · Checking in';
-    const item = `“${moment.title}”`;
+    const { verb, phrase } = asAction(moment.title);
+    const hey = name ? `${name}, ` : '';
+    const did = verb ? `did you ${phrase} yet` : `is ${phrase} done yet`;
+    const soon = `${capital(phrase)} in 10 minutes`;
     const before: Record<PersonalityModeId, string[]> = {
-        friendly: [`${who}${item} starts in 10 minutes. Get ready; the first small step is enough. I’m cheering you on.`, `${who}a little heads-up: ${item} in 10. You made room for yourself today. Let’s use it.`],
-        normal: [`${who}${item} starts in 10 minutes. Set up what you need and give yourself an easy start.`],
-        dad_mode: [`${who}${item} in 10. You made a plan. Get ready, start small, and give yourself a chance to keep it.`],
-        bully_mode: [`${who}${item} in 10. Future you called: less negotiating, more getting ready. You’ve got this.`],
+        friendly: [`${capital(hey + phrase)} in 10 minutes. You've got this 💙`, `${soon}. Small start, that's all it takes ✨`],
+        normal: [`${soon}.`, `${soon}. Get set up.`],
+        dad_mode: [`${soon}. Get ready.`, `${soon}. No excuses.`],
+        bully_mode: [`${soon}. Get your ass up.`, `${soon}. Move it.`],
     };
     const after: Record<PersonalityModeId, string[]> = {
-        friendly: [`${who}how did ${item} go? I haven’t seen a check-in yet. Already done? Mark it off. If plans changed, a smaller step still counts.`, `${who}checking in on ${item}. No check-in yet—did life get in the way? You can take a small step or make a fresh plan.`],
-        normal: [`${who}${item} is still unchecked. Finished already? Log it. Otherwise, choose a smaller step or reschedule.`],
-        dad_mode: [`${who}how’s ${item} going? I haven’t seen it checked off. No guilt—tell the app what happened, then make your next move.`],
-        bully_mode: [`${who}${item} is still unchecked. Did you finish and forget the victory lap? Log it—or make the next five minutes count.`],
+        friendly: [`${capital(hey + did)}? Even five minutes counts 💙`, `${capital(hey + did)}? If it's done, tick it off 🙌`],
+        normal: [`${capital(hey + did)}?`, `${capital(hey + did)}? Log it when it is.`],
+        dad_mode: [`${capital(hey + did)}? I expect it done today.`, `${capital(hey + did)}? You said you would.`],
+        bully_mode: [`${capital(hey + did)}, or are you scrolling again?`, `${capital(hey)}why the hell is this still not done? ${capital(did)}?`],
     };
     const bank = (phase === 'before' ? before : after)[voice] ?? (phase === 'before' ? before.normal : after.normal);
     const seed = [...moment.key].reduce((sum, letter) => sum + letter.charCodeAt(0), 0);
-    return { title, body: bank[seed % bank.length] };
+    return { title: 'Echo', body: bank[seed % bank.length] };
 }
 
 /** Two bounded nudges, never during quiet hours or repeatedly on an overdue item. */

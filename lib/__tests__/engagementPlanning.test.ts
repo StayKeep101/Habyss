@@ -42,8 +42,11 @@ describe('Echo Alive planning', () => {
         const plan = buildAlivePlan(moments, now, window, 'friendly', { followUp: true, useName: true, name: 'Ada' });
         expect(plan.map(item => item.date)).toEqual([new Date(2026, 8, 26, 7, 50), new Date(2026, 8, 26, 8, 45)]);
         expect(plan[0].body).toContain('Ada');
-        expect(plan[0].body).toContain('Run 5 km');
-        expect(plan[1].body).toMatch(/check-in/);
+        // Said the way a friend would text it, from Echo.
+        expect(plan[0].title).toBe('Echo');
+        expect(plan[0].body.toLowerCase()).toContain('run 5 km');
+        // The follow-up asks, like a text would: "did you run 5 km yet?"
+        expect(plan[1].body.toLowerCase()).toMatch(/did you run 5 km yet/);
         expect(new Set(plan.map(item => item.id)).size).toBe(2);
     });
     it('honors follow-up and name preferences, and never schedules in the past', () => {
