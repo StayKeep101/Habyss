@@ -1,6 +1,6 @@
 import { FontFamily } from '@/constants/DesignSystem';
 import { useEffect, useRef, useState } from 'react';
-import {Dimensions, Modal, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Dimensions, Pressable, StyleSheet, Text, View} from 'react-native';
 import Animated, {
     Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
@@ -86,9 +86,13 @@ export const CreationModal = () => {
         if (pending.current) return;
         mediumFeedback();
         pending.current = selection;
+        // The composer opens now, while the menu folds away behind it. It
+        // used to wait for this menu's native modal to finish dismissing —
+        // animation, iOS dismissal, then a safety timeout — which was most of a
+        // second between the tap and a keyboard. The menu is a plain overlay
+        // now, so nothing has to wait.
+        openSelection();
         dismiss();
-        // Android does not deliver onDismiss.
-        fallback.current = setTimeout(openSelection, CLOSE.duration + 170);
     };
 
     const screen = Dimensions.get('window');
@@ -109,7 +113,7 @@ export const CreationModal = () => {
     ] as const;
 
     return (
-        <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss} onDismiss={openSelection} statusBarTranslucent>
+        visible ? <View style={StyleSheet.absoluteFill}>
             <View style={{ flex: 1 }}>
                 <AnimatedPressable
                     accessibilityLabel="Close creation menu"
@@ -152,7 +156,7 @@ export const CreationModal = () => {
                     </Pressable>
                 </View>
             </View>
-        </Modal>
+        </View> : null
     );
 };
 

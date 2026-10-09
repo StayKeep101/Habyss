@@ -238,7 +238,10 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
             </ScrollView>
             {!icons.length && !glyph ? <Text style={[styles.label, { color: colors.textSecondary }]}>No icons found. Try “art”, “work”, or an emoji.</Text> : null}
         </> : <>
-            <View style={styles.swatches}>
+            {/* With the wheel open the swatches become one row, so the wheel and
+                its slider fit on screen without scrolling. */}
+            <ScrollView horizontal={wheel} scrollEnabled={wheel} showsHorizontalScrollIndicator={false}
+                contentContainerStyle={wheel ? styles.swatchRow : styles.swatches} keyboardShouldPersistTaps="handled">
                 {SWATCHES.map(item => <Pressable key={item.color} accessibilityRole="radio" accessibilityLabel={`Color ${item.name}`}
                     accessibilityState={{ selected: color.toUpperCase() === item.color.toUpperCase() }}
                     onPress={() => { selectionFeedback(); setWheel(false); onChange({ color: item.color }); }}
@@ -281,7 +284,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                         </View>
                     ) : null}
                 </Pressable>
-            </View>
+            </ScrollView>
 
             {wheel ? (
                 <Animated.View layout={MORPH} entering={FadeIn.duration(180)}>
@@ -296,6 +299,7 @@ const styles = StyleSheet.create({
     content: { gap: 10 },
     tabs: { flexDirection: 'row', gap: 8 }, tab: { minHeight: 44, paddingHorizontal: 20, justifyContent: 'center', borderRadius: 12, borderWidth: 1 },
     iconScroll: { maxHeight: 188 },
+    swatchRow: { flexDirection: 'row', gap: 10, paddingVertical: 2 },
     spectrumWrap: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     label: { fontSize: 13, fontFamily: FontFamily.medium },
     search: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 13, fontFamily: FontFamily.regular },

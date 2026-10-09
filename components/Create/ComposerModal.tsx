@@ -74,24 +74,42 @@ export const ComposerModal: React.FC<{
         });
     }, [visible, mounted, shown, unmount]);
 
-    // The card rides on top of the keyboard...
-    const lift = useAnimatedStyle(() => ({ paddingBottom: keyboard.height.value }));
+    /**
+     * Riding the keyboard without re-laying-out the card every frame.
+     *
+     * The card used to follow the keyboard by animating its padding and its
+     * maximum height, which made Yoga lay out every row, chip and picker in it
+     * on every frame of the keyboard's motion — and tapping any chip puts the
+     * keyboard away, so every tap paid for a quarter-second of that. Now the
+     * card moves by transform, which costs no layout at all, and its ceiling
+     * and bottom room change once per keyboard change rather than per frame.
+     */
+    const [keyboardUp, setKeyboardUp] = useState(0);
+    useEffect(() => {
+        const show = Keyboard.addListener('keyboardWillShow', event => setKeyboardUp(event.endCoordinates.height));
+        const change = Keyboard.addListener('keyboardWillChangeFrame', event => {
+            if (event.endCoordinates.screenY < screen) setKeyboardUp(event.endCoordinates.height);
+        });
+        const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardUp(0));
+        return () => { show.remove(); change.remove(); hide.remove(); };
+    }, [screen]);
 
-    // ...and is flush with the bottom of the screen when there is no keyboard,
-    // carrying the home indicator's room inside itself rather than floating
-    // above it. The room gives way as the keyboard takes over, so the two
-    // never add up to a gap.
+    const lift = useAnimatedStyle(() => ({ transform: [{ translateY: -keyboard.height.value }] }));
+
+    // Flush with the bottom when there is no keyboard, carrying the home
+    // indicator's room inside itself; over the keyboard that room is not needed.
     const pad = useAnimatedStyle(() => ({
-        paddingBottom: Math.max(8, insets.bottom - Math.min(keyboard.height.value, insets.bottom)),
-        // The card grows upward, so without a ceiling it grows off the top of
-        // the screen: open a long setting with the keyboard up and the
-        // sentence and the close button are the parts that disappear. The
-        // ceiling is whatever the keyboard has left, and the written part
-        // gives up its room first because it is the part that can scroll.
-        maxHeight: screen - keyboard.height.value - insets.top - 12,
         // Down and out of sight, never a fade.
         transform: [{ translateY: (1 - shown.value) * (height + insets.bottom) }],
     }));
+    const ceiling = {
+        paddingBottom: keyboardUp ? 8 : Math.max(8, insets.bottom),
+        // The card grows upward, so without a ceiling it grows off the top of
+        // the screen. The ceiling is whatever the keyboard has left; the
+        // written part and the open panel give up room first, because they
+        // are the parts that scroll.
+        maxHeight: screen - keyboardUp - insets.top - 12,
+    };
 
     // The dimming comes and goes with the card, so the screen behind is never
     // left dark under a card that has already gone.
@@ -112,7 +130,7 @@ export const ComposerModal: React.FC<{
                 <Animated.View pointerEvents="box-none" style={[styles.bottom, lift]}>
                     <Animated.View
                         onLayout={(event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height)}
-                        style={[styles.card, pad, { backgroundColor: colors.background, borderColor: colors.border }]}
+                        style={[styles.card, pad, ceiling, { backgroundColor: colors.background, borderColor: colors.border }]}
                     >
                         {children}
                     </Animated.View>

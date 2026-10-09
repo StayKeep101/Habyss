@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Choices } from '@/components/Create/DetailBar';
 import { Wheel } from '@/components/Common/Wheel';
+import { Segmented } from '@/components/Common/Segmented';
 import { Colors } from '@/constants/Colors';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useTheme } from '@/constants/themeContext';
@@ -16,11 +17,11 @@ import {
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
 type Preset = 'daily' | 'weekdays' | 'weekends' | 'weekly' | 'monthly' | 'yearly' | 'hourly';
+type Kind = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'hourly';
 
-const PRESETS: { id: Preset; label: string }[] = [
+/** The kinds of rule, as a segmented control: all of them visible, one tap each. */
+const KINDS: { id: Kind; label: string }[] = [
     { id: 'daily', label: 'Daily' },
-    { id: 'weekdays', label: 'Weekdays' },
-    { id: 'weekends', label: 'Weekends' },
     { id: 'weekly', label: 'Weekly' },
     { id: 'monthly', label: 'Monthly' },
     { id: 'yearly', label: 'Yearly' },
@@ -106,16 +107,17 @@ export const RepeatPicker: React.FC<{
 
     return (
         <Animated.View layout={MORPH} style={styles.wrap}>
-            {/* One answer at a time, turned rather than tapped.
-                Seven chips wrap onto two lines and stop looking like a control,
-                and the eye has to read all seven to pick one. */}
-            <Wheel
-                testID="repeat-wheel"
-                options={PRESETS}
-                value={preset}
-                visible={3}
-                onChange={id => onChange(ruleForPreset(id as Preset, value))}
-            />
+            {/* Every kind on screen at once, as iOS does it. Weekdays and
+                weekends are weekly rules, so they live under Weekly as one-tap
+                shortcuts beside the days themselves. */}
+            <View style={styles.segmented}>
+                <Segmented
+                    accessibilityLabel="Kind of repeat"
+                    options={KINDS}
+                    value={(preset === 'weekdays' || preset === 'weekends' ? 'weekly' : preset) as Kind}
+                    onChange={kind => onChange(ruleForPreset(kind, value))}
+                />
+            </View>
 
             {/* "Every N ___" — only where an interval means anything. */}
             {preset !== 'weekdays' && preset !== 'weekends' ? (
@@ -136,7 +138,26 @@ export const RepeatPicker: React.FC<{
                 </Animated.View>
             ) : null}
 
-            {/* Weekly: which days of the week. */}
+            {/* Weekly: which days of the week, with the two common sets a tap away. */}
+            {value.kind === 'weekly' ? (
+                <View style={styles.shortcuts}>
+                    {(['weekdays', 'weekends'] as const).map(id => {
+                        const on = preset === id;
+                        return (
+                            <Pressable key={id} accessibilityRole="button" accessibilityState={{ selected: on }}
+                                onPress={() => { lightFeedback(); onChange(ruleForPreset(id, value)); }}
+                                style={[styles.shortcut, {
+                                    backgroundColor: on ? accent + '22' : isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)',
+                                    borderColor: on ? accent + '66' : 'transparent',
+                                }]}>
+                                <Text style={{ color: on ? accent : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.medium }}>
+                                    {id === 'weekdays' ? 'Weekdays' : 'Weekends'}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+            ) : null}
             {value.kind === 'weekly' ? (
                 <Animated.View layout={MORPH} entering={FadeIn.duration(180)} style={styles.days}>
                     {WEEKDAYS.map(day => {
@@ -149,11 +170,11 @@ export const RepeatPicker: React.FC<{
                                 accessibilityLabel={WEEKDAY_NAME[day]}
                                 onPress={() => { lightFeedback(); onChange({ ...value, weekdays: toggle(value.weekdays, day) }); }}
                                 style={[styles.day, {
-                                    backgroundColor: on ? accent + '22' : isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)',
-                                    borderColor: on ? accent + '66' : 'transparent',
+                                    backgroundColor: on ? accent : isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)',
+                                    borderColor: on ? accent : 'transparent',
                                 }]}
                             >
-                                <Text style={{ color: on ? accent : colors.textSecondary, fontSize: 13, fontFamily: FontFamily.medium }}>
+                                <Text style={{ color: on ? '#FFFFFF' : colors.textSecondary, fontSize: 13, fontFamily: FontFamily.semibold }}>
                                     {WEEKDAY_NAME[day].slice(0, 1)}
                                 </Text>
                             </Pressable>
@@ -285,6 +306,9 @@ const styles = StyleSheet.create({
     onThe: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     onTheWord: { fontSize: 13, fontFamily: FontFamily.regular },
     wrap: { gap: 10 },
+    segmented: { paddingHorizontal: 14 },
+    shortcuts: { flexDirection: 'row', gap: 8, paddingHorizontal: 14 },
+    shortcut: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
     everyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14 },
     label: { fontSize: 14, fontFamily: FontFamily.regular },
     number: {
@@ -293,7 +317,7 @@ const styles = StyleSheet.create({
     },
     section: { gap: 10 },
     days: { flexDirection: 'row', gap: 6, paddingHorizontal: 14 },
-    day: { flex: 1, aspectRatio: 1, maxHeight: 40, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+    day: { flex: 1, aspectRatio: 1, maxHeight: 40, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14 },
     cell: { width: 36, height: 32, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
     month: { width: 52, height: 32, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },

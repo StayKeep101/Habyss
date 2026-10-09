@@ -356,7 +356,6 @@ export const GoalSheet: React.FC<{
                     <View style={styles.stepRow}>
                         <Text style={[styles.stepIndex, { color: colors.textTertiary }]}>{draft.milestones.length + 1}</Text>
                         <TextInput
-                            autoFocus={draft.milestones.length === 0}
                             value={stepText}
                             onChangeText={setStepText}
                             onSubmitEditing={addStep}

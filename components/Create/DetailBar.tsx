@@ -56,6 +56,7 @@ export const DetailBar: React.FC<{
     const isLight = theme === 'light';
     const { selectionFeedback } = useHaptics();
     const { height: screenHeight } = useWindowDimensions();
+    const stableHeight = Math.round(Math.min(440, Math.max(260, screenHeight * 0.46)));
 
     // A setting can stop being offered while its panel is open — a goal drops
     // "Starting from" the moment its target stops being relative to one — so
@@ -82,7 +83,12 @@ export const DetailBar: React.FC<{
 
     return (
         <View style={[styles.bar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-            <Animated.View testID="detail-panel" style={[styles.panel, fitContent ? { maxHeight: Math.min(440, screenHeight * 0.55) } : panelStyle]}>
+            {/* One height for every setting, sized to this phone. A panel that
+                sized itself to its contents made the whole card jump each time
+                you switched tabs or changed something inside one — the cheap,
+                wobbly feeling. Now only the contents scroll, and only if they
+                must. */}
+            <Animated.View testID="detail-panel" style={[styles.panel, fitContent ? { height: shown ? stableHeight : 0 } : panelStyle]}>
                 {shown ? (
                     <>
                         <View style={styles.panelHead}>
@@ -98,7 +104,13 @@ export const DetailBar: React.FC<{
                         </View>
                         {shown.fixedContent && !fitContent ? <View style={styles.panelContent}>{shown.content}</View> : <ScrollView
                             bounces={false}
-                            style={fitContent ? { flexGrow: 0 } : undefined}
+                            // Shrinks when space runs out (a keyboard opened from
+                            // inside the panel), and scrolls, rather than pushing
+                            // the chips under the save button.
+                            style={fitContent ? styles.panelScroll : undefined}
+                            // Stays put at its edges rather than rubber-banding
+                            // the panel around under your thumb.
+                            overScrollMode="never"
                             contentContainerStyle={[styles.panelContent, fitContent && { flexGrow: 0 }]}
                             keyboardShouldPersistTaps="handled"
                             showsVerticalScrollIndicator={false}
@@ -114,6 +126,8 @@ export const DetailBar: React.FC<{
                 bounces={false}
                 keyboardShouldPersistTaps="handled"
                 showsHorizontalScrollIndicator={false}
+                // Never squeezed: the chips are how you get anywhere else.
+                style={styles.chipRow}
                 contentContainerStyle={styles.chips}
             >
                 {items.map(item => {
@@ -190,10 +204,12 @@ export const Choices = <T,>({ options, value, onChange, accent, multiple }: {
 };
 
 const styles = StyleSheet.create({
-    bar: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, flexShrink: 1 },
+    bar: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, flexShrink: 1, minHeight: 0 },
     // overflow hidden so the content is clipped by the sliding height rather
     // than spilling over the chips on the way open.
-    panel: { paddingHorizontal: 16, overflow: 'hidden', flexShrink: 1 },
+    panel: { paddingHorizontal: 16, overflow: 'hidden', flexShrink: 1, minHeight: 0 },
+    panelScroll: { flex: 1 },
+    chipRow: { flexGrow: 0, flexShrink: 0 },
     panelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 26 },
     panelTitle: { fontSize: 13, fontFamily: FontFamily.semibold },
     panelContent: { gap: 10, paddingBottom: 8, flexGrow: 1 },

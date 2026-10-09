@@ -22,7 +22,9 @@ describe('floating creation actions', () => {
         act(() => { DeviceEventEmitter.emit('show_creation_modal'); });
         expect(screen.getByLabelText('Create goal')).toBeTruthy();
         fireEvent.press(screen.getByLabelText('Create habit'));
-        expect(callback).not.toHaveBeenCalled();
+        // At once, not after the menu has finished leaving: waiting for it
+        // was most of a second between the tap and a keyboard.
+        expect(callback).toHaveBeenCalledTimes(1);
         act(() => { jest.runAllTimers(); });
         expect(callback).toHaveBeenCalledTimes(1);
         subscription.remove();
@@ -36,7 +38,9 @@ describe('floating creation actions', () => {
         const screen = render(<CreationModal />);
         act(() => { DeviceEventEmitter.emit('show_creation_modal'); });
         fireEvent.press(screen.getByLabelText('Create goal'));
-        expect(callback).not.toHaveBeenCalled();
+        // At once, not after the menu has finished leaving: waiting for it
+        // was most of a second between the tap and a keyboard.
+        expect(callback).toHaveBeenCalledTimes(1);
         act(() => { jest.runAllTimers(); });
         expect(callback).toHaveBeenCalledTimes(1);
         subscription.remove();

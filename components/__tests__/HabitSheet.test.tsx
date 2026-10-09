@@ -65,7 +65,7 @@ describe('the habit sheet', () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Stretch at 21:00');
         fireEvent.press(screen.getByText('Reminder'));
-        fireEvent.press(screen.getByText('At the start time'));
+        fireEvent.press(screen.getByLabelText('When it starts'));
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
 
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
@@ -76,14 +76,14 @@ describe('the habit sheet', () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Pack the bag at 18:00');
         fireEvent.press(screen.getByText('Reminder'));
-        fireEvent.press(screen.getByText('At the start time'));
-        // Two wheels now: how much, and of what.
-        fireEvent.press(screen.getByLabelText('Hours'));
-        fireEvent.press(screen.getByLabelText('2'));
+        fireEvent.press(screen.getByLabelText('When it starts'));
+        // A number with − and +, and the unit beside it.
+        fireEvent.changeText(screen.getByLabelText('How long before'), '2');
+        fireEvent.press(screen.getByLabelText('h'));
         expect(screen.getAllByText('2 hr before').length).toBeGreaterThan(0);
 
-        fireEvent.press(screen.getByLabelText('Days'));
-        fireEvent.press(screen.getByLabelText('1'));
+        fireEvent.changeText(screen.getByLabelText('How long before'), '1');
+        fireEvent.press(screen.getByLabelText('day'));
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
 
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
@@ -97,9 +97,9 @@ describe('the habit sheet', () => {
         } as unknown as Habit;
         const screen = render(<HabitSheet visible habit={habit} />);
         fireEvent.press(screen.getByLabelText(/^Reminder/));
-        // The unit wheel opens on hours, because that is what 120 minutes is.
-        expect(screen.getByLabelText('Hours').props.accessibilityState).toEqual({ selected: true });
-        expect(screen.getByLabelText('Minutes').props.accessibilityState).toEqual({ selected: false });
+        // The unit opens on hours, because that is what 120 minutes is.
+        expect(screen.getByLabelText('h').props.accessibilityState).toEqual({ selected: true });
+        expect(screen.getByLabelText('min').props.accessibilityState).toEqual({ selected: false });
         expect(screen.getAllByText('2 hr before').length).toBeGreaterThan(0);
     });
 
@@ -221,9 +221,13 @@ describe('how often a habit comes round', () => {
     it('offers every ordinary answer as a preset', () => {
         const screen = render(<HabitSheet visible />);
         fireEvent.press(screen.getByLabelText(/^Repeat/));
-        for (const label of ['Daily', 'Weekdays', 'Weekends', 'Weekly', 'Monthly', 'Yearly', 'Hourly']) {
+        for (const label of ['Daily', 'Weekly', 'Monthly', 'Yearly', 'Hourly']) {
             expect(screen.getByText(label)).toBeTruthy();
         }
+        // Weekdays and weekends are weekly rules, one tap away under Weekly.
+        fireEvent.press(screen.getByText('Weekly'));
+        expect(screen.getByText('Weekdays')).toBeTruthy();
+        expect(screen.getByText('Weekends')).toBeTruthy();
     });
 
     it('opens the detail a preset needs, and nothing else', () => {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDuration } from '@/lib/habitMeasurement';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
@@ -12,7 +13,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
 const LENGTHS = [15, 30, 45, 60];
-const lengthLabel = (minutes: number) => (minutes === 60 ? '1 hr' : `${minutes} min`);
+const lengthLabel = (minutes: number) => formatDuration(minutes * 60, true);
 
 /** "07:30" as a Date today, for the wheel. */
 export function timeValue(time?: string): Date {
@@ -83,68 +84,68 @@ export const TimeRange: React.FC<{
 
     return (
         <Animated.View layout={MORPH} style={styles.wrap}>
-            <View style={styles.row}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>{startLabel}</Text>
-                {/* On screen straight away: this is what the row is for. */}
-                <DateTimePicker
-                    value={timeValue(start)}
-                    mode="time"
-                    display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                    themeVariant={isLight ? 'light' : 'dark'}
-                    accessibilityLabel="Start time"
-                    onChange={(_event, selected) => { if (selected) onChange({ start: asTime(selected), minutes }); }}
-                />
-                {start ? (
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Clear the time"
-                        onPress={() => { lightFeedback(); onChange({ start: undefined, minutes: undefined }); }}
-                        style={styles.clear}
-                    >
-                        <Text style={{ color: colors.textTertiary, fontSize: 12, fontFamily: FontFamily.regular }}>Clear</Text>
-                    </Pressable>
-                ) : null}
-            </View>
-
-            {/* An end of its own, not only a length. The wheel is the answer;
-                the buttons below are shortcuts to common ones. */}
-            <View style={styles.row}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Ends at</Text>
-                {end ? (
+            {/* Start on the left, end on the right: the range reads the way
+                it happens, and both ends are in view at once. */}
+            <View style={styles.pair}>
+                <View style={[styles.side, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
+                    <View style={styles.sideHead}>
+                        <Text style={[styles.sideLabel, { color: colors.textTertiary }]}>{startLabel.toUpperCase()}</Text>
+                        {start ? (
+                            <Pressable accessibilityRole="button" accessibilityLabel="Clear the time" hitSlop={8}
+                                onPress={() => { lightFeedback(); onChange({ start: undefined, minutes: undefined }); }}>
+                                <Text style={[styles.clearText, { color: colors.textTertiary }]}>Clear</Text>
+                            </Pressable>
+                        ) : null}
+                    </View>
                     <DateTimePicker
-                        value={timeValue(end)}
+                        value={timeValue(start)}
                         mode="time"
                         display={Platform.OS === 'ios' ? 'compact' : 'default'}
                         themeVariant={isLight ? 'light' : 'dark'}
-                        accessibilityLabel="End time"
-                        onChange={(_event, selected) => {
-                            if (!selected) return;
-                            // Stored as a length, because a habit that moves
-                            // should keep how long it takes rather than when it
-                            // used to finish.
-                            onChange({ start: from, minutes: lengthBetween(from, asTime(selected)) });
-                        }}
+                        accessibilityLabel="Start time"
+                        style={styles.picker}
+                        onChange={(_event, selected) => { if (selected) onChange({ start: asTime(selected), minutes }); }}
                     />
-                ) : (
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Give it an end time"
-                        onPress={() => { selectionFeedback(); onChange({ start: from, minutes: 30 }); }}
-                        style={styles.add}
-                    >
-                        <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.medium }}>Add one</Text>
-                    </Pressable>
-                )}
-                {end ? (
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Clear the end time"
-                        onPress={() => { lightFeedback(); onChange({ start, minutes: undefined }); }}
-                        style={styles.clear}
-                    >
-                        <Text style={{ color: colors.textTertiary, fontSize: 12, fontFamily: FontFamily.regular }}>Clear</Text>
-                    </Pressable>
-                ) : null}
+                </View>
+
+                <Text style={[styles.arrow, { color: colors.textTertiary }]}>→</Text>
+
+                <View style={[styles.side, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
+                    <View style={styles.sideHead}>
+                        <Text style={[styles.sideLabel, { color: colors.textTertiary }]}>ENDS AT</Text>
+                        {end ? (
+                            <Pressable accessibilityRole="button" accessibilityLabel="Clear the end time" hitSlop={8}
+                                onPress={() => { lightFeedback(); onChange({ start, minutes: undefined }); }}>
+                                <Text style={[styles.clearText, { color: colors.textTertiary }]}>Clear</Text>
+                            </Pressable>
+                        ) : null}
+                    </View>
+                    {end ? (
+                        <DateTimePicker
+                            value={timeValue(end)}
+                            mode="time"
+                            display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                            themeVariant={isLight ? 'light' : 'dark'}
+                            accessibilityLabel="End time"
+                            style={styles.picker}
+                            onChange={(_event, selected) => {
+                                if (!selected) return;
+                                // Stored as a length, so a habit that moves keeps
+                                // how long it takes rather than when it used to end.
+                                onChange({ start: from, minutes: lengthBetween(from, asTime(selected)) });
+                            }}
+                        />
+                    ) : (
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Give it an end time"
+                            onPress={() => { selectionFeedback(); onChange({ start: from, minutes: 30 }); }}
+                            style={styles.add}
+                        >
+                            <Text style={{ color: accent, fontSize: 15, fontFamily: FontFamily.semibold }}>+ Add end</Text>
+                        </Pressable>
+                    )}
+                </View>
             </View>
 
             <Choices
@@ -177,10 +178,16 @@ export const TimeRange: React.FC<{
 
 const styles = StyleSheet.create({
     wrap: { gap: 10 },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 },
+    pair: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
+    side: { flex: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, gap: 6 },
+    sideHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    sideLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: FontFamily.semibold },
+    clearText: { fontSize: 11, fontFamily: FontFamily.medium },
+    picker: { alignSelf: 'flex-start', marginLeft: -8 },
+    arrow: { alignSelf: 'center', fontSize: 16 },
     label: { fontSize: 14, fontFamily: FontFamily.regular },
     clear: { paddingVertical: 4, paddingHorizontal: 6 },
-    add: { paddingVertical: 6, paddingHorizontal: 4 },
+    add: { paddingVertical: 6 },
     ends: { fontSize: 13, fontFamily: FontFamily.medium, paddingHorizontal: 14, fontVariant: ['tabular-nums'] },
     hint: { fontSize: 12, fontFamily: FontFamily.regular, paddingHorizontal: 14 },
 });

@@ -14,6 +14,7 @@ import { TimeRange, endTime } from '@/components/Create/TimeRange';
 import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, type Recurrence, type Weekday } from '@/lib/recurrence';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { LeadTime } from '@/components/Create/LeadTime';
+import { Segmented } from '@/components/Common/Segmented';
 import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
@@ -142,7 +143,6 @@ export const HabitSheet: React.FC<{
     const [openRow, setOpenRow] = useState<Row>(null);
     const [unitPicker, setUnitPicker] = useState(false);
     const [amountText, setAmountText] = useState<string | null>(null);
-    const [picker, setPicker] = useState<'time' | 'reminder' | null>(null);
     const [findingPlace, setFindingPlace] = useState(false);
 
     /**
@@ -198,7 +198,6 @@ export const HabitSheet: React.FC<{
         setText(prefill || current?.name || '');
         setEdits({});
         setOpenRow(null);
-        setPicker(null);
         setUnitPicker(false);
         setAmountText(null);
         setError(null);
@@ -263,7 +262,7 @@ export const HabitSheet: React.FC<{
     // so the choice is held here and sent the moment the habit has an id.
     const share = useShareDraft('habit', current?.id);
     const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
-    const toggleRow = (id: string | null) => { setOpenRow(id as Row); setUnitPicker(false); setPicker(null); };
+    const toggleRow = (id: string | null) => { setOpenRow(id as Row); setUnitPicker(false); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
     const save = async () => {
@@ -343,6 +342,9 @@ export const HabitSheet: React.FC<{
     const goalName = goals.find(goal => goal.id === linkedGoal)?.name;
     const canSave = !!text.trim();
 
+    const reminderMode: 'off' | 'start' | 'pick' = !draft.reminder ? 'off'
+        : draft.startTime && draft.reminder === draft.startTime ? 'start' : 'pick';
+
     const items: DetailItem[] = [
         {
             id: 'repeat', icon: 'repeat', label: 'Repeat', value: describeRule(draft.rule),
@@ -417,76 +419,87 @@ export const HabitSheet: React.FC<{
             id: 'reminder', icon: 'notifications-outline', label: 'Reminder', value: describeReminder(draft),
             content: (
                 <>
-                    <Choices
-                        options={[{ id: 'off', label: 'Off' }, { id: 'start', label: 'At the start time' }, { id: 'pick', label: 'Choose a time' }]}
-                        value={draft.reminder ? (draft.reminder === draft.startTime ? 'start' : 'pick') : 'off'}
-                        accent={accent}
+                    {/* One question at a time: off, tied to the start, or a
+                        clock time. The minutes-before only belongs to the
+                        start; a clock time already says exactly when. */}
+                    <Segmented
+                        accessibilityLabel="When to remind you"
+                        options={draft.startTime
+                            ? [{ id: 'off', label: 'Off' }, { id: 'start', label: 'When it starts' }, { id: 'pick', label: 'At a time' }]
+                            : [{ id: 'off', label: 'Off' }, { id: 'pick', label: 'At a time' }]}
+                        value={reminderMode}
                         onChange={id => {
-                            if (id === 'off') { change({ reminder: undefined }); setPicker(null); return; }
-                            if (id === 'start') { change({ reminder: draft.startTime ?? '08:00' }); setPicker(null); return; }
-                            setPicker('reminder');
-                            change({ reminder: draft.reminder ?? draft.startTime ?? '08:00' });
+                            if (id === 'off') { change({ reminder: undefined, reminderOffset: undefined }); return; }
+                            if (id === 'start') { change({ reminder: draft.startTime }); return; }
+                            change({ reminder: draft.reminder && draft.reminder !== draft.startTime ? draft.reminder : '08:00', reminderOffset: undefined });
                         }}
                     />
 
-                    {/* How far ahead of the habit it should land. */}
-                    {draft.reminder ? (
+                    {reminderMode === 'start' ? (
                         <LeadTime
                             value={draft.reminderOffset ?? 0}
                             accent={accent}
                             onChange={minutes => change({ reminderOffset: minutes || undefined })}
                         />
                     ) : null}
-                    {picker === 'reminder' ? (
-                        <DateTimePicker
-                            value={timeValue(draft.reminder)}
-                            mode="time"
-                            display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                            style={styles.picker}
-                            themeVariant={isLight ? 'light' : 'dark'}
-                            onChange={(_event, selected) => {
-                                if (Platform.OS !== 'ios') setPicker(null);
-                                if (selected) change({ reminder: asTime(selected) });
-                            }}
-                        />
+                    {reminderMode === 'pick' ? (
+                        <View style={styles.clockRow}>
+                            <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>Remind me at</Text>
+                            <DateTimePicker
+                                value={timeValue(draft.reminder)}
+                                mode="time"
+                                display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                                themeVariant={isLight ? 'light' : 'dark'}
+                                accessibilityLabel="Reminder time"
+                                onChange={(_event, selected) => { if (selected) change({ reminder: asTime(selected) }); }}
+                            />
+                        </View>
                     ) : null}
 
-                    {/* A place, not a time. The geofences were always in the
-                        data model and in LocationService; nothing ever asked
-                        for one. */}
-                    <View style={styles.inline}>
+                    {/* A place, not a time: as its own card, so it reads as the
+                        separate kind of reminder it is. */}
+                    <View style={[styles.placeCard, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(15,23,42,0.03)' : 'rgba(255,255,255,0.03)' }]}>
+                        <View style={styles.placeHead}>
+                            <View style={[styles.placeIcon, { backgroundColor: accent + '1f' }]}>
+                                <Ionicons name="location" size={14} color={accent} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.placeTitle, { color: colors.textPrimary }]}>At a place</Text>
+                                <Text style={[styles.hint, { color: colors.textTertiary }]}>When you get to — or leave — somewhere, like the gym.</Text>
+                            </View>
+                        </View>
                         {draft.places.map(place => {
                             const leaving = place.trigger === 'leave';
                             return (
-                                <View key={`${place.latitude},${place.longitude}`} style={[styles.place, { borderColor: accent + '66', backgroundColor: accent + '18' }]}>
-                                    {/* Tapping the chip turns it round. Arriving
-                                        and leaving are the same place either way,
-                                        so a second chip would only repeat it. */}
-                                    <Pressable
-                                        accessibilityRole="button"
-                                        accessibilityLabel={leaving ? `Remind me when I arrive at ${place.name} instead` : `Remind me when I leave ${place.name} instead`}
-                                        onPress={() => { selectionFeedback(); change({ places: draft.places.map(item => item === place ? { ...item, trigger: leaving ? 'arrive' : 'leave' } : item) }); }}
-                                        style={styles.placeBody}
-                                    >
-                                        <Ionicons name={leaving ? 'exit-outline' : 'location'} size={12} color={accent} />
-                                        <Text style={{ color: accent, fontSize: 12, fontFamily: FontFamily.medium }}>
-                                            {`${leaving ? 'Leaving' : 'Arriving'} · ${place.name}`}
-                                        </Text>
-                                    </Pressable>
-                                    <Pressable
-                                        accessibilityRole="button"
-                                        accessibilityLabel={`Remove the reminder at ${place.name}`}
-                                        onPress={() => { lightFeedback(); change({ places: draft.places.filter(item => item !== place) }); }}
-                                        hitSlop={8}
-                                    >
-                                        <Ionicons name="close" size={12} color={accent} />
+                                <View key={`${place.latitude},${place.longitude}`} style={styles.placeRow}>
+                                    <Text numberOfLines={1} style={[styles.placeName, { color: colors.textPrimary }]}>{place.name}</Text>
+                                    <View style={[styles.placeToggle, { backgroundColor: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.07)' }]}>
+                                        {(['arrive', 'leave'] as const).map(trigger => {
+                                            const on = (trigger === 'leave') === leaving;
+                                            return (
+                                                <Pressable key={trigger} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                                                    accessibilityLabel={`${trigger === 'arrive' ? 'When I arrive at' : 'When I leave'} ${place.name}`}
+                                                    onPress={() => { if (!on) { selectionFeedback(); change({ places: draft.places.map(item => item === place ? { ...item, trigger } : item) }); } }}
+                                                    style={[styles.placeOption, on && { backgroundColor: accent }]}>
+                                                    <Text style={{ color: on ? '#FFFFFF' : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.semibold }}>
+                                                        {trigger === 'arrive' ? 'Arrive' : 'Leave'}
+                                                    </Text>
+                                                </Pressable>
+                                            );
+                                        })}
+                                    </View>
+                                    <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${place.name}`} hitSlop={8}
+                                        onPress={() => { lightFeedback(); change({ places: draft.places.filter(item => item !== place) }); }}>
+                                        <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
                                     </Pressable>
                                 </View>
                             );
                         })}
-                        <Pressable onPress={() => void addHere()} disabled={findingPlace} style={styles.link}>
-                            <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.medium }}>
-                                {findingPlace ? 'Finding you…' : 'Remind me at this place'}
+                        <Pressable accessibilityRole="button" onPress={() => void addHere()} disabled={findingPlace}
+                            style={[styles.placeAdd, { borderColor: accent + '55' }]}>
+                            <Ionicons name={findingPlace ? 'hourglass-outline' : 'navigate'} size={14} color={accent} />
+                            <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.semibold }}>
+                                {findingPlace ? 'Finding where you are…' : draft.places.length ? 'Add where I am now' : 'Use where I am now'}
                             </Text>
                         </Pressable>
                     </View>
@@ -634,6 +647,16 @@ export const HabitSheet: React.FC<{
 }
 
 const styles = StyleSheet.create({
+    clockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    placeCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 12, gap: 10 },
+    placeHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    placeIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    placeTitle: { fontSize: 14, fontFamily: FontFamily.semibold },
+    placeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    placeName: { flex: 1, fontSize: 14, fontFamily: FontFamily.medium },
+    placeToggle: { flexDirection: 'row', borderRadius: 9, padding: 2 },
+    placeOption: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 7 },
+    placeAdd: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed' },
     // The card is as tall as what it holds, so the written part grows with the
     // sentence and stops at a height that still leaves the settings and the
     // save button on screen; past that the sentence scrolls.
@@ -645,7 +668,6 @@ const styles = StyleSheet.create({
     days: { flexDirection: 'row', gap: 6 },
     day: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
     link: { paddingVertical: 6 },
-    picker: { alignSelf: 'flex-start' },
     place: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
     placeBody: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     hint: { fontSize: 12, fontFamily: FontFamily.regular, lineHeight: 17 },
