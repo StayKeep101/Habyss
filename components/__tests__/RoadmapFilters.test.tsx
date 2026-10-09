@@ -38,8 +38,8 @@ describe('the roadmap filter menu', () => {
         for (const label of ['Goals', 'Habits', 'Tasks', 'Shared with someone', 'Morning', 'Noon', 'Evening', 'Created', 'Name', 'Progress']) {
             expect(screen.getByText(label)).toBeTruthy();
         }
-        // Goals are listed to filter by, with an "All" that clears it.
-        expect(screen.getByText('Run 50 km in September')).toBeTruthy();
+        // No per-goal row: the filter is about what kind of thing, and when.
+        expect(screen.queryByText('Run 50 km in September')).toBeNull();
     });
 
     it('reports each choice to the screen behind it', () => {
@@ -51,18 +51,8 @@ describe('the roadmap filter menu', () => {
         fireEvent.press(screen.getByText('Habits'));
         expect(onShow).toHaveBeenCalledWith('habits_only');
 
-        fireEvent.press(screen.getByText('Launch the app'));
-        expect(onGoal).toHaveBeenCalledWith('g2');
-
         fireEvent.press(screen.getByText('Name'));
         expect(onOrder).toHaveBeenCalledWith('name');
-    });
-
-    it('clears the goal filter by choosing it again', () => {
-        const onGoal = jest.fn();
-        const screen = render(<RoadmapFilters {...props({ goal: 'g1', onGoal })} />);
-        fireEvent.press(screen.getByText('Run 50 km in September'));
-        expect(onGoal).toHaveBeenCalledWith(null);
     });
 
     it('offers Reset only when something is actually filtered', () => {

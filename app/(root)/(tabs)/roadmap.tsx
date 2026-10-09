@@ -17,7 +17,7 @@ import { GoalCard } from '@/components/Home/GoalCard';
 import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
 
-import { getSkipped, setSkipped as setSkippedHabit, subscribeToHabits, getCompletions, toggleCompletion, removeHabitEverywhere, calculateGoalProgressInstant, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
+import { getSkipped, setSkipped as setSkippedHabit, subscribeToHabits, getCompletions, toggleCompletion, isTimedHabit, removeHabitEverywhere, calculateGoalProgressInstant, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useHistory } from '@/hooks/useHistory';
@@ -26,12 +26,17 @@ import { useAppSettings } from '@/constants/AppSettingsContext';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { useFocusTime } from '@/constants/FocusTimeContext';
 import { RoadmapFilters, type FilterAnchor } from '@/components/Home/RoadmapFilters';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
+import { DayPlanCard } from '@/components/Roadmap/DayPlanCard';
+import { tallyDay } from '@/lib/dayComplete';
+import { useDailyTarget } from '@/hooks/useDailyFocus';
+import { buildDayPlan } from '@/lib/dayPlan';
+import { DEFAULT_DAY, getDayWindow, type DayWindow } from '@/lib/echo';
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -117,10 +122,10 @@ const CalendarScreen = () => {
     const [selectedGoalFilter, setSelectedGoalFilter] = useState<string | null>(null); // Filter by specific goal ID
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null); // Filter by life pillar
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
-    const [weeklyCompletions, setWeeklyCompletions] = useState<Record<string, { completed: number; total: number }>>({});
     // Loaded once here, and re-read whenever a habit is ticked anywhere —
     // this screen used to fetch on mount only and then quietly go stale.
-    const { rows: historyData } = useHistory(90);
+    const { rows: historyData, history: pastDone, skips: pastSkips } = useHistory(90);
+    const stripTarget = useDailyTarget();
     const [draggingHabit, setDraggingHabit] = useState<Habit | null>(null);
     const [draggingTask, setDraggingTask] = useState<Task | null>(null);
     const dragY = useSharedValue(0);
@@ -162,29 +167,34 @@ const CalendarScreen = () => {
         if (!filterButtonRef.current) setShowFilter(true);
     }, []);
 
+    /**
+     * Pulling the filter down has to be meant, the way Transit does it.
+     *
+     * It used to open whenever the list went far enough past the top, and a
+     * hard fling up from lower down carries its momentum past the top and
+     * bounces into exactly that zone. Now it only arms when a drag *starts*
+     * with the list already at the top, and only counts while the finger is
+     * still down — a bounce on its own never opens anything.
+     */
     const scrollHandler = useAnimatedScrollHandler({
+        onBeginDrag: (event) => {
+            wasAtTop.value = event.contentOffset.y <= 2;
+            filterTriggered.value = false;
+        },
         onScroll: (event) => {
             const currentY = event.contentOffset.y;
             scrollY.value = currentY;
-
-            // Track if user is at the top of the content
-            if (currentY <= 0) {
-                wasAtTop.value = true;
-            } else if (currentY > 50) {
-                // Only reset once scrolled down enough
-                wasAtTop.value = false;
-            }
-
-            // Only trigger filter if: pulling down (-80), was already at top, and not already triggered
-            if (currentY < -80 && wasAtTop.value && !filterTriggered.value) {
+            if (currentY < -90 && wasAtTop.value && !filterTriggered.value) {
                 filterTriggered.value = true;
                 runOnJS(lightFeedback)();
                 runOnJS(openFilterModal)();
             }
         },
         onEndDrag: () => {
+            // Released: whatever momentum does next is not a pull.
+            wasAtTop.value = false;
             filterTriggered.value = false;
-        }
+        },
     });
 
     // --- Subscriptions & Effects ---
@@ -283,41 +293,6 @@ const CalendarScreen = () => {
     // Map habits effect removed - redundant O(N) state update
 
     // Weekly Calcs - OPTIMIZED: only run on mount to prevent JS thread hammering
-    useEffect(() => {
-        const calcWeeklyCompletions = async () => {
-            const today = new Date();
-            const dates: string[] = [];
-
-            // Generate date strings (14 days only for performance)
-            for (let i = -7; i <= 7; i++) {
-                const date = new Date(today);
-                date.setDate(today.getDate() + i);
-                const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                dates.push(dateStr);
-            }
-
-            // Load all completions in PARALLEL
-            const completionsArray = await Promise.all(dates.map(d => getCompletions(d)));
-
-            // Build result map
-            const totalHabits = habitsStore.filter(h => !h.isGoal).length;
-            const result: Record<string, { completed: number; total: number }> = {};
-            dates.forEach((dateStr, i) => {
-                const completedCount = Object.values(completionsArray[i]).filter(Boolean).length;
-                result[dateStr] = { completed: completedCount, total: totalHabits };
-            });
-
-            setWeeklyCompletions(result);
-        };
-
-        if (habitsStore.length > 0) {
-            // Defer heavy calculation until after navigation animation
-            const task = afterPaint(() => {
-                calcWeeklyCompletions();
-            });
-            return () => task.cancel();
-        }
-    }, [habitsStore]); // Only depend on habitsStore, not completions
 
     const { playComplete, playClick } = useSoundEffects();
 
@@ -347,6 +322,14 @@ const CalendarScreen = () => {
         if (dateStr !== todayStr) {
             Alert.alert('Cannot Modify', 'You can only mark habits complete for today.');
             isNavigating.current = false;
+            return;
+        }
+
+        // A timed habit is done by running its timer: open it instead.
+        if (!completions[habit.id] && isTimedHabit(habit)) {
+            isNavigating.current = false;
+            lightFeedback();
+            router.push({ pathname: '/habit-detail', params: { habitId: habit.id } });
             return;
         }
 
@@ -682,6 +665,57 @@ const CalendarScreen = () => {
         return sharedOnly ? due.filter(task => !!sharedTaskFor(task.id)) : due;
     }, [tasks, selectedDate, sharedOnly, sharedTaskFor]);
 
+    // The waking day, as set in Notifications; re-read whenever the tab shows.
+    const [dayWindow, setDayWindow] = useState<DayWindow>(DEFAULT_DAY);
+    useFocusEffect(useCallback(() => {
+        getDayWindow().then(setDayWindow).catch(() => undefined);
+    }, []));
+    // A minute is fine enough for "time left", and keeps the card still.
+    const [clock, setClock] = useState(() => new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setClock(new Date()), 60_000);
+        return () => clearInterval(timer);
+    }, []);
+    const dayPlan = useMemo(() => {
+        const day = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+        const isToday = day === todayKey(clock);
+        // The whole day, whatever the filters show: time is time.
+        const habits = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
+        return {
+            isToday,
+            plan: buildDayPlan({
+                habits, tasks: tasksForDay(tasks, day, todayKey(clock)), completions,
+                wake: dayWindow.wake, sleep: dayWindow.sleep,
+                now: isToday ? clock.getHours() * 60 + clock.getMinutes() : null,
+            }),
+        };
+    }, [habitsStore, tasks, completions, selectedDate, dayWindow, clock]);
+
+    /**
+     * Each day's ring on the strip, counted exactly as the ring around your
+     * picture on Home: that day's scheduled habits and its tasks. Recomputed
+     * whenever anything is ticked, so it moves the moment you finish something
+     * — it used to be worked out once, from habits only, against every habit
+     * you own.
+     */
+    const weeklyCompletions = useMemo(() => {
+        const today = todayKey();
+        const result: Record<string, { completed: number; total: number }> = {};
+        for (let offset = -7; offset <= 7; offset++) {
+            const date = new Date();
+            date.setDate(date.getDate() + offset);
+            const key = todayKey(date);
+            const done: Record<string, boolean> = {};
+            if (key === today) Object.assign(done, todayCompletions);
+            else for (const id of pastDone[key] ?? []) done[id] = true;
+            const skipped: Record<string, boolean> = {};
+            for (const id of (key === today ? [] : pastSkips[key] ?? [])) skipped[id] = true;
+            const tally = tallyDay(habitsStore as StoreHabit[], done, skipped, tasks, key, stripTarget);
+            result[key] = { completed: tally.done, total: tally.total };
+        }
+        return result;
+    }, [habitsStore, todayCompletions, pastDone, pastSkips, tasks, stripTarget]);
+
     // Loose habits are those not linked to any goal, or linked to a non-existent goal
     const looseHabits = useMemo(() => {
         return allHabits.filter(h => !h.goalId || !goals.some(g => g.id === h.goalId));
@@ -771,6 +805,13 @@ const CalendarScreen = () => {
                             alwaysBounceVertical={true}
                             style={{ backgroundColor: 'transparent' }}
                         >
+
+                            <DayPlanCard
+                                plan={dayPlan.plan}
+                                isToday={dayPlan.isToday}
+                                accent={accentColor}
+                                onEditDay={() => { lightFeedback(); router.push('/(root)/notifications'); }}
+                            />
 
                             {/* Filter Indicator - Subtle compact pill */}
                             {(activeFilter !== 'all' || hasActiveFilters || activeTimeFilter !== 'all' || activeSort !== 'default') && (
@@ -1008,8 +1049,12 @@ const CalendarScreen = () => {
                                                         return;
                                                     }
 
-                                                    selectionFeedback();
                                                     const wasDone = !!completions[h.id];
+                                                    if (!wasDone && isTimedHabit(h)) {
+                                                        router.push({ pathname: '/habit-detail', params: { habitId: h.id } });
+                                                        return;
+                                                    }
+                                                    selectionFeedback();
                                                     toggleCompletion(h.id, todayStr).catch(() => {
                                                         setCompletions(prev => ({ ...prev, [h.id]: wasDone }));
                                                         Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');

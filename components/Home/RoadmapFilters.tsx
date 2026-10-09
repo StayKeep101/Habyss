@@ -178,22 +178,6 @@ export const RoadmapFilters = (props: Props) => {
                     />
                 </Row>
 
-                {props.goals.length > 0 ? (
-                    <Row label="Goal">
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-                            {props.goals.map(goal => (
-                                <Chip
-                                    key={goal.id}
-                                    label={goal.name}
-                                    selected={props.goal === goal.id}
-                                    onPress={() => props.onGoal(props.goal === goal.id ? null : goal.id)}
-                                    primary={primary}
-                                    colors={colors}
-                                />
-                            ))}
-                        </ScrollView>
-                    </Row>
-                ) : null}
 
                 {/* Sort keeps every option: there is no "unsorted" list, so
                     tapping the chosen one reverses it rather than clearing it.
