@@ -1,6 +1,11 @@
+import { FontFamily } from '@/constants/DesignSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { RefreshControl } from 'react-native';
+import {View, Text, ScrollView, RefreshControl} from 'react-native';
 import { afterPaint } from '@/lib/afterPaint';
+import { s, ms } from '@/constants/Layout';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors } from '@/constants/Colors';
+import { VoidShell } from '@/components/Layout/VoidShell';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
@@ -12,12 +17,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useFocusEffect } from 'expo-router';
 import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
 import { getName } from '@/lib/echo';
 
 
 
+import { useTheme } from '@/constants/themeContext';
 
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';
@@ -38,15 +45,17 @@ import { RecoveryCard } from '@/components/Home/RecoveryCard';
 import { RecoveryModal } from '@/components/Home/RecoveryModal';
 import { momentum } from '@/lib/momentum';
 import { recovery } from '@/lib/recovery';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
-import { Screen, Stack, Text } from '@/components/ui';
-import { useTokens } from '@/hooks/useTokens';
 
 const Home = () => {
   const router = useRouter();
+  const { theme } = useTheme();
+  const colors = Colors[theme];
+  const { primary: accentColor } = useAccentGradient();
   const { lightFeedback, selectionFeedback } = useHaptics();
   const { playComplete } = useSounds();
-  const t = useTokens();
+  const { horizontalPadding, sectionGap, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
   // Pro Hooks
   const { aiPersonality, greetingStyle } = useAppSettings();
@@ -326,48 +335,70 @@ const Home = () => {
   }, [habits.length, streak, profileAvatar]); // Minimized dependencies to avoid loops
 
   return (
-    <>
-      <Screen
-        wash
-        tabBar
-        gap="xl"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.color.accent} colors={[t.color.accent]} />}
-      >
-        {/* Your picture in today's ring, and your Marks beside it. */}
-        <Stack direction="row" gap="lg">
-          <ProgressAvatar
-            uri={profileAvatar}
-            done={dayTally.done}
-            total={dayTally.total}
-            onPress={() => router.push('/(root)/profile')}
-          />
-          <MarksBar marks={marks} onPress={() => setShowMarks(true)} />
-        </Stack>
+    <VoidShell>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: tabBarClearance, paddingHorizontal: horizontalPadding }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+        >
 
-        {/* Echo, the voice behind this line and the reminders. */}
-        {motivationalQuote ? (
-          <Animated.View entering={FadeInDown.duration(400)}>
-            <Stack gap="xs">
-              <Text variant="label" tone="accent">Echo</Text>
-              <Text variant="heading">
+          {/* Header Row
+              Your picture, its ring for today, and your Marks beside it: who
+              you are today and the record you have built, side by side. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(16), marginTop: topSpacing }}>
+            {/* The ring is today: empty at nothing done, closed and green
+                when the day is kept. */}
+            <ProgressAvatar
+              uri={profileAvatar}
+              done={dayTally.done}
+              total={dayTally.total}
+              onPress={() => router.push('/(root)/profile')}
+            />
+            <MarksBar marks={marks} onPress={() => setShowMarks(true)} />
+          </View>
+
+          {/* Echo, full width below the header, where it reads as a line
+              rather than squeezed into a column beside the picture. */}
+          {motivationalQuote ? (
+            <Animated.View entering={FadeInDown.duration(400)} style={{ marginTop: sectionGap }}>
+              {/* Echo is the voice behind this line and the reminders. */}
+              <Text style={{ fontSize: ms(11), letterSpacing: 1.4, color: accentColor, fontFamily: FontFamily.semibold, marginBottom: 4 }}>ECHO</Text>
+              <Text style={{
+                fontSize: ms(15),
+                color: colors.text,
+                fontFamily: FontFamily.semibold,
+                textAlign: 'left',
+                lineHeight: ms(22),
+              }}>
                 {displayedQuote}
-                {displayedQuote.length < motivationalQuote.length ? <Text variant="heading" tone="accent">|</Text> : null}
+                {displayedQuote.length < motivationalQuote.length && (
+                  <Text style={{ color: colors.primary }}>|</Text>
+                )}
               </Text>
-            </Stack>
+            </Animated.View>
+          ) : null}
+
+          {/* Spacer after header */}
+          <View style={{ height: sectionGap }} />
+
+          {/* Goals Progress Bar */}
+          <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+            <GoalsProgressBar
+              progress={avgGoalProgress}
+              goalsCount={goals.length}
+              onPress={() => router.push('/goals-overview')}
+            />
           </Animated.View>
-        ) : null}
 
-        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-          <GoalsProgressBar
-            progress={avgGoalProgress}
-            goalsCount={goals.length}
-            onPress={() => router.push('/goals-overview')}
-          />
-        </Animated.View>
-
-        {/* Streak, momentum and recovery, side by side. */}
-        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-          <Stack direction="row" gap="md" align="stretch">
+          {/* 3-Column Stats Row: Streak | Consistency | Completion */}
+          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: sectionGap }}>
             <StreakCard
               streak={streak}
               completionTier={completionTier}
@@ -381,19 +412,22 @@ const Home = () => {
               recovery={bounce}
               onPress={() => { lightFeedback(); setShowRecoveryModal(true); }}
             />
-          </Stack>
-        </Animated.View>
+          </Animated.View>
 
-        {/* The day's promise, and the few things that would keep it. */}
-        <Animated.View entering={FadeInDown.delay(250).duration(500)}>
-          <DailyFocusCard
-            focus={focus}
-            onToggle={handleFocusToggle}
-            onOpen={() => router.push('/task-stats')}
-            onAdd={() => emit('show_task_form')}
-          />
-        </Animated.View>
-      </Screen>
+          {/* Under the three numbers: the day's promise, and the few things
+              that would keep it. */}
+          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: sectionGap }}>
+            <DailyFocusCard
+              focus={focus}
+              onToggle={handleFocusToggle}
+              onOpen={() => router.push('/task-stats')}
+              onAdd={() => emit('show_task_form')}
+            />
+          </Animated.View>
+
+
+        </ScrollView>
+
 
         <MomentumModal
           visible={showMomentumModal}
@@ -411,7 +445,8 @@ const Home = () => {
         />
         <MarksModal visible={showMarks} onClose={() => setShowMarks(false)} marks={marks} />
         <CelebrationAnimation visible={showCelebration} onComplete={() => setShowCelebration(false)} />
-    </>
+      </SafeAreaView>
+    </VoidShell>
   );
 };
 

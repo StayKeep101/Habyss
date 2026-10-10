@@ -11,14 +11,10 @@ export interface CardProps {
     elevated?: boolean;
     onPress?: () => void;
     accessibilityLabel?: string;
-    /** Share a row equally with its siblings. */
-    grow?: boolean;
-    /** Centre what is inside, for a tile. */
-    centered?: boolean;
 }
 
 /** A surface that groups related things. One per idea, not one per block. */
-export function Card({ children, variant = 'default', padding = 'lg', gap = 'md', elevated, onPress, accessibilityLabel, grow, centered }: CardProps) {
+export function Card({ children, variant = 'default', padding = 'lg', gap = 'md', elevated, onPress, accessibilityLabel }: CardProps) {
     const t = useTokens();
     const style = {
         backgroundColor: variant === 'outline' ? 'transparent' : variant === 'raised' ? t.color.surfaceRaised : t.color.surface,
@@ -27,9 +23,6 @@ export function Card({ children, variant = 'default', padding = 'lg', gap = 'md'
         borderColor: t.color.border,
         padding: t.space[padding],
         gap: t.space[gap],
-        flex: grow ? 1 : undefined,
-        alignItems: centered ? 'center' as const : undefined,
-        justifyContent: centered ? 'center' as const : undefined,
         ...(elevated ? t.elevation('card') : null),
     };
     if (!onPress) return <View style={style}>{children}</View>;

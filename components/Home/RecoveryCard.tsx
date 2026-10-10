@@ -1,18 +1,85 @@
-import React from 'react';
-import { Card, StatTile } from '@/components/ui';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { VoidCard } from '@/components/Layout/VoidCard';
+import { Colors } from '@/constants/Colors';
+import { FontFamily } from '@/constants/DesignSystem';
+import { s, vs, ms } from '@/constants/Layout';
+import { useTheme } from '@/constants/themeContext';
+import { useAccentGradient } from '@/constants/AccentContext';
 import type { Recovery } from '@/lib/recovery';
 
-/** How often a missed habit comes back the next day, or what is about to slip twice. */
+const EASE = { duration: 420, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
+
+/**
+ * How often a miss stayed a single miss.
+ *
+ * The card it replaces showed today's completion, which the profile ring and
+ * the focus card already say twice over. This one answers a question nothing
+ * else on the screen can: whether you get back up.
+ *
+ * When something is savable today the card stops reporting and starts asking —
+ * it turns amber and breathes once, because a habit about to be missed twice is
+ * the single most useful thing the home screen can point at.
+ */
 export const RecoveryCard: React.FC<{ recovery: Recovery; onPress: () => void }> = ({ recovery, onPress }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const isLight = theme === 'light';
+    const isTrueDark = theme === 'trueDark';
+    const { primary } = useAccentGradient();
+
     const { rate, atRisk } = recovery;
     const risk = atRisk.length > 0;
-    const tone = risk ? 'warning' : rate === null ? 'accent' : rate >= 70 ? 'success' : rate >= 40 ? 'accent' : 'warning';
+    const tint = risk ? colors.warning : rate === null ? primary : rate >= 70 ? colors.success : rate >= 40 ? primary : colors.warning;
+
+    // One slow breath while something is still savable; otherwise perfectly still.
+    const pulse = useSharedValue(1);
+    useEffect(() => {
+        pulse.value = risk
+            ? withRepeat(withSequence(withTiming(1.06, { duration: 900, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.System }),
+                withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.System })), -1, false)
+            : withTiming(1, EASE);
+    }, [risk, pulse]);
+    const breathe = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+
     return (
-        <Card grow centered padding="md" onPress={onPress}
-            accessibilityLabel={risk ? `${atRisk.length} habit${atRisk.length === 1 ? '' : 's'} about to be missed twice. Open recovery.`
-                : rate === null ? 'Recovery, nothing missed yet' : `Recovery ${rate} percent`}>
-            <StatTile icon={risk ? 'alert' : 'refresh'} iconTone={tone} tone={risk ? 'warning' : 'primary'}
-                value={risk ? String(atRisk.length) : rate === null ? '—' : `${rate}%`} label={risk ? 'To protect' : 'Recovery'} />
-        </Card>
+        <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={risk
+                ? `${atRisk.length} habit${atRisk.length === 1 ? '' : 's'} about to be missed twice. Open recovery.`
+                : rate === null ? 'Recovery, nothing missed yet' : `Recovery ${rate} percent`}
+            style={styles.touchable}
+        >
+            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                <Animated.View style={[styles.iconContainer, breathe]}>
+                    <View style={[styles.iconCircle, { backgroundColor: tint + '30' }]}>
+                        <Ionicons name={risk ? 'alert' : 'refresh'} size={s(20)} color={tint} />
+                    </View>
+                </Animated.View>
+
+                <View style={styles.readout}>
+                    <Text style={[styles.value, { color: risk ? tint : colors.textPrimary }]}>
+                        {risk ? atRisk.length : rate === null ? '—' : `${rate}%`}
+                    </Text>
+                    <Text style={[styles.label, { color: colors.textTertiary }]}>
+                        {risk ? 'TO PROTECT' : 'RECOVERY'}
+                    </Text>
+                </View>
+            </VoidCard>
+        </TouchableOpacity>
     );
 };
+
+const styles = StyleSheet.create({
+    touchable: { flex: 1 },
+    container: { flex: 1, padding: s(10), alignItems: 'center', justifyContent: 'center', gap: s(6), minHeight: s(100) },
+    iconContainer: { marginBottom: vs(2) },
+    iconCircle: { width: s(36), height: s(36), borderRadius: s(18), alignItems: 'center', justifyContent: 'center' },
+    readout: { alignItems: 'center' },
+    value: { fontSize: ms(24), fontFamily: FontFamily.bold, textAlign: 'center', lineHeight: ms(24), fontVariant: ['tabular-nums'] },
+    label: { fontSize: ms(8), letterSpacing: 1, fontFamily: FontFamily.bold, textAlign: 'center', marginTop: vs(2) },
+});

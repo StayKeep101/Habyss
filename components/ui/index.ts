@@ -16,8 +16,4 @@ export { StatTile, type StatTileProps } from './StatTile';
 export { ChartCard, type ChartCardProps } from './ChartCard';
 export { HabitRow, type HabitRowProps } from './HabitRow';
 export { ProgressRing, type ProgressRingProps } from './ProgressRing';
-export { ProgressBar, type ProgressBarProps } from './ProgressBar';
-export { Avatar } from './Avatar';
-export { CardHeader, type CardHeaderProps } from './CardHeader';
-export { Stack, type StackProps } from './Stack';
 export { Segmented } from '@/components/Common/Segmented';
