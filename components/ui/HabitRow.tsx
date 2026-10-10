@@ -18,10 +18,12 @@ export interface HabitRowProps {
     trailing?: string;
     onToggle: () => void;
     onPress?: () => void;
+    /** `plain` sits inside a card with no surface of its own. */
+    variant?: 'card' | 'plain';
 }
 
 /** One habit or task in a list: its check, its name, and one line about it. */
-export function HabitRow({ title, meta, icon, color, done, kind = 'habit', trailing, onToggle, onPress }: HabitRowProps) {
+export function HabitRow({ title, meta, icon, color, done, kind = 'habit', trailing, onToggle, onPress, variant = 'card' }: HabitRowProps) {
     const t = useTokens();
     const tintColor = color ?? t.color.accent;
     const box = t.space.xl + t.space.xs / 2;
@@ -29,7 +31,8 @@ export function HabitRow({ title, meta, icon, color, done, kind = 'habit', trail
         <Pressable accessibilityRole="button" accessibilityLabel={`${title}${meta ? `, ${meta}` : ''}${done ? ', done' : ''}`}
             onPress={onPress ?? onToggle}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: t.space.md, paddingVertical: t.space.md,
-                paddingHorizontal: t.space.lg, borderRadius: t.radius.md, backgroundColor: t.color.surface, opacity: pressed ? 0.85 : 1 })}>
+                paddingHorizontal: variant === 'plain' ? 0 : t.space.lg, borderRadius: t.radius.md,
+                backgroundColor: variant === 'plain' ? 'transparent' : t.color.surface, opacity: pressed ? 0.85 : 1 })}>
             <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={done ? `Undo ${title}` : `Complete ${title}`}
                 hitSlop={t.space.sm} onPress={onToggle}
                 style={{ width: box, height: box, borderRadius: kind === 'task' ? t.radius.sm / 2 + 1 : t.radius.full, borderWidth: 2,
@@ -42,7 +45,7 @@ export function HabitRow({ title, meta, icon, color, done, kind = 'habit', trail
                 </View>
             ) : null}
             <View style={{ flex: 1, gap: t.space.xs / 2 }}>
-                <Text variant="heading" tone={done ? 'muted' : 'primary'} numberOfLines={1}>{title}</Text>
+                <Text variant={variant === 'plain' ? 'body' : 'heading'} tone={done ? 'muted' : 'primary'} strike={done} numberOfLines={1}>{title}</Text>
                 {meta ? <Text variant="caption" tone="muted" numberOfLines={1}>{meta}</Text> : null}
             </View>
             {trailing ? <Text variant="caption" tone="muted" numeric>{trailing}</Text> : null}

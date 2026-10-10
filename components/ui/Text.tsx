@@ -14,11 +14,13 @@ export interface UITextProps extends Omit<TextProps, 'style'> {
     numeric?: boolean;
     /** Stretch to share a row (flex: 1) and shrink rather than overflow. */
     grow?: boolean;
+    /** Struck through: something finished. */
+    strike?: boolean;
     children?: React.ReactNode;
 }
 
 /** All text in the app: one of six styles, in one of the theme's text tones. */
-export function Text({ variant = 'body', tone = 'primary', align, numeric, grow, ...rest }: UITextProps) {
+export function Text({ variant = 'body', tone = 'primary', align, numeric, grow, strike, ...rest }: UITextProps) {
     const t = useTokens();
     const color = {
         primary: t.color.textPrimary,
@@ -38,6 +40,7 @@ export function Text({ variant = 'body', tone = 'primary', align, numeric, grow,
                 align ? { textAlign: align } : null,
                 numeric ? { fontVariant: ['tabular-nums'] } : null,
                 grow ? { flex: 1, flexShrink: 1 } : null,
+                strike ? { textDecorationLine: 'line-through' } : null,
             ]}
         />
     );
