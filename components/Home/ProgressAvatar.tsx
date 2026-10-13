@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { s } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';

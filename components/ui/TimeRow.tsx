@@ -2,7 +2,7 @@ import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
-import { AppIcon as Ionicons, type IconName } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';

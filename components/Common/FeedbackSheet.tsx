@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { Colors } from '@/theme/colors';
 import { FontFamily, surfaceFor } from '@/theme/designSystem';

@@ -1,16 +1,16 @@
-import { AppButton } from '@/components/Common/AppButton';
-import { AppTextField } from '@/components/Common/AppTextField';
-import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { AppButton } from '@/components/ui/AppButton';
+import { AppTextField } from '@/components/ui/AppTextField';
+import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { VoidCard } from '@/components/ui/VoidCard';
 import {
     currentAccount, deleteAccount, isEmail, onAccountChange, requestCode, signInWithPassword,
     signOut, signUpWithPassword, verifyCode,

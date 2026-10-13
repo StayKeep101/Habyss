@@ -5,8 +5,8 @@ import Animated, {
     useSharedValue, withSpring, withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { rankFor } from '@/lib/marks';

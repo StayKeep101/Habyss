@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, LinearTransition, ReduceMotion, FadeIn } from 'react-native-reanimated';
-import { AppIcon as Ionicons, type IconName } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';

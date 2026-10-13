@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { AppIcon, isGlyphIcon, isPhotoIcon } from '@/components/Common/AppIcon';
+import { AppIcon, isGlyphIcon, isPhotoIcon } from '@/components/ui/AppIcon';
 
 describe('what counts as your own icon', () => {
     it('knows a picture by its uri', () => {

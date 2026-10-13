@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, StyleProp, StyleSheet, Text, TouchableOpacity, ViewStyle } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';

@@ -1,9 +1,9 @@
 import React from 'react';
 import { View } from 'react-native';
-import { AppIcon, type IconName } from '@/components/Common/AppIcon';
+import { AppIcon, type IconName } from '@/components/ui/AppIcon';
 import { useTokens } from '@/hooks/useTokens';
 import { Text } from './Text';
-import { Button } from './Button';
+import { AppButton } from './AppButton';
 
 export interface EmptyStateProps {
     icon: IconName;
@@ -21,7 +21,7 @@ export function EmptyState({ icon, title, message, actionLabel, onAction }: Empt
             <AppIcon name={icon} size={t.space['3xl']} color={t.color.textMuted} />
             <Text variant="heading" align="center">{title}</Text>
             {message ? <Text variant="caption" tone="muted" align="center">{message}</Text> : null}
-            {actionLabel && onAction ? <View style={{ marginTop: t.space.sm }}><Button label={actionLabel} onPress={onAction} size="sm" variant="secondary" /></View> : null}
+            {actionLabel && onAction ? <View style={{ marginTop: t.space.sm }}><AppButton label={actionLabel} onPress={onAction} variant="secondary" /></View> : null}
         </View>
     );
 }

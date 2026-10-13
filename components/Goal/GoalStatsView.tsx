@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { VoidCard } from '@/components/Layout/VoidCard';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { VoidCard } from '@/components/ui/VoidCard';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { SectionLabel, WeekDots } from '@/components/Goal/GoalRows';
 import { TASK_COLOR } from '@/components/Roadmap/TaskItem';

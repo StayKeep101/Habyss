@@ -9,8 +9,8 @@ const mockComplete = jest.fn();
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => mockParams, useRouter: () => mockRouter }));
 jest.mock('expo-linking', () => ({ useURL: () => mockURL }));
 jest.mock('../socialSignIn', () => ({ GOOGLE_REDIRECT: 'habyss://auth-callback', completeOAuthSignIn: (url: string) => mockComplete(url) }));
-jest.mock('@/components/Layout/SheetScreen', () => ({ SheetScreen: ({ children }: any) => children }));
-jest.mock('@/components/Common/AppButton', () => ({ AppButton: () => null }));
+jest.mock('@/components/ui/SheetScreen', () => ({ SheetScreen: ({ children }: any) => children }));
+jest.mock('@/components/ui/AppButton', () => ({ AppButton: () => null }));
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
 import AuthCallback from '../../app/auth-callback';
 

@@ -21,7 +21,7 @@ const mockDb = {
 jest.mock('../database', () => ({ getDatabase: async () => mockDb, isSQLiteAvailable: () => false }));
 jest.mock('../localUser', () => ({ getLocalUserId: async () => 'user' }));
 jest.mock('../HealthKitService', () => ({ HealthKitService: {} }));
-jest.mock('@/components/Layout/VoidCard', () => ({ VoidCard: () => null }));
+jest.mock('@/components/ui/VoidCard', () => ({ VoidCard: () => null }));
 jest.mock('../notificationService', () => ({ NotificationService: { refreshHabitReminders: jest.fn(async () => undefined) } }));
 jest.mock('../SharedDefaults', () => ({ __esModule: true, default: { set: jest.fn(), reloadTimelines: jest.fn() } }));
 jest.mock('../siriService', () => ({ SiriService: { syncProgressForSiri: jest.fn() } }));

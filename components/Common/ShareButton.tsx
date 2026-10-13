@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, Share } from 'react-native';
-import { IconButton } from './IconButton';
+import { IconButton } from '@/components/ui/IconButton';
 
 export interface ShareSummary { title: string; value: string; subtitle: string; }
 

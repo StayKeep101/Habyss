@@ -18,7 +18,7 @@ jest.mock('expo-sqlite', () => ({ openDatabaseAsync: async () => {
 } }));
 jest.mock('../localUser', () => ({ getLocalUserId: async () => 'stress-user' }));
 jest.mock('../HealthKitService', () => ({ HealthKitService: {} }));
-jest.mock('@/components/Layout/VoidCard', () => ({ VoidCard: () => null }));
+jest.mock('@/components/ui/VoidCard', () => ({ VoidCard: () => null }));
 jest.mock('../notificationService', () => ({ NotificationService: {
     refreshReminders: async () => undefined, refreshHabitReminders: async () => undefined, sendCompletionNotification: async () => undefined,
 } }));

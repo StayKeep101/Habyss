@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Segmented } from '@/components/Common/Segmented';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
+import { Segmented } from '@/components/ui/Segmented';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';

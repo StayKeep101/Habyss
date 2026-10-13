@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { TimeRange, endTime } from '@/components/Create/TimeRange';
-import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { ModalHeader } from '@/components/ui/ModalHeader';
 import { ShareButton } from '@/components/Common/ShareButton';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
 import { useShareDraft } from '@/hooks/useShareDraft';

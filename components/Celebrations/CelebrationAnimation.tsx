@@ -10,7 +10,7 @@ import Animated, {
     runOnJS,
     cancelAnimation,
 } from 'react-native-reanimated';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 
 const { width, height } = Dimensions.get('window');

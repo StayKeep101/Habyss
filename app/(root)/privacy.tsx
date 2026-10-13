@@ -1,15 +1,15 @@
 import { useAccentGradient } from '@/context/AccentContext';
-import { AppButton } from '@/components/Common/AppButton';
+import { AppButton } from '@/components/ui/AppButton';
 import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import { useState } from 'react';
 import { ScrollView, View, Text, Switch, Alert } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 
-import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { SheetScreen } from '@/components/ui/SheetScreen';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { useTheme } from '@/context/ThemeContext';
 
 import { useAppSettings } from '@/context/AppSettingsContext';

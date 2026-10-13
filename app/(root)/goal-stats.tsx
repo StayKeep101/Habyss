@@ -1,6 +1,6 @@
 import React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { SheetScreen } from '@/components/ui/SheetScreen';
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';
 
 /** The same stats the goal page shows in place, as a page of its own. */

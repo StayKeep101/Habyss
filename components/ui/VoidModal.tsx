@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal, Platform, StyleProp, View, ViewStyle } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidShell } from '@/components/ui/VoidShell';
 
 interface VoidModalProps {
     visible: boolean;

@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { VoidModal } from '@/components/Layout/VoidModal';
-import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { VoidModal } from '@/components/ui/VoidModal';
+import { ModalHeader } from '@/components/ui/ModalHeader';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';

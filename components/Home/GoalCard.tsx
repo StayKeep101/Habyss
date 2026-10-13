@@ -4,12 +4,12 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { Habit } from '@/lib/habitsSQLite';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useAccentGradient } from '@/context/AccentContext';
 
 import { RoadMapCardSize } from '@/context/AppSettingsContext';
 
-import { VoidCard } from '../Layout/VoidCard';
+import { VoidCard } from '@/components/ui/VoidCard';
 
 interface GoalCardProps {
   goal: Habit;

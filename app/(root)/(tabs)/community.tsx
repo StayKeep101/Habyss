@@ -4,10 +4,10 @@ import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert, Share,
 import { Colors } from '@/theme/colors';
 import { vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
-import { VoidShell } from '@/components/Layout/VoidShell';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { VoidShell } from '@/components/ui/VoidShell';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { useAccentGradient } from '@/context/AccentContext';
 import { FriendsService, Friend, FriendRequest, ReactionType, type DayComment, friendTasksToday, getMyUsername, inviteMessage } from '@/lib/friendsService';
 import { onAccountChange } from '@/lib/account';

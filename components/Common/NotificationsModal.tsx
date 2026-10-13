@@ -1,16 +1,16 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated as RNAnimated } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import Animated, { FadeInDown, FadeInUp, SlideOutRight } from 'react-native-reanimated';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { NotificationService, InAppNotification } from '@/lib/notificationService';
-import { VoidCard } from '@/components/Layout/VoidCard';
-import { VoidModal } from '@/components/Layout/VoidModal';
-import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { VoidCard } from '@/components/ui/VoidCard';
+import { VoidModal } from '@/components/ui/VoidModal';
+import { ModalHeader } from '@/components/ui/ModalHeader';
 import { useAccentGradient } from '@/context/AccentContext';
 import { FriendsService } from '@/lib/friendsService';
 

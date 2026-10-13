@@ -8,8 +8,8 @@ import Animated, {
 import { ScrubLine, ScrubReadout } from '@/components/Common/ScrubReadout';
 import { useScrub } from '@/hooks/useScrub';
 import Svg, { Circle } from 'react-native-svg';
-import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { SheetScreen } from '@/components/ui/SheetScreen';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';

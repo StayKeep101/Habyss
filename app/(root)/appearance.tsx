@@ -1,9 +1,9 @@
 import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { VoidCard } from '@/components/Layout/VoidCard';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { SheetScreen } from '@/components/ui/SheetScreen';
+import { VoidCard } from '@/components/ui/VoidCard';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';

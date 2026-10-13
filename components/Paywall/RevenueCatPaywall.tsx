@@ -1,4 +1,4 @@
-import { AppButton } from '@/components/Common/AppButton';
+import { AppButton } from '@/components/ui/AppButton';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { FontFamily } from '@/theme/designSystem';

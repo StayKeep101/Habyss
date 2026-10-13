@@ -17,9 +17,9 @@ for (const file of [...files('app'), ...files('components')]) {
         problems.push(`${file}:${ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1} ${message}`);
     }
     function visit(node) {
-        if (ts.isImportDeclaration(node) && file !== 'components/Common/AppIcon.tsx' &&
+        if (ts.isImportDeclaration(node) && file !== 'components/ui/AppIcon.tsx' &&
             /^(?:@expo\/vector-icons|lucide-react-native|(?:@react-native-|react-native-)vector-icons)/.test(node.moduleSpecifier.text)) {
-            report(node, 'Import icons through components/Common/AppIcon.');
+            report(node, 'Import icons through components/ui/AppIcon.');
         }
         if (ts.isPropertyAssignment(node)) {
             if (node.name.getText(ast) === 'fontFamily' && ts.isStringLiteral(node.initializer) && /Lexend|SpaceGrotesk/.test(node.initializer.text)) {

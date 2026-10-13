@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';

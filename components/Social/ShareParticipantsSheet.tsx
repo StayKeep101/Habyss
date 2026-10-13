@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
@@ -8,7 +8,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useAccentGradient } from '@/context/AccentContext';
 import { FriendsService, Friend } from '@/lib/friendsService';
-import { VoidSheet } from '@/components/Layout/VoidSheet';
+import { VoidSheet } from '@/components/ui/VoidSheet';
 
 interface ShareParticipantsSheetProps {
     visible: boolean;

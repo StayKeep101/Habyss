@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { VoidCard } from '@/components/Layout/VoidCard';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { SheetScreen } from '@/components/ui/SheetScreen';
+import { VoidCard } from '@/components/ui/VoidCard';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { paceLine } from '@/components/Goal/GoalPace';
 import { Colors } from '@/theme/colors';

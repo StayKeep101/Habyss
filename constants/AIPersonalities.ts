@@ -1,4 +1,4 @@
-import type { IconName } from '@/components/Common/AppIcon';
+import type { IconName } from '@/components/ui/AppIcon';
 
 export type PersonalityModeId = 'friendly' | 'normal' | 'dad_mode' | 'bully_mode';
 

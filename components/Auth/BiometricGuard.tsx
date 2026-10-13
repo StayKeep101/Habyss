@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Modal, StyleSheet, Text, View } from 'react-native';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { AppIcon } from '@/components/Common/AppIcon';
-import { AppButton } from '@/components/Common/AppButton';
+import { AppIcon } from '@/components/ui/AppIcon';
+import { AppButton } from '@/components/ui/AppButton';
 import { Colors } from '@/theme/colors';
 import { Typography } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidShell } from '@/components/ui/VoidShell';
 import { authenticateAppLock } from '@/lib/biometricLock';
 
 /** Covers native sheets too, and keeps navigation mounted after unlocking. */

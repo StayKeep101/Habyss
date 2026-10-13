@@ -1,13 +1,13 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { Friend, FriendProfile, FriendsService } from '@/lib/friendsService';
-import { VoidModal } from '@/components/Layout/VoidModal';
-import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { VoidModal } from '@/components/ui/VoidModal';
+import { ModalHeader } from '@/components/ui/ModalHeader';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useAccentGradient } from '@/context/AccentContext';

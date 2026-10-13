@@ -4,7 +4,7 @@ import Animated, {
     Easing, FadeIn, FadeOut, ReduceMotion, interpolate,
     useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming, type SharedValue,
 } from 'react-native-reanimated';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';

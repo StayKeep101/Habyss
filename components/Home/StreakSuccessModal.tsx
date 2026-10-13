@@ -2,7 +2,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import Animated, {
     Easing, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue,
     runOnJS, withRepeat, withSequence, withSpring, withTiming, type SharedValue,

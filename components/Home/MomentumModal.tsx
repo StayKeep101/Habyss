@@ -7,10 +7,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ScrubLine, ScrubReadout } from '@/components/Common/ScrubReadout';
 import { useScrub } from '@/hooks/useScrub';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { VoidCard } from '@/components/Layout/VoidCard';
-import { VoidModal } from '@/components/Layout/VoidModal';
-import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
+import { VoidCard } from '@/components/ui/VoidCard';
+import { VoidModal } from '@/components/ui/VoidModal';
+import { ModalHeader } from '@/components/ui/ModalHeader';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { s, vs, ms } from '@/theme/scale';

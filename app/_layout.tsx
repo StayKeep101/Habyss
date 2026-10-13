@@ -17,7 +17,7 @@ import React from "react";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import {View, AppState, Alert} from 'react-native';
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidShell } from '@/components/ui/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import '@/lib/LocationService'; // Register background tasks
 import { AIPersonalityProvider } from '@/context/AIPersonalityContext';

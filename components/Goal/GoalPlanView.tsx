@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import { router } from 'expo-router';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
 import { Countdown } from '@/components/Goal/Countdown';
 import { TaskItem } from '@/components/Roadmap/TaskItem';

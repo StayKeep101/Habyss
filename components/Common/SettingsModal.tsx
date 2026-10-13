@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView } from 'react-native';
-import { VoidModal } from '@/components/Layout/VoidModal';
-import { ModalHeader } from '@/components/Layout/ModalHeader';
+import { VoidModal } from '@/components/ui/VoidModal';
+import { ModalHeader } from '@/components/ui/ModalHeader';
 import { UIStyles } from '@/theme/designSystem';
 
 interface SettingsModalProps {

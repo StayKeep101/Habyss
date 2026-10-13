@@ -3,10 +3,10 @@ import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Pre
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, LinearTransition, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { IconButton } from '@/components/Common/IconButton';
+import { IconButton } from '@/components/ui/IconButton';
 import { ShareButton } from '@/components/Common/ShareButton';
-import { ViewSwitcher, type SwitcherOption } from '@/components/Common/ViewSwitcher';
-import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { ViewSwitcher, type SwitcherOption } from '@/components/ui/ViewSwitcher';
+import { SheetScreen } from '@/components/ui/SheetScreen';
 import { HabitProgressCard } from '@/components/Habit/HabitProgressCard';
 import { SharedWith } from '@/components/Habit/SharedWith';
 import { HabitCalendarMap } from '@/components/Habit/HabitCalendarMap';

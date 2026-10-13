@@ -1,11 +1,11 @@
 import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidShell } from '@/components/ui/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { saveDailyTarget } from '@/lib/dailyFocus';

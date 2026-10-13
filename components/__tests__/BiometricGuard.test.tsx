@@ -6,9 +6,9 @@ const mockSettings = { isLoaded: true, isAppLockEnabled: true, appLockVerifiedAt
 jest.mock('@/context/AppSettingsContext', () => ({ useAppSettings: () => mockSettings }));
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
 jest.mock('@/lib/biometricLock', () => ({ authenticateAppLock: jest.fn() }));
-jest.mock('../Layout/VoidShell', () => ({ VoidShell: ({ children }: any) => children }));
-jest.mock('../Common/AppIcon', () => ({ AppIcon: () => null }));
-jest.mock('../Common/AppButton', () => ({ AppButton: ({ label, onPress }: any) => {
+jest.mock('@/components/ui/VoidShell', () => ({ VoidShell: ({ children }: any) => children }));
+jest.mock('@/components/ui/AppIcon', () => ({ AppIcon: () => null }));
+jest.mock('@/components/ui/AppButton', () => ({ AppButton: ({ label, onPress }: any) => {
     const { Text } = require('react-native'); return <Text onPress={onPress}>{label}</Text>;
 } }));
 import { authenticateAppLock } from '@/lib/biometricLock';

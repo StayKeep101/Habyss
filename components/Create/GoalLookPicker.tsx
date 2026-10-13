@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
-import { AppIcon, isGlyphIcon, isPhotoIcon, type IconName } from '@/components/Common/AppIcon';
+import { AppIcon, isGlyphIcon, isPhotoIcon, type IconName } from '@/components/ui/AppIcon';
 import { GoalColorWheel } from './GoalColorWheel';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';

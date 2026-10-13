@@ -1,8 +1,8 @@
 import React from 'react';
 import { Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { VoidShell } from './VoidShell';
-import { ModalHeader } from './ModalHeader';
+import { VoidShell } from '@/components/ui/VoidShell';
+import { ModalHeader } from '@/components/ui/ModalHeader';
 
 type SheetScreenProps = React.ComponentProps<typeof ModalHeader> & { children: React.ReactNode };
 

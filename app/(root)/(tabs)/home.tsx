@@ -5,7 +5,7 @@ import { afterPaint } from '@/lib/afterPaint';
 import { s, ms } from '@/theme/scale';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
-import { VoidShell } from '@/components/Layout/VoidShell';
+import { VoidShell } from '@/components/ui/VoidShell';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';

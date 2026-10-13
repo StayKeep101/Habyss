@@ -1,7 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 
 interface Props {
     children: ReactNode;

@@ -13,9 +13,14 @@ describe('design tokens', () => {
     it('keeps spacing on a 4-point grid', () => {
         expect(Object.values(space).every(value => value % 4 === 0)).toBe(true);
     });
-    it('has four corner sizes and six text styles', () => {
-        expect(Object.keys(radius)).toEqual(['sm', 'md', 'lg', 'full']);
-        expect(Object.keys(typeScale)).toEqual(['display', 'title', 'heading', 'body', 'caption', 'label']);
+    it('names the corner sizes and text styles the app already uses', () => {
+        expect(Object.keys(radius)).toEqual(['sm', 'md', 'lg', 'xl', 'full']);
+        expect(Object.keys(typeScale)).toEqual(['display', 'screenTitle', 'title', 'heading', 'body', 'bodySmall', 'caption', 'label']);
+    });
+    it('reads its colours from the current theme', () => {
+        const { Colors } = require('@/theme/colors');
+        expect(colorRoles.abyss.textPrimary).toBe(Colors.abyss.textPrimary);
+        expect(colorRoles.light.accent).toBe(Colors.light.primary);
     });
     it('tints a colour at three strengths', () => {
         expect(tint('#8BADD6', 'subtle')).toBe('rgba(139,173,214,0.12)');

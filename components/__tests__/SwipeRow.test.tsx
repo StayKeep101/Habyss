@@ -1,4 +1,4 @@
-import { commitDistance } from '../Common/SwipeRow';
+import { commitDistance } from '@/components/ui/SwipeRow';
 
 /**
  * The gesture itself cannot be exercised here — ReanimatedSwipeable needs

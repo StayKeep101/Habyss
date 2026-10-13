@@ -5,7 +5,7 @@ import Animated, {
     Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import type { Habit } from '@/lib/habitsSQLite';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { AppIcon, type IconName } from '@/components/Common/AppIcon';
+import { AppIcon, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily, elevationFor, surfaceFor } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';

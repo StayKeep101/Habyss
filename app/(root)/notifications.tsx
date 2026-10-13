@@ -1,20 +1,20 @@
 import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import { useState, useEffect } from 'react';
 import { ScrollView, View, Text, Switch, Alert, Linking, Pressable } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { SheetScreen } from '@/components/ui/SheetScreen';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import * as Notifs from 'expo-notifications';
 import { NotificationService } from '@/lib/notificationService';
-import { TimeRow } from '@/components/Common/TimeRow';
+import { TimeRow } from '@/components/ui/TimeRow';
 import { DEFAULT_ECHO, DEFAULT_DAY, getEchoConfig, saveEchoConfig, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
 import { aliveLine } from '@/lib/echoAlive';
 import { scheduledActivitiesEnabled, setScheduledActivitiesEnabled, scheduledActivitiesCapability } from '@/lib/scheduledActivities';

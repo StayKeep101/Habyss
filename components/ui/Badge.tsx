@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { AppIcon, type IconName } from '@/components/Common/AppIcon';
+import { AppIcon, type IconName } from '@/components/ui/AppIcon';
 import { useTokens } from '@/hooks/useTokens';
 import { Text } from './Text';
 

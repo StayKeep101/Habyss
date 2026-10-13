@@ -1,15 +1,15 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { addFriendByUsername, inviteLink, inviteMessage, usernameFrom } from '@/lib/friendsService';
 import { useHaptics } from '@/hooks/useHaptics';
-import { VoidModal } from '@/components/Layout/VoidModal';
-import { ModalHeader } from '@/components/Layout/ModalHeader';
-import { SheetSection } from '@/components/Layout/SheetSection';
+import { VoidModal } from '@/components/ui/VoidModal';
+import { ModalHeader } from '@/components/ui/ModalHeader';
+import { SheetSection } from '@/components/ui/SheetSection';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 

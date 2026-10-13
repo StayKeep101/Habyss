@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { ViewSwitcher, type SwitcherOption } from '../Common/ViewSwitcher';
+import { ViewSwitcher, type SwitcherOption } from '@/components/ui/ViewSwitcher';
 import { surfaceFor } from '@/theme/designSystem';
 
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));

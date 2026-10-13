@@ -1,18 +1,18 @@
 import { FontFamily } from '@/theme/designSystem';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { GoalSheet } from '@/components/Create/GoalSheet';
-import { ViewSwitcher } from '@/components/Common/ViewSwitcher';
+import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, Image, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
-import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
+import { HalfCircleProgress } from '@/components/ui/HalfCircleProgress';
 import { PanelCap } from '@/components/Goal/PanelCap';
 import { Habit, isTimedHabit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
 import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
@@ -34,7 +34,7 @@ import Animated, {
     useSharedValue,
     useAnimatedStyle, FadeIn,
 } from 'react-native-reanimated';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { emit } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/goal-detail.styles';
 

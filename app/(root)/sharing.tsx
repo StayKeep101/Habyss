@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
+import { SheetScreen } from '@/components/ui/SheetScreen';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
 import { FontFamily, surfaceFor } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';

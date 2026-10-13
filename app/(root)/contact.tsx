@@ -1,18 +1,18 @@
-import { AppButton } from '@/components/Common/AppButton';
-import { AppTextField } from '@/components/Common/AppTextField';
-import { SheetSection } from '@/components/Layout/SheetSection';
+import { AppButton } from '@/components/ui/AppButton';
+import { AppTextField } from '@/components/ui/AppTextField';
+import { SheetSection } from '@/components/ui/SheetSection';
 import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import { useState } from 'react';
 import { sendFeedback } from '@/lib/feedback';
 import { ScrollView, View, Text, TouchableOpacity, Alert, Linking } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAccentGradient } from '@/context/AccentContext';
 
-import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { SheetScreen } from '@/components/ui/SheetScreen';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { useTheme } from '@/context/ThemeContext';
 import { styles } from '@/styles/screens/contact.styles';
 

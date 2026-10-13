@@ -6,7 +6,7 @@ import Animated, {
     withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { Pressable } from 'react-native-gesture-handler';
-import { AppIcon as Ionicons, type IconName } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';

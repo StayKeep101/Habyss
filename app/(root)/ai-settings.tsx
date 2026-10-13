@@ -1,8 +1,8 @@
-import { SheetScreen } from '@/components/Layout/SheetScreen';
+import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import React from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
+import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
@@ -21,7 +21,7 @@ import { clearWrittenLines } from '@/lib/echoWriter';
 /** null in a build without the on-device model's native code. */
 const localModel = () => (hasTurboModule('MLCEngine') ? require('@/lib/LocalLLMService').default : null);
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
-import { VoidCard } from '@/components/Layout/VoidCard';
+import { VoidCard } from '@/components/ui/VoidCard';
 import { useTheme } from '@/context/ThemeContext';
 import { styles } from '@/styles/screens/ai-settings.styles';
 
