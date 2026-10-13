@@ -9,8 +9,20 @@ import { getSupabase } from './supabase';
  * ticking things off costs no network call unless the total actually moved.
  */
 const KEY = 'marks_published';
+const LOCAL_KEY = 'marks_local_total';
+
+/** Your own total as this phone last worked it out, for the Community board. */
+export async function localMarks(): Promise<number | null> {
+    try {
+        const raw = await AsyncStorage.getItem(LOCAL_KEY);
+        return raw === null ? null : Number(raw);
+    } catch {
+        return null;
+    }
+}
 
 export async function publishMarks(total: number): Promise<void> {
+    AsyncStorage.setItem(LOCAL_KEY, String(Math.max(0, Math.round(total)))).catch(() => { });
     try {
         const sb = getSupabase();
         if (!sb) return;

@@ -110,9 +110,14 @@ export default function CommunityScreen() {
             setFriends(friendsList);
             setFriendRequests(requests);
             // Your own published total, beside theirs.
+            // This phone's own count wins: it is always current, and it is
+            // there even before the server has a total to hand back.
             void FriendsService.getCurrentUser().then(async me => {
-                const map = await FriendsService.marksFor([]);
-                if (me && map.has(me.id)) setMyMarks({ id: me.id, marks: map.get(me.id)!, avatarUrl: me.avatarUrl });
+                if (!me) return;
+                const { localMarks } = require('@/lib/marksSync') as typeof import('@/lib/marksSync');
+                const local = await localMarks();
+                const total = local ?? (await FriendsService.marksFor([])).get(me.id);
+                if (typeof total === 'number') setMyMarks({ id: me.id, marks: total, avatarUrl: me.avatarUrl });
             }).catch(() => undefined);
 
             hasLoadedOnce.current = true;
@@ -314,8 +319,9 @@ export default function CommunityScreen() {
     const [myMarks, setMyMarks] = useState<{ id: string; marks: number; avatarUrl?: string } | null>(null);
     const marksPeople = useMemo<MarksPerson[]>(() => [
         ...(myMarks ? [{ id: myMarks.id, name: 'You', marks: myMarks.marks, avatarUrl: myMarks.avatarUrl, isYou: true }] : []),
-        ...friends.filter(friend => typeof friend.marks === 'number').map(friend => ({
-            id: friend.id, name: friend.displayName || friend.username, avatarUrl: friend.avatarUrl, marks: friend.marks!,
+        // A friend whose phone has not published a total yet starts at zero.
+        ...friends.map(friend => ({
+            id: friend.id, name: friend.displayName || friend.username, avatarUrl: friend.avatarUrl, marks: friend.marks ?? 0,
         })),
     ], [friends, myMarks]);
     const marksById = useMemo(() => new Map(marksPeople.map(person => [person.id, person.marks])), [marksPeople]);

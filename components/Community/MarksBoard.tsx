@@ -23,7 +23,7 @@ export const MarksBoard: React.FC<{ people: MarksPerson[]; onPick?: (id: string)
     const colors = Colors[theme];
     const light = theme === 'light';
     const { primary, foreground } = useAccentGradient();
-    if (people.length < 2) return null;
+    if (people.length === 0) return null;
     const sorted = [...people].sort((a, b) => b.marks - a.marks);
     const top = Math.max(1, sorted[0].marks);
 
