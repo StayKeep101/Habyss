@@ -1,0 +1,1480 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for Habyss/lib/goalParser.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">Habyss/lib</a> goalParser.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">99.05% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>210/212</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">91.9% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>159/173</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>23/23</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">99.46% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>185/186</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line high'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a>
+<a name='L168'></a><a href='#L168'>168</a>
+<a name='L169'></a><a href='#L169'>169</a>
+<a name='L170'></a><a href='#L170'>170</a>
+<a name='L171'></a><a href='#L171'>171</a>
+<a name='L172'></a><a href='#L172'>172</a>
+<a name='L173'></a><a href='#L173'>173</a>
+<a name='L174'></a><a href='#L174'>174</a>
+<a name='L175'></a><a href='#L175'>175</a>
+<a name='L176'></a><a href='#L176'>176</a>
+<a name='L177'></a><a href='#L177'>177</a>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a>
+<a name='L229'></a><a href='#L229'>229</a>
+<a name='L230'></a><a href='#L230'>230</a>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a>
+<a name='L241'></a><a href='#L241'>241</a>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a>
+<a name='L253'></a><a href='#L253'>253</a>
+<a name='L254'></a><a href='#L254'>254</a>
+<a name='L255'></a><a href='#L255'>255</a>
+<a name='L256'></a><a href='#L256'>256</a>
+<a name='L257'></a><a href='#L257'>257</a>
+<a name='L258'></a><a href='#L258'>258</a>
+<a name='L259'></a><a href='#L259'>259</a>
+<a name='L260'></a><a href='#L260'>260</a>
+<a name='L261'></a><a href='#L261'>261</a>
+<a name='L262'></a><a href='#L262'>262</a>
+<a name='L263'></a><a href='#L263'>263</a>
+<a name='L264'></a><a href='#L264'>264</a>
+<a name='L265'></a><a href='#L265'>265</a>
+<a name='L266'></a><a href='#L266'>266</a>
+<a name='L267'></a><a href='#L267'>267</a>
+<a name='L268'></a><a href='#L268'>268</a>
+<a name='L269'></a><a href='#L269'>269</a>
+<a name='L270'></a><a href='#L270'>270</a>
+<a name='L271'></a><a href='#L271'>271</a>
+<a name='L272'></a><a href='#L272'>272</a>
+<a name='L273'></a><a href='#L273'>273</a>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a>
+<a name='L313'></a><a href='#L313'>313</a>
+<a name='L314'></a><a href='#L314'>314</a>
+<a name='L315'></a><a href='#L315'>315</a>
+<a name='L316'></a><a href='#L316'>316</a>
+<a name='L317'></a><a href='#L317'>317</a>
+<a name='L318'></a><a href='#L318'>318</a>
+<a name='L319'></a><a href='#L319'>319</a>
+<a name='L320'></a><a href='#L320'>320</a>
+<a name='L321'></a><a href='#L321'>321</a>
+<a name='L322'></a><a href='#L322'>322</a>
+<a name='L323'></a><a href='#L323'>323</a>
+<a name='L324'></a><a href='#L324'>324</a>
+<a name='L325'></a><a href='#L325'>325</a>
+<a name='L326'></a><a href='#L326'>326</a>
+<a name='L327'></a><a href='#L327'>327</a>
+<a name='L328'></a><a href='#L328'>328</a>
+<a name='L329'></a><a href='#L329'>329</a>
+<a name='L330'></a><a href='#L330'>330</a>
+<a name='L331'></a><a href='#L331'>331</a>
+<a name='L332'></a><a href='#L332'>332</a>
+<a name='L333'></a><a href='#L333'>333</a>
+<a name='L334'></a><a href='#L334'>334</a>
+<a name='L335'></a><a href='#L335'>335</a>
+<a name='L336'></a><a href='#L336'>336</a>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a>
+<a name='L403'></a><a href='#L403'>403</a>
+<a name='L404'></a><a href='#L404'>404</a>
+<a name='L405'></a><a href='#L405'>405</a>
+<a name='L406'></a><a href='#L406'>406</a>
+<a name='L407'></a><a href='#L407'>407</a>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a>
+<a name='L413'></a><a href='#L413'>413</a>
+<a name='L414'></a><a href='#L414'>414</a>
+<a name='L415'></a><a href='#L415'>415</a>
+<a name='L416'></a><a href='#L416'>416</a>
+<a name='L417'></a><a href='#L417'>417</a>
+<a name='L418'></a><a href='#L418'>418</a>
+<a name='L419'></a><a href='#L419'>419</a>
+<a name='L420'></a><a href='#L420'>420</a>
+<a name='L421'></a><a href='#L421'>421</a>
+<a name='L422'></a><a href='#L422'>422</a>
+<a name='L423'></a><a href='#L423'>423</a>
+<a name='L424'></a><a href='#L424'>424</a>
+<a name='L425'></a><a href='#L425'>425</a>
+<a name='L426'></a><a href='#L426'>426</a>
+<a name='L427'></a><a href='#L427'>427</a>
+<a name='L428'></a><a href='#L428'>428</a>
+<a name='L429'></a><a href='#L429'>429</a>
+<a name='L430'></a><a href='#L430'>430</a>
+<a name='L431'></a><a href='#L431'>431</a>
+<a name='L432'></a><a href='#L432'>432</a>
+<a name='L433'></a><a href='#L433'>433</a>
+<a name='L434'></a><a href='#L434'>434</a>
+<a name='L435'></a><a href='#L435'>435</a>
+<a name='L436'></a><a href='#L436'>436</a>
+<a name='L437'></a><a href='#L437'>437</a>
+<a name='L438'></a><a href='#L438'>438</a>
+<a name='L439'></a><a href='#L439'>439</a>
+<a name='L440'></a><a href='#L440'>440</a>
+<a name='L441'></a><a href='#L441'>441</a>
+<a name='L442'></a><a href='#L442'>442</a>
+<a name='L443'></a><a href='#L443'>443</a>
+<a name='L444'></a><a href='#L444'>444</a>
+<a name='L445'></a><a href='#L445'>445</a>
+<a name='L446'></a><a href='#L446'>446</a>
+<a name='L447'></a><a href='#L447'>447</a>
+<a name='L448'></a><a href='#L448'>448</a>
+<a name='L449'></a><a href='#L449'>449</a>
+<a name='L450'></a><a href='#L450'>450</a>
+<a name='L451'></a><a href='#L451'>451</a>
+<a name='L452'></a><a href='#L452'>452</a>
+<a name='L453'></a><a href='#L453'>453</a>
+<a name='L454'></a><a href='#L454'>454</a>
+<a name='L455'></a><a href='#L455'>455</a>
+<a name='L456'></a><a href='#L456'>456</a>
+<a name='L457'></a><a href='#L457'>457</a>
+<a name='L458'></a><a href='#L458'>458</a>
+<a name='L459'></a><a href='#L459'>459</a>
+<a name='L460'></a><a href='#L460'>460</a>
+<a name='L461'></a><a href='#L461'>461</a>
+<a name='L462'></a><a href='#L462'>462</a>
+<a name='L463'></a><a href='#L463'>463</a>
+<a name='L464'></a><a href='#L464'>464</a>
+<a name='L465'></a><a href='#L465'>465</a>
+<a name='L466'></a><a href='#L466'>466</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">84x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">262x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">373x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">89x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">165x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">1496x</span>
+<span class="cline-any cline-yes">67x</span>
+<span class="cline-any cline-yes">67x</span>
+<span class="cline-any cline-yes">67x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">77x</span>
+<span class="cline-any cline-yes">67x</span>
+<span class="cline-any cline-yes">65x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">39x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">35x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">33x</span>
+<span class="cline-any cline-yes">33x</span>
+<span class="cline-any cline-yes">33x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">33x</span>
+<span class="cline-any cline-yes">396x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">33x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">27x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">85x</span>
+<span class="cline-any cline-yes">51x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">85x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">83x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">78x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">74x</span>
+<span class="cline-any cline-yes">74x</span>
+<span class="cline-any cline-yes">74x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">63x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">77x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">77x</span>
+<span class="cline-any cline-yes">77x</span>
+<span class="cline-any cline-yes">77x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">77x</span>
+<span class="cline-any cline-yes">60x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">38x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">86x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">68x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">68x</span>
+<span class="cline-any cline-yes">68x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">47x</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-yes">44x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">68x</span>
+<span class="cline-any cline-yes">66x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">61x</span>
+<span class="cline-any cline-yes">60x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * Goal parser.
+ *
+ * Turns a goal written in plain language into something calculable: a numeric
+ * target, a unit, a time window and a direction. A goal that cannot be reduced
+ * to those four things is not saved as a vague wish — the parser says which
+ * field is missing and asks one specific question.
+ *
+ * This is deterministic and local, not a model call. The app's only AI is an
+ * optional on-device 1B model behind a large download; a goal you cannot create
+ * offline, or that parses differently each time, would be worse than none. The
+ * contract below is the same either way, so a model could be swapped in later
+ * for the free-text cases without changing any caller.
+ */
+&nbsp;
+export type GoalType = 'frequency' | 'volume' | 'limit' | 'target_value' | 'consistency';
+export type Aggregation = 'count_days' | 'sum' | 'latest' | 'completion_rate';
+export type Direction = 'at_least' | 'at_most' | 'reach';
+&nbsp;
+export type GoalWindow =
+    | { kind: 'recurring'; period: 'day' | 'week' | 'month' }
+    | { kind: 'fixed'; start: string; end: string };
+&nbsp;
+/**
+ * The three kinds of goal, and how each is measured.
+ *
+ * - number: reach an amount ("2000 calls by Dec 1"). What is left is spread over
+ *   the days left, so a missed day raises the daily figure rather than being
+ *   forgotten.
+ * - complete: finish a project ("Launch Habyss by Jan 1"), broken into steps
+ *   (milestones), each made of tasks. Measured as tasks done out of all tasks.
+ * - time: put in hours ("100 hours of piano"). A number goal counted in minutes.
+ */
+export type GoalKind = 'number' | 'complete' | 'time';
+&nbsp;
+/** One step of a complete goal. Tasks point at it by id. */
+export interface Milestone { id: string; title: string }
+&nbsp;
+export interface GoalSpec {
+    /** Absent on goals made before kinds existed; see `goalKind`. */
+    kind?: GoalKind;
+    /** The steps of a complete goal, in order. */
+    milestones?: Milestone[];
+    /** Shared cover photo URL; see lib/goalCover. */
+    cover?: string;
+    title: string;
+    type: GoalType | null;
+    metric_unit: string | null;
+    aggregation: Aggregation | null;
+    direction: Direction | null;
+    target: number | null;
+    baseline: number | null;
+    /**
+     * For "lose 5 kg": the amount to move from the baseline, since the target
+     * weight is not known until the user says what they weigh now.
+     */
+    delta_from_baseline: number | null;
+    window: GoalWindow | null;
+    linked_habits: string[];
+    suggested_habit: { name: string; unit: string } | null;
+}
+&nbsp;
+export interface GoalParseResult {
+    status: 'complete' | 'needs_clarification';
+    goal: GoalSpec;
+    missing_fields: string[];
+    clarifying_question: string | null;
+}
+&nbsp;
+export interface HabitRef { id: string; name: string; unit?: string }
+&nbsp;
+export interface ParseOptions {
+    today: Date;
+    habits?: HabitRef[];
+}
+&nbsp;
+export const ALLOWED_UNITS = [
+    'sessions', 'minutes', 'hours', 'pages', 'km', 'mi', 'steps',
+    'm', 'ml', 'books', 'chapters', 'sets', 'laps', 'lessons', 'tasks', 'projects',
+    'kg', 'lb', 'glasses', 'liters', 'dollars', 'euros', 'gbp', 'words', 'reps', 'percent',
+] as const;
+&nbsp;
+/** Spoken unit -&gt; allowed unit, with a multiplier where the unit changes. */
+const UNIT_MAP: { pattern: RegExp; unit: string; factor?: number }[] = [
+    { pattern: /\b(hours?|hrs?|h)\b/i, unit: 'minutes', factor: 60 },
+    { pattern: /\b(minutes?|mins?)\b/i, unit: 'minutes' },
+    { pattern: /\b(books?)\b/i, unit: 'books' },
+    { pattern: /\b(chapters?)\b/i, unit: 'chapters' },
+    { pattern: /\b(sets?)\b/i, unit: 'sets' },
+    { pattern: /\b(laps?)\b/i, unit: 'laps' },
+    { pattern: /\b(lessons?)\b/i, unit: 'lessons' },
+    { pattern: /\b(tasks?)\b/i, unit: 'tasks' },
+    { pattern: /\b(projects?)\b/i, unit: 'projects' },
+    { pattern: /\b(meters?|metres?|m)\b/i, unit: 'm' },
+    { pattern: /\b(milliliters?|millilitres?|ml)\b/i, unit: 'ml' },
+    { pattern: /\b(euros?|eur)\b/i, unit: 'euros' },
+    { pattern: /\b(gbp)\b/i, unit: 'gbp' },
+    { pattern: /\b(pages?|pgs?)\b/i, unit: 'pages' },
+    { pattern: /\b(kilometers?|kilometres?|kms?|km)\b/i, unit: 'km' },
+    { pattern: /\b(miles?|mi)\b/i, unit: 'mi' },
+    { pattern: /\b(steps?)\b/i, unit: 'steps' },
+    { pattern: /\b(kilos?|kilograms?|kgs?|kg)\b/i, unit: 'kg' },
+    { pattern: /\b(pounds?|lbs?|lb)\b/i, unit: 'lb' },
+    { pattern: /\b(glasses|glass)\b/i, unit: 'glasses' },
+    { pattern: /\b(liters?|litres?|l)\b/i, unit: 'liters' },
+    { pattern: /\b(dollars?|usd|bucks?)\b/i, unit: 'dollars' },
+    { pattern: /\b(words?)\b/i, unit: 'words' },
+    { pattern: /\b(reps?|repetitions?)\b/i, unit: 'reps' },
+    { pattern: /\b(percent|%)\b/i, unit: 'percent' },
+    { pattern: /\b(sessions?|times?|workouts?|x)\b/i, unit: 'sessions' },
+];
+&nbsp;
+/** Units that measure a body/state value rather than accumulated effort. */
+const MEASUREMENT_UNITS = ['kg', 'lb'];
+&nbsp;
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july',
+    'august', 'september', 'october', 'november', 'december'];
+&nbsp;
+/** Contexts where "5k" means five kilometres rather than five thousand. */
+const DISTANCE_CONTEXT = /\b(run|running|ran|jog|jogging|walk|walking|cycle|cycling|ride|riding|swim|swimming|marathon|race)\b/i;
+&nbsp;
+/**
+ * Expands "10k" to 10000, except where the sentence is about distance.
+ *
+ * "Make 10k dollars" is ten thousand; "run a 5k" is five kilometres. Guessing
+ * wrong either way produces a target that is off by a factor of a thousand, so
+ * the surrounding words decide.
+ */
+function expandThousands(text: string): string {
+    if (!/\b\d+(?:\.\d+)?k\b/i.test(text)) return text;
+    if (DISTANCE_CONTEXT.test(text)) {
+        return text.replace(/\b(\d+(?:\.\d+)?)k\b/gi, '$1 km');
+    }
+    return text.replace(/\b(\d+(?:\.\d+)?)k\b/gi, (_match, amount) =&gt; String(Math.round(Number(amount) * 1000)));
+}
+&nbsp;
+const VAGUE = /\b(get (fit|healthy|in shape|better)|be healthier|read more|exercise more|do more|eat better|sleep better|lose weight|get strong(er)?|be more productive)\b/i;
+&nbsp;
+const dateKey = (date: Date): string =&gt;
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+&nbsp;
+const endOfMonth = (date: Date) =&gt; new Date(date.getFullYear(), date.getMonth() + 1, 0);
+const addDays = (date: Date, days: number) =&gt; {
+    const next = new Date(date);
+    next.setDate(date.getDate() + days);
+    return next;
+};
+&nbsp;
+const titleCase = (value: string) =&gt; value.charAt(0).toUpperCase() + value.slice(1);
+&nbsp;
+/** Words that never belong in a goal's subject. */
+const STOP_WORDS = new Set([
+    'i', 'want', 'to', 'a', 'an', 'the', 'my', 'me', 'of', 'on', 'in', 'at', 'for',
+    'this', 'that', 'per', 'each', 'every', 'and', 'get', 'down', 'do', 'go', 'goal',
+    'more', 'than', 'no', 'less', 'under', 'max', 'maximum', 'least', 'most', 'by',
+    'days', 'day', 'week', 'weeks', 'month', 'months', 'year', 'years', 'time', 'times',
+    'next', 'want', 'like', 'would',
+]);
+&nbsp;
+/** Unit words, which belong in the target rather than the subject. */
+const UNIT_WORDS = new Set([
+    'hour', 'hours', 'hr', 'hrs', 'minute', 'minutes', 'min', 'mins',
+    'page', 'pages', 'pg', 'pgs', 'kilometer', 'kilometers', 'kilometre', 'kilometres',
+    'km', 'kms', 'mile', 'miles', 'mi', 'step', 'steps', 'kilo', 'kilos',
+    'kilogram', 'kilograms', 'kg', 'kgs', 'pound', 'pounds', 'lb', 'lbs',
+    'glass', 'glasses', 'liter', 'liters', 'litre', 'litres', 'l',
+    'dollar', 'dollars', 'usd', 'buck', 'bucks', 'word', 'words',
+    'rep', 'reps', 'repetition', 'repetitions', 'percent', 'session', 'sessions',
+    'workout', 'workouts', 'x',
+    'm', 'meter', 'meters', 'metre', 'metres', 'ml', 'milliliter', 'milliliters',
+    'millilitre', 'millilitres', 'book', 'books', 'chapter', 'chapters', 'set', 'sets',
+    'lap', 'laps', 'lesson', 'lessons', 'task', 'tasks', 'project', 'projects', 'euro', 'euros', 'eur', 'gbp',
+]);
+&nbsp;
+/**
+ * What the goal is about, with the measurable parts taken out.
+ *
+ * The amount, its unit and the period all appear elsewhere in the title, so
+ * leaving them here produced titles like "Save dollars 3000 dollars in
+ * September". Anything numeric or unit-shaped is dropped.
+ */
+const subjectFrom = (text: string): string =&gt; {
+    const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+    const kept = words.filter(word =&gt;
+        !STOP_WORDS.has(word)
+        &amp;&amp; !UNIT_WORDS.has(word)
+        &amp;&amp; !/^\d+(?:\.\d+)?$/.test(word));
+    return kept.join(' ').trim();
+};
+&nbsp;
+/** Matches a goal to existing habits by meaning, requiring a compatible unit. */
+function linkHabits(subject: string, unit: string | null, habits: HabitRef[]): string[] {
+    if (!subject || habits.length === 0) return [];
+    const subjectWords = subject.split(/\s+/).filter(word =&gt; word.length &gt; 2);
+    const stems = subjectWords.map(word =&gt; word.replace(/(ing|s)$/, ''));
+&nbsp;
+    return habits.filter(habit =&gt; {
+        if (unit &amp;&amp; habit.unit &amp;&amp; habit.unit !== unit) return false;
+        const haystack = habit.name.toLowerCase();
+        return stems.some(stem =&gt; stem.length &gt; 2 &amp;&amp; haystack.includes(stem));
+    }).map(habit =&gt; habit.id);
+}
+&nbsp;
+export function parseGoalText(input: string, options: ParseOptions): GoalParseResult {
+    const { today, habits = [] } = options;
+    const raw = (input ?? <span class="branch-1 cbranch-no" title="branch not covered" >'')</span>.trim();
+    // "50km" has no word boundary between the digit and the unit, so \bkm\b
+    // would never match. Splitting them first keeps every unit pattern simple.
+    // Expand "10k" before splitting digits from letters, which would otherwise
+    // turn it into "10 k" and leave the k stranded.
+    const text = ` ${expandThousands(raw.toLowerCase()).replace(/(\d)\s*([a-z])/g, '$1 $2')} `;
+&nbsp;
+    const missing: string[] = [];
+    const spec: GoalSpec = {
+        title: raw ? titleCase(raw) : '',
+        type: null, metric_unit: null, aggregation: null, direction: null,
+        target: null, baseline: null, delta_from_baseline: null,
+        window: null, linked_habits: [], suggested_habit: null,
+    };
+&nbsp;
+    const incomplete = (question: string | null): GoalParseResult =&gt; ({
+        status: 'needs_clarification', goal: spec, missing_fields: missing, clarifying_question: question,
+    });
+&nbsp;
+    if (!raw) {
+        missing.push('target', 'metric_unit', 'window');
+        return incomplete('What would you like to achieve? For example: run 50 km this month, or meditate 5 times a week.');
+    }
+&nbsp;
+    /* ------------------------------------------------------------- direction */
+    const isLimit = /\b(no more than|less than|under|at most|max|maximum|limit)\b/i.test(text);
+    const isTargetValue = /\b(get down to|down to|get to|reach|weigh|hit)\b/i.test(text)
+        || MEASUREMENT_UNITS.some(unit =&gt; new RegExp(`\\b${unit}\\b`).test(text));
+&nbsp;
+    /* ------------------------------------------------------------------ unit */
+    let unit: string | null = null;
+    let unitFactor = 1;
+    for (const candidate of UNIT_MAP) {
+        if (candidate.pattern.test(text)) {
+            unit = candidate.unit;
+            unitFactor = candidate.factor ?? 1;
+            break;
+        }
+    }
+&nbsp;
+    /* ---------------------------------------------------------------- window */
+    let window: GoalWindow | null = null;
+    // The words that set the date, removed before reading the amount and the
+    // subject: otherwise "by January 1, 2027" made the target 1 and put
+    // "january" into the title.
+    let datePhrase = '';
+    if (/\b(a|per|each|every)\s*day\b|\bdaily\b/i.test(text)) window = { kind: 'recurring', period: 'day' };
+    else if (/\b(a|per|each|every)\s*week\b|\bweekly\b/i.test(text)) window = { kind: 'recurring', period: 'week' };
+    else if (/\b(a|per|each|every)\s*month\b|\bmonthly\b/i.test(text)) window = { kind: 'recurring', period: 'month' };
+    else if (/\bthis month\b/i.test(text)) window = { kind: 'fixed', start: dateKey(today), end: dateKey(endOfMonth(today)) };
+    else <span class="missing-if-branch" title="if path not taken" >I</span>if (/\bthis week\b/i.test(text)) <span class="cstat-no" title="statement not covered" >window = { kind: 'fixed', start: dateKey(today), end: dateKey(addDays(today, 6 - today.getDay())) };</span>
+    else if (/\bthis year\b/i.test(text)) window = { kind: 'fixed', start: dateKey(today), end: `${today.getFullYear()}-12-31` };
+    // "next month" runs over that month, so it starts then rather than today.
+    else if (/\bnext month\b/i.test(text)) {
+        const first = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        window = { kind: 'fixed', start: dateKey(first), end: dateKey(endOfMonth(first)) };
+    }
+    else if (/\bnext week\b/i.test(text)) {
+        const first = addDays(today, 7 - today.getDay());
+        window = { kind: 'fixed', start: dateKey(first), end: dateKey(addDays(first, 6)) };
+    }
+    else if (/\bnext year\b/i.test(text)) {
+        window = { kind: 'fixed', start: `${today.getFullYear() + 1}-01-01`, end: `${today.getFullYear() + 1}-12-31` };
+    }
+    else {
+        const inDays = text.match(/\bin\s+(\d{1,3})\s*days?\b/i);
+        const byChristmas = text.match(/\b(by\s+)?(christmas|xmas)\b/i);
+        const isoDate = text.match(/\b(?:by|before|until|on)\s+(\d{4})-(\d{2})-(\d{2})\b/i);
+        // "by january 1", "by jan 1 st, 2027", "before march 2027"
+        const byMonthDay = text.match(new RegExp(
+            `\\b(?:by|before|until|on)\\s+(${MONTHS.join('|')}|${MONTHS.map(m =&gt; m.slice(0, 3)).join('|')})\\.?`
+            + `(?:\\s*(\\d{1,2})(?!\\d)(?:\\s*(?:st|nd|rd|th)\\b)?)?(?:\\s*,?\\s*(\\d{4}))?\\b`, 'i'));
+&nbsp;
+        if (inDays) {
+            window = { kind: 'fixed', start: dateKey(today), end: dateKey(addDays(today, Number(inDays[1]))) };
+            datePhrase = inDays[0];
+        } else if (byChristmas) {
+            const year = today.getMonth() === 11 &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >today.getDate() &gt; 25 </span>? <span class="branch-0 cbranch-no" title="branch not covered" >today.getFullYear() + 1 </span>: today.getFullYear();
+            window = { kind: 'fixed', start: dateKey(today), end: `${year}-12-25` };
+            datePhrase = byChristmas[0];
+        } else if (isoDate) {
+            const end = new Date(Number(isoDate[1]), Number(isoDate[2]) - 1, Number(isoDate[3]));
+            <span class="missing-if-branch" title="else path not taken" >E</span>if (dateKey(end) === `${isoDate[1]}-${isoDate[2]}-${isoDate[3]}`) {
+                window = { kind: 'fixed', start: dateKey(today), end: dateKey(end) };
+                datePhrase = isoDate[0];
+            }
+        } else if (byMonthDay) {
+            const name = byMonthDay[1].toLowerCase();
+            const monthIndex = MONTHS.findIndex(month =&gt; month.startsWith(name.slice(0, 3)));
+            <span class="missing-if-branch" title="else path not taken" >E</span>if (monthIndex &gt;= 0) {
+                const day = byMonthDay[2] ? Number(byMonthDay[2]) : undefined;
+                const year = byMonthDay[3]
+                    ? Number(byMonthDay[3])
+                    : monthIndex &lt; today.getMonth() ? today.getFullYear() + 1 : today.getFullYear();
+                const end = day
+                    ? new Date(year, monthIndex, day)
+                    : endOfMonth(new Date(year, monthIndex, 1));
+                window = { kind: 'fixed', start: dateKey(today), end: dateKey(end) };
+                datePhrase = byMonthDay[0];
+            }
+        }
+    }
+&nbsp;
+    const body = datePhrase ? text.replace(datePhrase, ' ') : text;
+&nbsp;
+    /* ---------------------------------------------------------------- amount */
+    // "3x a week" and "3 times a week" both give 3 sessions.
+    const frequencyMatch = body.match(/\b(\d{1,3})\s*(x|times?)\b/i);
+    const percentMatch = body.match(/\b(\d{1,3})\s*%|\b(\d{1,3})\s*percent\b/i);
+    const amountMatch = body.match(/\b(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|pages?|kilometers?|kilometres?|kms?|km|miles?|mi|steps?|kilos?|kilograms?|kgs?|kg|pounds?|lbs?|lb|glasses|glass|liters?|litres?|dollars?|words?|reps?)\b/i);
+&nbsp;
+    let target: number | null = null;
+    if (percentMatch) {
+        target = Number(percentMatch[1] ?? <span class="branch-1 cbranch-no" title="branch not covered" >percentMatch[2])</span> / 100;
+    } else if (amountMatch) {
+        target = Number(amountMatch[1]) * unitFactor;
+    } else if (frequencyMatch) {
+        target = Number(frequencyMatch[1]);
+    } else {
+        const bare = body.match(/\b(\d+(?:\.\d+)?)\b/);
+        if (bare) target = Number(bare[1]);
+    }
+&nbsp;
+    /* ------------------------------------------------------------------ type */
+    const isConsistency = !!percentMatch &amp;&amp; /\bdays?\b/i.test(text);
+&nbsp;
+    if (isConsistency) {
+        spec.type = 'consistency';
+        spec.aggregation = 'completion_rate';
+        spec.direction = 'at_least';
+        unit = 'percent';
+    } else if (isLimit) {
+        spec.type = 'limit';
+        spec.aggregation = 'sum';
+        spec.direction = 'at_most';
+    } else if (isTargetValue &amp;&amp; unit &amp;&amp; MEASUREMENT_UNITS.includes(unit)) {
+        spec.type = 'target_value';
+        spec.aggregation = 'latest';
+        spec.direction = 'reach';
+&nbsp;
+        // "Lose 5 kg" names how far to move, not where to land. The target is
+        // only knowable once the user says what they weigh now, so the amount is
+        // kept as a delta and the target stays null rather than claiming 5 kg is
+        // the goal weight.
+        if (/\b(lose|losing|drop|shed|cut)\b/i.test(text) &amp;&amp; target !== null) {
+            spec.delta_from_baseline = target;
+            target = null;
+        }
+    } else if (frequencyMatch || (unit === 'sessions' &amp;&amp; <span class="branch-2 cbranch-no" title="branch not covered" >target !== null)</span>) {
+        spec.type = 'frequency';
+        spec.aggregation = 'count_days';
+        spec.direction = 'at_least';
+        unit = 'sessions';
+    } else {
+        spec.type = 'volume';
+        spec.aggregation = 'sum';
+        spec.direction = 'at_least';
+    }
+&nbsp;
+    spec.metric_unit = unit;
+    spec.target = target;
+    spec.window = window;
+&nbsp;
+    /* -------------------------------------------------------- subject + links */
+    const subject = subjectFrom(body);
+    spec.linked_habits = linkHabits(subject, unit, habits);
+    if (spec.linked_habits.length === 0 &amp;&amp; subject &amp;&amp; unit) {
+        spec.suggested_habit = { name: titleCase(subject), unit };
+    }
+&nbsp;
+    /* ----------------------------------------------------------------- title */
+    spec.title = buildTitle(raw, spec, subject, today, datePhrase);
+&nbsp;
+    /* --------------------------------------------------- what is still needed */
+    // A vague goal never produces a target the user did not state.
+    if (VAGUE.test(text) &amp;&amp; target === null) {
+        spec.target = null;
+        spec.metric_unit = null;
+        spec.window = null;
+        spec.suggested_habit = null;
+        spec.title = titleCase(raw);
+        missing.push('target', 'metric_unit', 'window');
+        return incomplete('How do you want to measure it? For example: 20 pages a day, 30 minutes a day, or 4 reading sessions a week.');
+    }
+&nbsp;
+    if (spec.type === 'target_value' &amp;&amp; spec.baseline === null) missing.push('baseline');
+    // A delta goal already knows the amount; what it lacks is the baseline.
+    if (spec.target === null &amp;&amp; spec.delta_from_baseline === null) missing.push('target');
+    if (!spec.metric_unit) missing.push('metric_unit');
+    if (!spec.window) missing.push('window');
+&nbsp;
+    if (missing.length === 0) {
+        return { status: 'complete', goal: spec, missing_fields: [], clarifying_question: null };
+    }
+&nbsp;
+    // One question, about the most important missing field.
+    const order = ['target', 'metric_unit', 'window', 'baseline'];
+    const first = order.find(field =&gt; missing.includes(field)) ?? <span class="branch-1 cbranch-no" title="branch not covered" >missing[0];</span>
+    return incomplete(questionFor(first, spec));
+}
+&nbsp;
+function questionFor(field: string, spec: GoalSpec): string {
+    switch (field) {
+        case 'baseline': {
+            const where = spec.metric_unit === 'lb' ? <span class="branch-0 cbranch-no" title="branch not covered" >'weight in lb' </span>: `${spec.metric_unit}`;
+            if (spec.delta_from_baseline !== null) {
+                return `What's your current ${where}? I'll set the target ${spec.delta_from_baseline} ${spec.metric_unit} below it.`;
+            }
+            return `What's your current ${where}? I need it to track your progress toward ${spec.target}${spec.metric_unit ? ` ${spec.metric_unit}` : <span class="branch-1 cbranch-no" title="branch not covered" >''}</span>.`;
+        }
+        case 'target':
+            return 'How much are you aiming for? Give me a number, for example 50 km, 300 pages, or 3 sessions.';
+<span class="branch-2 cbranch-no" title="branch not covered" >        case 'metric_unit':</span>
+<span class="cstat-no" title="statement not covered" >            return 'What should I count? For example minutes, pages, km or sessions.';</span>
+        case 'window':
+        default:
+            return 'Over what period? For example each day, each week, this month, or by a specific date.';
+    }
+}
+&nbsp;
+function buildTitle(raw: string, spec: GoalSpec, subject: string, today: Date, datePhrase = <span class="branch-0 cbranch-no" title="branch not covered" >'')</span>: string {
+    // "Launch Habyss by Jan 1" is a deadline and a name, and the deadline has
+    // already been read off. Leaving it in the title as well meant the goal was
+    // called after the date it was due.
+    const withoutDate = datePhrase
+        ? raw.replace(new RegExp(datePhrase.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&amp;'), 'i'), ' ')
+            .replace(/\s{2,}/g, ' ').trim()
+        : raw;
+&nbsp;
+    const name = subject ? titleCase(subject) : titleCase(withoutDate);
+    if (spec.delta_from_baseline === null &amp;&amp; (spec.target === null || !spec.metric_unit)) {
+        return titleCase(withoutDate);
+    }
+&nbsp;
+    const amount = spec.metric_unit === 'percent'
+        ? `${Math.round((spec.target ?? <span class="branch-1 cbranch-no" title="branch not covered" >0)</span> * 100)}%`
+        : `${spec.target} ${spec.metric_unit}`;
+&nbsp;
+    let when = '';
+    if (spec.window?.kind === 'recurring') {
+        when = ` per ${spec.window.period}`;
+    } else if (spec.window?.kind === 'fixed') {
+        const end = new Date(`${spec.window.end}T12:00:00`);
+        const sameMonth = end.getFullYear() === today.getFullYear() &amp;&amp; end.getMonth() === today.getMonth();
+        const month = MONTHS[end.getMonth()].replace(/^./, char =&gt; char.toUpperCase());
+        // The year only when it is not this one, so "by January 1, 2027" stays unambiguous.
+        const year = end.getFullYear() !== today.getFullYear() ? `, ${end.getFullYear()}` : '';
+        when = sameMonth ? ` in ${month}` : ` by ${month} ${end.getDate()}${year}`;
+    }
+&nbsp;
+    if (spec.type === 'limit') return `Max ${amount} of ${name}${when}`;
+    if (spec.type === 'target_value') {
+        if (spec.delta_from_baseline !== null) {
+            return `Lose ${spec.delta_from_baseline} ${spec.metric_unit}${when}`;
+        }
+        return `Reach ${amount}${when}`;
+    }
+    if (spec.type === 'consistency') return `${name} ${amount} of days${when}`;
+    return `${name} ${amount}${when}`;
+}
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-10-13T20:54:31.290Z
+            </div>
+        <script src="../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
+    </body>
+</html>
+    

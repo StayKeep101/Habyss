@@ -502,27 +502,7 @@
 <a name='L437'></a><a href='#L437'>437</a>
 <a name='L438'></a><a href='#L438'>438</a>
 <a name='L439'></a><a href='#L439'>439</a>
-<a name='L440'></a><a href='#L440'>440</a>
-<a name='L441'></a><a href='#L441'>441</a>
-<a name='L442'></a><a href='#L442'>442</a>
-<a name='L443'></a><a href='#L443'>443</a>
-<a name='L444'></a><a href='#L444'>444</a>
-<a name='L445'></a><a href='#L445'>445</a>
-<a name='L446'></a><a href='#L446'>446</a>
-<a name='L447'></a><a href='#L447'>447</a>
-<a name='L448'></a><a href='#L448'>448</a>
-<a name='L449'></a><a href='#L449'>449</a>
-<a name='L450'></a><a href='#L450'>450</a>
-<a name='L451'></a><a href='#L451'>451</a>
-<a name='L452'></a><a href='#L452'>452</a>
-<a name='L453'></a><a href='#L453'>453</a>
-<a name='L454'></a><a href='#L454'>454</a>
-<a name='L455'></a><a href='#L455'>455</a>
-<a name='L456'></a><a href='#L456'>456</a>
-<a name='L457'></a><a href='#L457'>457</a>
-<a name='L458'></a><a href='#L458'>458</a>
-<a name='L459'></a><a href='#L459'>459</a>
-<a name='L460'></a><a href='#L460'>460</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L440'></a><a href='#L440'>440</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -543,6 +523,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -693,10 +675,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -735,7 +713,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -848,23 +825,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -981,9 +941,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Dimensions, Animated as RNAnimated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { FontFamily } from '@/constants/DesignSystem';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated as RNAnimated } from 'react-native';
+import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import Animated, { FadeInDown, FadeInUp, SlideOutRight } from 'react-native-reanimated';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/Colors';
@@ -992,6 +953,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { NotificationService, InAppNotification } from '@/lib/notificationService';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { VoidModal } from '@/components/Layout/VoidModal';
+import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { useAccentGradient } from '@/constants/AccentContext';
 import { FriendsService } from '@/lib/friendsService';
 &nbsp;
@@ -1152,32 +1114,27 @@ export const NotificationsModal: React.FC&lt;NotificationsModalProps&gt; = <span
     };
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    return (</span>
-        &lt;VoidModal visible={visible} onClose={onClose} heightPercentage={0.75}&gt;
+        &lt;VoidModal visible={visible} onClose={onClose}&gt;
             &lt;View style={styles.content}&gt;
-                {/* Header */}
-                &lt;View style={[styles.header, { borderBottomColor: colors.border }]}&gt;
-                    &lt;TouchableOpacity onPress={onClose} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]}&gt;
-                        &lt;Ionicons name="arrow-back" size={22} color={colors.textPrimary} /&gt;
-                    &lt;/TouchableOpacity&gt;
-                    &lt;View style={{ flex: 1, marginLeft: 16 }}&gt;
-                        &lt;Text style={[styles.title, { color: colors.text }]}&gt;NOTIFICATIONS&lt;/Text&gt;
-                        &lt;Text style={[styles.subtitle, { color: accentColor }]}&gt;
-                            {unreadCount &gt; 0 ? `${unreadCount} UNREAD` : 'ALL CAUGHT UP'}
-                        &lt;/Text&gt;
-                    &lt;/View&gt;
-                    &lt;View style={{ flexDirection: 'row', gap: 8 }}&gt;
-                        {unreadCount &gt; 0 &amp;&amp; (
-                            &lt;TouchableOpacity onPress={handleMarkAllRead} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}&gt;
-                                &lt;Ionicons name="checkmark-done" size={20} color={accentColor} /&gt;
-                            &lt;/TouchableOpacity&gt;
-                        )}
-                        {notifications.length &gt; 0 &amp;&amp; (
-                            &lt;TouchableOpacity onPress={handleClearAll} style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}&gt;
-                                &lt;Ionicons name="trash-outline" size={18} color="#EF4444" /&gt;
-                            &lt;/TouchableOpacity&gt;
-                        )}
-                    &lt;/View&gt;
-                &lt;/View&gt;
+                &lt;ModalHeader
+                    title="Notifications"
+                    subtitle={unreadCount &gt; 0 ? `${unreadCount} UNREAD` : 'ALL CAUGHT UP'}
+                    onBack={onClose}
+                    rightSlot={
+                        &lt;View style={{ flexDirection: 'row', gap: 8 }}&gt;
+                            {unreadCount &gt; 0 &amp;&amp; (
+                                &lt;TouchableOpacity onPress={handleMarkAllRead} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}&gt;
+                                    &lt;Ionicons name="checkmark-done" size={20} color={accentColor} /&gt;
+                                &lt;/TouchableOpacity&gt;
+                            )}
+                            {notifications.length &gt; 0 &amp;&amp; (
+                                &lt;TouchableOpacity onPress={handleClearAll} style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}&gt;
+                                    &lt;Ionicons name="trash-outline" size={18} color="#EF4444" /&gt;
+                                &lt;/TouchableOpacity&gt;
+                            )}
+                        &lt;/View&gt;
+                    }
+                /&gt;
 &nbsp;
                 {/* List */}
                 &lt;ScrollView style={styles.listContainer} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}&gt;
@@ -1260,7 +1217,7 @@ export const NotificationsModal: React.FC&lt;NotificationsModalProps&gt; = <span
                                                     &lt;/View&gt;
                                                     &lt;View style={styles.notifContent}&gt;
                                                         &lt;View style={styles.titleRow}&gt;
-                                                            &lt;Text style={[styles.notificationTitle, { color: colors.text, fontWeight: notification.read ? '500' : '700' }]} numberOfLines={1}&gt;
+                                                            &lt;Text style={[styles.notificationTitle, { color: colors.text, fontFamily: notification.read ? FontFamily.medium : FontFamily.bold }]} numberOfLines={1}&gt;
                                                                 {notification.title}
                                                             &lt;/Text&gt;
                                                             &lt;Text style={[styles.notificationTime, { color: colors.textTertiary }]}&gt;
@@ -1310,13 +1267,6 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     content: {
         flex: 1,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 16,
-    },
     iconButton: {
         width: 40,
         height: 40,
@@ -1326,16 +1276,8 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     },
     title: {
         fontSize: 18,
-        fontWeight: '900',
         letterSpacing: 1,
-        fontFamily: 'Lexend',
-    },
-    subtitle: {
-        fontSize: 10,
-        fontWeight: '600',
-        letterSpacing: 1.5,
-        fontFamily: 'Lexend_400Regular',
-        marginTop: 2,
+        fontFamily: FontFamily.bold,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -1345,9 +1287,8 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     },
     sectionLabel: {
         fontSize: 10,
-        fontWeight: '700',
         letterSpacing: 1.5,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.bold,
     },
     listContainer: {
         flex: 1,
@@ -1364,15 +1305,14 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     },
     emptyText: {
         fontSize: 18,
-        fontWeight: '700',
-        fontFamily: 'Lexend',
+        fontFamily: FontFamily.bold,
     },
     emptySubtext: {
         fontSize: 12,
         marginTop: 8,
         textAlign: 'center',
         lineHeight: 18,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     notificationItem: {
         flexDirection: 'row',
@@ -1404,7 +1344,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     notificationTitle: {
         fontSize: 13,
         flex: 1,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
     },
     unreadDot: {
         width: 7,
@@ -1414,12 +1354,12 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     },
     notificationMessage: {
         fontSize: 11,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         lineHeight: 16,
     },
     notificationTime: {
         fontSize: 9,
-        fontFamily: 'Lexend_400Regular',
+        fontFamily: FontFamily.regular,
         marginLeft: 8,
     },
     shareActions: {
@@ -1437,7 +1377,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     },
     shareBtnText: {
         fontSize: 12,
-        fontFamily: 'Lexend_600SemiBold',
+        fontFamily: FontFamily.semibold,
     },
 });
 &nbsp;</pre></td></tr></table></pre>
@@ -1447,7 +1387,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-29T22:38:40.025Z
+                at 2026-10-13T20:54:31.290Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>0/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/6</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>0/13</span>
             </div>
         
             
@@ -121,25 +121,7 @@
 <a name='L56'></a><a href='#L56'>56</a>
 <a name='L57'></a><a href='#L57'>57</a>
 <a name='L58'></a><a href='#L58'>58</a>
-<a name='L59'></a><a href='#L59'>59</a>
-<a name='L60'></a><a href='#L60'>60</a>
-<a name='L61'></a><a href='#L61'>61</a>
-<a name='L62'></a><a href='#L62'>62</a>
-<a name='L63'></a><a href='#L63'>63</a>
-<a name='L64'></a><a href='#L64'>64</a>
-<a name='L65'></a><a href='#L65'>65</a>
-<a name='L66'></a><a href='#L66'>66</a>
-<a name='L67'></a><a href='#L67'>67</a>
-<a name='L68'></a><a href='#L68'>68</a>
-<a name='L69'></a><a href='#L69'>69</a>
-<a name='L70'></a><a href='#L70'>70</a>
-<a name='L71'></a><a href='#L71'>71</a>
-<a name='L72'></a><a href='#L72'>72</a>
-<a name='L73'></a><a href='#L73'>73</a>
-<a name='L74'></a><a href='#L74'>74</a>
-<a name='L75'></a><a href='#L75'>75</a>
-<a name='L76'></a><a href='#L76'>76</a>
-<a name='L77'></a><a href='#L77'>77</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L59'></a><a href='#L59'>59</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -147,6 +129,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -191,39 +179,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from 'react';
-import { View, BackHandler, StyleSheet, Text } from 'react-native';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/constants/themeContext';
+import { FontFamily } from '@/constants/DesignSystem';
+import React from 'react';
+import { View, BackHandler, Text } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import RevenueCatUI from 'react-native-purchases-ui';
 import { StatusBar } from 'expo-status-bar';
 import RevenueCatService from '@/lib/RevenueCat';
+import { styles } from '@/styles/screens/onboarding-paywall.styles';
 &nbsp;
 export default function <span class="fstat-no" title="function not covered" >OnboardingPaywall(</span>) {
     const router = <span class="cstat-no" title="statement not covered" >useRouter();</span>
+    const { theme } = <span class="cstat-no" title="statement not covered" >useTheme();</span>
+    const palette = <span class="cstat-no" title="statement not covered" >Colors[theme];</span>
 &nbsp;
     // Disable back button on Android
 <span class="cstat-no" title="statement not covered" >    useFocusEffect(</span>
@@ -244,10 +214,10 @@ export default function <span class="fstat-no" title="function not covered" >Onb
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    if (!RevenueCatService.isConfigured()) {</span>
 <span class="cstat-no" title="statement not covered" >        return (</span>
-            &lt;View style={[styles.container, styles.centered]}&gt;
-                &lt;StatusBar style="light" /&gt;
-                &lt;Text style={styles.title}&gt;Billing isn&amp;apos;t configured on this build.&lt;/Text&gt;
-                &lt;Text style={styles.subtitle}&gt;
+            &lt;View style={[styles.container, styles.centered, { backgroundColor: palette.background }]}&gt;
+                &lt;StatusBar style={theme === 'light' ? 'dark' : 'light'} /&gt;
+                &lt;Text style={[styles.title, { color: palette.textPrimary }]}&gt;Billing isn&amp;apos;t configured on this build.&lt;/Text&gt;
+                &lt;Text style={[styles.subtitle, { color: palette.textSecondary }]}&gt;
                     Add the RevenueCat API key for this platform before using onboarding paywalls.
                 &lt;/Text&gt;
             &lt;/View&gt;
@@ -255,8 +225,8 @@ export default function <span class="fstat-no" title="function not covered" >Onb
     }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    return (</span>
-        &lt;View style={styles.container}&gt;
-            &lt;StatusBar style="light" /&gt;
+        &lt;View style={[styles.container, { backgroundColor: palette.background }]}&gt;
+            &lt;StatusBar style={theme === 'light' ? 'dark' : 'light'} /&gt;
             &lt;RevenueCatUI.Paywall
                 onPurchaseCompleted={handlePurchase}
                 onRestoreCompleted={handlePurchase}
@@ -267,30 +237,6 @@ export default function <span class="fstat-no" title="function not covered" >Onb
         &lt;/View&gt;
     );
 }
-&nbsp;
-const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.create({</span>
-    container: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
-    centered: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-    },
-    title: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: '700',
-        textAlign: 'center',
-        marginBottom: 12,
-    },
-    subtitle: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 14,
-        textAlign: 'center',
-    },
-});
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -298,7 +244,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-29T22:38:40.025Z
+                at 2026-10-13T20:54:31.290Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

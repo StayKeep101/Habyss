@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>0/19</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/16</span>
+                <span class='fraction'>0/18</span>
             </div>
         
             
@@ -152,7 +152,12 @@
 <a name='L87'></a><a href='#L87'>87</a>
 <a name='L88'></a><a href='#L88'>88</a>
 <a name='L89'></a><a href='#L89'>89</a>
-<a name='L90'></a><a href='#L90'>90</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -160,6 +165,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -185,23 +197,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -221,6 +216,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -241,47 +237,66 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { useMemo } from 'react';
-import { View, StyleSheet, DeviceEventEmitter, Text, TouchableOpacity } from 'react-native';
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { AppButton } from '@/components/Common/AppButton';
+import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/constants/themeContext';
+import { FontFamily } from '@/constants/DesignSystem';
+import { useMemo } from 'react';
+import {View, StyleSheet, Text} from 'react-native';
 import RevenueCatUI from 'react-native-purchases-ui';
 import { useRouter } from 'expo-router';
 import { CustomerInfo, PurchasesStoreTransaction } from 'react-native-purchases';
 import RevenueCatService from '@/lib/RevenueCat';
+import { emit } from '@/lib/appEvents';
 &nbsp;
 export default function <span class="fstat-no" title="function not covered" >RevenueCatPaywall(</span>) {
     const router = <span class="cstat-no" title="statement not covered" >useRouter();</span>
+    const { theme } = <span class="cstat-no" title="statement not covered" >useTheme();</span>
+    const palette = <span class="cstat-no" title="statement not covered" >Colors[theme];</span>
     const isConfigured = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >RevenueCatService.isConfigured(),</span> []);</span>
 &nbsp;
     const handlePurchaseCompleted = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >({</span> customerInfo }: { customerInfo: CustomerInfo, storeTransaction: PurchasesStoreTransaction }) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        console.log('Purchase completed:', customerInfo);</span>
-<span class="cstat-no" title="statement not covered" >        DeviceEventEmitter.emit('premium_status_updated');</span>
+<span class="cstat-no" title="statement not covered" >        emit('premium_status_updated');</span>
 <span class="cstat-no" title="statement not covered" >        router.back();</span>
     };
 &nbsp;
     const handleRestoreCompleted = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >({</span> customerInfo }: { customerInfo: CustomerInfo }) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        console.log('Restore completed:', customerInfo);</span>
 <span class="cstat-no" title="statement not covered" >        if (customerInfo.entitlements.active['pro'] || customerInfo.entitlements.active['Habyss Pro']) {</span>
-<span class="cstat-no" title="statement not covered" >            DeviceEventEmitter.emit('premium_status_updated');</span>
+<span class="cstat-no" title="statement not covered" >            emit('premium_status_updated');</span>
 <span class="cstat-no" title="statement not covered" >            router.back();</span>
         }
     };
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    if (!isConfigured) {</span>
 <span class="cstat-no" title="statement not covered" >        return (</span>
-            &lt;View style={[styles.container, styles.fallback]}&gt;
-                &lt;Text style={styles.title}&gt;Billing isn&amp;apos;t configured on this build.&lt;/Text&gt;
-                &lt;Text style={styles.subtitle}&gt;
+            &lt;View style={[styles.container, styles.fallback, { backgroundColor: palette.background }]}&gt;
+                &lt;Text style={[styles.title, { color: palette.textPrimary }]}&gt;Billing isn&amp;apos;t configured on this build.&lt;/Text&gt;
+                &lt;Text style={[styles.subtitle, { color: palette.textSecondary }]}&gt;
                     Add the RevenueCat API key for this platform before showing the paywall.
                 &lt;/Text&gt;
-                &lt;TouchableOpacity onPress={<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >router.back()}</span> style={styles.button}&gt;
-                    &lt;Text style={styles.buttonText}&gt;Close&lt;/Text&gt;
-                &lt;/TouchableOpacity&gt;
+                &lt;AppButton label="Close" onPress={<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >router.back()}</span> /&gt;
             &lt;/View&gt;
         );
     }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    return (</span>
-        &lt;View style={styles.container}&gt;
+        &lt;View style={[styles.container, { backgroundColor: palette.background }]}&gt;
             &lt;RevenueCatUI.Paywall
                 onPurchaseCompleted={handlePurchaseCompleted}
                 onRestoreCompleted={handleRestoreCompleted}
@@ -308,7 +323,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     title: {
         color: '#fff',
         fontSize: 20,
-        fontWeight: '700',
+        fontFamily: FontFamily.bold,
         textAlign: 'center',
         marginBottom: 12,
     },
@@ -327,7 +342,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
     buttonText: {
         color: '#000',
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: FontFamily.semibold,
     },
 });
 &nbsp;</pre></td></tr></table></pre>
@@ -337,7 +352,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-29T22:38:40.025Z
+                at 2026-10-13T20:54:31.290Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

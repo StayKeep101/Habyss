@@ -2,11 +2,12 @@ import { Colors } from '@/constants/Colors';
 import { useTheme } from '@/constants/themeContext';
 import { FontFamily } from '@/constants/DesignSystem';
 import React from 'react';
-import { View, BackHandler, StyleSheet, Text } from 'react-native';
+import { View, BackHandler, Text } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import RevenueCatUI from 'react-native-purchases-ui';
 import { StatusBar } from 'expo-status-bar';
 import RevenueCatService from '@/lib/RevenueCat';
+import { styles } from '@/styles/screens/onboarding-paywall.styles';
 
 export default function OnboardingPaywall() {
     const router = useRouter();
@@ -55,27 +56,3 @@ export default function OnboardingPaywall() {
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
-    centered: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-    },
-    title: {
-        color: '#fff',
-        fontSize: 20,
-        fontFamily: FontFamily.bold,
-        textAlign: 'center',
-        marginBottom: 12,
-    },
-    subtitle: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 14,
-        textAlign: 'center',
-    },
-});

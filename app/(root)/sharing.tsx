@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
@@ -12,6 +12,7 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { ALL_SHARED, SHARING_LABELS, getSharing, setSharing, type Sharing } from '@/lib/profileSync';
 import { PREF_LABELS, getNotificationPrefs, setNotificationPrefs, type NotificationPrefs } from '@/lib/notificationPrefs';
+import { styles } from '@/styles/screens/sharing.styles';
 
 /**
  * What friends see of you, and what they are allowed to interrupt you about.
@@ -124,17 +125,3 @@ export default function SharingScreen() {
         </SheetScreen>
     );
 }
-
-const styles = StyleSheet.create({
-    content: { paddingHorizontal: s(20), paddingBottom: vs(40), gap: vs(6) },
-    groupTitle: { fontSize: ms(10), letterSpacing: 1.4, fontFamily: FontFamily.bold, marginTop: vs(14) },
-    groupNote: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular, marginBottom: vs(4) },
-    list: { paddingVertical: vs(2) },
-    divider: { height: StyleSheet.hairlineWidth, marginLeft: s(14) },
-    row: { flexDirection: 'row', alignItems: 'center', gap: s(12), padding: s(14) },
-    rowText: { flex: 1, gap: vs(2) },
-    label: { fontSize: ms(14), fontFamily: FontFamily.medium },
-    detail: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular },
-    note: { flexDirection: 'row', gap: s(7), marginTop: vs(12), paddingHorizontal: s(2) },
-    noteText: { flex: 1, fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular },
-});

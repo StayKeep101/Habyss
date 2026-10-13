@@ -1,5 +1,5 @@
 import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, Linking } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
+import { styles } from '@/styles/screens/help.styles';
 
 const Help = () => {
     // const colorScheme = useColorScheme();
@@ -81,47 +82,4 @@ const Help = () => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    content: { ...UIStyles.screenContent },
-    sectionTitle: UIStyles.sectionTitle,
-    card: {
-        borderRadius: Radius.card,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    faqItem: {
-        padding: 16,
-    },
-    question: {
-        fontSize: 15,
-        fontFamily: FontFamily.semibold,
-        marginBottom: 6,
-    },
-    answer: {
-        fontSize: 13,
-        fontFamily: FontFamily.regular,
-        lineHeight: 20,
-    },
-    divider: {
-        height: 1,
-        marginHorizontal: 16,
-    },
-    contactBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: Radius.card,
-        borderWidth: 1,
-        gap: 12,
-    },
-    contactText: {
-        flex: 1,
-        fontSize: 15,
-        fontFamily: FontFamily.semibold,
-    },
-
-});
 export default Help;

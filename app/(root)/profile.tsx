@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { Colors } from '@/constants/Colors';
@@ -17,6 +17,7 @@ import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { recovery } from '@/lib/recovery';
 import { EMPTY_PROFILE, ageFrom, getProfile, initials, saveProfile, type Profile } from '@/lib/profile';
 import { ProfileView } from '@/components/Profile/ProfileView';
+import { styles } from '@/styles/screens/profile.styles';
 
 
 /** Loaded lazily: a build without the picker should still show the page. */
@@ -166,14 +167,3 @@ export default function ProfileScreen() {
         </SheetScreen>
     );
 }
-
-const styles = StyleSheet.create({
-    // The banner runs to both edges, so the page's padding cannot apply to it.
-    content: { paddingBottom: vs(40), gap: vs(12) },
-    // Half on the banner, half off it: the overlap is what makes it a profile
-    // rather than a photograph with a card under it.
-    // No box: a bio reads as a sentence about someone, not as a filled field.
-    removeRow: { flexDirection: 'row', gap: s(16), paddingTop: vs(4) },
-    removeText: { fontSize: ms(12), fontFamily: FontFamily.medium },
-    footnote: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular, textAlign: 'center', marginTop: vs(8), marginHorizontal: s(20) },
-});

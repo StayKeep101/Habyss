@@ -1,6 +1,6 @@
 import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
 import { useState, useEffect } from 'react';
-import { ScrollView, View, Text, StyleSheet, Switch, Alert, Linking, Pressable } from 'react-native';
+import { ScrollView, View, Text, Switch, Alert, Linking, Pressable } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -19,6 +19,7 @@ import { DEFAULT_ECHO, DEFAULT_DAY, getEchoConfig, saveEchoConfig, getDayWindow,
 import { aliveLine } from '@/lib/echoAlive';
 import { scheduledActivitiesEnabled, setScheduledActivitiesEnabled, scheduledActivitiesCapability } from '@/lib/scheduledActivities';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
+import { styles } from '@/styles/screens/notifications.styles';
 
 const Notifications = () => {
   const { theme } = useTheme();
@@ -276,53 +277,5 @@ const Notifications = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  detail: { paddingHorizontal: 16, paddingBottom: 16, fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular },
-  preview: { marginHorizontal: 16, marginBottom: 12, padding: 13, borderRadius: 14, gap: 6 },
-  previewTime: { fontSize: 9, letterSpacing: 0.8, fontFamily: FontFamily.medium },
-  previewTitle: { fontSize: 13, fontFamily: FontFamily.medium },
-  previewBody: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular },
-  echoLink: { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  container: {
-    flex: 1,
-  },
-  content: { ...UIStyles.screenContent,
-
-    gap: 16,
-   },
-  card: {
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  rowContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  textContent: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 15,
-    fontFamily: FontFamily.semibold,
-  },
-  subtitle: {
-    fontSize: 12,
-    fontFamily: FontFamily.regular,
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    marginHorizontal: 16,
-  },
-});
 
 export default Notifications;

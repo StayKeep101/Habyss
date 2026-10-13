@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/39</span>
+                <span class='fraction'>0/41</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>0/10</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/39</span>
+                <span class='fraction'>0/40</span>
             </div>
         
             
@@ -148,7 +148,11 @@
 <a name='L83'></a><a href='#L83'>83</a>
 <a name='L84'></a><a href='#L84'>84</a>
 <a name='L85'></a><a href='#L85'>85</a>
-<a name='L86'></a><a href='#L86'>86</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -159,10 +163,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -234,21 +240,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useState, useEffect, useCallback } from 'react';
-import { DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RevenueCatService, { ProStatus } from '@/lib/RevenueCat';
 import { useHaptics } from './useHaptics';
+import { PAYWALL_ENABLED } from '@/constants/features';
+import { on } from '@/lib/appEvents';
 &nbsp;
 export const PREMIUM_BUTTONS = <span class="cstat-no" title="statement not covered" >[</span>
   'ai_coaching_button'
 ];
 &nbsp;
 export const usePremiumStatus = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-  const [isPremium, setIsPremium] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
-  const [loading, setLoading] = <span class="cstat-no" title="statement not covered" >useState(true);</span>
+  // With the paywall off, everyone has everything and RevenueCat is not asked.
+  const [isPremium, setIsPremium] = <span class="cstat-no" title="statement not covered" >useState(!PAYWALL_ENABLED);</span>
+  const [loading, setLoading] = <span class="cstat-no" title="statement not covered" >useState(PAYWALL_ENABLED);</span>
   const { lightFeedback } = <span class="cstat-no" title="statement not covered" >useHaptics();</span>
 &nbsp;
   const refreshStatus = <span class="cstat-no" title="statement not covered" >useCallback(<span class="fstat-no" title="function not covered" >as</span>ync () =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    if (!PAYWALL_ENABLED) <span class="cstat-no" title="statement not covered" >return;</span></span>
     // 1. Check cache first for instant load
 <span class="cstat-no" title="statement not covered" >    try {</span>
       const cached = <span class="cstat-no" title="statement not covered" >await AsyncStorage.getItem('is_premium_cache');</span>
@@ -282,7 +291,7 @@ export const usePremiumStatus = <span class="cstat-no" title="statement not cove
 <span class="cstat-no" title="statement not covered" >    refreshStatus();</span>
 &nbsp;
     // Listen for updates (e.g. from Paywall purchase)
-    const subscription = <span class="cstat-no" title="statement not covered" >DeviceEventEmitter.addListener('premium_status_updated', <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
+    const subscription = <span class="cstat-no" title="statement not covered" >on('premium_status_updated', <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      refreshStatus();</span>
     });
 &nbsp;
@@ -325,7 +334,7 @@ export const usePremiumStatus = <span class="cstat-no" title="statement not cove
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-29T22:38:40.025Z
+                at 2026-10-13T20:54:31.290Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

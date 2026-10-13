@@ -22,6 +22,7 @@ import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useHistory } from '@/hooks/useHistory';
 import { dayFill, monthDays, monthTotals, type DaySummary } from '@/lib/progressMonth';
 import { dateAt } from '@/lib/goalInsights';
+import { styles } from '@/styles/screens/progress.styles';
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const OPEN = { duration: 320, easing: Easing.out(Easing.cubic) };
@@ -459,38 +460,3 @@ const DayCard = ({ day, frame, morph, screen, colors, isLight, accent, habitName
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-const styles = StyleSheet.create({
-    content: { paddingHorizontal: 20, paddingBottom: 40 },
-    monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
-    month: { fontSize: 17, fontFamily: FontFamily.semibold },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-    weekday: { width: '14.2857%', textAlign: 'center', fontSize: 10, fontFamily: FontFamily.medium, marginBottom: 8 },
-    cell: { width: '14.2857%', alignItems: 'center', paddingVertical: 4 },
-    dayButton: { alignItems: 'center', justifyContent: 'center' },
-    ringSvg: { position: 'absolute', top: 0, left: 0 },
-    dayNumber: { fontSize: 12 },
-    totals: { flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 24 },
-    big: { fontSize: 46, fontFamily: FontFamily.bold, letterSpacing: -1.5 },
-    bigLabel: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: -4 },
-    statList: { flex: 1, gap: 8 },
-    stat: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    statValue: { fontSize: 15, fontFamily: FontFamily.semibold, minWidth: 40 },
-    statLabel: { fontSize: 12, fontFamily: FontFamily.regular },
-    chartHead: { marginTop: 24, gap: 1 },
-    readDay: { fontSize: 15, fontFamily: FontFamily.semibold },
-    readTotal: { fontSize: 12, fontFamily: FontFamily.regular },
-    chart: { flexDirection: 'row', alignItems: 'flex-end', height: 80, marginTop: 10, gap: 1 },
-    barSlot: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-    bar: { width: '70%', borderRadius: 3 },
-    chartAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-    axisText: { fontSize: 10, fontFamily: FontFamily.regular },
-    card: { position: 'absolute', borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 12 },
-    cardBody: { flex: 1, padding: 16 },
-    cardHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
-    cardDate: { fontSize: 16, fontFamily: FontFamily.semibold },
-    cardMeta: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 2 },
-    line: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-    lineText: { flex: 1, fontSize: 14, fontFamily: FontFamily.regular },
-    empty: { fontSize: 13, fontFamily: FontFamily.regular, paddingVertical: 8 },
-});

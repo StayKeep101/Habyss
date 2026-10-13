@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -106,31 +106,23 @@
 <a name='L41'></a><a href='#L41'>41</a>
 <a name='L42'></a><a href='#L42'>42</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">453x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -138,8 +130,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">278x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">123x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -147,31 +147,31 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Dimensions, PixelRatio, Platform } from 'react-native';
 &nbsp;
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = <span class="cstat-no" title="statement not covered" >Dimensions.get('window');</span>
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 &nbsp;
 // Design baseline: iPhone 14/15 (390 x 844)
-const BASE_WIDTH = <span class="cstat-no" title="statement not covered" >390;</span>
-const BASE_HEIGHT = <span class="cstat-no" title="statement not covered" >844;</span>
+const BASE_WIDTH = 390;
+const BASE_HEIGHT = 844;
 &nbsp;
 // Scale factor based on screen width (most important for horizontal layout)
-const widthScale = <span class="cstat-no" title="statement not covered" >SCREEN_WIDTH / BASE_WIDTH;</span>
+const widthScale = SCREEN_WIDTH / BASE_WIDTH;
 // Scale factor based on screen height
-const heightScale = <span class="cstat-no" title="statement not covered" >SCREEN_HEIGHT / BASE_HEIGHT;</span>
+const heightScale = SCREEN_HEIGHT / BASE_HEIGHT;
 &nbsp;
 /**
  * Scale a value proportionally to the screen width.
  * Use for: fontSize, padding, margin, borderRadius, icon sizes, gap.
  */
-export function <span class="fstat-no" title="function not covered" >s(</span>size: number): number {
-<span class="cstat-no" title="statement not covered" >  return Math.round(PixelRatio.roundToNearestPixel(size * widthScale));</span>
+export function s(size: number): number {
+  return Math.round(PixelRatio.roundToNearestPixel(size * widthScale));
 }
 &nbsp;
 /**
  * Scale a value proportionally to the screen height.
  * Use for: vertical spacing, container heights, top/bottom padding.
  */
-export function <span class="fstat-no" title="function not covered" >vs(</span>size: number): number {
-<span class="cstat-no" title="statement not covered" >  return Math.round(PixelRatio.roundToNearestPixel(size * heightScale));</span>
+export function vs(size: number): number {
+  return Math.round(PixelRatio.roundToNearestPixel(size * heightScale));
 }
 &nbsp;
 /**
@@ -179,8 +179,8 @@ export function <span class="fstat-no" title="function not covered" >vs(</span>s
  * Good for font sizes so text doesn't get too tiny on small screens
  * or too huge on tablets. factor=0.5 by default (half-way).
  */
-export function <span class="fstat-no" title="function not covered" >ms(</span>size: number, factor: number = <span class="branch-0 cbranch-no" title="branch not covered" >0.5)</span>: number {
-<span class="cstat-no" title="statement not covered" >  return Math.round(</span>
+export function ms(size: number, factor: number = 0.5): number {
+  return Math.round(
     PixelRatio.roundToNearestPixel(size + (s(size) - size) * factor)
   );
 }
@@ -193,7 +193,7 @@ export { SCREEN_WIDTH, SCREEN_HEIGHT };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-29T22:38:40.025Z
+                at 2026-10-13T20:54:31.290Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

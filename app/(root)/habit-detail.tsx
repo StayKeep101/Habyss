@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
+import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, LinearTransition, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -21,6 +21,7 @@ import { localHabitDate, measurementFor } from '@/lib/habitMeasurement';
 import { isHabitScheduledForDate, parseHabitDate } from '@/lib/habitSchedule';
 import { readableAccent } from '@/lib/colorContrast';
 import { on } from '@/lib/appEvents';
+import { styles } from '@/styles/screens/habit-detail.styles';
 
 // Timing rather than a spring, so nothing overshoots when the page
 // changes size under a tap.
@@ -330,29 +331,3 @@ export default function HabitDetailScreen() {
         </SheetScreen>
     );
 }
-
-const styles = StyleSheet.create({
-    strip: { flex: 1, flexDirection: 'row' },
-    flex: { flex: 1 },
-    swapped: { gap: 18 },
-    switcher: { position: 'absolute', left: 20, right: 20, bottom: 16 },
-    headerActions: { flexDirection: 'row', gap: 4 },
-    content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 84, gap: 14 },
-    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-    retry: { minHeight: 44, padding: 12, alignItems: 'center', justifyContent: 'center' },
-    rhythm: { paddingVertical: 12, paddingHorizontal: 10 },
-    week: { flexDirection: 'row', gap: 2 },
-    day: { flex: 1, paddingVertical: 8, borderRadius: 14, gap: 5, alignItems: 'center', justifyContent: 'center' },
-    weekday: { fontFamily: FontFamily.medium, fontSize: 10 },
-    dayCircle: { width: 27, height: 27, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-    dayNumber: { fontFamily: FontFamily.regular, fontSize: 12 },
-    todayDot: { width: 3, height: 3, borderRadius: 2 },
-    divider: { height: StyleSheet.hairlineWidth, marginVertical: 8, marginHorizontal: 4 },
-    statRow: { flexDirection: 'row' },
-    stat: { flex: 1, alignItems: 'center', gap: 1, paddingHorizontal: 4 },
-    statTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    statValue: { fontFamily: FontFamily.display, fontSize: 19, lineHeight: 26, fontVariant: ['tabular-nums'] },
-    statLabel: { fontFamily: FontFamily.regular, fontSize: 10, textAlign: 'center' },
-    note: { gap: 6, paddingHorizontal: 4 },
-    heatmap: { padding: 16 },
-});

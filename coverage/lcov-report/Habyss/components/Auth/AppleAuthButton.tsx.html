@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>0/10</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/4</span>
             </div>
         
             
@@ -82,7 +82,14 @@
 <a name='L17'></a><a href='#L17'>17</a>
 <a name='L18'></a><a href='#L18'>18</a>
 <a name='L19'></a><a href='#L19'>19</a>
-<a name='L20'></a><a href='#L20'>20</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -93,33 +100,44 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Platform, StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useTheme } from '@/constants/themeContext';
 &nbsp;
-/**
- * Apple Auth Button — DISABLED in local-only mode
- * Will be re-enabled when premium cloud sync is available.
- * For now, renders nothing (returning null).
- */
-export function <span class="fstat-no" title="function not covered" >AppleAuthButton(</span>{ type = <span class="branch-0 cbranch-no" title="branch not covered" >'sign-in' </span>}: { type?: 'sign-in' | 'sign-up' | 'continue' }) {
-    // Authentication is not available in free/local-only mode
-<span class="cstat-no" title="statement not covered" >    return null;</span>
+/** Native Apple branding; SignInOptions owns authentication and account sync. */
+export function <span class="fstat-no" title="function not covered" >AppleAuthButton(</span>{ type = <span class="branch-0 cbranch-no" title="branch not covered" >'continue',</span> onPress, disabled = <span class="branch-0 cbranch-no" title="branch not covered" >false </span>}: {
+    type?: 'sign-in' | 'sign-up' | 'continue';
+    onPress: () =&gt; void;
+    disabled?: boolean;
+}) {
+    const { theme } = <span class="cstat-no" title="statement not covered" >useTheme();</span>
+    const types = <span class="cstat-no" title="statement not covered" >AppleAuthentication.AppleAuthenticationButtonType;</span>
+<span class="cstat-no" title="statement not covered" >    return &lt;View pointerEvents={disabled ? 'none' : 'auto'} accessibilityState={{ disabled }}&gt;</span>
+        &lt;AppleAuthentication.AppleAuthenticationButton
+            buttonType={type === 'sign-in' ? types.SIGN_IN : type === 'sign-up' ? types.SIGN_UP : types.CONTINUE}
+            buttonStyle={theme === 'light' ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+            cornerRadius={999}
+            style={styles.button}
+            onPress={onPress}
+        /&gt;
+    &lt;/View&gt;;
 }
 &nbsp;
-const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.create({</span>
-    button: {
-        width: '100%',
-        height: 52,
-    },
-});
+const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.create({ button: { width: '100%', height: 54 } });</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -127,7 +145,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-29T22:38:40.025Z
+                at 2026-10-13T20:54:31.290Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

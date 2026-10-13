@@ -4,7 +4,7 @@ import { SheetSection } from '@/components/Layout/SheetSection';
 import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
 import { useState } from 'react';
 import { sendFeedback } from '@/lib/feedback';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, Alert, Linking } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -14,6 +14,7 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { useTheme } from '@/constants/themeContext';
+import { styles } from '@/styles/screens/contact.styles';
 
 const Contact = () => {
     // const colorScheme = useColorScheme();
@@ -87,30 +88,5 @@ const Contact = () => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    content: { ...UIStyles.screenContent },
-    card: {
-        borderRadius: Radius.card,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    linkRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        gap: 12,
-    },
-    linkText: {
-        fontSize: 15,
-        fontFamily: FontFamily.regular,
-    },
-    divider: {
-        height: 1,
-        marginHorizontal: 16,
-    },
-});
 
 export default Contact;

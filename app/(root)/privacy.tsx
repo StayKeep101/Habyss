@@ -2,7 +2,7 @@ import { useAccentGradient } from '@/constants/AccentContext';
 import { AppButton } from '@/components/Common/AppButton';
 import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
 import { useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, Switch, Alert } from 'react-native';
+import { ScrollView, View, Text, Switch, Alert } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -15,6 +15,7 @@ import { useTheme } from '@/constants/themeContext';
 import { useAppSettings } from '@/constants/AppSettingsContext';
 import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion';
 import { currentAccount, deleteAccount } from '@/lib/account';
+import { styles } from '@/styles/screens/privacy.styles';
 
 const Privacy = () => {
   // const colorScheme = useColorScheme();
@@ -156,57 +157,5 @@ const Privacy = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: { ...UIStyles.screenContent },
-  sectionTitle: UIStyles.sectionTitle,
-  card: {
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  rowContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  textContent: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 15,
-    fontFamily: FontFamily.semibold,
-  },
-  subtitle: {
-    fontSize: 12,
-    fontFamily: FontFamily.regular,
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    marginHorizontal: 16,
-  },
-  dangerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 16,
-    gap: 8,
-  },
-  dangerText: {
-    fontSize: 15,
-    fontFamily: FontFamily.semibold,
-  },
-});
 
 export default Privacy;

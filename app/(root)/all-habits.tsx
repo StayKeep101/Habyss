@@ -1,7 +1,7 @@
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { FontFamily, UIStyles } from '@/constants/DesignSystem';
 import { useCallback, useEffect, useState } from 'react';
-import {ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/Colors';
@@ -12,6 +12,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { getHabits, getGoals, type Habit } from '@/lib/habitsSQLite';
 import { describeRecurrence } from '@/lib/onboarding';
 import { on } from '@/lib/appEvents';
+import { styles } from '@/styles/screens/all-habits.styles';
 
 type Filter = 'active' | 'archived' | 'all';
 
@@ -138,14 +139,3 @@ export default function AllHabitsScreen() {
             </SheetScreen>
     );
 }
-
-const styles = StyleSheet.create({
-    filters: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 12 },
-    chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
-    content: { ...UIStyles.screenContent,   gap: 8  },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-    icon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    name: { fontSize: 15, fontFamily: FontFamily.medium },
-    meta: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 3 },
-    empty: { fontSize: 14, fontFamily: FontFamily.regular, textAlign: 'center', marginTop: 40 },
-});

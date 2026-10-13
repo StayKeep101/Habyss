@@ -1,6 +1,6 @@
 import { FontFamily } from '@/constants/DesignSystem';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { afterPaint } from '@/lib/afterPaint';
 import Animated, {
     useAnimatedScrollHandler,
@@ -37,6 +37,7 @@ import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { buildDayPlan } from '@/lib/dayPlan';
 import { DEFAULT_DAY, getDayWindow, type DayWindow } from '@/lib/echo';
+import { styles } from '@/styles/screens/tabs/roadmap.styles';
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -1119,58 +1120,5 @@ const CalendarScreen = () => {
     );
 };
 
-const styles = StyleSheet.create({
-    dragOverlay: {
-        ...StyleSheet.absoluteFill,
-        zIndex: 30,
-    },
-    dragPreview: {
-        position: 'absolute',
-        minHeight: 56,
-        borderRadius: 18,
-        borderWidth: 1.5,
-        paddingHorizontal: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        shadowColor: '#000',
-        shadowOpacity: 0.16,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 10,
-    },
-    dragPreviewText: {
-        flex: 1,
-        fontSize: 14,
-        fontFamily: FontFamily.medium,
-    },
-    filterOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        gap: 12
-    },
-    filterText: {
-        fontSize: 16,
-        fontFamily: FontFamily.semibold
-    },
-    sortChip: {
-        flex: 1,
-        paddingVertical: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(128,128,128,0.2)',
-        backgroundColor: 'rgba(128,128,128,0.05)',
-    },
-    sortText: {
-        fontSize: 12,
-        color: 'rgba(128,128,128,0.7)',
-        fontFamily: FontFamily.semibold
-    }
-});
 
 export default CalendarScreen;

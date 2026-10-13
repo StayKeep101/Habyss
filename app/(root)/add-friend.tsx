@@ -2,7 +2,7 @@ import { AppButton } from '@/components/Common/AppButton';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { FontFamily } from '@/constants/DesignSystem';
 import { useEffect, useState } from 'react';
-import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -15,6 +15,7 @@ import { VoidCard } from '@/components/Layout/VoidCard';
 import { currentAccount } from '@/lib/account';
 import { addFriendByUsername, getMyUsername, usernameFrom } from '@/lib/friendsService';
 import { emit } from '@/lib/appEvents';
+import { styles } from '@/styles/screens/add-friend.styles';
 
 type State =
     | { kind: 'loading' }
@@ -115,14 +116,3 @@ export default function AddFriendScreen() {
         </VoidShell>
     );
 }
-
-const styles = StyleSheet.create({
-    safe: { flex: 1, paddingHorizontal: 16, justifyContent: 'center' },
-    close: { position: 'absolute', top: 60, right: 16, padding: 8, zIndex: 1 },
-    card: { padding: 22, alignItems: 'center', gap: 12 },
-    icon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-    title: { fontSize: 22, fontFamily: FontFamily.semibold },
-    body: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlign: 'center' },
-    button: { alignSelf: 'stretch', paddingVertical: 15, borderRadius: 999, alignItems: 'center', marginTop: 4 },
-    buttonText: { fontSize: 15, fontFamily: FontFamily.semibold, color: '#000' },
-});

@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>0/18</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>0/6</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>0/18</span>
             </div>
         
             
@@ -151,7 +151,18 @@
 <a name='L86'></a><a href='#L86'>86</a>
 <a name='L87'></a><a href='#L87'>87</a>
 <a name='L88'></a><a href='#L88'>88</a>
-<a name='L89'></a><a href='#L89'>89</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -171,8 +182,17 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -247,7 +267,8 @@ import Animated, {
     withRepeat,
     withTiming,
     Easing,
-    cancelAnimation
+    cancelAnimation,
+    useReducedMotion
 } from 'react-native-reanimated';
 &nbsp;
 interface SpinningLogoProps {
@@ -259,8 +280,17 @@ interface SpinningLogoProps {
 export const SpinningLogo: React.FC&lt;SpinningLogoProps&gt; = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >({</span> size = <span class="branch-0 cbranch-no" title="branch not covered" >80,</span> glow = <span class="branch-0 cbranch-no" title="branch not covered" >false </span>}) =&gt; {</span>
     const rotation = <span class="cstat-no" title="statement not covered" >useSharedValue(0);</span>
     const scale = <span class="cstat-no" title="statement not covered" >useSharedValue(1);</span>
+    const reduceMotion = <span class="cstat-no" title="statement not covered" >useReducedMotion();</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    useEffect(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
+        // A logo that spins forever is exactly what reduced motion is asking us
+        // not to do. It still renders, just still.
+<span class="cstat-no" title="statement not covered" >        if (reduceMotion) {</span>
+<span class="cstat-no" title="statement not covered" >            rotation.value = 0;</span>
+<span class="cstat-no" title="statement not covered" >            scale.value = 1;</span>
+<span class="cstat-no" title="statement not covered" >            return;</span>
+        }
+&nbsp;
 <span class="cstat-no" title="statement not covered" >        rotation.value = withRepeat(</span>
             withTiming(360, {
                 duration: 2600,
@@ -283,7 +313,7 @@ export const SpinningLogo: React.FC&lt;SpinningLogoProps&gt; = <span class="csta
 <span class="cstat-no" title="statement not covered" >            cancelAnimation(rotation);</span>
 <span class="cstat-no" title="statement not covered" >            cancelAnimation(scale);</span>
         };
-    }, []);
+    }, [reduceMotion]);
 &nbsp;
     const animatedStyle = <span class="cstat-no" title="statement not covered" >useAnimatedStyle(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        return {</span>
@@ -334,7 +364,7 @@ const styles = <span class="cstat-no" title="statement not covered" >StyleSheet.
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-29T22:38:40.025Z
+                at 2026-10-13T20:54:31.290Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

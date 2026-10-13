@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">40% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/10</span>
+                <span class='fraction'>4/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>3/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">25% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>2/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">40% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/10</span>
+                <span class='fraction'>4/10</span>
             </div>
         
             
@@ -93,28 +93,30 @@
 <a name='L28'></a><a href='#L28'>28</a>
 <a name='L29'></a><a href='#L29'>29</a>
 <a name='L30'></a><a href='#L30'>30</a>
-<a name='L31'></a><a href='#L31'>31</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -125,13 +127,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { NativeModules, Platform } from 'react-native';
 &nbsp;
-const { SharedDefaults } = <span class="cstat-no" title="statement not covered" >NativeModules;</span>
+const { SharedDefaults } = NativeModules;
 &nbsp;
 export interface SharedDefaultsType {
     set(key: string, value: string): Promise&lt;boolean&gt;;
     get(key: string): Promise&lt;string | null&gt;;
     getInteger(key: string): Promise&lt;number&gt;;
     getDouble(key: string): Promise&lt;number&gt;;
+    getPendingWidgetEvents?(): Promise&lt;string[]&gt;;
     getArray(key: string): Promise&lt;any[] | null&gt;;
     remove(key: string): Promise&lt;boolean&gt;;
     saveImage(base64: string, fileName: string): Promise&lt;string&gt;;
@@ -139,19 +142,19 @@ export interface SharedDefaultsType {
 }
 &nbsp;
 // Mock for non-iOS or Simulator if module missing
-const MockSharedDefaults: SharedDefaultsType = <span class="cstat-no" title="statement not covered" >{</span>
+const MockSharedDefaults: SharedDefaultsType = {
     set: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; <span class="cstat-no" title="statement not covered" >false,</span>
-    get: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; <span class="cstat-no" title="statement not covered" >null,</span>
+    get: async () =&gt; null,
     getInteger: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; <span class="cstat-no" title="statement not covered" >0,</span>
     getDouble: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; <span class="cstat-no" title="statement not covered" >0,</span>
-    getArray: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; <span class="cstat-no" title="statement not covered" >[],</span>
+    getArray: async () =&gt; [],
     remove: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; <span class="cstat-no" title="statement not covered" >false,</span>
     saveImage: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; <span class="cstat-no" title="statement not covered" >'',</span>
     reloadTimelines: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; <span class="cstat-no" title="statement not covered" >false,</span>
 };
 &nbsp;
 export default (Platform.OS === 'ios' &amp;&amp; SharedDefaults)
-    ? (SharedDefaults as SharedDefaultsType)
+    ? (<span class="branch-0 cbranch-no" title="branch not covered" >SharedDefaults as SharedDefaultsType)</span>
     : MockSharedDefaults;
 &nbsp;</pre></td></tr></table></pre>
 
@@ -160,7 +163,7 @@ export default (Platform.OS === 'ios' &amp;&amp; SharedDefaults)
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-29T22:38:40.025Z
+                at 2026-10-13T20:54:31.290Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

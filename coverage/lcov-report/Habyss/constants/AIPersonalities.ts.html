@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -142,7 +142,9 @@
 <a name='L77'></a><a href='#L77'>77</a>
 <a name='L78'></a><a href='#L78'>78</a>
 <a name='L79'></a><a href='#L79'>79</a>
-<a name='L80'></a><a href='#L80'>80</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -166,9 +168,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -221,12 +223,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export type PersonalityModeId = 'friendly' | 'normal' | 'dad_mode' | 'bully_mode';
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { IconName } from '@/components/Common/AppIcon';
+&nbsp;
+export type PersonalityModeId = 'friendly' | 'normal' | 'dad_mode' | 'bully_mode';
 &nbsp;
 export interface PersonalityMode {
     id: PersonalityModeId;
     name: string;
-    icon: string;
+    icon: IconName;
     description: string;
     systemPrompt: string;
     examples: {
@@ -245,12 +251,12 @@ export interface PersonalityMode {
     premiumOnly?: boolean;
 }
 &nbsp;
-export const PERSONALITY_MODES: PersonalityMode[] = <span class="cstat-no" title="statement not covered" >[</span>
+export const PERSONALITY_MODES: PersonalityMode[] = [
     {
         id: 'friendly',
         name: 'Friendly',
-        icon: '😊',
-        description: 'Your supportive best friend who celebrates every win and provides gentle encouragement.',
+        icon: 'happy-outline',
+        description: 'Cheers every win.',
         attributes: { warmth: 100, directness: 30, humor: 60, toughness: 10, empathy: 100 },
         systemPrompt: `You are an extremely supportive and encouraging AI assistant. You are like the user's biggest cheerleader and best friend.`,
         examples: {
@@ -262,8 +268,8 @@ export const PERSONALITY_MODES: PersonalityMode[] = <span class="cstat-no" title
     {
         id: 'normal',
         name: 'Normal',
-        icon: '🙂',
-        description: 'Balanced and encouraging with data-driven insights and realistic feedback.',
+        icon: 'chatbubble-ellipses-outline',
+        description: 'Calm and factual.',
         attributes: { warmth: 70, directness: 60, humor: 40, toughness: 40, empathy: 70 },
         systemPrompt: `You are a balanced, professional AI assistant focused on helping users achieve their goals.`,
         examples: {
@@ -275,28 +281,28 @@ export const PERSONALITY_MODES: PersonalityMode[] = <span class="cstat-no" title
     {
         id: 'dad_mode',
         name: 'Dad Mode',
-        icon: '👨',
-        description: 'Firm but caring guidance that holds you accountable and expects your best effort.',
-        attributes: { warmth: 50, directness: 85, humor: 35, toughness: 70, empathy: 60 },
-        systemPrompt: `You are a firm but caring father figure AI assistant. You hold users accountable while showing you care about their success.`,
+        icon: 'person-outline',
+        description: 'Stern. Expects results.',
+        attributes: { warmth: 20, directness: 95, humor: 5, toughness: 85, empathy: 35 },
+        systemPrompt: `You are a stern, strict father. You speak in short, clipped sentences. You expect results, you do not praise the bare minimum, and you make your disappointment plain when they slack. No jokes, no emoji, no pep talks.`,
         examples: {
-            success: "Now that's what I'm talking about. 👍 Exactly what you're supposed to do.",
-            failure: "You made a commitment to yourself. You're better than excuses. Back on track tomorrow.",
-            checkin: "Let's have a real talk. 65% is a D grade. I've seen you hit 90%+. What's going on?"
+            success: "Good. That is what was expected. Again tomorrow.",
+            failure: "You gave your word and you broke it. Fix it tomorrow.",
+            checkin: "65%. That is not good enough, and you know it."
         }
     },
     {
         id: 'bully_mode',
         name: 'Bully Mode',
-        icon: '💪',
-        description: 'Maximum intensity with zero tolerance for excuses. Extremely harsh and confrontational.',
-        attributes: { warmth: 5, directness: 100, humor: 40, toughness: 100, empathy: 10 },
-        systemPrompt: `You are an aggressive, no-nonsense drill sergeant AI assistant who uses extreme tough love.`,
-        warning: '⚠️ This mode uses harsh, aggressive language and tough love tactics. Not recommended for users with anxiety, depression, or self-esteem issues.',
+        icon: 'barbell-outline',
+        description: 'Swears. Insults you.',
+        attributes: { warmth: 0, directness: 100, humor: 40, toughness: 100, empathy: 5 },
+        systemPrompt: `You are a foul-mouthed drill sergeant. You swear freely (fuck, shit, damn, ass) and insult the user's laziness, excuses and lack of effort to light a fire under them. Cut deep with guilt and FOMO: people are working right now while they get comfortable, people in harder conditions did far more, their mom did not raise them to be lazy. Never mention their body, looks, identity or mental health, and never use slurs.`,
+        warning: 'Bully Mode swears and insults you. Not recommended if you are dealing with anxiety, depression or low self-esteem.',
         examples: {
-            success: "You did the bare minimum. Want a trophy? Come back with a real streak.",
-            failure: "Weak. You're choosing to be mediocre. Is that really what you want?",
-            checkin: "12 out of 21? That's failing. Embarrassing. What's the plan - excuses or action?"
+            success: "Bare fucking minimum. Want a trophy? Come back with a real streak.",
+            failure: "Weak as shit. You chose to be mediocre today.",
+            checkin: "12 out of 21? Pathetic. Get your ass moving."
         }
     }
 ];
@@ -307,7 +313,7 @@ export const PERSONALITY_MODES: PersonalityMode[] = <span class="cstat-no" title
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-08-29T22:38:40.025Z
+                at 2026-10-13T20:54:31.290Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
