@@ -19,9 +19,11 @@ struct HabyssLiveActivity: Widget {
                         Text(context.state.title)
                             .font(.headline)
                             .foregroundColor(.white)
-                        Text(context.isStale ? "Session window finished · check in when you’re ready" : context.state.subtitle)
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                        if context.isStale || !context.state.subtitle.isEmpty {
+                            Text(context.isStale ? "Session window finished · check in when you’re ready" : context.state.subtitle)
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                        }
                     }
                     Spacer()
                 }
@@ -76,7 +78,9 @@ struct HabyssLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                      // Progress Bar in Expanded
                      VStack {
-                         Text(context.isStale ? "Session window finished · check in when you’re ready" : context.state.subtitle).font(.caption)
+                         if context.isStale || !context.state.subtitle.isEmpty {
+                             Text(context.isStale ? "Session window finished · check in when you’re ready" : context.state.subtitle).font(.caption)
+                         }
                          ActivityProgress(state: context.state)
                              .tint(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
                      }
@@ -90,8 +94,7 @@ struct HabyssLiveActivity: Widget {
                         .frame(width: 20, height: 20)
                         .clipShape(Circle())
                 } else {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
+                    HabyssMark()
                 }
             } compactTrailing: {
                 if let endDate = context.state.timerEndDateInMilliseconds {
@@ -112,8 +115,7 @@ struct HabyssLiveActivity: Widget {
                         .frame(width: 20, height: 20)
                         .clipShape(Circle())
                 } else {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
+                    HabyssMark()
                 }
             }
             .widgetURL(URL(string: context.state.url ?? "habyss://home"))
@@ -130,6 +132,16 @@ struct HabyssLiveActivity: Widget {
             return Image(uiImage: uiImage)
         }
         return nil
+    }
+}
+
+/// The Habyss logo, where the Dynamic Island and the Mac menu bar show the app.
+private struct HabyssMark: View {
+    var body: some View {
+        Image("HabyssMark")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 20, height: 20)
     }
 }
 
@@ -159,7 +171,7 @@ extension WidgetAttributes.ContentState {
     fileprivate static var focus: WidgetAttributes.ContentState {
         WidgetAttributes.ContentState(
             title: "Deep Work",
-            subtitle: "Focusing...",
+            subtitle: "",
             timerEndDateInMilliseconds: Date().addingTimeInterval(1500).timeIntervalSince1970 * 1000,
             progress: 0.3,
             profileImagePath: nil

@@ -53,7 +53,7 @@ export const LiveActivityService = {
 
             const progress = stats.total > 0 ? stats.completed / stats.total : 0;
             const subtitle = stats.activeHabitName
-                ? 'Focusing...'
+                ? ''
                 : stats.streakDays
                     ? `🔥 ${stats.streakDays} day streak`
                     : stats.topHabitName
@@ -120,7 +120,7 @@ export const LiveActivityService = {
 
             if (stats.activeHabitName) {
                 title = stats.activeHabitName;
-                subtitle = 'Focusing...';
+                subtitle = '';
             }
 
             const profileImagePath: string | undefined = undefined;

@@ -96,6 +96,29 @@ const STORAGE_KEY_ALL_TIME_BEST = 'focus_all_time_best';
 const STORAGE_KEY_ACTIVE_DAYS_WEEK = 'focus_active_days_week';
 const STORAGE_KEY_COMPLETED_SESSIONS_WEEK = 'focus_completed_sessions_week';
 const STORAGE_KEY_TOTAL_SESSIONS_WEEK = 'focus_total_sessions_week';
+const STORAGE_KEY_ACTIVE_SESSION = 'focus_active_session';
+
+/**
+ * The session in progress, kept on disk so a relaunch picks it up where it
+ * was: still running towards the same end time, or paused with the same time
+ * left. Without it, closing the app forgot the timer while its Live Activity
+ * kept counting.
+ */
+interface ActiveSnapshot {
+    habitId: string;
+    habitName: string;
+    mode: FocusMode;
+    totalDuration: number;
+    paused: boolean;
+    /** Running countdowns: when the session ends (ms). */
+    endTime: number | null;
+    /** Running sessions: when the current stretch began (ms). */
+    focusStart: number | null;
+    /** Paused countdowns: seconds left; paused flow: seconds elapsed. */
+    timeLeft: number;
+    startedAt: string;
+    actualDuration: number;
+}
 
 // Helper: Get current user ID
 const getUserId = async (): Promise<string | null> => {
@@ -173,6 +196,13 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const activityIdRef = useRef<string | null>(null);
     const todaySessionRecordedRef = useRef(false); // Track if we recorded a session for today's active days
     const hasShownBlockingSetupPromptRef = useRef(false);
+
+    const persistActive = useCallback((snapshot: ActiveSnapshot | null) => {
+        (snapshot
+            ? AsyncStorage.setItem(STORAGE_KEY_ACTIVE_SESSION, JSON.stringify(snapshot))
+            : AsyncStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION)
+        ).catch(() => { });
+    }, []);
 
     // DERIVED: Industry-Standard Calculations
     const dailyAverageAccurate = activeDaysThisWeek > 0
@@ -486,6 +516,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         focusStartRef.current = null;
         currentSessionRef.current = null;
         hasShownBlockingSetupPromptRef.current = false;
+        persistActive(null);
 
         // End Live Activity - Handled by _layout.tsx
         // Actually, we should handle it here to be safe and immediate
@@ -495,7 +526,39 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Haptic + Notification
         Vibration.vibrate([0, 500, 200, 500]);
         NotificationService.sendCompletionNotification(session?.habitName || 'Focus Session');
-    }, [totalDuration, updateStats, saveFocusSession]);
+    }, [totalDuration, updateStats, saveFocusSession, persistActive]);
+
+    // ============================================
+    // Restore the session a relaunch interrupted
+    // ============================================
+    useEffect(() => {
+        AsyncStorage.getItem(STORAGE_KEY_ACTIVE_SESSION).then(raw => {
+            if (!raw) return;
+            const saved: ActiveSnapshot = JSON.parse(raw);
+            currentSessionRef.current = {
+                habitId: saved.habitId,
+                habitName: saved.habitName,
+                mode: saved.mode,
+                startedAt: new Date(saved.startedAt),
+                plannedDuration: saved.totalDuration,
+                actualDuration: saved.actualDuration,
+                completed: false,
+            };
+            endTimeRef.current = saved.paused ? null : saved.endTime;
+            focusStartRef.current = saved.paused ? null : saved.focusStart;
+            setActiveHabitId(saved.habitId);
+            setActiveHabitName(saved.habitName);
+            setActiveMode(saved.mode);
+            setTotalDuration(saved.totalDuration);
+            // A running countdown that ended while the app was closed finishes
+            // on the first tick, exactly as if the app had stayed open.
+            setTimeLeft(saved.paused || !saved.endTime
+                ? saved.timeLeft
+                : Math.max(0, Math.ceil((saved.endTime - Date.now()) / 1000)));
+            setIsPaused(saved.paused);
+            setIsRunning(!saved.paused);
+        }).catch(() => AsyncStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION).catch(() => { }));
+    }, []);
 
     // ============================================
     // Start Timer
@@ -535,6 +598,12 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             actualDuration: 0,
             completed: false,
         };
+        persistActive({
+            habitId, habitName, mode, totalDuration: durationSeconds, paused: false,
+            endTime: endTimeRef.current, focusStart: now,
+            timeLeft: mode === 'flow' ? 0 : durationSeconds,
+            startedAt: new Date(now).toISOString(), actualDuration: 0,
+        });
 
         // Enable Screen Time Shield when available. If setup is incomplete, prompt once.
         if (Platform.OS === 'ios') {
@@ -560,7 +629,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
 
         return true;
-    }, [isRunning, isPaused]);
+    }, [isRunning, isPaused, persistActive]);
 
     // ============================================
     // Pause Timer
@@ -580,6 +649,15 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         endTimeRef.current = null;
 
+        const session = currentSessionRef.current;
+        if (session && activeHabitId) {
+            persistActive({
+                habitId: activeHabitId, habitName: activeHabitName || session.habitName, mode: activeMode,
+                totalDuration, paused: true, endTime: null, focusStart: null,
+                timeLeft, startedAt: session.startedAt.toISOString(), actualDuration: session.actualDuration,
+            });
+        }
+
         // Disable Screen Time Shield
         ScreenTimeService.setShieldEnabled(false);
 
@@ -592,7 +670,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             targetDate: undefined, // Clear timer
         });
 
-    }, [isRunning, isPaused, activeHabitName]);
+    }, [isRunning, isPaused, activeHabitId, activeHabitName, activeMode, totalDuration, timeLeft, persistActive]);
 
     // ============================================
     // Resume Timer
@@ -609,6 +687,15 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             endTimeRef.current = now + (timeLeft * 1000);
         }
 
+        const session = currentSessionRef.current;
+        if (session && activeHabitId) {
+            persistActive({
+                habitId: activeHabitId, habitName: activeHabitName || session.habitName, mode: activeMode,
+                totalDuration, paused: false, endTime: endTimeRef.current, focusStart: now,
+                timeLeft, startedAt: session.startedAt.toISOString(), actualDuration: session.actualDuration,
+            });
+        }
+
         if (Platform.OS === 'ios') {
             ScreenTimeService.armShieldIfPossible();
         }
@@ -622,7 +709,7 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             targetDate: endTimeRef.current || (Date.now() + timeLeft * 1000),
         });
 
-    }, [isPaused, timeLeft, activeHabitName, activeMode]);
+    }, [isPaused, timeLeft, activeHabitId, activeHabitName, activeMode, totalDuration, persistActive]);
 
     // ============================================
     // Stop Timer (early termination)
@@ -673,8 +760,9 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         endTimeRef.current = null;
         currentSessionRef.current = null;
         hasShownBlockingSetupPromptRef.current = false;
+        persistActive(null);
 
-    }, [updateStats, saveFocusSession]);
+    }, [updateStats, saveFocusSession, persistActive]);
 
     // ============================================
     // Manual focus time add
