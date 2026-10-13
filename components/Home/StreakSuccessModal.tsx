@@ -117,7 +117,7 @@ export const StreakSuccessModal = ({ visible, streak, onClose, completedDates = 
                     </Animated.View>
 
                     <Text style={[styles.title, { color: colors.textPrimary }]}>{streak}-day streak</Text>
-                    <Text style={[styles.body, { color: colors.textSecondary }]}>Everything due today is done.</Text>
+                    <Text style={[styles.body, { color: colors.textSecondary }]}>Today counts. One thing tomorrow keeps it going.</Text>
 
                     <View style={styles.week}>
                         {week.map(({ date, key }, index) => (

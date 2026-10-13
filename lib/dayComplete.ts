@@ -100,7 +100,7 @@ export function streakFrom(
 
 const KEY = 'habyss_day_celebrated';
 
-/** True the first time a day is finished, and never again that day. */
+/** True the first time a day counts towards the streak, and never again that day. */
 export async function claimCelebration(today = localDateKey(new Date())): Promise<boolean> {
     try {
         if ((await AsyncStorage.getItem(KEY)) === today) return false;
@@ -112,8 +112,8 @@ export async function claimCelebration(today = localDateKey(new Date())): Promis
 }
 
 /**
- * Checks the day after anything is ticked off, and announces it the first
- * time everything is done. Quiet on any failure: a celebration is never worth
+ * Checks the day after anything is ticked off, and announces the streak the
+ * first time something is finished that day. Quiet on any failure: a celebration is never worth
  * an error in front of the user.
  */
 export async function checkDayComplete(): Promise<void> {
@@ -126,7 +126,11 @@ export async function checkDayComplete(): Promise<void> {
             getHabits(), getCompletions(today), getSkipped(today), getTasks({ includeDone: true }), getDailyTarget(),
         ]);
         const tally = tallyDay(habits, completions, skipped, tasks, today, target);
-        if (!isDayComplete(tally)) return;
+        // The first thing finished keeps the streak, so that is the moment
+        // worth marking, not the last. Cheap check first, before any history.
+        const doneSomething = habits.some(habit => !habit.isGoal && completions[habit.id] && !skipped[habit.id])
+            || tasks.some(task => doneOnDay(task, today));
+        if (!doneSomething) return;
         if (!(await claimCelebration(today))) return;
 
         // The card shows the run this day just extended.
