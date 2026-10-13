@@ -77,6 +77,23 @@ describe('native reminder refresh', () => {
         expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
         expect(LocationService.refreshGeofences).toHaveBeenCalled();
     });
+    it('cancels the repeating reminders older builds left behind', async () => {
+        (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([
+            { identifier: 'old-daily', content: { title: 'Habyss Reminder', data: { habitId: 'read' } } },
+            { identifier: 'old-motivation', content: { data: { habitId: 'read', type: 'motivation' } } },
+            { identifier: 'timer', content: { data: { type: 'timer' } } },
+        ]);
+        await NotificationService.refreshHabitReminders();
+        expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('old-daily');
+        expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('old-motivation');
+        expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalledWith('timer');
+    });
+    it('sends one notification when two copies of a habit share a time', async () => {
+        (getHabits as jest.Mock).mockResolvedValue([habit, { ...habit, id: 'read-copy' }]);
+        await NotificationService.refreshHabitReminders();
+        const times = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(([request]) => request.trigger.date.getTime());
+        expect(new Set(times).size).toBe(times.length);
+    });
     it('reserves capacity for unrelated notifications', async () => {
         (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue(Array.from({ length: 54 }, (_, id) => ({ identifier: 'timer-' + id, content: { data: { type: 'timer' } } })));
         await NotificationService.refreshHabitReminders();

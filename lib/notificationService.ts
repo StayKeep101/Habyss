@@ -191,9 +191,13 @@ export class NotificationService {
         const habitsAllowed = habitPreference !== 'false';
         const name = config.useName ? person : undefined;
         const written = allowed && config.writeReminders ? await writer.loadWrittenLines() : {};
+        // Anything about a habit or a task is ours to replace. Builds from late
+        // 2025 booked repeating daily reminders tagged with only a habitId; they
+        // were never recognised here, so they kept firing beside the new ones
+        // and every reminder arrived twice.
         const ours = (item: Notifications.NotificationRequest) =>
           ['habit-reminder', 'task-reminder', 'echo-check-in', 'echo-alive'].includes(String(item.content.data?.kind))
-          || (typeof item.content.data?.habitId === 'string' && typeof item.content.data?.url === 'string');
+          || typeof item.content.data?.habitId === 'string' || typeof item.content.data?.taskId === 'string';
         const old = pending.filter(ours);
         // One budget includes Echo, regular reminders, and daily check-ins.
         const budget = Math.max(0, 56 - pending.filter(item => !ours(item)).length);
@@ -257,7 +261,17 @@ export class NotificationService {
               data: { kind: 'echo-check-in', when: item.kind, url: '/(root)/(tabs)/home' } } });
           }
         }
-        const desired = candidates.sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, budget);
+        // The same words at the same minute are one notification, even when two
+        // copies of a habit or task (a restore, a share) asked for it.
+        const seen = new Set<string>();
+        const desired = candidates.sort((a, b) => a.date.getTime() - b.date.getTime())
+          .filter(item => {
+            const key = Math.floor(item.date.getTime() / 60000) + '|' + item.content.title + '|' + item.content.body;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .slice(0, budget);
         const wanted = new Set(desired.map(item => item.identifier));
         for (const item of old) if (!wanted.has(item.identifier)) await Notifications.cancelScheduledNotificationAsync(item.identifier);
         for (const item of desired) {
