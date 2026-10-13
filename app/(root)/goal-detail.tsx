@@ -1,4 +1,4 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { GoalSheet } from '@/components/Create/GoalSheet';
 import { ViewSwitcher } from '@/components/Common/ViewSwitcher';
@@ -9,9 +9,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { HalfCircleProgress } from '@/components/Common/HalfCircleProgress';
 import { PanelCap } from '@/components/Goal/PanelCap';
 import { Habit, isTimedHabit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';

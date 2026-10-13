@@ -4,11 +4,11 @@ import Animated, {
     Easing, ReduceMotion, useAnimatedProps, useSharedValue, withDelay, withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { ms, s, vs } from '@/constants/Layout';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { ms, s, vs } from '@/theme/scale';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { PulsePerson } from '@/lib/feed';
 

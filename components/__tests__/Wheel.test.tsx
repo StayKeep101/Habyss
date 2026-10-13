@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { Wheel } from '../Common/Wheel';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 
 const options = [
     { id: 'daily', label: 'Daily' },

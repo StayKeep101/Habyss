@@ -3,11 +3,11 @@ import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, Vi
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
-import { Colors } from '@/constants/Colors';
-import { FontFamily, surfaceFor } from '@/constants/DesignSystem';
-import { ms, s, vs } from '@/constants/Layout';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily, surfaceFor } from '@/theme/designSystem';
+import { ms, s, vs } from '@/theme/scale';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { on } from '@/lib/appEvents';
 import { sendFeedback } from '@/lib/feedback';

@@ -6,9 +6,9 @@ import { completeOAuthSignIn, GOOGLE_REDIRECT } from '@/lib/socialSignIn';
 import { isAuthCallbackURL } from '@/lib/authRedirect';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { AppButton } from '@/components/Common/AppButton';
-import { Typography } from '@/constants/DesignSystem';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Typography } from '@/theme/designSystem';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 
 /** Handles Google and email links, including errors in URL fragments. */
 export default function AuthCallback() {

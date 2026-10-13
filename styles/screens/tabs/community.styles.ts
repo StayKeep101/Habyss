@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily, Typography, UIStyles } from '@/constants/DesignSystem';
+import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
 
 /** The look of app/(root)/(tabs)/community.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({

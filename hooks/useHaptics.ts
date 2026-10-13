@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
-import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
 
 /**
  * Fires a haptic and swallows whatever comes back.

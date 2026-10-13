@@ -6,8 +6,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 
 const OPEN = { duration: 260, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 const SHUT = { duration: 210, easing: Easing.in(Easing.cubic), reduceMotion: ReduceMotion.System };

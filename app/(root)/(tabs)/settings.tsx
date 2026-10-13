@@ -1,17 +1,17 @@
-import { FontFamily, Typography, UIStyles } from '@/constants/DesignSystem';
+import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router } from 'expo-router';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { saveDailyTarget } from '@/lib/dailyFocus';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { PAYWALL_ENABLED } from '@/constants/features';
 import { hasAnyIntegration, integrationsSummary } from '@/lib/integrationAvailability';
@@ -20,7 +20,7 @@ import { currentAccount, onAccountChange } from '@/lib/account';
 import Constants from 'expo-constants';
 import { emit } from '@/lib/appEvents';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { styles } from '@/styles/screens/tabs/settings.styles';
 

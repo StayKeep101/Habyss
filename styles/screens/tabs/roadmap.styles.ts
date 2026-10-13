@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 
 /** The look of app/(root)/(tabs)/roadmap.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({

@@ -2,7 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { MeasureBadge, PriorityFlag, ReminderBadge, BadgeRow } from '../Common/CardBadges';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 
 describe('what a row admits without being opened', () => {
     it('says nothing when no reminder is set', () => {

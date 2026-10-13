@@ -4,9 +4,9 @@ import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanima
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { AppIcon, isGlyphIcon, isPhotoIcon, type IconName } from '@/components/Common/AppIcon';
 import { GoalColorWheel } from './GoalColorWheel';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { contrastRatio, readableAccent } from '@/lib/colorContrast';
 

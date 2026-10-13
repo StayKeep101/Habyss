@@ -4,11 +4,11 @@ import Animated, {
     Easing, ReduceMotion, interpolate, useAnimatedStyle,
     useSharedValue, withDelay, withTiming, type SharedValue,
 } from 'react-native-reanimated';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { ms, s, vs } from '@/constants/Layout';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { ms, s, vs } from '@/theme/scale';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 
 const EASE = { duration: 520, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 /** Enough marks to read as time, few enough to stay legible on a phone. */

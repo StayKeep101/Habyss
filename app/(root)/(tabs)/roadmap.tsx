@@ -1,4 +1,4 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { afterPaint } from '@/lib/afterPaint';
@@ -8,8 +8,8 @@ import Animated, {
     useAnimatedStyle, runOnJS, withSpring, withTiming
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '@/constants/themeContext';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/context/ThemeContext';
+import { Colors } from '@/theme/colors';
 import { CalendarStrip } from '@/components/Home/CalendarStrip';
 import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { useSharedItems } from '@/hooks/useSharedItems';
@@ -22,9 +22,9 @@ import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useHistory } from '@/hooks/useHistory';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
-import { useAppSettings } from '@/constants/AppSettingsContext';
-import { useAccentGradient } from '@/constants/AccentContext';
-import { useFocusTime } from '@/constants/FocusTimeContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
+import { useAccentGradient } from '@/context/AccentContext';
+import { useFocusTime } from '@/context/FocusTimeContext';
 import { RoadmapFilters, type FilterAnchor } from '@/components/Home/RoadmapFilters';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Alert } from 'react-native';

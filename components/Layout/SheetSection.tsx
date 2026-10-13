@@ -1,8 +1,8 @@
-import { Typography, Spacing } from '@/constants/DesignSystem';
+import { Typography, Spacing } from '@/theme/designSystem';
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 
 interface SheetSectionProps {
     title: string;

@@ -1,7 +1,7 @@
 import { AppButton } from '@/components/Common/AppButton';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { FontFamily } from '@/constants/DesignSystem';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { FontFamily } from '@/theme/designSystem';
 import { useMemo } from 'react';
 import {View, StyleSheet, Text} from 'react-native';
 import RevenueCatUI from 'react-native-purchases-ui';

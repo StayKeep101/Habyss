@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { getLocalUserId, isOnboardingComplete } from '@/lib/localUser';
 import { getHabits } from '@/lib/habitsSQLite';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/theme/colors';
 import { QuietLoading } from "@/components/Loading/QuietLoading";
 
 export default function App() {

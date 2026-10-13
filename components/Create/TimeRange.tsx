@@ -4,9 +4,9 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Choices } from '@/components/Create/DetailBar';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
 /** Timed, never sprung: the panel changes height and a spring would bounce it. */

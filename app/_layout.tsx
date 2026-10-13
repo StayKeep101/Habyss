@@ -1,10 +1,10 @@
 import '@/lib/polyfills'; // Must be first
 import { getLocalUserId } from '@/lib/localUser';
-import { ThemeProvider } from "../constants/themeContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { useFonts, Lexend_400Regular, Lexend_500Medium, Lexend_600SemiBold, Lexend_700Bold } from '@expo-google-fonts/lexend';
 import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/theme/colors';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -12,7 +12,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import '../global.css';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { DarkTheme, LightTheme } from "../constants/Themes";
+import { DarkTheme, LightTheme } from "@/theme/navigation";
 import React from "react";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -20,10 +20,10 @@ import {View, AppState, Alert} from 'react-native';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
 import '@/lib/LocationService'; // Register background tasks
-import { AIPersonalityProvider } from '@/constants/AIPersonalityContext';
-import { AppSettingsProvider } from '@/constants/AppSettingsContext';
-import { AccentProvider, useAccentGradient } from '@/constants/AccentContext';
-import { FocusTimeProvider, useFocusTime } from '@/constants/FocusTimeContext';
+import { AIPersonalityProvider } from '@/context/AIPersonalityContext';
+import { AppSettingsProvider } from '@/context/AppSettingsContext';
+import { AccentProvider, useAccentGradient } from '@/context/AccentContext';
+import { FocusTimeProvider, useFocusTime } from '@/context/FocusTimeContext';
 import { CreationModal } from '@/components/CreationModal';
 import { DayCompleteCelebration } from '@/components/DayCompleteCelebration';
 import { MilestoneCelebration } from '@/components/MilestoneCelebration';

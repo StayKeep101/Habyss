@@ -2,8 +2,8 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { Badge, Button, Card, ChartCard, Divider, EmptyState, HabitRow, Input, ProgressRing, StatTile, Text, Toggle } from '../ui';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
-jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#8BADD6', foreground: '#8BADD6' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#8BADD6', foreground: '#8BADD6' }) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 
 describe('the component library', () => {

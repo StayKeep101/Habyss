@@ -1,10 +1,10 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import Svg, { Circle } from 'react-native-svg';
 
 interface CalendarStripProps {

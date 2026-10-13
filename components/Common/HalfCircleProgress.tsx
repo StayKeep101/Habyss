@@ -1,4 +1,4 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text } from 'react-native';
 import Svg, { Path } from 'react-native-svg';

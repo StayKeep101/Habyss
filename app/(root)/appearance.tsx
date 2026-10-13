@@ -1,16 +1,16 @@
-import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
-import { useTheme, ThemeMode } from '@/constants/themeContext';
-import { useAppSettings, RoadMapCardSize } from '@/constants/AppSettingsContext';
-import { useAccent, ACCENT_GRADIENTS } from '@/constants/AccentContext';
+import { useTheme, ThemeMode } from '@/context/ThemeContext';
+import { useAppSettings, RoadMapCardSize } from '@/context/AppSettingsContext';
+import { useAccent, ACCENT_GRADIENTS } from '@/context/AccentContext';
 import { styles } from '@/styles/screens/appearance.styles';
 
 const Appearance = () => {

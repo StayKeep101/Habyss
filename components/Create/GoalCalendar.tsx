@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AppIcon } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { localDateKey } from '@/lib/habitSchedule';
 

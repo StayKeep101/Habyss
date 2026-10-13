@@ -1,9 +1,9 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
 
 /**
  * Says when the on-device model read what was typed, and when it is still

@@ -1,14 +1,14 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { VoidCard } from '../Layout/VoidCard';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
-import { s, vs, ms } from '@/constants/Layout';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
+import { s, vs, ms } from '@/theme/scale';
 
 interface GoalsProgressBarProps {
     progress: number; // 0-100

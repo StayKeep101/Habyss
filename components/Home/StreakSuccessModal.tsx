@@ -1,4 +1,4 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,8 +8,8 @@ import Animated, {
     runOnJS, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import { useTheme } from '@/constants/themeContext';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/context/ThemeContext';
+import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { localDateKey } from '@/lib/habitSchedule';
 

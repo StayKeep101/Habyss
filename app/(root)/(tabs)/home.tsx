@@ -1,10 +1,10 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {View, Text, ScrollView, RefreshControl} from 'react-native';
 import { afterPaint } from '@/lib/afterPaint';
-import { s, ms } from '@/constants/Layout';
+import { s, ms } from '@/theme/scale';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/theme/colors';
 import { VoidShell } from '@/components/Layout/VoidShell';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -16,15 +16,15 @@ import { useSounds } from '@/hooks/useSounds';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useFocusEffect } from 'expo-router';
-import { useAppSettings } from '@/constants/AppSettingsContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { normalizeAIPersonality } from '@/lib/aiAgentService';
 import { nextEchoLine, type EchoStats } from '@/lib/echoLines';
 import { getName } from '@/lib/echo';
 
 
 
-import { useTheme } from '@/constants/themeContext';
+import { useTheme } from '@/context/ThemeContext';
 
 import { GoalsProgressBar } from '@/components/Home/GoalsProgressBar';
 import { DailyFocusCard } from '@/components/Home/DailyFocusCard';

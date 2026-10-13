@@ -1,6 +1,6 @@
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { FontFamily } from '@/constants/DesignSystem';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, BackHandler, Text } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';

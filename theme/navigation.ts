@@ -1,5 +1,5 @@
 import { DarkTheme as NavigationDarkTheme, DefaultTheme as NavigationLightTheme, type Theme } from "expo-router";
-import { Colors } from "./Colors";
+import { Colors } from "@/theme/colors";
 
 export const LightTheme: Theme = {
   ...NavigationLightTheme,

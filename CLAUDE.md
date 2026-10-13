@@ -4,7 +4,7 @@ These rules keep every screen consistent. They apply to every change that touche
 
 ## Design system
 
-- Tokens: `constants/tokens.ts` — colour roles per theme, accent tints, spacing, radius, type scale, elevation. Read them in components with `useTokens()` (`hooks/useTokens.ts`).
+- Tokens: `theme/tokens.ts` — colour roles per theme, accent tints, spacing, radius, type scale, elevation. Read them in components with `useTokens()` (`hooks/useTokens.ts`).
 - Components: `components/ui` — Screen, Text, Button, Card, Input, Toggle, Badge, Divider, Sheet, EmptyState, StatTile, ChartCard, HabitRow, ProgressRing, Segmented. Import from `@/components/ui`.
 - Screen styles: `styles/screens/` — each page's StyleSheet, moved out of `app/` unchanged (see `styles/README.md`). A page's look is edited there, not in the page file. Never put a style file inside `app/` (Expo Router would treat it as a route).
 - Audit of where the app started: `docs/ui-audit.md`.

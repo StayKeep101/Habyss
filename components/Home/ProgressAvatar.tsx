@@ -3,10 +3,10 @@ import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { s } from '@/constants/Layout';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { s } from '@/theme/scale';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const EASE = { duration: 700, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };

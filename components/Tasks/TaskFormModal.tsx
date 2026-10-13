@@ -12,10 +12,10 @@ import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailB
 import { GoalCalendar } from '@/components/Create/GoalCalendar';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
 import { taskTextSegments } from '@/lib/creationTextHighlight';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseTask } from '@/lib/smartParse';

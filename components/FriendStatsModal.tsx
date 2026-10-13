@@ -1,16 +1,16 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { Friend, FriendProfile, FriendsService } from '@/lib/friendsService';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { useAccentGradient } from '@/constants/AccentContext';
+import { useAccentGradient } from '@/context/AccentContext';
 
 interface FriendStatsModalProps {
     visible: boolean;

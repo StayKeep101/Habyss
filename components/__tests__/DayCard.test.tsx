@@ -4,8 +4,8 @@ import { DayCard } from '../Community/DayCard';
 import { buildFeed } from '@/lib/feed';
 import type { Friend } from '@/lib/friendsService';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
-jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
 
 const cardFor = (over: Partial<Friend>) =>
     buildFeed([{ id: 'f1', userId: 'f1', username: 'sam', ...over } as Friend])[0];

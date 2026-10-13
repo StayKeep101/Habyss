@@ -1,13 +1,13 @@
-import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import { ScrollView, View, Text, TouchableOpacity, Linking } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { useTheme } from '@/constants/themeContext';
+import { useTheme } from '@/context/ThemeContext';
 import { styles } from '@/styles/screens/help.styles';
 
 const Help = () => {

@@ -4,8 +4,8 @@ import { MomentumModal } from '../Home/MomentumModal';
 import { shiftDay } from '@/lib/habitDays';
 import type { Habit } from '@/lib/habitsSQLite';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
-jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
 const habit = (over: Partial<Habit> = {}): Habit => ({

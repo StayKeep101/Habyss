@@ -5,11 +5,11 @@ import Animated, { Easing, FadeIn, FadeOut, ReduceMotion, useAnimatedStyle, useS
 import { AppIcon } from '@/components/Common/AppIcon';
 import { Segmented } from '@/components/Common/Segmented';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { s, vs, ms } from '@/constants/Layout';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { s, vs, ms } from '@/theme/scale';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useTasks } from '@/hooks/useTasks';
 import { useDailyTarget } from '@/hooks/useDailyFocus';

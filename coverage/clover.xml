@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1791924871515" clover="3.2.0">
-  <project timestamp="1791924871515" name="All files">
-    <metrics statements="12627" coveredstatements="4783" conditionals="12718" coveredconditionals="4542" methods="3685" coveredmethods="1219" elements="29030" coveredelements="10544" complexity="0" loc="12627" ncloc="12627" packages="40" files="316" classes="316"/>
+<coverage generated="1791925615893" clover="3.2.0">
+  <project timestamp="1791925615893" name="All files">
+    <metrics statements="12627" coveredstatements="4783" conditionals="12718" coveredconditionals="4542" methods="3685" coveredmethods="1219" elements="29030" coveredelements="10544" complexity="0" loc="12627" ncloc="12627" packages="42" files="316" classes="316"/>
     <package name="Habyss">
       <metrics statements="0" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
       <file name="expo-env.d.ts" path="/Users/erwan/Coding/Habyss/expo-env.d.ts">
@@ -6484,12 +6484,25 @@
       </file>
     </package>
     <package name="Habyss.constants">
-      <metrics statements="577" coveredstatements="56" conditionals="223" coveredconditionals="15" methods="98" coveredmethods="11"/>
+      <metrics statements="5" coveredstatements="1" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
       <file name="AIPersonalities.ts" path="/Users/erwan/Coding/Habyss/constants/AIPersonalities.ts">
         <metrics statements="1" coveredstatements="1" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
         <line num="27" count="10" type="stmt"/>
       </file>
-      <file name="AIPersonalityContext.tsx" path="/Users/erwan/Coding/Habyss/constants/AIPersonalityContext.tsx">
+      <file name="brand.ts" path="/Users/erwan/Coding/Habyss/constants/brand.ts">
+        <metrics statements="3" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+      </file>
+      <file name="features.ts" path="/Users/erwan/Coding/Habyss/constants/features.ts">
+        <metrics statements="1" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="8" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="Habyss.context">
+      <metrics statements="528" coveredstatements="15" conditionals="199" coveredconditionals="1" methods="87" coveredmethods="1"/>
+      <file name="AIPersonalityContext.tsx" path="/Users/erwan/Coding/Habyss/context/AIPersonalityContext.tsx">
         <metrics statements="24" coveredstatements="0" conditionals="6" coveredconditionals="0" methods="7" coveredmethods="0"/>
         <line num="13" count="0" type="stmt"/>
         <line num="21" count="0" type="stmt"/>
@@ -6516,7 +6529,7 @@
         <line num="61" count="0" type="stmt"/>
         <line num="68" count="0" type="stmt"/>
       </file>
-      <file name="AccentContext.tsx" path="/Users/erwan/Coding/Habyss/constants/AccentContext.tsx">
+      <file name="AccentContext.tsx" path="/Users/erwan/Coding/Habyss/context/AccentContext.tsx">
         <metrics statements="28" coveredstatements="3" conditionals="8" coveredconditionals="0" methods="11" coveredmethods="0"/>
         <line num="8" count="2" type="stmt"/>
         <line num="39" count="2" type="stmt"/>
@@ -6547,7 +6560,7 @@
         <line num="93" count="0" type="stmt"/>
         <line num="100" count="0" type="stmt"/>
       </file>
-      <file name="AppSettingsContext.tsx" path="/Users/erwan/Coding/Habyss/constants/AppSettingsContext.tsx">
+      <file name="AppSettingsContext.tsx" path="/Users/erwan/Coding/Habyss/context/AppSettingsContext.tsx">
         <metrics statements="85" coveredstatements="9" conditionals="12" coveredconditionals="1" methods="22" coveredmethods="1"/>
         <line num="39" count="16" type="stmt"/>
         <line num="52" count="16" type="stmt"/>
@@ -6635,29 +6648,7 @@
         <line num="205" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="206" count="0" type="stmt"/>
       </file>
-      <file name="Colors.ts" path="/Users/erwan/Coding/Habyss/constants/Colors.ts">
-        <metrics statements="4" coveredstatements="4" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
-        <line num="6" count="23" type="stmt"/>
-        <line num="7" count="23" type="stmt"/>
-        <line num="9" count="23" type="stmt"/>
-        <line num="136" count="23" type="stmt"/>
-      </file>
-      <file name="DesignSystem.ts" path="/Users/erwan/Coding/Habyss/constants/DesignSystem.ts">
-        <metrics statements="12" coveredstatements="12" conditionals="7" coveredconditionals="4" methods="2" coveredmethods="2"/>
-        <line num="4" count="23" type="stmt"/>
-        <line num="12" count="23" type="stmt"/>
-        <line num="48" count="23" type="stmt"/>
-        <line num="80" count="23" type="stmt"/>
-        <line num="104" count="23" type="stmt"/>
-        <line num="105" count="204" type="cond" truecount="2" falsecount="0"/>
-        <line num="108" count="23" type="cond" truecount="1" falsecount="0"/>
-        <line num="109" count="13" type="cond" truecount="1" falsecount="1"/>
-        <line num="112" count="23" type="stmt"/>
-        <line num="113" count="23" type="stmt"/>
-        <line num="115" count="23" type="stmt"/>
-        <line num="126" count="23" type="stmt"/>
-      </file>
-      <file name="FocusTimeContext.tsx" path="/Users/erwan/Coding/Habyss/constants/FocusTimeContext.tsx">
+      <file name="FocusTimeContext.tsx" path="/Users/erwan/Coding/Habyss/context/FocusTimeContext.tsx">
         <metrics statements="359" coveredstatements="0" conditionals="161" coveredconditionals="0" methods="40" coveredmethods="0"/>
         <line num="81" count="0" type="stmt"/>
         <line num="84" count="0" type="stmt"/>
@@ -7019,33 +7010,7 @@
         <line num="834" count="0" type="stmt"/>
         <line num="836" count="0" type="stmt"/>
       </file>
-      <file name="Layout.ts" path="/Users/erwan/Coding/Habyss/constants/Layout.ts">
-        <metrics statements="8" coveredstatements="8" conditionals="1" coveredconditionals="1" methods="3" coveredmethods="3"/>
-        <line num="3" count="7" type="stmt"/>
-        <line num="6" count="7" type="stmt"/>
-        <line num="7" count="7" type="stmt"/>
-        <line num="10" count="7" type="stmt"/>
-        <line num="12" count="7" type="stmt"/>
-        <line num="19" count="453" type="stmt"/>
-        <line num="27" count="278" type="stmt"/>
-        <line num="36" count="123" type="stmt"/>
-      </file>
-      <file name="Themes.ts" path="/Users/erwan/Coding/Habyss/constants/Themes.ts">
-        <metrics statements="2" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
-        <line num="4" count="0" type="stmt"/>
-        <line num="16" count="0" type="stmt"/>
-      </file>
-      <file name="brand.ts" path="/Users/erwan/Coding/Habyss/constants/brand.ts">
-        <metrics statements="3" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
-        <line num="12" count="0" type="stmt"/>
-        <line num="14" count="0" type="stmt"/>
-        <line num="16" count="0" type="stmt"/>
-      </file>
-      <file name="features.ts" path="/Users/erwan/Coding/Habyss/constants/features.ts">
-        <metrics statements="1" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
-        <line num="8" count="0" type="stmt"/>
-      </file>
-      <file name="themeContext.tsx" path="/Users/erwan/Coding/Habyss/constants/themeContext.tsx">
+      <file name="ThemeContext.tsx" path="/Users/erwan/Coding/Habyss/context/ThemeContext.tsx">
         <metrics statements="32" coveredstatements="3" conditionals="12" coveredconditionals="0" methods="7" coveredmethods="0"/>
         <line num="16" count="4" type="stmt"/>
         <line num="18" count="4" type="stmt"/>
@@ -7079,27 +7044,6 @@
         <line num="72" count="0" type="stmt"/>
         <line num="73" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="74" count="0" type="stmt"/>
-      </file>
-      <file name="tokens.ts" path="/Users/erwan/Coding/Habyss/constants/tokens.ts">
-        <metrics statements="18" coveredstatements="16" conditionals="16" coveredconditionals="9" methods="6" coveredmethods="5"/>
-        <line num="19" count="2" type="stmt"/>
-        <line num="73" count="2" type="stmt"/>
-        <line num="113" count="2" type="stmt"/>
-        <line num="114" count="25" type="cond" truecount="4" falsecount="0"/>
-        <line num="120" count="2" type="stmt"/>
-        <line num="133" count="5" type="stmt"/>
-        <line num="134" count="5" type="cond" truecount="2" falsecount="0"/>
-        <line num="135" count="5" type="cond" truecount="1" falsecount="1"/>
-        <line num="136" count="15" type="stmt"/>
-        <line num="137" count="5" type="stmt"/>
-        <line num="141" count="2" type="stmt"/>
-        <line num="142" count="25" type="cond" truecount="2" falsecount="0"/>
-        <line num="148" count="2" type="stmt"/>
-        <line num="165" count="2" type="stmt"/>
-        <line num="184" count="2" type="stmt"/>
-        <line num="203" count="2" type="stmt"/>
-        <line num="213" count="0" type="cond" truecount="0" falsecount="4"/>
-        <line num="214" count="0" type="cond" truecount="0" falsecount="2"/>
       </file>
     </package>
     <package name="Habyss.hooks">
@@ -8981,12 +8925,12 @@
         <line num="51" count="4" type="stmt"/>
         <line num="76" count="4" type="stmt"/>
         <line num="94" count="4" type="stmt"/>
-        <line num="96" count="12" type="cond" truecount="1" falsecount="1"/>
-        <line num="97" count="12" type="stmt"/>
-        <line num="98" count="12" type="stmt"/>
-        <line num="99" count="12" type="cond" truecount="1" falsecount="1"/>
-        <line num="100" count="12" type="stmt"/>
-        <line num="101" count="12" type="stmt"/>
+        <line num="96" count="18" type="cond" truecount="1" falsecount="1"/>
+        <line num="97" count="18" type="stmt"/>
+        <line num="98" count="18" type="stmt"/>
+        <line num="99" count="18" type="cond" truecount="1" falsecount="1"/>
+        <line num="100" count="18" type="stmt"/>
+        <line num="101" count="18" type="stmt"/>
         <line num="104" count="1" type="stmt"/>
         <line num="105" count="1" type="stmt"/>
         <line num="106" count="1" type="stmt"/>
@@ -9022,53 +8966,53 @@
         <line num="149" count="0" type="stmt"/>
         <line num="150" count="0" type="stmt"/>
         <line num="151" count="0" type="cond" truecount="0" falsecount="4"/>
-        <line num="155" count="30" type="stmt"/>
-        <line num="156" count="30" type="cond" truecount="2" falsecount="0"/>
-        <line num="157" count="30" type="stmt"/>
-        <line num="158" count="30" type="stmt"/>
-        <line num="160" count="30" type="cond" truecount="3" falsecount="1"/>
+        <line num="155" count="27" type="stmt"/>
+        <line num="156" count="27" type="cond" truecount="2" falsecount="0"/>
+        <line num="157" count="27" type="stmt"/>
+        <line num="158" count="27" type="stmt"/>
+        <line num="160" count="27" type="cond" truecount="3" falsecount="1"/>
         <line num="161" count="0" type="cond" truecount="0" falsecount="4"/>
-        <line num="162" count="30" type="cond" truecount="2" falsecount="0"/>
+        <line num="162" count="27" type="cond" truecount="2" falsecount="0"/>
         <line num="163" count="21" type="cond" truecount="4" falsecount="2"/>
-        <line num="165" count="30" type="cond" truecount="4" falsecount="0"/>
+        <line num="165" count="27" type="cond" truecount="4" falsecount="0"/>
         <line num="166" count="15" type="cond" truecount="2" falsecount="2"/>
-        <line num="168" count="30" type="cond" truecount="2" falsecount="0"/>
+        <line num="168" count="27" type="cond" truecount="2" falsecount="0"/>
         <line num="169" count="15" type="cond" truecount="2" falsecount="2"/>
-        <line num="171" count="30" type="cond" truecount="2" falsecount="0"/>
+        <line num="171" count="27" type="cond" truecount="2" falsecount="0"/>
         <line num="172" count="15" type="cond" truecount="1" falsecount="1"/>
-        <line num="176" count="30" type="cond" truecount="1" falsecount="1"/>
+        <line num="176" count="27" type="cond" truecount="1" falsecount="1"/>
         <line num="177" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="179" count="30" type="cond" truecount="2" falsecount="0"/>
+        <line num="179" count="27" type="cond" truecount="2" falsecount="0"/>
         <line num="180" count="15" type="cond" truecount="1" falsecount="1"/>
-        <line num="184" count="30" type="stmt"/>
+        <line num="184" count="27" type="stmt"/>
         <line num="187" count="4" type="stmt"/>
         <line num="188" count="4" type="stmt"/>
         <line num="191" count="2" type="cond" truecount="2" falsecount="0"/>
         <line num="195" count="1" type="stmt"/>
         <line num="196" count="1" type="stmt"/>
-        <line num="203" count="1085" type="cond" truecount="1" falsecount="1"/>
-        <line num="204" count="1085" type="cond" truecount="1" falsecount="1"/>
-        <line num="205" count="1085" type="cond" truecount="2" falsecount="3"/>
+        <line num="203" count="1082" type="cond" truecount="1" falsecount="1"/>
+        <line num="204" count="1082" type="cond" truecount="1" falsecount="1"/>
+        <line num="205" count="1082" type="cond" truecount="2" falsecount="3"/>
         <line num="206" count="0" type="stmt"/>
         <line num="207" count="0" type="stmt"/>
         <line num="208" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="210" count="1085" type="stmt"/>
-        <line num="215" count="1085" type="stmt"/>
-        <line num="216" count="5425" type="stmt"/>
-        <line num="217" count="1085" type="stmt"/>
-        <line num="218" count="1085" type="stmt"/>
-        <line num="219" count="1210" type="stmt"/>
-        <line num="220" count="1210" type="cond" truecount="2" falsecount="0"/>
+        <line num="210" count="1082" type="stmt"/>
+        <line num="215" count="1082" type="stmt"/>
+        <line num="216" count="5410" type="stmt"/>
+        <line num="217" count="1082" type="stmt"/>
+        <line num="218" count="1082" type="stmt"/>
+        <line num="219" count="1224" type="stmt"/>
+        <line num="220" count="1224" type="cond" truecount="2" falsecount="0"/>
         <line num="222" count="0" type="stmt"/>
-        <line num="226" count="1085" type="cond" truecount="4" falsecount="1"/>
-        <line num="227" count="1014" type="stmt"/>
-        <line num="228" count="28" type="stmt"/>
-        <line num="229" count="30" type="stmt"/>
-        <line num="230" count="77" type="cond" truecount="1" falsecount="1"/>
+        <line num="226" count="1082" type="cond" truecount="4" falsecount="1"/>
+        <line num="227" count="1007" type="stmt"/>
+        <line num="228" count="29" type="stmt"/>
+        <line num="229" count="27" type="stmt"/>
+        <line num="230" count="113" type="cond" truecount="1" falsecount="1"/>
         <line num="231" count="0" type="stmt"/>
         <line num="243" count="1073" type="stmt"/>
-        <line num="244" count="15984" type="stmt"/>
-        <line num="245" count="1085" type="cond" truecount="2" falsecount="0"/>
+        <line num="244" count="15937" type="stmt"/>
+        <line num="245" count="1082" type="cond" truecount="2" falsecount="0"/>
         <line num="247" count="0" type="stmt"/>
         <line num="250" count="4" type="stmt"/>
         <line num="262" count="1" type="stmt"/>
@@ -9129,10 +9073,10 @@
         <metrics statements="32" coveredstatements="32" conditionals="12" coveredconditionals="11" methods="6" coveredmethods="6"/>
         <line num="32" count="78" type="stmt"/>
         <line num="33" count="78" type="stmt"/>
-        <line num="34" count="168" type="stmt"/>
-        <line num="35" count="168" type="stmt"/>
-        <line num="36" count="168" type="stmt"/>
-        <line num="37" count="168" type="stmt"/>
+        <line num="34" count="165" type="stmt"/>
+        <line num="35" count="165" type="stmt"/>
+        <line num="36" count="165" type="stmt"/>
+        <line num="37" count="165" type="stmt"/>
         <line num="41" count="2" type="stmt"/>
         <line num="42" count="78" type="stmt"/>
         <line num="43" count="2185" type="stmt"/>
@@ -13695,6 +13639,68 @@
         <line num="149" count="0" type="stmt"/>
         <line num="156" count="0" type="stmt"/>
         <line num="157" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="Habyss.theme">
+      <metrics statements="44" coveredstatements="40" conditionals="24" coveredconditionals="14" methods="11" coveredmethods="10"/>
+      <file name="colors.ts" path="/Users/erwan/Coding/Habyss/theme/colors.ts">
+        <metrics statements="4" coveredstatements="4" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="6" count="23" type="stmt"/>
+        <line num="7" count="23" type="stmt"/>
+        <line num="9" count="23" type="stmt"/>
+        <line num="136" count="23" type="stmt"/>
+      </file>
+      <file name="designSystem.ts" path="/Users/erwan/Coding/Habyss/theme/designSystem.ts">
+        <metrics statements="12" coveredstatements="12" conditionals="7" coveredconditionals="4" methods="2" coveredmethods="2"/>
+        <line num="4" count="23" type="stmt"/>
+        <line num="12" count="23" type="stmt"/>
+        <line num="48" count="23" type="stmt"/>
+        <line num="80" count="23" type="stmt"/>
+        <line num="104" count="23" type="stmt"/>
+        <line num="105" count="204" type="cond" truecount="2" falsecount="0"/>
+        <line num="108" count="23" type="cond" truecount="1" falsecount="0"/>
+        <line num="109" count="13" type="cond" truecount="1" falsecount="1"/>
+        <line num="112" count="23" type="stmt"/>
+        <line num="113" count="23" type="stmt"/>
+        <line num="115" count="23" type="stmt"/>
+        <line num="126" count="23" type="stmt"/>
+      </file>
+      <file name="navigation.ts" path="/Users/erwan/Coding/Habyss/theme/navigation.ts">
+        <metrics statements="2" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+      </file>
+      <file name="scale.ts" path="/Users/erwan/Coding/Habyss/theme/scale.ts">
+        <metrics statements="8" coveredstatements="8" conditionals="1" coveredconditionals="1" methods="3" coveredmethods="3"/>
+        <line num="3" count="7" type="stmt"/>
+        <line num="6" count="7" type="stmt"/>
+        <line num="7" count="7" type="stmt"/>
+        <line num="10" count="7" type="stmt"/>
+        <line num="12" count="7" type="stmt"/>
+        <line num="19" count="453" type="stmt"/>
+        <line num="27" count="278" type="stmt"/>
+        <line num="36" count="123" type="stmt"/>
+      </file>
+      <file name="tokens.ts" path="/Users/erwan/Coding/Habyss/theme/tokens.ts">
+        <metrics statements="18" coveredstatements="16" conditionals="16" coveredconditionals="9" methods="6" coveredmethods="5"/>
+        <line num="19" count="2" type="stmt"/>
+        <line num="73" count="2" type="stmt"/>
+        <line num="113" count="2" type="stmt"/>
+        <line num="114" count="25" type="cond" truecount="4" falsecount="0"/>
+        <line num="120" count="2" type="stmt"/>
+        <line num="133" count="5" type="stmt"/>
+        <line num="134" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="135" count="5" type="cond" truecount="1" falsecount="1"/>
+        <line num="136" count="15" type="stmt"/>
+        <line num="137" count="5" type="stmt"/>
+        <line num="141" count="2" type="stmt"/>
+        <line num="142" count="25" type="cond" truecount="2" falsecount="0"/>
+        <line num="148" count="2" type="stmt"/>
+        <line num="165" count="2" type="stmt"/>
+        <line num="184" count="2" type="stmt"/>
+        <line num="203" count="2" type="stmt"/>
+        <line num="213" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="214" count="0" type="cond" truecount="0" falsecount="2"/>
       </file>
     </package>
   </project>

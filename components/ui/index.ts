@@ -1,6 +1,6 @@
 /**
  * The building blocks every screen is made of. Built only from
- * constants/tokens.ts: no screen should need its own colours, sizes or shadows.
+ * theme/tokens.ts: no screen should need its own colours, sizes or shadows.
  */
 export { Text, type UITextProps, type TextTone } from './Text';
 export { Screen, type ScreenProps } from './Screen';

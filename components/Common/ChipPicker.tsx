@@ -2,10 +2,10 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, LinearTransition, ReduceMotion, FadeIn } from 'react-native-reanimated';
 import { AppIcon as Ionicons, type IconName } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { ms, s, vs } from '@/constants/Layout';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { ms, s, vs } from '@/theme/scale';
+import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
 export interface ChipOption<T extends string> {

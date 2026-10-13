@@ -1,9 +1,9 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { addFriendByUsername, inviteLink, inviteMessage, usernameFrom } from '@/lib/friendsService';
 import { useHaptics } from '@/hooks/useHaptics';

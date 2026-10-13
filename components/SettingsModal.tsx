@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView } from 'react-native';
 import { VoidModal } from '@/components/Layout/VoidModal';
 import { ModalHeader } from '@/components/Layout/ModalHeader';
-import { UIStyles } from '@/constants/DesignSystem';
+import { UIStyles } from '@/theme/designSystem';
 
 interface SettingsModalProps {
     visible: boolean;

@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useEffect } from 'react';
-import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
 import {
     playSound as playSoundService,
     preloadCommonSounds,

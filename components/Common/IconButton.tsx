@@ -1,9 +1,9 @@
 import { ActivityIndicator, StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
-import { Control, Radius, UIStyles, surfaceFor } from '@/constants/DesignSystem';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
+import { Control, Radius, UIStyles, surfaceFor } from '@/theme/designSystem';
 
 interface IconButtonProps {
     icon: keyof typeof Ionicons.glyphMap;

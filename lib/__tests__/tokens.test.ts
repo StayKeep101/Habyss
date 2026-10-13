@@ -1,4 +1,4 @@
-import { colorRoles, rolesFor, space, radius, textOn, tint, typeScale } from '../../constants/tokens';
+import { colorRoles, rolesFor, space, radius, textOn, tint, typeScale } from '@/theme/tokens';
 
 describe('design tokens', () => {
     it('gives every theme the same roles', () => {

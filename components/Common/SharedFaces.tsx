@@ -1,9 +1,9 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { FontFamily, surfaceFor } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily, surfaceFor } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
 import type { Participant } from '@/lib/shared';
 
 /**

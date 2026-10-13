@@ -1,10 +1,10 @@
-import { useAccentGradient } from '@/constants/AccentContext';
-import { FontFamily } from '@/constants/DesignSystem';
+import { useAccentGradient } from '@/context/AccentContext';
+import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { SettingsModal } from '@/components/SettingsModal';
 

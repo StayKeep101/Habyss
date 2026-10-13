@@ -1,17 +1,17 @@
-import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import { useState, useEffect } from 'react';
 import { ScrollView, View, Text, Switch, Alert, Linking, Pressable } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
-import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import * as Notifs from 'expo-notifications';
 import { NotificationService } from '@/lib/notificationService';
 import { TimeRow } from '@/components/Common/TimeRow';

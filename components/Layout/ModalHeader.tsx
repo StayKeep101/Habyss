@@ -3,10 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { ShareButton, ShareSummary } from '@/components/Common/ShareButton';
 import { IconButton } from '@/components/Common/IconButton';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
-import { Control, Spacing, Typography } from '@/constants/DesignSystem';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
+import { Control, Spacing, Typography } from '@/theme/designSystem';
 
 interface ModalHeaderProps {
     title: string;

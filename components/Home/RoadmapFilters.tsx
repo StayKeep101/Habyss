@@ -1,4 +1,4 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -7,9 +7,9 @@ import Animated, {
 import { BlurView } from 'expo-blur';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import type { Habit } from '@/lib/habitsSQLite';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
 type Show = 'all' | 'goals_only' | 'habits_only' | 'tasks_only';

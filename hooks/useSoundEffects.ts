@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
 import { playSound, type SoundEffect } from '@/lib/soundService';
 
 /**

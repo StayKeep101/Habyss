@@ -1,6 +1,6 @@
 import { contrastRatio, readableAccent } from '../colorContrast';
-import { ACCENT_GRADIENTS } from '@/constants/AccentContext';
-import { Colors } from '@/constants/Colors';
+import { ACCENT_GRADIENTS } from '@/context/AccentContext';
+import { Colors } from '@/theme/colors';
 
 it('calculates reference contrast ratios', () => {
     expect(contrastRatio('#000000', '#ffffff')).toBe(21);

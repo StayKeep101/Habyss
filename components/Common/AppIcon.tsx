@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, Text, type ImageStyle, type StyleProp, type TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Control } from '@/constants/DesignSystem';
+import { Control } from '@/theme/designSystem';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
 export type AppIconProps = Omit<React.ComponentProps<typeof Ionicons>, 'name'> & { name?: string };

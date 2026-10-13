@@ -4,8 +4,8 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 const mockRouter = { canGoBack: jest.fn(), back: jest.fn(), replace: jest.fn() };
 let mockParams: Record<string, string> = {};
 jest.mock('expo-router', () => ({ get router() { return mockRouter; }, useLocalSearchParams: () => mockParams }));
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
-jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', buttonColors: ['#00b9e8', '#0066ff'] }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', buttonColors: ['#00b9e8', '#0066ff'] }) }));
 jest.mock('@/hooks/useHaptics', () => ({ useHaptics: () => ({ lightFeedback: jest.fn(), successFeedback: jest.fn() }) }));
 jest.mock('@/components/Layout/SheetScreen', () => {
     const { View, Button } = require('react-native');

@@ -3,8 +3,8 @@ import { act, fireEvent, render, waitFor, within } from '@testing-library/react-
 import { GoalSheet } from '../Create/GoalSheet';
 import { addHabit } from '@/lib/habitsSQLite';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
-jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
 jest.mock('react-native-gesture-handler', () => ({
     ...jest.requireActual('react-native-gesture-handler'),
     GestureDetector: ({ children }: { children: React.ReactNode }) => children,

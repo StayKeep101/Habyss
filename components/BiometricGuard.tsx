@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Modal, StyleSheet, Text, View } from 'react-native';
-import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
 import { AppIcon } from '@/components/Common/AppIcon';
 import { AppButton } from '@/components/Common/AppButton';
-import { Colors } from '@/constants/Colors';
-import { Typography } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { Typography } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
 import { VoidShell } from './Layout/VoidShell';
 import { authenticateAppLock } from '@/lib/biometricLock';
 

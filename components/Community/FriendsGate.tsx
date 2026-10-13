@@ -1,13 +1,13 @@
 import { AppButton } from '@/components/Common/AppButton';
 import { AppTextField } from '@/components/Common/AppTextField';
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { setMyUsername, USERNAME_RULE } from '@/lib/friendsService';

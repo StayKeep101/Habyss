@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Segmented } from '@/components/Common/Segmented';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { LEAD_MAX, type LeadUnit, leadMinutes, shortLead, splitLead } from '@/lib/leadTime';
 

@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily } from '@/constants/DesignSystem';
-import { s, vs, ms } from '@/constants/Layout';
+import { FontFamily } from '@/theme/designSystem';
+import { s, vs, ms } from '@/theme/scale';
 
 /** The screen's side padding; task-stats.tsx imports it for its heatmap maths. */
 export const PAD = 20;

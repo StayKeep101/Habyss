@@ -1,18 +1,18 @@
-import { useAccentGradient } from '@/constants/AccentContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { AppButton } from '@/components/Common/AppButton';
-import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import { useState } from 'react';
 import { ScrollView, View, Text, Switch, Alert } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { useTheme } from '@/constants/themeContext';
+import { useTheme } from '@/context/ThemeContext';
 
-import { useAppSettings } from '@/constants/AppSettingsContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
 import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion';
 import { currentAccount, deleteAccount } from '@/lib/account';
 import { styles } from '@/styles/screens/privacy.styles';

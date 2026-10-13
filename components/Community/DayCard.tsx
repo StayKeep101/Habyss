@@ -7,12 +7,12 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
 import { rankFor } from '@/lib/marks';
-import { ms, s, vs } from '@/constants/Layout';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { ms, s, vs } from '@/theme/scale';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { LOOK, describeDay } from '@/lib/proof';
 import { NOTE_LIMIT, type DayNote } from '@/lib/dayNotes';

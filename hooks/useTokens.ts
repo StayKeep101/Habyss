@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import {
     elevationFor, radius, rolesFor, space, textOn, tint, typeScale,
     type ColorRoles, type ElevationToken, type TintLevel,
-} from '@/constants/tokens';
+} from '@/theme/tokens';
 
 export interface Tokens {
     theme: string;

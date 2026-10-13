@@ -95,7 +95,7 @@ export async function readAccent(): Promise<{ from: string; to: string }> {
     const DEFAULT = { from: '#3A5A8C', to: '#8BADD6' };
     try {
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        const { ACCENT_GRADIENTS } = require('@/constants/AccentContext') as typeof import('@/constants/AccentContext');
+        const { ACCENT_GRADIENTS } = require('@/context/AccentContext') as typeof import('@/context/AccentContext');
         const id = await AsyncStorage.getItem('habyss_accent_gradient');
         const found = ACCENT_GRADIENTS.find(item => item.id === id);
         return found ? { from: found.colors[0], to: found.colors[1] } : DEFAULT;

@@ -1,13 +1,13 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { Habit } from '@/lib/habitsSQLite';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { useAccentGradient } from '@/context/AccentContext';
 
-import { RoadMapCardSize } from '@/constants/AppSettingsContext';
+import { RoadMapCardSize } from '@/context/AppSettingsContext';
 
 import { VoidCard } from '../Layout/VoidCard';
 

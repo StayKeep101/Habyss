@@ -1,9 +1,9 @@
-import { FontFamily, Typography } from '@/constants/DesignSystem';
+import { FontFamily, Typography } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
 import {View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { ScrollPickerModal } from './ScrollPickerModal';
 import { useHaptics } from '@/hooks/useHaptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';

@@ -1,12 +1,12 @@
 import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { FontFamily, UIStyles } from '@/constants/DesignSystem';
+import { FontFamily, UIStyles } from '@/theme/designSystem';
 import React from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
-import { useAppSettings, GreetingStyle } from '@/constants/AppSettingsContext';
+import { useAppSettings, GreetingStyle } from '@/context/AppSettingsContext';
 import { currentEngine } from '@/lib/onDeviceAI';
 import { coachHello } from '@/lib/coachMessages';
 import { NotificationService } from '@/lib/notificationService';
@@ -22,7 +22,7 @@ import { clearWrittenLines } from '@/lib/echoWriter';
 const localModel = () => (hasTurboModule('MLCEngine') ? require('@/lib/LocalLLMService').default : null);
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { useTheme } from '@/constants/themeContext';
+import { useTheme } from '@/context/ThemeContext';
 import { styles } from '@/styles/screens/ai-settings.styles';
 
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { AppIcon } from '@/components/Common/AppIcon';
 import { useTokens } from '@/hooks/useTokens';
-import { palette } from '@/constants/tokens';
+import { palette } from '@/theme/tokens';
 import { Text } from './Text';
 
 export interface SheetProps {

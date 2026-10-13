@@ -4,8 +4,8 @@ import { HabitSheet } from '../Create/HabitSheet';
 import { addHabit, updateHabit } from '@/lib/habitsSQLite';
 import type { Habit } from '@/lib/habitsSQLite';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
-jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
 jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
 jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
 jest.mock('@/lib/onDeviceAI', () => ({ isOnDeviceAIReady: () => false }));

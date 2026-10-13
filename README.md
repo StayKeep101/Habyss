@@ -140,7 +140,7 @@ habyss/
 }
 ```
 
-### Theme Configuration (`constants/Colors.ts`)
+### Theme Configuration (`theme/colors.ts`)
 - Light and dark theme colors
 - Semantic color naming
 - Consistent color palette

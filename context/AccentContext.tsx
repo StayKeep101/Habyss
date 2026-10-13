@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from './themeContext';
-import { Colors } from './Colors';
+import { useTheme } from '@/context/ThemeContext';
+import { Colors } from '@/theme/colors';
 import { readableAccent } from '@/lib/colorContrast';
 
 // Beautiful gradient presets for app accent

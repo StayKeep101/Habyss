@@ -1,9 +1,9 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { ViewSwitcher, type SwitcherOption } from '../Common/ViewSwitcher';
-import { surfaceFor } from '@/constants/DesignSystem';
+import { surfaceFor } from '@/theme/designSystem';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 
 type View3 = 'today' | 'stats' | 'music';
 const options: SwitcherOption<View3>[] = [

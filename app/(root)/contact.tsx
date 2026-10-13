@@ -1,19 +1,19 @@
 import { AppButton } from '@/components/Common/AppButton';
 import { AppTextField } from '@/components/Common/AppTextField';
 import { SheetSection } from '@/components/Layout/SheetSection';
-import { FontFamily, UIStyles, Radius } from '@/constants/DesignSystem';
+import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import { useState } from 'react';
 import { sendFeedback } from '@/lib/feedback';
 import { ScrollView, View, Text, TouchableOpacity, Alert, Linking } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
+import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { useAccentGradient } from '@/context/AccentContext';
 
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { useTheme } from '@/constants/themeContext';
+import { useTheme } from '@/context/ThemeContext';
 import { styles } from '@/styles/screens/contact.styles';
 
 const Contact = () => {

@@ -4,10 +4,10 @@ import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, inte
 import Svg, { Circle } from 'react-native-svg';
 import { AppIcon } from '@/components/Common/AppIcon';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { Colors } from '@/constants/Colors';
-import { Control, FontFamily, Radius, Typography, surfaceFor } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
-import { useFocusTime } from '@/constants/FocusTimeContext';
+import { Colors } from '@/theme/colors';
+import { Control, FontFamily, Radius, Typography, surfaceFor } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
+import { useFocusTime } from '@/context/FocusTimeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Habit } from '@/lib/habitsSQLite';
 import { describeAmount, formatDuration, formatMeasurement, localHabitDate, measurementFor, parseMeasurement } from '@/lib/habitMeasurement';

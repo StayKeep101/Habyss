@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { GoalCalendar } from '../Create/GoalCalendar';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 
 describe('goal calendar navigation', () => {
     it('jumps directly to a month and year, including leap day', async () => {

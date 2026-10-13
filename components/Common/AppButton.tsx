@@ -2,10 +2,10 @@ import React from 'react';
 import { ActivityIndicator, StyleProp, StyleSheet, Text, TouchableOpacity, ViewStyle } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
-import { Control, Radius, Spacing, Typography } from '@/constants/DesignSystem';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
+import { Control, Radius, Spacing, Typography } from '@/theme/designSystem';
 
 type AppButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 

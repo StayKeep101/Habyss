@@ -5,11 +5,11 @@ import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanima
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import { Colors } from '@/constants/Colors';
-import { FontFamily, surfaceFor } from '@/constants/DesignSystem';
-import { ms, s, vs } from '@/constants/Layout';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily, surfaceFor } from '@/theme/designSystem';
+import { ms, s, vs } from '@/theme/scale';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { INTEGRATIONS, ROUTE_LABEL, type Integration } from '@/lib/integrations';
 import { HEALTH_METRICS } from '@/lib/healthMetrics';

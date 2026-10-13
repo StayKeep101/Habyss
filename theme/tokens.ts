@@ -1,6 +1,6 @@
 import type { TextStyle } from 'react-native';
 import { contrastRatio } from '@/lib/colorContrast';
-import { FontFamily } from './DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 
 /**
  * Habyss design tokens: every colour, gap, corner, text style and shadow the

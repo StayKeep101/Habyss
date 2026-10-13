@@ -5,9 +5,9 @@ import Animated, {
     withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Line, LinearGradient, RadialGradient, Stop } from 'react-native-svg';
-import { Colors } from '@/constants/Colors';
-import { FontFamily } from '@/constants/DesignSystem';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
 import { formatClock } from '@/lib/habitMeasurement';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);

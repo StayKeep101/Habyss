@@ -11,7 +11,7 @@ jest.mock('expo-linking', () => ({ useURL: () => mockURL }));
 jest.mock('../socialSignIn', () => ({ GOOGLE_REDIRECT: 'habyss://auth-callback', completeOAuthSignIn: (url: string) => mockComplete(url) }));
 jest.mock('@/components/Layout/SheetScreen', () => ({ SheetScreen: ({ children }: any) => children }));
 jest.mock('@/components/Common/AppButton', () => ({ AppButton: () => null }));
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
 import AuthCallback from '../../app/auth-callback';
 
 beforeEach(() => { jest.clearAllMocks(); mockParams = {}; mockURL = null; });

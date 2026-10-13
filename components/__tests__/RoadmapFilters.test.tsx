@@ -3,8 +3,8 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { RoadmapFilters } from '../Home/RoadmapFilters';
 import type { Habit } from '@/lib/habitsSQLite';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
-jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8' }) }));
 jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
 
 const goals = [

@@ -3,8 +3,8 @@ import { render } from '@testing-library/react-native';
 import { Line, Path, Rect } from 'react-native-svg';
 import { HabitGraphRenderer } from '../Habit/HabitGraphRenderer';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
-jest.mock('@/constants/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
 
 const day = (index: number, over: Partial<{ completed: boolean; skipped: boolean; scheduled: boolean; value: number }> = {}) => ({
     date: `2026-09-${String(index + 1).padStart(2, '0')}`,

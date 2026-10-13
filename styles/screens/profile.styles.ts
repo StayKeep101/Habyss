@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily } from '@/constants/DesignSystem';
-import { ms, s, vs } from '@/constants/Layout';
+import { FontFamily } from '@/theme/designSystem';
+import { ms, s, vs } from '@/theme/scale';
 
 /** The look of app/(root)/profile.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({

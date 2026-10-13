@@ -1,10 +1,10 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Circle, Rect, Path, Line, Defs, LinearGradient as SvgGradient, Stop, G, Text as SvgText } from 'react-native-svg';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { VoidCard } from '@/components/Layout/VoidCard';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

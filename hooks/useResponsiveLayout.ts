@@ -1,4 +1,4 @@
-import { Spacing } from '@/constants/DesignSystem';
+import { Spacing } from '@/theme/designSystem';
 import { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

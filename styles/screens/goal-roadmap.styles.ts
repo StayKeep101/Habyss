@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily, UIStyles } from '@/constants/DesignSystem';
+import { FontFamily, UIStyles } from '@/theme/designSystem';
 
 /** The look of app/(root)/goal-roadmap.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({

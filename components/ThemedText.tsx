@@ -1,5 +1,5 @@
-import { Typography } from '@/constants/DesignSystem';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Typography } from '@/theme/designSystem';
+import { useAccentGradient } from '@/context/AccentContext';
 import { Text, type TextProps, StyleSheet } from 'react-native';
 
 import { useThemeColor } from '@/hooks/useThemeColor';

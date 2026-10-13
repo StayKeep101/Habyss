@@ -3,7 +3,7 @@ import { render } from '@testing-library/react-native';
 import { SharedFaces } from '../Common/SharedFaces';
 import { sharedState, type Participant } from '@/lib/shared';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 
 const person = (over: Partial<Participant>): Participant =>
     ({ userId: 'u', username: 'sam', done: false, isYou: false, ...over });

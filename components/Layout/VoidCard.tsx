@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { BlurView } from 'expo-blur';
-import { Radius, elevationFor, surfaceFor } from '@/constants/DesignSystem';
+import { Radius, elevationFor, surfaceFor } from '@/theme/designSystem';
 
 interface VoidCardProps {
     children: React.ReactNode;

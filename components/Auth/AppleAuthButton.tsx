@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { useTheme } from '@/constants/themeContext';
+import { useTheme } from '@/context/ThemeContext';
 
 /** Native Apple branding; SignInOptions owns authentication and account sync. */
 export function AppleAuthButton({ type = 'continue', onPress, disabled = false }: {

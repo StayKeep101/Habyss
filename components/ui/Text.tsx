@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text as RNText, type TextProps } from 'react-native';
 import { useTokens } from '@/hooks/useTokens';
-import type { TypeToken } from '@/constants/tokens';
+import type { TypeToken } from '@/theme/tokens';
 
 export type TextTone = 'primary' | 'muted' | 'accent' | 'success' | 'warning' | 'danger' | 'onAccent';
 

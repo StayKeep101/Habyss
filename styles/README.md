@@ -2,7 +2,7 @@
 
 Every page's look lives here, one file per page, taken out of the page exactly as it was: same values, nothing changed on screen. The page files in `app/` now only hold what the page does.
 
-To bring a page in line with the design system, open its file here and swap its raw numbers and colours for tokens from `constants/tokens.ts`, one page at a time.
+To bring a page in line with the design system, open its file here and swap its raw numbers and colours for tokens from `theme/tokens.ts`, one page at a time.
 
 | Page | Style file |
 |---|---|

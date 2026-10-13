@@ -3,8 +3,8 @@ import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 import { AppState, Text } from 'react-native';
 
 const mockSettings = { isLoaded: true, isAppLockEnabled: true, appLockVerifiedAt: 0 };
-jest.mock('@/constants/AppSettingsContext', () => ({ useAppSettings: () => mockSettings }));
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
+jest.mock('@/context/AppSettingsContext', () => ({ useAppSettings: () => mockSettings }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
 jest.mock('@/lib/biometricLock', () => ({ authenticateAppLock: jest.fn() }));
 jest.mock('../Layout/VoidShell', () => ({ VoidShell: ({ children }: any) => children }));
 jest.mock('../Common/AppIcon', () => ({ AppIcon: () => null }));

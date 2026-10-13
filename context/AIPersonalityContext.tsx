@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PERSONALITY_MODES, PersonalityModeId } from './AIPersonalities';
+import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
 
 /**
  * Legacy store.

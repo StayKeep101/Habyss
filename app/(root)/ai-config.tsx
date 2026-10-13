@@ -1,12 +1,12 @@
 import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { FontFamily, UIStyles } from '@/constants/DesignSystem';
+import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useAppSettings } from '@/constants/AppSettingsContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { useAppSettings } from '@/context/AppSettingsContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
 import { usePremiumStatus } from '@/hooks/usePremiumStatus';
 import { router } from 'expo-router';

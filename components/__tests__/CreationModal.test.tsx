@@ -4,8 +4,8 @@ import { DeviceEventEmitter } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CreationModal } from '../CreationModal';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
-jest.mock('@/constants/AccentContext', () => ({
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/AccentContext', () => ({
     useAccentGradient: () => ({ primary: '#00b9e8', buttonColors: ['#00b9e8', '#0077b6'], shadowColor: '#00b9e8' }),
 }));
 jest.mock('@/hooks/useResponsiveLayout', () => ({ useResponsiveLayout: () => ({ horizontalPadding: 20, floatingButtonSize: 60, tabBarBottomOffset: 24 }) }));

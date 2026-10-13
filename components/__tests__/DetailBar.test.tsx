@@ -3,7 +3,7 @@ import { Keyboard, Text } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import { DetailBar, type DetailItem } from '../Create/DetailBar';
 
-jest.mock('@/constants/themeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 
 const items: DetailItem[] = [
     { id: 'repeat', icon: 'repeat', label: 'Repeat', value: 'Weekdays', content: <Text>day picker</Text> },

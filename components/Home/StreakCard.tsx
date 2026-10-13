@@ -1,12 +1,12 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '../Layout/VoidCard';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { s, vs, ms } from '@/constants/Layout';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { s, vs, ms } from '@/theme/scale';
 
 interface StreakCardProps {
     streak: number;

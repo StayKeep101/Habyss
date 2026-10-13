@@ -1,12 +1,12 @@
 import { SheetScreen } from '@/components/Layout/SheetScreen';
-import { FontFamily, UIStyles } from '@/constants/DesignSystem';
+import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { router } from 'expo-router';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
-import { useAccentGradient } from '@/constants/AccentContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/Layout/VoidCard';
 import { getHabits, getGoals, type Habit } from '@/lib/habitsSQLite';

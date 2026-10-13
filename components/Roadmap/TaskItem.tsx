@@ -1,4 +1,4 @@
-import { FontFamily } from '@/constants/DesignSystem';
+import { FontFamily } from '@/theme/designSystem';
 import { formatDuration } from '@/lib/habitMeasurement';
 import React from 'react';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
@@ -10,11 +10,11 @@ import { BadgeRow, PriorityFlag, ReminderBadge } from '@/components/Common/CardB
 import { SharedFaces } from '@/components/Common/SharedFaces';
 import type { SharedState } from '@/lib/shared';
 import { CheckPop } from '@/components/Common/CheckPop';
-import { Colors } from '@/constants/Colors';
-import { useTheme } from '@/constants/themeContext';
+import { Colors } from '@/theme/colors';
+import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/Layout/VoidCard';
-import type { RoadMapCardSize } from '@/constants/AppSettingsContext';
+import type { RoadMapCardSize } from '@/context/AppSettingsContext';
 import { setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 
