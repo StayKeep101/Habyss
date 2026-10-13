@@ -6,7 +6,7 @@ import { AppIcon as Ionicons } from '@/components/Common/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { SettingsModal } from '@/components/SettingsModal';
+import { SettingsModal } from '@/components/Common/SettingsModal';
 
 interface ScrollPickerModalProps {
     visible: boolean;

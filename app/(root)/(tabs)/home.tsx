@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
-import { CelebrationAnimation } from '@/components/CelebrationAnimation';
+import { CelebrationAnimation } from '@/components/Celebrations/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
 import AsyncStorage from '@react-native-async-storage/async-storage';

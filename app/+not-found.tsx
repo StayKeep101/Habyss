@@ -1,8 +1,8 @@
 import { Link, Stack } from 'expo-router';
 
 
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { ThemedText } from '@/components/Common/ThemedText';
+import { ThemedView } from '@/components/Common/ThemedView';
 import { styles } from '@/styles/screens/not-found.styles';
 
 export default function NotFoundScreen() {

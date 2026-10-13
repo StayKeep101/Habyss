@@ -17,7 +17,7 @@ import { PanelCap } from '@/components/Goal/PanelCap';
 import { Habit, isTimedHabit, removeHabitEverywhere, removeGoalWithLinkedHabits, toggleCompletion } from '@/lib/habitsSQLite';
 import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
 import { DeviceEventEmitter } from 'react-native';
-import { ShareGoalModal } from '@/components/ShareGoalModal';
+import { ShareGoalModal } from '@/components/Social/ShareGoalModal';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';

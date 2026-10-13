@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { DeviceEventEmitter } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CreationModal } from '../CreationModal';
+import { CreationModal } from '@/components/Create/CreationModal';
 
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 jest.mock('@/context/AccentContext', () => ({

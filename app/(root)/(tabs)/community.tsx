@@ -12,7 +12,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { FriendsService, Friend, FriendRequest, ReactionType, type DayComment, friendTasksToday, getMyUsername, inviteMessage } from '@/lib/friendsService';
 import { onAccountChange } from '@/lib/account';
 import { FriendsGate } from '@/components/Community/FriendsGate';
-import { FriendStatsModal } from '@/components/FriendStatsModal';
+import { FriendStatsModal } from '@/components/Community/FriendStatsModal';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
 import { useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';

@@ -10,7 +10,7 @@ import { SheetScreen } from '@/components/Layout/SheetScreen';
 import { HabitProgressCard } from '@/components/Habit/HabitProgressCard';
 import { SharedWith } from '@/components/Habit/SharedWith';
 import { HabitCalendarMap } from '@/components/Habit/HabitCalendarMap';
-import { ShareHabitModal } from '@/components/ShareHabitModal';
+import { ShareHabitModal } from '@/components/Social/ShareHabitModal';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Typography } from '@/theme/designSystem';

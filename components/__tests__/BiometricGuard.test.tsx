@@ -12,7 +12,7 @@ jest.mock('../Common/AppButton', () => ({ AppButton: ({ label, onPress }: any) =
     const { Text } = require('react-native'); return <Text onPress={onPress}>{label}</Text>;
 } }));
 import { authenticateAppLock } from '@/lib/biometricLock';
-import { BiometricGuard } from '../BiometricGuard';
+import { BiometricGuard } from '@/components/Auth/BiometricGuard';
 let changeState: (value: string) => void;
 beforeEach(() => {
     jest.clearAllMocks();

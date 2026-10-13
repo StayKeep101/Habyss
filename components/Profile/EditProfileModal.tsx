@@ -12,7 +12,7 @@ import { ModalHeader } from '@/components/Layout/ModalHeader';
 import { IconButton } from '@/components/Common/IconButton';
 import { AppTextField } from '@/components/Common/AppTextField';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SettingsModal } from '@/components/SettingsModal';
+import { SettingsModal } from '@/components/Common/SettingsModal';
 import { saveProfile } from '@/lib/profile';
 
 // Conditionally require ImagePicker

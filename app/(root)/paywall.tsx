@@ -1,4 +1,4 @@
-import RevenueCatPaywall from '@/components/RevenueCatPaywall';
+import RevenueCatPaywall from '@/components/Paywall/RevenueCatPaywall';
 
 export default function PaywallScreen() {
     return <RevenueCatPaywall />;
