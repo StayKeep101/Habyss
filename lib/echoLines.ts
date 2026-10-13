@@ -7,14 +7,16 @@ import { speaksAsUser } from './echoWriter';
  * What Echo says at the top of Home, a new line every time the page is opened
  * or refreshed.
  *
- * Four kinds of line, mixed by personality:
+ * Five kinds of line, mixed by personality:
  * - facts: true, sourced findings about habits and behaviour change. Wording
  *   stays within what the studies found; nothing here is embellished.
  * - yours: built from the user's own recorded data. Never claims more than
  *   was logged, and an unlogged habit is "not logged", not "skipped".
+ * - quote: lines that hit like the best motivational quotes — about work,
+ *   standards and what it costs to win. No numbers, no data.
  * - push: encouragement in the personality's voice.
- * - roast: Bully Mode only. Harsh about excuses and effort, never about who
- *   the person is, their body, their worth or their mental health.
+ * - roast: Bully Mode only. Harsh about excuses and effort, with guilt and
+ *   FOMO; never about their body, looks, identity or mental health.
  *
  * When the on-device model is ready it sometimes writes a fresh line instead,
  * held to the same rules; the written bank is the fallback and the default.
@@ -33,14 +35,43 @@ export interface EchoStats {
     overallProgress: number;
 }
 
-type Kind = 'fact' | 'yours' | 'push' | 'roast';
+type Kind = 'fact' | 'yours' | 'quote' | 'push' | 'roast';
 
 const MIX: Record<PersonalityModeId, Record<Kind, number>> = {
-    friendly: { fact: 3, yours: 3, push: 4, roast: 0 },
-    normal: { fact: 5, yours: 4, push: 1, roast: 0 },
-    dad_mode: { fact: 2, yours: 4, push: 4, roast: 0 },
-    bully_mode: { fact: 2, yours: 3, push: 0, roast: 5 },
+    friendly: { fact: 2, yours: 3, quote: 3, push: 3, roast: 0 },
+    normal: { fact: 3, yours: 3, quote: 4, push: 1, roast: 0 },
+    dad_mode: { fact: 1, yours: 3, quote: 4, push: 3, roast: 0 },
+    bully_mode: { fact: 1, yours: 2, quote: 3, push: 0, roast: 5 },
 };
+
+/**
+ * The lines people screenshot. Short, absolute, and about the work — the kind
+ * that make sitting still feel like a choice you have to defend.
+ */
+export const QUOTES: string[] = [
+    'Work so hard that it would be unreasonable for you not to win.',
+    'Discipline is choosing what you want most over what you want now.',
+    'Nobody remembers the days you felt like it. They remember what you built anyway.',
+    'You will never regret the work. You will regret the days you gave away.',
+    'The pain of discipline weighs ounces. The pain of regret weighs tons.',
+    'Be so consistent that luck has no choice but to find you.',
+    'Everyone wants the result. Almost nobody wants the boring middle. Be the one who does.',
+    'Comfort is the slowest way to lose everything you could have been.',
+    'Do it tired. Do it unsure. Do it anyway. That is the whole secret.',
+    'Your future is being decided by what you do in the next hour, not the next year.',
+    'Talent is common. People who show up every single day are rare.',
+    'Act like the person you want to become is watching. Because one day they will be.',
+    'Winners are not people who never feel like quitting. They are people who never let it decide.',
+    'The version of you that you dream about is built on days exactly like this one.',
+    'If it was easy, everyone would have it. That is the point.',
+    'You do not rise to your goals. You fall to your habits. Raise them.',
+    'Stop waiting to feel ready. Ready is something you become by starting.',
+    'Outwork your doubts. They get quieter every time you do.',
+    'One day or day one. You decide, every morning.',
+    'Hard choices, easy life. Easy choices, hard life.',
+    'Make your excuses wait outside. Today is not theirs.',
+    'Be obsessed, or be average. There is not much in between.',
+];
 
 export const FACTS: string[] = [
     'In a UCL study, new habits took a median of 66 days to feel automatic. Anywhere from 18 to 254 is normal.',
@@ -73,6 +104,8 @@ const PUSH: Record<PersonalityModeId, ((s: EchoStats) => string)[]> = {
         () => 'Consistency beats intensity. Keep the chain going.',
         () => 'Do the smallest version if you are short on time. It still counts.',
         () => 'A good day is one where you did what you planned. Aim for that.',
+        () => 'Somebody with less time and fewer chances is doing it right now. So can you.',
+        () => 'The work you do when nobody is watching is the work that shows up later.',
     ],
     dad_mode: [
         s => `${s.name ? `${s.name}. ` : ''}You gave your word. Keep it.`,
@@ -83,28 +116,39 @@ const PUSH: Record<PersonalityModeId, ((s: EchoStats) => string)[]> = {
         () => 'Finish what you started. Then we talk.',
         () => 'Doing the minimum is not something to be proud of.',
         () => 'I expect more from you, because you are capable of more.',
+        () => 'I did not raise you to do things halfway.',
+        () => 'People with half your chances are out there working. What is your excuse?',
+        () => 'You want respect? Earn it from yourself first. Go.',
     ],
     bully_mode: [],
 };
 
 /**
- * Bully mode, as asked for: it swears and it insults — your effort, your
- * excuses, your laziness. Never your body, looks, identity, family or mental
- * health, and no slurs; the point is to light a fire, not to wound.
+ * Bully mode, as asked for: it swears, it insults your effort and your
+ * excuses, and it goes for the guilt — the people working while you rest, the
+ * people who had it harder and did more, the person who raised you. Never your
+ * body, looks, identity or mental health, and no slurs: the point is to light
+ * a fire, not to wound.
  */
 const ROASTS: ((s: EchoStats) => string)[] = [
     s => `${s.name ? `${s.name}, y` : 'Y'}our excuses are more consistent than your fucking habits.`,
-    () => 'Five minutes of work will not kill you, you lazy ass. Start.',
+    () => 'Your mom did not raise you to be a lazy ass. Get up.',
+    () => 'While you are getting comfortable, someone out there is working right now. And they are coming for what you want.',
+    () => 'People with no money, no time and no help did more than this. What the hell is your excuse?',
+    () => 'Somewhere a kid with nothing is outworking you tonight. Sit with that.',
+    () => 'You had every chance today. Everyone who ever believed in you deserves better than this.',
+    () => 'The person you could have been is watching you scroll. They are embarrassed.',
+    () => 'Imagine telling your younger self you had all this and still did nothing. Go on. Look at them.',
+    () => 'Every minute you waste, somebody hungrier takes your spot. Move your ass.',
     () => '"I will start tomorrow." Bullshit. You said that yesterday.',
-    () => 'Motivation is for amateurs. Get off your ass and show up.',
-    () => 'Nobody gives a shit how you feel about it. Do it.',
-    () => 'You planned it. Now stop jerking around and do it.',
-    () => 'Comfortable is how losers stay losers. Move.',
-    () => 'Your goals will not hit themselves while you scroll, genius.',
-    () => 'Stop being so damn soft. Do the work.',
-    () => 'Pathetic. You can do better than this crap.',
-    () => 'Quit whining and get it done.',
-    s => (s.todayTotal > 0 && s.todayDone === 0 ? `${s.todayTotal} scheduled today. Zero done. What the hell are you doing?` : 'Done is the only status that counts. Everything else is shit.'),
+    () => 'Nobody is coming to save you. Not today, not ever. Do it yourself.',
+    () => 'Your competition did not take today off. Why the hell did you?',
+    () => 'Comfortable is where dreams go to die. Get out of it.',
+    () => 'You are not tired. You are undisciplined. There is a difference.',
+    () => 'Ten years from now you will either thank this moment or hate it. Choose.',
+    () => 'Your goals will not hit themselves while you lie there, genius.',
+    () => 'Your parents worked too damn hard for you to be this soft.',
+    s => (s.todayTotal > 0 && s.todayDone === 0 ? `${s.todayTotal} scheduled today. Zero done. What the hell are you doing?` : 'Done is the only status that counts. Everything else is noise.'),
 ];
 
 function yours(s: EchoStats, personality: PersonalityModeId): string[] {
@@ -159,9 +203,9 @@ function weightsFor(personality: PersonalityModeId, style: EchoStyle): Record<Ki
     const base = MIX[personality] ?? MIX.normal;
     const roast = personality === 'bully_mode' ? 1 : 0;
     switch (style) {
-        case 'data': return { fact: 0, yours: 1, push: 0, roast: 0 };
-        case 'quotes': return { fact: base.fact, yours: 0, push: base.push, roast: base.roast };
-        case 'all': return { fact: 1, yours: 1, push: personality === 'bully_mode' ? 0 : 1, roast };
+        case 'data': return { fact: 0, yours: 1, quote: 0, push: 0, roast: 0 };
+        case 'quotes': return { fact: base.fact, yours: 0, quote: base.quote, push: base.push, roast: base.roast };
+        case 'all': return { fact: 1, yours: 1, quote: 1, push: personality === 'bully_mode' ? 0 : 1, roast };
         case 'ai':
         default: return base;
     }
@@ -181,6 +225,7 @@ function pickKind(personality: PersonalityModeId, random: () => number, style: E
 function candidates(kind: Kind, personality: PersonalityModeId, stats: EchoStats): string[] {
     switch (kind) {
         case 'fact': return FACTS;
+        case 'quote': return QUOTES;
         case 'yours': return yours(stats, personality);
         case 'push': return (PUSH[personality] ?? PUSH.normal).map(line => line(stats));
         case 'roast': return ROASTS.map(line => line(stats));
@@ -204,9 +249,9 @@ export function pickWrittenLine(
 
 const STYLE: Record<PersonalityModeId, string> = {
     friendly: 'warm, upbeat and supportive, like a best friend; one emoji at most',
-    normal: 'calm, factual and encouraging, no emoji',
-    dad_mode: 'a stern, strict father: short clipped sentences, disappointed when they slack, expects results, no praise for the bare minimum, no warmth, no emoji',
-    bully_mode: 'a foul-mouthed drill sergeant who swears freely (fuck, shit, damn, ass) and insults their laziness, excuses and lack of effort; never about their body, looks, identity, family or mental health; no slurs; no emoji',
+    normal: 'intense and inspiring, like the best motivational quote they have ever read: short, absolute, about hard work and winning; no emoji',
+    dad_mode: 'a stern, strict father: short clipped sentences, disappointed when they slack, reminds them that others with less are working harder, expects results, no praise for the bare minimum, no warmth, no emoji',
+    bully_mode: 'a foul-mouthed drill sergeant who swears freely (fuck, shit, damn, ass) and cuts deep: guilt about wasting their chances, FOMO about people working right now, people in harder conditions doing more, "your mom did not raise you to be lazy"; never about their body, looks, identity or mental health; no slurs; no emoji',
 };
 
 /**
