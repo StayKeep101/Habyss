@@ -30,8 +30,21 @@ docs/             notes, the UI audit, old SQL
 - Screens are composed from `/components/ui`. Never style a screen from scratch.
 - If a needed component doesn't exist, create it in `/components/ui` first, from tokens, then use it.
 - Never add a new token without asking the user.
-- Reference screen: [set after Phase 5]. New screens must match its layout, spacing and hierarchy.
+- New screens must match the layout, spacing and hierarchy of the existing screens around them, built from the same `components/ui` pieces.
 - Before finishing any UI task, check the changed files for raw values and fix them.
+
+## Building a new feature — where each part goes
+
+Every new feature follows the structure above. No UI anywhere else.
+
+1. **Page** → `app/<name>.tsx`. Only what the page does and which pieces it shows. No `StyleSheet` in the file.
+2. **Page styles** → `styles/screens/<name>.styles.ts`, imported as `styles`. Values from tokens (`theme/`), never raw numbers or colours.
+3. **Pieces for this feature** → `components/<Area>/` (e.g. `components/Goal/`), built from `components/ui`.
+4. **A piece other features could use** → `components/ui/`, added to the list in `components/ui/index.ts`.
+5. **Look first, reuse always**: before making anything new, check `components/ui` for an existing piece (card, sheet, header, button, field, row) and use it as is.
+6. **Logic and data** → `lib/` (plain functions, with tests in `lib/__tests__`) and `hooks/`. App-wide state → `context/`.
+7. **Colours, fonts, corners, shadows** → only from `theme/`. A value that does not exist there yet: ask the user before adding it.
+8. After building, add the page to the table in `styles/README.md`.
 
 ## Working in this repo
 
