@@ -39,7 +39,8 @@ describe('a friend’s day', () => {
 
     it('shows a run only when there is one worth showing', () => {
         expect(show({ todayCompleted: 2, todayTotal: 2, currentStreak: 1 }).queryByText('1')).toBeNull();
-        expect(show({ todayCompleted: 2, todayTotal: 2, currentStreak: 7 }).getByText('7')).toBeTruthy();
+        // The streak counts up; its label carries the real value from the start.
+        expect(show({ todayCompleted: 2, todayTotal: 2, currentStreak: 7 }).getByLabelText('7')).toBeTruthy();
     });
 
     it('says nothing about proof when nothing was done', () => {

@@ -113,7 +113,7 @@ function ProgressRing({ color, goalValue, unit, todayValue = 0 }: {
                 </SvgText>
             </Svg>
             <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 8, fontFamily: FontFamily.regular }}>
-                {Math.round(progress * 100)}% Complete Today
+                <CountUp value={`${Math.round(progress * 100)}%`} /> Complete Today
             </Text>
         </View>
     );

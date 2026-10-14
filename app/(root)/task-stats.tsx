@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { CountUp } from '@/components/ui/Motion';
+import { CountUp, PopIn, useProgress } from '@/components/ui/Motion';
 import { useRouter } from 'expo-router';
-import Animated, { Easing, FadeIn, FadeOut, ReduceMotion, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, useAnimatedStyle } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Segmented } from '@/components/ui/Segmented';
 import { SheetScreen } from '@/components/ui/SheetScreen';
@@ -90,11 +90,11 @@ export default function TaskStatsScreen() {
                 {/* One number. */}
                 <Animated.View entering={FadeIn.duration(220)} style={styles.hero}>
                     <View style={styles.heroRow}>
-                        <Text style={[styles.heroValue, { color: colors.textPrimary }]}>{insights.hits}</Text>
+                        <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={insights.hits} replay={days} />
                         {insights.streak > 0 ? (
                             <View style={[styles.streak, { backgroundColor: '#F9731618' }]}>
                                 <AppIcon name="flame" size={s(13)} color="#F97316" />
-                                <Text style={styles.streakText}>{insights.streak} in a row</Text>
+                                <CountUp style={styles.streakText} value={`${insights.streak} in a row`} replay={days} />
                             </View>
                         ) : null}
                     </View>
@@ -113,10 +113,10 @@ export default function TaskStatsScreen() {
                         value={days}
                         onChange={value => setDays(value as 30 | 90)}
                     />
-                    <Chart history={history} target={target} tint={primary} idle={idle} line={colors.textTertiary} />
+                    <Chart replay={days} history={history} target={target} tint={primary} idle={idle} line={colors.textTertiary} />
                     <View style={styles.axis}>
                         <Text style={[styles.axisText, { color: colors.textTertiary }]}>{shortDay(history[0]?.date ?? today)}</Text>
-                        <Text style={[styles.axisText, { color: colors.textTertiary }]}>{insights.perDay} a day</Text>
+                        <CountUp style={[styles.axisText, { color: colors.textTertiary }]} value={`${insights.perDay} a day`} replay={days} />
                         <Text style={[styles.axisText, { color: colors.textTertiary }]}>Today</Text>
                     </View>
                 </View>
@@ -125,7 +125,7 @@ export default function TaskStatsScreen() {
                 <View style={styles.block}>
                     <View style={styles.blockHead}>
                         <Text style={[styles.blockTitle, { color: colors.textPrimary }]}>Days kept</Text>
-                        <Text style={[styles.blockMeta, { color: colors.textTertiary }]}>{yearInsights.hits} in {HEAT_WEEKS} weeks</Text>
+                        <Text style={[styles.blockMeta, { color: colors.textTertiary }]}><CountUp value={yearInsights.hits} /> in {HEAT_WEEKS} weeks</Text>
                     </View>
                     <View style={styles.heat} accessibilityRole="image" accessibilityLabel={`${yearInsights.hits} days kept in the last ${HEAT_WEEKS} weeks`}>
                         <View style={{ width: labelWidth, gap: HEAT_GAP }}>
@@ -134,7 +134,7 @@ export default function TaskStatsScreen() {
                             ))}
                         </View>
                         {heat.map((column, index) => (
-                            <View key={index} style={{ gap: HEAT_GAP, marginLeft: HEAT_GAP }}>
+                            <PopIn key={index} index={index} style={{ gap: HEAT_GAP, marginLeft: HEAT_GAP }}>
                                 {column.map(({ date, day, future }) => {
                                     const share = day ? Math.min(1, day.done / Math.max(1, day.target)) : 0;
                                     return (
@@ -150,7 +150,7 @@ export default function TaskStatsScreen() {
                                         />
                                     );
                                 })}
-                            </View>
+                            </PopIn>
                         ))}
                     </View>
                     <View style={styles.legend}>
@@ -191,25 +191,23 @@ const Row = ({ label, value, colors, tint, last }: { label: string; value: strin
 );
 
 /** A bar per day, solid where the promise was kept, with the promise drawn across. */
-const Chart = ({ history, target, tint, idle, line }: { history: FocusDay[]; target: number; tint: string; idle: string; line: string }) => {
+const Chart = ({ history, target, tint, idle, line, replay }: { history: FocusDay[]; target: number; tint: string; idle: string; line: string; replay: number }) => {
     const ceiling = Math.max(...history.map(day => day.done), target + 1, 1);
     return (
         <View style={styles.chart} accessibilityRole="image" accessibilityLabel={`${history.filter(day => day.hit).length} of ${history.length} days kept`}>
             <View pointerEvents="none" style={[styles.targetLine, { bottom: `${(target / ceiling) * 100}%`, borderColor: line }]} />
             {history.map((day, index) => (
-                <Bar key={day.date} day={day} ceiling={ceiling} index={index} tint={tint} idle={idle} />
+                <Bar key={day.date} day={day} ceiling={ceiling} index={index} tint={tint} idle={idle} replay={replay} />
             ))}
         </View>
     );
 };
 
-const Bar = ({ day, ceiling, index, tint, idle }: { day: FocusDay; ceiling: number; index: number; tint: string; idle: string }) => {
-    const grown = useSharedValue(0);
+const Bar = ({ day, ceiling, index, tint, idle, replay }: { day: FocusDay; ceiling: number; index: number; tint: string; idle: string; replay: number }) => {
     const share = Math.max(day.done / ceiling, 0.035);
-    React.useEffect(() => {
-        grown.value = withDelay(index * 5, withTiming(share, { duration: 420, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
-    }, [share, index, grown]);
-    const style = useAnimatedStyle(() => ({ height: `${grown.value * 100}%` }));
+    // Grows in on opening and again when switching 30 and 90 days.
+    const grown = useProgress(share, index * 5, replay);
+    const style = useAnimatedStyle(() => ({ height: `${grown.get() * 100}%` }));
     return (
         <View style={styles.barTrack}>
             <Animated.View style={[styles.bar, style, { backgroundColor: day.done ? tint : idle, opacity: day.hit || !day.done ? 1 : 0.45 }]} />

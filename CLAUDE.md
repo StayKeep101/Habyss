@@ -44,7 +44,12 @@ Every new feature follows the structure above. No UI anywhere else.
 5. **Look first, reuse always**: before making anything new, check `components/ui` for an existing piece (card, sheet, header, button, field, row) and use it as is.
 6. **Logic and data** → `lib/` (plain functions, with tests in `lib/__tests__`) and `hooks/`. App-wide state → `context/`.
 7. **Colours, fonts, corners, shadows** → only from `theme/`. A value that does not exist there yet: ask the user before adding it.
-8. **Charts, bars, rings and figures move**: use the motion pieces in `components/ui/Motion.tsx` (`AnimatedFill`, `GrowBar`, `Reveal`, `PopIn`, `useProgress`, `CountUp`). They grow in when a page opens and glide to the new value when something changes. Never draw a still bar or a figure that jumps.
+8. **Everything that shows data moves**, using `components/ui/Motion.tsx`:
+   - Every figure that is data uses `CountUp`/`useCountUp`; bars `AnimatedFill`/`GrowBar`; rings and arcs `useProgress`; line charts `Reveal`; grids `PopIn`.
+   - They grow in when a page opens and glide when a habit, task or goal changes.
+   - Any switch that changes data (month, 1W/All, 30/90 days, a tab) passes what it switched as `replay`, so the intro plays again.
+   - Every row in a list of habits, tasks or goals is wrapped in `ListItem`, so adding, removing and reordering fade and slide.
+   - Never draw a still bar, a figure that jumps, or a list that snaps.
 9. **Data and numbers**: pages read habits, tasks and history only through the shared hooks — `useData`, `useTasks`, `useHistory`, `useGoalsInsights` (one in-memory copy in `lib/dataStore.ts`). Never query the database from a page, and never compute a stat a second way: streaks come from `streakFrom`, goal progress from `goalInsights`, momentum and recovery from their `lib/` files.
 10. After building, add the page to the table in `styles/README.md`.
 

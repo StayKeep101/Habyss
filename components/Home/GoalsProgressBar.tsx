@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -47,7 +48,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
                         <Text style={[styles.title, { color: colors.textPrimary }]}>GOALS PROGRESS</Text>
                     </View>
                     <View style={[styles.badge, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
-                        <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{goalsCount}</Text>
+                        <CountUp style={[styles.badgeText, { color: colors.textSecondary }]} value={goalsCount} />
                         <Ionicons name="chevron-forward" size={s(12)} color={colors.textTertiary} />
                     </View>
                 </View>
@@ -63,7 +64,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
                             />
                         </Animated.View>
                     </View>
-                    <Text style={[styles.progressText, { color: colors.textPrimary }]}>{Math.round(progress)}%</Text>
+                    <CountUp style={[styles.progressText, { color: colors.textPrimary }]} value={`${Math.round(progress)}%`} />
                 </View>
 
                 <Text style={[styles.subtitle, { color: colors.textTertiary }]}>TRACK YOUR ACTIVE MISSIONS</Text>

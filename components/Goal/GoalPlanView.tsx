@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
-import { AnimatedFill } from '@/components/ui/Motion';
+import { AnimatedFill, CountUp, ListItem } from '@/components/ui/Motion';
 import { router } from 'expo-router';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
@@ -135,7 +135,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
     }
 
     const renderTask = (task: Task) => (
-        <TaskItem
+        <ListItem key={task.id}><TaskItem
             key={task.id} task={task} today={today}
             // Inside a step the task is ticked off where it sits; on the dated
             // plan the only question is when.
@@ -144,7 +144,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
             onPress={() => openTask(task)}
             // Kept for the shape of the row; on the plan the swipes move days.
             onToggle={toggleTask} onEdit={() => openTask(task)} onDelete={removeTask}
-        />
+        /></ListItem>
     );
 
     return (
@@ -274,7 +274,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
                             Target · {dateAt(insights.endDate).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long' })}
                         </Text>
                         {insights.daysLeft !== null ? (
-                            <Text style={[styles.targetDays, { color: colors.textTertiary }]}>{insights.daysLeft} days</Text>
+                            <CountUp style={[styles.targetDays, { color: colors.textTertiary }]} value={`${insights.daysLeft} days`} />
                         ) : null}
                     </View>
                 ) : null}

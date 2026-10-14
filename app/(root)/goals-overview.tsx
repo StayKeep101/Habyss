@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { AnimatedFill, CountUp } from '@/components/ui/Motion';
+import { AnimatedFill, CountUp, ListItem } from '@/components/ui/Motion';
 import { useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -71,7 +71,10 @@ export default function GoalsOverview() {
                                 : `${onTrack} of ${list.length} goals on track`}
                         </Text>
                         <View style={styles.numberRow}>
-                            <Text style={[styles.big, { color: colors.textPrimary }]}>{Math.round(scrub?.actual ?? overall)}%</Text>
+                            {/* While the finger reads a day the figure follows it exactly; otherwise it counts. */}
+                            {scrub
+                                ? <Text style={[styles.big, { color: colors.textPrimary }]}>{Math.round(scrub.actual)}%</Text>
+                                : <CountUp style={[styles.big, { color: colors.textPrimary }]} value={`${Math.round(overall)}%`} />}
                             <Text style={[styles.bigLabel, { color: colors.textSecondary }]}>
                                 {scrub
                                     ? dateAt(scrub.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
@@ -99,7 +102,7 @@ export default function GoalsOverview() {
                                 const next = paceLine(insights.measure)
                                     ?? (insights.daysLeft !== null ? `${insights.daysLeft} days left` : null);
                                 return (
-                                    <Pressable
+                                    <ListItem key={goal.id}><Pressable
                                         key={goal.id}
                                         accessibilityRole="button"
                                         accessibilityLabel={`${goal.name}: ${state.label}, ${insights.progress}% done. ${next ?? ''}`}
@@ -120,7 +123,7 @@ export default function GoalsOverview() {
                                             </View>
                                             {next ? <Text numberOfLines={1} style={[styles.next, { color: colors.textSecondary }]}>{next}</Text> : null}
                                         </View>
-                                    </Pressable>
+                                    </Pressable></ListItem>
                                 );
                             })}
                         </View>

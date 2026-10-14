@@ -129,7 +129,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
         >
             {geometry ? (
                 <>
-                    <Reveal style={{ height }}>
+                    <Reveal style={{ height }} replay={range}>
                     <Svg width={width} height={height}>
                         <Defs>
                             <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -157,6 +157,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                         over it rather than replacing it, so the chart never has
                         a moment with no marker at all. */}
                     <PopIn
+                        key={range}
                         index={MOTION.intro / (MOTION.stagger / 2)}
                         style={[styles.end, {
                             pointerEvents: 'none',

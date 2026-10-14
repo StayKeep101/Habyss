@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -52,7 +53,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
                 </View>
 
                 <View>
-                    <Text style={[styles.value, { color: colors.textPrimary }]}>{streak}</Text>
+                    <CountUp style={[styles.value, { color: colors.textPrimary }]} value={streak} />
                     <Text style={[styles.label, { color: colors.textTertiary }]}>DAY STREAK</Text>
                 </View>
 

@@ -68,7 +68,7 @@ describe('the headline', () => {
     it('counts getting back up rather than being perfect', () => {
         // One miss, answered the next day.
         const screen = show('..x..', [habit()], { h1: true });
-        expect(screen.getByTestId('recovery-rate')).toHaveTextContent('100%');
+        expect(screen.getByTestId('recovery-rate')).toHaveProp('accessibilityLabel', '100%');
         expect(screen.getByText(/the very next day it was due/)).toBeTruthy();
     });
 

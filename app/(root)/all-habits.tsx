@@ -2,6 +2,7 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ListItem } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
 import { Colors } from '@/theme/colors';
@@ -110,7 +111,7 @@ export default function AllHabitsScreen() {
                                 {filter === 'archived' ? 'Nothing archived.' : 'No habits yet.'}
                             </Text>
                         ) : shown.map(habit => (
-                            <TouchableOpacity
+                            <ListItem key={habit.id}><TouchableOpacity
                                 key={habit.id}
                                 activeOpacity={0.85}
                                 accessibilityRole="button"
@@ -132,7 +133,7 @@ export default function AllHabitsScreen() {
                                     </View>
                                     <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
                                 </VoidCard>
-                            </TouchableOpacity>
+                            </TouchableOpacity></ListItem>
                         ))}
                     </ScrollView>
                 )}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { VoidModal } from '@/components/ui/VoidModal';
 import { ModalHeader } from '@/components/ui/ModalHeader';
@@ -155,7 +156,7 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                                             {rank.name}
                                         </Text>
                                         {current && marks.next ? (
-                                            <Text style={[styles.rankHint, { color: foreground }]}>{marks.toNext.toLocaleString()} to go</Text>
+                                            <CountUp style={[styles.rankHint, { color: foreground }]} value={`${marks.toNext.toLocaleString()} to go`} />
                                         ) : null}
                                         <Text style={[styles.rankRange, { color: colors.textTertiary }]}>
                                             {next ? `${rank.min.toLocaleString()}–${(next.min - 1).toLocaleString()}` : `${rank.min.toLocaleString()}+`}
@@ -181,7 +182,7 @@ const Change: React.FC<{ value: number; label: string }> = ({ value, label }) =>
     return (
         <View style={[styles.change, { backgroundColor: tone + '1F' }]}>
             <Ionicons name={value > 0 ? 'caret-up' : value < 0 ? 'caret-down' : 'remove'} size={11} color={tone} />
-            <Text style={[styles.changeText, { color: tone }]}>{`${Math.abs(value).toLocaleString()} · ${label}`}</Text>
+            <CountUp style={[styles.changeText, { color: tone }]} value={`${Math.abs(value).toLocaleString()} · ${label}`} />
         </View>
     );
 };

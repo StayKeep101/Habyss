@@ -37,7 +37,8 @@ const show = (habits: Habit[], days: ReturnType<typeof history>) =>
 describe('reading momentum', () => {
     it('leads with the rate and says what it is measured against', () => {
         const screen = show([habit()], history(() => ['h1']));
-        expect(screen.getByTestId('momentum-rate')).toHaveTextContent('100%');
+        // The figure counts up; its label carries the real value from the start.
+        expect(screen.getByTestId('momentum-rate')).toHaveProp('accessibilityLabel', '100%');
         expect(screen.getByText(/kept over 30 days/)).toBeTruthy();
     });
 

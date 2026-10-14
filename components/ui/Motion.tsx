@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
 import Animated, {
-    Easing, FadeIn, ReduceMotion, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue,
+    Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue,
     withDelay, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { Circle, Path, Rect } from 'react-native-svg';
@@ -32,65 +32,87 @@ export const AnimatedPath = Animated.createAnimatedComponent(Path);
 /**
  * A value that starts at zero, grows to `target` when it first appears, and
  * glides to every new target after that. Drive any style or SVG prop with it.
+ *
+ * `replay` is for switches: give it whatever was switched (the month, "1W" or
+ * "All", the tab) and the intro plays again from zero each time it changes, so
+ * new data arrives the way the page did.
  */
-export function useProgress(target: number, delay = 0): SharedValue<number> {
+export function useProgress(target: number, delay = 0, replay?: unknown): SharedValue<number> {
     const value = useSharedValue(0);
     const first = useRef(true);
+    const lastReplay = useRef(replay);
     useEffect(() => {
-        const duration = first.current ? MOTION.intro : MOTION.duration;
-        const wait = first.current ? delay : 0;
+        const again = lastReplay.current !== replay;
+        lastReplay.current = replay;
+        const intro = first.current || again;
         first.current = false;
-        value.set(withDelay(wait, withTiming(target, { duration, easing: MOTION.easing, reduceMotion: ReduceMotion.System })));
-    }, [target, delay, value]);
+        if (again) value.set(0);
+        const duration = intro ? MOTION.intro : MOTION.duration;
+        value.set(withDelay(intro ? delay : 0, withTiming(target, { duration, easing: MOTION.easing, reduceMotion: ReduceMotion.System })));
+    }, [target, delay, replay, value]);
     return value;
 }
 
-const NUMBER = /-?\d[\d,]*(\.\d+)?/;
+const NUMBERS = /-?\d[\d,]*(\.\d+)?/g;
 
 /**
- * A number as text that counts up when it appears and rolls to its new value
- * when it changes: "62%", "1,240", "4.5 h". Whatever surrounds the number is
- * kept as written. Use it only on text that is a figure.
+ * A figure as text that counts up when it appears and rolls to its new value
+ * when it changes: "62%", "1,240", "3/5 done", "4.5 h". Every number in it
+ * moves; whatever surrounds them is kept as written. Use it only on text that
+ * is data. `replay` counts up from zero again when it changes (see useProgress).
  */
-export function useCountUp(value: string | number): string {
+export function useCountUp(value: string | number, replay?: unknown): string {
     const text = String(value);
-    const match = text.match(NUMBER);
-    const target = match ? Number(match[0].replace(/,/g, '')) : NaN;
+    const parts = text.match(NUMBERS) ?? [];
+    const targets = parts.map(part => Number(part.replace(/,/g, '')));
+    const key = targets.join('|');
     const reduced = useReducedMotion();
-    const [shown, setShown] = useState(reduced ? target : 0);
-    const current = useRef(reduced ? target : 0);
+    const [shown, setShown] = useState<number[]>(() => (reduced ? targets : targets.map(() => 0)));
+    const current = useRef<number[]>(reduced ? targets : targets.map(() => 0));
     const first = useRef(true);
+    const lastReplay = useRef(replay);
 
     useEffect(() => {
-        if (!Number.isFinite(target)) return;
-        const duration = first.current ? MOTION.intro : MOTION.duration;
+        if (targets.length === 0) return;
+        const again = lastReplay.current !== replay;
+        lastReplay.current = replay;
+        const duration = first.current || again ? MOTION.intro : MOTION.duration;
         first.current = false;
-        const start = current.current;
-        if (reduced || start === target) { current.current = target; setShown(target); return; }
+        const start = targets.map((_, index) => (again ? 0 : current.current[index] ?? 0));
+        if (reduced || start.every((from, index) => from === targets[index])) {
+            current.current = targets; setShown(targets); return;
+        }
         const began = Date.now();
         let frame = 0;
         const tick = () => {
             const progress = Math.min(1, (Date.now() - began) / duration);
-            const next = start + (target - start) * (1 - Math.pow(1 - progress, 3));
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const next = targets.map((to, index) => start[index] + (to - start[index]) * eased);
             current.current = next;
             setShown(next);
             if (progress < 1) frame = requestAnimationFrame(tick);
         };
         frame = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(frame);
-    }, [target, reduced]);
+        // `key` stands for `targets`, which is a new array every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key, replay, reduced]);
 
-    if (!match || !Number.isFinite(target)) return text;
-    const decimals = match[1] ? match[1].length - 1 : 0;
-    const figure = match[0].includes(',')
-        ? shown.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-        : shown.toFixed(decimals);
-    return text.replace(match[0], figure);
+    if (parts.length === 0) return text;
+    let index = 0;
+    return text.replace(NUMBERS, part => {
+        const number = shown[index] ?? targets[index];
+        index++;
+        const decimals = part.includes('.') ? part.split('.')[1].length : 0;
+        return part.includes(',')
+            ? number.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+            : number.toFixed(decimals);
+    });
 }
 
 /** `useCountUp` as a Text, for a figure drawn inside a list or with its own style. */
-export function CountUp({ value, ...props }: { value: string | number } & TextProps) {
-    const counted = useCountUp(value);
+export function CountUp({ value, replay, ...props }: { value: string | number; replay?: unknown } & TextProps) {
+    const counted = useCountUp(value, replay);
     return <Text accessibilityLabel={String(value)} {...props}>{counted}</Text>;
 }
 
@@ -98,8 +120,8 @@ export function CountUp({ value, ...props }: { value: string | number } & TextPr
  * A bar's fill: grows across its track when it appears and slides to each new
  * value. `progress` is 0 to 1; give it the fill's own look in `style`.
  */
-export function AnimatedFill({ progress, style, delay = 0 }: { progress: number; style?: StyleProp<ViewStyle>; delay?: number }) {
-    const shown = useProgress(Math.max(0, Math.min(1, progress)), delay);
+export function AnimatedFill({ progress, style, delay = 0, replay }: { progress: number; style?: StyleProp<ViewStyle>; delay?: number; replay?: unknown }) {
+    const shown = useProgress(Math.max(0, Math.min(1, progress)), delay, replay);
     const width = useAnimatedStyle(() => ({ width: `${shown.get() * 100}%` }));
     return <Animated.View style={[style, width]} />;
 }
@@ -109,8 +131,8 @@ export function AnimatedFill({ progress, style, delay = 0 }: { progress: number;
  * The contents need a fixed width (an Svg with `width`), so they are uncovered
  * rather than squeezed.
  */
-export function Reveal({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
-    const shown = useProgress(1);
+export function Reveal({ children, style, replay }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; replay?: unknown }) {
+    const shown = useProgress(1, 0, replay);
     const width = useAnimatedStyle(() => ({ width: `${shown.get() * 100}%` }));
     return <Animated.View style={[{ overflow: 'hidden' }, style, width]}>{children}</Animated.View>;
 }
@@ -128,10 +150,31 @@ export function PopIn({ index = 0, children, style }: { index?: number; children
 }
 
 /** An SVG bar standing on `floor`, growing up to `height` and to each new height. */
-export function GrowBar({ x, width, floor, height, rx, fill, opacity, delay = 0 }: {
-    x: number; width: number; floor: number; height: number; rx?: number; fill: string; opacity?: number; delay?: number;
+export function GrowBar({ x, width, floor, height, rx, fill, opacity, delay = 0, replay }: {
+    x: number; width: number; floor: number; height: number; rx?: number; fill: string; opacity?: number; delay?: number; replay?: unknown;
 }) {
-    const shown = useProgress(height, delay);
+    const shown = useProgress(height, delay, replay);
     const props = useAnimatedProps(() => ({ y: floor - shown.get(), height: shown.get() }));
     return <AnimatedRect x={x} width={width} rx={rx} fill={fill} opacity={opacity} animatedProps={props} />;
+}
+
+/** How rows move when the list around them changes: timed, never sprung, so nothing bounces. */
+export const LIST_LAYOUT = LinearTransition.duration(MOTION.duration).easing(MOTION.easing).reduceMotion(ReduceMotion.System);
+
+/**
+ * A row in a list of habits, tasks or goals. It fades in when it is added,
+ * fades out when it is removed or finished away, and when its neighbours come
+ * and go it slides to its new place instead of jumping there.
+ */
+export function ListItem({ children, style, index = 0 }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; index?: number }) {
+    return (
+        <Animated.View
+            entering={FadeIn.delay(Math.min(index, 12) * MOTION.stagger).duration(MOTION.duration).reduceMotion(ReduceMotion.System)}
+            exiting={FadeOut.duration(MOTION.duration / 2).reduceMotion(ReduceMotion.System)}
+            layout={LIST_LAYOUT}
+            style={style}
+        >
+            {children}
+        </Animated.View>
+    );
 }

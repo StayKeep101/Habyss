@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MOTION, useProgress } from '@/components/ui/Motion';
+import { MOTION, useProgress, CountUp, ListItem } from '@/components/ui/Motion';
 import Animated, { interpolateColor, useAnimatedStyle } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -65,11 +65,11 @@ export const DailyFocusCard: React.FC<{
                 {focus.streak ? (
                     <View accessible accessibilityLabel={`${focus.streak} day streak`} style={[styles.badge, { backgroundColor: '#F9731618', marginLeft: 'auto', marginRight: 6 }]}>
                         <Ionicons name="flame" size={s(12)} color="#F97316" />
-                        <Text style={[styles.badgeText, { color: '#F97316' }]}>{focus.streak}</Text>
+                        <CountUp style={[styles.badgeText, { color: '#F97316' }]} value={focus.streak} />
                     </View>
                 ) : null}
                 <View style={[styles.badge, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
-                    <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{focus.done}/{focus.target}</Text>
+                    <CountUp style={[styles.badgeText, { color: colors.textSecondary }]} value={`${focus.done}/${focus.target}`} />
                     <Ionicons name="chevron-forward" size={s(12)} color={colors.textTertiary} />
                 </View>
             </TouchableOpacity>
@@ -92,7 +92,7 @@ export const DailyFocusCard: React.FC<{
                     {focus.rows.map(task => {
                         const done = task.status === 'done';
                         return (
-                            <TouchableOpacity
+                            <ListItem key={task.id}><TouchableOpacity
                                 key={task.id}
                                 accessibilityRole="checkbox"
                                 accessibilityState={{ checked: done }}
@@ -119,7 +119,7 @@ export const DailyFocusCard: React.FC<{
                                 {task.dueTime && !done ? (
                                     <Text style={[styles.time, { color: colors.textTertiary }]}>{task.dueTime}</Text>
                                 ) : null}
-                            </TouchableOpacity>
+                            </TouchableOpacity></ListItem>
                         );
                     })}
                 </View>

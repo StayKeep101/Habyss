@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import Animated, {
@@ -116,7 +117,7 @@ export const StreakSuccessModal = ({ visible, streak, onClose, completedDates = 
                         <Ionicons name="flame" size={58} color={FLAME} />
                     </Animated.View>
 
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>{streak}-day streak</Text>
+                    <CountUp style={[styles.title, { color: colors.textPrimary }]} value={`${streak}-day streak`} />
                     <Text style={[styles.body, { color: colors.textSecondary }]}>Today counts. One thing tomorrow keeps it going.</Text>
 
                     <View style={styles.week}>

@@ -315,7 +315,8 @@ export default function HabitDetailScreen() {
                     the last week and a ring of today were two more ways of
                     saying what the squares already say. */}
                 <ScrollView style={{ width: pageWidth }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                    <HabitCalendarMap history={history} color={accent} startDate={habit.startDate?.slice(0, 10)} today={today} inset={20} />
+                    {/* Remounted on arrival, so its months and numbers play in when you get there. */}
+                    <HabitCalendarMap key={view} history={history} color={accent} startDate={habit.startDate?.slice(0, 10)} today={today} inset={20} />
                 </ScrollView>
                 </Animated.View>
                 </GestureDetector>

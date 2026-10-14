@@ -146,7 +146,7 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
                                         </Text>
                                     </View>
                                     <WeekDots marks={summary.last7} color={color} />
-                                    <Text style={[styles.rate, { color: colors.textPrimary }]}>{summary.rate30 === null ? '—' : `${summary.rate30}%`}</Text>
+                                    <CountUp style={[styles.rate, { color: colors.textPrimary }]} value={summary.rate30 === null ? '—' : `${summary.rate30}%`} />
                                 </View>
                             ))}
                         </VoidCard>

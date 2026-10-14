@@ -27,6 +27,8 @@
  *   useProgress    a 0→value animated number to drive any style or SVG prop
  *   useCountUp     a figure as text that counts up and rolls to new values
  *   CountUp        the same, as a Text component
+ *   ListItem       a habit, task or goal row: fades in and out, slides when the list changes
+ *   (every one takes `replay`: pass what a switch changed — month, range, tab — to replay the intro)
  *
  * Colours, fonts, corners and shadows come from theme/. Change a block here
  * and every screen that uses it changes with it.
@@ -61,4 +63,4 @@ export { HabitRow, type HabitRowProps } from './HabitRow';
 export { ProgressRing, type ProgressRingProps } from './ProgressRing';
 export { HalfCircleProgress } from './HalfCircleProgress';
 export { CheckPop } from './CheckPop';
-export { MOTION, CountUp, AnimatedFill, GrowBar, Reveal, PopIn, useProgress, useCountUp, AnimatedRect, AnimatedCircle, AnimatedPath } from './Motion';
+export { MOTION, LIST_LAYOUT, ListItem, CountUp, AnimatedFill, GrowBar, Reveal, PopIn, useProgress, useCountUp, AnimatedRect, AnimatedCircle, AnimatedPath } from './Motion';

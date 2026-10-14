@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CountUp } from '@/components/ui/Motion';
+import { AnimatedFill, CountUp, useProgress } from '@/components/ui/Motion';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion,
-    useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue,
+    useAnimatedStyle, useSharedValue, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { ScrubLine, ScrubReadout } from '@/components/Common/ScrubReadout';
 import { useScrub } from '@/hooks/useScrub';
@@ -30,7 +30,6 @@ const WINDOWS = [
 // Layout transitions are timed, never sprung: a spring overshoots and the whole
 // panel visibly bounces every time a day is tapped.
 const MORPH = LinearTransition.duration(260).easing(Easing.out(Easing.cubic));
-const EASE = { duration: 460, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 
 const longDay = (date: string) =>
     new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
@@ -131,7 +130,7 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
                 {/* The number, and the only framing that makes it useful. */}
                 <VoidCard {...surface} style={[styles.hero, glassy()]}>
                     <View style={styles.heroTop}>
-                        <Text testID="momentum-rate" style={[styles.heroValue, { color: colors.textPrimary }]}>{result.rate}%</Text>
+                        <CountUp testID="momentum-rate" style={[styles.heroValue, { color: colors.textPrimary }]} value={`${result.rate}%`} replay={days} />
                         {result.comparable && result.delta !== 0 ? (
                             <View style={[styles.deltaPill, { backgroundColor: direction + '22' }]}>
                                 <Ionicons name={result.delta > 0 ? 'trending-up' : 'trending-down'} size={s(13)} color={direction} />
@@ -149,9 +148,9 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
                                 : `kept over ${days} days, ${result.delta > 0 ? 'up' : 'down'} ${Math.abs(result.delta)} on the ${days} days before.`}
                     </Text>
                     <View style={[styles.heroSplit, { borderTopColor: colors.border }]}>
-                        <Stat label="Kept" value={`${result.kept}`} colors={colors} />
-                        <Stat label="Asked for" value={`${result.countable}`} colors={colors} divider />
-                        <Stat label="Before" value={result.comparable ? `${result.previous}%` : '—'} colors={colors} divider />
+                        <Stat label="Kept" value={`${result.kept}`} replay={days} colors={colors} />
+                        <Stat label="Asked for" value={`${result.countable}`} replay={days} colors={colors} divider />
+                        <Stat label="Before" value={result.comparable ? `${result.previous}%` : '—'} replay={days} colors={colors} divider />
                     </View>
                 </VoidCard>
 
@@ -202,6 +201,7 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
                                 {result.window.map((each, index) => (
                                     <Bar
                                         key={each.date}
+                                        replay={days}
                                         day={each}
                                         index={index}
                                         pinned={each.date === picked}
@@ -255,7 +255,7 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
                                 <VoidCard key={item.id} {...surface} style={[styles.habitRow, glassy()]}>
                                     <View style={styles.habitTop}>
                                         <Text numberOfLines={1} style={[styles.habitName, { color: colors.textPrimary }]}>{item.name}</Text>
-                                        <Text style={[styles.habitRate, { color: colors.textPrimary }]}>{item.rate}%</Text>
+                                        <CountUp style={[styles.habitRate, { color: colors.textPrimary }]} value={`${item.rate}%`} replay={days} />
                                         {item.comparable && item.delta !== 0 ? (
                                             <Text style={[styles.habitDelta, { color: item.delta > 0 ? colors.success : colors.warning }]}>
                                                 {`${item.delta > 0 ? '+' : ''}${item.delta}`}
@@ -263,12 +263,13 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
                                         ) : null}
                                     </View>
                                     <Meter
+                                        replay={days}
                                         share={item.countable ? item.kept / item.countable : 0}
                                         tint={item.rate >= 70 ? colors.success : item.rate >= 40 ? primary : colors.warning}
                                         idle={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.09)'}
                                     />
                                     <Text style={[styles.habitFoot, { color: colors.textSecondary }]}>
-                                        {item.kept} kept of {item.countable} asked for
+                                        <CountUp value={`${item.kept} kept of ${item.countable} asked for`} replay={days} />
                                     </Text>
                                 </VoidCard>
                             ))}
@@ -284,9 +285,9 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
     );
 };
 
-const Stat = ({ label, value, colors, divider }: { label: string; value: string; colors: typeof Colors.light; divider?: boolean }) => (
+const Stat = ({ label, value, colors, divider, replay }: { label: string; value: string; colors: typeof Colors.light; divider?: boolean; replay?: unknown }) => (
     <View style={[styles.stat, divider && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} />
+        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} replay={replay} />
         <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
     </View>
 );
@@ -340,8 +341,8 @@ const DayDetail = ({ day, names, colors, tint }: {
 };
 
 /** One day. Grows on first paint, and lifts when it is the one being read. */
-const Bar = ({ day, index, pinned, reading, tint, success, idle, onPress }: {
-    day: HabitDay; index: number; pinned: boolean;
+const Bar = ({ day, index, pinned, reading, tint, success, idle, onPress, replay }: {
+    day: HabitDay; index: number; pinned: boolean; replay: number;
     /** The day under the finger, as a shared value, so a drag costs no render. */
     reading: SharedValue<number>;
     tint: string; success: string; idle: string; onPress: () => void;
@@ -350,11 +351,9 @@ const Bar = ({ day, index, pinned, reading, tint, success, idle, onPress }: {
     const share = countable > 0 ? day.done.length / countable : 0;
     const perfect = countable > 0 && day.done.length === countable;
 
-    const grown = useSharedValue(0);
+    // Grows in on opening and again on every switch of 7, 30 or 90 days.
+    const grown = useProgress(Math.max(share, day.done.length > 0 ? 0.12 : 0.04), index * 8, replay);
     const pin = useSharedValue(pinned ? 1 : 0);
-    React.useEffect(() => {
-        grown.set(withDelay(index * 8, withTiming(Math.max(share, day.done.length > 0 ? 0.12 : 0.04), EASE)));
-    }, [share, index, grown, day.done.length]);
     React.useEffect(() => {
         pin.set(withTiming(pinned ? 1 : 0, { duration: 200, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
     }, [pinned, pin]);
@@ -386,16 +385,11 @@ const Bar = ({ day, index, pinned, reading, tint, success, idle, onPress }: {
 };
 
 /** A habit's share of what it was asked for. */
-const Meter = ({ share, tint, idle }: { share: number; tint: string; idle: string }) => {
-    const filled = useSharedValue(0);
-    React.useEffect(() => { filled.value = withTiming(Math.min(1, Math.max(0, share)), EASE); }, [share, filled]);
-    const style = useAnimatedStyle(() => ({ width: `${filled.value * 100}%` }));
-    return (
-        <View style={[styles.meter, { backgroundColor: idle }]}>
-            <Animated.View style={[styles.meterFill, style, { backgroundColor: tint }]} />
-        </View>
-    );
-};
+const Meter = ({ share, tint, idle, replay }: { share: number; tint: string; idle: string; replay: number }) => (
+    <View style={[styles.meter, { backgroundColor: idle }]}>
+        <AnimatedFill progress={share} replay={replay} style={[styles.meterFill, { backgroundColor: tint }]} />
+    </View>
+);
 
 const styles = StyleSheet.create({
     content: { paddingHorizontal: s(20), paddingBottom: vs(40), gap: vs(12) },

@@ -75,9 +75,8 @@ export const RecoveryModal = ({ visible, onClose, habits, history, completions }
                 {/* The headline, and what it is actually counting. */}
                 <Animated.View entering={FadeIn.duration(220)}>
                     <VoidCard {...surface} style={[styles.hero, tintStyle]}>
-                        <Text testID="recovery-rate" style={[styles.heroValue, { color: headline }]}>
-                            {result.rate === null ? '—' : `${result.rate}%`}
-                        </Text>
+                        <CountUp testID="recovery-rate" style={[styles.heroValue, { color: headline }]}
+                            value={result.rate === null ? '—' : `${result.rate}%`} />
                         <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
                             {result.rate === null
                                 ? 'Nothing has been missed twice yet. This fills in the first time a habit slips and you pick it back up.'
@@ -145,7 +144,7 @@ export const RecoveryModal = ({ visible, onClose, habits, history, completions }
                                                 color: item.rate === null ? colors.textTertiary
                                                     : item.rate >= 70 ? colors.success : item.rate >= 40 ? primary : colors.warning,
                                             }]}>
-                                                {item.rate === null ? '—' : `${item.rate}%`}
+                                                <CountUp value={item.rate === null ? '—' : `${item.rate}%`} />
                                             </Text>
                                         </View>
                                         <Beads item={item} colors={colors} success={colors.success} warning={colors.warning} />

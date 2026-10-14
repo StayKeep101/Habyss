@@ -2,6 +2,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { formatClock, formatDuration } from '@/lib/habitMeasurement';
 import React, { useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import { TouchableOpacity, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SwipeRow } from '@/components/ui/SwipeRow';
 import { BadgeRow, MeasureBadge, ReminderBadge } from '@/components/Common/CardBadges';
@@ -256,7 +257,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               ) : goalName && !isSmall ? (
                 <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.regular, marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
               ) : ((habit.streak ?? 0) > 0 && !isSmall) ? (
-                <Text style={[styles.streakText, { color: '#F59E0B' }]}><Ionicons name="flame-outline" size={12} color="#F59E0B" /> {habit.streak}</Text>
+                <Text style={[styles.streakText, { color: '#F59E0B' }]}><Ionicons name="flame-outline" size={12} color="#F59E0B" /> <CountUp value={habit.streak ?? 0} /></Text>
               ) : canFocusNow && onFocusPress && !isSmall ? (
                 <TouchableOpacity
                   activeOpacity={0.85}

@@ -104,7 +104,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
               <Text style={[styles.name, { color: colors.textPrimary, fontSize: titleSize }]} numberOfLines={1}>{goal.name}</Text>
               {daysLeft !== null && (
                 <View style={[styles.daysChip, { backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }, daysLeft < 7 && { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-                  <Text style={[styles.daysText, { color: colors.textSecondary }, daysLeft < 7 && { color: '#EF4444' }]}>{daysLeft}d</Text>
+                  <CountUp style={[styles.daysText, { color: colors.textSecondary }, daysLeft < 7 && { color: '#EF4444' }]} value={`${daysLeft}d`} />
                 </View>
               )}
             </View>

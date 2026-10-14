@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { ListItem } from '@/components/ui/Motion';
 import Animated, {
     useAnimatedScrollHandler,
     useSharedValue,
@@ -876,7 +877,7 @@ const CalendarScreen = () => {
                                             const progress = goalProgress[goal.id] || 0;
 
                                             return (
-                                                    <View key={goal.id} style={{ marginBottom: 16 }}>
+                                                    <ListItem key={goal.id} style={{ marginBottom: 16 }}>
                                                     <View ref={(ref) => { goalRefs.current[goal.id] = ref; }}>
                                                     {/* Goal Header / Card */}
                                                     <View style={{ position: 'relative' }}>
@@ -894,7 +895,7 @@ const CalendarScreen = () => {
 
                                                     {/* Linked Habits Accordion */}
                                                     {isExpanded && (
-                                                        <View style={{
+                                                        <ListItem style={{
                                                             marginTop: 8,
                                                             marginLeft: 16,
                                                             paddingLeft: 16,
@@ -903,7 +904,7 @@ const CalendarScreen = () => {
                                                         }}>
                                                             {linkedHabits.length > 0 ? (
                                                                 linkedHabits.map(habit => (
-                                                                    <SwipeableHabitItem
+                                                                    <ListItem key={habit.id}><SwipeableHabitItem
                                                                         key={habit.id}
                                                                         habit={habit}
                                                                         size={cardSize}
@@ -924,13 +925,13 @@ const CalendarScreen = () => {
                                                                         onToggle={() => handleHabitPress(habit)}
                                                                         onEdit={handleEdit}
                                                                         onDelete={handleDelete}
-                                                                    />
+                                                                    /></ListItem>
                                                                 ))
                                                             ) : null}
 
                                                             {/* A goal is reached through rhythms and one-off work alike. */}
                                                             {dayTasks.filter(task => task.goalId === goal.id).map(task => (
-                                                                <TaskItem
+                                                                <ListItem key={task.id}><TaskItem
                                                                     key={task.id}
                                                                     task={task}
                                                                     size={cardSize}
@@ -944,7 +945,7 @@ const CalendarScreen = () => {
                                                                     onEdit={openTask}
                                                                     onDelete={handleTaskDelete}
                                                                     shared={sharedTaskFor(task.id)}
-                                                                />
+                                                                /></ListItem>
                                                             ))}
 
                                                             {linkedHabits.length === 0 && !dayTasks.some(task => task.goalId === goal.id) ? (
@@ -952,10 +953,10 @@ const CalendarScreen = () => {
                                                                     Nothing linked yet.
                                                                 </Text>
                                                             ) : null}
-                                                        </View>
+                                                        </ListItem>
                                                     )}
                                                     </View>
-                                                </View>
+                                                </ListItem>
                                             );
                                         })
                                     ) : (
@@ -978,7 +979,7 @@ const CalendarScreen = () => {
                                     {dayTasks
                                         .filter(task => activeFilter === 'tasks_only' || !task.goalId)
                                         .map(task => (
-                                            <TaskItem
+                                            <ListItem key={task.id}><TaskItem
                                                 key={task.id}
                                                 task={task}
                                                 size={cardSize}
@@ -992,7 +993,7 @@ const CalendarScreen = () => {
                                                 onEdit={openTask}
                                                 onDelete={handleTaskDelete}
                                                 shared={sharedTaskFor(task.id)}
-                                            />
+                                            /></ListItem>
                                         ))}
                                 </View>
                             )}
@@ -1008,7 +1009,7 @@ const CalendarScreen = () => {
                                         // Find associated goal name for habit
                                         const associatedGoal = goals.find(g => g.id === habit.goalId);
                                         return (
-                                            <SwipeableHabitItem
+                                            <ListItem key={habit.id}><SwipeableHabitItem
                                                 key={habit.id}
                                                 habit={habit}
                                                 completed={!!completions[habit.id]}
@@ -1050,7 +1051,7 @@ const CalendarScreen = () => {
                                                 onEdit={handleEdit}
                                                 onDelete={(h) => { handleDelete(h); }}
                                                 size={cardSize}
-                                            />
+                                            /></ListItem>
                                         );
                                     })
                                     }

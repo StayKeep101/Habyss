@@ -4,6 +4,7 @@ import { GoalSheet } from '@/components/Create/GoalSheet';
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, Image, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
+import { CountUp, ListItem } from '@/components/ui/Motion';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -456,7 +457,7 @@ const GoalDetail = () => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} style={{ marginRight: 4 }} />
                   <Text style={[styles.goalTarget, { color: colors.textTertiary }]}>Target: {insights && goal.targetDate ? dateAt(insights.endDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : 'Ongoing'}</Text>
-                  {daysLeft > 0 && <View style={[styles.daysTag, { backgroundColor: (goal.color || accentColor) + '20' }]}><Text style={[styles.daysTagText, { color: goal.color || accentColor }]}>{daysLeft} days left</Text></View>}
+                  {daysLeft > 0 && <View style={[styles.daysTag, { backgroundColor: (goal.color || accentColor) + '20' }]}><CountUp style={[styles.daysTagText, { color: goal.color || accentColor }]} value={`${daysLeft} days left`} /></View>}
                 </View>
               </View>
               {/* Everything a goal can do lives behind the ⋯ in the header. */}
@@ -499,7 +500,7 @@ const GoalDetail = () => {
               </View>
               {todayTotal > 0 ? (
                 <View style={[styles.todayCount, { backgroundColor: (goal.color || accentColor) + '1F' }]}>
-                  <Text style={[styles.todayCountText, { color: goal.color || accentColor }]}>{todayDone}/{todayTotal} done</Text>
+                  <CountUp style={[styles.todayCountText, { color: goal.color || accentColor }]} value={`${todayDone}/${todayTotal} done`} />
                 </View>
               ) : null}
             </View>
@@ -508,7 +509,7 @@ const GoalDetail = () => {
               <>
                 <SectionLabel tone={colors.error}>Overdue</SectionLabel>
                 {overdueTasks.map(task => (
-                  <TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} />
+                  <ListItem key={task.id}><TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} /></ListItem>
                 ))}
               </>
             ) : null}
@@ -534,7 +535,7 @@ const GoalDetail = () => {
               <>
                 <SectionLabel>Tasks</SectionLabel>
                 {todayTasks.map(task => (
-                  <TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} />
+                  <ListItem key={task.id}><TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} /></ListItem>
                 ))}
               </>
             ) : null}

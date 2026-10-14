@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import Animated, {
     Easing, FadeIn, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle,
     useSharedValue, withSpring, withTiming,
@@ -171,7 +172,7 @@ export const DayCard: React.FC<{
                         {card.streak > 1 ? (
                             <View style={styles.streak}>
                                 <Ionicons name="flame" size={s(11)} color="#F59E0B" />
-                                <Text style={[styles.streakText, { color: '#F59E0B' }]}>{card.streak}</Text>
+                                <CountUp style={[styles.streakText, { color: '#F59E0B' }]} value={card.streak} />
                             </View>
                         ) : null}
                     </View>

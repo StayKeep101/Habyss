@@ -92,7 +92,7 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
                     <PopIn key={month.key} index={monthIndex * 4} style={[styles.month, { backgroundColor: tile }]}>
                         <View style={styles.monthHead}>
                             <Text style={[styles.monthLabel, { color: colors.textPrimary }]}>{month.label}</Text>
-                            <Text style={[styles.monthCount, { color: done ? color : colors.textTertiary }]}>{done ? `${done} done` : '—'}</Text>
+                            <CountUp style={[styles.monthCount, { color: done ? color : colors.textTertiary }]} value={done ? `${done} done` : '—'} />
                         </View>
                         <View style={[styles.grid, { gap: GAP }]}>
                             {WEEKDAYS.map((label, index) => (

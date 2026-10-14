@@ -2,6 +2,7 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { CountUp, ListItem } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
 import { Colors } from '@/theme/colors';
@@ -142,13 +143,13 @@ export default function GoalRoadmapScreen() {
                                         ) : null}
                                     </View>
                                     {plan.progress !== null ? (
-                                        <Text style={[styles.progress, { color: accent }]}>{plan.progress}%</Text>
+                                        <CountUp style={[styles.progress, { color: accent }]} value={`${plan.progress}%`} />
                                     ) : null}
                                 </TouchableOpacity>
 
                                 <View style={[styles.branch, { borderLeftColor: isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.12)' }]}>
-                                    {plan.habits.map(habit => <HabitRow key={habit.id} habit={habit} />)}
-                                    {plan.tasks.map(task => <TaskRow key={task.id} task={task} />)}
+                                    {plan.habits.map(habit => <ListItem key={habit.id}><HabitRow habit={habit} /></ListItem>)}
+                                    {plan.tasks.map(task => <ListItem key={task.id}><TaskRow task={task} /></ListItem>)}
                                     {plan.habits.length === 0 && plan.tasks.length === 0 ? (
                                         <Text style={[styles.meta, { color: colors.textTertiary, paddingVertical: 6 }]}>
                                             Nothing attached yet.
@@ -162,8 +163,8 @@ export default function GoalRoadmapScreen() {
                             <VoidCard style={styles.card}>
                                 <Text style={[styles.section, { color: colors.textSecondary }]}>NOT PART OF A GOAL</Text>
                                 <View style={[styles.branch, { borderLeftColor: isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.12)' }]}>
-                                    {unassigned.habits.map(habit => <HabitRow key={habit.id} habit={habit} />)}
-                                    {unassigned.tasks.map(task => <TaskRow key={task.id} task={task} />)}
+                                    {unassigned.habits.map(habit => <ListItem key={habit.id}><HabitRow habit={habit} /></ListItem>)}
+                                    {unassigned.tasks.map(task => <ListItem key={task.id}><TaskRow task={task} /></ListItem>)}
                                 </View>
                             </VoidCard>
                         ) : null}

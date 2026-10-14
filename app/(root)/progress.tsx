@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Dimensions, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
-import { CountUp } from '@/components/ui/Motion';
+import { AnimatedCircle, CountUp, MOTION, useProgress } from '@/components/ui/Motion';
 import { router } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-    Easing, SlideInLeft, SlideInRight, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming, type SharedValue,
+    Easing, interpolate, runOnJS, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import { ScrubLine, ScrubReadout } from '@/components/Common/ScrubReadout';
 import { useScrub } from '@/hooks/useScrub';
@@ -126,21 +126,50 @@ export default function ProgressScreen() {
      * the next month, right for the one before. Horizontal only, so the page
      * still scrolls, and never past this month.
      */
-    const [direction, setDirection] = useState<1 | -1>(1);
-    const goMonth = useCallback((by: 1 | -1) => {
-        if (by === 1 && offset >= 0) return;
+    // The calendar follows the finger, then the month leaves the way it was
+    // pushed and the next one comes in from the other side.
+    const screenWidth = Dimensions.get('window').width;
+    const drag = useSharedValue(0);
+    const canGoForward = offset < 0;
+    const settle = { duration: 260, easing: Easing.out(Easing.cubic) };
+    const arrive = useCallback((by: 1 | -1) => {
         selectionFeedback();
-        setDirection(by);
-        setOffset(offset + by);
-    }, [offset, selectionFeedback]);
+        setOffset(value => value + by);
+        drag.set(by * screenWidth * 0.6);
+        drag.set(withTiming(0, settle));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectionFeedback, screenWidth, drag]);
+    const goMonth = useCallback((by: 1 | -1) => {
+        if (by === 1 && !canGoForward) return;
+        drag.set(withTiming(-by * screenWidth * 0.6, { duration: 160, easing: Easing.in(Easing.cubic) }, finished => {
+            if (finished) runOnJS(arrive)(by);
+        }));
+    }, [canGoForward, screenWidth, drag, arrive]);
     const swipeMonth = useMemo(() => Gesture.Pan()
-        .activeOffsetX([-24, 24])
+        .activeOffsetX([-16, 16])
         .failOffsetY([-14, 14])
+        .onUpdate(event => {
+            'worklet';
+            // Past this month there is nothing to show: the calendar resists.
+            const blocked = event.translationX < 0 && !canGoForward;
+            drag.set(blocked ? event.translationX * 0.2 : event.translationX);
+        })
         .onEnd(event => {
             'worklet';
-            if (Math.abs(event.translationX) < 50 && Math.abs(event.velocityX) < 400) return;
-            runOnJS(goMonth)(event.translationX < 0 ? 1 : -1);
-        }), [goMonth]);
+            const by = event.translationX < 0 ? 1 : -1;
+            const far = Math.abs(event.translationX) > screenWidth * 0.22 || Math.abs(event.velocityX) > 500;
+            if (!far || (by === 1 && !canGoForward)) {
+                drag.set(withSpring(0, { damping: 18, stiffness: 220 }));
+                return;
+            }
+            drag.set(withTiming(-by * screenWidth * 0.6, { duration: 140, easing: Easing.out(Easing.quad) }, finished => {
+                if (finished) runOnJS(arrive)(by);
+            }));
+        }), [canGoForward, screenWidth, drag, arrive]);
+    const gridMotion = useAnimatedStyle(() => ({
+        transform: [{ translateX: drag.get() }],
+        opacity: interpolate(Math.abs(drag.get()), [0, screenWidth * 0.6], [1, 0.2]),
+    }));
 
     // Weeks start on Monday, so the first row is padded to that.
     const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
@@ -168,18 +197,15 @@ export default function ProgressScreen() {
                 </View>
 
                 <GestureDetector gesture={swipeMonth}>
-                <Animated.View
-                    key={offset}
-                    entering={(direction === 1 ? SlideInRight : SlideInLeft).duration(220)}
-                    style={styles.grid}
-                >
+                <Animated.View key={offset} style={[styles.grid, gridMotion]}>
                     {WEEKDAYS.map((label, index) => (
                         <Text key={index} style={[styles.weekday, { color: colors.textTertiary }]}>{label}</Text>
                     ))}
                     {Array.from({ length: firstWeekday }, (_, index) => <View key={`blank${index}`} style={styles.cell} />)}
-                    {days.map(day => (
+                    {days.map((day, index) => (
                         <DayCell
                             key={day.date}
+                            index={index}
                             day={day}
                             today={today}
                             accent={accent}
@@ -194,13 +220,13 @@ export default function ProgressScreen() {
                 {/* The month in numbers. */}
                 <View style={styles.totals}>
                     <View>
-                        <Text style={[styles.big, { color: colors.textPrimary }]}>{totals.activeDays}</Text>
+                        <CountUp style={[styles.big, { color: colors.textPrimary }]} value={totals.activeDays} replay={offset} />
                         <Text style={[styles.bigLabel, { color: colors.textTertiary }]}>Active days</Text>
                     </View>
                     <View style={styles.statList}>
-                        <Stat icon="checkmark-circle-outline" value={String(totals.checkIns)} label="Check-ins" color={accent} colors={colors} />
-                        <Stat icon="flash-outline" value={String(totals.tasks)} label="Tasks" color={TASK_COLOR} colors={colors} />
-                        <Stat icon="trending-up-outline" value={totals.rate === null ? '—' : `${totals.rate}%`} label="Hit rate" color={colors.success} colors={colors} />
+                        <Stat icon="checkmark-circle-outline" value={String(totals.checkIns)} replay={offset} label="Check-ins" color={accent} colors={colors} />
+                        <Stat icon="flash-outline" value={String(totals.tasks)} replay={offset} label="Tasks" color={TASK_COLOR} colors={colors} />
+                        <Stat icon="trending-up-outline" value={totals.rate === null ? '—' : `${totals.rate}%`} replay={offset} label="Hit rate" color={colors.success} colors={colors} />
                     </View>
                 </View>
 
@@ -227,6 +253,7 @@ export default function ProgressScreen() {
                         {days.map((day, index) => (
                             <DayBar
                                 key={day.date}
+                                replay={offset}
                                 day={day}
                                 index={index}
                                 reading={scrub.index}
@@ -273,8 +300,8 @@ export default function ProgressScreen() {
  * inside a box with a border, which shifted the drawing over by the border's
  * width and clipped one side: the ring looked pushed off centre.
  */
-const DayCell = ({ day, today, accent, colors, onPress, taskTarget }: {
-    day: DaySummary; today: string; accent: string; colors: typeof Colors.light;
+const DayCell = ({ day, index, today, accent, colors, onPress, taskTarget }: {
+    day: DaySummary; index: number; today: string; accent: string; colors: typeof Colors.light;
     onPress: (frame: LayoutRectangle) => void;
     taskTarget: number;
 }) => {
@@ -286,6 +313,9 @@ const DayCell = ({ day, today, accent, colors, onPress, taskTarget }: {
     const stroke = 3.5;
     const radius = (size - stroke) / 2;
     const circumference = 2 * Math.PI * radius;
+    // Each ring closes after the one before it, so a month fills in like a wave.
+    const shown = useProgress(fill, Math.min(index, 31) * (MOTION.stagger / 2));
+    const arc = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - shown.get()) }));
 
     return (
         <View style={styles.cell}>
@@ -301,11 +331,12 @@ const DayCell = ({ day, today, accent, colors, onPress, taskTarget }: {
                     <Svg width={size} height={size} style={styles.ringSvg}>
                         <Circle cx={size / 2} cy={size / 2} r={radius} stroke={accent} strokeOpacity={0.16} strokeWidth={stroke} fill="none" />
                         {fill > 0 ? (
-                            <Circle
+                            <AnimatedCircle
                                 cx={size / 2} cy={size / 2} r={radius}
                                 stroke={accent} strokeWidth={stroke} fill="none"
-                                strokeDasharray={closed ? undefined : `${circumference * fill} ${circumference}`}
-                                strokeLinecap="round"
+                                strokeDasharray={`${circumference} ${circumference}`}
+                                animatedProps={arc}
+                                strokeLinecap={closed ? 'butt' : 'round'}
                                 rotation={-90} origin={`${size / 2}, ${size / 2}`}
                             />
                         ) : null}
@@ -328,32 +359,35 @@ const DayCell = ({ day, today, accent, colors, onPress, taskTarget }: {
  * It compares itself with the scrubbing index on the UI thread rather than
  * being told by React, so dragging across a month costs no renders at all.
  */
-const DayBar = ({ day, index, reading, busiest, accent, idle }: {
+const DayBar = ({ day, index, reading, busiest, accent, idle, replay }: {
     day: DaySummary; index: number; reading: SharedValue<number>;
-    busiest: number; accent: string; idle: string;
+    busiest: number; accent: string; idle: string; replay: number;
 }) => {
-    const height = busiest ? (day.total / busiest) * 74 : 0;
+    const height = Math.max(day.total ? 6 : 2, busiest ? (day.total / busiest) * 74 : 0);
+    // Grows up from the axis, one bar after another, whenever the month changes.
+    const grown = useProgress(height, index * (MOTION.stagger / 2), replay);
     const style = useAnimatedStyle(() => {
         const on = reading.get() === index;
-        return { opacity: (day.future ? 0.35 : 1) * (on ? 1 : 0.9), transform: [{ scaleX: on ? 1.6 : 1 }] };
+        return {
+            height: grown.get(),
+            opacity: (day.future ? 0.35 : 1) * (on ? 1 : 0.9), transform: [{ scaleX: on ? 1.6 : 1 }],
+        };
     });
 
     return (
         <View style={styles.barSlot}>
-            <Animated.View style={[styles.bar, style, {
-                height: Math.max(day.total ? 6 : 2, height),
-                backgroundColor: day.total ? accent : idle,
-            }]} />
+            <Animated.View style={[styles.bar, style, { backgroundColor: day.total ? accent : idle }]} />
         </View>
     );
 };
 
-const Stat = ({ icon, value, label, color, colors }: {
+const Stat = ({ icon, value, label, color, colors, replay }: {
     icon: React.ComponentProps<typeof Ionicons>['name']; value: string; label: string; color: string; colors: typeof Colors.light;
+    replay?: unknown;
 }) => (
     <View style={styles.stat}>
         <Ionicons name={icon} size={15} color={color} />
-        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} />
+        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} replay={replay} />
         <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>
     </View>
 );
