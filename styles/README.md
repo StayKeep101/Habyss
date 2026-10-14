@@ -34,5 +34,6 @@ To bring a page in line with the design system, open its file here and swap its 
 | `app/(root)/(tabs)/roadmap.tsx` | `styles/screens/tabs/roadmap.styles.ts` |
 | `app/(root)/(tabs)/settings.tsx` | `styles/screens/tabs/settings.styles.ts` |
 | `app/(root)/task-stats.tsx` | `styles/screens/task-stats.styles.ts` |
+| `app/(root)/ui-catalog.tsx` | `styles/screens/ui-catalog.styles.ts` |
 
 Home, Paywall, Goal stats and Goal plan have no page-level styles: they are built entirely from components (`components/Home`, `components/Goal`, …), so their look lives in those components.

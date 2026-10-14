@@ -81,6 +81,13 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="ui-catalog"
+          options={{
+            headerShown: false,
+            presentation: 'modal'
+          }}
+        />
+        <Stack.Screen
           name="account"
           options={{ headerShown: false, presentation: 'modal' }}
         />

@@ -278,6 +278,7 @@ export default function ProfileScreen() {
 
                     <Section title="Appearance & feedback">
                         <Row icon="color-palette-outline" label="Appearance" onPress={() => router.push('/(root)/appearance')} />
+                        <Row icon="grid-outline" label="UI catalogue" onPress={() => router.push('/(root)/ui-catalog')} />
                         <FeedbackRow
                             sounds={soundsEnabled}
                             haptics={hapticsEnabled}
