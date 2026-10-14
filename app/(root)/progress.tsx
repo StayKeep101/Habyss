@@ -73,19 +73,19 @@ export default function ProgressScreen() {
     const name = (id: string) => habits.find(habit => habit.id === id)?.name ?? 'Habit';
     const taskName = (id: string) => tasks.find(task => task.id === id)?.title ?? 'Task';
 
-    const openDay = (day: DaySummary, frame: LayoutRectangle) => {
+    const openDay = useCallback((day: DaySummary, frame: LayoutRectangle) => {
         if (day.future) return;
         selectionFeedback();
         setSelected({ day, frame });
-        morph.value = withTiming(1, OPEN);
-    };
+        morph.set(withTiming(1, OPEN));
+    }, [selectionFeedback, morph]);
 
     const closeDay = () => {
         lightFeedback();
         // The card is only unmounted once it has shrunk back into its ring.
-        morph.value = withTiming(0, CLOSE, finished => {
+        morph.set(withTiming(0, CLOSE, finished => {
             if (finished) runOnJS(setSelected)(null);
-        });
+        }));
     };
 
     /**
@@ -131,14 +131,19 @@ export default function ProgressScreen() {
     const screenWidth = Dimensions.get('window').width;
     const drag = useSharedValue(0);
     const canGoForward = offset < 0;
-    const settle = { duration: 260, easing: Easing.out(Easing.cubic) };
+    // The new month is placed and slid in only once it has been drawn. Moving
+    // it first showed the old month on the wrong side for a frame: the jump.
+    const [arrival, setArrival] = useState<{ by: 1 | -1; at: number } | null>(null);
     const arrive = useCallback((by: 1 | -1) => {
         selectionFeedback();
+        setArrival({ by, at: Date.now() });
         setOffset(value => value + by);
-        drag.set(by * screenWidth * 0.6);
-        drag.set(withTiming(0, settle));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectionFeedback, screenWidth, drag]);
+    }, [selectionFeedback]);
+    React.useLayoutEffect(() => {
+        if (!arrival) return;
+        drag.set(arrival.by * screenWidth * 0.6);
+        drag.set(withTiming(0, { duration: 260, easing: Easing.out(Easing.cubic) }));
+    }, [arrival, drag, screenWidth]);
     const goMonth = useCallback((by: 1 | -1) => {
         if (by === 1 && !canGoForward) return;
         drag.set(withTiming(-by * screenWidth * 0.6, { duration: 160, easing: Easing.in(Easing.cubic) }, finished => {
@@ -168,7 +173,8 @@ export default function ProgressScreen() {
         }), [canGoForward, screenWidth, drag, arrive]);
     const gridMotion = useAnimatedStyle(() => ({
         transform: [{ translateX: drag.get() }],
-        opacity: interpolate(Math.abs(drag.get()), [0, screenWidth * 0.6], [1, 0.2]),
+        // Fully gone at the edge, so the swap between months is never seen.
+        opacity: interpolate(Math.abs(drag.get()), [0, screenWidth * 0.6], [1, 0]),
     }));
 
     // Weeks start on Monday, so the first row is padded to that.
@@ -211,7 +217,7 @@ export default function ProgressScreen() {
                             accent={accent}
                             colors={colors}
                             taskTarget={dailyTarget}
-                            onPress={frame => openDay(day, frame)}
+                            onOpen={openDay}
                         />
                     ))}
                 </Animated.View>
@@ -300,11 +306,11 @@ export default function ProgressScreen() {
  * inside a box with a border, which shifted the drawing over by the border's
  * width and clipped one side: the ring looked pushed off centre.
  */
-const DayCell = ({ day, index, today, accent, colors, onPress, taskTarget }: {
+const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, taskTarget }: {
     day: DaySummary; index: number; today: string; accent: string; colors: typeof Colors.light;
-    onPress: (frame: LayoutRectangle) => void;
+    onOpen: (day: DaySummary, frame: LayoutRectangle) => void;
     taskTarget: number;
-}) => {
+}) {
     const ref = React.useRef<View>(null);
     const fill = day.future ? 0 : dayFill(day, taskTarget);
     const closed = fill >= 1;
@@ -324,7 +330,7 @@ const DayCell = ({ day, index, today, accent, colors, onPress, taskTarget }: {
                 accessibilityRole="button"
                 accessibilityLabel={`${day.date}. ${Math.round(fill * 100)}% done: ${day.done.length} of ${day.scheduled} habits, ${day.tasks.length} tasks`}
                 disabled={day.future}
-                onPress={() => ref.current?.measureInWindow((x, y, width, height) => onPress({ x, y, width, height }))}
+                onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpen(day, { x, y, width, height }))}
                 style={[styles.dayButton, { opacity: day.future ? 0.3 : 1 }]}
             >
                 <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
@@ -351,7 +357,7 @@ const DayCell = ({ day, index, today, accent, colors, onPress, taskTarget }: {
             </Pressable>
         </View>
     );
-};
+});
 
 /**
  * One day's bar, which lights up under the finger.
