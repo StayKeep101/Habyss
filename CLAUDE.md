@@ -50,7 +50,7 @@ Every new feature follows the structure above. No UI anywhere else.
    - Any switch that changes data (month, 1W/All, 30/90 days, a tab) passes what it switched as `replay`, so the intro plays again.
    - Every row in a list of habits, tasks or goals is wrapped in `ListItem`, so adding, removing and reordering fade and slide.
    - Never draw a still bar, a figure that jumps, or a list that snaps.
-9. **Data and numbers**: pages read habits, tasks and history only through the shared hooks — `useData`, `useTasks`, `useHistory`, `useGoalsInsights` (one in-memory copy in `lib/dataStore.ts`). Never query the database from a page, and never compute a stat a second way: streaks come from `streakFrom`, goal progress from `goalInsights`, momentum and recovery from their `lib/` files.
+9. **Data and numbers**: pages read habits, tasks and history only through the shared hooks — `useData`, `useTasks`, `useHistory`, `useGoalsInsights` (one in-memory copy in `lib/dataStore.ts`). Never query the database from a page, and never compute a stat a second way: streaks come from `streakFrom`, goal progress from `goalInsights`, momentum and recovery from their `lib/` files. What a habit is doing (focusing, paused, done, skipped, focus now) comes only from `habitStatus` in `lib/habitStatus.ts`.
 10. After building, add the page to the table in `styles/README.md`.
 
 ## Working in this repo

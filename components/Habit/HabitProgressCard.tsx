@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { habitStatus, isLive } from '@/lib/habitStatus';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { AppIcon } from '@/components/ui/AppIcon';
@@ -71,7 +72,9 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     const [asking, setAsking] = useState(false);
     /** A ref, not state: asking once per day shown must not cause a render. */
     const asked = React.useRef<string | null>(null);
-    const active = focus.activeHabitId === habit.id && (focus.isRunning || focus.isPaused);
+    // The same rule the Roadmap card uses (lib/habitStatus.ts), so the two
+    // never disagree about whether a session is live.
+    const active = isLive(habitStatus({ habitId: habit.id, done: false, focus }));
     const live = active && isToday && kind === 'timer';
     const elapsed = live ? (focus.activeMode === 'flow' ? focus.timeLeft : Math.max(0, focus.totalDuration - focus.timeLeft)) : 0;
     const displayValue = value + (secondsPerUnit ? elapsed / secondsPerUnit : 0);

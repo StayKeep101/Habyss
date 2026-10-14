@@ -17,10 +17,13 @@ import { GoalCard } from '@/components/Home/GoalCard';
 import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
 
-import { getSkipped, setSkipped as setSkippedHabit, subscribeToHabits, getCompletions, toggleCompletion, isTimedHabit, removeHabitEverywhere, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
+import { setSkipped as setSkippedHabit, subscribeToHabits, toggleCompletion, isTimedHabit, removeHabitEverywhere, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useHistory } from '@/hooks/useHistory';
+import { useData } from '@/hooks/useData';
+import { habitStatus, isLive } from '@/lib/habitStatus';
+import { localDateKey } from '@/lib/habitSchedule';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -72,13 +75,49 @@ const CalendarScreen = () => {
     const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
-    const { activeHabitId, activeHabitName, isRunning: isFocusRunning, startTimer, timeLeft, totalDuration } = useFocusTime();
+    const { activeHabitId, activeHabitName, isRunning: isFocusRunning, isPaused: isFocusPaused, startTimer, timeLeft, totalDuration } = useFocusTime();
+    // Check-ins and skips come from the one shared copy (lib/dataStore.ts), the
+    // same one the habit's page and every stat read. This screen used to keep
+    // its own, loaded once and patched by events, and it could drift from it.
+    // Taps show at once through `pending`, which steps aside as soon as the
+    // shared copy agrees.
+    const shared = useData();
+    const [pending, setPending] = useState<Record<string, boolean>>({});
+    const [pendingSkips, setPendingSkips] = useState<Record<string, boolean>>({});
+    // When the shared copy changes, drop the taps it now agrees with; what is
+    // left is still being saved.
+    const [seen, setSeen] = useState({ history: shared.history, skips: shared.skips });
+    if (seen.history !== shared.history || seen.skips !== shared.skips) {
+        const unsettled = (map: Record<string, string[]>, overlay: Record<string, boolean>) => Object.fromEntries(
+            Object.entries(overlay).filter(([key, value]) => {
+                const [date, id] = key.split('|');
+                return (map[date] ?? []).includes(id) !== value;
+            }),
+        );
+        setSeen({ history: shared.history, skips: shared.skips });
+        setPending(unsettled(shared.history, pending));
+        setPendingSkips(unsettled(shared.skips, pendingSkips));
+    }
+    const markDone = useCallback((habitId: string, value: boolean, date: string) => {
+        setPending(prev => ({ ...prev, [`${date}|${habitId}`]: value }));
+    }, []);
+    const markSkipped = useCallback((habitId: string, value: boolean, date: string) => {
+        setPendingSkips(prev => ({ ...prev, [`${date}|${habitId}`]: value }));
+    }, []);
+    const dayMap = useCallback((map: Record<string, string[]>, overlay: Record<string, boolean>, date: string) => {
+        const result: Record<string, boolean> = {};
+        for (const id of map[date] ?? []) result[id] = true;
+        for (const [key, value] of Object.entries(overlay)) {
+            const [day, id] = key.split('|');
+            if (day === date) result[id] = value;
+        }
+        return result;
+    }, []);
     const { horizontalPadding, tabBarClearance, isCompactHeight } = useResponsiveLayout();
 
     // Data State
     const [habitsStore, setHabitsStore] = useState<StoreHabit[]>([]);
     // habits state removed - usage replaced by memoized derivation
-    const [completions, setCompletions] = useState<Record<string, boolean>>({});
 
     /**
      * Who else is on each habit on screen, in one query for the whole list.
@@ -87,6 +126,12 @@ const CalendarScreen = () => {
      * needs to know — but thirty rows asking separately is thirty requests and
      * thirty re-renders while somebody is trying to scroll.
      */
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const selectedKey = localDateKey(selectedDate);
+    const todayKeyNow = localDateKey(new Date());
+    const completions = useMemo(() => dayMap(shared.history, pending, selectedKey), [dayMap, shared.history, pending, selectedKey]);
+    const todayCompletions = useMemo(() => dayMap(shared.history, pending, todayKeyNow), [dayMap, shared.history, pending, todayKeyNow]);
+    const skipped = useMemo(() => dayMap(shared.skips, pendingSkips, selectedKey), [dayMap, shared.skips, pendingSkips, selectedKey]);
     const habitIds = useMemo(
         () => habitsStore.filter(habit => !habit.isGoal && !habit.isArchived).map(habit => habit.id),
         [habitsStore],
@@ -108,9 +153,6 @@ const CalendarScreen = () => {
         [tasks],
     );
     const { stateFor: sharedTaskFor } = useSharedItems(taskIds, taskDone, 'task');
-    const [todayCompletions, setTodayCompletions] = useState<Record<string, boolean>>({});
-    const [selectedDate, setSelectedDate] = useState(new Date());
-    const [skipped, setSkipped] = useState<Record<string, boolean>>({});
 
     // UI State
     const [showFilter, setShowFilter] = useState(false);
@@ -213,57 +255,6 @@ const CalendarScreen = () => {
         return () => { taskSub.remove(); unsubPromise.then(unsub => unsub()); };
     }, []);
 
-    useEffect(() => {
-        const loadCompletions = async () => {
-            // Use local date format (not UTC)
-            const now = selectedDate;
-            const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-            const [c, s] = await Promise.all([getCompletions(dateStr), getSkipped(dateStr)]);
-            setCompletions(c);
-            setSkipped(s);
-        };
-        loadCompletions();
-
-        // Listen for updates from other screens (Home, Detail)
-        const sub = on('habit_completion_updated', ({ habitId, date, completed }) => {
-            const now = selectedDate;
-            const currentDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-            // Nothing to patch when the change was a bulk one.
-            if (!habitId || !date) return;
-
-            // Update viewed completions if date matches
-            if (date === currentDateStr) {
-                setCompletions(prev => ({
-                    ...prev,
-                    [habitId]: completed === true
-                }));
-            }
-
-            // Update todayCompletions if date matches today
-            const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            if (date === todayStr) {
-                setTodayCompletions(prev => ({
-                    ...prev,
-                    [habitId]: completed === true
-                }));
-            }
-        });
-
-        return () => sub.remove();
-    }, [selectedDate]); // FIXED: Removed historyData from deps to prevent infinite loop
-
-    // Load Today's Completions specifically for Goal Calculation
-    useEffect(() => {
-        const loadToday = async () => {
-            const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            const c = await getCompletions(todayStr);
-            setTodayCompletions(c);
-        };
-        loadToday();
-    }, []);
 
 
 
@@ -322,9 +313,7 @@ const CalendarScreen = () => {
 
         // 1. Optimistic Update
         const isCompleted = !completions[habit.id];
-        setCompletions(prev => ({ ...prev, [habit.id]: isCompleted }));
-        // Also update todayCompletions since we are editing today
-        setTodayCompletions(prev => ({ ...prev, [habit.id]: isCompleted }));
+        markDone(habit.id, isCompleted, dateStr);
 
         // 2. Feedback
         if (isCompleted) {
@@ -337,31 +326,26 @@ const CalendarScreen = () => {
         // 3. Persist - Fire and forget (no await) for instant response
         toggleCompletion(habit.id, dateStr).catch(e => {
             // Revert on error
-            setCompletions(prev => ({ ...prev, [habit.id]: !isCompleted }));
-            setTodayCompletions(prev => ({ ...prev, [habit.id]: !isCompleted }));
+            markDone(habit.id, !isCompleted, dateStr);
             Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');
             console.error(e);
         });
 
         setTimeout(() => { isNavigating.current = false; }, 300);
-    }, [selectedDate, completions, playComplete, selectionFeedback, lightFeedback]);
+    }, [selectedDate, completions, playComplete, selectionFeedback, lightFeedback, markDone]);
 
     // Standing down for today: recorded, so it is never counted as a miss.
     const handleHabitSkip = useCallback(async (habit: StoreHabit) => {
         const already = !!skipped[habit.id];
         selectionFeedback();
-        setSkipped(prev => {
-            const next = { ...prev };
-            if (already) delete next[habit.id]; else next[habit.id] = true;
-            return next;
-        });
         const date = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+        markSkipped(habit.id, !already, date);
         try { await setSkippedHabit(habit.id, !already, date); }
         catch {
-            setSkipped(prev => ({ ...prev, [habit.id]: already }));
+            markSkipped(habit.id, already, date);
             Alert.alert('Could not save progress', 'This skip was not saved. Please try again.');
         }
-    }, [skipped, selectedDate, selectionFeedback]);
+    }, [skipped, selectedDate, selectionFeedback, markSkipped]);
 
     const handleTaskToggle = useCallback(async (task: Task) => {
         try {
@@ -425,6 +409,15 @@ const CalendarScreen = () => {
 
         return now >= openWindowStart && now <= scheduledEnd;
     }, [selectedDate]);
+
+    // What each card shows, from the one rule the habit's page uses too.
+    const statusOf = useCallback((habit: Habit) => habitStatus({
+        habitId: habit.id,
+        done: !!completions[habit.id],
+        skipped: !!skipped[habit.id],
+        focus: { activeHabitId, isRunning: isFocusRunning, isPaused: isFocusPaused },
+        focusWindowOpen: isHabitFocusableNow(habit),
+    }), [completions, skipped, activeHabitId, isFocusRunning, isFocusPaused, isHabitFocusableNow]);
 
     const handleFocusHabit = useCallback((habit: Habit) => {
         if (activeHabitId === habit.id) {
@@ -913,10 +906,10 @@ const CalendarScreen = () => {
                                                                         isDragging={draggingHabit?.id === habit.id}
                                                                         skipped={!!skipped[habit.id]}
                                                                         onSkip={handleHabitSkip}
-                                                                        isActive={habit.id === activeHabitId}
-                                                                        timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
-                                                                        totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
-                                                                        canFocusNow={isHabitFocusableNow(habit)}
+                                                                        isActive={isLive(statusOf(habit))}
+                                                                        timeLeft={isLive(statusOf(habit)) ? timeLeft : undefined}
+                                                                        totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
+                                                                        canFocusNow={statusOf(habit) === 'focus-now'}
                                                                         onFocusPress={handleFocusHabit}
                                                                         onDragStart={handleHabitDragStart}
                                                                         onDragMove={handleHabitDragMove}
@@ -1015,10 +1008,10 @@ const CalendarScreen = () => {
                                                 completed={!!completions[habit.id]}
                                                 shared={sharedFor(habit.id)}
                                                 isDragging={draggingHabit?.id === habit.id}
-                                                isActive={habit.id === activeHabitId}
-                                                timeLeft={habit.id === activeHabitId ? timeLeft : undefined}
-                                                totalDuration={habit.id === activeHabitId ? totalDuration : undefined}
-                                                canFocusNow={isHabitFocusableNow(habit)}
+                                                isActive={isLive(statusOf(habit))}
+                                                timeLeft={isLive(statusOf(habit)) ? timeLeft : undefined}
+                                                totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
+                                                canFocusNow={statusOf(habit) === 'focus-now'}
                                                 onFocusPress={handleFocusHabit}
                                                 goalName={activeFilter === 'habits_only' && associatedGoal ? associatedGoal.name : undefined}
                                                 onDragStart={handleHabitDragStart}
@@ -1043,10 +1036,10 @@ const CalendarScreen = () => {
                                                     }
                                                     selectionFeedback();
                                                     toggleCompletion(h.id, todayStr).catch(() => {
-                                                        setCompletions(prev => ({ ...prev, [h.id]: wasDone }));
+                                                        markDone(h.id, wasDone, todayStr);
                                                         Alert.alert('Could not save progress', 'Your check-in was not saved. Please try again.');
                                                     });
-                                                    setCompletions(prev => ({ ...prev, [h.id]: !wasDone }));
+                                                    markDone(h.id, !wasDone, todayStr);
                                                 }}
                                                 onEdit={handleEdit}
                                                 onDelete={(h) => { handleDelete(h); }}
