@@ -8,6 +8,7 @@ import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { MOTION, PopIn, Reveal } from '@/components/ui/Motion';
 import { useScrub } from '@/hooks/useScrub';
 import type { GoalPoint } from '@/lib/goalInsights';
 
@@ -128,6 +129,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
         >
             {geometry ? (
                 <>
+                    <Reveal style={{ height }}>
                     <Svg width={width} height={height}>
                         <Defs>
                             <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -139,6 +141,7 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                         {unbounded ? null : <Path d={geometry.pace} stroke={colors.textTertiary} strokeWidth={1.5} strokeDasharray="4 5" fill="none" />}
                         <Path d={geometry.actual} stroke={color} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
                     </Svg>
+                    </Reveal>
 
                     {/* Over the drawing rather than inside it: a view that moves
                         by transform costs nothing per frame, where re-rendering
@@ -153,9 +156,10 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                     {/* Where the line ends, always. The scrubbing dot fades in
                         over it rather than replacing it, so the chart never has
                         a moment with no marker at all. */}
-                    <View
-                        pointerEvents="none"
+                    <PopIn
+                        index={MOTION.intro / (MOTION.stagger / 2)}
                         style={[styles.end, {
+                            pointerEvents: 'none',
                             left: geometry.x(last) - 5.5, top: geometry.ys[last] - 5.5,
                             backgroundColor: color, borderColor: colors.background,
                         }]}

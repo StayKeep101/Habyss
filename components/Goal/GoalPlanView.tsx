@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import { AnimatedFill } from '@/components/ui/Motion';
 import { router } from 'expo-router';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
@@ -345,7 +346,7 @@ const StepNode: React.FC<{
                     </View>
                     {step.total > 0 && !step.complete ? (
                         <View style={[styles.stepTrack, { backgroundColor: color + '22' }]}>
-                            <View style={[styles.stepFill, { width: `${share * 100}%`, backgroundColor: color }]} />
+                            <AnimatedFill progress={share} style={[styles.stepFill, { backgroundColor: color }]} />
                         </View>
                     ) : null}
                     <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textTertiary} />

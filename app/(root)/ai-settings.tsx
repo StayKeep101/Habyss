@@ -2,6 +2,7 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import React from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { AnimatedFill } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -96,7 +97,7 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
             </Text>
             {isDownloading ? (
                 <View style={{ height: 4, backgroundColor: colors.surface, borderRadius: 2, overflow: 'hidden' }}>
-                    <View style={{ height: '100%', width: `${progress}%`, backgroundColor: colors.primary }} />
+                    <AnimatedFill progress={progress / 100} style={{ height: '100%', backgroundColor: colors.primary }} />
                 </View>
             ) : null}
             {engine === null && !isDownloading && canDownload ? (

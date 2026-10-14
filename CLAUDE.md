@@ -44,7 +44,8 @@ Every new feature follows the structure above. No UI anywhere else.
 5. **Look first, reuse always**: before making anything new, check `components/ui` for an existing piece (card, sheet, header, button, field, row) and use it as is.
 6. **Logic and data** → `lib/` (plain functions, with tests in `lib/__tests__`) and `hooks/`. App-wide state → `context/`.
 7. **Colours, fonts, corners, shadows** → only from `theme/`. A value that does not exist there yet: ask the user before adding it.
-8. After building, add the page to the table in `styles/README.md`.
+8. **Charts, bars, rings and figures move**: use the motion pieces in `components/ui/Motion.tsx` (`AnimatedFill`, `GrowBar`, `Reveal`, `PopIn`, `useProgress`, `CountUp`). They grow in when a page opens and glide to the new value when something changes. Never draw a still bar or a figure that jumps.
+9. After building, add the page to the table in `styles/README.md`.
 
 ## Working in this repo
 

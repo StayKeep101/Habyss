@@ -2,6 +2,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { formatDuration } from '@/lib/habitMeasurement';
 import React from 'react';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { AnimatedFill } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Gesture, GestureDetector, TouchableOpacity } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
@@ -239,7 +240,7 @@ const TaskItemComponent: React.FC<Props> = ({
                         </View>
                         {amountLabel && !done && !isSmall ? (
                             <View style={[styles.track, { backgroundColor: TASK_COLOR + '22' }]}>
-                                <View style={[styles.fill, { width: `${Math.round(share * 100)}%`, backgroundColor: TASK_COLOR }]} />
+                                <AnimatedFill progress={share} style={[styles.fill, { backgroundColor: TASK_COLOR }]} />
                             </View>
                         ) : null}
                     </View>

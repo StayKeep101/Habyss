@@ -1,6 +1,8 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo } from 'react-native';
+import { useAnimatedProps } from 'react-native-reanimated';
+import { AnimatedCircle, useProgress } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -74,7 +76,8 @@ const DateButtonComponent = ({
   const strokeWidth = 3.5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const progressOffset = circumference - (item.progress * circumference);
+  const shown = useProgress(item.progress);
+  const arc = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - shown.get()) }));
 
   const trackColor = isLight
     ? (selected ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.08)')
@@ -115,7 +118,7 @@ const DateButtonComponent = ({
                 strokeWidth={strokeWidth}
                 fill="transparent"
               />
-              <Circle
+              <AnimatedCircle
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
@@ -123,7 +126,7 @@ const DateButtonComponent = ({
                 strokeWidth={strokeWidth}
                 fill="transparent"
                 strokeDasharray={`${circumference} ${circumference}`}
-                strokeDashoffset={progressOffset}
+                animatedProps={arc}
                 strokeLinecap="round"
               />
             </Svg>

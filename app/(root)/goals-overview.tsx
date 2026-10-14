@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { AnimatedFill, CountUp } from '@/components/ui/Motion';
 import { useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -107,10 +108,10 @@ export default function GoalsOverview() {
                                     >
                                         <View style={styles.rowTop}>
                                             <Text numberOfLines={1} style={[styles.name, { color: colors.textPrimary }]}>{goal.name}</Text>
-                                            <Text style={[styles.percent, { color: colors.textPrimary }]}>{insights.progress}%</Text>
+                                            <CountUp style={[styles.percent, { color: colors.textPrimary }]} value={`${insights.progress}%`} />
                                         </View>
                                         <View style={[styles.bar, { backgroundColor: track }]}>
-                                            <View style={[styles.fill, { width: `${Math.min(100, insights.progress)}%`, backgroundColor: color }]} />
+                                            <AnimatedFill progress={Math.min(100, insights.progress) / 100} style={[styles.fill, { backgroundColor: color }]} />
                                         </View>
                                         <View style={styles.rowBottom}>
                                             <View style={[styles.pill, { backgroundColor: state.color + '1F' }]}>

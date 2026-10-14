@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { AppButton, AppTextField, Badge, ChartCard, Divider, EmptyState, HabitRow, ProgressRing, StatTile, Text, Toggle, VoidCard } from '../ui';
 
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'abyss' }) }));
@@ -8,7 +8,7 @@ jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
 
 describe('the component library', () => {
-    it('draws text, cards, badges, stats and rings from tokens', () => {
+    it('draws text, cards, badges, stats and rings from tokens, and counts figures up', async () => {
         const screen = render(<VoidCard>
             <Text variant="title">Goals</Text>
             <Badge label="On track" tone="success" dot />
@@ -20,7 +20,8 @@ describe('the component library', () => {
         </VoidCard>);
         expect(screen.getByText('Goals')).toBeTruthy();
         expect(screen.getByText('On track')).toBeTruthy();
-        expect(screen.getAllByText('62%')).toHaveLength(2);
+        // Figures count up from zero, then settle on the real value.
+        await waitFor(() => expect(screen.getAllByText('62%')).toHaveLength(2));
     });
 
     it('presses buttons, flips toggles and ticks rows', () => {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -155,7 +156,7 @@ export const ProfileView: React.FC<{
                 <View key={row} style={styles.stats}>
                     {stats.slice(row * 3, row * 3 + 3).map(stat => (
                         <VoidCard key={stat.label} {...surface} style={[styles.stat, tint]}>
-                            <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stat.value}</Text>
+                            <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={stat.value} />
                             <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
                         </VoidCard>
                     ))}

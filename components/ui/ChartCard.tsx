@@ -4,6 +4,7 @@ import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import type { GoalPoint } from '@/lib/goalInsights';
 import { useTokens } from '@/hooks/useTokens';
 import { Text } from './Text';
+import { useCountUp } from './Motion';
 
 export interface ChartCardProps {
     /** The headline the chart explains: "62%", "1,240". */
@@ -23,10 +24,11 @@ export interface ChartCardProps {
 export function ChartCard({ value, caption, series, unbounded, legend, onScrub, color }: ChartCardProps) {
     const t = useTokens();
     const line = color ?? t.color.accent;
+    const counted = useCountUp(value);
     return (
         <View style={{ gap: t.space.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: t.space.sm }}>
-                <Text variant="display" numeric>{value}</Text>
+                <Text variant="display" numeric accessibilityLabel={value}>{counted}</Text>
                 <Text variant="body" tone="muted">{caption}</Text>
             </View>
             {series.length > 1 ? <GoalProgressChart series={series} color={line} unbounded={unbounded} onScrub={onScrub} label={caption} /> : null}

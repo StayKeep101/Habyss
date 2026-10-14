@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View } from 'react-native';
-import Animated, { Easing, ReduceMotion, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedProps } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { useTokens } from '@/hooks/useTokens';
 import { Text } from './Text';
+import { useCountUp, useProgress } from './Motion';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -26,10 +27,8 @@ export function ProgressRing({ progress, size = 'md', tone = 'accent', label, ac
     const circumference = 2 * Math.PI * r;
     const color = { accent: t.color.accent, success: t.color.success, warning: t.color.warning, danger: t.color.danger }[tone];
     const value = Math.max(0, Math.min(1, progress));
-    const shown = useSharedValue(value);
-    useEffect(() => {
-        shown.set(withTiming(value, { duration: 420, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
-    }, [value, shown]);
+    const shown = useProgress(value);
+    const counted = useCountUp(label ?? '');
     const arc = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - shown.get()) }));
     return (
         <View accessible accessibilityRole="progressbar" accessibilityLabel={accessibilityLabel}
@@ -41,7 +40,7 @@ export function ProgressRing({ progress, size = 'md', tone = 'accent', label, ac
                     strokeLinecap="round" strokeDasharray={`${circumference} ${circumference}`} animatedProps={arc}
                     rotation={-90} origin={`${box / 2}, ${box / 2}`} opacity={value > 0 ? 1 : 0} />
             </Svg>
-            {label ? <Text variant={size === 'lg' ? 'display' : size === 'md' ? 'heading' : 'caption'} numeric>{label}</Text> : null}
+            {label ? <Text variant={size === 'lg' ? 'display' : size === 'md' ? 'heading' : 'caption'} numeric accessibilityLabel={label}>{counted}</Text> : null}
         </View>
     );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import { router } from 'expo-router';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -177,7 +178,7 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
 
 const Tile: React.FC<{ label: string; value: string; background: string; colors: typeof Colors.light }> = ({ label, value, background, colors }) => (
     <View style={[styles.tile, { backgroundColor: background, borderColor: colors.border }]}>
-        <Text style={[styles.tileValue, { color: colors.textPrimary }]}>{value}</Text>
+        <CountUp style={[styles.tileValue, { color: colors.textPrimary }]} value={value} />
         <Text style={[styles.tileLabel, { color: colors.textTertiary }]}>{label}</Text>
     </View>
 );

@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { MOTION, useProgress } from '@/components/ui/Motion';
+import Animated, { interpolateColor, useAnimatedStyle } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
@@ -12,7 +13,6 @@ import { useHaptics } from '@/hooks/useHaptics';
 import type { DailyFocus } from '@/lib/dailyFocus';
 import type { Task } from '@/lib/tasks';
 
-const EASE = { duration: 420, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 
 /**
  * The day's promise, on the home screen.
@@ -76,7 +76,7 @@ export const DailyFocusCard: React.FC<{
 
             <View style={styles.pips} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: focus.target, now: focus.progress }}>
                 {Array.from({ length: focus.target }, (_, index) => (
-                    <Pip key={index} filled={index < focus.progress} tint={tint} idle={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)'} />
+                    <Pip key={index} index={index} filled={index < focus.progress} tint={tint} idle={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)'} />
                 ))}
             </View>
 
@@ -131,10 +131,9 @@ export const DailyFocusCard: React.FC<{
 };
 
 /** One of the day's slots, filling as it is won. */
-const Pip = ({ filled, tint, idle }: { filled: boolean; tint: string; idle: string }) => {
-    const on = useSharedValue(filled ? 1 : 0);
-    useEffect(() => { on.value = withTiming(filled ? 1 : 0, EASE); }, [filled, on]);
-    const style = useAnimatedStyle(() => ({ backgroundColor: on.value > 0.5 ? tint : idle }));
+const Pip = ({ index, filled, tint, idle }: { index: number; filled: boolean; tint: string; idle: string }) => {
+    const on = useProgress(filled ? 1 : 0, index * MOTION.stagger * 2);
+    const style = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(on.get(), [0, 1], [idle, tint]) }));
     return <Animated.View style={[styles.pip, style]} />;
 };
 

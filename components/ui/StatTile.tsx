@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { AppIcon, type IconName } from '@/components/ui/AppIcon';
 import { useTokens } from '@/hooks/useTokens';
 import { Text, type TextTone } from './Text';
+import { useCountUp } from './Motion';
 
 export interface StatTileProps {
     value: string;
@@ -19,10 +20,11 @@ export interface StatTileProps {
 /** A number and what it means: the building block of every stats screen. */
 export function StatTile({ value, label, detail, icon, tone = 'primary', size = 'compact', align = 'center' }: StatTileProps) {
     const t = useTokens();
+    const counted = useCountUp(value);
     return (
         <View style={{ flex: size === 'compact' ? 1 : undefined, alignItems: align === 'center' ? 'center' : 'flex-start', gap: t.space.xs / 2 }}>
             {icon ? <AppIcon name={icon} size={t.space.lg} color={t.color.accentText} /> : null}
-            <Text variant={size === 'hero' ? 'display' : 'title'} tone={tone} numeric>{value}</Text>
+            <Text variant={size === 'hero' ? 'display' : 'title'} tone={tone} numeric accessibilityLabel={value}>{counted}</Text>
             <Text variant={size === 'hero' ? 'body' : 'label'} tone="muted" align={align}>{label}</Text>
             {detail ? <Text variant="caption" tone="muted" align={align}>{detail}</Text> : null}
         </View>

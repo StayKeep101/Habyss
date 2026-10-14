@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { CountUp, PopIn } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -85,10 +86,10 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
                 <Stat value={String(stats.kept)} label="Days done" />
             </View>
 
-            {months.map(month => {
+            {months.map((month, monthIndex) => {
                 const done = month.cells.filter(date => date && byDate.get(date)?.completed).length;
                 return (
-                    <View key={month.key} style={[styles.month, { backgroundColor: tile }]}>
+                    <PopIn key={month.key} index={monthIndex * 4} style={[styles.month, { backgroundColor: tile }]}>
                         <View style={styles.monthHead}>
                             <Text style={[styles.monthLabel, { color: colors.textPrimary }]}>{month.label}</Text>
                             <Text style={[styles.monthCount, { color: done ? color : colors.textTertiary }]}>{done ? `${done} done` : '—'}</Text>
@@ -128,7 +129,7 @@ export function HabitCalendarMap({ history, color, startDate, today, inset }: Pr
                                 );
                             })}
                         </View>
-                    </View>
+                    </PopIn>
                 );
             })}
 
@@ -146,7 +147,7 @@ function Stat({ value, label, color }: { value: string; label: string; color?: s
     const colors = Colors[theme];
     return (
         <View style={styles.stat}>
-            <Text style={[styles.statValue, { color: color ?? colors.textPrimary }]}>{value}</Text>
+            <CountUp style={[styles.statValue, { color: color ?? colors.textPrimary }]} value={value} />
             <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label.toUpperCase()}</Text>
         </View>
     );

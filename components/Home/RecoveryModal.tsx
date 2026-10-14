@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import { useRouter } from 'expo-router';
 import Animated, { Easing, FadeIn, LinearTransition, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -174,7 +175,7 @@ export const RecoveryModal = ({ visible, onClose, habits, history, completions }
 
 const Stat = ({ label, value, colors, divider }: { label: string; value: string; colors: typeof Colors.light; divider?: boolean }) => (
     <View style={[styles.stat, divider && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-        <Text style={[styles.statValue, { color: colors.textPrimary }]}>{value}</Text>
+        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} />
         <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
     </View>
 );

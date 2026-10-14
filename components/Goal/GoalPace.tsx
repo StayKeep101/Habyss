@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { AnimatedFill, CountUp } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -55,13 +56,13 @@ export const GoalPace: React.FC<{ measure: GoalMeasure; color: string }> = ({ me
             style={[styles.card, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)', borderColor: colors.border }]}
         >
             <View style={styles.top}>
-                <Text style={[styles.done, { color: colors.textPrimary }]}>{done}</Text>
+                <CountUp style={[styles.done, { color: colors.textPrimary }]} value={done} />
                 <Text style={[styles.total, { color: colors.textTertiary }]}> / {total}{unit ? ` ${unit}` : ''}</Text>
                 <View style={{ flex: 1 }} />
-                <Text style={[styles.percent, { color }]}>{Math.round(share * 100)}%</Text>
+                <CountUp style={[styles.percent, { color }]} value={`${Math.round(share * 100)}%`} />
             </View>
             <View style={[styles.track, { backgroundColor: color + '22' }]}>
-                <View style={[styles.fill, { width: `${share * 100}%`, backgroundColor: color }]} />
+                <AnimatedFill progress={share} style={[styles.fill, { backgroundColor: color }]} />
             </View>
             {pace || leftToday ? (
                 <View style={styles.bottom}>

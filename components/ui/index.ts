@@ -19,6 +19,15 @@
  *   AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
  *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop
  *
+ * Motion (how charts, bars and numbers move — use these, never a still bar)
+ *   AnimatedFill   a bar's fill that grows in and slides to new values
+ *   GrowBar        an SVG chart bar that grows up from its floor
+ *   Reveal         draws a line chart in from left to right
+ *   PopIn          small pieces (heatmap cells) fading in one after another
+ *   useProgress    a 0→value animated number to drive any style or SVG prop
+ *   useCountUp     a figure as text that counts up and rolls to new values
+ *   CountUp        the same, as a Text component
+ *
  * Colours, fonts, corners and shadows come from theme/. Change a block here
  * and every screen that uses it changes with it.
  */
@@ -52,3 +61,4 @@ export { HabitRow, type HabitRowProps } from './HabitRow';
 export { ProgressRing, type ProgressRingProps } from './ProgressRing';
 export { HalfCircleProgress } from './HalfCircleProgress';
 export { CheckPop } from './CheckPop';
+export { MOTION, CountUp, AnimatedFill, GrowBar, Reveal, PopIn, useProgress, useCountUp, AnimatedRect, AnimatedCircle, AnimatedPath } from './Motion';

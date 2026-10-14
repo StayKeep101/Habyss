@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -62,9 +63,8 @@ export const RecoveryCard: React.FC<{ recovery: Recovery; onPress: () => void }>
                 </Animated.View>
 
                 <View style={styles.readout}>
-                    <Text style={[styles.value, { color: risk ? tint : colors.textPrimary }]}>
-                        {risk ? atRisk.length : rate === null ? '—' : `${rate}%`}
-                    </Text>
+                    <CountUp style={[styles.value, { color: risk ? tint : colors.textPrimary }]}
+                        value={risk ? atRisk.length : rate === null ? '—' : `${rate}%`} />
                     <Text style={[styles.label, { color: colors.textTertiary }]}>
                         {risk ? 'TO PROTECT' : 'RECOVERY'}
                     </Text>

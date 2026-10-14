@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion,
@@ -285,7 +286,7 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
 
 const Stat = ({ label, value, colors, divider }: { label: string; value: string; colors: typeof Colors.light; divider?: boolean }) => (
     <View style={[styles.stat, divider && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-        <Text style={[styles.statValue, { color: colors.textPrimary }]}>{value}</Text>
+        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} />
         <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
     </View>
 );

@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Dimensions, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import { router } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -352,7 +353,7 @@ const Stat = ({ icon, value, label, color, colors }: {
 }) => (
     <View style={styles.stat}>
         <Ionicons name={icon} size={15} color={color} />
-        <Text style={[styles.statValue, { color: colors.textPrimary }]}>{value}</Text>
+        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} />
         <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>
     </View>
 );

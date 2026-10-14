@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import { useRouter } from 'expo-router';
 import Animated, { Easing, FadeIn, FadeOut, ReduceMotion, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
@@ -185,7 +186,7 @@ export default function TaskStatsScreen() {
 const Row = ({ label, value, colors, tint, last }: { label: string; value: string; colors: typeof Colors.light; tint?: string; last?: boolean }) => (
     <View style={[styles.row, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
         <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>{label}</Text>
-        <Text style={[styles.rowValue, { color: tint ?? colors.textPrimary }]}>{value}</Text>
+        <CountUp style={[styles.rowValue, { color: tint ?? colors.textPrimary }]} value={value} />
     </View>
 );
 

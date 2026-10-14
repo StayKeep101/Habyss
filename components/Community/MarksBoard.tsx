@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AnimatedFill, CountUp, MOTION } from '@/components/ui/Motion';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -57,10 +58,10 @@ export const MarksBoard: React.FC<{ people: MarksPerson[]; onPick?: (id: string)
                                 <Text numberOfLines={1} style={[styles.rank, { color: foreground }]}>{rank.name.toUpperCase()}</Text>
                             </View>
                             <View style={[styles.track, { backgroundColor: light ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.07)' }]}>
-                                <View style={[styles.fill, { width: `${Math.max(3, (person.marks / top) * 100)}%`, backgroundColor: person.isYou ? primary : primary + '99' }]} />
+                                <AnimatedFill progress={Math.max(0.03, person.marks / top)} delay={index * MOTION.stagger} style={[styles.fill, { backgroundColor: person.isYou ? primary : primary + '99' }]} />
                             </View>
                         </View>
-                        <Text style={[styles.total, { color: colors.textPrimary }]}>{person.marks.toLocaleString()}</Text>
+                        <CountUp style={[styles.total, { color: colors.textPrimary }]} value={person.marks.toLocaleString()} />
                     </Pressable>
                 );
             })}

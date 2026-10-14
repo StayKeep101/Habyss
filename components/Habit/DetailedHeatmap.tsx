@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { PopIn } from '@/components/ui/Motion';
 import Svg, { Rect, G, Text as SvgText } from 'react-native-svg';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -162,6 +163,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingRight: 16 }}
             >
+                <PopIn>
                 <Svg height={7 * WEEK_WIDTH + MONTH_LABEL_HEIGHT + 10} width={totalWeeks * WEEK_WIDTH}>
                     {/* Month Labels */}
                     {monthLabels.map((l, i) => (
@@ -208,6 +210,7 @@ export const DetailedHeatmap: React.FC<DetailedHeatmapProps> = ({
                         })}
                     </G>
                 </Svg>
+                </PopIn>
             </ScrollView>
 
             <View style={styles.footer}>

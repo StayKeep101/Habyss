@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { CountUp } from '@/components/ui/Motion';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -57,7 +58,7 @@ export const MomentumCard: React.FC<{ momentum: Momentum; onPress: () => void }>
                 </View>
 
                 <View style={styles.readout}>
-                    <Text style={[styles.value, { color: colors.textPrimary }]}>{rate}%</Text>
+                    <CountUp style={[styles.value, { color: colors.textPrimary }]} value={`${rate}%`} />
                     <Text style={[styles.label, { color: colors.textTertiary }]}>MOMENTUM</Text>
                 </View>
 

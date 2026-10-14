@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { AnimatedFill, CountUp } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { Habit } from '@/lib/habitsSQLite';
@@ -110,9 +111,9 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={[styles.progressBg, { height: barHeight, backgroundColor: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)' }]}>
-                <View style={[styles.progressFill, { backgroundColor: goal.color || defaultColor, width: `${progress}%` }]} />
+                <AnimatedFill progress={progress / 100} style={[styles.progressFill, { backgroundColor: goal.color || defaultColor }]} />
               </View>
-              <Text style={[styles.progressText, { color: goal.color || defaultColor, fontSize: isSmall ? 9 : 11 }]}>{Math.round(progress)}%</Text>
+              <Text style={[styles.progressText, { color: goal.color || defaultColor, fontSize: isSmall ? 9 : 11 }]}><CountUp value={`${Math.round(progress)}%`} /></Text>
             </View>
           </View>
 

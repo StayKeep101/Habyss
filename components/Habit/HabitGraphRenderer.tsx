@@ -6,6 +6,8 @@ import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { VoidCard } from '@/components/ui/VoidCard';
+import { useAnimatedProps } from 'react-native-reanimated';
+import { AnimatedCircle, CountUp, GrowBar, MOTION, PopIn, Reveal, useCountUp, useProgress } from '@/components/ui/Motion';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRAPH_WIDTH = SCREEN_WIDTH - 64;
@@ -77,7 +79,9 @@ function ProgressRing({ color, goalValue, unit, todayValue = 0 }: {
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
     const progress = Math.min(todayValue / Math.max(goalValue, 1), 1);
-    const offset = circumference * (1 - progress);
+    const shown = useProgress(progress);
+    const arc = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - shown.get()) }));
+    const counted = useCountUp(todayValue);
 
     return (
         <View style={{ alignItems: 'center', paddingVertical: 16 }}>
@@ -86,10 +90,10 @@ function ProgressRing({ color, goalValue, unit, todayValue = 0 }: {
                     cx={size / 2} cy={size / 2} r={radius}
                     stroke={color + '20'} strokeWidth={strokeWidth} fill="none"
                 />
-                <Circle
+                <AnimatedCircle
                     cx={size / 2} cy={size / 2} r={radius}
                     stroke={color} strokeWidth={strokeWidth} fill="none"
-                    strokeDasharray={circumference} strokeDashoffset={offset}
+                    strokeDasharray={circumference} animatedProps={arc}
                     strokeLinecap="round"
                     transform={`rotate(-90 ${size / 2} ${size / 2})`}
                 />
@@ -98,7 +102,7 @@ function ProgressRing({ color, goalValue, unit, todayValue = 0 }: {
                     textAnchor="middle" fill={colors.textPrimary}
                     fontSize={28} fontFamily={FontFamily.bold}
                 >
-                    {todayValue}
+                    {counted}
                 </SvgText>
                 <SvgText
                     x={size / 2} y={size / 2 + 16}
@@ -154,7 +158,6 @@ function BarChart({ color, completionData, goalValue }: {
                 {points.map((point, index) => {
                     const x = index * barWidth + 24;
                     const height = point.state === 'off' ? 0 : (point.value / ceiling) * span;
-                    const y = floor - height;
 
                     return (
                         <G key={point.date}>
@@ -173,12 +176,13 @@ function BarChart({ color, completionData, goalValue }: {
                                     fill={colors.textTertiary} opacity={0.35}
                                 />
                             ) : (
-                                <Rect
-                                    x={x + 2} y={y} width={barWidth - 6} height={Math.max(height, 4)} rx={6}
+                                <GrowBar
+                                    x={x + 2} floor={floor} width={barWidth - 6} height={Math.max(height, 4)} rx={6}
                                     fill={point.state === 'kept' ? `url(#${gid})`
                                         : point.state === 'skipped' ? colors.textTertiary
                                             : missed}
                                     opacity={point.state === 'skipped' ? 0.5 : 1}
+                                    delay={index * MOTION.stagger}
                                 />
                             )}
                             <SvgText
@@ -235,6 +239,7 @@ function LineChart({ color, completionData, goalValue }: {
 
     return (
         <View style={{ paddingVertical: 8 }}>
+            <Reveal>
             <Svg width={GRAPH_WIDTH} height={GRAPH_HEIGHT}>
                 <Defs>
                     <SvgGradient id={gid} x1="0" y1="0" x2="0" y2="1">
@@ -268,6 +273,7 @@ function LineChart({ color, completionData, goalValue }: {
                     />
                 ))}
             </Svg>
+            </Reveal>
         </View>
     );
 }
@@ -286,13 +292,14 @@ function HeatmapChart({ color, completionData }: {
     return (
         <View style={{ paddingVertical: 12 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap }}>
-                {points.map(point => {
+                {points.map((point, index) => {
                     // Four readings, not two: kept, missed, deliberately skipped,
                     // and never asked for.
                     const filled = point.state === 'kept';
                     return (
-                        <View
+                        <PopIn
                             key={point.date}
+                            index={index}
                             style={{
                                 width: cellSize, height: cellSize, borderRadius: 4,
                                 backgroundColor: filled ? color : point.state === 'skipped' ? colors.textTertiary : 'transparent',
@@ -331,9 +338,7 @@ function StreakCounter({ color, currentStreak }: {
 
     return (
         <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-            <Text style={{ fontSize: 56, color, fontFamily: FontFamily.bold }}>
-                {currentStreak}
-            </Text>
+            <CountUp style={{ fontSize: 56, color, fontFamily: FontFamily.bold }} value={currentStreak} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <Ionicons name="flame" size={18} color="#F59E0B" />
                 <Text style={{ color: colors.textSecondary, fontSize: 14, fontFamily: FontFamily.medium, letterSpacing: 1 }}>

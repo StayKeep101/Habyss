@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AnimatedFill, CountUp } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { s, vs, ms } from '@/theme/scale';
@@ -40,12 +41,12 @@ export const MarksBar: React.FC<{ marks: Marks; onPress: () => void }> = ({ mark
                     <Text numberOfLines={1} style={[styles.rank, { color: foreground }]}>{marks.rank.name.toUpperCase()}</Text>
                 </View>
                 <Text style={[styles.total, { color: colors.textPrimary }]}>
-                    {marks.total.toLocaleString()}
+                    <CountUp value={marks.total.toLocaleString()} />
                     <Text style={[styles.unit, { color: colors.textTertiary }]}> marks</Text>
                 </Text>
             </View>
             <View style={[styles.track, { backgroundColor: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)' }]}>
-                <View style={[styles.fill, { width: `${Math.max(2, marks.progress * 100)}%`, backgroundColor: primary }]} />
+                <AnimatedFill progress={Math.max(0.02, marks.progress)} style={[styles.fill, { backgroundColor: primary }]} />
             </View>
             <View style={styles.bottom}>
                 <Text numberOfLines={1} style={[styles.caption, { color: colors.textTertiary }]}>
