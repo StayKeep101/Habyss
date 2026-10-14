@@ -98,17 +98,18 @@ export async function announceGoalComplete(goalId: string, name: string): Promis
  */
 export async function checkMilestones(): Promise<void> {
     try {
-        const { getHabits, getCompletions, getSkipped, getLastNDaysCompletions } =
+        const { getHabits, getCompletions, getSkipped } =
             require('./habitsSQLite') as typeof import('./habitsSQLite');
-        const { getTasks } = require('./tasks') as typeof import('./tasks');
+        const { loadedData } = require('./dataStore') as typeof import('./dataStore');
         const { getDailyTarget, dailyFocus } = require('./dailyFocus') as typeof import('./dailyFocus');
         const { goalProgress } = require('./goalInsights') as typeof import('./goalInsights');
         const { tallyDay, isDayComplete } = require('./dayComplete') as typeof import('./dayComplete');
 
         const today = localDateKey(new Date());
-        const [habits, completions, skipped, tasks, target] = await Promise.all([
-            getHabits(), getCompletions(today), getSkipped(today), getTasks({ includeDone: true }), getDailyTarget(),
+        const [habits, completions, skipped, data, target] = await Promise.all([
+            getHabits(), getCompletions(today), getSkipped(today), loadedData(), getDailyTarget(),
         ]);
+        const tasks = data.tasks;
 
         // The day's promise: three things, or five.
         //
@@ -127,13 +128,9 @@ export async function checkMilestones(): Promise<void> {
         const goals = habits.filter(habit => habit.isGoal && !habit.isArchived);
         if (goals.length === 0) return;
 
-        const rows = await getLastNDaysCompletions(400).catch(() => []);
-        const history: Record<string, string[]> = {};
-        const skips: Record<string, string[]> = {};
-        for (const row of rows) {
-            history[row.date] = row.completedIds;
-            if (row.skippedIds?.length) skips[row.date] = row.skippedIds;
-        }
+        // The whole shared history, the same span the goal's own page reads.
+        const history: Record<string, string[]> = { ...data.history };
+        const skips: Record<string, string[]> = { ...data.skips };
         history[today] = Object.keys(completions).filter(id => completions[id]);
         skips[today] = Object.keys(skipped).filter(id => skipped[id]);
 

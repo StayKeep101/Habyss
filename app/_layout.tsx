@@ -19,6 +19,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {View, AppState, Alert} from 'react-native';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { NotificationService } from '@/lib/notificationService';
+import { ensureData } from '@/lib/dataStore';
 import '@/lib/LocationService'; // Register background tasks
 import { AIPersonalityProvider } from '@/context/AIPersonalityContext';
 import { AppSettingsProvider } from '@/context/AppSettingsContext';
@@ -82,6 +83,9 @@ export default function MobileLayout() {
         if (loaded) {
           // Initialize notifications sequence safely
           try {
+            // Tasks and check-in history into memory now, so the first
+            // screen that shows a number already has it.
+            void ensureData().catch(() => undefined);
             await NotificationService.init();
             // Permissions are requested when the user enables a reminder.
             void NotificationService.refreshHabitReminders().catch(error => console.warn('Reminder refresh failed', error));

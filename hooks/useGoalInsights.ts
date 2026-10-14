@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getCompletions, getLastNDaysCompletions, getSkipped, subscribeToHabits, type Habit } from '@/lib/habitsSQLite';
+import { subscribeToHabits, type Habit } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
-import { buildGoalInsights, combineSeries, daysBetween, goalRange, type GoalInsights, type GoalPoint } from '@/lib/goalInsights';
-import { useTasks } from '@/hooks/useTasks';
+import { buildGoalInsights, combineSeries, type GoalInsights, type GoalPoint } from '@/lib/goalInsights';
+import { useData } from '@/hooks/useData';
 import type { Task } from '@/lib/tasks';
-import { on } from '@/lib/appEvents';
 
 export interface GoalsData {
     /** Active goals, in the order the user has them. */
@@ -36,13 +35,12 @@ export interface GoalsData {
  */
 export function useGoalsInsights(): GoalsData {
     const [habits, setHabits] = useState<Habit[]>([]);
-    const [completions, setCompletions] = useState<Record<string, boolean>>({});
-    const [history, setHistory] = useState<Record<string, string[]>>({});
-    const [skips, setSkips] = useState<Record<string, string[]>>({});
-    const [skippedToday, setSkippedToday] = useState<Record<string, boolean>>({});
-    const [historyVersion, setHistoryVersion] = useState(0);
     const [loaded, setLoaded] = useState(false);
-    const tasks = useTasks();
+    // Ticks a screen has shown before the save comes back; the shared history
+    // takes over as soon as it changes.
+    const [optimistic, setOptimistic] = useState<Record<string, boolean>>({});
+    const data = useData();
+    const tasks = data.tasks;
     const today = localDateKey(new Date());
 
     const goals = useMemo(() => habits.filter(habit => habit.isGoal && !habit.isArchived), [habits]);
@@ -50,66 +48,30 @@ export function useGoalsInsights(): GoalsData {
     useEffect(() => {
         let alive = true;
         const unsubscribe = subscribeToHabits(all => { if (alive) { setHabits(all); setLoaded(true); } });
-        getCompletions(today).then(done => { if (alive) setCompletions(done); }).catch(() => undefined);
-        getSkipped(today).then(skipped => { if (alive) setSkippedToday(skipped); }).catch(() => undefined);
-        const subs = [
-            on('habit_completion_updated', ({ habitId, date, completed, skipped }) => {
-                // A bulk change names neither row nor day; re-read rather than patch.
-                if (!habitId || date !== localDateKey(new Date())) { setHistoryVersion(version => version + 1); return; }
-                setCompletions(prev => ({ ...prev, [habitId]: completed === true }));
-                setSkippedToday(prev => {
-                    const next = { ...prev };
-                    if (skipped) next[habitId] = true; else delete next[habitId];
-                    return next;
-                });
-            }),
-            // A restore brings back past check-ins too.
-            on('cloud_restored', () => {
-                getCompletions(localDateKey(new Date())).then(done => { if (alive) setCompletions(done); }).catch(() => undefined);
-                setHistoryVersion(version => version + 1);
-            }),
-        ];
-        return () => { alive = false; unsubscribe.then(stop => stop()); subs.forEach(sub => sub.remove()); };
-    }, [today]);
+        return () => { alive = false; unsubscribe.then(stop => stop()); };
+    }, []);
+    useEffect(() => { setOptimistic({}); }, [data.history, data.skips]);
 
-    // Include archived goals and habits older than their goal, so charts and
-    // lifetime streaks keep the complete history.
-    const earliestStart = useMemo(
-        () => habits.map(habit => goalRange(habit, today).start).sort()[0] ?? null,
-        [habits, today],
-    );
-    useEffect(() => {
-        if (!earliestStart) return;
-        let alive = true;
-        const days = Math.max(30, daysBetween(earliestStart, today) + 1);
-        getLastNDaysCompletions(days)
-            .then(rows => {
-                if (!alive) return;
-                const map: Record<string, string[]> = {};
-                const skipped: Record<string, string[]> = {};
-                rows.forEach(row => {
-                    map[row.date] = row.completedIds;
-                    if (row.skippedIds?.length) skipped[row.date] = row.skippedIds;
-                });
-                setHistory(map);
-                setSkips(skipped);
-            })
-            .catch(() => undefined);
-        return () => { alive = false; };
-    }, [earliestStart, today, historyVersion]);
+    const completions = useMemo(() => {
+        const done: Record<string, boolean> = {};
+        for (const id of data.history[today] ?? []) done[id] = true;
+        return { ...done, ...optimistic };
+    }, [data.history, today, optimistic]);
+    const skippedToday = useMemo(() => {
+        const skipped: Record<string, boolean> = {};
+        for (const id of data.skips[today] ?? []) skipped[id] = true;
+        return skipped;
+    }, [data.skips, today]);
 
     const setCompletion = useCallback((habitId: string, done: boolean) => {
-        setCompletions(prev => ({ ...prev, [habitId]: done }));
+        setOptimistic(prev => ({ ...prev, [habitId]: done }));
     }, []);
 
     const merged = useMemo(
-        () => ({ ...history, [today]: Object.keys(completions).filter(id => completions[id]) }),
-        [history, completions, today],
+        () => ({ ...data.history, [today]: Object.keys(completions).filter(id => completions[id]) }),
+        [data.history, completions, today],
     );
-    const mergedSkips = useMemo(
-        () => ({ ...skips, [today]: Object.keys(skippedToday).filter(id => skippedToday[id]) }),
-        [skips, skippedToday, today],
-    );
+    const mergedSkips = data.skips;
     const insightsById = useMemo(() => {
         const map: Record<string, GoalInsights> = {};
         // Archived goals too, so an archived goal's own page still opens.
@@ -128,7 +90,8 @@ export function useGoalsInsights(): GoalsData {
     );
 
     return {
-        goals, habits, tasks, insightsById, overall, overallSeries, completions, skippedToday, setCompletion, today, loaded,
+        goals, habits, tasks, insightsById, overall, overallSeries, completions, skippedToday, setCompletion, today,
+        loaded: loaded && data.historyLoaded && data.tasksLoaded,
         history: merged, skips: mergedSkips,
     };
 }

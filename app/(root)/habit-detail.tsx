@@ -16,7 +16,8 @@ import { Colors } from '@/theme/colors';
 import { FontFamily, Typography } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Habit, getHabits, getHabitMeasurement, getLastNDaysCompletions, saveHabitMeasurement } from '@/lib/habitsSQLite';
+import { Habit, getHabits, getHabitMeasurement, saveHabitMeasurement } from '@/lib/habitsSQLite';
+import { historyWindow, loadedData } from '@/lib/dataStore';
 import { localHabitDate, measurementFor } from '@/lib/habitMeasurement';
 import { isHabitScheduledForDate, parseHabitDate } from '@/lib/habitSchedule';
 import { readableAccent } from '@/lib/colorContrast';
@@ -137,7 +138,7 @@ export default function HabitDetailScreen() {
             if (!found) return;
             const [amount, days] = await Promise.all([
                 getHabitMeasurement(habitId, measurementFor(found).target, date),
-                getLastNDaysCompletions(366),
+                loadedData().then(data => historyWindow(366, data).rows),
             ]);
             if (!mounted.current || request !== generation.current || pending.current) return;
             valueRef.current = amount;
@@ -149,7 +150,7 @@ export default function HabitDetailScreen() {
                 return {
                     date: day.date,
                     completed: day.completedIds.includes(habitId),
-                    skipped: day.skippedIds.includes(habitId),
+                    skipped: (day.skippedIds ?? []).includes(habitId),
                     scheduled: when ? isHabitScheduledForDate(found, when) : true,
                 };
             }));

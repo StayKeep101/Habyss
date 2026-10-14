@@ -1,6 +1,6 @@
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
@@ -9,10 +9,11 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/ui/VoidCard';
-import { calculateGoalProgressInstant, getCompletions, getGoals, getHabits, getLastNDaysCompletions, type Habit } from '@/lib/habitsSQLite';
-import { getTasks, todayKey, type Task } from '@/lib/tasks';
+import { type Habit } from '@/lib/habitsSQLite';
+import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { todayKey, type Task } from '@/lib/tasks';
 import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
-import { emit, on } from '@/lib/appEvents';
+import { emit } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/goal-roadmap.styles';
 
 interface GoalPlan {
@@ -46,57 +47,30 @@ export default function GoalRoadmapScreen() {
     const { primary: accent } = useAccentGradient();
     const { lightFeedback } = useHaptics();
 
-    const [plans, setPlans] = useState<GoalPlan[]>([]);
-    const [unassigned, setUnassigned] = useState<{ habits: Habit[]; tasks: Task[] }>({ habits: [], tasks: [] });
-    const [loading, setLoading] = useState(true);
-
-    const load = useCallback(async () => {
-        try {
-            const [goals, habits, tasks, today, history] = await Promise.all([
-                getGoals(),
-                getHabits(),
-                getTasks({ includeDone: true }),
-                getCompletions(),
-                getLastNDaysCompletions(90),
-            ]);
-            const historyMap: Record<string, string[]> = {};
-            history.forEach(day => { historyMap[day.date] = day.completedIds; });
-            const liveHabits = habits.filter((habit: Habit) => !habit.isGoal && !habit.isArchived);
-            const liveTasks = tasks.filter(task => task.status !== 'cancelled');
-
-            setPlans(goals.map((goal: Habit) => {
-                const goalHabits = liveHabits.filter((habit: Habit) => habit.goalId === goal.id);
+    // The shared goal data: the same habits, tasks and progress every other
+    // goal screen shows, already in memory, so this page opens instantly.
+    const { habits, tasks, insightsById, loaded } = useGoalsInsights();
+    const loading = !loaded;
+    const { plans, unassigned } = useMemo(() => {
+        const liveHabits = habits.filter(habit => !habit.isGoal && !habit.isArchived);
+        const liveTasks = tasks.filter(task => task.status !== 'cancelled');
+        return {
+            plans: habits.filter(habit => habit.isGoal).map((goal): GoalPlan => {
+                const goalHabits = liveHabits.filter(habit => habit.goalId === goal.id);
                 const goalTasks = liveTasks.filter(task => task.goalId === goal.id);
                 return {
                     goal,
                     habits: goalHabits,
                     tasks: goalTasks,
-                    // The same number the goal shows everywhere else.
-                    progress: goalHabits.length + goalTasks.length > 0
-                        ? calculateGoalProgressInstant(goal, habits, today, historyMap, tasks)
-                        : null,
+                    progress: goalHabits.length + goalTasks.length > 0 ? insightsById[goal.id]?.progress ?? null : null,
                 };
-            }));
-
-            setUnassigned({
-                habits: liveHabits.filter((habit: Habit) => !habit.goalId),
+            }),
+            unassigned: {
+                habits: liveHabits.filter(habit => !habit.goalId),
                 tasks: liveTasks.filter(task => !task.goalId),
-            });
-        } catch {
-            setPlans([]);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        load();
-        const subs = [
-            on('tasks_changed', load),
-            on('habit_updated', load),
-        ];
-        return () => subs.forEach(sub => sub.remove());
-    }, [load]);
+            },
+        };
+    }, [habits, tasks, insightsById]);
 
     const today = todayKey();
 

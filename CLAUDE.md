@@ -45,7 +45,8 @@ Every new feature follows the structure above. No UI anywhere else.
 6. **Logic and data** → `lib/` (plain functions, with tests in `lib/__tests__`) and `hooks/`. App-wide state → `context/`.
 7. **Colours, fonts, corners, shadows** → only from `theme/`. A value that does not exist there yet: ask the user before adding it.
 8. **Charts, bars, rings and figures move**: use the motion pieces in `components/ui/Motion.tsx` (`AnimatedFill`, `GrowBar`, `Reveal`, `PopIn`, `useProgress`, `CountUp`). They grow in when a page opens and glide to the new value when something changes. Never draw a still bar or a figure that jumps.
-9. After building, add the page to the table in `styles/README.md`.
+9. **Data and numbers**: pages read habits, tasks and history only through the shared hooks — `useData`, `useTasks`, `useHistory`, `useGoalsInsights` (one in-memory copy in `lib/dataStore.ts`). Never query the database from a page, and never compute a stat a second way: streaks come from `streakFrom`, goal progress from `goalInsights`, momentum and recovery from their `lib/` files.
+10. After building, add the page to the table in `styles/README.md`.
 
 ## Working in this repo
 

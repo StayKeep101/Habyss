@@ -36,6 +36,7 @@ import { tallyDay } from '@/lib/dayComplete';
 import { useDailyFocus, useDailyTarget } from '@/hooks/useDailyFocus';
 import { streakFrom } from '@/lib/dayComplete';
 import { useHistory } from '@/hooks/useHistory';
+import { useData } from '@/hooks/useData';
 import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
 import { MomentumCard } from '@/components/Home/MomentumCard';
@@ -65,6 +66,7 @@ const Home = () => {
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
   // Check-ins for the stats below, kept current by the shared loader.
   const { rows: historyData, reload: reloadHistory } = useHistory(90);
+  const sharedData = useData();
   // Stats are now derived, removed explicit state
 
   // UI state
@@ -228,16 +230,11 @@ const Home = () => {
    */
   const { streak } = useMemo(() => {
     const today = localDateKey(new Date());
-    const history: Record<string, string[]> = {};
-    const skips: Record<string, string[]> = {};
-    for (const row of historyData) {
-      history[row.date] = row.completedIds;
-      if (row.skippedIds?.length) skips[row.date] = row.skippedIds;
-    }
-    history[today] = Object.keys(completions).filter(id => completions[id]);
-    const run = streakFrom(habits, allTasks, history, skips, today, 70, dailyTarget);
+    // The whole shared history, so a run longer than any window still counts.
+    const history = { ...sharedData.history, [today]: Object.keys(completions).filter(id => completions[id]) };
+    const run = streakFrom(habits, allTasks, history, sharedData.skips, today, undefined, dailyTarget);
     return { streak: run.streak };
-  }, [habits, allTasks, historyData, completions, dailyTarget]);
+  }, [habits, allTasks, sharedData.history, sharedData.skips, completions, dailyTarget]);
 
   // How hot the flame burns: how much of today is already done.
   const completionTier = useMemo(() => {

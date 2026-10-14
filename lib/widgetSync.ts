@@ -4,7 +4,7 @@ import { getDailyTarget, type DailyTarget } from './dailyFocus';
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import { buildWidgetDashboard, parseWidgetEvent, type WidgetDashboard } from './widgetDashboard';
-import { addDays, daysBetween, goalRange } from './goalInsights';
+import { addDays } from './goalInsights';
 import { engagementLifecycle } from './engagementLifecycle';
 import { measurementFor } from './habitMeasurement';
 
@@ -119,27 +119,23 @@ export function syncWidgets(): Promise<WidgetPayload | null> {
 
 async function writeWidgets(): Promise<WidgetPayload | null> {
     try {
-        const { getHabits, getCompletions, getSkipped, getLastNDaysCompletions } = require('./habitsSQLite') as typeof import('./habitsSQLite');
-        const { getTasks } = require('./tasks') as typeof import('./tasks');
+        const { getHabits, getCompletions, getSkipped } = require('./habitsSQLite') as typeof import('./habitsSQLite');
+        const { loadedData } = require('./dataStore') as typeof import('./dataStore');
         const { WidgetService } = require('./widgetService') as typeof import('./widgetService');
 
         const today = localDateKey(new Date());
-        const [habits, completions, skipped, tasks] = await Promise.all([
-            getHabits(), getCompletions(today), getSkipped(today), getTasks({ includeDone: true }),
+        const [habits, completions, skipped, data] = await Promise.all([
+            getHabits(), getCompletions(today), getSkipped(today), loadedData(),
         ]);
-
-        const earliest = habits.map(habit => goalRange(habit, today).start).sort()[0] ?? today;
-        const rows = await getLastNDaysCompletions(Math.max(91, daysBetween(earliest, today) + 1));
-        const history: Record<string, string[]> = {};
-        const skips: Record<string, string[]> = {};
-        for (const row of rows) {
-            history[row.date] = row.completedIds;
-            if (row.skippedIds?.length) skips[row.date] = row.skippedIds;
-        }
+        // The same history and tasks every screen reads, so the widget never
+        // quotes a number the app disagrees with.
+        const tasks = data.tasks;
+        const history: Record<string, string[]> = { ...data.history };
+        const skips: Record<string, string[]> = { ...data.skips };
         history[today] = Object.keys(completions).filter(id => completions[id]);
         skips[today] = Object.keys(skipped).filter(id => skipped[id]);
         const target = await getDailyTarget();
-        const { streak } = streakFrom(habits, tasks, history, skips, today, 70, target);
+        const { streak } = streakFrom(habits, tasks, history, skips, today, undefined, target);
 
         const payload = buildWidgetPayload({ habits, tasks, completions, skipped, today, streak, target });
         payload.accent = await readAccent();

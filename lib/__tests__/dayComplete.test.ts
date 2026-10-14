@@ -109,6 +109,14 @@ describe('the run of finished days', () => {
         expect(run.completedDates).toContain('2026-09-21');
     });
 
+    it('keeps counting past 70 days', () => {
+        const days = Array.from({ length: 120 }, (_, offset) => {
+            const date = new Date(`${TODAY}T12:00:00`); date.setDate(date.getDate() - offset);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        });
+        expect(streakFrom(daily, [], doneOn(days), {}, TODAY).streak).toBe(120);
+    });
+
     it('stops at the first day that was left unfinished', () => {
         const run = streakFrom(daily, [], doneOn(['2026-09-22', '2026-09-20']), {}, TODAY);
         expect(run.streak).toBe(1);

@@ -9,6 +9,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useHistory } from '@/hooks/useHistory';
 import { useTasks } from '@/hooks/useTasks';
+import { useData } from '@/hooks/useData';
 import { subscribeToHabits, type Habit } from '@/lib/habitsSQLite';
 import { momentum } from '@/lib/momentum';
 import { streakFrom } from '@/lib/dayComplete';
@@ -67,17 +68,13 @@ export default function ProfileScreen() {
     const tasks = useTasks();
     const target = useDailyTarget();
     const { rows: history } = useHistory(90);
-    // The same streak the home screen and the day card show — one definition.
-    const streak = React.useMemo(() => {
-        const today = localDateKey(new Date());
-        const done: Record<string, string[]> = {};
-        const skips: Record<string, string[]> = {};
-        for (const row of history) {
-            done[row.date] = row.completedIds;
-            if (row.skippedIds?.length) skips[row.date] = row.skippedIds;
-        }
-        return streakFrom(habits, tasks, done, skips, today, 70, target).streak;
-    }, [habits, tasks, history, target]);
+    const data = useData();
+    // The same streak the home screen and the day card show — one definition,
+    // over the whole shared history.
+    const streak = React.useMemo(
+        () => streakFrom(habits, tasks, data.history, data.skips, localDateKey(new Date()), undefined, target).streak,
+        [habits, tasks, data.history, data.skips, target],
+    );
 
     const trend = React.useMemo(() => momentum(habits, history, {}, 30), [habits, history]);
     const bounce = React.useMemo(() => recovery(habits, history, {}, 90), [habits, history]);

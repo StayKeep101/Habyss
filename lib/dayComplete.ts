@@ -71,21 +71,32 @@ export function streakFrom(
     history: Record<string, string[]>,
     skips: Record<string, string[]>,
     today: string,
-    back = 70,
+    back?: number,
     _target: DailyTarget = DEFAULT_TARGET,
 ): { streak: number; completedDates: string[] } {
     const known = new Set(habits.filter(habit => !habit.isGoal).map(habit => habit.id));
     const completedDates: string[] = [];
     let streak = 0;
     let counting = true;
+    // As far back as anything was recorded. It used to stop at 70 days, so a
+    // run longer than that read as 70 on every screen.
+    // The days a task was finished, worked out once rather than per day.
+    const taskDays = new Set<string>();
+    for (const task of tasks) {
+        if (task.status !== 'done' || !task.completedAt) continue;
+        const when = new Date(task.completedAt);
+        taskDays.add(Number.isFinite(when.getTime()) ? localDateKey(when) : task.completedAt.slice(0, 10));
+    }
+    const earliest = [...Object.keys(history), ...Object.keys(skips), ...taskDays].sort()[0] ?? today;
+    const limit = back ?? Math.max(1, Math.round((new Date(`${today}T12:00:00`).getTime() - new Date(`${earliest}T12:00:00`).getTime()) / 86400000) + 1);
 
-    for (let offset = 0; offset < back; offset++) {
+    for (let offset = 0; offset < limit; offset++) {
         const date = new Date(`${today}T12:00:00`);
         date.setDate(date.getDate() - offset);
         const day = localDateKey(date);
         const skipped = new Set(skips[day] ?? []);
         const did = (history[day] ?? []).some(id => known.has(id) && !skipped.has(id))
-            || tasks.some(task => doneOnDay(task, day));
+            || taskDays.has(day);
 
         if (did) {
             completedDates.push(day);
@@ -118,13 +129,14 @@ export async function claimCelebration(today = localDateKey(new Date())): Promis
  */
 export async function checkDayComplete(): Promise<void> {
     try {
-        const { getHabits, getCompletions, getSkipped, getLastNDaysCompletions } = require('./habitsSQLite') as typeof import('./habitsSQLite');
-        const { getTasks } = require('./tasks') as typeof import('./tasks');
+        const { getHabits, getCompletions, getSkipped } = require('./habitsSQLite') as typeof import('./habitsSQLite');
+        const { loadedData } = require('./dataStore') as typeof import('./dataStore');
         const today = localDateKey(new Date());
         const { getDailyTarget } = require('./dailyFocus') as typeof import('./dailyFocus');
-        const [habits, completions, skipped, tasks, target] = await Promise.all([
-            getHabits(), getCompletions(today), getSkipped(today), getTasks({ includeDone: true }), getDailyTarget(),
+        const [habits, completions, skipped, data, target] = await Promise.all([
+            getHabits(), getCompletions(today), getSkipped(today), loadedData(), getDailyTarget(),
         ]);
+        const tasks = data.tasks;
         const tally = tallyDay(habits, completions, skipped, tasks, today, target);
         // The first thing finished keeps the streak, so that is the moment
         // worth marking, not the last. Cheap check first, before any history.
@@ -134,17 +146,12 @@ export async function checkDayComplete(): Promise<void> {
         if (!(await claimCelebration(today))) return;
 
         // The card shows the run this day just extended.
-        const rows = await getLastNDaysCompletions(70).catch(() => []);
-        const history: Record<string, string[]> = {};
-        const skips: Record<string, string[]> = {};
-        for (const row of rows) {
-            history[row.date] = row.completedIds;
-            if (row.skippedIds?.length) skips[row.date] = row.skippedIds;
-        }
+        const history: Record<string, string[]> = { ...data.history };
+        const skips: Record<string, string[]> = { ...data.skips };
         history[today] = Object.keys(completions).filter(id => completions[id]);
         skips[today] = Object.keys(skipped).filter(id => skipped[id]);
 
-        const run = streakFrom(habits, tasks, history, skips, today, 70, target);
+        const run = streakFrom(habits, tasks, history, skips, today, undefined, target);
         emit('day_complete', { tally, ...run });
     } catch {
         // Nothing to celebrate is not an error.

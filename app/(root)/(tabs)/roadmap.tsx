@@ -1,7 +1,6 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { afterPaint } from '@/lib/afterPaint';
 import Animated, {
     useAnimatedScrollHandler,
     useSharedValue,
@@ -17,10 +16,11 @@ import { GoalCard } from '@/components/Home/GoalCard';
 import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
 
-import { getSkipped, setSkipped as setSkippedHabit, subscribeToHabits, getCompletions, toggleCompletion, isTimedHabit, removeHabitEverywhere, calculateGoalProgressInstant, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
+import { getSkipped, setSkipped as setSkippedHabit, subscribeToHabits, getCompletions, toggleCompletion, isTimedHabit, removeHabitEverywhere, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useHistory } from '@/hooks/useHistory';
+import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -109,7 +109,6 @@ const CalendarScreen = () => {
     const { stateFor: sharedTaskFor } = useSharedItems(taskIds, taskDone, 'task');
     const [todayCompletions, setTodayCompletions] = useState<Record<string, boolean>>({});
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [goalProgress, setGoalProgress] = useState<Record<string, number>>({});
     const [skipped, setSkipped] = useState<Record<string, boolean>>({});
 
     // UI State
@@ -125,7 +124,7 @@ const CalendarScreen = () => {
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
     // Loaded once here, and re-read whenever a habit is ticked anywhere —
     // this screen used to fetch on mount only and then quietly go stale.
-    const { rows: historyData, history: pastDone, skips: pastSkips } = useHistory(90);
+    const { history: pastDone, skips: pastSkips } = useHistory(90);
     const stripTarget = useDailyTarget();
     const [draggingHabit, setDraggingHabit] = useState<Habit | null>(null);
     const [draggingTask, setDraggingTask] = useState<Task | null>(null);
@@ -210,7 +209,7 @@ const CalendarScreen = () => {
         const unsubPromise = subscribeToHabits((newHabits) => {
             setHabitsStore(newHabits);
         });
-        return () => { unsubPromise.then(unsub => unsub()); };
+        return () => { taskSub.remove(); unsubPromise.then(unsub => unsub()); };
     }, []);
 
     useEffect(() => {
@@ -266,29 +265,15 @@ const CalendarScreen = () => {
     }, []);
 
 
-    // Optimized History Lookup Maps
-    const historyMap = useMemo(() => {
-        const map: Record<string, string[]> = {};
-        historyData.forEach(d => map[d.date] = d.completedIds);
+
+    // Each goal's progress: the same number the goal shows on its own page,
+    // Home and the goals overview, from the one shared calculation.
+    const { insightsById } = useGoalsInsights();
+    const goalProgress = useMemo(() => {
+        const map: Record<string, number> = {};
+        for (const id of Object.keys(insightsById)) map[id] = insightsById[id].progress;
         return map;
-    }, [historyData]);
-
-    // SEPARATE EFFECT: Recalculate goal progress when relevant data changes
-    useEffect(() => {
-        const goals = habitsStore.filter(h => h.isGoal && !h.isArchived);
-        if (goals.length === 0) return;
-
-        // Defer heavy calculation to after navigation animation
-        const task = afterPaint(() => {
-            const progressMap: Record<string, number> = {};
-            goals.forEach(g => {
-                // IMPORTANT: Pass todayCompletions, NOT current view completions
-                progressMap[g.id] = calculateGoalProgressInstant(g, habitsStore, todayCompletions, historyMap, tasks);
-            });
-            setGoalProgress(progressMap);
-        });
-        return () => task.cancel();
-    }, [habitsStore, todayCompletions, historyMap, tasks]);
+    }, [insightsById]);
 
     // Map habits with completion status - OPTIMIZED: only on data changes
     // Map habits effect removed - redundant O(N) state update

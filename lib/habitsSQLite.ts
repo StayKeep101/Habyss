@@ -11,8 +11,7 @@ import { getLocalUserId } from './localUser';
 import { NotificationService } from './notificationService';
 import type { HealthMetric } from './healthMetrics';
 import { isHabitScheduledForDate, localDateKey, parseHabitDate } from './habitSchedule';
-import type { Task } from './tasks';
-import { addDays, daysBetween, goalProgress } from './goalInsights';
+import { addDays } from './goalInsights';
 import { measurementFor } from './habitMeasurement';
 import { emit } from './appEvents';
 export { isHabitScheduledForDate } from './habitSchedule';
@@ -782,53 +781,6 @@ export async function getLastNDaysCompletions(days: number): Promise<{ date: str
     return [];
 }
 
-export async function getStreakData(): Promise<{ currentStreak: number; bestStreak: number; perfectDays: number; totalCompleted: number }> {
-    const habits = await getHabits();
-    const earliest = habits.map(h => parseHabitDate(h.startDate) ?? parseHabitDate(h.createdAt))
-        .filter((date): date is Date => date !== null).map(localDateKey).sort()[0] ?? todayString();
-    const history = await getLastNDaysCompletions(Math.max(1, daysBetween(earliest, todayString()) + 1));
-    const totalHabitCount = habits.filter(h => !h.isGoal).length;
-
-    if (totalHabitCount === 0) return { currentStreak: 0, bestStreak: 0, perfectDays: 0, totalCompleted: 0 };
-
-    let currentStreak = 0;
-    let bestStreak = 0;
-    let tempStreak = 0;
-    let perfectDays = 0;
-    let totalCompleted = 0;
-
-    history.forEach(day => {
-        const completedCount = day.completedIds.length;
-        totalCompleted += completedCount;
-
-        if (completedCount > 0 && completedCount >= totalHabitCount) {
-            perfectDays++;
-        }
-
-        if (completedCount > 0) {
-            tempStreak++;
-        } else {
-            bestStreak = Math.max(bestStreak, tempStreak);
-            tempStreak = 0;
-        }
-    });
-
-    bestStreak = Math.max(bestStreak, tempStreak);
-
-    let streak = 0;
-    for (let i = history.length - 1; i >= 0; i--) {
-        if (history[i].completedIds.length > 0) {
-            streak++;
-        } else {
-            if (i === history.length - 1) continue;
-            break;
-        }
-    }
-    currentStreak = streak;
-
-    return { currentStreak, bestStreak, perfectDays, totalCompleted };
-}
-
 /**
  * Get detailed stats for a single habit
  */
@@ -967,27 +919,6 @@ export async function calculateGoalProgress(goal: Habit): Promise<number> {
     if (totalExpected === 0) return 0;
 
     return Math.round((totalCompleted / totalExpected) * 100);
-}
-
-/**
- * A goal's progress, 0-100: its habits' share of scheduled check-ins done and
- * its finished tasks, each habit and task weighing the same. Every screen
- * showing a goal's progress uses this (see lib/goalInsights.ts), so the number
- * is the same wherever the goal appears. Pass the tasks; without them only the
- * habit side is counted.
- */
-export function calculateGoalProgressInstant(
-    goal: Habit,
-    habits: Habit[],
-    todayCompletions: Record<string, boolean>,
-    historyMap: Record<string, string[]> = {},
-    tasks: Task[] = [],
-): number {
-    if (!goal.isGoal) return 0;
-    const today = todayString();
-    const doneToday = Object.keys(todayCompletions).filter(id => todayCompletions[id]);
-    const history = { ...historyMap, [today]: doneToday };
-    return goalProgress({ goal, habits, tasks, history, today });
 }
 
 export async function getHeatmapData(): Promise<{ date: string; count: number }[]> {
