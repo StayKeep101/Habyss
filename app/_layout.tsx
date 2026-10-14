@@ -358,8 +358,11 @@ function InnerLayout() {
     <View style={{ flex: 1 }} className={theme}>
       <VoidShell>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(root)" />
+          {/* Reached by the launch redirect, not by a tap: they appear in
+              place instead of sliding in from the side. */}
+          <Stack.Screen name="index" options={{ animation: 'none' }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="(root)" options={{ animation: 'none' }} />
           <Stack.Screen name="+not-found" />
         </Stack>
         <DayCompleteCelebration />
