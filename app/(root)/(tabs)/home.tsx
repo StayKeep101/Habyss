@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { subscribeToHabits, getCompletions, Habit, isHabitScheduledForDate, syncHealthKitData } from '@/lib/habitsSQLite';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { CelebrationAnimation } from '@/components/Celebrations/CelebrationAnimation';
@@ -37,6 +37,7 @@ import { useDailyFocus, useDailyTarget } from '@/hooks/useDailyFocus';
 import { streakFrom } from '@/lib/dayComplete';
 import { useHistory } from '@/hooks/useHistory';
 import { useData } from '@/hooks/useData';
+import { getData } from '@/lib/dataStore';
 import { setTaskStatus, type Task } from '@/lib/tasks';
 import { StreakCard } from '@/components/Home/StreakCard';
 import { MomentumCard } from '@/components/Home/MomentumCard';
@@ -63,7 +64,13 @@ const Home = () => {
 
   // Data state
   const [allHabits, setAllHabits] = useState<Habit[]>([]);
-  const [completions, setCompletions] = useState<Record<string, boolean>>({});
+  // Seeded from the shared data loaded behind the splash, so Home opens with
+  // today already filled in rather than empty and then jumping.
+  const [completions, setCompletions] = useState<Record<string, boolean>>(() => {
+    const seeded: Record<string, boolean> = {};
+    for (const id of getData().history[localDateKey(new Date())] ?? []) seeded[id] = true;
+    return seeded;
+  });
   // Check-ins for the stats below, kept current by the shared loader.
   const { rows: historyData, reload: reloadHistory } = useHistory(90);
   const sharedData = useData();
@@ -364,7 +371,7 @@ const Home = () => {
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
           {motivationalQuote ? (
-            <Animated.View entering={FadeInDown.duration(400)} style={{ marginTop: sectionGap }}>
+            <Animated.View style={{ marginTop: sectionGap }}>
               {/* Echo is the voice behind this line and the reminders. */}
               <Text style={{ fontSize: ms(11), letterSpacing: 1.4, color: accentColor, fontFamily: FontFamily.semibold, marginBottom: 4 }}>ECHO</Text>
               <Text style={{
@@ -386,7 +393,7 @@ const Home = () => {
           <View style={{ height: sectionGap }} />
 
           {/* Goals Progress Bar */}
-          <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+          <Animated.View>
             <GoalsProgressBar
               progress={avgGoalProgress}
               goalsCount={goals.length}
@@ -395,7 +402,7 @@ const Home = () => {
           </Animated.View>
 
           {/* 3-Column Stats Row: Streak | Consistency | Completion */}
-          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: sectionGap }}>
+          <Animated.View style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: sectionGap }}>
             <StreakCard
               streak={streak}
               completionTier={completionTier}
@@ -413,7 +420,7 @@ const Home = () => {
 
           {/* Under the three numbers: the day's promise, and the few things
               that would keep it. */}
-          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={{ marginTop: sectionGap }}>
+          <Animated.View style={{ marginTop: sectionGap }}>
             <DailyFocusCard
               focus={focus}
               onToggle={handleFocusToggle}

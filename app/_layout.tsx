@@ -83,14 +83,19 @@ export default function MobileLayout() {
         if (loaded) {
           // Initialize notifications sequence safely
           try {
-            // Tasks and check-in history into memory now, so the first
-            // screen that shows a number already has it.
-            void ensureData().catch(() => undefined);
+            // The splash waits for one thing: the data Home shows, which is
+            // on the phone and quick. Home then opens complete, and its
+            // numbers, rings and bars play in from it. Capped, so a slow
+            // database can never hold the app closed.
+            const data = ensureData().catch(() => undefined);
             await NotificationService.init();
             // Permissions are requested when the user enables a reminder.
             void NotificationService.refreshHabitReminders().catch(error => console.warn('Reminder refresh failed', error));
-            await RevenueCatService.init().catch(error => console.warn('Purchases unavailable', error));
-            await SiriService.syncTodayProgress();
+            // Purchases and Siri carry on in the background; nothing on
+            // Home waits for them.
+            void RevenueCatService.init().catch(error => console.warn('Purchases unavailable', error));
+            void SiriService.syncTodayProgress().catch(() => undefined);
+            await Promise.race([data, new Promise(resolve => setTimeout(resolve, 1500))]);
             // On-device AI in the background: Apple's built-in model when the
             // phone has one, otherwise the Llama model, downloaded on Wi-Fi the
             // first time. Never blocks startup and never throws.
