@@ -1,6 +1,10 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AnimatedFill, CountUp, useProgress } from '@/components/ui/Motion';
+import { IconTile } from '@/components/ui/IconTile';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { Segmented } from '@/components/ui/Segmented';
+import { SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
+import { CountUp, useProgress } from '@/components/ui/Motion';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion,
@@ -128,55 +132,26 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
             />
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* The number, and the only framing that makes it useful. */}
-                <VoidCard {...surface} style={[styles.hero, glassy()]}>
-                    <View style={styles.heroTop}>
-                        <CountUp testID="momentum-rate" style={[styles.heroValue, { color: colors.textPrimary }]} value={`${result.rate}%`} replay={days} />
-                        {result.comparable && result.delta !== 0 ? (
-                            <View style={[styles.deltaPill, { backgroundColor: direction + '22' }]}>
-                                <Ionicons name={result.delta > 0 ? 'trending-up' : 'trending-down'} size={s(13)} color={direction} />
-                                <Text testID="momentum-delta" style={[styles.deltaText, { color: direction }]}>
-                                    {`${result.delta > 0 ? '+' : ''}${result.delta}`}
-                                </Text>
-                            </View>
-                        ) : null}
-                    </View>
-                    <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
-                        {!result.comparable
-                            ? `of everything your habits asked of you in the last ${days} days. Keep going and this starts comparing itself with the ${days} before.`
-                            : result.delta === 0
-                                ? `kept over ${days} days — exactly level with the ${days} before.`
-                                : `kept over ${days} days, ${result.delta > 0 ? 'up' : 'down'} ${Math.abs(result.delta)} on the ${days} days before.`}
-                    </Text>
-                    <View style={[styles.heroSplit, { borderTopColor: colors.border }]}>
-                        <Stat label="Kept" value={`${result.kept}`} replay={days} colors={colors} />
-                        <Stat label="Asked for" value={`${result.countable}`} replay={days} colors={colors} divider />
-                        <Stat label="Before" value={result.comparable ? `${result.previous}%` : '—'} replay={days} colors={colors} divider />
-                    </View>
-                </VoidCard>
+                {/* One number, its change, one short line. */}
+                <View style={styles.headline}>
+                    <CountUp testID="momentum-rate" style={[styles.heroValue, { color: colors.textPrimary }]} value={`${result.rate}%`} replay={days} />
+                    {result.comparable && result.delta !== 0 ? (
+                        <Text testID="momentum-delta" style={[styles.deltaText, { color: direction }]}>
+                            {`${result.delta > 0 ? '+' : ''}${result.delta}`}
+                        </Text>
+                    ) : null}
+                </View>
+                <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
+                    {result.comparable ? `kept over ${days} days` : `kept over ${days} days · starts comparing itself after ${days} more`}
+                </Text>
 
-                {/* Day by day — and every bar is a question you can open. */}
-                <View style={styles.sectionHead}>
-                    <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>EVERY DAY</Text>
-                    <View style={styles.windows}>
-                        {WINDOWS.map(window => {
-                            const on = window.id === days;
-                            return (
-                                <Pressable
-                                    key={window.id}
-                                    accessibilityRole="button"
-                                    accessibilityState={{ selected: on }}
-                                    onPress={() => { selectionFeedback(); setDays(window.id); }}
-                                    style={[styles.window, {
-                                        backgroundColor: on ? primary + '20' : 'transparent',
-                                        borderColor: on ? primary + '55' : colors.border,
-                                    }]}
-                                >
-                                    <Text style={[styles.windowText, { color: on ? primary : colors.textSecondary }]}>{window.label}</Text>
-                                </Pressable>
-                            );
-                        })}
-                    </View>
+                <View style={styles.switcher}>
+                    <Segmented
+                        accessibilityLabel="Window"
+                        options={WINDOWS.map(window => ({ id: window.id as number, label: window.label }))}
+                        value={days}
+                        onChange={id => { selectionFeedback(); setDays(id); }}
+                    />
                 </View>
 
                 <Animated.View layout={MORPH}>
@@ -244,52 +219,53 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
                     </VoidCard>
                 </Animated.View>
 
-                {/* The part that can actually be acted on. */}
+                <SectionLabel>Numbers</SectionLabel>
+                <VoidCard style={styles.list}>
+                    <NumberRow label="Kept" value={`${result.kept}`} replay={days} colors={colors} />
+                    <NumberRow label="Asked for" value={`${result.countable}`} replay={days} colors={colors} />
+                    <NumberRow label={`The ${days} days before`} value={result.comparable ? `${result.previous}%` : '—'} replay={days} colors={colors} />
+                </VoidCard>
+
                 {ranked.length ? (
                     <>
-                        <Text style={[styles.sectionLabel, styles.sectionTop, { color: colors.textTertiary }]}>WEAKEST FIRST</Text>
-                        <Text style={[styles.sectionNote, { color: colors.textTertiary }]}>
-                            One habit slipping is usually why everything else looks worse than it feels.
-                        </Text>
-                        <Animated.View layout={MORPH} style={styles.list}>
-                            {ranked.map(item => (
-                                <VoidCard key={item.id} {...surface} style={[styles.habitRow, glassy()]}>
-                                    <View style={styles.habitTop}>
-                                        <Text numberOfLines={1} style={[styles.habitName, { color: colors.textPrimary }]}>{item.name}</Text>
-                                        <CountUp style={[styles.habitRate, { color: colors.textPrimary }]} value={`${item.rate}%`} replay={days} />
-                                        {item.comparable && item.delta !== 0 ? (
-                                            <Text style={[styles.habitDelta, { color: item.delta > 0 ? colors.success : colors.warning }]}>
-                                                {`${item.delta > 0 ? '+' : ''}${item.delta}`}
-                                            </Text>
-                                        ) : null}
-                                    </View>
-                                    <Meter
-                                        replay={days}
-                                        share={item.countable ? item.kept / item.countable : 0}
-                                        tint={item.rate >= 70 ? colors.success : item.rate >= 40 ? primary : colors.warning}
-                                        idle={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.09)'}
-                                    />
-                                    <Text style={[styles.habitFoot, { color: colors.textSecondary }]}>
-                                        <CountUp value={`${item.kept} kept of ${item.countable} asked for`} replay={days} />
-                                    </Text>
-                                </VoidCard>
-                            ))}
+                        <SectionLabel>Habits</SectionLabel>
+                        <Animated.View layout={MORPH}>
+                            <VoidCard style={styles.list}>
+                                {ranked.map(item => {
+                                    const habit = habits.find(each => each.id === item.id);
+                                    return (
+                                        <View key={item.id} style={styles.row}>
+                                            <IconTile icon={habit?.icon || 'sparkles-outline'} color={habit?.color || primary} size={38} shape="square" />
+                                            <View style={{ flex: 1 }}>
+                                                <Text numberOfLines={1} style={[styles.habitName, { color: colors.textPrimary }]}>{item.name}</Text>
+                                                {item.comparable && item.delta !== 0 ? (
+                                                    <Text style={[styles.habitDelta, { color: item.delta > 0 ? colors.success : colors.warning }]}>
+                                                        {`${item.delta > 0 ? '▲' : '▼'} ${Math.abs(item.delta)}`}
+                                                    </Text>
+                                                ) : null}
+                                            </View>
+                                            <ValuePill value={`${item.rate}%`} />
+                                        </View>
+                                    );
+                                })}
+                            </VoidCard>
                         </Animated.View>
                     </>
                 ) : (
-                    <Text style={[styles.empty, { color: colors.textSecondary }]}>
-                        Your habits will appear here once they have been due for a few days.
-                    </Text>
+                    <Text style={[styles.empty, { color: colors.textSecondary }]}>Your habits appear here after a few days.</Text>
                 )}
             </ScrollView>
         </VoidModal>
     );
 };
 
-const Stat = ({ label, value, colors, divider, replay }: { label: string; value: string; colors: typeof Colors.light; divider?: boolean; replay?: unknown }) => (
-    <View style={[styles.stat, divider && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} replay={replay} />
-        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
+/** One number as a row: its name and a pill, Phantom-style. */
+const NumberRow = ({ label, value, colors, replay }: { label: string; value: string; colors: typeof Colors.light; replay?: unknown }) => (
+    <View style={styles.row}>
+        <Text style={[styles.habitName, { color: colors.textPrimary, flex: 1 }]}>{label}</Text>
+        <MatteSurface radius={999} level="control" elevation="none" style={styles.pill}>
+            <CountUp style={[styles.pillText, { color: colors.textPrimary }]} value={value} replay={replay} />
+        </MatteSurface>
     </View>
 );
 
@@ -385,14 +361,14 @@ const Bar = ({ day, index, pinned, reading, tint, success, idle, onPress, replay
     );
 };
 
-/** A habit's share of what it was asked for. */
-const Meter = ({ share, tint, idle, replay }: { share: number; tint: string; idle: string; replay: number }) => (
-    <View style={[styles.meter, { backgroundColor: idle }]}>
-        <AnimatedFill progress={share} replay={replay} style={[styles.meterFill, { backgroundColor: tint }]} />
-    </View>
-);
 
 const styles = StyleSheet.create({
+    headline: { flexDirection: 'row', alignItems: 'baseline', gap: s(12), marginTop: vs(4) },
+    switcher: { marginTop: vs(16), marginBottom: vs(14) },
+    list: { paddingHorizontal: s(16), paddingVertical: vs(6) },
+    row: { flexDirection: 'row', alignItems: 'center', gap: s(12), paddingVertical: vs(10) },
+    pill: { minWidth: 58, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
+    pillText: { fontSize: ms(14), fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     content: { paddingHorizontal: s(20), paddingBottom: vs(40), gap: vs(12) },
     hero: { padding: s(20), gap: vs(4) },
     heroTop: { flexDirection: 'row', alignItems: 'center', gap: s(10) },
@@ -430,7 +406,6 @@ const styles = StyleSheet.create({
     dayName: { flex: 1, fontSize: ms(13), lineHeight: ms(19), fontFamily: FontFamily.regular },
     daySkip: { fontSize: ms(10), fontFamily: FontFamily.medium },
     dayEmpty: { fontSize: ms(12), lineHeight: ms(18), fontFamily: FontFamily.regular },
-    list: { gap: vs(10) },
     habitRow: { padding: s(16), gap: vs(8) },
     habitTop: { flexDirection: 'row', alignItems: 'center', gap: s(8) },
     habitName: { flex: 1, fontSize: ms(14), lineHeight: ms(20), fontFamily: FontFamily.medium },

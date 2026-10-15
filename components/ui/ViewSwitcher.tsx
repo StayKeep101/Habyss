@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { AppIcon, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily, elevationFor, surfaceFor } from '@/theme/designSystem';
+import { FontFamily, surfaceFor } from '@/theme/designSystem';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MatteSurface } from './MatteSurface';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
@@ -45,19 +47,18 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
     const pill = useAnimatedStyle(() => ({ width: slot, transform: [{ translateX: position.value * slot }] }));
 
     return (
-        <View
-            accessibilityRole="tablist"
-            onLayout={event => setWidth(event.nativeEvent.layout.width)}
-            style={[styles.bar, elevationFor(theme, 'floating'), {
-                backgroundColor: tone.fill,
-                borderColor: tone.lip,
-            }]}
-        >
+        <View accessibilityRole="tablist" onLayout={event => setWidth(event.nativeEvent.layout.width)}>
+        <MatteSurface radius={24} elevation="floating" style={styles.bar}>
             {slot > 0 ? (
                 // A solid pill, not a tinted outline of one. The selected half
                 // used to be a wash of the accent behind a brighter edge, which
                 // reads as a hole cut in the bar rather than a thing on top of it.
-                <Animated.View style={[styles.pill, pill, { backgroundColor: tone.raised }]} />
+                // The selected pill: a lighter step of the same matte material,
+                // lit from the top, so it reads as raised inside the bar.
+                <Animated.View style={[styles.pill, pill, { backgroundColor: tone.raised }]}>
+                    <LinearGradient colors={theme === 'light' ? ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0)'] : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0)']}
+                        style={StyleSheet.absoluteFill} />
+                </Animated.View>
             ) : null}
 
             {options.map(option => {
@@ -71,13 +72,14 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
                         onPress={() => { if (!selected) selectionFeedback(); onChange(option.id); }}
                         style={styles.segment}
                     >
-                        <AppIcon name={option.icon} size={15} color={selected ? accent : colors.textTertiary} />
+                        <AppIcon filled name={option.icon} size={15} color={selected ? accent : colors.textTertiary} />
                         <Text numberOfLines={1} style={[styles.label, { color: selected ? colors.textPrimary : colors.textSecondary }]}>
                             {option.label}
                         </Text>
                     </Pressable>
                 );
             })}
+        </MatteSurface>
         </View>
     );
 }
@@ -85,9 +87,9 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
 const styles = StyleSheet.create({
     bar: {
         flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch',
-        height: 48, padding: 4, borderRadius: 24, borderWidth: StyleSheet.hairlineWidth,
+        height: 48, padding: 4,
     },
-    pill: { position: 'absolute', left: 4, top: 4, bottom: 4, borderRadius: 20 },
+    pill: { position: 'absolute', left: 4, top: 4, bottom: 4, borderRadius: 20, overflow: 'hidden' },
     segment: {
         flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: '100%',

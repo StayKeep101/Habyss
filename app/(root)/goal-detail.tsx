@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, Image,
 import { IconButton } from '@/components/ui/IconButton';
 import { CountUp, ListItem } from '@/components/ui/Motion';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -405,10 +405,13 @@ const GoalDetail = () => {
       </View>
 
       {/* Navigation Header */}
-      <SafeAreaView style={styles.navHeader} edges={['top']}>
+      {/* A fixed distance from the sheet's top edge. A safe-area view here
+          reported the full status-bar inset on the first open and nothing
+          afterwards, so the buttons sat low the first time only. */}
+      <View style={[styles.navHeader, Platform.OS === 'android' && { paddingTop: insets.top + 8 }]}>
         <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} diameter={40} size={24} />
         <IconButton icon="ellipsis-horizontal" label="Goal options" onPress={openGoalMenu} diameter={40} />
-      </SafeAreaView>
+      </View>
 
       <Animated.ScrollView
         onScroll={scrollHandler}

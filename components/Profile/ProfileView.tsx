@@ -1,6 +1,6 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { CountUp } from '@/components/ui/Motion';
+import { Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -46,46 +46,52 @@ export const ProfileView: React.FC<{
         onBioDone: () => void;
         onPick: (which: 'avatar' | 'cover') => void;
     };
+    /** Room to leave at the top for the status bar, on a full-screen page. */
+    topInset?: number;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, cover, initials, stats, edit, children }) => {
+}> = ({ name, bio, meta, avatar, cover, initials, stats, edit, topInset = 0, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
     const { primary, secondary } = useAccentGradient();
-
-    const surface = { glass: !isTrueDark, intensity: isLight ? 20 : 80 };
-    // Cards carry their own matte fill; nothing is painted over it.
-    const tint = null;
+    const { height: screenHeight } = useWindowDimensions();
 
     const Cover = edit ? Pressable : View;
 
     return (
         <>
             <Animated.View entering={FadeIn.duration(220)} layout={MORPH} style={styles.head}>
+                {/* The backdrop: the cover photo, or an aurora in the accent
+                    colours, filling the page behind everything and fading into
+                    the background — not a strip across the top. */}
+                <View pointerEvents="none" style={[styles.backdrop, { height: screenHeight * 0.85 }]}>
+                    {cover ? (
+                        <Image source={{ uri: cover }} style={styles.bannerImage} blurRadius={2} />
+                    ) : (
+                        <>
+                            <LinearGradient colors={[primary + 'E6', primary + '33', 'transparent']} locations={[0, 0.45, 0.8]}
+                                start={{ x: 0, y: 0 }} end={{ x: 0.8, y: 1 }} style={StyleSheet.absoluteFill} />
+                            <LinearGradient colors={['transparent', secondary + '66', 'transparent']} locations={[0, 0.4, 0.85]}
+                                start={{ x: 1, y: 0 }} end={{ x: 0.2, y: 0.9 }} style={StyleSheet.absoluteFill} />
+                        </>
+                    )}
+                    <LinearGradient colors={['transparent', colors.background + '99', colors.background]} locations={[0.25, 0.6, 0.95]}
+                        style={StyleSheet.absoluteFill} />
+                </View>
+
+                {/* The space the backdrop shows through; tap it to change the cover. */}
                 <Cover
                     {...(edit ? {
                         accessibilityRole: 'button' as const,
                         accessibilityLabel: cover ? 'Change your cover image' : 'Add a cover image',
                         onPress: () => edit.onPick('cover'),
                     } : {})}
-                    style={styles.banner}
+                    style={[styles.banner, { height: topInset + vs(150) }]}
                 >
-                    {cover ? (
-                        <Image source={{ uri: cover }} style={styles.bannerImage} />
-                    ) : (
-                        // No cover: the accent wash the rest of the app is drawn
-                        // with, rather than an empty grey rectangle.
-                        <LinearGradient
-                            colors={[primary + 'CC', secondary + '55', 'transparent']}
-                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                            style={StyleSheet.absoluteFill}
-                        />
-                    )}
                     {edit ? (
                         <View style={[styles.coverBadge, { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
-                            <Ionicons name="image-outline" size={s(12)} color="#fff" />
+                            <Ionicons name="image" size={s(12)} color="#fff" />
                             <Text style={styles.coverBadgeText}>{cover ? 'Change' : 'Add cover'}</Text>
                         </View>
                     ) : null}
@@ -100,7 +106,7 @@ export const ProfileView: React.FC<{
                 >
                     {/* The ring is the page's own background, so the avatar
                         reads as sitting on the banner rather than in it. */}
-                    <View style={[styles.avatar, { borderColor: colors.background, backgroundColor: isLight ? colors.surfaceSecondary : '#101218' }]}>
+                    <View style={[styles.avatar, { borderColor: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.16)', backgroundColor: isLight ? colors.surfaceSecondary : '#101218' }]}>
                         {avatar ? (
                             <Image source={{ uri: avatar }} style={styles.photo} />
                         ) : initials ? (
@@ -151,18 +157,17 @@ export const ProfileView: React.FC<{
                 </View>
             </Animated.View>
 
-            <Text style={[styles.section, { color: colors.textTertiary }]}>WHAT YOU HAVE BUILT</Text>
-            {/* Three to a row, whichever numbers the page has to show. */}
-            {Array.from({ length: Math.ceil(stats.length / 3) }, (_, row) => (
-                <View key={row} style={styles.stats}>
-                    {stats.slice(row * 3, row * 3 + 3).map(stat => (
-                        <VoidCard key={stat.label} {...surface} style={[styles.stat, tint]}>
-                            <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={stat.value} />
-                            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
-                        </VoidCard>
+            <View style={styles.statsBlock}>
+                <SectionLabel>Stats</SectionLabel>
+                <VoidCard style={styles.statsCard}>
+                    {stats.map(stat => (
+                        <View key={stat.label} style={styles.statRow}>
+                            <Text style={[styles.statLabel, { color: colors.textPrimary }]}>{stat.label}</Text>
+                            <ValuePill value={stat.value} />
+                        </View>
                     ))}
-                </View>
-            ))}
+                </VoidCard>
+            </View>
 
             {children}
         </>
@@ -172,14 +177,15 @@ export const ProfileView: React.FC<{
 const styles = StyleSheet.create({
     // The banner runs to both edges, so the page's padding cannot apply to it.
     head: { alignItems: 'center', marginBottom: vs(4) },
-    banner: { width: '100%', height: vs(124), overflow: 'hidden', justifyContent: 'flex-end', alignItems: 'flex-end' },
+    backdrop: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
+    banner: { width: '100%', justifyContent: 'flex-end', alignItems: 'flex-end' },
     bannerImage: { width: '100%', height: '100%', resizeMode: 'cover' },
     coverBadge: { flexDirection: 'row', alignItems: 'center', gap: s(5), paddingHorizontal: s(9), paddingVertical: vs(4), borderRadius: 999, margin: s(10) },
     coverBadgeText: { color: '#fff', fontSize: ms(10), fontFamily: FontFamily.medium },
     // Half on the banner, half off it: the overlap is what makes it a profile
     // rather than a photograph with a card under it.
     avatarPress: { width: s(96), height: s(96), marginTop: -s(48) },
-    avatar: { width: s(96), height: s(96), borderRadius: s(48), borderWidth: s(4), overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+    avatar: { width: s(96), height: s(96), borderRadius: s(48), borderWidth: s(3), overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     photo: { width: '100%', height: '100%' },
     initials: { fontSize: ms(30), fontFamily: FontFamily.bold },
     camera: { position: 'absolute', right: 0, bottom: 0, width: s(28), height: s(28), borderRadius: s(14), borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
@@ -188,9 +194,8 @@ const styles = StyleSheet.create({
     meta: { fontSize: ms(12), fontFamily: FontFamily.regular },
     // No box: a bio reads as a sentence about someone, not as a filled field.
     bio: { alignSelf: 'stretch', fontSize: ms(14), lineHeight: ms(20), fontFamily: FontFamily.regular, textAlign: 'center', paddingTop: vs(6) },
-    section: { fontSize: ms(11), letterSpacing: 1.5, fontFamily: FontFamily.bold, marginTop: vs(10), marginHorizontal: s(20) },
-    stats: { flexDirection: 'row', gap: s(10), marginHorizontal: s(20), marginTop: vs(8) },
-    stat: { flex: 1, padding: s(14), alignItems: 'center', gap: vs(3) },
-    statValue: { fontSize: ms(22), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
-    statLabel: { fontSize: ms(10), fontFamily: FontFamily.medium, textAlign: 'center' },
+    statsBlock: { marginHorizontal: s(20) },
+    statsCard: { paddingHorizontal: s(16), paddingVertical: vs(6) },
+    statRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: vs(10) },
+    statLabel: { flex: 1, fontSize: ms(15), fontFamily: FontFamily.medium },
 });

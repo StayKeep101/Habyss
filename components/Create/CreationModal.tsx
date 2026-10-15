@@ -1,10 +1,10 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useEffect, useRef, useState } from 'react';
 import {Dimensions, Pressable, StyleSheet, Text, View} from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import Animated, {
     Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -185,19 +185,14 @@ const MenuRow = ({ item, index, count, progress, size, colors, isLight, onPress 
                 // loses the layout on this React Native.
                 style={styles.row}
             >
-                <BlurView
-                    intensity={isLight ? 40 : 60}
-                    tint={isLight ? 'light' : 'dark'}
-                    style={[styles.pill, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(255,255,255,0.86)' : 'rgba(20,24,30,0.72)' }]}
-                >
-                    <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={[styles.label, { color: colors.textPrimary }]}>{item.label}</Text>
-                        <Text style={[styles.hint, { color: colors.textTertiary }]}>{item.hint}</Text>
-                    </View>
-                    <View style={[styles.chip, { backgroundColor: item.color + '24', borderColor: item.color + '55' }]}>
+                {/* A matte pill, floating on its shadow: just the word and a
+                    matte disc with the filled icon in its colour. */}
+                <MatteSurface radius={999} elevation="floating" style={styles.pill}>
+                    <Text style={[styles.label, { color: colors.textPrimary }]}>{item.label}</Text>
+                    <MatteSurface radius={21} level="control" style={styles.chip}>
                         <Ionicons filled name={item.icon} size={20} color={item.color} />
-                    </View>
-                </BlurView>
+                    </MatteSurface>
+                </MatteSurface>
             </Pressable>
         </Animated.View>
     );
@@ -213,10 +208,8 @@ const styles = StyleSheet.create({
     row: { alignItems: 'flex-end' },
     pill: {
         flexDirection: 'row', alignItems: 'center', gap: 12,
-        paddingLeft: 18, paddingRight: 8, paddingVertical: 8,
-        borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
+        paddingLeft: 20, paddingRight: 8, paddingVertical: 8,
     },
     label: { fontSize: 15, fontFamily: FontFamily.semibold },
-    hint: { fontSize: 11, fontFamily: FontFamily.regular, marginTop: 1 },
-    chip: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+    chip: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
 });

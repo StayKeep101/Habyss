@@ -6,6 +6,7 @@ import { ms, s, vs } from '@/theme/scale';
 export const styles = StyleSheet.create({
     // The banner runs to both edges, so the page's padding cannot apply to it.
     content: { paddingBottom: vs(40), gap: vs(12) },
+    back: { position: 'absolute', left: 20 },
     // Half on the banner, half off it: the overlap is what makes it a profile
     // rather than a photograph with a card under it.
     // No box: a bio reads as a sentence about someone, not as a filled field.

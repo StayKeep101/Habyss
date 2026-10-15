@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SheetScreen } from '@/components/ui/SheetScreen';
+import { VoidShell } from '@/components/ui/VoidShell';
+import { IconButton } from '@/components/ui/IconButton';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
@@ -58,6 +60,7 @@ export default function ProfileScreen() {
         void saveProfile(patch);
     }, []);
 
+    const insets = useSafeAreaInsets();
     const [habits, setHabits] = useState<Habit[]>([]);
     useEffect(() => {
         let stop: (() => void) | undefined;
@@ -110,7 +113,7 @@ export default function ProfileScreen() {
     const tracked = habits.filter(habit => !habit.isGoal && !habit.isArchived).length;
 
     return (
-        <SheetScreen title="Profile" onBack={() => router.back()}>
+        <VoidShell>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 {/* The same component a friend's profile uses. What you see
                     of yourself should be what they see of you, or the page is
@@ -123,6 +126,7 @@ export default function ProfileScreen() {
                     avatar={profile.avatar}
                     cover={profile.cover}
                     initials={initials(profile)}
+                    topInset={insets.top}
                     stats={[
                         { label: 'Day streak', value: `${streak}` },
                         { label: 'Momentum', value: `${trend.rate}%` },
@@ -161,6 +165,11 @@ export default function ProfileScreen() {
                     </Text>
                 )}
             </ScrollView>
-        </SheetScreen>
+            {/* Floats over the backdrop, below the status bar: this is a
+                full-screen page, not a sheet, so it clears the clock itself. */}
+            <View style={[styles.back, { top: insets.top + 8 }]}>
+                <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} diameter={40} size={24} />
+            </View>
+        </VoidShell>
     );
 }

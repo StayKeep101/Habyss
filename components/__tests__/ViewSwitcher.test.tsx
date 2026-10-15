@@ -37,7 +37,9 @@ describe('the view switcher', () => {
         const screen = render(<ViewSwitcher options={options} value="today" onChange={jest.fn()} accent="#6B8AF5" />);
         // getByRole has no mapping for 'tablist', so it is found by the prop.
         const bar = screen.UNSAFE_getByProps({ accessibilityRole: 'tablist' });
-        const background = StyleSheetFlatten(bar.props.style).backgroundColor as string;
+        // The bar is drawn by the matte surface just inside the tablist.
+        const surface = bar.findAll((node: { props: { style?: unknown } }) => !!StyleSheetFlatten(node.props.style as never)?.backgroundColor)[0];
+        const background = StyleSheetFlatten(surface.props.style).backgroundColor as string;
         // The matte fill for a dark theme, read from the tokens rather than
         // pinned to a hex, so retuning the palette is not a failing test.
         expect(background).toBe(surfaceFor('dark').fill);

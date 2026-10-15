@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
+import { SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
 import { CountUp } from '@/components/ui/Motion';
 import { useRouter } from 'expo-router';
-import Animated, { Easing, FadeIn, LinearTransition, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { VoidModal } from '@/components/ui/VoidModal';
@@ -15,10 +17,9 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Habit } from '@/lib/habitsSQLite';
 import type { HistoryDay } from '@/lib/habitDays';
-import { recovery, type HabitRecovery } from '@/lib/recovery';
+import { recovery } from '@/lib/recovery';
 
 const MORPH = LinearTransition.duration(260).easing(Easing.out(Easing.cubic));
-const EASE = { duration: 460, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 
 const shortDay = (date: string) =>
     new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
@@ -44,15 +45,10 @@ export const RecoveryModal = ({ visible, onClose, habits, history, completions }
     const router = useRouter();
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
     const { primary } = useAccentGradient();
     const { lightFeedback } = useHaptics();
 
     const result = useMemo(() => recovery(habits, history, completions, 90), [habits, history, completions]);
-    const surface = { glass: !isTrueDark, intensity: isLight ? 20 : 80 };
-    // Cards carry their own matte fill; nothing is painted over it.
-    const tintStyle = null;
 
     const settled = result.perHabit.filter(item => !item.atRisk);
     const open = (id: string) => { lightFeedback(); onClose(); router.push({ pathname: '/habit-detail', params: { habitId: id } }); };
@@ -73,144 +69,92 @@ export const RecoveryModal = ({ visible, onClose, habits, history, completions }
             />
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* The headline, and what it is actually counting. */}
+                {/* One number and one short line. */}
                 <Animated.View entering={FadeIn.duration(220)}>
-                    <VoidCard {...surface} style={[styles.hero, tintStyle]}>
-                        <CountUp testID="recovery-rate" style={[styles.heroValue, { color: headline }]}
-                            value={result.rate === null ? '—' : `${result.rate}%`} />
-                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
-                            {result.rate === null
-                                ? 'Nothing has been missed twice yet. This fills in the first time a habit slips and you pick it back up.'
-                                : `of the ${result.judged} time${result.judged === 1 ? '' : 's'} a habit slipped, you did it again the very next day it was due.`}
-                        </Text>
-                        {result.judged > 0 ? (
-                            <View style={[styles.heroSplit, { borderTopColor: colors.border }]}>
-                                <Stat label="Got back up" value={`${result.recovered}`} colors={colors} />
-                                <Stat label="Missed twice" value={`${result.doubles}`} colors={colors} divider />
-                            </View>
-                        ) : null}
-                    </VoidCard>
+                    <CountUp testID="recovery-rate" style={[styles.heroValue, { color: headline }]}
+                        value={result.rate === null ? '—' : `${result.rate}%`} />
+                    <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
+                        {result.rate === null ? 'Nothing missed twice yet' : 'back on track the very next time'}
+                    </Text>
                 </Animated.View>
 
-                {/* The only part of this page that is about right now. */}
                 {result.atRisk.length ? (
-                    <Animated.View layout={MORPH} entering={FadeIn.duration(220)} style={styles.list}>
-                        <Text style={[styles.sectionLabel, { color: colors.warning }]}>PROTECT TODAY</Text>
-                        <Text style={[styles.sectionNote, { color: colors.textTertiary }]}>
-                            {result.atRisk.length === 1 ? 'This was missed last time and is due again today.' : 'These were missed last time and are due again today.'}
-                        </Text>
-                        {result.atRisk.map(item => (
-                            <Pressable
-                                key={item.id}
-                                accessibilityRole="button"
-                                accessibilityLabel={`${item.name}, missed on ${item.lastMiss ? shortDay(item.lastMiss) : 'its last day'}. Open habit.`}
-                                onPress={() => open(item.id)}
-                                style={styles.press}
-                            >
-                                <VoidCard {...surface} style={[styles.riskRow, tintStyle, { borderColor: colors.warning + '55' }]}>
-                                    <View style={[styles.riskIcon, { backgroundColor: colors.warning + '25' }]}>
-                                        <Ionicons name="alert" size={s(17)} color={colors.warning} />
-                                    </View>
-                                    <View style={styles.riskText}>
-                                        <Text numberOfLines={1} style={[styles.riskName, { color: colors.textPrimary }]}>{item.name}</Text>
-                                        <Text style={[styles.riskFoot, { color: colors.textSecondary }]}>
-                                            Missed {item.lastMiss ? shortDay(item.lastMiss) : 'last time'} — do it today and it stays a single miss.
+                    <Animated.View layout={MORPH} entering={FadeIn.duration(220)}>
+                        <SectionLabel tone={colors.warning}>Protect today</SectionLabel>
+                        <VoidCard style={styles.card}>
+                            {result.atRisk.map(item => (
+                                <Pressable
+                                    key={item.id}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`${item.name}, missed on ${item.lastMiss ? shortDay(item.lastMiss) : 'its last day'}. Open habit.`}
+                                    onPress={() => open(item.id)}
+                                    style={styles.row}
+                                >
+                                    <IconTile icon="alert" color={colors.warning} size={38} shape="square" />
+                                    <View style={{ flex: 1 }}>
+                                        <Text numberOfLines={1} style={[styles.rowTitle, { color: colors.textPrimary }]}>{item.name}</Text>
+                                        <Text style={[styles.rowMeta, { color: colors.textTertiary }]}>
+                                            Missed {item.lastMiss ? shortDay(item.lastMiss) : 'last time'}
                                         </Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={s(16)} color={colors.textTertiary} />
-                                </VoidCard>
-                            </Pressable>
-                        ))}
-                    </Animated.View>
-                ) : (
-                    <VoidCard {...surface} style={[styles.clear, tintStyle]}>
-                        <Ionicons name="shield-checkmark" size={s(17)} color={colors.success} />
-                        <Text style={[styles.clearText, { color: colors.textSecondary }]}>
-                            Nothing is about to be missed twice. This is the state worth defending.
-                        </Text>
-                    </VoidCard>
-                )}
-
-                {/* The record behind the number. */}
-                {settled.length ? (
-                    <>
-                        <Text style={[styles.sectionLabel, styles.sectionTop, { color: colors.textTertiary }]}>HOW EACH ONE RECOVERS</Text>
-                        <Animated.View layout={MORPH} style={styles.list}>
-                            {settled.map(item => (
-                                <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.name}. Open habit.`} onPress={() => open(item.id)} style={styles.press}>
-                                    <VoidCard {...surface} style={[styles.habitRow, tintStyle]}>
-                                        <View style={styles.habitTop}>
-                                            <Text numberOfLines={1} style={[styles.habitName, { color: colors.textPrimary }]}>{item.name}</Text>
-                                            <Text style={[styles.habitRate, {
-                                                color: item.rate === null ? colors.textTertiary
-                                                    : item.rate >= 70 ? colors.success : item.rate >= 40 ? primary : colors.warning,
-                                            }]}>
-                                                <CountUp value={item.rate === null ? '—' : `${item.rate}%`} />
-                                            </Text>
-                                        </View>
-                                        <Beads item={item} colors={colors} success={colors.success} warning={colors.warning} />
-                                        <Text style={[styles.habitFoot, { color: colors.textSecondary }]}>
-                                            {item.judged === 0
-                                                ? 'No slip has needed answering yet.'
-                                                : `Got back up ${item.recovered} of ${item.judged} time${item.judged === 1 ? '' : 's'}.`}
-                                        </Text>
-                                    </VoidCard>
                                 </Pressable>
                             ))}
-                        </Animated.View>
+                        </VoidCard>
+                    </Animated.View>
+                ) : (
+                    <Text style={[styles.clearText, { color: colors.textSecondary }]}>Nothing to protect today</Text>
+                )}
+
+                {result.judged > 0 ? (
+                    <>
+                        <SectionLabel>Numbers</SectionLabel>
+                        <VoidCard style={styles.card}>
+                            <View style={styles.row}>
+                                <Text style={[styles.rowTitle, { color: colors.textPrimary, flex: 1 }]}>Got back up</Text>
+                                <ValuePill value={`${result.recovered}`} />
+                            </View>
+                            <View style={styles.row}>
+                                <Text style={[styles.rowTitle, { color: colors.textPrimary, flex: 1 }]}>Missed twice</Text>
+                                <ValuePill value={`${result.doubles}`} />
+                            </View>
+                        </VoidCard>
                     </>
                 ) : null}
 
-                <VoidCard {...surface} style={[styles.note, tintStyle]}>
-                    <Ionicons name="information-circle-outline" size={s(16)} color={primary} />
-                    <Text style={[styles.noteText, { color: colors.textSecondary }]}>
-                        Missing once is an accident. Missing twice is the start of a new habit — which is why this counts
-                        getting back up, not being perfect. A day you deliberately skipped is never held against you.
-                    </Text>
-                </VoidCard>
+                {settled.length ? (
+                    <>
+                        <SectionLabel>Habits</SectionLabel>
+                        <Animated.View layout={MORPH}>
+                            <VoidCard style={styles.card}>
+                                {settled.map(item => {
+                                    const habit = habits.find(each => each.id === item.id);
+                                    return (
+                                        <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.name}. Open habit.`}
+                                            onPress={() => open(item.id)} style={styles.row}>
+                                            <IconTile icon={habit?.icon || 'sparkles-outline'} color={habit?.color || primary} size={38} shape="square" />
+                                            <Text numberOfLines={1} style={[styles.rowTitle, { color: colors.textPrimary, flex: 1 }]}>{item.name}</Text>
+                                            <ValuePill value={item.rate === null ? '—' : `${item.rate}%`} />
+                                        </Pressable>
+                                    );
+                                })}
+                            </VoidCard>
+                        </Animated.View>
+                    </>
+                ) : null}
             </ScrollView>
         </VoidModal>
     );
 };
 
-const Stat = ({ label, value, colors, divider }: { label: string; value: string; colors: typeof Colors.light; divider?: boolean }) => (
-    <View style={[styles.stat, divider && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
-        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} />
-        <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
-    </View>
-);
 
-/**
- * One bead per slip, green where it was answered the next day.
- *
- * A bar would say the same thing less honestly — six slips and four slips are
- * different situations even at the same percentage, and the beads show that.
- */
-const Beads = ({ item, colors, success, warning }: {
-    item: HabitRecovery; colors: typeof Colors.light; success: string; warning: string;
-}) => {
-    const beads = [
-        ...Array.from({ length: item.recovered }, () => true),
-        ...Array.from({ length: item.doubles }, () => false),
-    ].slice(0, 14);
-    if (beads.length === 0) return null;
-    return (
-        <View style={styles.beads} accessibilityRole="image" accessibilityLabel={`${item.recovered} recovered, ${item.doubles} missed twice`}>
-            {beads.map((won, index) => (
-                <Bead key={index} won={won} index={index} success={success} warning={warning} />
-            ))}
-        </View>
-    );
-};
 
-const Bead = ({ won, index, success, warning }: { won: boolean; index: number; success: string; warning: string }) => {
-    const shown = useSharedValue(0);
-    React.useEffect(() => { shown.value = withTiming(1, { ...EASE, duration: 320 + index * 18 }); }, [shown, index]);
-    const style = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ scale: 0.7 + shown.value * 0.3 }] }));
-    return <Animated.View style={[styles.bead, style, { backgroundColor: won ? success : warning }]} />;
-};
 
 const styles = StyleSheet.create({
+    card: { paddingHorizontal: s(16), paddingVertical: vs(6) },
+    row: { flexDirection: 'row', alignItems: 'center', gap: s(12), paddingVertical: vs(10) },
+    rowTitle: { fontSize: ms(15), fontFamily: FontFamily.medium },
+    rowMeta: { fontSize: ms(12), fontFamily: FontFamily.regular, marginTop: 2 },
     content: { paddingHorizontal: s(20), paddingBottom: vs(40), gap: vs(12) },
     hero: { padding: s(20), gap: vs(4) },
     heroValue: { fontFamily: FontFamily.bold, fontSize: ms(46), lineHeight: ms(54), letterSpacing: -0.5, fontVariant: ['tabular-nums'] },

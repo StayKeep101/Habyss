@@ -33,7 +33,7 @@ interface Props {
 }
 
 const MAX_SIZE = 44;
-const MIN_SIZE = 30;
+const MIN_SIZE = 24;
 const GAP = 10;
 /** How far past its own actions the row must be pulled to commit. */
 const COMMIT_RATIO = 0.5;
@@ -50,8 +50,10 @@ export const commitDistance = (rowWidth: number): number =>
     Math.max(COMMIT_MIN, rowWidth * COMMIT_RATIO);
 
 /** Circles sit inside the row, never taller than it. */
+// Always a little shorter than the row, so a slim one-line row never clips
+// its circles at the top and bottom.
 const sizeFor = (rowHeight: number) =>
-    Math.round(Math.max(MIN_SIZE, Math.min(MAX_SIZE, rowHeight - 8)));
+    Math.round(Math.max(MIN_SIZE, Math.min(MAX_SIZE, rowHeight - 12)));
 
 /**
  * The swipe behind every habit and task row.

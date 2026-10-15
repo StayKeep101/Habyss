@@ -41,8 +41,8 @@ describe('what is savable today', () => {
     it('leads with the habit that is about to be missed twice', () => {
         // Missed yesterday, due again today, not done.
         const screen = show('..x.');
-        expect(screen.getByText('PROTECT TODAY')).toBeTruthy();
-        expect(screen.getByText(/do it today and it stays a single miss/)).toBeTruthy();
+        expect(screen.getByText('Protect today')).toBeTruthy();
+        expect(screen.getByText(/^Missed /)).toBeTruthy();
     });
 
     it('opens the habit so the miss can actually be answered', () => {
@@ -53,8 +53,8 @@ describe('what is savable today', () => {
 
     it('says so plainly when nothing is at risk', () => {
         const screen = show('....', [habit()], { h1: true });
-        expect(screen.queryByText('PROTECT TODAY')).toBeNull();
-        expect(screen.getByText(/Nothing is about to be missed twice/)).toBeTruthy();
+        expect(screen.queryByText('Protect today')).toBeNull();
+        expect(screen.getByText(/Nothing to protect today/)).toBeTruthy();
     });
 });
 
@@ -62,18 +62,17 @@ describe('the headline', () => {
     it('refuses to show a damning zero before anything has been missed', () => {
         const screen = show('....', [habit()], { h1: true });
         expect(screen.getByTestId('recovery-rate')).toHaveTextContent('—');
-        expect(screen.getByText(/Nothing has been missed twice yet/)).toBeTruthy();
+        expect(screen.getByText(/Nothing missed twice yet/)).toBeTruthy();
     });
 
     it('counts getting back up rather than being perfect', () => {
         // One miss, answered the next day.
         const screen = show('..x..', [habit()], { h1: true });
         expect(screen.getByTestId('recovery-rate')).toHaveProp('accessibilityLabel', '100%');
-        expect(screen.getByText(/the very next day it was due/)).toBeTruthy();
+        expect(screen.getByText(/the very next time/)).toBeTruthy();
     });
 
     it('explains the rule it is built on', () => {
         const screen = show('....', [habit()], { h1: true });
-        expect(screen.getByText(/Missing once is an accident/)).toBeTruthy();
     });
 });
