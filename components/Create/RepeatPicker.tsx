@@ -1,5 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { textOn } from '@/theme/tokens';
+import { ChoicePill } from '@/components/ui/ChoicePill';
 import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Choices } from '@/components/Create/DetailBar';
@@ -145,16 +148,8 @@ export const RepeatPicker: React.FC<{
                     {(['weekdays', 'weekends'] as const).map(id => {
                         const on = preset === id;
                         return (
-                            <Pressable key={id} accessibilityRole="button" accessibilityState={{ selected: on }}
-                                onPress={() => { lightFeedback(); onChange(ruleForPreset(id, value)); }}
-                                style={[styles.shortcut, {
-                                    backgroundColor: on ? accent + '22' : isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)',
-                                    borderColor: on ? accent + '66' : 'transparent',
-                                }]}>
-                                <Text style={{ color: on ? accent : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.medium }}>
-                                    {id === 'weekdays' ? 'Weekdays' : 'Weekends'}
-                                </Text>
-                            </Pressable>
+                            <ChoicePill key={id} role="button" label={id === 'weekdays' ? 'Weekdays' : 'Weekends'} on={on} color={accent}
+                                onPress={() => { lightFeedback(); onChange(ruleForPreset(id, value)); }} />
                         );
                     })}
                 </View>
@@ -206,12 +201,11 @@ export const RepeatPicker: React.FC<{
                                         accessibilityState={{ checked: on }}
                                         accessibilityLabel={`Day ${date}`}
                                         onPress={() => { lightFeedback(); onChange({ ...value, dates: toggle(value.dates, date) }); }}
-                                        style={[styles.cell, {
-                                            backgroundColor: on ? accent + '22' : isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)',
-                                            borderColor: on ? accent + '66' : 'transparent',
-                                        }]}
+                                        style={styles.cell}
                                     >
-                                        <Text style={{ color: on ? accent : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.medium }}>{date}</Text>
+                                        <MatteSurface radius={10} level="control" elevation="none" tint={on ? accent : undefined} style={styles.cellFill}>
+                                            <Text style={{ color: on ? textOn(accent) : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.medium }}>{date}</Text>
+                                        </MatteSurface>
                                     </Pressable>
                                 );
                             })}
@@ -240,12 +234,11 @@ export const RepeatPicker: React.FC<{
                                     accessibilityState={{ checked: on }}
                                     accessibilityLabel={name}
                                     onPress={() => { lightFeedback(); onChange({ ...value, months: toggle(value.months, index) }); }}
-                                    style={[styles.month, {
-                                        backgroundColor: on ? accent + '22' : isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)',
-                                        borderColor: on ? accent + '66' : 'transparent',
-                                    }]}
+                                    style={styles.month}
                                 >
-                                    <Text style={{ color: on ? accent : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.medium }}>{name}</Text>
+                                    <MatteSurface radius={10} level="control" elevation="none" tint={on ? accent : undefined} style={styles.cellFill}>
+                                        <Text style={{ color: on ? textOn(accent) : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.medium }}>{name}</Text>
+                                    </MatteSurface>
                                 </Pressable>
                             );
                         })}
@@ -320,7 +313,8 @@ const styles = StyleSheet.create({
     days: { flexDirection: 'row', gap: 6, paddingHorizontal: 14 },
     day: { flex: 1, aspectRatio: 1, maxHeight: 40, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14 },
-    cell: { width: 36, height: 32, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
-    month: { width: 52, height: 32, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+    cell: { width: 36, height: 32 },
+    month: { width: 52, height: 32 },
+    cellFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     summary: { fontSize: 13, fontFamily: FontFamily.medium, paddingHorizontal: 14, paddingTop: 2 },
 });

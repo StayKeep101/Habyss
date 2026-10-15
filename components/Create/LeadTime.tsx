@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ChoicePill } from '@/components/ui/ChoicePill';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { Segmented } from '@/components/ui/Segmented';
@@ -53,16 +54,14 @@ export const LeadTime: React.FC<{
                 {PRESETS.map(minutes => {
                     const on = value === minutes;
                     return (
-                        <Pressable
+                        <ChoicePill
                             key={minutes}
-                            accessibilityRole="radio"
-                            accessibilityState={{ selected: on }}
+                            label={presetLabel(minutes)}
+                            on={on}
+                            color={accent}
                             accessibilityLabel={minutes ? `${shortLead(minutes)}` : 'On time'}
                             onPress={() => { selectionFeedback(); setTyping(null); if (minutes) setUnit(splitLead(minutes).unit); onChange(minutes); }}
-                            style={[styles.preset, { backgroundColor: on ? accent + '22' : tile, borderColor: on ? accent + '88' : 'transparent' }]}
-                        >
-                            <Text style={[styles.presetText, { color: on ? accent : colors.textSecondary }]}>{presetLabel(minutes)}</Text>
-                        </Pressable>
+                        />
                     );
                 })}
             </ScrollView>

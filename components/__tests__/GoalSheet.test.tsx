@@ -2,6 +2,8 @@ import React from 'react';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { GoalSheet } from '../Create/GoalSheet';
 import { addHabit } from '@/lib/habitsSQLite';
+import { readableAccent } from '@/lib/colorContrast';
+import { Colors } from '@/theme/colors';
 
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
 jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
@@ -99,7 +101,8 @@ describe('the goal sheet', () => {
     it('highlights the date inside the input without changing the sentence', async () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Launch Habyss by January 1');
-        expect(within(screen.getByLabelText('Describe your goal')).getByText('January 1')).toHaveStyle({ color: '#00b9e8' });
+        expect(within(screen.getByLabelText('Describe your goal')).getByText('January 1')).toHaveStyle({ color: readableAccent('#6B8AF5', (Colors as any).dark.background) });
+        // The sheet wears the goal's own colour (#6B8AF5 by default), not the app accent.
         write(screen, 'Launch Habyss by');
         expect(screen.queryByText('January 1')).toBeNull();
         await act(async () => {});

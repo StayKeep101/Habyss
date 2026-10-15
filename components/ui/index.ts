@@ -39,6 +39,7 @@ export { SheetScreen } from './SheetScreen';
 export { ModalHeader } from './ModalHeader';
 export { VoidCard } from './VoidCard';
 export { IconTile } from './IconTile';
+export { ChoicePill } from './ChoicePill';
 export { MatteSurface } from './MatteSurface';
 export { MatteInput } from './MatteInput';
 export { SheetSection } from './SheetSection';

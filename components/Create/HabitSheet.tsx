@@ -133,7 +133,7 @@ export const HabitSheet: React.FC<{
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
-    const { primary: accent, foreground: accentText } = useAccentGradient();
+    const { primary: appAccent } = useAccentGradient();
     const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
@@ -258,6 +258,10 @@ export const HabitSheet: React.FC<{
         } : start;
         return { ...read, ...edits };
     }, [current, eventGoal, parsed, edits, rules]);
+    // Everything in the sheet wears the colour chosen for this goal or habit:
+    // the chosen chips, the bar's open chip, the calendar — not the app accent.
+    const accent = draft.color || appAccent;
+    const accentText = readableAccent(accent, colors.background);
 
     const linkedGoal = goalId ?? draft.goalId;
     // Deciding to do this with somebody happens while writing it, not after —

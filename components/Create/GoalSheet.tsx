@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ChoicePill } from '@/components/ui/ChoicePill';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
@@ -124,7 +125,7 @@ export const GoalSheet: React.FC<{
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
-    const { primary: accent, foreground: accentText } = useAccentGradient();
+    const { primary: appAccent } = useAccentGradient();
     const { lightFeedback, successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
@@ -213,6 +214,10 @@ export const GoalSheet: React.FC<{
         }
         return merged;
     }, [current, result, edits]);
+    // Everything in the sheet wears the colour chosen for this goal or habit:
+    // the chosen chips, the bar's open chip, the calendar — not the app accent.
+    const accent = draft.color || appAccent;
+    const accentText = readableAccent(accent, colors.background);
     const kind = draft.kind ?? 'number';
     const [stepText, setStepText] = useState('');
 
@@ -571,16 +576,9 @@ export const GoalSheet: React.FC<{
                         {KINDS.map(option => {
                             const on = kind === option.id;
                             return (
-                                <Pressable key={option.id} accessibilityRole="radio" accessibilityState={{ selected: on }}
-                                    accessibilityHint={option.hint}
-                                    onPress={() => { lightFeedback(); setTargetText(null); change({ kind: option.id, ...(option.id === 'time' && !TIME_UNITS.includes(draft.unit ?? '') ? { unit: 'hours' } : {}) }); }}
-                                    style={[styles.kind, {
-                                        backgroundColor: on ? accent + '20' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
-                                        borderColor: on ? accent + '66' : 'transparent',
-                                    }]}>
-                                    <Ionicons name={option.icon} size={14} color={on ? accentText : colors.textSecondary} />
-                                    <Text style={[styles.kindText, { color: on ? accentText : colors.textSecondary }]}>{option.label}</Text>
-                                </Pressable>
+                                <ChoicePill key={option.id} label={option.label} icon={option.icon} on={on} color={accent}
+                                    accessibilityHint={option.hint} pressStyle={styles.kindPress} style={styles.kind} textStyle={styles.kindText}
+                                    onPress={() => { lightFeedback(); setTargetText(null); change({ kind: option.id, ...(option.id === 'time' && !TIME_UNITS.includes(draft.unit ?? '') ? { unit: 'hours' } : {}) }); }} />
                             );
                         })}
                     </View>
@@ -650,7 +648,8 @@ const styles = StyleSheet.create({
     unitLabel: { fontSize: 13, fontFamily: FontFamily.regular },
     help: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular },
     kinds: { flexDirection: 'row', gap: 8 },
-    kind: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
+    kindPress: { flex: 1 },
+    kind: { paddingVertical: 10 },
     kindText: { fontSize: 13, fontFamily: FontFamily.semibold },
     stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
     stepIndex: { width: 18, textAlign: 'center', fontSize: 13, fontFamily: FontFamily.bold },

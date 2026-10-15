@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { textOn } from '@/theme/tokens';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon } from '@/components/ui/AppIcon';
@@ -53,9 +54,11 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                 return <Pressable key={index} accessibilityRole="button" accessibilityLabel={`Choose ${date}`}
                     accessibilityState={{ selected, disabled }} disabled={disabled}
                     onPress={() => { selectionFeedback(); onChange(date); }} style={styles.cell}>
-                    <View style={[styles.day, { backgroundColor: selected ? accent + '26' : 'transparent',
-                        borderColor: selected || date === today ? accent : 'transparent' }]}>
-                        <Text style={[styles.dayText, { color: selected ? accent : disabled ? colors.textTertiary : colors.textPrimary }]}>{day}</Text>
+                    {/* The chosen day is a solid disc of the colour; today is just
+                        a little bolder, with no ring around it. */}
+                    <View style={[styles.day, { backgroundColor: selected ? accent : 'transparent', borderColor: 'transparent' }]}>
+                        <Text style={[styles.dayText, { color: selected ? textOn(accent) : disabled ? colors.textTertiary : colors.textPrimary },
+                            date === today && !selected && { fontFamily: FontFamily.bold }]}>{day}</Text>
                     </View>
                 </Pressable>;
             })}
@@ -92,8 +95,8 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                     return <Pressable key={index} accessibilityRole="button" accessibilityLabel={`Show ${label} ${year}`}
                         accessibilityState={{ selected, disabled }} disabled={disabled}
                         onPress={() => { showMonth(date); setJump(false); }}
-                        style={[styles.monthChoice, { backgroundColor: selected ? accent + '20' : colors.background }]}>
-                        <Text style={[styles.dayText, { color: disabled ? colors.textTertiary : selected ? accent : colors.textPrimary }]}>{label}</Text>
+                        style={[styles.monthChoice, { backgroundColor: selected ? accent : colors.background }]}>
+                        <Text style={[styles.dayText, { color: disabled ? colors.textTertiary : selected ? textOn(accent) : colors.textPrimary }]}>{label}</Text>
                     </Pressable>;
                 })}
             </View>

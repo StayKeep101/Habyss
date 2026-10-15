@@ -897,7 +897,7 @@ const CalendarScreen = () => {
                                                     {/* Goal Header / Card */}
                                                     <View style={{ position: 'relative' }}>
                                                         <GoalCard
-                                                            goal={{ ...goal, color: accentColor }}
+                                                            goal={{ ...goal, color: goal.color || accentColor }}
                                                             progress={progress}
                                                             size={cardSize}
                                                             isExpanded={!!isExpanded}
