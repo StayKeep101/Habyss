@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { textOn } from '@/theme/tokens';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { habitStatus, isLive } from '@/lib/habitStatus';
-import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -15,7 +17,6 @@ import { useHaptics } from '@/hooks/useHaptics';
 import type { Habit } from '@/lib/habitsSQLite';
 import { describeAmount, formatDuration, formatMeasurement, localHabitDate, measurementFor, parseMeasurement } from '@/lib/habitMeasurement';
 import { FocusDial } from '@/components/Habit/FocusDial';
-import { KIND_LABEL } from '@/lib/unitKind';
 import { healthLabel, mergeHealth, metricFits, readHealth } from '@/lib/healthMetrics';
 import { readableAccent } from '@/lib/colorContrast';
 
@@ -48,8 +49,7 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     const colors = Colors[theme];
     const accent = habit.color || colors.primary;
     const ink = readableAccent(accent, colors.surfaceSecondary);
-    const successInk = readableAccent(colors.success, colors.surfaceSecondary);
-    const { kind, target, unit, unitKind, step, quickAmounts, secondsPerUnit } = measurementFor(habit);
+    const { kind, target, unit, step, quickAmounts, secondsPerUnit } = measurementFor(habit);
     // One step above the card, for the things that sit on it: the dial's well,
     // the chips, the amount field. Reading these off the surface tones rather
     // than tinting the accent keeps the accent meaning "this is the progress".
@@ -91,15 +91,8 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
         done.value = withSpring(complete ? 1 : 0, { damping: 18, stiffness: 150, reduceMotion: ReduceMotion.System });
     }, [progress, complete, live, ring, done]);
     const ringProps = useAnimatedProps(() => ({ strokeDashoffset: CIRCUMFERENCE * (1 - ring.value) }));
-    const buttonStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: press.value }],
-        borderRadius: 18 + done.value * 9,
-        backgroundColor: interpolateColor(done.value, [0, 1], [accent, colors.success]),
-    }));
+    const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: press.value }] }));
     const iconStyle = useAnimatedStyle(() => ({ borderRadius: 11 + done.value * 7, transform: [{ rotate: `${done.value * 360}deg` }] }));
-    const foreground = readableAccent('#FFFFFF', complete ? colors.success : accent);
-    const status = !isToday ? 'Daily record' : live ? (focus.isPaused ? 'Take your time' : 'In your element')
-        : complete ? (habit.type === 'quit' ? 'You kept your promise' : 'A little better, every day') : value > 0 ? 'You’re making progress' : 'One small step starts here';
     // Only worth a line when something is happening, or cannot: "progress
     // saves as you go" on every visit is furniture, not information.
     const note = saving ? 'Saving your progress…' : !ready ? 'Loading your progress…'
@@ -179,18 +172,13 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     return (
         <Animated.View layout={morph}>
             <VoidCard matte style={styles.card}>
-                <View style={styles.cardTop}>
-                    <View style={[styles.datePill, { backgroundColor: raised }]}>
-                        <View style={[styles.dot, { backgroundColor: complete ? colors.success : accent }]} />
-                        <Text style={[Typography.caption, { color: colors.textPrimary }]}>{isToday ? 'Today' : new Date(date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
+                {!isToday ? (
+                    <View style={styles.cardTop}>
+                        <View style={[styles.datePill, { backgroundColor: raised }]}>
+                            <Text style={[Typography.caption, { color: colors.textPrimary }]}>{new Date(date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
+                        </View>
                     </View>
-                    <Text style={[Typography.caption, { color: colors.textSecondary }]}>
-                        {health ? `Apple Health · ${formatMeasurement(target)} ${unit}`
-                            : kind === 'boolean' ? 'Daily check-in'
-                                : kind === 'timer' ? `${KIND_LABEL.duration} · ${targetLabel}`
-                                    : `${KIND_LABEL[unitKind]} · ${formatMeasurement(target)} ${unit}`}
-                    </Text>
-                </View>
+                ) : null}
                 {kind === 'timer' ? (
                     <FocusDial
                         progress={progress}
@@ -209,22 +197,21 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                         {/* A filled well, not a hoop drawn on the background:
                             the track needs something behind it or the ring is
                             a line floating in space. */}
-                        <Circle cx={78} cy={78} r={72} fill={raised} />
                         <Circle cx={78} cy={78} r={RING} stroke={track} strokeWidth={7} fill="none" />
                         <AnimatedCircle cx={78} cy={78} r={RING} stroke={complete ? colors.success : accent} strokeWidth={7} strokeLinecap="round" fill="none" strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`} animatedProps={ringProps} rotation={-90} origin="78,78" opacity={progress > 0 ? 1 : 0} />
                     </Svg>
-                    <Animated.View style={[styles.dialIcon, { backgroundColor: (complete ? colors.success : accent) + '18' }, iconStyle]}>
-                        <AppIcon filled name={complete ? 'checkmark' : habit.icon || 'sparkles-outline'} size={17} color={complete ? successInk : ink} />
+                    <Animated.View style={[styles.dialIcon, { backgroundColor: complete ? colors.success : (habit.color || accent) }, iconStyle]}>
+                        <AppIcon filled name={complete ? 'checkmark' : habit.icon || 'sparkles-outline'} size={17} color={textOn(complete ? colors.success : (habit.color || accent))} />
                     </Animated.View>
                     <Animated.Text key={kind === 'boolean' ? String(complete) : String(value)} entering={enter} style={[styles.value, { color: colors.textPrimary, fontSize: kind === 'boolean' ? 27 : 34 }]} numberOfLines={1} adjustsFontSizeToFit>
                         {!ready ? '—' : kind === 'boolean' ? (complete ? 'Done' : 'Ready') : formatMeasurement(value)}
                     </Animated.Text>
-                    <Text style={[Typography.caption, { color: complete ? successInk : colors.textSecondary }]}>
-                        {kind === 'boolean' ? (complete ? 'you showed up' : 'when you are') : `${unit} ${complete ? 'logged' : 'so far'}`}
-                    </Text>
+                    {kind !== 'boolean' ? (
+                        <Text style={[Typography.caption, { color: colors.textTertiary }]}>of {formatMeasurement(target)} {unit}</Text>
+                    ) : null}
                 </View>
                 )}
-                <Text accessibilityLiveRegion="polite" style={[Typography.heading, styles.status, { color: complete ? successInk : colors.textPrimary }]}>{status}</Text>
+                <View style={styles.gap} />
 
                 {!isToday ? (
                     <Pressable onPress={onToday} accessibilityRole="button" style={[styles.secondary, { backgroundColor: raised }]}>
@@ -248,13 +235,16 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                                 {/* A static style, deliberately: a Pressable whose style is a
                                     function does not lay out with flex on this
                                     React Native, and these must share the row. */}
-                                {quickAmounts.map(amount => <Pressable key={amount} onPress={() => onAdd(amount)} disabled={!editable} accessibilityRole="button" accessibilityLabel={`Add ${formatMeasurement(amount)} ${unit}`} style={[styles.quick, { backgroundColor: raised, opacity: editable ? 1 : 0.5 }]}><Text style={[Typography.button, { color: colors.textPrimary }]}>+{formatMeasurement(amount)}</Text></Pressable>)}
+                                {quickAmounts.map(amount => <Pressable key={amount} onPress={() => onAdd(amount)} disabled={!editable} accessibilityRole="button" accessibilityLabel={`Add ${formatMeasurement(amount)} ${unit}`} style={[styles.quickPress, { opacity: editable ? 1 : 0.5 }]}><MatteSurface radius={Radius.small} level="control" style={styles.quick}><Text style={[Typography.button, { color: colors.textPrimary }]}>+{formatMeasurement(amount)}</Text></MatteSurface></Pressable>)}
                             </View>
                         )}
-                        <Animated.View style={[buttonStyle, !ready && styles.disabled]}>
-                            <Pressable onPress={primary} disabled={!ready || complete} accessibilityRole="button" accessibilityLabel={mainLabel} accessibilityState={{ disabled: !ready || complete }} onPressIn={() => press.set(withSpring(0.97))} onPressOut={() => press.set(withSpring(1))} style={styles.primary}>
-                                <AppIcon name={live ? (focus.isPaused ? 'play' : 'pause') : complete ? 'checkmark-circle' : kind === 'timer' ? 'play' : kind === 'boolean' ? 'checkmark' : 'add'} color={foreground} size={20} />
-                                <Text style={[Typography.button, { color: foreground }]}>{mainLabel}</Text>
+                        {/* Matte, like every other button; done, its tick turns green. */}
+                        <Animated.View style={[pressStyle, !ready && styles.disabled]}>
+                            <Pressable onPress={primary} disabled={!ready || complete} accessibilityRole="button" accessibilityLabel={mainLabel} accessibilityState={{ disabled: !ready || complete }} onPressIn={() => press.set(withSpring(0.97))} onPressOut={() => press.set(withSpring(1))}>
+                                <MatteSurface radius={Radius.control} level="control" style={styles.primary}>
+                                    <AppIcon filled name={live ? (focus.isPaused ? 'play' : 'pause') : complete ? 'checkmark-circle' : kind === 'timer' ? 'play' : kind === 'boolean' ? 'checkmark' : 'add'} color={complete ? colors.success : colors.textPrimary} size={20} />
+                                    <Text style={[Typography.button, { color: colors.textPrimary }]}>{mainLabel}</Text>
+                                </MatteSurface>
                             </Pressable>
                         </Animated.View>
                         <View style={styles.utilityRow}>
@@ -276,29 +266,27 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                     </Animated.View>
                 )}
                 {error ? <Text accessibilityRole="alert" style={[Typography.caption, styles.center, { color: colors.error }]}>{error}</Text>
-                    : note ? <Text accessibilityLiveRegion="polite" style={[styles.saveNote, { color: colors.textTertiary }]}>{note}</Text> : null}
+                    : saving ? <Text accessibilityLiveRegion="polite" style={[styles.saveNote, { color: colors.textTertiary }]}>{note}</Text> : null}
             </VoidCard>
         </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({
-    card: { padding: 16, gap: 4 },
+    card: { padding: 18, gap: 4 },
     cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
     datePill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: Radius.pill, flexDirection: 'row', gap: 6, alignItems: 'center' },
     dot: { width: 5, height: 5, borderRadius: 3 },
     dial: { width: 156, height: 156, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginVertical: 6 },
     dialIcon: { width: 34, height: 34, justifyContent: 'center', alignItems: 'center', marginBottom: 1 },
-    value: { fontFamily: FontFamily.display, lineHeight: 42, letterSpacing: -1.2, maxWidth: 122, fontVariant: ['tabular-nums'] },
+    value: { fontFamily: FontFamily.bold, lineHeight: 42, letterSpacing: -1.2, maxWidth: 122, fontVariant: ['tabular-nums'] },
     center: { textAlign: 'center' },
     status: { textAlign: 'center', marginBottom: 10, paddingHorizontal: 4 },
     controls: { alignSelf: 'stretch', gap: 8 },
     quickRow: { flexDirection: 'row', alignSelf: 'stretch', gap: 8 },
-    quick: {
-        flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0,
-        minHeight: Control.hitTarget, alignItems: 'center', justifyContent: 'center',
-        borderRadius: Radius.small,
-    },
+    quickPress: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 },
+    quick: { minHeight: Control.hitTarget, alignItems: 'center', justifyContent: 'center' },
+    gap: { height: 10 },
     primary: { minHeight: Control.height, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     secondary: { minHeight: Control.height, borderRadius: Radius.control, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
     utilityRow: { flexDirection: 'row', justifyContent: 'center', gap: 20, flexWrap: 'wrap' },

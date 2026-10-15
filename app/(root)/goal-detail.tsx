@@ -2,6 +2,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { GoalSheet } from '@/components/Create/GoalSheet';
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
+import { BottomFade } from '@/components/ui/BottomFade';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, Image, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
@@ -561,6 +562,8 @@ const GoalDetail = () => {
           </View>
         </Animated.View>
       </Animated.ScrollView>
+      {/* The page dims into this behind the switcher, as it does behind the tab bar. */}
+      <BottomFade height={insets.bottom + 16 + 64 + 56} />
       {/* Today, the numbers, or the whole plan — without leaving the page. */}
       <View pointerEvents="box-none" style={[styles.floatingRow, { bottom: insets.bottom + 16 }]}>
         <ViewSwitcher

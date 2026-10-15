@@ -1,17 +1,16 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, {
     Easing, ReduceMotion, cancelAnimation, useAnimatedProps, useAnimatedStyle, useSharedValue,
     withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Defs, Line, LinearGradient, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, surfaceFor } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { formatClock } from '@/lib/habitMeasurement';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const TICKS = 60;
 
 interface Props {
     /** 0 to 1, of the whole day's target. */
@@ -48,7 +47,6 @@ export function FocusDial({ progress, remaining, targetLabel, doneLabel, running
     const circumference = 2 * Math.PI * arcRadius;
     const tint = complete ? success : color;
     const light = theme === 'light';
-    const lit = Math.round(Math.min(1, Math.max(0, progress)) * TICKS);
 
     const ring = useSharedValue(progress);
     useEffect(() => {
@@ -74,17 +72,6 @@ export function FocusDial({ progress, remaining, targetLabel, doneLabel, running
         transform: [{ scale: 1 + breath.get() * 0.035 }],
     }));
 
-    const ticks = useMemo(() => Array.from({ length: TICKS }, (_, index) => {
-        const angle = (index / TICKS) * Math.PI * 2 - Math.PI / 2;
-        const major = index % 5 === 0;
-        const outer = center - 8;
-        const inner = outer - (major ? 13 : 7);
-        return {
-            index, major,
-            x1: center + Math.cos(angle) * inner, y1: center + Math.sin(angle) * inner,
-            x2: center + Math.cos(angle) * outer, y2: center + Math.sin(angle) * outer,
-        };
-    }), [center]);
 
     // Where the head of the arc sits, for its glow.
     const headAngle = Math.min(1, progress) * Math.PI * 2 - Math.PI / 2;
@@ -107,23 +94,13 @@ export function FocusDial({ progress, remaining, targetLabel, doneLabel, running
                         <Stop offset="0" stopColor={tint} stopOpacity={0.55} />
                         <Stop offset="1" stopColor={tint} stopOpacity={1} />
                     </LinearGradient>
-                    <RadialGradient id="focusFace" cx="50%" cy="38%" r="65%">
-                        <Stop offset="0" stopColor={light ? '#FFFFFF' : '#1B1F27'} stopOpacity={1} />
-                        <Stop offset="1" stopColor={light ? '#EEF1F6' : '#0C0E12'} stopOpacity={1} />
-                    </RadialGradient>
+                    {/* The card's matte material: lit from the top. */}
+                    <LinearGradient id="focusFace" x1="0" y1="0" x2="0" y2="1">
+                        <Stop offset="0" stopColor={surfaceFor(theme).top} stopOpacity={1} />
+                        <Stop offset="1" stopColor={surfaceFor(theme).bottom} stopOpacity={1} />
+                    </LinearGradient>
                 </Defs>
                 <Circle cx={center} cy={center} r={center - 2} fill="url(#focusFace)" />
-                <Circle cx={center} cy={center} r={center - 2} fill="none" stroke={light ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.07)'} strokeWidth={1} />
-                {ticks.map(tick => (
-                    <Line
-                        key={tick.index}
-                        x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2}
-                        stroke={tick.index < lit ? tint : (light ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,0.16)')}
-                        strokeOpacity={tick.index < lit ? (tick.major ? 1 : 0.8) : 1}
-                        strokeWidth={tick.major ? 2.4 : 1.4}
-                        strokeLinecap="round"
-                    />
-                ))}
                 <Circle cx={center} cy={center} r={arcRadius} stroke={light ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.06)'} strokeWidth={10} fill="none" />
                 <AnimatedCircle
                     cx={center} cy={center} r={arcRadius}
@@ -135,15 +112,12 @@ export function FocusDial({ progress, remaining, targetLabel, doneLabel, running
                 />
                 {progress > 0 && progress < 1 ? (
                     <>
-                        <Circle cx={head.x} cy={head.y} r={12} fill={tint} opacity={0.22} />
-                        <Circle cx={head.x} cy={head.y} r={6.5} fill={tint} />
-                        <Circle cx={head.x} cy={head.y} r={2.5} fill="#FFFFFF" />
+                        <Circle cx={head.x} cy={head.y} r={6.5} fill="#FFFFFF" />
                     </>
                 ) : null}
             </Svg>
 
             <View style={styles.face} pointerEvents="none">
-                <Text style={[styles.caption, { color: complete ? success : colors.textTertiary }]}>{caption}</Text>
                 <Text
                     numberOfLines={1}
                     adjustsFontSizeToFit
@@ -151,7 +125,7 @@ export function FocusDial({ progress, remaining, targetLabel, doneLabel, running
                 >
                     {clock}
                 </Text>
-                <Text style={[styles.target, { color: colors.textSecondary }]}>of {targetLabel}</Text>
+                <Text style={[styles.target, { color: complete ? success : colors.textTertiary }]}>{complete ? 'Done' : `of ${targetLabel}`}</Text>
                 {doneLabel ? <Text style={[styles.done, { color: tint }]}>{doneLabel}</Text> : null}
             </View>
         </View>
@@ -162,8 +136,7 @@ const styles = StyleSheet.create({
     wrap: { alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginVertical: 10 },
     halo: { position: 'absolute' },
     face: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, maxWidth: '100%' },
-    caption: { fontSize: 11, letterSpacing: 2, fontFamily: FontFamily.semibold },
-    clock: { fontFamily: FontFamily.display, fontVariant: ['tabular-nums'], letterSpacing: -1.5, marginTop: 2 },
-    target: { fontSize: 13, fontFamily: FontFamily.medium, marginTop: 2 },
-    done: { fontSize: 12, fontFamily: FontFamily.semibold, marginTop: 6 },
+    clock: { fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], letterSpacing: -1.5 },
+    target: { fontSize: 13, fontFamily: FontFamily.regular, marginTop: 2 },
+    done: { fontSize: 12, fontFamily: FontFamily.medium, marginTop: 6 },
 });

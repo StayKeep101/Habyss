@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -122,15 +123,13 @@ export const ShareParticipantsSheet: React.FC<ShareParticipantsSheetProps> = ({
                         disabled={saving}
                         activeOpacity={0.85}
                         accessibilityRole="button"
-                        style={[styles.saveButton, {
-                            backgroundColor: hasChanges ? accentColor : (isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)'),
-                            opacity: saving ? 0.7 : 1,
-                        }]}
+                        style={{ opacity: saving ? 0.7 : 1 }}
                     >
+                        <MatteSurface radius={999} level="control" style={styles.saveButton}>
                         {saving ? (
-                            <ActivityIndicator color={hasChanges ? '#000' : colors.textSecondary} size="small" />
+                            <ActivityIndicator color={colors.textPrimary} size="small" />
                         ) : (
-                            <Text style={[styles.saveText, { color: hasChanges ? '#000' : colors.textSecondary }]}>
+                            <Text style={[styles.saveText, { color: hasChanges ? colors.textPrimary : colors.textSecondary }]}>
                                 {/* Says what will happen, and how many times. A
                                     share is an invitation now, so "Save" was
                                     understating what the button does. */}
@@ -141,6 +140,7 @@ export const ShareParticipantsSheet: React.FC<ShareParticipantsSheetProps> = ({
                                     : 'Done'}
                             </Text>
                         )}
+                        </MatteSurface>
                     </TouchableOpacity>
                 </View>
             }
@@ -171,11 +171,8 @@ export const ShareParticipantsSheet: React.FC<ShareParticipantsSheetProps> = ({
                                 accessibilityState={{ checked: isSelected }}
                                 accessibilityLabel={name}
                                 onPress={() => toggle(friend.id)}
-                                style={[styles.row, {
-                                    backgroundColor: isSelected ? accentColor + '14' : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
-                                    borderColor: isSelected ? accentColor + '66' : 'transparent',
-                                }]}
                             >
+                                <MatteSurface radius={s(14)} level="control" elevation="none" style={styles.row}>
                                 <View style={[styles.avatar, { backgroundColor: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.1)' }]}>
                                     {friend.avatarUrl ? (
                                         <Image source={{ uri: friend.avatarUrl }} style={styles.photo} />
@@ -196,8 +193,9 @@ export const ShareParticipantsSheet: React.FC<ShareParticipantsSheetProps> = ({
                                 <Ionicons
                                     name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                                     size={ms(21)}
-                                    color={isSelected ? accentColor : colors.textTertiary}
+                                    color={isSelected ? colors.textPrimary : colors.textTertiary}
                                 />
+                                </MatteSurface>
                             </TouchableOpacity>
                         );
                     })}
@@ -215,7 +213,7 @@ const styles = StyleSheet.create({
     row: {
         flexDirection: 'row', alignItems: 'center', gap: s(11),
         paddingVertical: vs(9), paddingHorizontal: s(12),
-        borderRadius: s(14), borderWidth: 1,
+
     },
     avatar: { width: s(36), height: s(36), borderRadius: s(18), overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     photo: { width: '100%', height: '100%' },

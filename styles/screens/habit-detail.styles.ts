@@ -8,7 +8,7 @@ export const styles = StyleSheet.create({
     swapped: { gap: 18 },
     switcher: { position: 'absolute', left: 20, right: 20, bottom: 16 },
     headerActions: { flexDirection: 'row', gap: 4 },
-    content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 84, gap: 14 },
+    content: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 112, gap: 14 },
     empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     retry: { minHeight: 44, padding: 12, alignItems: 'center', justifyContent: 'center' },
     rhythm: { paddingVertical: 12, paddingHorizontal: 10 },

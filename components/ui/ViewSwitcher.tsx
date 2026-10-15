@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { AppIcon, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily, surfaceFor } from '@/theme/designSystem';
-import { LinearGradient } from 'expo-linear-gradient';
+import { FontFamily } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -15,7 +13,6 @@ export interface SwitcherOption<T extends string> {
     icon: IconName;
 }
 
-const SPRING = { damping: 19, stiffness: 230, mass: 0.6, reduceMotion: ReduceMotion.System };
 
 /**
  * The control that changes what a detail page is showing.
@@ -35,31 +32,13 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const tone = surfaceFor(theme);
     const { selectionFeedback } = useHaptics();
-    const [width, setWidth] = useState(0);
-
-    const index = Math.max(0, options.findIndex(option => option.id === value));
-    const position = useSharedValue(index);
-    useEffect(() => { position.value = withSpring(index, SPRING); }, [index, position]);
-
-    const slot = width ? (width - 8) / options.length : 0;
-    const pill = useAnimatedStyle(() => ({ width: slot, transform: [{ translateX: position.value * slot }] }));
 
     return (
-        <View accessibilityRole="tablist" onLayout={event => setWidth(event.nativeEvent.layout.width)}>
-        <MatteSurface radius={24} elevation="floating" style={styles.bar}>
-            {slot > 0 ? (
-                // A solid pill, not a tinted outline of one. The selected half
-                // used to be a wash of the accent behind a brighter edge, which
-                // reads as a hole cut in the bar rather than a thing on top of it.
-                // The selected pill: a lighter step of the same matte material,
-                // lit from the top, so it reads as raised inside the bar.
-                <Animated.View style={[styles.pill, pill, { backgroundColor: tone.raised }]}>
-                    <LinearGradient colors={theme === 'light' ? ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0)'] : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0)']}
-                        style={StyleSheet.absoluteFill} />
-                </Animated.View>
-            ) : null}
+        <View accessibilityRole="tablist">
+        <MatteSurface radius={32} elevation="floating" style={styles.bar}>
+            {/* Like the tab bar: no pill behind the chosen one — its icon fills
+                in the accent and its word brightens. */}
 
             {options.map(option => {
                 const selected = option.id === value;
@@ -72,8 +51,8 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
                         onPress={() => { if (!selected) selectionFeedback(); onChange(option.id); }}
                         style={styles.segment}
                     >
-                        <AppIcon filled name={option.icon} size={15} color={selected ? accent : colors.textTertiary} />
-                        <Text numberOfLines={1} style={[styles.label, { color: selected ? colors.textPrimary : colors.textSecondary }]}>
+                        <AppIcon filled={selected} name={option.icon} size={18} color={selected ? accent : colors.textTertiary} />
+                        <Text numberOfLines={1} style={[styles.label, { color: selected ? colors.textPrimary : colors.textTertiary }]}>
                             {option.label}
                         </Text>
                     </Pressable>
@@ -87,9 +66,8 @@ export function ViewSwitcher<T extends string>({ options, value, onChange, accen
 const styles = StyleSheet.create({
     bar: {
         flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch',
-        height: 48, padding: 4,
+        height: 64, paddingHorizontal: 8,
     },
-    pill: { position: 'absolute', left: 4, top: 4, bottom: 4, borderRadius: 20, overflow: 'hidden' },
     segment: {
         flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: '100%',

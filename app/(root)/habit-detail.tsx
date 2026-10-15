@@ -6,6 +6,7 @@ import Animated, { Easing, LinearTransition, ReduceMotion, runOnJS, useAnimatedS
 import { IconButton } from '@/components/ui/IconButton';
 import { ShareButton } from '@/components/Common/ShareButton';
 import { ViewSwitcher, type SwitcherOption } from '@/components/ui/ViewSwitcher';
+import { BottomFade } from '@/components/ui/BottomFade';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { HabitProgressCard } from '@/components/Habit/HabitProgressCard';
 import { SharedWith } from '@/components/Habit/SharedWith';
@@ -322,6 +323,7 @@ export default function HabitDetailScreen() {
                 </GestureDetector>
             </KeyboardAvoidingView>}
 
+            {habit ? <BottomFade height={64 + 72} /> : null}
             {habit ? (
                 <View pointerEvents="box-none" style={styles.switcher}>
                     <ViewSwitcher options={VIEWS} value={view} onChange={setView} accent={accent} />
