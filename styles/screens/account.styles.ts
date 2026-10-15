@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
     cardBody: { fontSize: 13, lineHeight: 19, fontFamily: FontFamily.regular },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-    codeInput: { fontSize: 22, letterSpacing: 6, textAlign: 'center', fontFamily: FontFamily.semibold },
+    codeInput: { fontSize: 22, letterSpacing: 6, textAlign: 'center', fontFamily: FontFamily.semibold }, // ui-allow: a one-time code reads digit by digit
     secondary: { paddingVertical: 14, alignItems: 'center' },
     secondaryText: { fontSize: 14, fontFamily: FontFamily.medium },
     note: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', padding: 12, borderRadius: 12, borderWidth: 1, marginTop: 8 },

@@ -5,7 +5,6 @@ import { ShareButton, ShareSummary } from '@/components/Common/ShareButton';
 import { IconButton } from '@/components/ui/IconButton';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { useAccentGradient } from '@/context/AccentContext';
 import { Control, Spacing, Typography } from '@/theme/designSystem';
 
 interface ModalHeaderProps {
@@ -27,10 +26,9 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { foreground } = useAccentGradient();
     const [actionWidth, setActionWidth] = React.useState<number>(Control.hitTarget);
     const right = rightSlot ?? (onAction
-        ? <IconButton icon={actionIcon} label={actionLabel ?? (actionIcon === 'person-add-outline' ? 'Add friend' : 'Share')} onPress={onAction} variant="accent" />
+        ? <IconButton icon={actionIcon} label={actionLabel ?? (actionIcon === 'person-add-outline' ? 'Add friend' : 'Share')} onPress={onAction} />
         : shareSummary ? <ShareButton summary={shareSummary} /> : null);
 
     return (
@@ -40,7 +38,7 @@ export const ModalHeader: React.FC<ModalHeaderProps> = ({
             </View>
             <View style={styles.copy}>
                 <Text accessibilityRole="header" numberOfLines={1} style={[Typography.title, styles.centered, { color: colors.textPrimary }]}>{title}</Text>
-                {subtitle ? <Text numberOfLines={1} style={[Typography.label, styles.subtitle, { color: foreground }]}>{subtitle}</Text> : null}
+                {subtitle ? <Text numberOfLines={1} style={[Typography.caption, styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text> : null}
             </View>
             <View onLayout={event => setActionWidth(Math.max(Control.hitTarget, event.nativeEvent.layout.width))} style={styles.rightSlot}>{right}</View>
         </View>

@@ -53,7 +53,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
 
                 <View>
                     <CountUp style={[styles.value, { color: colors.textPrimary }]} value={streak} />
-                    <Text style={[styles.label, { color: colors.textTertiary }]}>DAY STREAK</Text>
+                    <Text style={[styles.label, { color: colors.textTertiary }]}>Day streak</Text>
                 </View>
 
                 {completionTier === 4 && (
@@ -94,9 +94,7 @@ const styles = StyleSheet.create({
         lineHeight: ms(24),
     },
     label: {
-        fontSize: ms(8),
-        letterSpacing: 1,
-        fontFamily: FontFamily.bold,
+        fontSize: ms(11), fontFamily: FontFamily.medium,
         textAlign: 'center',
         marginTop: vs(2),
     },

@@ -89,7 +89,7 @@ export const TimeRange: React.FC<{
             <View style={styles.pair}>
                 <View style={[styles.side, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
                     <View style={styles.sideHead}>
-                        <Text style={[styles.sideLabel, { color: colors.textTertiary }]}>{startLabel.toUpperCase()}</Text>
+                        <Text style={[styles.sideLabel, { color: colors.textTertiary }]}>{startLabel}</Text>
                         {start ? (
                             <Pressable accessibilityRole="button" accessibilityLabel="Clear the time" hitSlop={8}
                                 onPress={() => { lightFeedback(); onChange({ start: undefined, minutes: undefined }); }}>
@@ -112,7 +112,7 @@ export const TimeRange: React.FC<{
 
                 <View style={[styles.side, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
                     <View style={styles.sideHead}>
-                        <Text style={[styles.sideLabel, { color: colors.textTertiary }]}>ENDS AT</Text>
+                        <Text style={[styles.sideLabel, { color: colors.textTertiary }]}>Ends at</Text>
                         {end ? (
                             <Pressable accessibilityRole="button" accessibilityLabel="Clear the end time" hitSlop={8}
                                 onPress={() => { lightFeedback(); onChange({ start, minutes: undefined }); }}>
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     pair: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
     side: { flex: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, gap: 6 },
     sideHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    sideLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: FontFamily.semibold },
+    sideLabel: { fontSize: 12, fontFamily: FontFamily.medium },
     clearText: { fontSize: 11, fontFamily: FontFamily.medium },
     picker: { alignSelf: 'flex-start', marginLeft: -8 },
     arrow: { alignSelf: 'center', fontSize: 16 },

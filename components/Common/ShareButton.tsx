@@ -23,6 +23,6 @@ export const ShareButton = ({ summary, onPress, variant = 'share' }: {
     };
     return (
         <IconButton icon={variant === 'friend' ? 'person-add-outline' : 'share-outline'}
-            label={variant === 'friend' ? 'Add friend' : 'Share progress'} onPress={share} loading={busy} variant="accent" />
+            label={variant === 'friend' ? 'Add friend' : 'Share progress'} onPress={share} loading={busy} />
     );
 };

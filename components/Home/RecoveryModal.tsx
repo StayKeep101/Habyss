@@ -10,7 +10,7 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { VoidModal } from '@/components/ui/VoidModal';
 import { ModalHeader } from '@/components/ui/ModalHeader';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { s, vs, ms } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     stat: { flex: 1, alignItems: 'center', gap: vs(2) },
     statValue: { fontFamily: FontFamily.bold, fontSize: ms(20), lineHeight: ms(26), fontVariant: ['tabular-nums'] },
     statLabel: { fontSize: ms(10), lineHeight: ms(15), fontFamily: FontFamily.regular, textAlign: 'center' },
-    sectionLabel: { fontSize: ms(11), lineHeight: ms(16), letterSpacing: 1.5, fontFamily: FontFamily.bold },
+    sectionLabel: { ...UIStyles.sectionTitle },
     sectionNote: { fontSize: ms(12), lineHeight: ms(18), fontFamily: FontFamily.regular, marginTop: vs(-4) },
     sectionTop: { marginTop: vs(10) },
     list: { gap: vs(10) },

@@ -1,4 +1,4 @@
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, UIStyles } from '@/theme/designSystem';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated as RNAnimated } from 'react-native';
 import { IconTile } from '@/components/ui/IconTile';
@@ -177,7 +177,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
             <View style={styles.content}>
                 <ModalHeader
                     title="Notifications"
-                    subtitle={unreadCount > 0 ? `${unreadCount} UNREAD` : 'ALL CAUGHT UP'}
+                    subtitle={unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
                     onBack={onClose}
                     rightSlot={
                         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -209,8 +209,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                                 {/* Section Header */}
                                 <View style={styles.sectionHeader}>
                                     <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: accentColor, marginRight: 8 }} />
-                                    <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>
-                                        {group.label.toUpperCase()}
+                                    <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>
+                                        {group.label}
                                     </Text>
                                     <View style={{ flex: 1, height: 1, backgroundColor: colors.border, marginLeft: 12 }} />
                                 </View>
@@ -329,7 +329,6 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 18,
-        letterSpacing: 1,
         fontFamily: FontFamily.bold,
     },
     sectionHeader: {
@@ -338,11 +337,7 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         paddingVertical: 4,
     },
-    sectionLabel: {
-        fontSize: 10,
-        letterSpacing: 1.5,
-        fontFamily: FontFamily.bold,
-    },
+    sectionLabel: { ...UIStyles.sectionTitle, marginBottom: 0 },
     listContainer: {
         flex: 1,
     },

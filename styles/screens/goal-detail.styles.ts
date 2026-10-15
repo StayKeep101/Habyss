@@ -45,8 +45,7 @@ export const styles = StyleSheet.create({
     marginBottom: 14,
   },
   heroEyebrowText: {
-    fontSize: 10,
-    letterSpacing: 1.2,
+    fontSize: 12,
     fontFamily: FontFamily.semibold,
   },
   heroSubtitle: {
@@ -78,10 +77,8 @@ export const styles = StyleSheet.create({
   },
   heroStatLabel: {
     color: 'rgba(255,255,255,0.64)',
-    fontSize: 10,
+    fontSize: 12,
     marginTop: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
     fontFamily: FontFamily.medium,
   },
   panelWrap: {
@@ -113,8 +110,7 @@ export const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   dashboardLabel: {
-    fontSize: 10,
-    letterSpacing: 1.6,
+    fontSize: 12,
     marginBottom: 8,
     fontFamily: FontFamily.medium,
   },
@@ -153,8 +149,6 @@ export const styles = StyleSheet.create({
   },
   dashboardCardLabel: {
     fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
     fontFamily: FontFamily.medium,
   },
   dashboardCardValue: {

@@ -1,4 +1,4 @@
-import { Typography, Spacing } from '@/theme/designSystem';
+import { Typography, Spacing, UIStyles } from '@/theme/designSystem';
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { Colors } from '@/theme/colors';
@@ -14,8 +14,8 @@ interface SheetSectionProps {
 }
 
 /**
- * Section heading used inside sheets and settings screens: a short uppercase
- * label with an optional plain-language description underneath.
+ * Section heading used inside sheets and settings screens: the shared bold
+ * sentence-case title with an optional plain-language description underneath.
  */
 export const SheetSection: React.FC<SheetSectionProps> = ({ title, description, children, style, first }) => {
     const { theme } = useTheme();
@@ -23,9 +23,9 @@ export const SheetSection: React.FC<SheetSectionProps> = ({ title, description, 
 
     return (
         <View style={[{ marginTop: first ? Spacing.xs : Spacing.xxl }, style]}>
-            <Text style={[styles.title, { color: colors.textSecondary }]}>{title.toUpperCase()}</Text>
+            <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
             {description ? (
-                <Text style={[styles.description, { color: colors.textSecondary }]}>{description}</Text>
+                <Text style={[styles.description, { color: colors.textTertiary }]}>{description}</Text>
             ) : null}
             {children ? <View style={{ marginTop: description ? 12 : 10 }}>{children}</View> : null}
         </View>
@@ -33,6 +33,6 @@ export const SheetSection: React.FC<SheetSectionProps> = ({ title, description, 
 };
 
 const styles = StyleSheet.create({
-    title: { ...Typography.label, marginBottom: Spacing.xs },
+    title: { ...UIStyles.sectionTitle, marginBottom: Spacing.xs },
     description: Typography.bodySmall,
 });

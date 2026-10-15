@@ -40,7 +40,7 @@ export default function AIConfigScreen() {
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     {/* Personality Selection */}
                     <View style={styles.sectionHeader}>
-                        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>PERSONALITY MODE</Text>
+                        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Personality</Text>
                     </View>
 
                     <View style={styles.list}>
@@ -99,7 +99,7 @@ export default function AIConfigScreen() {
                     </View>
 
                     <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>GREETING STYLE</Text>
+                        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Greeting</Text>
                     </View>
 
                     <View style={{ flexDirection: 'row', gap: 12 }}>

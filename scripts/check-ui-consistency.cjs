@@ -10,13 +10,21 @@ function files(directory) {
         return entry.isDirectory() ? (entry.name === '__tests__' ? [] : files(file)) : /\.tsx?$/.test(file) ? [file] : [];
     });
 }
-for (const file of [...files('app'), ...files('components')]) {
+for (const file of [...files('app'), ...files('components'), ...files('styles')]) {
     const source = fs.readFileSync(file, 'utf8');
     // One look: no accent-tinted fills or outlines (a chosen thing is filled
     // solid, everything else is matte), one switch, one text field.
     source.split('\n').forEach((line, index) => {
         if (!line.includes('ui-allow') && /(backgroundColor|borderColor): [^,}]*\b(accent|primary|accentColor|accentText)\b \+ '[0-9a-fA-F]{2}'/.test(line)) {
             problems.push(`${file}:${index + 1} Accent tint: use MatteSurface, or a solid colour for a chosen state.`);
+        }
+        // One type voice: sentence case, no spaced-out capitals.
+        if (!line.includes('ui-allow') && (/letterSpacing: [1-9]/.test(line) || /textTransform: 'uppercase'/.test(line))) {
+            problems.push(`${file}:${index + 1} Spaced capitals: headings are SectionTitle, labels are sentence case.`);
+        }
+        // A Pressable whose style is a function does not lay out as a row here.
+        if (/style=\{\(\{ pressed \}\)/.test(line)) {
+            problems.push(`${file}:${index + 1} Pressable style function: use a static style (it breaks flex rows).`);
         }
     });
     if (file !== 'components/ui/AppSwitch.tsx' && /import \{[^}]*\bSwitch\b[^}]*\} from 'react-native'/.test(source)) {

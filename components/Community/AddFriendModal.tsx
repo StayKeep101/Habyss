@@ -1,9 +1,8 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Share, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { AppButton } from '@/components/ui/AppButton';
 import { MatteInput } from '@/components/ui/MatteInput';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -12,6 +11,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { VoidModal } from '@/components/ui/VoidModal';
 import { ModalHeader } from '@/components/ui/ModalHeader';
 import { SheetSection } from '@/components/ui/SheetSection';
+import { Segmented } from '@/components/ui/Segmented';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
@@ -22,7 +22,6 @@ interface AddFriendModalProps {
     onFriendAdded: () => void;
 }
 
-const { width } = Dimensions.get('window');
 
 type Tab = 'code' | 'qr' | 'scan';
 
@@ -34,7 +33,6 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     const { successFeedback, errorFeedback } = useHaptics();
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<Tab>('code');
@@ -197,11 +195,8 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                                 style={{ marginBottom: 10 }}
                             />
                             <VoidCard style={styles.codeCard}>
-                                <Text style={[styles.code, { color: colors.primary }]}>{userCode ? `@${userCode}` : '…'}</Text>
-                                <TouchableOpacity onPress={handleShare} style={[styles.copyBtn, { backgroundColor: colors.surfaceSecondary }]}>
-                                    <Ionicons name="share-outline" size={16} color={colors.textPrimary} />
-                                    <Text style={[styles.copyText, { color: colors.textPrimary }]}>SHARE</Text>
-                                </TouchableOpacity>
+                                <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.code, { color: colors.textPrimary }]}>{userCode ? `@${userCode}` : '…'}</Text>
+                                <AppButton label="Share" icon="share" onPress={handleShare} fullWidth={false} />
                             </VoidCard>
 
                             <View style={{ height: 20 }} />
@@ -212,8 +207,8 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                                 style={{ marginTop: 0, marginBottom: 10 }}
                             />
                             <MatteInput
-                                style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
-                                placeholder="username"
+                                style={styles.input}
+                                placeholder="Username"
                                 placeholderTextColor={colors.textTertiary}
                                 value={code}
                                 onChangeText={setCode}
@@ -222,24 +217,8 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                                 maxLength={120}
                             />
 
-                            {/* Action Button */}
-                            <TouchableOpacity
-                                onPress={() => handleAddFriend()}
-                                disabled={loading || code.trim().length < 3}
-                                style={[
-                                    styles.addBtn,
-                                    {
-                                        backgroundColor: loading || code.trim().length < 3 ? colors.surfaceTertiary : colors.primary,
-                                        opacity: loading || code.trim().length < 3 ? 0.5 : 1
-                                    }
-                                ]}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.addBtnText}>ADD FRIEND</Text>
-                                )}
-                            </TouchableOpacity>
+                            <AppButton label="Add friend" icon="person-add" loading={loading}
+                                disabled={loading || code.trim().length < 3} onPress={() => handleAddFriend()} />
                         </ScrollView>
                     </KeyboardAvoidingView>
                 );
@@ -249,28 +228,11 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     return (
         <VoidModal visible={visible} onClose={onClose}>
             <View style={{ flex: 1 }}>
-                <ModalHeader title="Add Crew" subtitle="INVITE FRIENDS" onBack={onClose} />
+                <ModalHeader title="Add friends" onBack={onClose} />
 
-                {/* Tabs */}
-                <View style={[styles.tabContainer, { borderColor: colors.border }]}>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'code' && { backgroundColor: colors.surfaceSecondary }]}
-                        onPress={() => setActiveTab('code')}
-                    >
-                        <Text style={[styles.tabText, { color: activeTab === 'code' ? colors.text : colors.textTertiary }]}>Username</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'qr' && { backgroundColor: colors.surfaceSecondary }]}
-                        onPress={() => setActiveTab('qr')}
-                    >
-                        <Text style={[styles.tabText, { color: activeTab === 'qr' ? colors.text : colors.textTertiary }]}>My QR</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'scan' && { backgroundColor: colors.surfaceSecondary }]}
-                        onPress={() => setActiveTab('scan')}
-                    >
-                        <Text style={[styles.tabText, { color: activeTab === 'scan' ? colors.text : colors.textTertiary }]}>Scan</Text>
-                    </TouchableOpacity>
+                <View style={styles.tabs}>
+                    <Segmented accessibilityLabel="How to add a friend" value={activeTab} onChange={setActiveTab}
+                        options={[{ id: 'code', label: 'Username' }, { id: 'qr', label: 'My code' }, { id: 'scan', label: 'Scan' }]} />
                 </View>
 
                 {renderContent()}
@@ -293,72 +255,10 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         paddingBottom: 40,
     },
-    codeCard: {
-        padding: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    code: {
-        fontSize: 28,
-        letterSpacing: 4,
-        marginBottom: 12,
-        fontFamily: FontFamily.display,
-    },
-    copyBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        gap: 6,
-    },
-    copyText: {
-        fontSize: 10,
-        letterSpacing: 1,
-        fontFamily: FontFamily.bold,
-    },
-    input: {
-        height: 52,
-        borderRadius: 12,
-        borderWidth: 1,
-        paddingHorizontal: 16,
-        fontSize: 18,
-        fontFamily: FontFamily.display,
-        letterSpacing: 2,
-        marginBottom: 20,
-    },
-    addBtn: {
-        height: 52,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    addBtnText: {
-        fontSize: 14,
-        color: '#fff',
-        letterSpacing: 1,
-        fontFamily: FontFamily.bold,
-    },
-    // New Styles
-    tabContainer: {
-        flexDirection: 'row',
-        marginHorizontal: 20,
-        borderBottomWidth: 1,
-        marginBottom: 20,
-    },
-    tab: {
-        flex: 1,
-        paddingVertical: 12,
-        alignItems: 'center',
-        borderRadius: 8,
-    },
-    tabText: {
-
-        fontFamily: FontFamily.bold,
-        fontSize: 12,
-    },
+    codeCard: { padding: 20, alignItems: 'center', justifyContent: 'center', gap: 14 },
+    code: { fontSize: 26, fontFamily: FontFamily.bold, letterSpacing: -0.3 },
+    input: { marginBottom: 16 },
+    tabs: { marginHorizontal: 20, marginBottom: 12 },
     qrContainer: {
         flex: 1,
         alignItems: 'center',

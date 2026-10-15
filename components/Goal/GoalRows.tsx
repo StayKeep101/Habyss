@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { CountUp } from '@/components/ui/Motion';
+import { SectionTitle } from '@/components/ui/SectionTitle';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -96,16 +97,8 @@ export const WeekDots: React.FC<{ marks: DayMark[]; color: string }> = ({ marks,
     );
 };
 
-export const SectionLabel: React.FC<{ children: string; tone?: string; right?: React.ReactNode }> = ({ children, tone, right }) => {
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    return (
-        <View style={styles.sectionRow}>
-            <Text style={[styles.section, { color: tone ?? colors.textPrimary }]}>{children}</Text>
-            {right}
-        </View>
-    );
-};
+/** The section heading — the shared one from the UI kit. */
+export const SectionLabel = SectionTitle;
 
 const styles = StyleSheet.create({
     card: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 14, marginBottom: 10 },
@@ -116,8 +109,4 @@ const styles = StyleSheet.create({
     meta: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 3 },
     week: { flexDirection: 'row', gap: 3 },
     dot: { width: 7, height: 7, borderRadius: 4, borderWidth: 1.2 },
-    // A section reads as a title, the way Phantom heads "Soccer" or "Make a
-    // Prediction": large and plain, not a small capitalised label.
-    sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 26, marginBottom: 12 },
-    section: { fontSize: 20, fontFamily: FontFamily.bold, letterSpacing: -0.3 },
 });

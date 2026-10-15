@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { textOn } from '@/theme/tokens';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { useAnimatedReaction, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
@@ -198,9 +199,9 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                                 accessibilityState={{ selected }}
                                 onPress={() => { selectionFeedback(); setRange(option); }}
                                 // Chosen: a solid light pill, like Phantom's "ALL".
-                                style={[styles.range, selected && { backgroundColor: colors.textPrimary }]}
+                                style={[styles.range, selected && { backgroundColor: color }]}
                             >
-                                <Text style={[styles.rangeText, { color: selected ? colors.background : colors.textTertiary }]}>{option === 'ALL' ? 'All' : option}</Text>
+                                <Text style={[styles.rangeText, { color: selected ? textOn(color) : colors.textTertiary }]}>{option === 'ALL' ? 'All' : option}</Text>
                             </TouchableOpacity>
                         );
                     })}

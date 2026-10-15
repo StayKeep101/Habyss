@@ -45,7 +45,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
                 <View style={styles.header}>
                     <View style={styles.titleRow}>
                         <Ionicons name="flag" size={s(16)} color={primary} />
-                        <Text style={[styles.title, { color: colors.textPrimary }]}>GOALS PROGRESS</Text>
+                        <Text style={[styles.title, { color: colors.textPrimary }]}>Goals</Text>
                     </View>
                     <View style={[styles.badge, { backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}>
                         <CountUp style={[styles.badgeText, { color: colors.textSecondary }]} value={goalsCount} />
@@ -67,7 +67,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
                     <CountUp style={[styles.progressText, { color: colors.textPrimary }]} value={`${Math.round(progress)}%`} />
                 </View>
 
-                <Text style={[styles.subtitle, { color: colors.textTertiary }]}>TRACK YOUR ACTIVE MISSIONS</Text>
+                <Text style={[styles.subtitle, { color: colors.textTertiary }]}>Across your active goals</Text>
             </VoidCard>
         </TouchableOpacity>
     );
@@ -89,8 +89,7 @@ const styles = StyleSheet.create({
         gap: s(10),
     },
     title: {
-        fontSize: ms(14),
-        letterSpacing: 1.5,
+        fontSize: ms(17),
         fontFamily: FontFamily.bold,
     },
     badge: {
@@ -128,8 +127,7 @@ const styles = StyleSheet.create({
         textAlign: 'right',
     },
     subtitle: {
-        fontSize: ms(10),
-        letterSpacing: 1,
+        fontSize: ms(12),
         fontFamily: FontFamily.regular,
     },
 });

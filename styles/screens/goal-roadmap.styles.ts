@@ -10,7 +10,7 @@ export const styles = StyleSheet.create({
     goalName: { fontSize: 15, fontFamily: FontFamily.semibold },
     meta: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 2 },
     progress: { fontSize: 14, fontFamily: FontFamily.semibold },
-    section: { fontSize: 10, letterSpacing: 1.2, fontFamily: FontFamily.medium },
+    section: { ...UIStyles.sectionTitle },
     branch: { marginLeft: 16, paddingLeft: 14, borderLeftWidth: 2, gap: 2 },
     leaf: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
     leafText: { flex: 1, fontSize: 13, fontFamily: FontFamily.regular },

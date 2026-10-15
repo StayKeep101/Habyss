@@ -6,7 +6,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { Control, Radius, Spacing, Typography } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
 
-type AppButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+/** The one button; `danger` for destructive words, `ghost` for words alone. */
+type AppButtonVariant = 'default' | 'ghost' | 'danger';
 
 interface AppButtonProps {
     label: string;
@@ -22,11 +23,10 @@ interface AppButtonProps {
 
 /**
  * The one button. Matte, like every surface in the app — no accent fill, no
- * gradient. `primary` and `secondary` are the same matte button; `ghost` is
- * just the words; `danger` is matte with red words.
+ * gradient. `ghost` is just the words; `danger` is matte with red words.
  */
 export const AppButton: React.FC<AppButtonProps> = ({
-    label, onPress, variant = 'primary', icon, disabled = false, loading = false,
+    label, onPress, variant = 'default', icon, disabled = false, loading = false,
     style, fullWidth = true, accessibilityLabel,
 }) => {
     const { theme } = useTheme();

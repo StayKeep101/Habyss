@@ -149,38 +149,34 @@ export default function UICatalog() {
                 </Specimen>
 
                 <Specimen number={11} name="Centred window" file="components/ui/VoidModal.tsx">
-                    <AppButton label="Open window" variant="secondary" onPress={() => setModal(true)} />
+                    <AppButton label="Open window" onPress={() => setModal(true)} />
                 </Specimen>
 
                 <Specimen number={12} name="Bottom sheet" file="components/ui/VoidSheet.tsx">
-                    <AppButton label="Open sheet" variant="secondary" onPress={() => setSheet(true)} />
+                    <AppButton label="Open sheet" onPress={() => setSheet(true)} />
                 </Specimen>
 
                 {/* ───────────────────────── Controls ───────────────────────── */}
                 <CatalogSection title="Controls" description="Everything you press, type into or pick from." />
 
-                <Specimen number={13} name="Button" file="components/ui/AppButton.tsx">
-                    <Variant letter="a" label="Primary"><AppButton label="Save habit" onPress={() => undefined} /></Variant>
-                    <Variant letter="b" label="Secondary"><AppButton label="Save habit" variant="secondary" onPress={() => undefined} /></Variant>
-                    <Variant letter="c" label="Ghost"><AppButton label="Save habit" variant="ghost" onPress={() => undefined} /></Variant>
-                    <Variant letter="d" label="Danger"><AppButton label="Delete habit" variant="danger" onPress={() => undefined} /></Variant>
-                    <Variant letter="e" label="With icon"><AppButton label="Add habit" icon="add" onPress={() => undefined} /></Variant>
-                    <Variant letter="f" label="Loading"><AppButton label="Saving" loading onPress={() => undefined} /></Variant>
-                    <Variant letter="g" label="Disabled"><AppButton label="Save habit" disabled onPress={() => undefined} /></Variant>
+                <Specimen number={13} name="Button" file="components/ui/AppButton.tsx" note="one matte button">
+                    <Variant letter="a" label="Button"><AppButton label="Save habit" onPress={() => undefined} /></Variant>
+                    <Variant letter="b" label="With icon"><AppButton label="Add habit" icon="add" onPress={() => undefined} /></Variant>
+                    <Variant letter="c" label="Danger"><AppButton label="Delete habit" variant="danger" onPress={() => undefined} /></Variant>
+                    <Variant letter="d" label="Loading"><AppButton label="Saving" loading onPress={() => undefined} /></Variant>
+                    <Variant letter="e" label="Disabled"><AppButton label="Save habit" disabled onPress={() => undefined} /></Variant>
                 </Specimen>
 
-                <Specimen number={14} name="Icon button" file="components/ui/IconButton.tsx">
+                <Specimen number={14} name="Icon button" file="components/ui/IconButton.tsx" note="one matte disc">
                     <View style={styles.row}>
-                        <Variant letter="a" label="Plain"><IconButton icon="settings-outline" label="Settings" onPress={() => undefined} /></Variant>
-                        <Variant letter="b" label="Surface"><IconButton icon="settings-outline" label="Settings" variant="surface" onPress={() => undefined} /></Variant>
-                        <Variant letter="c" label="Accent"><IconButton icon="add" label="Add" variant="accent" onPress={() => undefined} /></Variant>
+                        <IconButton icon="settings-outline" label="Settings" onPress={() => undefined} />
+                        <IconButton icon="notifications" label="Inbox" onPress={() => undefined} badge={3} />
                     </View>
                 </Specimen>
 
-                <Specimen number={15} name="Text field" file="components/ui/AppTextField.tsx">
-                    <Variant letter="a" label="Plain"><AppTextField label="Habit name" placeholder="Read 10 pages" value={text} onChangeText={setText} /></Variant>
-                    <Variant letter="b" label="With icon"><AppTextField label="Search" leadingIcon="search" placeholder="Find a habit" value={text} onChangeText={setText} /></Variant>
-                    <Variant letter="c" label="Error"><AppTextField label="Habit name" value="" onChangeText={() => undefined} error="Give it a name" /></Variant>
+                <Specimen number={15} name="Text field" file="components/ui/AppTextField.tsx" note="one field look">
+                    <Variant letter="a" label="Field"><AppTextField label="Habit name" placeholder="Read 10 pages" value={text} onChangeText={setText} /></Variant>
+                    <Variant letter="b" label="Error"><AppTextField label="Habit name" value="" onChangeText={() => undefined} error="Give it a name" /></Variant>
                 </Specimen>
 
                 <Specimen number={16} name="Segmented control" file="components/ui/Segmented.tsx">
@@ -285,7 +281,7 @@ export default function UICatalog() {
                 <Specimen number={32} name="Check pop" file="components/ui/CheckPop.tsx" note="tap to see it">
                     <View style={styles.row}>
                         <CheckPop active={done} color={t.color.success} size={t.space['4xl']}>
-                            <IconButton icon={done ? 'checkmark-circle' : 'ellipse-outline'} label="Toggle" variant="surface" onPress={() => setDone(value => !value)} />
+                            <IconButton icon={done ? 'checkmark-circle' : 'ellipse-outline'} label="Toggle" onPress={() => setDone(value => !value)} />
                         </CheckPop>
                         <Text tone="muted">{done ? 'Done' : 'Not done'}</Text>
                     </View>
@@ -294,8 +290,8 @@ export default function UICatalog() {
                 {/* ───────────────────────── Motion ───────────────────────── */}
                 <CatalogSection title="Motion" description="How charts, bars and numbers move. Replay shows a page opening; Change shows a habit being ticked." />
                 <View style={[styles.row, { paddingBottom: t.space.md }]}>
-                    <View style={{ flex: 1 }}><AppButton label="Replay" icon="refresh" variant="secondary" onPress={() => setReplay(value => value + 1)} /></View>
-                    <View style={{ flex: 1 }}><AppButton label="Change" icon="swap-vertical" variant="secondary" onPress={() => setLevel(value => (value > 0.5 ? 0.24 : 0.86))} /></View>
+                    <View style={{ flex: 1 }}><AppButton label="Replay" icon="refresh" onPress={() => setReplay(value => value + 1)} /></View>
+                    <View style={{ flex: 1 }}><AppButton label="Change" icon="swap-vertical" onPress={() => setLevel(value => (value > 0.5 ? 0.24 : 0.86))} /></View>
                 </View>
 
                 <View key={replay}>

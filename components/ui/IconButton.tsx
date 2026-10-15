@@ -9,13 +9,6 @@ interface IconButtonProps {
     icon: keyof typeof Ionicons.glyphMap;
     label: string;
     onPress: () => void;
-    /**
-     * Kept so older screens compile. There is one icon button: a matte disc
-     * with the card's gradient and a soft shadow, the icon in the middle — the
-     * way Phantom draws its bell and share buttons. `accent` only tints the
-     * glyph, never the disc.
-     */
-    variant?: 'plain' | 'surface' | 'accent';
     disabled?: boolean;
     loading?: boolean;
     /** The glyph's size. */

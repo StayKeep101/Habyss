@@ -186,7 +186,6 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   const isLight = theme === 'light';
   const { primary: accentColor } = useAccentGradient();
   const flatListRef = useRef<FlatList<number>>(null);
-  const isProgrammaticScroll = useRef(false);
 
   const today = useMemo(() => stripTime(new Date()), []);
   const baseWeekStart = useMemo(() => getStartOfWeek(today), [today]);
@@ -203,15 +202,18 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
     return BASE_WEEK_INDEX + diffWeeks;
   }, [baseWeekStart]);
 
+  // The week on screen. Scrolling is only asked for when the selected day is
+  // in another week; asking to scroll to the week already showing used to set
+  // a "this scroll is mine" flag that never cleared (nothing moved, so no
+  // scroll ever ended), and the next real swipe was swallowed — every other
+  // swipe selected nothing.
+  const shownWeek = useRef(getWeekIndexForDate(selectedDate));
   useEffect(() => {
     const targetIndex = getWeekIndexForDate(selectedDate);
     if (!flatListRef.current || targetIndex < 0 || targetIndex >= TOTAL_WEEKS) return;
-
-    isProgrammaticScroll.current = true;
-    flatListRef.current.scrollToIndex({
-      index: targetIndex,
-      animated: true,
-    });
+    if (targetIndex === shownWeek.current) return;
+    shownWeek.current = targetIndex;
+    flatListRef.current.scrollToIndex({ index: targetIndex, animated: true });
   }, [selectedDate, getWeekIndexForDate]);
 
   const buildWeekItems = useCallback((weekIndex: number): DateItem[] => {
@@ -266,15 +268,15 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
     index,
   }), []);
 
+  /** A swipe landed on a week: select the same weekday there, every time. */
   const handleScrollEnd = useCallback((event: any) => {
-    if (isProgrammaticScroll.current) {
-      isProgrammaticScroll.current = false;
-      return;
-    }
-
     const offsetX = event.nativeEvent.contentOffset.x;
     const weekIndex = Math.round(offsetX / SCREEN_WIDTH);
     if (weekIndex < 0 || weekIndex >= TOTAL_WEEKS) return;
+    shownWeek.current = weekIndex;
+    // Landed where the selection already is (our own scroll, or a swipe that
+    // came back): nothing to change.
+    if (weekIndex === getWeekIndexForDate(selectedDate)) return;
 
     const targetWeekStart = getWeekStartForIndex(weekIndex);
     const nextDate = addDays(targetWeekStart, selectedDate.getDay());
@@ -282,7 +284,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
     if (toDateKey(nextDate) !== toDateKey(selectedDate)) {
       onSelectDate(nextDate);
     }
-  }, [getWeekStartForIndex, onSelectDate, selectedDate]);
+  }, [getWeekStartForIndex, getWeekIndexForDate, onSelectDate, selectedDate]);
 
   const onScrollToIndexFailed = useCallback((info: { index: number }) => {
     requestAnimationFrame(() => {

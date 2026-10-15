@@ -57,7 +57,7 @@ export const MomentumCard: React.FC<{ momentum: Momentum; onPress: () => void }>
 
                 <View style={styles.readout}>
                     <CountUp style={[styles.value, { color: colors.textPrimary }]} value={`${rate}%`} />
-                    <Text style={[styles.label, { color: colors.textTertiary }]}>MOMENTUM</Text>
+                    <Text style={[styles.label, { color: colors.textTertiary }]}>Momentum</Text>
                 </View>
 
                 {/* A hairline of the rate, so the percentage is not the only cue. */}
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     iconCircle: { width: s(36), height: s(36), borderRadius: s(18), alignItems: 'center', justifyContent: 'center' },
     readout: { alignItems: 'center' },
     value: { fontSize: ms(24), fontFamily: FontFamily.bold, textAlign: 'center', lineHeight: ms(24), fontVariant: ['tabular-nums'] },
-    label: { fontSize: ms(8), letterSpacing: 1, fontFamily: FontFamily.bold, textAlign: 'center', marginTop: vs(2) },
+    label: { fontSize: ms(11), fontFamily: FontFamily.medium, textAlign: 'center', marginTop: vs(2) },
     track: { height: vs(3), borderRadius: s(2), width: '68%', overflow: 'hidden', marginTop: vs(2) },
     fill: { height: '100%', borderRadius: s(2) },
     delta: { position: 'absolute', top: vs(10), right: s(10), paddingHorizontal: s(5), paddingVertical: vs(2), borderRadius: s(8) },

@@ -160,7 +160,7 @@ export default function GoalRoadmapScreen() {
 
                         {unassigned.habits.length > 0 || unassigned.tasks.length > 0 ? (
                             <VoidCard style={styles.card}>
-                                <Text style={[styles.section, { color: colors.textSecondary }]}>NOT PART OF A GOAL</Text>
+                                <Text style={[styles.section, { color: colors.textPrimary }]}>Not part of a goal</Text>
                                 <View style={[styles.branch, { borderLeftColor: isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.12)' }]}>
                                     {unassigned.habits.map(habit => <ListItem key={habit.id}><HabitRow habit={habit} /></ListItem>)}
                                     {unassigned.tasks.map(task => <ListItem key={task.id}><TaskRow task={task} /></ListItem>)}

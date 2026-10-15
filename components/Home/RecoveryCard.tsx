@@ -64,7 +64,7 @@ export const RecoveryCard: React.FC<{ recovery: Recovery; onPress: () => void }>
                     <CountUp style={[styles.value, { color: risk ? tint : colors.textPrimary }]}
                         value={risk ? atRisk.length : rate === null ? '—' : `${rate}%`} />
                     <Text style={[styles.label, { color: colors.textTertiary }]}>
-                        {risk ? 'TO PROTECT' : 'RECOVERY'}
+                        {risk ? 'To protect' : 'Recovery'}
                     </Text>
                 </View>
             </VoidCard>
@@ -79,5 +79,5 @@ const styles = StyleSheet.create({
     iconCircle: { width: s(36), height: s(36), borderRadius: s(18), alignItems: 'center', justifyContent: 'center' },
     readout: { alignItems: 'center' },
     value: { fontSize: ms(24), fontFamily: FontFamily.bold, textAlign: 'center', lineHeight: ms(24), fontVariant: ['tabular-nums'] },
-    label: { fontSize: ms(8), letterSpacing: 1, fontFamily: FontFamily.bold, textAlign: 'center', marginTop: vs(2) },
+    label: { fontSize: ms(11), fontFamily: FontFamily.medium, textAlign: 'center', marginTop: vs(2) },
 });

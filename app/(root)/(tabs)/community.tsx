@@ -2,6 +2,7 @@ import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert, Share, ActivityIndicator } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
+import { SectionTitle } from '@/components/ui/SectionTitle';
 import { Colors } from '@/theme/colors';
 import { vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
@@ -492,8 +493,7 @@ export default function CommunityScreen() {
                 {/* Header */}
                 <View style={{ marginBottom: isCompactWidth ? 20 : 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View>
-                        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>COMMUNITY</Text>
-                        <Text style={[styles.headerSubtitle, { color: accentColor }]}>CREW STATUS</Text>
+                        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Community</Text>
                     </View>
                     {!gate && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
 
@@ -518,7 +518,7 @@ export default function CommunityScreen() {
                 {/* Friend Requests */}
                 {friendRequests.length > 0 && (
                     <View style={{ marginBottom: 24 }}>
-                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PENDING REQUESTS</Text>
+                        <SectionTitle first>Friend requests</SectionTitle>
                         <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }]}>
                             {friendRequests.map(request => (
                                 <View key={request.id} style={styles.requestRow}>
@@ -552,7 +552,7 @@ export default function CommunityScreen() {
                     <MarksBoard people={marksPeople} onPick={goToCard} />
 
                     <View style={styles.feedHead}>
-                        <Text style={[styles.feedTitle, { color: colors.textPrimary }]}>TODAY</Text>
+                        <SectionTitle first style={styles.feedTitle}>Today</SectionTitle>
                         {/* The line says what you can do about it when there is
                             something, and how the group is going when there is
                             not. Never who is winning. */}

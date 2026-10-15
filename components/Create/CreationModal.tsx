@@ -6,6 +6,7 @@ import Animated, {
     Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -115,11 +116,16 @@ export const CreationModal = () => {
     return (
         visible ? <View style={StyleSheet.absoluteFill}>
             <View style={{ flex: 1 }}>
+                {/* A heavy blur over the page, so the three choices are the only
+                    sharp things on screen. */}
                 <AnimatedPressable
                     accessibilityLabel="Close creation menu"
                     onPress={dismiss}
-                    style={[StyleSheet.absoluteFill, scrimStyle, { backgroundColor: isLight ? 'rgba(15,23,42,0.28)' : 'rgba(0,0,0,0.5)' }]}
-                />
+                    style={[StyleSheet.absoluteFill, scrimStyle]}
+                >
+                    <BlurView intensity={70} tint={isLight ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: isLight ? 'rgba(15,23,42,0.18)' : 'rgba(0,0,0,0.45)' }]} />
+                </AnimatedPressable>
 
                 <View accessibilityViewIsModal pointerEvents="box-none" style={[styles.stack, { right, bottom }]}>
                     {items.map((item, index) => (

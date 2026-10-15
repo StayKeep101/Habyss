@@ -78,7 +78,7 @@ export function FocusDial({ progress, remaining, targetLabel, doneLabel, running
     const head = { x: center + Math.cos(headAngle) * arcRadius, y: center + Math.sin(headAngle) * arcRadius };
 
     const clock = complete ? formatClock(0) : formatClock(remaining);
-    const caption = complete ? 'COMPLETE' : paused ? 'PAUSED' : running ? 'REMAINING' : progress > 0 ? 'LEFT TODAY' : 'READY';
+    const caption = complete ? 'Complete' : paused ? 'Paused' : running ? 'Remaining' : progress > 0 ? 'Left today' : 'Ready';
 
     return (
         <View

@@ -91,11 +91,11 @@ export default function AllHabitsScreen() {
                                 accessibilityState={{ selected: on }}
                                 onPress={() => { lightFeedback(); setFilter(option.id); }}
                                 style={[styles.chip, {
-                                    backgroundColor: on ? colors.textPrimary : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
+                                    backgroundColor: on ? accent : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)'),
                                     borderColor: 'transparent',
                                 }]}
                             >
-                                <Text style={{ color: on ? colors.background : colors.textSecondary, fontSize: 13, fontFamily: FontFamily.medium }}>
+                                <Text style={{ color: on ? textOn(accent) : colors.textSecondary, fontSize: 13, fontFamily: FontFamily.medium }}>
                                     {option.label} {count}
                                 </Text>
                             </TouchableOpacity>

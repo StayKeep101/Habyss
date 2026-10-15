@@ -43,6 +43,8 @@ import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { buildDayPlan } from '@/lib/dayPlan';
 import { DEFAULT_DAY, getDayWindow, type DayWindow } from '@/lib/echo';
+import { getRemoveDrag, isOverOrb, setRemoveDrag } from '@/lib/dragBridge';
+import { SectionTitle } from '@/components/ui/SectionTitle';
 import { styles } from '@/styles/screens/tabs/roadmap.styles';
 
 if (Platform.OS === 'android') {
@@ -197,21 +199,16 @@ const CalendarScreen = () => {
         ],
         opacity: dragLift.get(),
     }));
-    // "Remove from goal": a drop zone at the bottom while dragging something in a goal.
-    const removeZoneRef = useRef<View>(null);
-    const removeZone = useRef<{ y: number; height: number } | null>(null);
-    const [overRemove, setOverRemove] = useState(false);
-    const overRemoveRef = useRef(false);
-    const isOverRemove = useCallback((y: number, inGoal: boolean) => {
-        const zone = removeZone.current;
-        return inGoal && !!zone && y >= zone.y - 28 && y <= zone.y + zone.height + 40;
-    }, []);
+    // "Remove from goal": while something in a goal is dragged, the plus button
+    // in the dock becomes the drop target (lib/dragBridge).
+    const isOverRemove = useCallback((x: number, y: number, inGoal: boolean) => inGoal && isOverOrb(x, y), []);
     const trackRemove = useCallback((value: boolean) => {
-        if (value === overRemoveRef.current) return;
-        overRemoveRef.current = value;
-        setOverRemove(value);
+        if (value === getRemoveDrag().over) return;
+        setRemoveDrag({ over: value });
         if (value) selectionFeedback();
     }, [selectionFeedback]);
+    // Never leave the button changed if the page goes away mid-drag.
+    useEffect(() => () => setRemoveDrag({ active: false }), []);
     const [hoveredGoalId, setHoveredGoalId] = useState<string | null>(null);
     // Mirrors hoveredGoalId so a drag can compare without re-subscribing to state.
     const hoveredGoalRef = useRef<string | null>(null);
@@ -518,6 +515,7 @@ const CalendarScreen = () => {
     const handleHabitDragStart = useCallback(async (habit: Habit, x: number, y: number) => {
         selectionFeedback();
         setDraggingHabit(habit);
+        setRemoveDrag({ active: !!habit.goalId });
         measureArea();
         dragY.set(y);
         dragX.set(x);
@@ -536,7 +534,7 @@ const CalendarScreen = () => {
         // row for each frame of the drag.
         dragY.set(y);
         dragX.set(x);
-        const removing = isOverRemove(y, !!habit.goalId);
+        const removing = isOverRemove(x, y, !!habit.goalId);
         trackRemove(removing);
         const next = removing ? null : getHoveredGoalAtPoint(x, y);
         if (next !== hoveredGoalRef.current) {
@@ -549,7 +547,7 @@ const CalendarScreen = () => {
     }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove]);
 
     const handleHabitDragEnd = useCallback(async (habit: Habit, x: number, y: number) => {
-        const removing = isOverRemove(y, !!habit.goalId);
+        const removing = isOverRemove(x, y, !!habit.goalId);
         const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
 
         // The card settles back into the list instead of vanishing mid-air.
@@ -557,7 +555,7 @@ const CalendarScreen = () => {
         setDraggingHabit(null);
         hoveredGoalRef.current = null;
         setHoveredGoalId(null);
-        trackRemove(false);
+        setRemoveDrag({ active: false });
 
         if (removing) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -595,6 +593,7 @@ const CalendarScreen = () => {
     const handleTaskDragStart = useCallback(async (task: Task, x: number, y: number) => {
         selectionFeedback();
         setDraggingTask(task);
+        setRemoveDrag({ active: !!task.goalId });
         measureArea();
         dragY.set(y);
         dragX.set(x);
@@ -608,7 +607,7 @@ const CalendarScreen = () => {
     const handleTaskDragMove = useCallback((task: Task, x: number, y: number) => {
         dragY.set(y);
         dragX.set(x);
-        const removing = isOverRemove(y, !!task.goalId);
+        const removing = isOverRemove(x, y, !!task.goalId);
         trackRemove(removing);
         const next = removing ? null : getHoveredGoalAtPoint(x, y);
         if (next !== hoveredGoalRef.current) {
@@ -619,13 +618,13 @@ const CalendarScreen = () => {
     }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove]);
 
     const handleTaskDragEnd = useCallback(async (task: Task, x: number, y: number) => {
-        const removing = isOverRemove(y, !!task.goalId);
+        const removing = isOverRemove(x, y, !!task.goalId);
         const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
         dragLift.set(withTiming(0, { duration: 170 }));
         setDraggingTask(null);
         hoveredGoalRef.current = null;
         setHoveredGoalId(null);
-        trackRemove(false);
+        setRemoveDrag({ active: false });
 
         if (removing) {
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -931,16 +930,15 @@ const CalendarScreen = () => {
                             {/* GOALS SECTION */}
                             {showGoals && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                        <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2 }}>GOALS</Text>
+                                    <SectionTitle first right={
                                         <TouchableOpacity onPress={() => {
                                             const allExpanded = sortedGoals.every(goal => expandedGoals[goal.id]);
                                             setExpandedGoals(allExpanded ? {} : Object.fromEntries(sortedGoals.map(goal => [goal.id, true])));
                                         }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8 }}>
                                             <Ionicons name={sortedGoals.every(goal => expandedGoals[goal.id]) ? 'contract-outline' : 'expand-outline'} size={14} color={colors.textSecondary} />
-                                            <Text style={{ color: colors.textSecondary, fontSize: 11 }}>{sortedGoals.every(goal => expandedGoals[goal.id]) ? 'Collapse all' : 'Expand all'}</Text>
+                                            <Text style={{ color: colors.textTertiary, fontSize: 13, fontFamily: FontFamily.medium }}>{sortedGoals.every(goal => expandedGoals[goal.id]) ? 'Collapse all' : 'Expand all'}</Text>
                                         </TouchableOpacity>
-                                    </View>
+                                    }>Goals</SectionTitle>
 
                                     {sortedGoals.length > 0 ? (
                                         sortedGoals.map(goal => {
@@ -1035,7 +1033,7 @@ const CalendarScreen = () => {
                                         })
                                     ) : (
                                         <VoidCard style={{ alignItems: 'center', justifyContent: 'center', padding: 24, borderStyle: 'dashed' }}>
-                                            <Text style={{ color: colors.textTertiary, fontFamily: FontFamily.regular }}>NO ACTIVE GOALS</Text>
+                                            <Text style={{ color: colors.textTertiary, fontFamily: FontFamily.regular }}>No goals yet</Text>
                                         </VoidCard>
                                     )}
                                 </View>
@@ -1047,9 +1045,7 @@ const CalendarScreen = () => {
                                 filter hides exactly what it was set to show. */}
                             {showTasks && dayTasks.some(task => activeFilter === 'tasks_only' || !task.goalId) && (
                                 <View style={{ marginBottom: 16 }}>
-                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2, marginBottom: 10 }}>
-                                        TASKS
-                                    </Text>
+                                    <SectionTitle first>Tasks</SectionTitle>
                                     {dayTasks
                                         .filter(task => activeFilter === 'tasks_only' || !task.goalId)
                                         .map(task => (
@@ -1075,9 +1071,7 @@ const CalendarScreen = () => {
                             {/* HABITS SECTION */}
                             {showHabits && (activeFilter === 'all' ? looseHabits : allHabits).length > 0 && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
-                                    <Text style={{ fontSize: 11, color: colors.textTertiary, fontFamily: FontFamily.regular, letterSpacing: 2, marginBottom: 10 }}>
-                                        {activeFilter === 'all' ? 'OTHER HABITS' : 'ALL HABITS'}
-                                    </Text>
+                                    <SectionTitle first>{activeFilter === 'all' ? 'Other habits' : 'Habits'}</SectionTitle>
 
                                     {(activeFilter === 'all' ? looseHabits : allHabits).map(habit => {
                                         // Find associated goal name for habit
@@ -1154,16 +1148,6 @@ const CalendarScreen = () => {
                                     ) : null}
                                 </Animated.View>
 
-                                {/* Drop here to take it out of its goal. */}
-                                {(draggingTask?.goalId || draggingHabit?.goalId) ? (
-                                    <View ref={removeZoneRef} style={[styles.removeZone, { bottom: tabBarClearance - 24 }]}
-                                        onLayout={() => removeZoneRef.current?.measureInWindow((_x, y, _w, height) => { removeZone.current = { y, height }; })}>
-                                        <MatteSurface radius={999} elevation="floating" tint={overRemove ? colors.error : undefined} style={styles.removePill}>
-                                            <Ionicons name="remove-circle" size={18} color={overRemove ? '#FFFFFF' : colors.error} />
-                                            <Text style={[styles.dragPreviewText, { color: overRemove ? '#FFFFFF' : colors.textPrimary, flex: 0 }]}>Remove from goal</Text>
-                                        </MatteSurface>
-                                    </View>
-                                ) : null}
                             </View>
                         ) : null}
                     </View>

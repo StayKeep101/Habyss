@@ -4,7 +4,6 @@ import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
 /** The look of app/(root)/(tabs)/community.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
     headerTitle: Typography.screenTitle,
-    headerSubtitle: Typography.label,
     sectionLabel: UIStyles.sectionTitle,
     searchContainer: {
         flexDirection: 'row',
@@ -111,8 +110,7 @@ export const styles = StyleSheet.create({
     },
     nudgeText: {
         fontSize: 9,
-        letterSpacing: 1,
-        fontFamily: FontFamily.bold,
+        fontFamily: FontFamily.medium,
     },
     emptyText: {
         fontSize: 14,
@@ -125,8 +123,8 @@ export const styles = StyleSheet.create({
         fontFamily: FontFamily.regular,
     },
     feed: { gap: 10, marginTop: 6 },
-    feedHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 2 },
-    feedTitle: { fontSize: 13, letterSpacing: 1.5, fontFamily: FontFamily.bold },
+    feedHead: { flexDirection: 'row', alignItems: 'center', gap: 12, justifyContent: 'space-between', marginBottom: 2 },
+    feedTitle: { marginBottom: 0, flexShrink: 1 },
     feedSummary: { fontSize: 12, fontFamily: FontFamily.regular, flexShrink: 1, textAlign: 'right' },
     leaderboardRow: {
         flexDirection: 'row',

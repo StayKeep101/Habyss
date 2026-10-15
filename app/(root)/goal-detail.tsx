@@ -451,7 +451,7 @@ const GoalDetail = () => {
           <View style={{ marginTop: 24, paddingHorizontal: 20 }}>
             <View style={{ gap: 14 }}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.dashboardLabel, { color: colors.textTertiary }]}>GOAL</Text>
+                <Text style={[styles.dashboardLabel, { color: colors.textTertiary }]}>Goal</Text>
                 <Text style={[styles.goalTitle, { color: colors.text }]}>{goal.name}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} style={{ marginRight: 4 }} />

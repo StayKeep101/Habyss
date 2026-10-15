@@ -148,7 +148,7 @@ function Stat({ value, label, color }: { value: string; label: string; color?: s
     return (
         <View style={styles.stat}>
             <CountUp style={[styles.statValue, { color: color ?? colors.textPrimary }]} value={value} />
-            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label.toUpperCase()}</Text>
+            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>
         </View>
     );
 }
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     stats: { flexDirection: 'row', paddingVertical: 6 },
     stat: { flex: 1, alignItems: 'center', gap: 3 },
     statValue: { fontSize: 26, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
-    statLabel: { fontSize: 10, letterSpacing: 1.2, fontFamily: FontFamily.semibold },
+    statLabel: { fontSize: 12, fontFamily: FontFamily.regular },
     month: { borderRadius: 22, padding: 16 },
     monthHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 },
     monthLabel: { fontSize: 16, fontFamily: FontFamily.bold },

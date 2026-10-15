@@ -21,7 +21,7 @@ export function EmptyState({ icon, title, message, actionLabel, onAction }: Empt
             <AppIcon name={icon} size={t.space['3xl']} color={t.color.textMuted} />
             <Text variant="heading" align="center">{title}</Text>
             {message ? <Text variant="caption" tone="muted" align="center">{message}</Text> : null}
-            {actionLabel && onAction ? <View style={{ marginTop: t.space.sm }}><AppButton label={actionLabel} onPress={onAction} variant="secondary" /></View> : null}
+            {actionLabel && onAction ? <View style={{ marginTop: t.space.sm }}><AppButton label={actionLabel} onPress={onAction} /></View> : null}
         </View>
     );
 }

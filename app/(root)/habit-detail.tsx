@@ -288,7 +288,7 @@ export default function HabitDetailScreen() {
                         }}
                     />
                 ) : (
-                    <IconButton icon="pencil-outline" label="Edit habit" variant="accent" onPress={() => { selectionFeedback(); setShowEditor(true); }} />
+                    <IconButton icon="pencil-outline" label="Edit habit" onPress={() => { selectionFeedback(); setShowEditor(true); }} />
                 )}
             </View> : undefined}
         >

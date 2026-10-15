@@ -28,8 +28,9 @@ export function HabitRow({ title, meta, icon, color, done, kind = 'habit', trail
     return (
         <Pressable accessibilityRole="button" accessibilityLabel={`${title}${meta ? `, ${meta}` : ''}${done ? ', done' : ''}`}
             onPress={onPress ?? onToggle}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: t.space.md, paddingVertical: t.space.md,
-                paddingHorizontal: t.space.lg, borderRadius: t.radius.md, backgroundColor: t.color.surface, opacity: pressed ? 0.85 : 1 })}>
+            // Static: a function style does not lay out as a row on this React Native.
+            style={{ flexDirection: 'row', alignItems: 'center', gap: t.space.md, paddingVertical: t.space.md,
+                paddingHorizontal: t.space.lg, borderRadius: t.radius.md, backgroundColor: t.color.surface }}>
             <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={done ? `Undo ${title}` : `Complete ${title}`}
                 hitSlop={t.space.sm} onPress={onToggle}
                 style={{ width: box, height: box, borderRadius: kind === 'task' ? t.radius.sm / 2 + 1 : t.radius.full, borderWidth: 2,

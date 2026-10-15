@@ -32,8 +32,8 @@ export function GoalUnitPicker({ value, onChange, accent }: {
             {(Object.keys(UNIT_GROUPS) as (keyof typeof UNIT_GROUPS)[]).map(item =>
                 <Pressable key={item} accessibilityRole="radio" accessibilityLabel={`${item} units`}
                     accessibilityState={{ selected: group === item }} onPress={() => { selectionFeedback(); setGroup(item); }}
-                    style={[styles.group, { backgroundColor: group === item ? colors.textPrimary : colors.background }]}>
-                    <Text style={[styles.groupText, { color: group === item ? colors.background : colors.textSecondary }]}>{item}</Text>
+                    style={[styles.group, { backgroundColor: group === item ? accent : colors.background }]}>
+                    <Text style={[styles.groupText, { color: group === item ? textOn(accent) : colors.textSecondary }]}>{item}</Text>
                 </Pressable>)}
         </View> : null}
         <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 176, flexGrow: 0 }} contentContainerStyle={styles.grid}>

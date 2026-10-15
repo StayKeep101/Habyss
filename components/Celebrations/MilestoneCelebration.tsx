@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     ray: { position: 'absolute', width: s(3), height: s(22), borderRadius: s(2) },
     ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
     card: { alignItems: 'center', paddingHorizontal: s(34), marginTop: vs(26), gap: vs(8) },
-    kicker: { fontSize: ms(11), letterSpacing: 1.6, fontFamily: FontFamily.bold },
+    kicker: { fontSize: ms(13), fontFamily: FontFamily.medium },
     title: { fontFamily: FontFamily.bold, textAlign: 'center', lineHeight: ms(34) },
     line: { fontSize: ms(14), lineHeight: ms(20), fontFamily: FontFamily.regular, textAlign: 'center' },
     button: { marginTop: vs(18), paddingHorizontal: s(28), paddingVertical: vs(12), borderRadius: 999 },

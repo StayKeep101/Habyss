@@ -43,9 +43,9 @@ export const DailyFocusCard: React.FC<{
     // Before anything is ticked the rows speak for themselves, so the caption
     // stays quiet rather than labelling what is already in front of you.
     const caption = focus.complete
-        ? (focus.extra > 0 ? `ALL ${focus.target} DONE, AND ${focus.extra} MORE` : `ALL ${focus.target} DONE`)
+        ? (focus.extra > 0 ? `All ${focus.target} done, and ${focus.extra} more` : `All ${focus.target} done`)
         : focus.done > 0
-            ? `${focus.target - focus.done} TO GO`
+            ? `${focus.target - focus.done} to go`
             : null;
 
     return (
@@ -59,7 +59,7 @@ export const DailyFocusCard: React.FC<{
             >
                 <View style={styles.titleRow}>
                     <Ionicons name="checkmark-done" size={s(16)} color={tint} />
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>TODAY&apos;S {focus.target}</Text>
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>Today&apos;s {focus.target}</Text>
                 </View>
 
                 {focus.streak ? (
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     container: { padding: s(20) },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: vs(14) },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: s(10) },
-    title: { fontSize: ms(14), letterSpacing: 1.5, fontFamily: FontFamily.bold },
+    title: { fontSize: ms(17), fontFamily: FontFamily.bold },
     badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: s(10), paddingVertical: vs(6), borderRadius: s(12), gap: s(4) },
     badgeText: { fontSize: ms(12), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
     pips: { flexDirection: 'row', gap: s(6), marginBottom: vs(12) },
@@ -153,5 +153,5 @@ const styles = StyleSheet.create({
     time: { fontSize: ms(11), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
     empty: { flexDirection: 'row', alignItems: 'center', gap: s(8), paddingVertical: vs(6) },
     emptyText: { flex: 1, fontSize: ms(13), lineHeight: ms(19), fontFamily: FontFamily.regular },
-    subtitle: { fontSize: ms(10), letterSpacing: 1.2, fontFamily: FontFamily.bold, marginTop: vs(10) },
+    subtitle: { fontSize: ms(12), fontFamily: FontFamily.regular, marginTop: vs(10) },
 });

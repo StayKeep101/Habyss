@@ -1,6 +1,8 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useAccentGradient } from '@/context/AccentContext';
+import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import Animated, {
     Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming,
@@ -175,11 +177,12 @@ const Pill = ({ label, on, onPress, icon }: { label: string; on: boolean; onPres
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
-    const ink = on ? colors.background : colors.textSecondary;
+    const { primary: chosen } = useAccentGradient();
+    const ink = on ? textOn(chosen) : colors.textSecondary;
     return (
         <Pressable accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={label}
             onPress={() => { selectionFeedback(); onPress(); }} style={styles.pillPress}>
-            <MatteSurface radius={999} level="control" elevation="none" tint={on ? colors.textPrimary : undefined} style={styles.pill}>
+            <MatteSurface radius={999} level="control" elevation="none" tint={on ? chosen : undefined} style={styles.pill}>
                 <Text numberOfLines={1} style={[styles.pillText, { color: ink }, on && styles.pillTextOn]}>{label}</Text>
                 {icon ? <Ionicons name={icon} size={12} color={ink} /> : null}
             </MatteSurface>

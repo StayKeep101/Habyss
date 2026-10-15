@@ -159,6 +159,8 @@ export const UIStyles = StyleSheet.create({
     card: { borderRadius: Radius.card, borderWidth: 1, overflow: 'hidden' },
     control: { minHeight: Control.height, borderRadius: Radius.control },
     iconButton: { width: Control.hitTarget, height: Control.hitTarget, alignItems: 'center', justifyContent: 'center' },
-    sectionTitle: { ...Typography.label, marginBottom: Spacing.sm },
+    // A section reads as a title, the way the goal page's Stats tab heads
+    // "Numbers": large, bold, sentence case — never a small spaced-out label.
+    sectionTitle: { fontFamily: FontFamily.bold, fontSize: 20, lineHeight: 26, letterSpacing: -0.3, marginBottom: Spacing.md },
     sectionDescription: { ...Typography.bodySmall, marginBottom: Spacing.md },
 });

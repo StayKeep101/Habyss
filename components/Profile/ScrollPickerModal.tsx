@@ -2,6 +2,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { textOn } from '@/theme/tokens';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -48,7 +49,7 @@ export const ScrollPickerModal: React.FC<ScrollPickerModalProps> = ({ visible, o
                                 styles.row,
                                 {
                                     backgroundColor: isSelected
-                                        ? colors.textPrimary
+                                        ? accent
                                         : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)',
                                     borderColor: 'transparent',
                                 },
@@ -61,13 +62,13 @@ export const ScrollPickerModal: React.FC<ScrollPickerModalProps> = ({ visible, o
                             <Text
                                 style={[
                                     styles.rowText,
-                                    { color: isSelected ? colors.background : colors.textPrimary },
+                                    { color: isSelected ? textOn(accent) : colors.textPrimary },
                                 ]}
                             >
                                 {item}
                             </Text>
                             {isSelected ? (
-                                <Ionicons name="checkmark-circle" size={20} color={colors.background} />
+                                <Ionicons name="checkmark-circle" size={20} color={textOn(accent)} />
                             ) : null}
                         </TouchableOpacity>
                     );

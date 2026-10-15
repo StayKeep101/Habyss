@@ -16,8 +16,6 @@ export const styles = StyleSheet.create({
     dragPill: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 8, paddingRight: 16, paddingVertical: 8, maxWidth: 260 },
     dragPreviewText: { flexShrink: 1, fontSize: 14, fontFamily: FontFamily.medium },
     dragHint: { fontSize: 12, fontFamily: FontFamily.medium },
-    removeZone: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-    removePill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 18, paddingVertical: 12 },
     filterOption: {
         flexDirection: 'row',
         alignItems: 'center',

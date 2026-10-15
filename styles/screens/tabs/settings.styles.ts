@@ -14,7 +14,7 @@ export const styles = StyleSheet.create({
     profileName: { fontSize: 17, fontFamily: FontFamily.semibold },
     profileMeta: { fontSize: 13, fontFamily: FontFamily.regular, marginTop: 2 },
     group: { marginTop: 22 },
-    sectionHeading: { fontSize: 11, letterSpacing: 1.2, fontFamily: FontFamily.medium, marginBottom: 8, marginLeft: 4 },
+    sectionHeading: { ...UIStyles.sectionTitle },
     sectionCardPlain: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
     rowDivider: { height: StyleSheet.hairlineWidth, marginLeft: 52 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
@@ -129,7 +129,6 @@ export const styles = StyleSheet.create({
     },
     tagText: {
         fontSize: 9,
-        letterSpacing: 1,
         fontFamily: FontFamily.bold,
     },
     groupCard: {
@@ -137,10 +136,9 @@ export const styles = StyleSheet.create({
         marginBottom: 12,
     },
     groupTitle: {
-        fontSize: 9,
-        letterSpacing: 1,
+        fontSize: 13,
         marginBottom: 12,
-        fontFamily: FontFamily.semibold,
+        fontFamily: FontFamily.medium,
     },
     iconBox: {
         width: 32,

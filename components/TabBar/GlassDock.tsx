@@ -3,8 +3,9 @@ import {View, TouchableOpacity, StyleSheet} from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, withSpring, withTiming, useSharedValue, interpolate } from 'react-native-reanimated';
 import { Colors } from '@/theme/colors';
+import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -12,6 +13,7 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 import { AppState } from 'react-native';
 import { FriendsService } from '@/lib/friendsService';
+import { getRemoveDrag, setOrbRect, subscribeRemoveDrag, type RemoveDrag } from '@/lib/dragBridge';
 
 interface TabIconProps {
     routeName: string;
@@ -71,6 +73,32 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { mediumFeedback } = useHaptics();
     const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth } = useResponsiveLayout();
     const orbRef = React.useRef<any>(null);
+
+    /**
+     * While something in a goal is dragged on the Roadmap, the plus becomes
+     * "Remove from goal" — same round button, same place — and turns red when
+     * the finger is over it. The page does the hit-testing against the rect
+     * measured here.
+     */
+    const [removeDrag, setRemoveDragState] = React.useState<RemoveDrag>(getRemoveDrag());
+    const morph = useSharedValue(0);
+    const hover = useSharedValue(0);
+    const measureOrb = React.useCallback(() => {
+        orbRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+            if (width) setOrbRect({ x, y, width, height });
+        });
+    }, []);
+    React.useEffect(() => subscribeRemoveDrag(next => {
+        setRemoveDragState(next);
+        if (next.active) measureOrb();
+        morph.value = withTiming(next.active ? 1 : 0, { duration: 220 });
+        hover.value = withSpring(next.over ? 1 : 0, { damping: 14, stiffness: 260 });
+    }), [measureOrb, morph, hover]);
+    const orbScale = useAnimatedStyle(() => ({ transform: [{ scale: 1 + hover.value * 0.14 }] }));
+    const plusLayer = useAnimatedStyle(() => ({ opacity: 1 - morph.value, transform: [{ rotate: `${morph.value * 90}deg` }] }));
+    const removeLayer = useAnimatedStyle(() => ({ opacity: morph.value, transform: [{ scale: interpolate(morph.value, [0, 1], [0.6, 1]) }] }));
+    const removeFill = useAnimatedStyle(() => ({ opacity: hover.value }));
+    const removeLabel = useAnimatedStyle(() => ({ opacity: morph.value, transform: [{ translateY: (1 - morph.value) * 6 }] }));
 
     /**
      * Whether anything is waiting, for the dot on Community.
@@ -181,12 +209,22 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 </View>
             </MatteSurface>
 
-            {/* 2. Creation Orb (Plus Button) - Uses accent gradient */}
+            {/* 2. Creation Orb (Plus Button) - Uses accent gradient. While an
+                item in a goal is dragged it becomes the "Remove from goal" target. */}
+            <Animated.View style={orbScale}>
+            {removeDrag.active ? (
+                <Animated.Text pointerEvents="none" numberOfLines={1}
+                    style={[styles.removeLabel, { bottom: floatingButtonSize + 10, color: removeDrag.over ? palette.error : palette.textPrimary }, removeLabel]}>
+                    Remove from goal
+                </Animated.Text>
+            ) : null}
             <TouchableOpacity
                 ref={orbRef}
+                onLayout={measureOrb}
                 accessibilityRole="button"
-                accessibilityLabel="Create a habit, goal, or task"
+                accessibilityLabel={removeDrag.active ? 'Remove from goal' : 'Create a habit, goal, or task'}
                 activeOpacity={0.8}
+                disabled={removeDrag.active}
                 onPress={() => {
                     mediumFeedback();
                     // The menu opens exactly on top of this button, wherever the
@@ -201,19 +239,30 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         width: floatingButtonSize,
                         height: floatingButtonSize,
                         borderRadius: floatingButtonSize / 2,
-                        shadowColor,
+                        shadowColor: removeDrag.active ? '#000000' : shadowColor,
                     }
                 ]}
             >
-                <LinearGradient
-                    colors={buttonColors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.orbGradient, { borderRadius: floatingButtonSize / 2 }]}
-                >
-                    <Ionicons name="add" size={isCompactWidth ? 28 : 32} color="#fff" />
-                </LinearGradient>
+                <Animated.View style={[StyleSheet.absoluteFill, plusLayer]}>
+                    <LinearGradient
+                        colors={buttonColors}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.orbGradient, { borderRadius: floatingButtonSize / 2 }]}
+                    >
+                        <Ionicons name="add" size={isCompactWidth ? 28 : 32} color="#fff" />
+                    </LinearGradient>
+                </Animated.View>
+                <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, removeLayer]}>
+                    <MatteSurface radius={floatingButtonSize / 2} elevation="floating" style={StyleSheet.absoluteFill}>
+                        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: palette.error, borderRadius: floatingButtonSize / 2 }, removeFill]} />
+                        <View style={styles.orbCenter}>
+                            <Ionicons name="remove" size={isCompactWidth ? 28 : 32} color={removeDrag.over ? '#FFFFFF' : palette.error} />
+                        </View>
+                    </MatteSurface>
+                </Animated.View>
             </TouchableOpacity>
+            </Animated.View>
 
         </View>
     );
@@ -267,6 +316,8 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
         elevation: 14,
     },
+    orbCenter: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+    removeLabel: { position: 'absolute', right: 0, width: 160, textAlign: 'right', fontSize: 13, fontFamily: FontFamily.medium },
     orbGradient: {
         flex: 1,
         borderRadius: 32,

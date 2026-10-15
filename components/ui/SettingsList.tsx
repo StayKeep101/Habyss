@@ -1,8 +1,10 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAccentGradient } from '@/context/AccentContext';
+import { textOn } from '@/theme/tokens';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { IconTile } from './IconTile';
@@ -21,7 +23,7 @@ export function SettingsGroup({ title, children }: { title?: string; children: R
     const rows = React.Children.toArray(children).filter(Boolean);
     return (
         <View style={styles.group}>
-            {title ? <Text style={[styles.title, { color: colors.textTertiary }]}>{title}</Text> : null}
+            {title ? <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>{title}</Text> : null}
             <VoidCard style={styles.card}>
                 {rows.map((row, index) => (
                     <View key={index}>
@@ -55,6 +57,8 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
     const { selectionFeedback } = useHaptics();
+    // A chosen option wears the colour the user picked for the app.
+    const { primary: accentFill } = useAccentGradient();
     const isSwitch = toggle !== undefined;
     const content = (
         <>
@@ -69,8 +73,8 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
                         return (
                             <Pressable key={choice.id} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${label}: ${choice.label}`}
                                 onPress={() => { if (!on) { selectionFeedback(); onChoose?.(choice.id); } }}>
-                                <MatteSurface radius={999} level="control" elevation="none" tint={on ? colors.textPrimary : undefined} style={styles.choice}>
-                                    <Text style={[styles.choiceText, { color: on ? colors.background : colors.textSecondary }]}>{choice.label}</Text>
+                                <MatteSurface radius={999} level="control" elevation="none" tint={on ? accentFill : undefined} style={styles.choice}>
+                                    <Text style={[styles.choiceText, { color: on ? textOn(accentFill) : colors.textSecondary }]}>{choice.label}</Text>
                                 </MatteSurface>
                             </Pressable>
                         );
@@ -86,16 +90,19 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
     );
     if (isSwitch || choices || !onPress) return <View style={[styles.row, disabled && styles.disabled]}>{content}</View>;
     return (
-        <Pressable accessibilityRole="button" accessibilityLabel={value ? `${label}, ${value}` : label} disabled={disabled}
-            onPress={() => { selectionFeedback(); onPress(); }} style={({ pressed }) => [styles.row, (pressed || disabled) && styles.disabled]}>
+        // A static style, not a function of `pressed`: a Pressable whose style is
+        // a function does not lay out as a row on this React Native, which
+        // stacked the icon, the name and the arrow on top of each other.
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={value ? `${label}, ${value}` : label} disabled={disabled}
+            activeOpacity={0.6} onPress={() => { selectionFeedback(); onPress(); }} style={[styles.row, disabled && styles.disabled]}>
             {content}
-        </Pressable>
+        </TouchableOpacity>
     );
 }
 
 const styles = StyleSheet.create({
-    group: { gap: 8 },
-    title: { fontSize: 13, fontFamily: FontFamily.medium, marginLeft: 4 },
+    group: { gap: 12 },
+    title: { ...UIStyles.sectionTitle, marginBottom: 0 },
     card: { paddingHorizontal: 14 },
     divider: { height: StyleSheet.hairlineWidth, marginLeft: 42 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54 },

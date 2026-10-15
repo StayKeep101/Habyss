@@ -341,7 +341,7 @@ function StreakCounter({ color, currentStreak }: {
             <CountUp style={{ fontSize: 56, color, fontFamily: FontFamily.bold }} value={currentStreak} />
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <Ionicons name="flame" size={18} color="#F59E0B" />
-                <Text style={{ color: colors.textSecondary, fontSize: 14, fontFamily: FontFamily.medium, letterSpacing: 1 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 14, fontFamily: FontFamily.medium }}>
                     DAY STREAK
                 </Text>
                 <Ionicons name="flame" size={18} color="#F59E0B" />

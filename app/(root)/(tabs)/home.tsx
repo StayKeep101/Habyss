@@ -373,7 +373,7 @@ const Home = () => {
           {motivationalQuote ? (
             <Animated.View style={{ marginTop: sectionGap }}>
               {/* Echo is the voice behind this line and the reminders. */}
-              <Text style={{ fontSize: ms(11), letterSpacing: 1.4, color: accentColor, fontFamily: FontFamily.semibold, marginBottom: 4 }}>ECHO</Text>
+              <Text style={{ fontSize: ms(12), color: colors.textTertiary, fontFamily: FontFamily.medium, marginBottom: 4 }}>Echo</Text>
               <Text style={{
                 fontSize: ms(15),
                 color: colors.text,

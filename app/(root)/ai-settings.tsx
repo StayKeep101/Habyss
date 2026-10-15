@@ -2,6 +2,8 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import React from 'react';
 import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useAccentGradient } from '@/context/AccentContext';
+import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { IconTile } from '@/components/ui/IconTile';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
@@ -201,14 +203,14 @@ const AISettings = () => {
 
                 {/* Every option visible at once, as a grid; the one in use
                     says what it is in a word or two underneath. */}
-                <Text style={[styles.groupTitle, styles.gridTitle, { color: colors.textSecondary }]}>VOICE</Text>
+                <Text style={[styles.groupTitle, styles.gridTitle, { color: colors.textPrimary }]}>Voice</Text>
                 <OptionGrid
                     options={PERSONALITY_MODES.map(mode => ({ id: mode.id, label: mode.name, icon: mode.icon as string, detail: mode.description }))}
                     value={aiPersonality}
                     onChange={handleSelectPersonality}
                 />
 
-                <Text style={[styles.groupTitle, styles.gridTitle, { color: colors.textSecondary }]}>ON HOME</Text>
+                <Text style={[styles.groupTitle, styles.gridTitle, { color: colors.textPrimary }]}>On Home</Text>
                 <OptionGrid
                     options={GREETING_STYLES.map(style => ({ id: style.id, label: style.label, icon: style.icon, detail: style.description }))}
                     value={greetingStyle}
@@ -283,7 +285,7 @@ const AISettings = () => {
                     />
                 </Group>
 
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 22 }]}>ON-DEVICE AI</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: 22 }]}>On-device AI</Text>
                 <OfflineStartCard colors={colors} isLight={isLight} isTrueDark={isTrueDark} />
 
                 {PAYWALL_ENABLED ? (
@@ -310,6 +312,7 @@ function OptionGrid<T extends string>({ options, value, onChange }: {
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: chosen } = useAccentGradient();
     const selected = options.find(option => option.id === value);
     return (
         <View>
@@ -327,9 +330,9 @@ function OptionGrid<T extends string>({ options, value, onChange }: {
                             style={styles.tilePress}
                         >
                             {/* Matte; chosen, it turns solid and light — no accent. */}
-                            <MatteSurface radius={16} level="control" elevation="none" tint={on ? colors.textPrimary : undefined} style={styles.tile}>
-                                <Ionicons filled name={option.icon as any} size={18} color={on ? colors.background : colors.textSecondary} />
-                                <Text numberOfLines={1} style={[styles.tileLabel, { color: on ? colors.background : colors.textSecondary }]}>{option.label}</Text>
+                            <MatteSurface radius={16} level="control" elevation="none" tint={on ? chosen : undefined} style={styles.tile}>
+                                <Ionicons filled name={option.icon as any} size={18} color={on ? textOn(chosen) : colors.textSecondary} />
+                                <Text numberOfLines={1} style={[styles.tileLabel, { color: on ? textOn(chosen) : colors.textSecondary }]}>{option.label}</Text>
                             </MatteSurface>
                         </TouchableOpacity>
                     );

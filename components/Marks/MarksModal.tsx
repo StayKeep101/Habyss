@@ -8,7 +8,7 @@ import { ModalHeader } from '@/components/ui/ModalHeader';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { MARKS, RANKS, type MarkEvent } from '@/lib/marks';
@@ -61,7 +61,7 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
             />
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-                <Text style={[styles.rankLabel, { color: foreground }]}>{marks.rank.name.toUpperCase()}</Text>
+                <Text style={[styles.rankLabel, { color: foreground }]}>{marks.rank.name}</Text>
                 <Text style={[styles.balance, { color: colors.textPrimary }]}>{shown.toLocaleString()}</Text>
                 {scrub ? (
                     <Text style={[styles.sub, { color: colors.textSecondary }]}>{longDay(scrub.date)}</Text>
@@ -83,7 +83,7 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
 
                 {marks.events.length ? (
                     <>
-                        <Text style={[styles.section, { color: colors.textTertiary }]}>RECENT</Text>
+                        <Text style={[styles.section, { color: colors.textPrimary }]}>Recent</Text>
                         <View style={[styles.card, { backgroundColor: tile }]}>
                             {marks.events.slice(0, 15).map((event, index) => (
                                 <View key={`${event.date}-${index}`} style={[styles.eventRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
@@ -114,7 +114,7 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                         </View>
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.windowBody}>
 
-                <Text style={[styles.section, { color: colors.textTertiary }]}>HOW MARKS ARE EARNED</Text>
+                <Text style={[styles.section, { color: colors.textPrimary }]}>How Marks are earned</Text>
                         <View style={[styles.rules, { backgroundColor: tile }]}>
                             <View style={styles.ruleHead}>
                                 <Text style={[styles.ruleCell, styles.ruleFirst]} />
@@ -142,7 +142,7 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                                 </Text>
                             </View>
                         </View>
-                <Text style={[styles.section, { color: colors.textTertiary }]}>RANKS</Text>
+                <Text style={[styles.section, { color: colors.textPrimary }]}>Ranks</Text>
                         <View style={[styles.card, { backgroundColor: tile }]}>
                             {RANKS.map((rank, index) => {
                                 const next = RANKS[index + 1];
@@ -193,14 +193,14 @@ const styles = StyleSheet.create({
     windowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18 },
     windowTitle: { fontSize: 17, fontFamily: FontFamily.bold },
     windowBody: { paddingHorizontal: 18, paddingBottom: 20 },
-    rankLabel: { fontSize: 12, letterSpacing: 1.8, fontFamily: FontFamily.semibold, marginTop: 4 },
+    rankLabel: { fontSize: 13, fontFamily: FontFamily.medium, marginTop: 4 },
     balance: { fontSize: 48, fontFamily: FontFamily.bold, letterSpacing: -1.5, fontVariant: ['tabular-nums'], marginTop: 2 },
     sub: { fontSize: 13, fontFamily: FontFamily.regular },
     changeRow: { flexDirection: 'row', gap: 8, marginTop: 2 },
     change: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
     changeText: { fontSize: 12, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     empty: { height: 120, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    section: { fontSize: 11, letterSpacing: 1.4, fontFamily: FontFamily.semibold, marginTop: 28, marginBottom: 10 },
+    section: { ...UIStyles.sectionTitle, marginTop: 28 },
     card: { borderRadius: 16, paddingHorizontal: 14 },
     rankRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
     rankDot: { width: 8, height: 8, borderRadius: 4, borderWidth: 1.5 },

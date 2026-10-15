@@ -9,6 +9,7 @@
  *   MatteSurface   the one matte surface (gradient, edge, shadow) every piece is drawn with
  *   VoidCard       the card (MatteSurface at card size)
  *   SheetSection   a titled group inside a sheet
+ *   SectionTitle   the heading over a section: large, bold, sentence case (the Stats-tab look)
  *   VoidModal      a centred modal window
  *   VoidSheet      a bottom sheet with a grabber
  *
@@ -44,6 +45,7 @@ export { SettingsGroup, SettingsRow } from './SettingsList';
 export { MatteSurface } from './MatteSurface';
 export { MatteInput } from './MatteInput';
 export { SheetSection } from './SheetSection';
+export { SectionTitle } from './SectionTitle';
 export { VoidModal } from './VoidModal';
 export { VoidSheet } from './VoidSheet';
 

@@ -257,9 +257,8 @@ const styles = StyleSheet.create({
         fontFamily: FontFamily.bold,
     },
     hudLabel: {
-        fontSize: 9,
-        fontFamily: FontFamily.bold,
-        letterSpacing: 1,
+        fontSize: 12,
+        fontFamily: FontFamily.regular,
     },
     hudStats: {
         flex: 1,
@@ -327,7 +326,6 @@ const styles = StyleSheet.create({
     nudgeText: {
         color: '#FFF',
         fontSize: 16,
-        letterSpacing: 1,
         fontFamily: FontFamily.bold,
     }
 });

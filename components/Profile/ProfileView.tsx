@@ -65,19 +65,26 @@ export const ProfileView: React.FC<{
                 {/* The backdrop: the cover photo, or an aurora in the accent
                     colours, filling the page behind everything and fading into
                     the background — not a strip across the top. */}
-                <View pointerEvents="none" style={[styles.backdrop, { height: screenHeight * 0.85 }]}>
+                {/* It also reaches a full screen above the top, in the same
+                    colour, so pulling the page down never shows an edge. */}
+                <View pointerEvents="none" style={[styles.backdrop, { top: -screenHeight, height: screenHeight * 1.85 }]}>
                     {cover ? (
                         <Image source={{ uri: cover }} style={styles.bannerImage} blurRadius={2} />
                     ) : (
                         <>
-                            <LinearGradient colors={[primary + 'E6', primary + '33', 'transparent']} locations={[0, 0.45, 0.8]}
-                                start={{ x: 0, y: 0 }} end={{ x: 0.8, y: 1 }} style={StyleSheet.absoluteFill} />
-                            <LinearGradient colors={['transparent', secondary + '66', 'transparent']} locations={[0, 0.4, 0.85]}
-                                start={{ x: 1, y: 0 }} end={{ x: 0.2, y: 0.9 }} style={StyleSheet.absoluteFill} />
+                            <View style={[styles.above, { height: screenHeight, backgroundColor: primary }]} />
+                            <View style={[styles.below, { top: screenHeight }]}>
+                                <LinearGradient colors={[primary, primary + '33', 'transparent']} locations={[0, 0.45, 0.8]}
+                                    start={{ x: 0, y: 0 }} end={{ x: 0.8, y: 1 }} style={StyleSheet.absoluteFill} />
+                                <LinearGradient colors={['transparent', secondary + '66', 'transparent']} locations={[0, 0.4, 0.85]}
+                                    start={{ x: 1, y: 0 }} end={{ x: 0.2, y: 0.9 }} style={StyleSheet.absoluteFill} />
+                            </View>
                         </>
                     )}
-                    <LinearGradient colors={['transparent', colors.background + '99', colors.background]} locations={[0.25, 0.6, 0.95]}
-                        style={StyleSheet.absoluteFill} />
+                    <View style={[styles.below, { top: screenHeight }]}>
+                        <LinearGradient colors={['transparent', colors.background + '99', colors.background]} locations={[0.25, 0.6, 0.95]}
+                            style={StyleSheet.absoluteFill} />
+                    </View>
                 </View>
 
                 {/* The space the backdrop shows through; tap it to change the cover. */}
@@ -177,7 +184,9 @@ export const ProfileView: React.FC<{
 const styles = StyleSheet.create({
     // The banner runs to both edges, so the page's padding cannot apply to it.
     head: { alignItems: 'center', marginBottom: vs(4) },
-    backdrop: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden' },
+    backdrop: { position: 'absolute', left: 0, right: 0, overflow: 'hidden' },
+    above: { position: 'absolute', top: 0, left: 0, right: 0 },
+    below: { position: 'absolute', left: 0, right: 0, bottom: 0 },
     banner: { width: '100%', justifyContent: 'flex-end', alignItems: 'flex-end' },
     bannerImage: { width: '100%', height: '100%', resizeMode: 'cover' },
     coverBadge: { flexDirection: 'row', alignItems: 'center', gap: s(5), paddingHorizontal: s(9), paddingVertical: vs(4), borderRadius: 999, margin: s(10) },

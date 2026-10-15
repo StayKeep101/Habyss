@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
     tilePress: { width: '48.8%', flexGrow: 1 },
     tile: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 14 },
     tileLabel: { flex: 1, fontSize: 14, fontFamily: FontFamily.semibold },
-    groupTitle: { fontSize: 11, letterSpacing: 1.2, fontFamily: FontFamily.medium, marginLeft: 4 },
+    groupTitle: { ...UIStyles.sectionTitle, marginBottom: 0 },
     groupHint: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 3, marginBottom: 8, marginLeft: 4 },
     groupCard: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
     divider: { height: StyleSheet.hairlineWidth, marginLeft: 46 },
