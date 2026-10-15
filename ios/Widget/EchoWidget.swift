@@ -83,9 +83,8 @@ struct EchoWidgetView: View {
 
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 2) {
-                Text("ECHO")
-                    .font(.system(size: 9, weight: .semibold))
-                    .tracking(1.2)
+                Text("Echo")
+                    .font(.system(size: 10, weight: .medium))
                     .widgetAccentable()
                 Text(entry.line)
                     .font(.system(size: 12))
@@ -124,13 +123,7 @@ struct HabyssEchoWidget: Widget {
         StaticConfiguration(kind: kind, provider: EchoProvider()) { entry in
             EchoWidgetView(entry: entry)
                 .widgetURL(URL(string: "habyss://home"))
-                .containerBackground(for: .widget) {
-                    ZStack {
-                        Habyss.void
-                        RadialGradient(colors: [entry.accent.opacity(0.22), .clear],
-                                       center: .topLeading, startRadius: 0, endRadius: 190)
-                    }
-                }
+                .containerBackground(for: .widget) { DashboardBackground(accent: entry.accent) }
         }
         .supportedFamilies([.accessoryRectangular, .accessoryInline, .systemSmall, .systemMedium])
         .configurationDisplayName("Echo")

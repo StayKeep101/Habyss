@@ -40,15 +40,22 @@ enum Habyss {
     /// Falls back to the default gradient when the app has not written one yet.
     static let fallbackFrom = Color(.sRGB, red: 0.227, green: 0.353, blue: 0.549)
     static let fallbackTo = Color(.sRGB, red: 0.545, green: 0.678, blue: 0.839)
+    /// The app's matte card material (theme/designSystem.ts, Surfaces.abyss):
+    /// lit at the top, falling off towards the bottom. Widgets and live
+    /// activities sit on it so they read as part of the app.
+    static let matteTop = Color(.sRGB, red: 0.094, green: 0.094, blue: 0.106)    // #18181B
+    static let matteMid = Color(.sRGB, red: 0.067, green: 0.067, blue: 0.075)    // #111113
+    static let matteBottom = Color(.sRGB, red: 0.047, green: 0.047, blue: 0.055) // #0C0C0E
+    /// A control on the card: a step lighter, never the accent.
+    static let raised = Color.white.opacity(0.08)
 }
 
-/// Uppercase and widely tracked, the way every section heading in the app reads.
+/// A plain label, the way headings read in the app now: sentence case, no tracking.
 struct SectionLabel: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .font(.system(size: 11, weight: .bold))
-            .tracking(1.5)
-            .foregroundStyle(Habyss.faint)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(Habyss.dim)
     }
 }
 
@@ -144,7 +151,7 @@ struct WidgetEntryView: View {
         default:
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("TODAY").sectionLabel()
+                    Text("Today").sectionLabel()
                     Spacer(minLength: 3)
                     if !entry.needsSync {
                         Text(remaining == 0 && !rows.isEmpty ? "All done" : "\(remaining) left").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(remaining == 0 && !rows.isEmpty ? Habyss.done : entry.accentSolid)
@@ -232,9 +239,9 @@ struct QuickAddLink: View {
                 Image(systemName: "plus").font(.system(size: 9, weight: .bold))
                 Text(label).font(.system(size: 10, weight: .semibold, design: .rounded))
             }
-            .foregroundStyle(accent)
+            .foregroundStyle(.white)
             .padding(.horizontal, 7).padding(.vertical, 3)
-            .background(Capsule().fill(accent.opacity(0.16)))
+            .background(Capsule().fill(Habyss.raised))
         }
         .accessibilityLabel("Add a \(kind)")
     }
@@ -269,7 +276,7 @@ struct QuickAddView: View {
             .accessibilityLabel("Add a task")
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 2) {
-                Text("HABYSS").font(.caption.bold())
+                Text("Habyss").font(.caption.weight(.medium))
                 Label("Add a task", systemImage: "plus.circle").font(.headline)
             }
         case .systemMedium:
@@ -302,7 +309,7 @@ struct QuickAddView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 16).fill(entry.accent.opacity(0.14)))
+            .background(RoundedRectangle(cornerRadius: 16).fill(Habyss.raised))
         }
         .accessibilityLabel("Add a \(kind)")
     }

@@ -33,8 +33,9 @@ struct HabyssLiveActivity: Widget {
                     HStack {
                         Spacer()
                         Text(timerInterval: min(Date(), Date(timeIntervalSince1970: endDate / 1000))...Date(timeIntervalSince1970: endDate / 1000), countsDown: true)
-                            .font(.system(size: 60, weight: .bold, design: .monospaced)) // HUGE Timer
-                            .foregroundColor(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
+                            .font(.system(size: 60, weight: .bold, design: .rounded)).monospacedDigit()
+                            // White, like the big numbers in the app; the colour lives in the progress bar.
+                            .foregroundColor(.white)
                             .multilineTextAlignment(.center)
                         Spacer()
                     }
@@ -48,15 +49,17 @@ struct HabyssLiveActivity: Widget {
                         Text("–")
                         Text(Date(timeIntervalSince1970: end / 1000), style: .time)
                         Spacer()
-                        Text(context.isStale ? "CHECK IN" : "NOW").font(.caption2.bold())
+                        Text(context.isStale ? "Check in" : "Now").font(.caption.weight(.medium))
                     }
-                    .font(.subheadline).foregroundStyle(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
+                    .font(.subheadline).foregroundStyle(Habyss.dim)
                 }
                 ActivityProgress(state: context.state)
                     .tint(Color(habyssHex: context.state.accentHex) ?? Habyss.fallbackTo)
             }
             .padding()
-            .activityBackgroundTint(Color.black)
+            // The app's matte card: lit at the top, falling off below.
+            .background(LinearGradient(colors: [Habyss.matteTop, Habyss.matteMid, Habyss.matteBottom], startPoint: .top, endPoint: .bottom))
+            .activityBackgroundTint(Habyss.matteMid)
             .activitySystemActionForegroundColor(.white)
             .widgetURL(URL(string: context.state.url ?? "habyss://home"))
 

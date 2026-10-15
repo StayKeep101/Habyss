@@ -62,10 +62,9 @@ struct GoalWidgetProvider: AppIntentTimelineProvider {
 struct DashboardBackground: View {
     let accent: Color
     var body: some View {
-        ZStack {
-            Habyss.void
-            RadialGradient(colors: [accent.opacity(0.22), .clear], center: .topLeading, startRadius: 0, endRadius: 230)
-        }
+        // The app's matte card: top-lit, no accent glow.
+        LinearGradient(colors: [Habyss.matteTop, Habyss.matteMid, Habyss.matteBottom],
+                       startPoint: .top, endPoint: .bottom)
     }
 }
 
@@ -169,7 +168,7 @@ struct GoalsProgressView: View {
                     }.font(.system(size: 9)).foregroundStyle(Habyss.faint)
                 }
             } else {
-                Text("GOAL PROGRESS").sectionLabel()
+                Text("Goals").sectionLabel()
                 Spacer(minLength: 0)
                 Image(systemName: "chart.xyaxis.line").font(.system(size: 25)).foregroundStyle(entry.accent)
                 Text(entry.snapshot == nil ? "Open Habyss to sync" : entry.goalID != nil ? "Choose another goal" : "Start with a goal")
