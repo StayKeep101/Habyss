@@ -56,7 +56,7 @@
 		<true/>
 	</dict>
 	<key>NSAppleMusicUsageDescription</key>
-	<string>For music baby</string>
+	<string>Habyss can play your music during focus sessions.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>The app needs to access your calendar to sync habits.</string>
 	<key>NSCalendarsUsageDescription</key>
@@ -66,17 +66,19 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Habyss uses FaceID to securely authenticate your access.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to check health info</string>
+	<string>Habyss reads steps, sleep and workouts from Apple Health to fill in your habits automatically.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to update health info</string>
+	<string>Habyss can save workouts you log to Apple Health.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Habyss needs your location to send reminders when you arrive at specific places like Home or Work.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to access your location</string>
+	<string>Habyss needs your location to send reminders when you arrive at specific places like Home or Work.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Habyss needs your location to send reminders when you arrive at specific places like Home or Work.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>The app accesses your microphon to let you speak to ai</string>
+	<string>Habyss uses the microphone when you choose to speak to Echo, your AI coach.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Habyss uses motion data together with your location to time place-based reminders accurately.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>The app accesses your photos to let you set custom profile pictures and goal backgrounds.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
@@ -84,7 +86,7 @@
 	<key>NSRemindersUsageDescription</key>
 	<string>The app needs to access your reminders to sync habits.</string>
 	<key>NSSiriUsageDescription</key>
-	<string>Automations baby</string>
+	<string>Habyss lets you log habits and tasks with Siri and Shortcuts.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>

@@ -14,22 +14,26 @@
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
         "NSSupportsLiveActivities": true,
-      "NSSupportsLiveActivitiesFrequentUpdates": false,
-      "NSUserNotificationUsageDescription": "Habyss uses notifications to remind you about your habits and help you stay consistent.",
+        "NSSupportsLiveActivitiesFrequentUpdates": false,
+        "NSUserNotificationUsageDescription": "Habyss uses notifications to remind you about your habits and help you stay consistent.",
         "NSPhotoLibraryUsageDescription": "Habyss needs access to your photos to let you set custom backgrounds for your goals.",
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized content and improve your experience.",
         "NSFaceIDUsageDescription": "Habyss uses FaceID to securely authenticate your access.",
         "NSCalendarsUsageDescription": "Habyss uses calendar access to schedule habit reminders and sync with your calendar events.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
         "NSLocationWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
-        "NSMicrophoneUsageDescription": "Habyss uses the microphone when you choose to record voice input for the AI coach.",
-        "NSHealthShareUsageDescription": "Habyss uses HealthKit to track your steps, sleep, and workouts to help you achieve your fitness goals.",
-        "NSHealthUpdateUsageDescription": "Habyss can save workout data to your Health app.",
+        "NSMicrophoneUsageDescription": "Habyss uses the microphone when you choose to speak to Echo, your AI coach.",
+        "NSHealthShareUsageDescription": "Habyss reads steps, sleep and workouts from Apple Health to fill in your habits automatically.",
+        "NSHealthUpdateUsageDescription": "Habyss can save workouts you log to Apple Health.",
         "UIBackgroundModes": [
           "remote-notification",
           "location"
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMotionUsageDescription": "Habyss uses motion data together with your location to time place-based reminders accurately.",
+        "NSAppleMusicUsageDescription": "Habyss can play your music during focus sessions.",
+        "NSSiriUsageDescription": "Habyss lets you log habits and tasks with Siri and Shortcuts.",
+        "NSLocationAlwaysUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work."
       },
       "entitlements": {
         "aps-environment": "production",
