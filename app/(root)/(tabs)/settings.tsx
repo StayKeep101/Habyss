@@ -138,7 +138,7 @@ const FeedbackRow = ({ sounds, haptics, onSounds, onHaptics }: {
                     >
                         {/* A matte toggle; on, it is filled solid with the accent like a chosen chip. */}
                         <MatteSurface radius={15} level="control" style={styles.channel}
-                            tint={channel.on ? accentColor : undefined} edge={channel.on ? accentColor : undefined}>
+                            tint={channel.on ? accentColor : undefined}>
                             <Ionicons
                                 name={channel.on ? channel.icon : channel.off}
                                 size={15}

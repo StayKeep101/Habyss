@@ -229,7 +229,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                             onPress={() => { selectionFeedback(); onChange({ icon: glyph as IconName }); }}
                         >
                             <MatteSurface radius={12} level="control" style={styles.iconTile}
-                                tint={icon === glyph ? color : undefined} edge={icon === glyph ? color : undefined}>
+                                tint={icon === glyph ? color : undefined}>
                                 <AppIcon name={glyph} size={24} />
                             </MatteSurface>
                         </Pressable>
@@ -240,8 +240,8 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                     >
                         {/* A matte tile; the chosen icon is filled solid in its colour. */}
                         <MatteSurface radius={12} level="control" style={styles.iconTile}
-                            tint={icon === item.name ? color : undefined} edge={icon === item.name ? color : undefined}>
-                            <AppIcon name={item.name} size={22} color={icon === item.name ? textOn(color) : colors.textSecondary} />
+                            tint={icon === item.name ? color : undefined}>
+                            <AppIcon filled name={item.name} size={22} color={icon === item.name ? textOn(color) : colors.textSecondary} />
                         </MatteSurface>
                     </Pressable>)}
                 </View>

@@ -66,8 +66,7 @@ export function ChipPicker<T extends string>({ options, value, onChange, accent 
                         {/* The matte pill every chip is. The chosen one is filled
                             solid with the accent, still matte — like Phantom's
                             selected tab — with dark or light text, whichever reads. */}
-                        <MatteSurface radius={999} level="control" tint={on ? accent : undefined}
-                            edge={on ? accent : undefined} style={styles.chip}>
+                        <MatteSurface radius={999} level="control" tint={on ? accent : undefined} style={styles.chip}>
                             {option.icon ? (
                                 <Ionicons name={option.icon} size={s(13)} color={on ? textOn(accent) : colors.textTertiary} />
                             ) : null}

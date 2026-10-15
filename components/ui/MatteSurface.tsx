@@ -47,12 +47,14 @@ export function MatteSurface({
         <View
             pointerEvents={pointerEvents}
             style={[
-                { borderRadius: radius, borderWidth: 1, backgroundColor: body, borderColor: edge ?? 'transparent' },
+                // No border at all unless one has something to say: even a transparent
+                // one leaves a ring of the base colour around the gradient.
+                { borderRadius: radius, borderWidth: edge ? 1 : 0, backgroundColor: body, borderColor: edge },
                 lift === 'none' ? null : elevationFor(theme, lift),
                 style,
             ]}
         >
-            <View pointerEvents="none" style={[styles.layer, { borderRadius: Math.max(0, radius - 1) }]}>
+            <View pointerEvents="none" style={[styles.layer, { borderRadius: Math.max(0, radius - (edge ? 1 : 0)) }]}>
                 <LinearGradient colors={gradient} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
                 {tint ? <View style={[StyleSheet.absoluteFill, { backgroundColor: tint }]} /> : null}
             </View>

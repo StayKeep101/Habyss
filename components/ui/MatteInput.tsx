@@ -1,8 +1,7 @@
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef } from 'react';
 import { StyleSheet, TextInput, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle } from 'react-native';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { useAccentOrDefault } from '@/hooks/useAccentOrDefault';
 import { Radius } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
 
@@ -19,8 +18,8 @@ const BOX = /^(backgroundColor|border|shadow|elevation|overflow)/;
  * The one text field look, as a drop-in for TextInput.
  *
  * Any input in the app is this: the matte control surface (gradient, a faint
- * light edge, a small shadow), rounded, with the edge turning to the accent
- * while you type. Pass the same `style` a TextInput takes — its size and
+ * light edge, a small shadow), rounded, and calm while you type: no accent
+ * edge and no accent caret. Pass the same `style` a TextInput takes — its size and
  * position go to the box, its text styles stay on the text, and any box look
  * it carried (a background, a border) is replaced, so no field can drift.
  */
@@ -28,8 +27,6 @@ export const MatteInput = forwardRef<TextInput, TextInputProps & { invalid?: boo
     function MatteInput({ style, onFocus, onBlur, invalid, boxStyle, placeholderTextColor, selectionColor, ...props }, ref) {
         const { theme } = useTheme();
         const colors = Colors[theme];
-        const { foreground } = useAccentOrDefault();
-        const [focused, setFocused] = useState(false);
         const flat = (StyleSheet.flatten(style) ?? {}) as TextStyle & Record<string, unknown>;
         const box: Record<string, unknown> = {};
         const text: Record<string, unknown> = {};
@@ -48,16 +45,16 @@ export const MatteInput = forwardRef<TextInput, TextInputProps & { invalid?: boo
             <MatteSurface
                 radius={radius}
                 level="control"
-                edge={invalid ? colors.error : focused ? foreground : undefined}
+                edge={invalid ? colors.error : undefined}
                 style={[box as ViewStyle, boxStyle]}
             >
                 <TextInput
                     ref={ref}
                     placeholderTextColor={placeholderTextColor ?? colors.textTertiary}
-                    selectionColor={selectionColor ?? foreground}
+                    selectionColor={selectionColor ?? colors.textPrimary}
                     {...props}
-                    onFocus={event => { setFocused(true); onFocus?.(event); }}
-                    onBlur={event => { setFocused(false); onBlur?.(event); }}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
                     style={[{ color: colors.textPrimary }, text as TextStyle]}
                 />
             </MatteSurface>

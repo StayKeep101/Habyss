@@ -161,7 +161,7 @@ export const DetailBar: React.FC<{
                             {/* The matte pill every chip is; the open one is
                                 filled solid with the accent, like Phantom's tabs. */}
                             <MatteSurface radius={18} level="control" style={styles.chip}
-                                tint={isOpen ? tint : undefined} edge={isOpen ? tint : undefined}>
+                                tint={isOpen ? tint : undefined}>
                                 <Ionicons name={item.icon} size={14} color={isOpen ? textOn(tint) : item.color ?? (isSet ? accent : colors.textSecondary)} />
                                 <Text numberOfLines={1} style={[styles.chipText, { color: isOpen ? textOn(tint) : isSet ? colors.textPrimary : colors.textSecondary }]}>
                                     {item.value || item.label}
@@ -200,7 +200,7 @@ export const Choices = <T,>({ options, value, onChange, accent, multiple }: {
                         onPress={() => { selectionFeedback(); onChange(option.id); }}
                     >
                         <MatteSurface radius={11} level="control" style={styles.choice}
-                            tint={on ? accent : undefined} edge={on ? accent : undefined}>
+                            tint={on ? accent : undefined}>
                             <Text style={[styles.choiceText, { color: on ? textOn(accent) : colors.textSecondary }, on && styles.choiceTextOn]}>{option.label}</Text>
                         </MatteSurface>
                     </Pressable>

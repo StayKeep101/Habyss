@@ -104,6 +104,16 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
         ]}>
 
             {/* 1. Navigation Pill */}
+            {/* The fade the page sinks into, behind the dock: content dims as it
+                scrolls underneath, the way Phantom's bottom edge does, so the
+                dock floats over it instead of sitting on a hard line. */}
+            <LinearGradient
+                pointerEvents="none"
+                colors={[palette.background + '00', palette.background + 'B3', palette.background + 'F2']}
+                locations={[0, 0.45, 1]}
+                style={[styles.fade, { bottom: -tabBarBottomOffset, height: tabBarBottomOffset + tabBarHeight + 56 }]}
+            />
+
             {/* The matte card surface as a pill, floating on its shadow. */}
             <MatteSurface radius={tabBarHeight / 2} elevation="floating" style={[
                 styles.navPill,
@@ -218,6 +228,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    fade: { position: 'absolute', left: 0, right: 0 },
     navPill: {
         flex: 1,
         flexDirection: 'row',

@@ -195,7 +195,7 @@ const MenuRow = ({ item, index, count, progress, size, colors, isLight, onPress 
                         <Text style={[styles.hint, { color: colors.textTertiary }]}>{item.hint}</Text>
                     </View>
                     <View style={[styles.chip, { backgroundColor: item.color + '24', borderColor: item.color + '55' }]}>
-                        <Ionicons name={item.icon} size={20} color={item.color} />
+                        <Ionicons filled name={item.icon} size={20} color={item.color} />
                     </View>
                 </BlurView>
             </Pressable>

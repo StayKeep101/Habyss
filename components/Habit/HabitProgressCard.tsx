@@ -214,7 +214,7 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                         <AnimatedCircle cx={78} cy={78} r={RING} stroke={complete ? colors.success : accent} strokeWidth={7} strokeLinecap="round" fill="none" strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`} animatedProps={ringProps} rotation={-90} origin="78,78" opacity={progress > 0 ? 1 : 0} />
                     </Svg>
                     <Animated.View style={[styles.dialIcon, { backgroundColor: (complete ? colors.success : accent) + '18' }, iconStyle]}>
-                        <AppIcon name={complete ? 'checkmark' : habit.icon || 'sparkles-outline'} size={17} color={complete ? successInk : ink} />
+                        <AppIcon filled name={complete ? 'checkmark' : habit.icon || 'sparkles-outline'} size={17} color={complete ? successInk : ink} />
                     </Animated.View>
                     <Animated.Text key={kind === 'boolean' ? String(complete) : String(value)} entering={enter} style={[styles.value, { color: colors.textPrimary, fontSize: kind === 'boolean' ? 27 : 34 }]} numberOfLines={1} adjustsFontSizeToFit>
                         {!ready ? '—' : kind === 'boolean' ? (complete ? 'Done' : 'Ready') : formatMeasurement(value)}

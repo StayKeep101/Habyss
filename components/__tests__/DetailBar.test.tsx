@@ -93,7 +93,7 @@ describe('the bar above the keyboard', () => {
         // An animated height that follows the content, never a fixed half screen.
         expect(typeof flatten(screen.getByTestId('detail-panel').props.style).height).toBe('number');
         // The open chip is filled with the Look's own colour.
-        expect(screen.UNSAFE_root.findAll((node: { props: { style?: unknown } }) => flatten(node.props.style as never)?.borderColor === '#EC4899').length).toBeGreaterThan(0);
+        expect(screen.UNSAFE_root.findAll((node: { props: { style?: unknown } }) => flatten(node.props.style as never)?.backgroundColor === '#EC4899').length).toBeGreaterThan(0);
         screen.rerender(<DetailBar fitContent items={custom} open={null} onToggle={jest.fn()} accent="#6B8AF5" />);
         expect(screen.queryByText('Compact look controls')).toBeNull();
     });

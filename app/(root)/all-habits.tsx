@@ -120,7 +120,7 @@ export default function AllHabitsScreen() {
                             >
                                 <VoidCard style={styles.row}>
                                     <View style={[styles.icon, { backgroundColor: (habit.color ?? accent) + '22' }]}>
-                                        <Ionicons name={(habit.icon ?? 'ellipse-outline') as any} size={18} color={habit.color ?? accent} />
+                                        <Ionicons filled name={(habit.icon ?? 'ellipse-outline') as any} size={18} color={habit.color ?? accent} />
                                     </View>
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.name, { color: habit.isArchived ? colors.textTertiary : colors.textPrimary }]} numberOfLines={1}>

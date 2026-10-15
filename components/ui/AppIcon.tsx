@@ -4,7 +4,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Control } from '@/theme/designSystem';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
-export type AppIconProps = Omit<React.ComponentProps<typeof Ionicons>, 'name'> & { name?: string };
+export type AppIconProps = Omit<React.ComponentProps<typeof Ionicons>, 'name'> & {
+    name?: string;
+    /** Draw the solid version ("book" for "book-outline") where Ionicons has one. */
+    filled?: boolean;
+};
+
+/** "book-outline" → "book", when that exists; anything else as it is. */
+export function solidIcon(name: string): string {
+    if (!name.endsWith('-outline')) return name;
+    const solid = name.slice(0, -'-outline'.length);
+    return Ionicons.glyphMap && Object.hasOwn(Ionicons.glyphMap, solid) ? solid : name;
+}
 
 /** All interface glyphs come from Ionicons, including legacy saved emoji choices. */
 const legacyIcons: Record<string, IconName> = {
@@ -42,7 +53,7 @@ export const isGlyphIcon = (name: string): boolean =>
  * chip in the app draws its icons through here, teaching this one component
  * about the other two is what makes them work everywhere.
  */
-function Icon({ name = 'ellipse-outline', size = Control.icon, ...props }: AppIconProps) {
+function Icon({ name = 'ellipse-outline', size = Control.icon, filled, ...props }: AppIconProps) {
     if (isPhotoIcon(name)) {
         // Rounded like the tiles it sits in, so a square photograph does not
         // look pasted on top of the interface.
@@ -58,7 +69,8 @@ function Icon({ name = 'ellipse-outline', size = Control.icon, ...props }: AppIc
             props.style as StyleProp<TextStyle>,
         ]}>{name}</Text>;
     }
-    const candidate = legacyIcons[name] ?? name;
+    const named = legacyIcons[name] ?? name;
+    const candidate = filled ? solidIcon(named) : named;
     const resolved = Ionicons.glyphMap && !Object.hasOwn(Ionicons.glyphMap, candidate)
         ? 'ellipse-outline' : candidate as IconName;
     return <Ionicons {...props} name={resolved} size={size} />;

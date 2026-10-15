@@ -237,7 +237,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
 
             {/* Icon */}
             <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: isCompleted ? accentColor + '15' : (habit.color || accentColor) + '15' }]}>
-              <Ionicons name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={isCompleted ? accentColor : habit.color || colors.textSecondary} />
+              <Ionicons filled name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={isCompleted ? accentColor : habit.color || colors.textSecondary} />
             </View>
 
             {/* Text Info */}

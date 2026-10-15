@@ -36,7 +36,7 @@ interface AccentContextType {
     getAccentColor: () => string; // Returns primary color
 }
 
-export const AccentContext = createContext<AccentContextType | undefined>(undefined);
+const AccentContext = createContext<AccentContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'habyss_accent_gradient';
 

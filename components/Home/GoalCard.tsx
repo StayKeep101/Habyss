@@ -94,7 +94,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 resizeMode="cover"
               />
             ) : (
-              <Ionicons name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || defaultColor} />
+              <Ionicons filled name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || defaultColor} />
             )}
           </View>
 

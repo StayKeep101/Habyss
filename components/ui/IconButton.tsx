@@ -43,7 +43,7 @@ export function IconButton({ icon, label, onPress, disabled, loading, size = Con
                     line height is taller than the glyph and pushed it down. */}
                 <View pointerEvents="none" style={styles.centre}>
                     {loading ? <ActivityIndicator size="small" color={tint} />
-                        : <Ionicons name={icon} size={size} color={tint} style={{ width: size, height: size, lineHeight: size, textAlign: 'center' }} />}
+                        : <Ionicons filled name={icon} size={size} color={tint} style={{ width: size, height: size, lineHeight: size, textAlign: 'center' }} />}
                 </View>
             </MatteSurface>
             {badge ? (

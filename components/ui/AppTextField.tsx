@@ -3,7 +3,6 @@ import { StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View } f
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { useAccentGradient } from '@/context/AccentContext';
 import { Control, Radius, Spacing, Typography } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
 
@@ -23,7 +22,6 @@ export const AppTextField: React.FC<AppTextFieldProps> = ({
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const { foreground } = useAccentGradient();
     const [focused, setFocused] = useState(false);
 
     return (
@@ -32,14 +30,14 @@ export const AppTextField: React.FC<AppTextFieldProps> = ({
             <MatteSurface
                 radius={Radius.control}
                 level="control"
-                edge={error ? colors.error : focused ? foreground : undefined}
+                edge={error ? colors.error : undefined}
                 style={[styles.inputShell, multiline && styles.multilineShell, !editable && styles.disabled]}
             >
-                {leadingIcon ? <Ionicons name={leadingIcon} size={Control.icon} color={focused ? foreground : colors.textTertiary} /> : null}
+                {leadingIcon ? <Ionicons name={leadingIcon} size={Control.icon} color={focused ? colors.textSecondary : colors.textTertiary} /> : null}
                 <TextInput
                     accessibilityLabel={label}
                     placeholderTextColor={colors.textTertiary}
-                    selectionColor={foreground}
+                    selectionColor={colors.textPrimary}
                     {...inputProps}
                     editable={editable}
                     multiline={multiline}

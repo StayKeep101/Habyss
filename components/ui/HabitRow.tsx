@@ -38,7 +38,7 @@ export function HabitRow({ title, meta, icon, color, done, kind = 'habit', trail
             </Pressable>
             {icon ? (
                 <View style={{ width: t.space['3xl'], height: t.space['3xl'], borderRadius: t.radius.sm, backgroundColor: t.tint('subtle', tintColor), alignItems: 'center', justifyContent: 'center' }}>
-                    <AppIcon name={icon} size={t.space.lg} color={tintColor} />
+                    <AppIcon filled name={icon} size={t.space.lg} color={tintColor} />
                 </View>
             ) : null}
             <View style={{ flex: 1, gap: t.space.xs / 2 }}>

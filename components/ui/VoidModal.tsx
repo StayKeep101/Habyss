@@ -1,8 +1,11 @@
 import React from 'react';
-import { Modal, Platform, StyleProp, View, ViewStyle } from 'react-native';
+import { Modal, Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { VoidShell } from '@/components/ui/VoidShell';
+import { useTheme } from '@/context/ThemeContext';
+import { Colors } from '@/theme/colors';
+import { surfaceFor } from '@/theme/designSystem';
 
 interface VoidModalProps {
     visible: boolean;
@@ -28,6 +31,9 @@ interface VoidModalProps {
  */
 export const VoidModal: React.FC<VoidModalProps> = ({ visible, onClose, children, style, onDismiss }) => {
     const insets = useSafeAreaInsets();
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const tone = surfaceFor(theme);
 
     return (
         <Modal
@@ -39,13 +45,19 @@ export const VoidModal: React.FC<VoidModalProps> = ({ visible, onClose, children
             onDismiss={onDismiss}
         >
             <GestureHandlerRootView style={{ flex: 1 }}>
-                <VoidShell>
+                {/* The card's own material: lit at the top and falling into the
+                    page colour, so the window reads as raised over the dimmed
+                    screen behind it (iOS draws that dim; a native sheet cannot
+                    cast a shadow of its own). */}
+                <View style={{ flex: 1, backgroundColor: colors.background }}>
+                    <LinearGradient pointerEvents="none" colors={[tone.top, tone.fill, colors.background]} locations={[0, 0.18, 0.5]}
+                        style={StyleSheet.absoluteFill} />
                     {/* The sheet already starts below the status bar, so only the
                         bottom edge needs insetting. */}
                     <View style={[{ flex: 1, paddingBottom: insets.bottom, paddingTop: Platform.OS === 'ios' ? 0 : insets.top, paddingLeft: insets.left, paddingRight: insets.right }, style]}>
                         {children}
                     </View>
-                </VoidShell>
+                </View>
             </GestureHandlerRootView>
         </Modal>
     );
