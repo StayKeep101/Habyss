@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Dimensions, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
 import { AnimatedCircle, CountUp, MOTION, useProgress } from '@/components/ui/Motion';
 import { router } from 'expo-router';
@@ -7,8 +7,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     Easing, interpolate, runOnJS, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
-import { ScrubLine, ScrubReadout } from '@/components/Common/ScrubReadout';
-import { useScrub } from '@/hooks/useScrub';
 import Svg, { Circle } from 'react-native-svg';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -24,9 +22,8 @@ import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useHistory } from '@/hooks/useHistory';
 import { dayFill, monthDays, monthTotals, type DaySummary } from '@/lib/progressMonth';
 import { streakFrom } from '@/lib/dayComplete';
-import { SectionTitle } from '@/components/ui/SectionTitle';
 import { VoidCard } from '@/components/ui/VoidCard';
-import { ValuePill } from '@/components/Goal/GoalRows';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { dateAt } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/progress.styles';
 
@@ -106,38 +103,6 @@ export default function ProgressScreen() {
         }));
     };
 
-    /**
-     * What the chart can say about each day, worked out once.
-     *
-     * A worklet picks one of these while the finger moves; it never formats a
-     * date itself, which would be slow on that side and would ignore the phone's
-     * own idea of how a date reads.
-     */
-    const labels = useMemo(() => ({
-        days: days.map(day => dateAt(day.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })),
-        totals: days.map(day => {
-            if (day.future) return 'Still to come';
-            const parts = [
-                day.scheduled ? `${day.done.length} of ${day.scheduled} habits` : null,
-                day.tasks.length ? `${day.tasks.length} task${day.tasks.length === 1 ? '' : 's'}` : null,
-            ].filter(Boolean);
-            return parts.length ? parts.join(' · ') : 'Nothing scheduled';
-        }),
-    }), [days]);
-
-    const [chartWidth, setChartWidth] = useState(0);
-    const chartRef = React.useRef<View>(null);
-    const chartFrame = React.useRef<LayoutRectangle | null>(null);
-    const onChartWidth = useCallback((event: LayoutChangeEvent) => {
-        setChartWidth(event.nativeEvent.layout.width);
-        // Where the bars are on screen, so the card can grow out of the one the
-        // finger lifted from rather than appearing from nowhere.
-        chartRef.current?.measureInWindow((x, y, width, height) => { chartFrame.current = { x, y, width, height }; });
-    }, []);
-
-    // Reading only: dragging shows the day in the heading above the chart, and
-    // lifting the finger does nothing. Days open from the calendar.
-    const scrub = useScrub({ count: days.length, width: chartWidth, mode: 'slots', gap: 1 });
 
     /**
      * Swipe the calendar sideways to change month, like Calendar does: left for
@@ -202,14 +167,19 @@ export default function ProgressScreen() {
     return (
         <SheetScreen title="Streak" onBack={() => router.back()} backIcon="close">
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
-                {/* The answer first. */}
+                {/* The answer first, and the month in four numbers — small, so
+                    the whole calendar fits on screen underneath. */}
                 <View style={styles.hero}>
                     <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={streak} />
-                    <View style={styles.heroLabelRow}>
-                        <Ionicons name="flame" size={16} color={colors.warning} />
-                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{streak === 1 ? 'day in a row' : 'days in a row'}</Text>
-                    </View>
+                    <Ionicons name="flame" size={18} color={colors.warning} />
+                    <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{streak === 1 ? 'day in a row' : 'days in a row'}</Text>
                 </View>
+                <VoidCard style={styles.stats}>
+                    <MiniStat label="Active days" value={totals.activeDays} change={totals.activeDays - before.activeDays} replay={offset} />
+                    <MiniStat label="Perfect" value={totals.perfectDays} change={totals.perfectDays - before.perfectDays} replay={offset} />
+                    <MiniStat label="Habits kept" value={totals.rate} suffix="%" change={totals.rate !== null && before.rate !== null ? totals.rate - before.rate : 0} replay={offset} />
+                    <MiniStat label="Tasks" value={totals.tasks} change={totals.tasks - before.tasks} replay={offset} />
+                </VoidCard>
 
                 {/* Swipe the calendar for another month. */}
                 <View style={styles.monthRow} accessible accessibilityLabel={month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
@@ -241,57 +211,6 @@ export default function ProgressScreen() {
                 </Animated.View>
                 </GestureDetector>
 
-                {/* The month in numbers, each against the same days of last month. */}
-                <View>
-                    <SectionTitle>This month</SectionTitle>
-                    <VoidCard style={styles.list}>
-                        <NumberRow label="Days active" value={totals.activeDays} change={totals.activeDays - before.activeDays} replay={offset} />
-                        <NumberRow label="Perfect days" value={totals.perfectDays} change={totals.perfectDays - before.perfectDays} replay={offset} />
-                        <NumberRow label="Habits done" value={totals.checkIns} change={totals.checkIns - before.checkIns} replay={offset} />
-                        <NumberRow label="Habits kept" value={totals.rate} suffix="%" change={totals.rate !== null && before.rate !== null ? totals.rate - before.rate : 0} replay={offset} />
-                        <NumberRow label="Tasks done" value={totals.tasks} change={totals.tasks - before.tasks} replay={offset} />
-                    </VoidCard>
-                </View>
-
-                {/* One bar per day, so a good week is visible as a shape — and
-                    readable with a finger, the way a portfolio chart is. The
-                    reading runs on the UI thread, so it keeps up with the drag
-                    however much the rest of the page is doing. */}
-                <View style={styles.chartHead}>
-                    <ScrubReadout
-                        labels={labels.days} idle="Every day"
-                        index={scrub.index}
-                        style={[styles.readDay, { color: colors.textPrimary }]}
-                        accessibilityLabel="The day being read"
-                    />
-                    <ScrubReadout
-                        labels={labels.totals} idle={`${totals.checkIns + totals.tasks} this month`}
-                        index={scrub.index}
-                        style={[styles.readTotal, { color: colors.textSecondary }]}
-                    />
-                </View>
-
-                <GestureDetector gesture={scrub.gesture}>
-                    <View ref={chartRef} style={styles.chart} onLayout={onChartWidth}>
-                        {days.map((day, index) => (
-                            <DayBar
-                                key={day.date}
-                                replay={offset}
-                                day={day}
-                                index={index}
-                                reading={scrub.index}
-                                busiest={totals.busiest}
-                                accent={accent}
-                                idle={isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)'}
-                            />
-                        ))}
-                        <ScrubLine x={scrub.x} active={scrub.active} color={colors.textTertiary} height={80} />
-                    </View>
-                </GestureDetector>
-                <View style={styles.chartAxis}>
-                    <Text style={[styles.axisText, { color: colors.textTertiary }]}>1</Text>
-                    <Text style={[styles.axisText, { color: colors.textTertiary }]}>{days.length}</Text>
-                </View>
             </ScrollView>
 
             {/* The tapped ring, grown into a card. */}
@@ -375,48 +294,22 @@ const DayCell = React.memo(function DayCell({ day, index, today, accent, colors,
     );
 });
 
-/**
- * One day's bar, which lights up under the finger.
- *
- * It compares itself with the scrubbing index on the UI thread rather than
- * being told by React, so dragging across a month costs no renders at all.
- */
-const DayBar = ({ day, index, reading, busiest, accent, idle, replay }: {
-    day: DaySummary; index: number; reading: SharedValue<number>;
-    busiest: number; accent: string; idle: string; replay: number;
-}) => {
-    const height = Math.max(day.total ? 6 : 2, busiest ? (day.total / busiest) * 74 : 0);
-    // Grows up from the axis, one bar after another, whenever the month changes.
-    const grown = useProgress(height, index * (MOTION.stagger / 2), replay);
-    const style = useAnimatedStyle(() => {
-        const on = reading.get() === index;
-        return {
-            height: grown.get(),
-            opacity: (day.future ? 0.35 : 1) * (on ? 1 : 0.9), transform: [{ scaleX: on ? 1.6 : 1 }],
-        };
-    });
-
-    return (
-        <View style={styles.barSlot}>
-            <Animated.View style={[styles.bar, style, { backgroundColor: day.total ? accent : idle }]} />
-        </View>
-    );
-};
-
-/** A row of the month: what it is, the number in a pill, and the change since last month. */
-const NumberRow = ({ label, value, suffix = '', change, replay }: {
+/** One of the month's numbers: the figure, its name, and the change since the same days last month. */
+const MiniStat = ({ label, value, suffix = '', change, replay }: {
     label: string; value: number | null; suffix?: string; change: number; replay?: unknown;
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const tone = change > 0 ? colors.success : change < 0 ? colors.error : colors.textTertiary;
     return (
-        <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
-            {value !== null && change !== 0 ? (
-                <Text style={[styles.rowChange, { color: tone }]}>{change > 0 ? '+' : '−'}{Math.abs(change)}{suffix}</Text>
-            ) : null}
-            <ValuePill value={value === null ? '—' : `${value}${suffix}`} key={String(replay)} />
+        <View style={styles.stat}>
+            <View style={styles.statTop}>
+                <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value === null ? '—' : `${value}${suffix}`} replay={replay} />
+                {value !== null && change !== 0 ? (
+                    <Text style={[styles.statChange, { color: tone }]}>{change > 0 ? '+' : '−'}{Math.abs(change)}</Text>
+                ) : null}
+            </View>
+            <Text numberOfLines={1} style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>
         </View>
     );
 };
@@ -486,12 +379,9 @@ const DayCard = ({ day, frame, morph, screen, colors, isLight, accent, habitName
                 onPress={onClose}
                 style={[StyleSheet.absoluteFill, scrim, { backgroundColor: '#000' }]}
             />
-            <Animated.View
-                style={[styles.card, card, {
-                    backgroundColor: isLight ? '#FFFFFF' : '#12161C',
-                    borderColor: colors.border,
-                }]}
-            >
+            <Animated.View style={[styles.card, card]}>
+                {/* The same matte card as everywhere else; the morphing corner clips it. */}
+                <MatteSurface pointerEvents="none" radius={22} elevation="none" style={StyleSheet.absoluteFill} />
                 <Animated.View style={[styles.cardBody, body]}>
                     <View style={styles.cardHead}>
                         <View>

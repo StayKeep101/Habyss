@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
     trendRow: { flexDirection: 'row', alignItems: 'center', gap: s(10), flexWrap: 'wrap' },
     trend: { flexDirection: 'row', alignItems: 'center', gap: s(4), paddingHorizontal: s(10), paddingVertical: vs(4), borderRadius: 999, borderWidth: 1 },
     trendText: { fontSize: ms(12), fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
-    chart: { flexDirection: 'row', alignItems: 'flex-end', gap: s(8), height: vs(160) },
+    chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, height: vs(160) },
     barTrack: { flex: 1, height: '100%', justifyContent: 'flex-end' },
     bar: { width: '100%', borderRadius: s(8), minHeight: vs(6) },
     axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -vs(10) },

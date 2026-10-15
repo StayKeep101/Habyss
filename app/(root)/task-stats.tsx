@@ -1,5 +1,7 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Text, View, ScrollView, type GestureResponderEvent } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Text, View, ScrollView } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { useScrub } from '@/hooks/useScrub';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { CountUp, useProgress } from '@/components/ui/Motion';
@@ -11,7 +13,6 @@ import { ValuePill } from '@/components/Goal/GoalRows';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
-import { useHaptics } from '@/hooks/useHaptics';
 import { useTasks } from '@/hooks/useTasks';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { focusHistory, focusInsights } from '@/lib/dailyFocus';
@@ -20,6 +21,8 @@ import { todayKey } from '@/lib/tasks';
 import { styles } from '@/styles/screens/task-stats.styles';
 
 const WEEKS = 8;
+/** The space between bars; the scrub needs it to know which bar a finger is on. */
+const CHART_GAP = 8;
 const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 /**
@@ -35,7 +38,6 @@ export default function TaskStatsScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
-    const { selectionFeedback } = useHaptics();
 
     const tasks = useTasks();
     const target = useDailyTarget();
@@ -79,9 +81,7 @@ export default function TaskStatsScreen() {
                     )}
                 </View>
 
-                <WeekChart weeks={weeks} tint={primary} idle={colors.border} picked={picked}
-                    onPick={index => { if (index !== picked) { selectionFeedback(); setPicked(index); } }}
-                    onRelease={() => setPicked(null)} />
+                <WeekChart weeks={weeks} tint={primary} idle={colors.border} picked={picked} onPick={setPicked} />
                 <View style={styles.axis}>
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>{shortDay(weeks[0].start)}</Text>
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>Now</Text>
@@ -114,38 +114,33 @@ const NumberRow = ({ label, value, tone }: { label: string; value: string; tone?
 
 /**
  * One bar per week. Touch and slide along it: the bar under the finger lights
- * up, the others dim, and the big number above reads that week.
+ * up, the others dim, and the big number above reads that week. The finger is
+ * tracked on the UI thread and keeps reading even when it drifts up or down —
+ * the page cannot take the touch away mid-read.
  */
-function WeekChart({ weeks, tint, idle, picked, onPick, onRelease }: {
+function WeekChart({ weeks, tint, idle, picked, onPick }: {
     weeks: WeekDone[]; tint: string; idle: string; picked: number | null;
-    onPick: (index: number) => void; onRelease: () => void;
+    onPick: (index: number | null) => void;
 }) {
-    const width = useRef(1);
+    const [width, setWidth] = useState(0);
+    const scrub = useScrub({ count: weeks.length, width, mode: 'slots', gap: CHART_GAP, onIndex: onPick });
     const ceiling = Math.max(1, ...weeks.map(week => week.done));
-    const pick = (event: GestureResponderEvent) => {
-        const x = event.nativeEvent.locationX;
-        onPick(Math.max(0, Math.min(weeks.length - 1, Math.floor((x / width.current) * weeks.length))));
-    };
     return (
-        <View
-            testID="week-chart"
-            style={styles.chart}
-            onLayout={event => { width.current = Math.max(1, event.nativeEvent.layout.width); }}
-            onStartShouldSetResponder={() => true}
-            onMoveShouldSetResponder={() => true}
-            onResponderTerminationRequest={() => false}
-            onResponderGrant={pick}
-            onResponderMove={pick}
-            onResponderRelease={onRelease}
-            onResponderTerminate={onRelease}
-            accessibilityRole="image"
-            accessibilityLabel={`Tasks done per week: ${weeks.map(week => week.done).join(', ')}`}
-        >
-            {weeks.map((week, index) => (
-                <WeekBar key={week.start} share={week.done / ceiling} index={index} tint={tint} idle={idle}
-                    empty={week.done === 0} lit={picked === null ? index === weeks.length - 1 : picked === index} dim={picked !== null && picked !== index} />
-            ))}
-        </View>
+        <GestureDetector gesture={scrub.gesture}>
+            <View
+                testID="week-chart"
+                style={styles.chart}
+                onLayout={event => setWidth(event.nativeEvent.layout.width)}
+                accessible
+                accessibilityRole="image"
+                accessibilityLabel={`Tasks done per week: ${weeks.map(week => week.done).join(', ')}`}
+            >
+                {weeks.map((week, index) => (
+                    <WeekBar key={week.start} share={week.done / ceiling} index={index} tint={tint} idle={idle}
+                        empty={week.done === 0} lit={picked === null ? index === weeks.length - 1 : picked === index} dim={picked !== null && picked !== index} />
+                ))}
+            </View>
+        </GestureDetector>
     );
 }
 

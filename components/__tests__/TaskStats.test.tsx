@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import TaskStatsScreen from '../../app/(root)/task-stats';
 import { todayKey } from '@/lib/tasks';
 
@@ -12,7 +12,7 @@ let mockTasks: unknown[] = [];
 jest.mock('@/hooks/useTasks', () => ({ useTasks: () => mockTasks }));
 
 describe('the Tasks page', () => {
-    it('leads with this week and reads any week under the finger', async () => {
+    it('leads with this week and draws eight weeks of bars', async () => {
         const today = todayKey();
         const lastWeek = new Date(`${today}T12:00:00`);
         lastWeek.setDate(lastWeek.getDate() - 7);
@@ -23,11 +23,7 @@ describe('the Tasks page', () => {
         expect(screen.getByText('Numbers')).toBeTruthy();
 
         const chart = screen.getByTestId('week-chart');
-        fireEvent(chart, 'layout', { nativeEvent: { layout: { width: 800, height: 160 } } });
-        fireEvent(chart, 'responderGrant', { nativeEvent: { locationX: 700 } });
-        expect(screen.getByText('This week')).toBeTruthy();
-        fireEvent(chart, 'responderRelease', { nativeEvent: { locationX: 700 } });
-        expect(screen.getByText('done this week')).toBeTruthy();
+        expect(chart.props.accessibilityLabel).toMatch(/Tasks done per week: (\d+, ){7}2$/);
         await act(async () => {});
     });
 });
