@@ -137,7 +137,7 @@ export type RadiusToken = keyof typeof radius;
 /*  Type — one family, six styles. Numbers line up in columns.                */
 /* -------------------------------------------------------------------------- */
 
-export type TypeToken = 'display' | 'screenTitle' | 'title' | 'heading' | 'body' | 'bodySmall' | 'caption' | 'label';
+export type TypeToken = 'display' | 'screenTitle' | 'title' | 'heading' | 'body' | 'bodySmall' | 'caption';
 
 export const typeScale: Record<TypeToken, TextStyle> = {
     /** Big numbers: a goal's 62%, a Marks total. */
@@ -152,10 +152,8 @@ export const typeScale: Record<TypeToken, TextStyle> = {
     body: Typography.body,
     /** Secondary running text. */
     bodySmall: Typography.bodySmall,
-    /** Meta lines, hints, small print. */
+    /** Meta lines, hints, field names, small print — the one small style. */
     caption: Typography.caption,
-    /** Section labels in capitals. */
-    label: Typography.label,
 };
 
 /* -------------------------------------------------------------------------- */

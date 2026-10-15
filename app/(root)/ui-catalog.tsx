@@ -14,7 +14,7 @@ import type { TypeToken } from '@/theme/tokens';
 import type { GoalPoint } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/ui-catalog.styles';
 
-const TYPE_STYLES: TypeToken[] = ['display', 'screenTitle', 'title', 'heading', 'body', 'bodySmall', 'caption', 'label'];
+const TYPE_STYLES: TypeToken[] = ['display', 'screenTitle', 'title', 'heading', 'body', 'bodySmall', 'caption'];
 
 const SAMPLE_SERIES: GoalPoint[] = Array.from({ length: 14 }, (_, index) => ({
     date: `2026-10-${String(index + 1).padStart(2, '0')}`,

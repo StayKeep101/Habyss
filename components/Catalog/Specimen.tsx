@@ -23,7 +23,7 @@ export function Specimen({ number, name, file, note, children }: {
                     minWidth: t.space['3xl'], paddingHorizontal: t.space.sm, paddingVertical: t.space.xs / 2,
                     borderRadius: t.radius.full, backgroundColor: t.color.accent, alignItems: 'center',
                 }}>
-                    <Text variant="label" tone="onAccent" numeric>#{number}</Text>
+                    <Text variant="caption" tone="onAccent" numeric>#{number}</Text>
                 </View>
                 <Text variant="heading" grow>{name}</Text>
             </View>
@@ -38,7 +38,7 @@ export function Variant({ letter, label, children }: { letter: string; label: st
     const t = useTokens();
     return (
         <View style={{ gap: t.space.xs }}>
-            <Text variant="label" tone="muted">{letter} · {label}</Text>
+            <Text variant="caption" tone="muted">{letter} · {label}</Text>
             {children}
         </View>
     );

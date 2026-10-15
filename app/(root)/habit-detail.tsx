@@ -308,7 +308,7 @@ export default function HabitDetailScreen() {
                         {/* Only renders when somebody else is on it. */}
                         <SharedWith habitId={habit.id} doneToday={history.find(day => day.date === today)?.completed ?? false} />
 
-                        {habit.description ? <Animated.View layout={transition} style={styles.note}><Text style={[Typography.label, { color: colors.textTertiary }]}>Your intention</Text><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{habit.description}</Text></Animated.View> : null}
+                        {habit.description ? <Animated.View layout={transition} style={styles.note}><Text style={[Typography.caption, { color: colors.textTertiary }]}>Your intention</Text><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>{habit.description}</Text></Animated.View> : null}
                     </>
                 </ScrollView>
 

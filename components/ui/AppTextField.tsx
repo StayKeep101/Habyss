@@ -26,7 +26,7 @@ export const AppTextField: React.FC<AppTextFieldProps> = ({
 
     return (
         <View style={styles.group}>
-            <Text style={[Typography.label, { color: colors.textSecondary }]}>{label}</Text>
+            <Text style={[Typography.caption, { color: colors.textSecondary }]}>{label}</Text>
             <MatteSurface
                 radius={Radius.control}
                 level="control"

@@ -25,7 +25,7 @@ export function StatTile({ value, label, detail, icon, tone = 'primary', size = 
         <View style={{ flex: size === 'compact' ? 1 : undefined, alignItems: align === 'center' ? 'center' : 'flex-start', gap: t.space.xs / 2 }}>
             {icon ? <AppIcon name={icon} size={t.space.lg} color={t.color.accentText} /> : null}
             <Text variant={size === 'hero' ? 'display' : 'title'} tone={tone} numeric accessibilityLabel={value}>{counted}</Text>
-            <Text variant={size === 'hero' ? 'body' : 'label'} tone="muted" align={align}>{label}</Text>
+            <Text variant={size === 'hero' ? 'body' : 'caption'} tone="muted" align={align}>{label}</Text>
             {detail ? <Text variant="caption" tone="muted" align={align}>{detail}</Text> : null}
         </View>
     );

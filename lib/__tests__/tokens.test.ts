@@ -15,7 +15,7 @@ describe('design tokens', () => {
     });
     it('names the corner sizes and text styles the app already uses', () => {
         expect(Object.keys(radius)).toEqual(['sm', 'md', 'lg', 'xl', 'full']);
-        expect(Object.keys(typeScale)).toEqual(['display', 'screenTitle', 'title', 'heading', 'body', 'bodySmall', 'caption', 'label']);
+        expect(Object.keys(typeScale)).toEqual(['display', 'screenTitle', 'title', 'heading', 'body', 'bodySmall', 'caption']);
     });
     it('reads its colours from the current theme', () => {
         const { Colors } = require('@/theme/colors');

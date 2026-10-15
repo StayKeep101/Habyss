@@ -239,7 +239,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                         />
 
                         <View style={styles.group}>
-                            <Text style={[Typography.label, { color: colors.textSecondary }]}>Birthday</Text>
+                            <Text style={[Typography.caption, { color: colors.textSecondary }]}>Birthday</Text>
                             <TouchableOpacity
                                 accessibilityRole="button"
                                 accessibilityLabel={birthday ? `Birthday, ${formatBirthday(birthday)}` : 'Add your birthday'}
@@ -261,7 +261,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                         </View>
 
                         <View style={styles.group}>
-                            <Text style={[Typography.label, { color: colors.textSecondary }]}>Gender</Text>
+                            <Text style={[Typography.caption, { color: colors.textSecondary }]}>Gender</Text>
                             <TouchableOpacity
                                 accessibilityRole="button"
                                 accessibilityLabel={gender ? `Gender, ${gender}` : 'Choose a gender'}

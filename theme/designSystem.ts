@@ -150,7 +150,6 @@ export const Typography = StyleSheet.create({
     body: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 22 },
     bodySmall: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },
     caption: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 18 },
-    label: { fontFamily: FontFamily.medium, fontSize: 12, lineHeight: 16 },
     button: { fontFamily: FontFamily.semibold, fontSize: 15, lineHeight: 22 },
 });
 
