@@ -64,7 +64,7 @@ export default function UICatalog() {
                     </Text>
                     <Segmented<ThemeMode>
                         accessibilityLabel="Theme"
-                        options={[{ id: 'light', label: 'Light' }, { id: 'abyss', label: 'Habyss' }, { id: 'trueDark', label: 'True dark' }]}
+                        options={[{ id: 'light', label: 'Light' }, { id: 'abyss', label: 'Dark' }]}
                         value={mode === 'system' ? 'abyss' : mode}
                         onChange={setTheme}
                     />

@@ -1,8 +1,8 @@
-import { ActivityIndicator, StyleProp, StyleSheet, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { Control } from '@/theme/designSystem';
+import { Control, FontFamily } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
 
 interface IconButtonProps {
@@ -24,10 +24,12 @@ interface IconButtonProps {
     diameter?: number;
     /** The glyph's colour, when it has to say something. */
     color?: string;
+    /** A count waiting behind the button (unread, requests), shown as a red badge. */
+    badge?: number;
     style?: StyleProp<ViewStyle>;
 }
 
-export function IconButton({ icon, label, onPress, disabled, loading, size = Control.icon, diameter = Control.hitTarget, color, style }: IconButtonProps) {
+export function IconButton({ icon, label, onPress, disabled, loading, size = Control.icon, diameter = Control.hitTarget, color, badge, style }: IconButtonProps) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const tint = color ?? colors.textPrimary;
@@ -44,10 +46,20 @@ export function IconButton({ icon, label, onPress, disabled, loading, size = Con
                         : <Ionicons name={icon} size={size} color={tint} style={{ width: size, height: size, lineHeight: size, textAlign: 'center' }} />}
                 </View>
             </MatteSurface>
+            {badge ? (
+                <View pointerEvents="none" style={[styles.badge, { backgroundColor: colors.error, borderColor: colors.background }]}>
+                    <Text style={styles.badgeText}>{badge > 9 ? '9+' : badge}</Text>
+                </View>
+            ) : null}
         </TouchableOpacity>
     );
 }
 
 const styles = StyleSheet.create({
     centre: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+    badge: {
+        position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, borderWidth: 2,
+        paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center',
+    },
+    badgeText: { color: '#FFFFFF', fontSize: 9, fontFamily: FontFamily.bold },
 });

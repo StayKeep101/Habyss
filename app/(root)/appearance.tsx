@@ -23,8 +23,7 @@ const Appearance = () => {
     const themes: { id: ThemeMode; name: string; icon: string; desc: string }[] = [
         { id: 'system', name: 'System', icon: 'settings-outline', desc: 'Follows device settings' },
         { id: 'light', name: 'Light', icon: 'sunny-outline', desc: 'Bright and clean' },
-        { id: 'abyss', name: 'Habyss', icon: 'moon-outline', desc: 'Signature dark mode' },
-        { id: 'trueDark', name: 'True Dark', icon: 'contrast-outline', desc: 'OLED black' },
+        { id: 'abyss', name: 'Dark', icon: 'moon-outline', desc: 'The Habyss look' },
     ];
 
     const sizes: { id: RoadMapCardSize; name: string }[] = [

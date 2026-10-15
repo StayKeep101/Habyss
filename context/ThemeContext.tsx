@@ -26,7 +26,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Map system 'dark' to 'abyss' as the default dark theme
       setThemeState(systemColorScheme === 'dark' ? 'abyss' : 'light');
     } else {
-      setThemeState(mode as VisualTheme);
+      // Two themes: light, and dark (the Habyss look). True Dark was retired,
+      // so anything that is not light is dark.
+      setThemeState(mode === 'light' ? 'light' : 'abyss');
     }
   }, [mode, systemColorScheme]);
 
@@ -35,7 +37,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         const storedTheme = await AsyncStorage.getItem("theme");
         if (storedTheme) {
-          setModeState(storedTheme as ThemeMode);
+          // Someone who had chosen True Dark lands on Dark.
+          const known: ThemeMode = storedTheme === 'light' || storedTheme === 'system' ? storedTheme : 'abyss';
+          setModeState(known);
+          if (known !== storedTheme) await AsyncStorage.setItem("theme", known);
         } else {
           await AsyncStorage.setItem("theme", "abyss");
           setModeState('abyss');
@@ -49,8 +54,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const setTheme = async (newMode: ThemeMode) => {
-    setModeState(newMode);
-    await AsyncStorage.setItem("theme", newMode);
+    const known: ThemeMode = newMode === 'trueDark' ? 'abyss' : newMode;
+    setModeState(known);
+    await AsyncStorage.setItem("theme", known);
   };
 
   const toggleTheme = async () => {

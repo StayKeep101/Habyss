@@ -7,8 +7,9 @@ import { Elevation, elevationFor, surfaceFor } from '@/theme/designSystem';
 /**
  * The one matte surface every piece of the app is made of, the way Phantom
  * draws its: an opaque body with a soft gradient (lighter at the top, where
- * light falls), one faint hairline of light along the edge, and a shadow
- * underneath that lifts it off whatever it sits on.
+ * light falls) and a shadow underneath that lifts it off whatever it sits on.
+ * No outline: an edge appears only when it has something to say (a focused
+ * field, a chosen chip).
  *
  * Cards, the tab bar, icon buttons, text fields and chips all use it, in
  * their own shape: give it a `radius` (half the height for a circle or pill).
@@ -46,7 +47,7 @@ export function MatteSurface({
         <View
             pointerEvents={pointerEvents}
             style={[
-                { borderRadius: radius, borderWidth: 1, backgroundColor: body, borderColor: edge ?? tone.lip },
+                { borderRadius: radius, borderWidth: 1, backgroundColor: body, borderColor: edge ?? 'transparent' },
                 lift === 'none' ? null : elevationFor(theme, lift),
                 style,
             ]}
