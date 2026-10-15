@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { ListItem } from '@/components/ui/Motion';
 import Animated, {
@@ -177,16 +178,40 @@ const CalendarScreen = () => {
     // 0 while resting, 1 once picked up: lifts, tilts and shrinks the card so it
     // reads as held above the list, the way a dragged file does.
     const dragLift = useSharedValue(0);
+    // Where the list area sits on screen, so the dragged pill lands exactly
+    // under the finger rather than offset by the header above it.
+    const areaX = useSharedValue(0);
+    const areaY = useSharedValue(0);
+    const areaWidth = useSharedValue(0);
+    const listAreaRef = useRef<View>(null);
+    const measureArea = useCallback(() => {
+        listAreaRef.current?.measureInWindow((x, y, width) => { areaX.set(x); areaY.set(y); areaWidth.set(width); });
+    }, [areaX, areaY, areaWidth]);
     const dragPreviewStyle = useAnimatedStyle(() => ({
         transform: [
-            { translateY: dragY.get() - 34 },
-            { translateX: (dragX.get() - 24) * 0.12 },
-            { scale: 0.92 + dragLift.get() * 0.08 },
-            { rotateZ: `${dragLift.get() * 1.6}deg` },
+            // Centred on the finger, a little above it so the thumb does not hide it.
+            { translateX: dragX.get() - areaX.get() - areaWidth.get() / 2 },
+            { translateY: dragY.get() - areaY.get() - 64 },
+            { scale: 0.86 + dragLift.get() * 0.14 },
+            { rotateZ: `${dragLift.get() * 2}deg` },
         ],
         opacity: dragLift.get(),
-        shadowOpacity: 0.35 * dragLift.get(),
     }));
+    // "Remove from goal": a drop zone at the bottom while dragging something in a goal.
+    const removeZoneRef = useRef<View>(null);
+    const removeZone = useRef<{ y: number; height: number } | null>(null);
+    const [overRemove, setOverRemove] = useState(false);
+    const overRemoveRef = useRef(false);
+    const isOverRemove = useCallback((y: number, inGoal: boolean) => {
+        const zone = removeZone.current;
+        return inGoal && !!zone && y >= zone.y - 28 && y <= zone.y + zone.height + 40;
+    }, []);
+    const trackRemove = useCallback((value: boolean) => {
+        if (value === overRemoveRef.current) return;
+        overRemoveRef.current = value;
+        setOverRemove(value);
+        if (value) selectionFeedback();
+    }, [selectionFeedback]);
     const [hoveredGoalId, setHoveredGoalId] = useState<string | null>(null);
     // Mirrors hoveredGoalId so a drag can compare without re-subscribing to state.
     const hoveredGoalRef = useRef<string | null>(null);
@@ -493,9 +518,10 @@ const CalendarScreen = () => {
     const handleHabitDragStart = useCallback(async (habit: Habit, x: number, y: number) => {
         selectionFeedback();
         setDraggingHabit(habit);
+        measureArea();
         dragY.set(y);
         dragX.set(x);
-        dragLift.set(withSpring(1, { damping: 16, stiffness: 220 }));
+        dragLift.set(withSpring(1, { damping: 18, stiffness: 260 }));
         const currentGoals = habitsStore.filter((item) => item.isGoal) as Habit[];
         await measureGoalDropTargets(currentGoals);
         const initial = getHoveredGoalAtPoint(x, y);
@@ -510,7 +536,9 @@ const CalendarScreen = () => {
         // row for each frame of the drag.
         dragY.set(y);
         dragX.set(x);
-        const next = getHoveredGoalAtPoint(x, y);
+        const removing = isOverRemove(y, !!habit.goalId);
+        trackRemove(removing);
+        const next = removing ? null : getHoveredGoalAtPoint(x, y);
         if (next !== hoveredGoalRef.current) {
             hoveredGoalRef.current = next;
             setHoveredGoalId(next);
@@ -518,16 +546,30 @@ const CalendarScreen = () => {
             // felt rather than guessed at.
             if (next) selectionFeedback();
         }
-    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY]);
+    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove]);
 
     const handleHabitDragEnd = useCallback(async (habit: Habit, x: number, y: number) => {
-        const targetGoalId = getHoveredGoalAtPoint(x, y);
+        const removing = isOverRemove(y, !!habit.goalId);
+        const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
 
         // The card settles back into the list instead of vanishing mid-air.
         dragLift.set(withTiming(0, { duration: 170 }));
         setDraggingHabit(null);
         hoveredGoalRef.current = null;
         setHoveredGoalId(null);
+        trackRemove(false);
+
+        if (removing) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: undefined } : item));
+            lightFeedback();
+            try { await updateHabit({ id: habit.id, goalId: null as unknown as undefined }); }
+            catch {
+                setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
+                Alert.alert('Could not remove it', 'Your habit is still in its goal. Please try again.');
+            }
+            return;
+        }
 
         if (!targetGoalId || targetGoalId === habit.goalId) {
             return;
@@ -543,7 +585,7 @@ const CalendarScreen = () => {
             setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
             Alert.alert('Could not move habit', 'Your habit is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove]);
 
     /**
      * Tasks move between goals exactly like habits: hold one, drag it onto a
@@ -553,32 +595,49 @@ const CalendarScreen = () => {
     const handleTaskDragStart = useCallback(async (task: Task, x: number, y: number) => {
         selectionFeedback();
         setDraggingTask(task);
+        measureArea();
         dragY.set(y);
         dragX.set(x);
-        dragLift.set(withSpring(1, { damping: 16, stiffness: 220 }));
+        dragLift.set(withSpring(1, { damping: 18, stiffness: 260 }));
         await measureGoalDropTargets(habitsStore.filter(item => item.isGoal) as Habit[]);
         const initial = getHoveredGoalAtPoint(x, y);
         hoveredGoalRef.current = initial;
         setHoveredGoalId(initial);
     }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift]);
 
-    const handleTaskDragMove = useCallback((_task: Task, x: number, y: number) => {
+    const handleTaskDragMove = useCallback((task: Task, x: number, y: number) => {
         dragY.set(y);
         dragX.set(x);
-        const next = getHoveredGoalAtPoint(x, y);
+        const removing = isOverRemove(y, !!task.goalId);
+        trackRemove(removing);
+        const next = removing ? null : getHoveredGoalAtPoint(x, y);
         if (next !== hoveredGoalRef.current) {
             hoveredGoalRef.current = next;
             setHoveredGoalId(next);
             if (next) selectionFeedback();
         }
-    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY]);
+    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove]);
 
     const handleTaskDragEnd = useCallback(async (task: Task, x: number, y: number) => {
-        const targetGoalId = getHoveredGoalAtPoint(x, y);
+        const removing = isOverRemove(y, !!task.goalId);
+        const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
         dragLift.set(withTiming(0, { duration: 170 }));
         setDraggingTask(null);
         hoveredGoalRef.current = null;
         setHoveredGoalId(null);
+        trackRemove(false);
+
+        if (removing) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: undefined } : item));
+            lightFeedback();
+            try { await updateTask(task.id, { goalId: null }); emit('tasks_changed'); }
+            catch {
+                setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: task.goalId } : item));
+                Alert.alert('Could not remove it', 'Your task is still in its goal. Please try again.');
+            }
+            return;
+        }
 
         if (!targetGoalId || targetGoalId === task.goalId) return;
 
@@ -593,7 +652,7 @@ const CalendarScreen = () => {
             setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: task.goalId } : item));
             Alert.alert('Could not move task', 'Your task is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove]);
 
     const toggleGoalExpansion = (goalId: string) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -792,7 +851,7 @@ const CalendarScreen = () => {
                         />
                     </View>
 
-                    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+                    <View ref={listAreaRef} onLayout={measureArea} style={{ flex: 1, backgroundColor: 'transparent' }}>
                         <Animated.View pointerEvents="none" style={[styles.pullIcon, pullIcon]}>
                             <MatteSurface radius={18} level="control" style={styles.pullDisc}>
                                 <Ionicons name="filter" size={16} color={colors.textPrimary} />
@@ -1079,29 +1138,32 @@ const CalendarScreen = () => {
 
                         {draggingHabit || draggingTask ? (
                             <View pointerEvents="none" style={styles.dragOverlay}>
-                                <Animated.View
-                                    style={[
-                                        styles.dragPreview,
-                                        dragPreviewStyle,
-                                        {
-                                            top: 0,
-                                            left: 20,
-                                            right: 20,
-                                            borderColor: hoveredGoalId ? accentColor : colors.border,
-                                            backgroundColor: isLight ? 'rgba(255,255,255,0.98)' : 'rgba(10,12,16,0.96)',
-                                        },
-                                    ]}
-                                >
-                                    {/* The same preview for both kinds of row. */}
-                                    <Ionicons
-                                        name={draggingTask ? 'flash' : ((draggingHabit?.icon as any) || 'ellipse-outline')}
-                                        size={16}
-                                        color={draggingTask ? TASK_COLOR : (draggingHabit?.color || accentColor)}
-                                    />
-                                    <Text style={[styles.dragPreviewText, { color: colors.text }]} numberOfLines={1}>
-                                        {`Move "${draggingTask?.title ?? draggingHabit?.name ?? ''}" into ${hoveredGoalId ? goals.find((goal) => goal.id === hoveredGoalId)?.name || 'goal' : 'a goal'}`}
-                                    </Text>
+                                {/* The thing being moved: a small matte pill under the finger. */}
+                                <Animated.View style={[styles.dragFloat, dragPreviewStyle]}>
+                                    <MatteSurface radius={999} elevation="floating" style={styles.dragPill}>
+                                        <IconTile icon={draggingTask ? 'flash' : ((draggingHabit?.icon as any) || 'ellipse')}
+                                            color={draggingTask ? TASK_COLOR : (draggingHabit?.color || accentColor)} size={26} />
+                                        <Text style={[styles.dragPreviewText, { color: colors.textPrimary }]} numberOfLines={1}>
+                                            {draggingTask?.title ?? draggingHabit?.name ?? ''}
+                                        </Text>
+                                    </MatteSurface>
+                                    {hoveredGoalId ? (
+                                        <Text style={[styles.dragHint, { color: colors.textSecondary }]} numberOfLines={1}>
+                                            Into {goals.find(goal => goal.id === hoveredGoalId)?.name ?? 'goal'}
+                                        </Text>
+                                    ) : null}
                                 </Animated.View>
+
+                                {/* Drop here to take it out of its goal. */}
+                                {(draggingTask?.goalId || draggingHabit?.goalId) ? (
+                                    <View ref={removeZoneRef} style={[styles.removeZone, { bottom: tabBarClearance - 24 }]}
+                                        onLayout={() => removeZoneRef.current?.measureInWindow((_x, y, _w, height) => { removeZone.current = { y, height }; })}>
+                                        <MatteSurface radius={999} elevation="floating" tint={overRemove ? colors.error : undefined} style={styles.removePill}>
+                                            <Ionicons name="remove-circle" size={18} color={overRemove ? '#FFFFFF' : colors.error} />
+                                            <Text style={[styles.dragPreviewText, { color: overRemove ? '#FFFFFF' : colors.textPrimary, flex: 0 }]}>Remove from goal</Text>
+                                        </MatteSurface>
+                                    </View>
+                                ) : null}
                             </View>
                         ) : null}
                     </View>
