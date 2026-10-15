@@ -106,15 +106,21 @@ export default function GoalsOverview() {
                                         accessibilityRole="button"
                                         accessibilityLabel={`${goal.name}: ${state.label}, ${insights.progress}% done. ${next ?? ''}`}
                                         onPress={() => { lightFeedback(); router.push({ pathname: '/goal-detail', params: { goalId: goal.id } }); }}
-                                        style={[styles.row, { backgroundColor: light ? '#FFFFFF' : 'rgba(255,255,255,0.04)', borderColor: colors.border }]}
-                                    >
+                                    ><VoidCard style={styles.row}>
                                         <View style={styles.rowTop}>
                                             <Text numberOfLines={1} style={[styles.name, { color: colors.textPrimary }]}>{goal.name}</Text>
                                             <CountUp style={[styles.percent, { color: colors.textPrimary }]} value={`${insights.progress}%`} />
                                         </View>
-                                        <View style={[styles.bar, { backgroundColor: track }]}>
-                                            <AnimatedFill progress={Math.min(100, insights.progress) / 100} style={[styles.fill, { backgroundColor: color }]} />
-                                        </View>
+                                        {/* The goal's own line, in its own colour; a bar until it has two days. */}
+                                        {insights.series.length > 1 ? (
+                                            <View pointerEvents="none" style={styles.miniChart}>
+                                                <GoalProgressChart series={insights.series} color={color} compact height={64} label={`${goal.name} progress`} />
+                                            </View>
+                                        ) : (
+                                            <View style={[styles.bar, { backgroundColor: track }]}>
+                                                <AnimatedFill progress={Math.min(100, insights.progress) / 100} style={[styles.fill, { backgroundColor: color }]} />
+                                            </View>
+                                        )}
                                         <View style={styles.rowBottom}>
                                             <View style={[styles.pill, { backgroundColor: state.color + '1F' }]}>
                                                 <View style={[styles.dot, { backgroundColor: state.color }]} />
@@ -122,7 +128,7 @@ export default function GoalsOverview() {
                                             </View>
                                             {next ? <Text numberOfLines={1} style={[styles.next, { color: colors.textSecondary }]}>{next}</Text> : null}
                                         </View>
-                                    </Pressable></ListItem>
+                                    </VoidCard></Pressable></ListItem>
                                 );
                             })}
                         </View>
