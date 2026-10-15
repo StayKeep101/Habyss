@@ -222,13 +222,15 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                 <View style={[
                   styles.checkbox,
                   { width: checkboxSize, height: checkboxSize, borderRadius: checkboxSize / 2 },
-                  doneByMe && { backgroundColor: accentColor + '30', borderColor: accentColor },
-                  isActive && { borderColor: accentColor, backgroundColor: accentColor + '20' },
+                  // Done: a solid disc of the habit's colour with a tick, the
+                  // way every chosen thing is drawn. Running: a ring, no fill.
+                  doneByMe && { backgroundColor: habit.color || accentColor, borderColor: habit.color || accentColor },
+                  isActive && { borderColor: habit.color || accentColor },
                   // A skipped day is drawn as set aside, not as failed.
                   skipped && !doneByMe && { borderStyle: 'dashed', borderColor: colors.textTertiary },
                 ]}>
                   {isCompleted || isActive ? (
-                    <Ionicons name={isCompleted ? 'checkmark' : 'play'} size={checkboxSize * 0.7} color={accentColor} />
+                    <Ionicons name={isCompleted ? 'checkmark' : 'play'} size={checkboxSize * 0.7} color={isCompleted ? textOn(habit.color || accentColor) : (habit.color || accentColor)} />
                   ) : skipped ? (
                     <Ionicons name="remove" size={checkboxSize * 0.7} color={colors.textTertiary} />
                   ) : null}
@@ -264,9 +266,9 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={() => onFocusPress(habit)}
-                  style={[styles.metaBadge, styles.metaBadgeCompact, { backgroundColor: accentColor + '1c', borderColor: accentColor + '38' }]}
+                  style={[styles.metaBadge, styles.metaBadgeCompact, { backgroundColor: colors.surfaceTertiary, borderColor: 'transparent' }]}
                 >
-                  <Text style={[styles.metaBadgeText, { color: accentColor }]}>Focus now</Text>
+                  <Text style={[styles.metaBadgeText, { color: colors.textPrimary }]}>Focus now</Text>
                 </TouchableOpacity>
               ) : null}
             </View>

@@ -32,6 +32,10 @@ export default function Help() {
         <SheetScreen title="Help" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <SettingsGroup>
+                    <SettingsRow icon="book" color="#FFB020" label="How Habyss works" onPress={() => router.push('/(root)/guide')} />
+                </SettingsGroup>
+
+                <SettingsGroup>
                     <SettingsRow icon="chatbubble" color="#5B8CFF" label="Send feedback"
                         onPress={() => emit('show_feedback', { screen: 'help' })} />
                     <SettingsRow icon="mail" color="#3DDC97" label="Email support"

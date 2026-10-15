@@ -167,7 +167,7 @@ export const DayCard: React.FC<{
                             {card.isYou ? 'You' : card.username}
                         </Text>
                         {marks !== undefined ? (
-                            <Text numberOfLines={1} style={[styles.rankTag, { color: primary, borderColor: primary + '55' }]}>
+                            <Text numberOfLines={1} style={[styles.rankTag, { color: colors.textTertiary, borderColor: 'transparent' }]}>
                                 {`${rankFor(marks).rank.name} · ${marks.toLocaleString()}`}
                             </Text>
                         ) : null}
@@ -436,7 +436,7 @@ const Reaction: React.FC<{
             onPress={onPress}
             style={styles.reactionPress}
         >
-            <Animated.View style={[styles.halo, halo, { backgroundColor: accent + '22' }]} />
+            <Animated.View style={[styles.halo, halo, { backgroundColor: accent + '22' }]} /> {/* ui-allow: decorative */}
             <Animated.Text style={[styles.glyph, style]}>{glyph}</Animated.Text>
         </Pressable>
     );

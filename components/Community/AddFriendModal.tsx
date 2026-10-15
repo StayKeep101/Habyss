@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
+import { AppButton } from '@/components/ui/AppButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -157,9 +158,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                     return (
                         <View style={styles.centerContainer}>
                             <Text style={{ color: colors.text, textAlign: 'center', marginBottom: 20 }}>Camera permission is required to scan QR codes.</Text>
-                            <TouchableOpacity onPress={requestPermission} style={[styles.addBtn, { backgroundColor: colors.primary }]}>
-                                <Text style={styles.addBtnText}>Grant Permission</Text>
-                            </TouchableOpacity>
+                            <AppButton label="Allow camera" onPress={requestPermission} />
                         </View>
                     );
                 }

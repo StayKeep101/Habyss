@@ -355,13 +355,13 @@ export default function AccountScreen() {
 
                         {message ? (
                             <View style={[styles.note, {
-                                backgroundColor: message.tone === 'error' ? colors.error + '18' : accent + '14',
-                                borderColor: message.tone === 'error' ? colors.error + '44' : accent + '44',
+                                backgroundColor: message.tone === 'error' ? colors.error + '18' : colors.surfaceTertiary,
+                                borderColor: 'transparent',
                             }]}>
                                 <Ionicons
                                     name={message.tone === 'error' ? 'alert-circle-outline' : 'checkmark-circle-outline'}
                                     size={16}
-                                    color={message.tone === 'error' ? colors.error : accent}
+                                    color={message.tone === 'error' ? colors.error : colors.success}
                                 />
                                 <Text style={[styles.noteText, { color: message.tone === 'error' ? colors.error : colors.textPrimary }]}>{message.text}</Text>
                             </View>

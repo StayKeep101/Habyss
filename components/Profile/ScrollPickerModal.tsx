@@ -48,9 +48,9 @@ export const ScrollPickerModal: React.FC<ScrollPickerModalProps> = ({ visible, o
                                 styles.row,
                                 {
                                     backgroundColor: isSelected
-                                        ? accent + '1A'
+                                        ? colors.textPrimary
                                         : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)',
-                                    borderColor: isSelected ? accent + '55' : 'transparent',
+                                    borderColor: 'transparent',
                                 },
                             ]}
                             onPress={() => {
@@ -61,13 +61,13 @@ export const ScrollPickerModal: React.FC<ScrollPickerModalProps> = ({ visible, o
                             <Text
                                 style={[
                                     styles.rowText,
-                                    { color: isSelected ? accent : colors.textPrimary },
+                                    { color: isSelected ? colors.background : colors.textPrimary },
                                 ]}
                             >
                                 {item}
                             </Text>
                             {isSelected ? (
-                                <Ionicons name="checkmark-circle" size={20} color={accent} />
+                                <Ionicons name="checkmark-circle" size={20} color={colors.background} />
                             ) : null}
                         </TouchableOpacity>
                     );

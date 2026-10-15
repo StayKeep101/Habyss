@@ -1,6 +1,8 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { textOn } from '@/theme/tokens';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -257,7 +259,6 @@ export default function OnboardingScreen() {
     /* ------------------------------------------------------------ shared bits */
 
     // Black or white, whichever reads better on the user's accent colour.
-    const onAccent = contrastRatio(accent, '#000000') >= contrastRatio(accent, '#FFFFFF') ? '#000000' : '#FFFFFF';
 
     const PrimaryButton = ({ label, onPress, disabled, busy }: { label: string; onPress: () => void; disabled?: boolean; busy?: boolean }) => (
         <TouchableOpacity
@@ -265,17 +266,20 @@ export default function OnboardingScreen() {
             accessibilityState={{ disabled: !!disabled }}
             disabled={disabled || busy}
             onPress={() => { lightFeedback(); onPress(); }}
-            style={[styles.primaryBtn, { backgroundColor: disabled ? (isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)') : accent }]}
+            style={{ opacity: disabled ? 0.5 : 1 }}
         >
-            {busy ? <ActivityIndicator color={onAccent} /> : (
-                <Text style={[styles.primaryBtnText, { color: disabled ? colors.textTertiary : onAccent }]}>{label}</Text>
-            )}
+            {/* Matte, like every button in the app. */}
+            <MatteSurface radius={999} level="control" style={styles.primaryBtn}>
+                {busy ? <ActivityIndicator color={colors.textPrimary} /> : (
+                    <Text style={[styles.primaryBtnText, { color: colors.textPrimary }]}>{label}</Text>
+                )}
+            </MatteSurface>
         </TouchableOpacity>
     );
 
     const SectionTitle = ({ children, description }: { children: string; description?: string }) => (
         <View style={{ marginBottom: 14 }}>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{children.toUpperCase()}</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{children}</Text>
             {description ? <Text style={[styles.sectionDesc, { color: colors.textTertiary }]}>{description}</Text> : null}
         </View>
     );
@@ -289,20 +293,20 @@ export default function OnboardingScreen() {
             activeOpacity={0.85}
             onPress={() => { lightFeedback(); onPress(); }}
             style={[styles.choice, {
-                backgroundColor: selected ? accent + '14' : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
-                borderColor: selected ? accent : 'transparent',
+                backgroundColor: selected ? colors.surfaceTertiary : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
+                borderColor: 'transparent',
             }]}
         >
             {icon ? (
-                <View style={[styles.choiceIcon, { backgroundColor: selected ? accent + '22' : (isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.06)') }]}>
-                    <Ionicons name={icon as any} size={20} color={selected ? accent : colors.textSecondary} />
+                <View style={[styles.choiceIcon, { backgroundColor: selected ? accent : (isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.06)') }]}>
+                    <Ionicons filled={selected} name={icon as any} size={20} color={selected ? textOn(accent) : colors.textSecondary} />
                 </View>
             ) : null}
             <View style={{ flex: 1 }}>
                 <Text style={[styles.choiceTitle, { color: colors.textPrimary }]}>{title}</Text>
                 {subtitle ? <Text style={[styles.choiceSub, { color: colors.textTertiary }]}>{subtitle}</Text> : null}
             </View>
-            {trailing ?? <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={selected ? accent : colors.textTertiary} />}
+            {trailing ?? <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={selected ? colors.textPrimary : colors.textTertiary} />}
         </TouchableOpacity>
     );
 
@@ -534,7 +538,7 @@ export default function OnboardingScreen() {
     const renderMeetEcho = () => (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.meetMark}>
-                <View style={[styles.meetGlow, { backgroundColor: accent + '1a', shadowColor: accent }]}>
+                <View style={[styles.meetGlow, { backgroundColor: accent + '1a', shadowColor: accent }]}> {/* ui-allow: decorative */}
                     <Ionicons name="sparkles" size={26} color={accent} />
                 </View>
             </View>
@@ -622,19 +626,19 @@ export default function OnboardingScreen() {
                                 activeOpacity={0.85}
                                 onPress={() => { lightFeedback(); update({ echo: mode.id }); }}
                                 style={[styles.echoCard, {
-                                    backgroundColor: selected ? accent + '14' : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
-                                    borderColor: selected ? accent : 'transparent',
+                                    backgroundColor: selected ? colors.surfaceTertiary : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
+                                    borderColor: 'transparent',
                                 }]}
                             >
                                 <View style={styles.echoHead}>
-                                    <Ionicons name={mode.icon as any} size={18} color={selected ? accent : colors.textSecondary} />
+                                    <Ionicons name={mode.icon as any} size={18} color={selected ? colors.textPrimary : colors.textSecondary} />
                                     <Text style={[styles.choiceTitle, { color: colors.textPrimary, flex: 1 }]}>{mode.name}</Text>
                                     {suggested ? (
-                                        <View style={[styles.suggestedTag, { backgroundColor: accent + '1f', borderColor: accent + '55' }]}>
-                                            <Text style={[styles.suggestedText, { color: accent }]}>FOR YOU</Text>
+                                        <View style={[styles.suggestedTag, { backgroundColor: colors.surfaceTertiary, borderColor: 'transparent' }]}>
+                                            <Text style={[styles.suggestedText, { color: colors.textSecondary }]}>For you</Text>
                                         </View>
                                     ) : null}
-                                    <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={selected ? accent : colors.textTertiary} />
+                                    <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={selected ? colors.textPrimary : colors.textTertiary} />
                                 </View>
                                 {/* What Echo would actually say, so the choice is felt, not described. */}
                                 <Text style={[styles.echoQuote, { color: colors.textSecondary }]}>“{coachHello(mode.id, draft.name)}”</Text>

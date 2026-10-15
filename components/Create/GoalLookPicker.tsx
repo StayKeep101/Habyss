@@ -197,8 +197,8 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
             {(['icons', 'color'] as const).map(item => <Pressable key={item} accessibilityRole="tab"
                 accessibilityLabel={item === 'icons' ? `${subject} icons` : `${subject} color`} accessibilityState={{ selected: tab === item }}
                 onPress={() => { selectionFeedback(); setTab(item); }}
-                style={[styles.tab, { backgroundColor: tab === item ? color + '20' : 'transparent', borderColor: tab === item ? tint : colors.border }]}>
-                <Text style={[styles.label, { color: tab === item ? tint : colors.textSecondary }]}>{item === 'icons' ? 'Icon' : 'Colour'}</Text>
+                style={[styles.tab, { backgroundColor: tab === item ? color : 'transparent', borderColor: tab === item ? color : colors.border }]}>
+                <Text style={[styles.label, { color: tab === item ? textOn(color) : colors.textSecondary }]}>{item === 'icons' ? 'Icon' : 'Colour'}</Text>
             </Pressable>)}
         </View>
 
@@ -218,7 +218,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                     <Pressable accessibilityRole="button" accessibilityLabel={photo ? 'Change your own picture' : 'Use your own picture'}
                         accessibilityState={{ selected: !!photo }}
                         onPress={() => { selectionFeedback(); void pickPhoto(); }}
-                        style={[styles.icon, { backgroundColor: photo ? color + '20' : 'transparent', borderColor: photo ? tint : colors.border }]}>
+                        style={[styles.icon, { backgroundColor: colors.surfaceTertiary, borderColor: photo ? color : 'transparent' }]}>
                         {photo
                             ? <AppIcon name={photo} size={30} />
                             : <AppIcon name="image-outline" size={22} color={colors.textSecondary} />}

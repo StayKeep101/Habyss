@@ -81,7 +81,7 @@ export const SharedWith: React.FC<{ habitId: string; doneToday: boolean }> = ({ 
                             key={person.userId}
                             style={[styles.face, {
                                 borderColor: person.done ? colors.success : colors.border,
-                                backgroundColor: primary + '18',
+                                backgroundColor: colors.surfaceTertiary,
                             }]}
                         >
                             {person.avatarUrl ? (

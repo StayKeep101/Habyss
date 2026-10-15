@@ -2,6 +2,7 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { CountUp, ListItem } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
@@ -133,9 +134,7 @@ export default function GoalRoadmapScreen() {
                                     onPress={() => { lightFeedback(); router.push({ pathname: '/goal-detail', params: { goalId: plan.goal.id } }); }}
                                     style={styles.goalRow}
                                 >
-                                    <View style={[styles.icon, { backgroundColor: accent + '22' }]}>
-                                        <Ionicons name="flag-outline" size={18} color={accent} />
-                                    </View>
+                                    <IconTile icon={plan.goal.icon || 'flag'} color={plan.goal.color || accent} size={36} shape="square" />
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.goalName, { color: colors.textPrimary }]} numberOfLines={2}>{plan.goal.name}</Text>
                                         {targetOf(plan.goal) ? (

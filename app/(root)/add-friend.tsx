@@ -3,6 +3,7 @@ import { ModalHeader } from '@/components/ui/ModalHeader';
 import { FontFamily } from '@/theme/designSystem';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -77,9 +78,7 @@ export default function AddFriendScreen() {
             <SafeAreaView style={{ flex: 1 }}>
                 <ModalHeader title="Add friend" onBack={close} backIcon="close" />
                 <View style={styles.safe}><VoidCard style={styles.card}>
-                    <View style={[styles.icon, { backgroundColor: accent + '22' }]}>
-                        <Ionicons name="person-add" size={26} color={accent} />
-                    </View>
+                    <IconTile icon="person-add" color={accent} size={56} />
                     <Text style={[styles.title, { color: colors.textPrimary }]}>
                         {username ? `@${username}` : 'Invite'}
                     </Text>

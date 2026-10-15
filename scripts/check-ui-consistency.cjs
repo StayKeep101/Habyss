@@ -12,6 +12,20 @@ function files(directory) {
 }
 for (const file of [...files('app'), ...files('components')]) {
     const source = fs.readFileSync(file, 'utf8');
+    // One look: no accent-tinted fills or outlines (a chosen thing is filled
+    // solid, everything else is matte), one switch, one text field.
+    source.split('\n').forEach((line, index) => {
+        if (!line.includes('ui-allow') && /(backgroundColor|borderColor): [^,}]*\b(accent|primary|accentColor|accentText)\b \+ '[0-9a-fA-F]{2}'/.test(line)) {
+            problems.push(`${file}:${index + 1} Accent tint: use MatteSurface, or a solid colour for a chosen state.`);
+        }
+    });
+    if (file !== 'components/ui/AppSwitch.tsx' && /import \{[^}]*\bSwitch\b[^}]*\} from 'react-native'/.test(source)) {
+        problems.push(`${file} Use AppSwitch from components/ui, not React Native's Switch.`);
+    }
+    const ownInputs = ['components/ui/MatteInput.tsx', 'components/ui/AppTextField.tsx', 'components/Profile/ProfileView.tsx', 'components/Create/GoalUnitPicker.tsx'];
+    if (!ownInputs.includes(file) && /<TextInput\b/.test(source)) {
+        problems.push(`${file} Use MatteInput or AppTextField, not a bare TextInput.`);
+    }
     const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     function report(node, message) {
         problems.push(`${file}:${ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1} ${message}`);

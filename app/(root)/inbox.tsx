@@ -205,11 +205,11 @@ export default function InboxScreen() {
                                                     accessibilityLabel={`Accept the ${item.share.type}`}
                                                     disabled={busy === item.id}
                                                     onPress={() => void answerShare(item, true)}
-                                                    style={[styles.action, { backgroundColor: accent }]}
+                                                    style={[styles.action, { backgroundColor: tone.raised }]}
                                                 >
                                                     {busy === item.id
-                                                        ? <ActivityIndicator size="small" color="#fff" />
-                                                        : <Text style={[styles.actionText, { color: '#fff' }]}>Add to my list</Text>}
+                                                        ? <ActivityIndicator size="small" color={colors.textPrimary} />
+                                                        : <Text style={[styles.actionText, { color: colors.textPrimary }]}>Add to my list</Text>}
                                                 </Pressable>
                                             </View>
                                         ) : item.requestId ? (
@@ -228,11 +228,11 @@ export default function InboxScreen() {
                                                     accessibilityLabel={`Accept ${item.fromName ?? item.fromUsername ?? 'them'}`}
                                                     disabled={busy === item.id}
                                                     onPress={() => void answer(item, true)}
-                                                    style={[styles.action, { backgroundColor: accent }]}
+                                                    style={[styles.action, { backgroundColor: tone.raised }]}
                                                 >
                                                     {busy === item.id
-                                                        ? <ActivityIndicator size="small" color="#fff" />
-                                                        : <Text style={[styles.actionText, { color: '#fff' }]}>Accept</Text>}
+                                                        ? <ActivityIndicator size="small" color={colors.textPrimary} />
+                                                        : <Text style={[styles.actionText, { color: colors.textPrimary }]}>Accept</Text>}
                                                 </Pressable>
                                             </View>
                                         ) : null}

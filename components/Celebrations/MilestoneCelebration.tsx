@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { textOn } from '@/theme/tokens';
+import { AppButton } from '@/components/ui/AppButton';
 import Animated, {
     Easing, FadeIn, FadeOut, ReduceMotion, interpolate,
     useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming, type SharedValue,
@@ -112,34 +114,28 @@ export const MilestoneCelebration: React.FC = () => {
                             width: big ? s(118) : s(92),
                             height: big ? s(118) : s(92),
                             borderRadius: big ? s(59) : s(46),
-                            borderColor: primary,
-                            backgroundColor: primary + '1c',
+                            borderColor: 'transparent',
+                            backgroundColor: primary,
                         }]}
                     >
                         <Ionicons
                             name={big ? 'trophy' : 'checkmark-done'}
                             size={big ? s(48) : s(36)}
-                            color={primary}
+                            color={textOn(primary)}
                         />
                     </Animated.View>
                 </View>
 
                 <Animated.View style={[styles.card, cardStyle]} pointerEvents="box-none">
-                    <Text style={[styles.kicker, { color: primary }]}>
-                        {big ? 'GOAL COMPLETE' : 'DAY KEPT'}
+                    <Text style={[styles.kicker, { color: colors.textTertiary }]}>
+                        {big ? 'Goal complete' : 'Day kept'}
                     </Text>
                     <Text numberOfLines={3} style={[styles.title, { color: colors.textPrimary, fontSize: big ? ms(28) : ms(23) }]}>
                         {shown.title}
                     </Text>
                     <Text style={[styles.line, { color: colors.textSecondary }]}>{shown.line}</Text>
 
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={close}
-                        style={[styles.button, { backgroundColor: primary }]}
-                    >
-                        <Text style={styles.buttonText}>{big ? 'Take it in' : 'Good'}</Text>
-                    </Pressable>
+                    <AppButton label={big ? 'Take it in' : 'Good'} onPress={close} />
                 </Animated.View>
             </Animated.View>
         </Modal>

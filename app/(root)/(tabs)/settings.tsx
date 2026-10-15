@@ -137,6 +137,7 @@ export default function ProfileScreen() {
                     </SettingsGroup>
 
                     <SettingsGroup>
+                        <SettingsRow icon="book" color="#FFB020" label="How Habyss works" onPress={() => router.push('/(root)/guide')} />
                         <SettingsRow icon="help-buoy" color="#64D2FF" label="Help" onPress={() => router.push('/(root)/help')} />
                         <SettingsRow icon="grid" color="#8A8A94" label="UI catalogue" onPress={() => router.push('/(root)/ui-catalog')} />
                     </SettingsGroup>

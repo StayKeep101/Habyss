@@ -878,7 +878,7 @@ const CalendarScreen = () => {
                             {(activeFilter !== 'all' || hasActiveFilters || activeTimeFilter !== 'all' || activeSort !== 'default') && (
                                 <View style={{
                                     alignSelf: 'flex-start',
-                                    backgroundColor: accentColor + '25',
+                                    backgroundColor: accentColor + '25', // ui-allow: decorative
                                     paddingLeft: 10,
                                     paddingRight: 4,
                                     paddingVertical: 4,

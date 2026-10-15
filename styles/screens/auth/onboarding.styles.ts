@@ -59,7 +59,7 @@ export const styles = StyleSheet.create({
     previewHabitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     previewCoach: { flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
     previewCoachText: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: FontFamily.regular },
-    sectionTitle: { fontSize: 11,  letterSpacing: 1.5, fontFamily: FontFamily.bold, marginBottom: 4 },
+    sectionTitle: { fontSize: 20, fontFamily: FontFamily.bold, letterSpacing: -0.3, marginBottom: 4 },
     sectionDesc: { fontSize: 13, lineHeight: 18, fontFamily: FontFamily.regular },
     choice: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1 },
     choiceIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },

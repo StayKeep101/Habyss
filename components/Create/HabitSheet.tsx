@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -386,9 +387,9 @@ export const HabitSheet: React.FC<{
                             }} style={[styles.number, { color: colors.textPrimary, borderColor: colors.border }]} />
                         <Pressable accessibilityRole="button" accessibilityLabel="Choose habit unit" accessibilityState={{ expanded: unitPicker }}
                             onPress={() => { Keyboard.dismiss(); setUnitPicker(!unitPicker); }}
-                            style={[styles.unitButton, { borderColor: accent + '44', backgroundColor: accent + '18' }]}>
-                            <Text style={[styles.unitLabel, { color: accentText }]}>{goalUnitLabel(draft.unit === 'min' ? 'minutes' : draft.unit === 'times' ? 'sessions' : draft.unit ?? 'sessions')}</Text>
-                            <Ionicons name={unitPicker ? 'chevron-up' : 'chevron-down'} size={14} color={accentText} />
+                            style={[styles.unitButton, { borderColor: 'transparent', backgroundColor: colors.surfaceTertiary }]}>
+                            <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{goalUnitLabel(draft.unit === 'min' ? 'minutes' : draft.unit === 'times' ? 'sessions' : draft.unit ?? 'sessions')}</Text>
+                            <Ionicons name={unitPicker ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textSecondary} />
                         </Pressable>
                     </View>
                     {unitPicker ? <GoalUnitPicker value={draft.unit === 'min' ? 'minutes' : draft.unit === 'times' ? 'sessions' : draft.unit}
@@ -466,9 +467,7 @@ export const HabitSheet: React.FC<{
                         separate kind of reminder it is. */}
                     <View style={[styles.placeCard, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(15,23,42,0.03)' : 'rgba(255,255,255,0.03)' }]}>
                         <View style={styles.placeHead}>
-                            <View style={[styles.placeIcon, { backgroundColor: accent + '1f' }]}>
-                                <Ionicons name="location" size={14} color={accent} />
-                            </View>
+                            <IconTile icon="location" color={accent} size={28} shape="square" />
                             <View style={{ flex: 1 }}>
                                 <Text style={[styles.placeTitle, { color: colors.textPrimary }]}>At a place</Text>
                                 <Text style={[styles.hint, { color: colors.textTertiary }]}>When you get to — or leave — somewhere, like the gym.</Text>
@@ -499,9 +498,9 @@ export const HabitSheet: React.FC<{
                             );
                         })}
                         <Pressable accessibilityRole="button" onPress={() => void addHere()} disabled={findingPlace}
-                            style={[styles.placeAdd, { borderColor: accent + '55' }]}>
-                            <Ionicons name={findingPlace ? 'hourglass-outline' : 'navigate'} size={14} color={accent} />
-                            <Text style={{ color: accent, fontSize: 13, fontFamily: FontFamily.semibold }}>
+                            style={[styles.placeAdd, { borderColor: 'transparent', borderStyle: 'solid', backgroundColor: colors.surfaceTertiary }]}>
+                            <Ionicons name={findingPlace ? 'hourglass-outline' : 'navigate'} size={14} color={colors.textPrimary} />
+                            <Text style={{ color: colors.textPrimary, fontSize: 13, fontFamily: FontFamily.medium }}>
                                 {findingPlace ? 'Finding where you are…' : draft.places.length ? 'Add where I am now' : 'Use where I am now'}
                             </Text>
                         </Pressable>

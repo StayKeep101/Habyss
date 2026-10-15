@@ -425,9 +425,9 @@ export const GoalSheet: React.FC<{
                         <Pressable accessibilityRole="button" accessibilityLabel="Choose target unit"
                             accessibilityState={{ expanded: unitPicker }}
                             onPress={() => { Keyboard.dismiss(); lightFeedback(); setUnitPicker(value => !value); }}
-                            style={[styles.unitButton, { backgroundColor: accent + '18', borderColor: accent + '44' }]}>
-                            <Text style={[styles.unitLabel, { color: accentText }]}>{draft.unit ? goalUnitLabel(draft.unit) : 'Unit'}</Text>
-                            <Ionicons name={unitPicker ? 'chevron-up' : 'chevron-down'} size={14} color={accentText} />
+                            style={[styles.unitButton, { backgroundColor: colors.surfaceTertiary, borderColor: 'transparent' }]}>
+                            <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{draft.unit ? goalUnitLabel(draft.unit) : 'Unit'}</Text>
+                            <Ionicons name={unitPicker ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textSecondary} />
                         </Pressable>
                     </View>
                     {unitPicker ? <GoalUnitPicker value={draft.unit} accent={accentText}

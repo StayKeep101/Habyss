@@ -197,9 +197,10 @@ export const GoalProgressChart: React.FC<Props> = ({ series, color, height = 170
                                 accessibilityRole="button"
                                 accessibilityState={{ selected }}
                                 onPress={() => { selectionFeedback(); setRange(option); }}
-                                style={[styles.range, selected && { backgroundColor: color + '22' }]}
+                                // Chosen: a solid light pill, like Phantom's "ALL".
+                                style={[styles.range, selected && { backgroundColor: colors.textPrimary }]}
                             >
-                                <Text style={[styles.rangeText, { color: selected ? color : colors.textTertiary }]}>{option === 'ALL' ? 'All' : option}</Text>
+                                <Text style={[styles.rangeText, { color: selected ? colors.background : colors.textTertiary }]}>{option === 'ALL' ? 'All' : option}</Text>
                             </TouchableOpacity>
                         );
                     })}

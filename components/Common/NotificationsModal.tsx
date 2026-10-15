@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated as RNAnimated } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { IconButton } from '@/components/ui/IconButton';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import Animated, { FadeInDown, FadeInUp, SlideOutRight } from 'react-native-reanimated';
@@ -195,9 +196,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                     {notifications.length === 0 ? (
                         <Animated.View entering={FadeInUp.delay(100).duration(400)}>
                             <VoidCard glass style={styles.emptyCard}>
-                                <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: accentColor + '10', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                                    <Ionicons name="notifications-off-outline" size={32} color={accentColor + '50'} />
-                                </View>
+                                <IconTile icon="notifications-off" color={colors.textTertiary} size={64} style={{ marginBottom: 16 }} />
                                 <Text style={[styles.emptyText, { color: colors.textPrimary }]}>All Clear!</Text>
                                 <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
                                     No notifications yet.{'\n'}New updates will appear here.

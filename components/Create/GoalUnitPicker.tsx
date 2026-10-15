@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -31,16 +32,16 @@ export function GoalUnitPicker({ value, onChange, accent }: {
             {(Object.keys(UNIT_GROUPS) as (keyof typeof UNIT_GROUPS)[]).map(item =>
                 <Pressable key={item} accessibilityRole="radio" accessibilityLabel={`${item} units`}
                     accessibilityState={{ selected: group === item }} onPress={() => { selectionFeedback(); setGroup(item); }}
-                    style={[styles.group, { backgroundColor: group === item ? accent + '1f' : colors.background }]}>
-                    <Text style={[styles.groupText, { color: group === item ? accent : colors.textSecondary }]}>{item}</Text>
+                    style={[styles.group, { backgroundColor: group === item ? colors.textPrimary : colors.background }]}>
+                    <Text style={[styles.groupText, { color: group === item ? colors.background : colors.textSecondary }]}>{item}</Text>
                 </Pressable>)}
         </View> : null}
         <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 176, flexGrow: 0 }} contentContainerStyle={styles.grid}>
             {units.map(unit => <Pressable key={unit.id} accessibilityRole="radio"
                 accessibilityLabel={`Unit ${unit.label}`} accessibilityState={{ selected: value === unit.id }}
                 onPress={() => { Keyboard.dismiss(); selectionFeedback(); onChange(unit.id); }}
-                style={[styles.unit, { borderColor: value === unit.id ? accent : colors.border, backgroundColor: value === unit.id ? accent + '18' : colors.background }]}>
-                <Text style={[styles.label, { color: value === unit.id ? accent : colors.textPrimary }]}>{unit.label}</Text>
+                style={[styles.unit, { borderColor: value === unit.id ? accent : colors.border, backgroundColor: value === unit.id ? accent : colors.background }]}>
+                <Text style={[styles.label, { color: value === unit.id ? textOn(accent) : colors.textPrimary }]}>{unit.label}</Text>
             </Pressable>)}
         </ScrollView>
         {!units.length ? <Text style={[styles.empty, { color: colors.textSecondary }]}>No matching units. Try “pages”, “km” or “USD”.</Text> : null}

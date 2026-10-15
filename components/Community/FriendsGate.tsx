@@ -3,6 +3,7 @@ import { AppTextField } from '@/components/ui/AppTextField';
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/theme/colors';
@@ -54,9 +55,7 @@ export const FriendsGate: React.FC<Props> = ({ needsUsername, onReady }) => {
 
     return (
         <VoidCard style={styles.card}>
-            <View style={[styles.icon, { backgroundColor: accent + '22' }]}>
-                <Ionicons name={needsUsername ? 'at' : 'people'} size={26} color={accent} />
-            </View>
+            <IconTile icon={needsUsername ? 'at' : 'people'} color={accent} size={56} />
             <Text style={[styles.title, { color: colors.textPrimary }]}>
                 {needsUsername ? 'Pick a username' : 'Do it with friends'}
             </Text>

@@ -1,6 +1,7 @@
 import { FontFamily, Typography } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
 import {View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView} from 'react-native';
+import { AppButton } from '@/components/ui/AppButton';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -251,7 +252,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                                     {birthday ? formatBirthday(birthday) : 'Add your birthday'}
                                 </Text>
                                 {displayedAge ? (
-                                    <View style={[styles.agePill, { backgroundColor: colors.primary + '1a' }]}>
+                                    <View style={[styles.agePill, { backgroundColor: colors.surfaceTertiary }]}>
                                         <Text style={[styles.ageText, { color: colors.primary }]}>{displayedAge}</Text>
                                     </View>
                                 ) : (
@@ -309,12 +310,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                         }}
                     />
                     {Platform.OS === 'ios' ? (
-                        <TouchableOpacity
-                            onPress={() => setShowBirthdayPicker(false)}
-                            style={[styles.doneBtn, { backgroundColor: colors.primary }]}
-                        >
-                            <Text style={{ color: '#000', fontFamily: FontFamily.semibold, fontSize: 15 }}>Done</Text>
-                        </TouchableOpacity>
+                        <AppButton label="Done" onPress={() => setShowBirthdayPicker(false)} />
                     ) : null}
                 </View>
             </SettingsModal>
