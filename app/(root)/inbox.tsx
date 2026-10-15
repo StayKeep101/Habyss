@@ -16,6 +16,20 @@ import { FriendsService, type InboxItem } from '@/lib/friendsService';
 import { emit } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/inbox.styles';
 
+/** What an empty inbox says, one more each time you pull down to check again. */
+const EMPTY_LINES = [
+    'Nothing here',
+    'Still nothing here',
+    'Yep. Still nothing.',
+    'Refreshing won’t make friends appear',
+    'The inbox is enjoying the quiet',
+    'Have you tried having friends?',
+    'Echo says hi. That’s it.',
+    'Somewhere, a friend request is being typed. Probably.',
+    'Okay, now you’re just bored',
+    'Go do a habit instead',
+];
+
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
 const LOOK: Record<InboxItem['kind'], { icon: string; tint: (colors: typeof Colors.light, accent: string) => string }> = {
@@ -77,7 +91,10 @@ export default function InboxScreen() {
     }, []);
 
     /** Pull to refresh: an event, so it may set state as it pleases. */
+    // Pulling down on an empty inbox gets a new line each time, for fun.
+    const [joke, setJoke] = useState(0);
     const refresh = useCallback(async () => {
+        setJoke(index => index + 1);
         setRefreshing(true);
         setItems(await FriendsService.getInbox().catch(() => []));
         setRefreshing(false);
@@ -150,9 +167,10 @@ export default function InboxScreen() {
                 ) : items.length === 0 ? (
                     <View style={styles.empty}>
                         <Ionicons name="mail-outline" size={s(30)} color={colors.textTertiary} />
-                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Nothing here
-                        </Text>
+                        <Animated.Text key={joke} entering={FadeIn.duration(220)}
+                            style={[styles.emptyText, { color: colors.textSecondary }]}>
+                            {EMPTY_LINES[joke % EMPTY_LINES.length]}
+                        </Animated.Text>
                     </View>
                 ) : (
                     <Animated.View layout={MORPH} style={styles.list}>
