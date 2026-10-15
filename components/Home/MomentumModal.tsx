@@ -252,7 +252,7 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
                         </Animated.View>
                     </>
                 ) : (
-                    <Text style={[styles.empty, { color: colors.textSecondary }]}>Your habits appear here after a few days.</Text>
+                    <Text style={[styles.empty, { color: colors.textSecondary }]}>Not enough days yet</Text>
                 )}
             </ScrollView>
         </VoidModal>
@@ -284,7 +284,7 @@ const DayDetail = ({ day, names, colors, tint }: {
             </View>
 
             {day.scheduled.length === 0 ? (
-                <Text style={[styles.dayEmpty, { color: colors.textTertiary }]}>No habits were due on this day.</Text>
+                <Text style={[styles.dayEmpty, { color: colors.textTertiary }]}>Nothing due</Text>
             ) : (
                 <View style={styles.dayList}>
                     {day.scheduled.map(id => {

@@ -150,10 +150,7 @@ export const ShareParticipantsSheet: React.FC<ShareParticipantsSheetProps> = ({
             ) : friends.length === 0 ? (
                 <View style={styles.emptyState}>
                     <Ionicons name="people-outline" size={ms(32)} color={colors.textTertiary} />
-                    <Text style={[styles.emptyText, { color: colors.textPrimary }]}>Nobody added yet</Text>
-                    <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-                        Add people in Community, then come back.
-                    </Text>
+                    <Text style={[styles.emptyText, { color: colors.textPrimary }]}>No friends yet</Text>
                 </View>
             ) : (
                 <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>

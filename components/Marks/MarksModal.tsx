@@ -77,7 +77,7 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                     <GoalProgressChart series={series} color={primary} height={190} onScrub={setScrub} unbounded label="Marks" sticky={false} />
                 ) : (
                     <View style={[styles.empty, { backgroundColor: tile }]}>
-                        <Text style={[styles.sub, { color: colors.textTertiary }]}>The chart draws from your second day.</Text>
+                        <Text style={[styles.sub, { color: colors.textTertiary }]}>From day two</Text>
                     </View>
                 )}
 
@@ -135,12 +135,6 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                                     })}
                                 </View>
                             ))}
-                            <View style={styles.note}>
-                                <Ionicons name="information-circle-outline" size={14} color={colors.textTertiary} />
-                                <Text style={[styles.noteText, { color: colors.textTertiary }]}>
-                                    A habit is missed when its day ends undone, unless you skipped it. A task is missed the day after it was due.
-                                </Text>
-                            </View>
                         </View>
                 <Text style={[styles.section, { color: colors.textPrimary }]}>Ranks</Text>
                         <View style={[styles.card, { backgroundColor: tile }]}>

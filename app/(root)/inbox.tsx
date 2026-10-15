@@ -151,8 +151,7 @@ export default function InboxScreen() {
                     <View style={styles.empty}>
                         <Ionicons name="mail-outline" size={s(30)} color={colors.textTertiary} />
                         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            Nothing waiting. Friend requests, nudges and anything the app
-                            wants to tell you all land here.
+                            Nothing here
                         </Text>
                     </View>
                 ) : (

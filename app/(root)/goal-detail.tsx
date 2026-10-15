@@ -543,15 +543,13 @@ const GoalDetail = () => {
               <View style={styles.restDay}>
                 <Ionicons name={insights?.status === 'empty' ? 'map-outline' : 'moon-outline'} size={26} color={colors.textTertiary} />
                 <Text style={[styles.restTitle, { color: colors.textPrimary }]}>
-                  {insights?.status === 'empty' ? 'Build the plan' : 'Nothing due today'}
+                  {insights?.status === 'empty' ? 'No plan yet' : 'Nothing due today'}
                 </Text>
-                <Text style={[styles.restBody, { color: colors.textTertiary }]}>
-                  {insights?.status === 'empty'
-                    ? 'Add the habits you will repeat and the tasks you must finish to reach this goal.'
-                    : nextUp
-                      ? `Next: ${nextUp.title}, ${friendlyDate(nextUp.date, today).toLowerCase()}${nextUp.time ? ` at ${nextUp.time}` : ''}.`
-                      : 'Your plan has nothing scheduled. Add a habit or task in Roadmap.'}
-                </Text>
+                {insights?.status !== 'empty' && nextUp ? (
+                  <Text style={[styles.restBody, { color: colors.textTertiary }]}>
+                    {`Next: ${nextUp.title}, ${friendlyDate(nextUp.date, today).toLowerCase()}${nextUp.time ? ` at ${nextUp.time}` : ''}`}
+                  </Text>
+                ) : null}
               </View>
             ) : null}
 

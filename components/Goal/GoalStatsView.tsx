@@ -88,7 +88,7 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
                     <GoalProgressChart series={insights.series} color={color} onScrub={setScrub} />
                 ) : (
                     <VoidCard style={styles.chartEmpty}>
-                        <Text style={[styles.subline, { color: colors.textTertiary }]}>The chart fills in from the second day of the goal.</Text>
+                        <Text style={[styles.subline, { color: colors.textTertiary }]}>From day two</Text>
                     </VoidCard>
                 )}
 

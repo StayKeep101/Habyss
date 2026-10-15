@@ -64,7 +64,7 @@ export default function BlockedScreen() {
                     <ActivityIndicator color={primary} style={{ marginTop: vs(40) }} />
                 ) : people.length === 0 ? (
                     <Text style={[styles.empty, { color: colors.textSecondary }]}>
-                        You have not blocked anybody. If you do, they will be here.
+                        No one blocked
                     </Text>
                 ) : (
                     <Animated.View layout={MORPH} style={styles.list}>

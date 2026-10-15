@@ -480,7 +480,7 @@ const DayCard = ({ day, frame, morph, screen, colors, isLight, accent, habitName
                         {day.skipped.map(id => line(id, 'skipped'))}
                         {day.missed.map(id => line(id, 'missed'))}
                         {rows === 0 ? (
-                            <Text style={[styles.empty, { color: colors.textTertiary }]}>Nothing was scheduled or logged.</Text>
+                            <Text style={[styles.empty, { color: colors.textTertiary }]}>Nothing</Text>
                         ) : null}
                     </ScrollView>
                 </Animated.View>

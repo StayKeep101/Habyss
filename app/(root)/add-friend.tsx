@@ -97,9 +97,6 @@ export default function AddFriendScreen() {
                         </>
                     ) : state.kind === 'ready' ? (
                         <>
-                            <Text style={[styles.body, { color: colors.textSecondary }]}>
-                                Friends see each other’s streaks and daily progress. Habits stay private unless you share one.
-                            </Text>
                             {button('Add friend', add)}
                         </>
                     ) : (

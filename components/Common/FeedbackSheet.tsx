@@ -92,7 +92,7 @@ export const FeedbackSheet: React.FC = () => {
                             multiline
                             value={message}
                             onChangeText={setMessage}
-                            placeholder="What is broken, missing, or annoying?"
+                            placeholder="Feedback"
                             placeholderTextColor={colors.textTertiary}
                             maxLength={2000}
                             accessibilityLabel="Your feedback"
@@ -100,9 +100,7 @@ export const FeedbackSheet: React.FC = () => {
                         />
 
                         <View style={styles.foot}>
-                            <Text style={[styles.note, { color: colors.textTertiary }]}>
-                                {screen ? `Sent with the screen you are on and your app version.` : 'Sent with your app version.'}
-                            </Text>
+                            <View style={{ flex: 1 }} />
                             <IconButton icon="arrow-up" label="Send feedback" onPress={() => void send()} loading={sending}
                                 disabled={!message.trim()} diameter={s(46)} size={s(18)} color={message.trim() ? accent : colors.textTertiary} />
                         </View>

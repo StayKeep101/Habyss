@@ -197,10 +197,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                         <Animated.View entering={FadeInUp.delay(100).duration(400)}>
                             <VoidCard glass style={styles.emptyCard}>
                                 <IconTile icon="notifications-off" color={colors.textTertiary} size={64} style={{ marginBottom: 16 }} />
-                                <Text style={[styles.emptyText, { color: colors.textPrimary }]}>All Clear!</Text>
-                                <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
-                                    No notifications yet.{'\n'}New updates will appear here.
-                                </Text>
+                                <Text style={[styles.emptyText, { color: colors.textPrimary }]}>All caught up</Text>
                             </VoidCard>
                         </Animated.View>
                     ) : (

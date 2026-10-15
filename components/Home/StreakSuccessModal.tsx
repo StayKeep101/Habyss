@@ -123,7 +123,6 @@ export const StreakSuccessModal = ({ visible, streak, onClose, completedDates = 
                     </Animated.View>
 
                     <CountUp style={[styles.title, { color: colors.textPrimary }]} value={`${streak}-day streak`} />
-                    <Text style={[styles.body, { color: colors.textSecondary }]}>Today counts. One thing tomorrow keeps it going.</Text>
 
                     <View style={styles.week}>
                         {week.map(({ date, key }, index) => (

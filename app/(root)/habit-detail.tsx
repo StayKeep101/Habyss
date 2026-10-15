@@ -285,7 +285,7 @@ export default function HabitDetailScreen() {
                             lightFeedback();
                             Alert.alert(
                                 `${owner.name}'s habit`,
-                                'You are doing this one together, so only the person who set it up can change what it is. You can still do it, skip it, or leave it from the menu.',
+                                'Only they can edit it.',
                             );
                         }}
                     />

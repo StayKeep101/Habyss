@@ -158,11 +158,6 @@ export default function ProfileScreen() {
                     ) : null}
                 </ProfileView>
 
-                {!loaded ? null : (
-                    <Text style={[styles.footnote, { color: colors.textTertiary }]}>
-                        This is what a friend sees. Settings live in the Settings tab.
-                    </Text>
-                )}
             </ScrollView>
             {/* Floats over the backdrop, below the status bar: this is a
                 full-screen page, not a sheet, so it clears the clock itself. */}
