@@ -525,22 +525,10 @@ export default function CommunityScreen() {
                             ) : null}
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            accessibilityRole="button"
-                            accessibilityLabel="Add a friend"
-                            onPress={() => {
+                        <IconButton icon="person-add" label="Add a friend" onPress={() => {
                                 mediumFeedback();
                                 setShowAddFriendModal(true);
-                            }}
-                            style={{
-                                width: 40, height: 40, borderRadius: 20,
-                                backgroundColor: colors.surfaceSecondary,
-                                alignItems: 'center', justifyContent: 'center',
-                                borderWidth: 1, borderColor: colors.border
-                            }}
-                        >
-                            <Ionicons name="person-add" size={20} color={accentColor} />
-                        </TouchableOpacity>
+                            }} diameter={40} size={20} color={accentColor} />
                     </View>}
                 </View>
 

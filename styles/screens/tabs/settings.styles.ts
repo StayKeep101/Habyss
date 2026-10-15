@@ -19,7 +19,7 @@ export const styles = StyleSheet.create({
     rowDivider: { height: StyleSheet.hairlineWidth, marginLeft: 52 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
     channels: { flexDirection: 'row', gap: 8 },
-    channel: { width: 34, height: 30, borderRadius: 9, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+    channel: { width: 34, height: 30, alignItems: 'center', justifyContent: 'center' },
     rowIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     rowLabel: { flex: 1, fontSize: 15, fontFamily: FontFamily.regular },
     rowValue: { fontSize: 13, fontFamily: FontFamily.regular, maxWidth: 150 },

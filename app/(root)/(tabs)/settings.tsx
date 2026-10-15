@@ -1,6 +1,8 @@
 import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { textOn } from '@/theme/tokens';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
@@ -133,16 +135,16 @@ const FeedbackRow = ({ sounds, haptics, onSounds, onHaptics }: {
                         accessibilityLabel={channel.label}
                         activeOpacity={0.7}
                         onPress={() => { selectionFeedback(); channel.press(); }}
-                        style={[styles.channel, {
-                            backgroundColor: channel.on ? accentColor + '24' : (isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)'),
-                            borderColor: channel.on ? accentColor + '66' : 'transparent',
-                        }]}
                     >
-                        <Ionicons
-                            name={channel.on ? channel.icon : channel.off}
-                            size={15}
-                            color={channel.on ? accentColor : colors.textTertiary}
-                        />
+                        {/* A matte toggle; on, it is filled solid with the accent like a chosen chip. */}
+                        <MatteSurface radius={15} level="control" style={styles.channel}
+                            tint={channel.on ? accentColor : undefined} edge={channel.on ? accentColor : undefined}>
+                            <Ionicons
+                                name={channel.on ? channel.icon : channel.off}
+                                size={15}
+                                color={channel.on ? textOn(accentColor) : colors.textTertiary}
+                            />
+                        </MatteSurface>
                     </TouchableOpacity>
                 ))}
             </View>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -71,27 +72,16 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                 <AppIcon name={jump ? 'chevron-up' : 'chevron-down'} size={14} color={accent} />
             </Pressable>
             {!jump ? <>
-                <Pressable accessibilityRole="button" accessibilityLabel="Previous month" disabled={!canGoBack}
-                    accessibilityState={{ disabled: !canGoBack }} onPress={() => showMonth(shiftMonth(month, -1))} style={styles.arrow}>
-                    <AppIcon name="chevron-back" size={18} color={canGoBack ? accent : colors.textTertiary} />
-                </Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel="Next month" onPress={() => showMonth(shiftMonth(month, 1))} style={styles.arrow}>
-                    <AppIcon name="chevron-forward" size={18} color={accent} />
-                </Pressable>
+                <IconButton icon="chevron-back" label="Previous month" onPress={() => showMonth(shiftMonth(month, -1))} diameter={36} size={18} color={canGoBack ? accent : colors.textTertiary} disabled={!canGoBack} />
+                <IconButton icon="chevron-forward" label="Next month" onPress={() => showMonth(shiftMonth(month, 1))} diameter={36} size={18} color={accent} />
             </> : null}
         </View>
         {jump ? <View style={styles.jump}>
             <View style={styles.yearRow}>
-                <Pressable accessibilityRole="button" accessibilityLabel="Previous year" disabled={!validYear || Number(year) <= minimumMonth.getFullYear()}
-                    onPress={() => setYear(String(Number(year) - 1))} style={styles.arrow}>
-                    <AppIcon name="chevron-back" size={18} color={accent} />
-                </Pressable>
+                <IconButton icon="chevron-back" label="Previous year" onPress={() => setYear(String(Number(year) - 1))} diameter={36} size={18} color={accent} disabled={!validYear || Number(year) <= minimumMonth.getFullYear()} />
                 <MatteInput accessibilityLabel="Calendar year" value={year} onChangeText={setYear} keyboardType="number-pad" maxLength={4}
                     style={[styles.year, { color: colors.textPrimary, borderColor: colors.border }]} />
-                <Pressable accessibilityRole="button" accessibilityLabel="Next year" disabled={!validYear || Number(year) >= 9999}
-                    onPress={() => setYear(String(Number(year) + 1))} style={styles.arrow}>
-                    <AppIcon name="chevron-forward" size={18} color={accent} />
-                </Pressable>
+                <IconButton icon="chevron-forward" label="Next year" onPress={() => setYear(String(Number(year) + 1))} diameter={36} size={18} color={accent} disabled={!validYear || Number(year) >= 9999} />
             </View>
             <View style={styles.months}>
                 {Array.from({ length: 12 }, (_, index) => {

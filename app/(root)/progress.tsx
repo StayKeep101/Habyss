@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Dimensions, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { AnimatedCircle, CountUp, MOTION, useProgress } from '@/components/ui/Motion';
 import { router } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -185,21 +186,11 @@ export default function ProgressScreen() {
         <SheetScreen title="Progress" onBack={() => router.back()} backIcon="close">
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
                 <View style={styles.monthRow}>
-                    <Pressable accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={10} onPress={() => goMonth(-1)}>
-                        <Ionicons name="chevron-back" size={20} color={colors.textSecondary} />
-                    </Pressable>
+                    <IconButton icon="chevron-back" label="Previous month" onPress={() => goMonth(-1)} diameter={36} size={20} color={colors.textSecondary} />
                     <Text style={[styles.month, { color: colors.textPrimary }]}>
                         {month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                     </Text>
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Next month"
-                        disabled={offset >= 0}
-                        hitSlop={10}
-                        onPress={() => goMonth(1)}
-                    >
-                        <Ionicons name="chevron-forward" size={20} color={offset >= 0 ? colors.border : colors.textSecondary} />
-                    </Pressable>
+                    <IconButton icon="chevron-forward" label="Next month" onPress={() => goMonth(1)} diameter={36} size={20} color={offset >= 0 ? colors.border : colors.textSecondary} disabled={offset >= 0} />
                 </View>
 
                 <GestureDetector gesture={swipeMonth}>
@@ -480,9 +471,7 @@ const DayCard = ({ day, frame, morph, screen, colors, isLight, accent, habitName
                                 {day.tasks.length ? ` · ${day.tasks.length} task${day.tasks.length === 1 ? '' : 's'}` : ''}
                             </Text>
                         </View>
-                        <Pressable accessibilityRole="button" accessibilityLabel="Close day" onPress={onClose} hitSlop={10}>
-                            <Ionicons name="close" size={20} color={colors.textTertiary} />
-                        </Pressable>
+                        <IconButton icon="close" label="Close day" onPress={onClose} diameter={32} size={20} color={colors.textTertiary} />
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>

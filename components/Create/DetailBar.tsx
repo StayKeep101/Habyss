@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -108,14 +109,7 @@ export const DetailBar: React.FC<{
                     <>
                         <View style={styles.panelHead}>
                             <Text style={[styles.panelTitle, { color: colors.textPrimary }]}>{shown.label}</Text>
-                            <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={`Close ${shown.label}`}
-                                hitSlop={10}
-                                onPress={() => { selectionFeedback(); onToggle(null); }}
-                            >
-                                <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
-                            </Pressable>
+                            <IconButton icon="chevron-down" label={`Close ${shown.label}`} onPress={() => { selectionFeedback(); onToggle(null); }} diameter={28} size={18} color={colors.textTertiary} />
                         </View>
                         {shown.fixedContent && !fitContent ? <View style={styles.panelContent}>{shown.content}</View> : <ScrollView
                             bounces={false}

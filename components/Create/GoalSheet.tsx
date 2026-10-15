@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
@@ -344,14 +345,9 @@ export const GoalSheet: React.FC<{
                                 style={[styles.stepInput, { color: colors.textPrimary }]}
                             />
                             {index > 0 ? (
-                                <Pressable accessibilityRole="button" accessibilityLabel={`Move step ${index + 1} up`} hitSlop={8} onPress={() => moveStep(index, -1)}>
-                                    <Ionicons name="chevron-up" size={16} color={colors.textTertiary} />
-                                </Pressable>
+                                <IconButton icon="chevron-up" label={`Move step ${index + 1} up`} onPress={() => moveStep(index, -1)} diameter={28} size={16} color={colors.textTertiary} />
                             ) : null}
-                            <Pressable accessibilityRole="button" accessibilityLabel={`Remove step ${index + 1}`} hitSlop={8}
-                                onPress={() => change({ milestones: draft.milestones.filter(item => item.id !== step.id) })}>
-                                <Ionicons name="close" size={16} color={colors.textTertiary} />
-                            </Pressable>
+                            <IconButton icon="close" label={`Remove step ${index + 1}`} onPress={() => change({ milestones: draft.milestones.filter(item => item.id !== step.id) })} diameter={28} size={16} color={colors.textTertiary} />
                         </View>
                     ))}
                     <View style={styles.stepRow}>
@@ -367,9 +363,7 @@ export const GoalSheet: React.FC<{
                             accessibilityLabel="Add a step"
                             style={[styles.stepInput, { color: colors.textPrimary }]}
                         />
-                        <Pressable accessibilityRole="button" accessibilityLabel="Add step" hitSlop={8} onPress={addStep} disabled={!stepText.trim()}>
-                            <Ionicons name="add-circle" size={22} color={stepText.trim() ? accent : colors.textTertiary} />
-                        </Pressable>
+                        <IconButton icon="add-circle" label="Add step" onPress={addStep} diameter={32} size={22} color={stepText.trim() ? accent : colors.textTertiary} disabled={!stepText.trim()} />
                     </View>
                     <Text style={[styles.help, { color: colors.textTertiary }]}>The big phases, in order. You add each step&apos;s tasks on the goal&apos;s roadmap.</Text>
                 </>

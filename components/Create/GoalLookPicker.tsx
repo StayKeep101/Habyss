@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { textOn } from '@/theme/tokens';
 import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
@@ -225,15 +227,22 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                         <Pressable accessibilityRole="radio" accessibilityLabel={`Icon ${glyph}`}
                             accessibilityState={{ selected: icon === glyph }}
                             onPress={() => { selectionFeedback(); onChange({ icon: glyph as IconName }); }}
-                            style={[styles.icon, { backgroundColor: icon === glyph ? color + '20' : 'transparent', borderColor: icon === glyph ? tint : colors.border }]}>
-                            <AppIcon name={glyph} size={24} />
+                        >
+                            <MatteSurface radius={12} level="control" style={styles.iconTile}
+                                tint={icon === glyph ? color : undefined} edge={icon === glyph ? color : undefined}>
+                                <AppIcon name={glyph} size={24} />
+                            </MatteSurface>
                         </Pressable>
                     ) : null}
                     {icons.map(item => <Pressable key={item.name} accessibilityRole="radio" accessibilityLabel={`Icon ${item.label}`}
                         accessibilityState={{ selected: icon === item.name }}
                         onPress={() => { selectionFeedback(); onChange({ icon: item.name }); }}
-                        style={[styles.icon, { backgroundColor: icon === item.name ? color + '20' : 'transparent', borderColor: icon === item.name ? tint : colors.border }]}>
-                        <AppIcon name={item.name} size={22} color={icon === item.name ? tint : colors.textSecondary} />
+                    >
+                        {/* A matte tile; the chosen icon is filled solid in its colour. */}
+                        <MatteSurface radius={12} level="control" style={styles.iconTile}
+                            tint={icon === item.name ? color : undefined} edge={icon === item.name ? color : undefined}>
+                            <AppIcon name={item.name} size={22} color={icon === item.name ? textOn(color) : colors.textSecondary} />
+                        </MatteSurface>
                     </Pressable>)}
                 </View>
             </ScrollView>
@@ -306,6 +315,7 @@ const styles = StyleSheet.create({
     search: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 13, fontFamily: FontFamily.regular },
     icons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     icon: { width: 44, height: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+    iconTile: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     swatch: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
     spectrumTick: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },

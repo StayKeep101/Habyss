@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Segmented } from '@/components/ui/Segmented';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -69,10 +69,7 @@ export const LeadTime: React.FC<{
 
             {/* Anything else: a number, − and +, and what it counts. */}
             <View style={styles.custom}>
-                <Pressable accessibilityRole="button" accessibilityLabel="Less" onPress={() => step(-1)} disabled={amount <= 0}
-                    style={[styles.stepper, { backgroundColor: tile, opacity: amount <= 0 ? 0.4 : 1 }]}>
-                    <Ionicons name="remove" size={18} color={colors.textPrimary} />
-                </Pressable>
+                <IconButton icon="remove" label="Less" onPress={() => step(-1)} diameter={38} size={18} color={colors.textPrimary} disabled={amount <= 0} />
                 <MatteInput
                     value={typing ?? String(amount)}
                     onChangeText={text => {
@@ -86,10 +83,7 @@ export const LeadTime: React.FC<{
                     accessibilityLabel="How long before"
                     style={[styles.amount, { color: colors.textPrimary, backgroundColor: tile }]}
                 />
-                <Pressable accessibilityRole="button" accessibilityLabel="More" onPress={() => step(1)}
-                    style={[styles.stepper, { backgroundColor: tile }]}>
-                    <Ionicons name="add" size={18} color={colors.textPrimary} />
-                </Pressable>
+                <IconButton icon="add" label="More" onPress={() => step(1)} diameter={38} size={18} color={colors.textPrimary} />
                 <View style={styles.units}>
                     <Segmented
                         accessibilityLabel="Unit"

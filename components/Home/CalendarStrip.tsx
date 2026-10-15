@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { useAnimatedProps } from 'react-native-reanimated';
 import { AnimatedCircle, useProgress } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -307,9 +308,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
   return (
     <View style={{ paddingTop: 8, paddingBottom: 4, backgroundColor: 'transparent' }}>
       <View style={{ paddingHorizontal: 24, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <TouchableOpacity onPress={handlePrevWeek} style={{ padding: 8 }}>
-          <Ionicons name="chevron-back" size={24} color={colors.textSecondary} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-back" label="Previous week" onPress={handlePrevWeek} diameter={36} size={24} color={colors.textSecondary} />
 
         <View style={{ alignItems: 'center' }}>
           <TouchableOpacity onPress={() => onSelectDate(new Date())} style={{ alignItems: 'center' }}>
@@ -322,9 +321,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity onPress={handleNextWeek} style={{ padding: 8 }}>
-          <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-forward" label="Next week" onPress={handleNextWeek} diameter={36} size={24} color={colors.textSecondary} />
       </View>
 
       <FlatList

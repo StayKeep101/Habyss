@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -72,9 +73,7 @@ const Header = ({ onBack, title, onSkip }: { onBack?: () => void; title?: string
         <View style={styles.header}>
             <View style={styles.headerSide}>
                 {onBack ? (
-                    <TouchableOpacity onPress={() => { lightFeedback(); onBack(); }} accessibilityLabel="Back" style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={26} color={colors.textPrimary} />
-                    </TouchableOpacity>
+                    <IconButton icon="chevron-back" label="Back" onPress={() => { lightFeedback(); onBack(); }} diameter={40} size={26} color={colors.textPrimary} />
                 ) : null}
             </View>
             <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>{title ?? ''}</Text>

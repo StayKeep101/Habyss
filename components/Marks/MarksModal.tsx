@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { CountUp } from '@/components/ui/Motion';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { VoidModal } from '@/components/ui/VoidModal';
@@ -109,9 +110,7 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                     <View style={[styles.window, { backgroundColor: colors.background, borderColor: colors.border }]}>
                         <View style={styles.windowHead}>
                             <Text style={[styles.windowTitle, { color: colors.textPrimary }]}>How Marks work</Text>
-                            <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} onPress={() => setInfo(false)}>
-                                <Ionicons name="close" size={20} color={colors.textSecondary} />
-                            </Pressable>
+                            <IconButton icon="close" label="Close" onPress={() => setInfo(false)} diameter={32} size={20} color={colors.textSecondary} />
                         </View>
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.windowBody}>
 

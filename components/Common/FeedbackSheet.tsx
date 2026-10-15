@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, StyleSheet, Text, View } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
@@ -84,9 +84,7 @@ export const FeedbackSheet: React.FC = () => {
                     <>
                         <View style={styles.head}>
                             <Text style={[styles.title, { color: colors.textPrimary }]}>Tell us anything</Text>
-                            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => { lightFeedback(); close(); }} hitSlop={10}>
-                                <Ionicons name="close" size={s(20)} color={colors.textTertiary} />
-                            </Pressable>
+                            <IconButton icon="close" label="Close" onPress={() => { lightFeedback(); close(); }} diameter={32} size={s(20)} color={colors.textTertiary} />
                         </View>
 
                         <MatteInput

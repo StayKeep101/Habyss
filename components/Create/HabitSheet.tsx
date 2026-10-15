@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
@@ -489,10 +490,7 @@ export const HabitSheet: React.FC<{
                                             );
                                         })}
                                     </View>
-                                    <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${place.name}`} hitSlop={8}
-                                        onPress={() => { lightFeedback(); change({ places: draft.places.filter(item => item !== place) }); }}>
-                                        <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
-                                    </Pressable>
+                                    <IconButton icon="close-circle" label={`Remove ${place.name}`} onPress={() => { lightFeedback(); change({ places: draft.places.filter(item => item !== place) }); }} diameter={28} size={18} color={colors.textTertiary} />
                                 </View>
                             );
                         })}

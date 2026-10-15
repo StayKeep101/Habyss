@@ -13,8 +13,8 @@ import { Elevation, elevationFor, surfaceFor } from '@/theme/designSystem';
  * Cards, the tab bar, icon buttons, text fields and chips all use it, in
  * their own shape: give it a `radius` (half the height for a circle or pill).
  *
- * `level` picks the body: `card` for panels on the page, `control` for things
- * you press or type into, a step lighter so they still read on top of a card.
+ * `level` picks the shadow: `card` for panels on the page, `control` (a
+ * tighter shadow) for things you press or type into. The body is the same.
  * `tint` lays a colour over the body — a chosen chip in the accent.
  *
  * Two layers, because iOS cannot clip and cast a shadow on the same view: the
@@ -36,15 +36,12 @@ export function MatteSurface({
 }) {
     const { theme } = useTheme();
     const tone = surfaceFor(theme);
-    const light = theme === 'light';
     const lift = elevation ?? (level === 'card' ? 'card' : 'control');
-    const body = level === 'card' ? tone.fill : tone.raised;
-    const gradient: [string, string, string] = level === 'card'
-        ? [tone.top, tone.fill, tone.bottom]
-        // A control is the raised tone, lit from the top and falling off below.
-        : light
-            ? ['rgba(255,255,255,0.7)', 'rgba(255,255,255,0)', 'rgba(15,23,42,0.04)']
-            : ['rgba(255,255,255,0.07)', 'rgba(255,255,255,0)', 'rgba(0,0,0,0.22)'];
+    // One body for everything: the card's own gradient. Buttons, fields, chips
+    // and the tab bar are the card's material in another shape, so they match
+    // it exactly; only the shadow under them changes with `level`.
+    const body = tone.fill;
+    const gradient: [string, string, string] = [tone.top, tone.fill, tone.bottom];
     return (
         <View
             pointerEvents={pointerEvents}

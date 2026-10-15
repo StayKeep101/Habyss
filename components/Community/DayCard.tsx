@@ -338,10 +338,7 @@ export const DayCard: React.FC<{
                                 ) : null}
                             </Text>
                             {note.mine && onDeleteNote ? (
-                                <Pressable accessibilityRole="button" accessibilityLabel="Take that back" hitSlop={8}
-                                    onPress={() => onDeleteNote(note.id)}>
-                                    <Ionicons name="close" size={ms(12)} color={colors.textTertiary} />
-                                </Pressable>
+                                <IconButton icon="close" label="Take that back" onPress={() => onDeleteNote(note.id)} diameter={24} size={ms(12)} color={colors.textTertiary} />
                             ) : null}
                         </Animated.View>
                     ))}

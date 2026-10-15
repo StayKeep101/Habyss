@@ -1,8 +1,8 @@
-import { ActivityIndicator, StyleProp, TouchableOpacity, ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleProp, StyleSheet, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { Control, UIStyles } from '@/theme/designSystem';
+import { Control } from '@/theme/designSystem';
 import { MatteSurface } from './MatteSurface';
 
 interface IconButtonProps {
@@ -36,9 +36,18 @@ export function IconButton({ icon, label, onPress, disabled, loading, size = Con
             accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled || !!loading, busy: !!loading }}
             hitSlop={diameter < Control.hitTarget ? (Control.hitTarget - diameter) / 2 : undefined}
             style={[{ opacity: disabled ? 0.5 : 1 }, style]}>
-            <MatteSurface radius={diameter / 2} level="control" style={[UIStyles.iconButton, { width: diameter, height: diameter }]}>
-                {loading ? <ActivityIndicator size="small" color={tint} /> : <Ionicons name={icon} size={size} color={tint} />}
+            <MatteSurface radius={diameter / 2} level="control" style={{ width: diameter, height: diameter }}>
+                {/* Centred on the disc itself, not on a line of text: a glyph's
+                    line height is taller than the glyph and pushed it down. */}
+                <View pointerEvents="none" style={styles.centre}>
+                    {loading ? <ActivityIndicator size="small" color={tint} />
+                        : <Ionicons name={icon} size={size} color={tint} style={{ width: size, height: size, lineHeight: size, textAlign: 'center' }} />}
+                </View>
             </MatteSurface>
         </TouchableOpacity>
     );
 }
+
+const styles = StyleSheet.create({
+    centre: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+});
