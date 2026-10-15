@@ -4,6 +4,7 @@ import { GoalSheet } from '@/components/Create/GoalSheet';
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, Image, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { CountUp, ListItem } from '@/components/ui/Motion';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -405,14 +406,8 @@ const GoalDetail = () => {
 
       {/* Navigation Header */}
       <SafeAreaView style={styles.navHeader} edges={['top']}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.blurBtn}>
-          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <Ionicons name="chevron-back" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Goal options" onPress={openGoalMenu} style={styles.blurBtn}>
-          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <Ionicons name="ellipsis-horizontal" size={20} color="white" />
-        </TouchableOpacity>
+        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} diameter={40} size={24} />
+        <IconButton icon="ellipsis-horizontal" label="Goal options" onPress={openGoalMenu} diameter={40} />
       </SafeAreaView>
 
       <Animated.ScrollView

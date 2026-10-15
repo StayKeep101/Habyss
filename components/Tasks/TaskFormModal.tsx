@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { TimeRange, endTime } from '@/components/Create/TimeRange';
@@ -299,7 +300,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             id: 'notes', icon: 'document-text-outline', label: 'Notes',
             value: draft.description ? 'Written' : undefined,
             content: (
-                <TextInput
+                <MatteInput
                     // Opening the row opens the keyboard: it exists to be
                     // typed in, and a tap to reach that is a tap too many.
                     autoFocus

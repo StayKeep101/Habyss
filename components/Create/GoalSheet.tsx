@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
@@ -336,7 +337,7 @@ export const GoalSheet: React.FC<{
                     {draft.milestones.map((step, index) => (
                         <View key={step.id} style={styles.stepRow}>
                             <Text style={[styles.stepIndex, { color: accentText }]}>{index + 1}</Text>
-                            <TextInput
+                            <MatteInput
                                 value={step.title}
                                 onChangeText={value => change({ milestones: draft.milestones.map(item => item.id === step.id ? { ...item, title: value } : item) })}
                                 accessibilityLabel={`Step ${index + 1}`}
@@ -355,7 +356,7 @@ export const GoalSheet: React.FC<{
                     ))}
                     <View style={styles.stepRow}>
                         <Text style={[styles.stepIndex, { color: colors.textTertiary }]}>{draft.milestones.length + 1}</Text>
-                        <TextInput
+                        <MatteInput
                             value={stepText}
                             onChangeText={setStepText}
                             onSubmitEditing={addStep}
@@ -379,7 +380,7 @@ export const GoalSheet: React.FC<{
             value: draft.target === undefined ? undefined : `${draft.unit === 'minutes' ? Math.round((draft.target / 60) * 10) / 10 : draft.target} h`,
             content: (
                 <View style={styles.targetRow}>
-                    <TextInput
+                    <MatteInput
                         value={targetText ?? (draft.target === undefined ? '' : String(draft.unit === 'minutes' ? Math.round((draft.target / 60) * 10) / 10 : draft.target))}
                         onChangeText={value => {
                             setTargetText(value);
@@ -405,7 +406,7 @@ export const GoalSheet: React.FC<{
             content: (
                 <>
                     <View style={styles.targetRow}>
-                        <TextInput
+                        <MatteInput
                             value={targetText ?? (draft.target === undefined ? '' : String(draft.unit === 'percent' ? Math.round(draft.target * 100) : draft.target))}
                             onChangeText={value => {
                                 setTargetText(value);
@@ -461,7 +462,7 @@ export const GoalSheet: React.FC<{
                     <Text style={[styles.help, { color: colors.textSecondary }]}>
                         {result?.clarifying_question ?? `What is your ${draft.unit ?? 'current value'} right now?`}
                     </Text>
-                    <TextInput
+                    <MatteInput
                         value={draft.baseline === undefined ? '' : String(draft.baseline)}
                         onChangeText={value => {
                             const amount = Number(value.replace(',', '.'));
@@ -505,7 +506,7 @@ export const GoalSheet: React.FC<{
             id: 'notes', icon: 'document-text-outline', label: 'Why it matters',
             value: draft.description ? 'Written' : undefined,
             content: (
-                <TextInput
+                <MatteInput
                     // Opening the row opens the keyboard, as on a habit and a
                     // task: the row is the question, so it should be ready for
                     // the answer.
@@ -548,7 +549,7 @@ export const GoalSheet: React.FC<{
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <TextInput
+                    <MatteInput
                         key={session}
                         {...(Platform.OS === 'web' ? { value: text } : {})}
                         onChangeText={value => { setText(value); setTargetText(null); }}
@@ -570,7 +571,7 @@ export const GoalSheet: React.FC<{
                         {Platform.OS !== 'web' ? <Text>{segments.map((part, index) =>
                             <Text key={index} style={{ color: part.highlighted ? accentText : colors.textPrimary }}>{part.text}</Text>
                         )}</Text> : null}
-                    </TextInput>
+                    </MatteInput>
 
                     <View style={styles.kinds} accessibilityRole="radiogroup">
                         {KINDS.map(option => {

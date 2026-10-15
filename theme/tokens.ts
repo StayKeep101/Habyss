@@ -165,6 +165,7 @@ export const typeScale: Record<TypeToken, TextStyle> = {
 export const elevation = {
     none: {},
     card: Elevation.card,
+    control: Elevation.control,
     floating: Elevation.floating,
 } as const;
 

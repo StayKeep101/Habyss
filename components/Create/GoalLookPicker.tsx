@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { AppIcon, isGlyphIcon, isPhotoIcon, type IconName } from '@/components/ui/AppIcon';
@@ -200,7 +201,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
         </View>
 
         {tab === 'icons' ? <>
-            <TextInput accessibilityLabel={`Search ${subject.toLowerCase()} icons`} value={query} onChangeText={setQuery}
+            <MatteInput accessibilityLabel={`Search ${subject.toLowerCase()} icons`} value={query} onChangeText={setQuery}
                 placeholder={`Search ${ICONS.length} icons, or type an emoji`} placeholderTextColor={colors.textTertiary}
                 autoCorrect={false} autoCapitalize="none"
                 style={[styles.search, { color: colors.textPrimary, borderColor: colors.border,

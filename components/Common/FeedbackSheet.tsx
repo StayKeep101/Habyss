@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
+import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
@@ -87,7 +89,7 @@ export const FeedbackSheet: React.FC = () => {
                             </Pressable>
                         </View>
 
-                        <TextInput
+                        <MatteInput
                             autoFocus
                             multiline
                             value={message}
@@ -103,18 +105,8 @@ export const FeedbackSheet: React.FC = () => {
                             <Text style={[styles.note, { color: colors.textTertiary }]}>
                                 {screen ? `Sent with the screen you are on and your app version.` : 'Sent with your app version.'}
                             </Text>
-                            <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel="Send feedback"
-                                accessibilityState={{ disabled: !message.trim() || sending }}
-                                disabled={!message.trim() || sending}
-                                onPress={() => void send()}
-                                style={[styles.send, { backgroundColor: message.trim() ? accent : tone.raised }]}
-                            >
-                                {sending
-                                    ? <ActivityIndicator size="small" color="#fff" />
-                                    : <Ionicons name="arrow-up" size={s(18)} color={message.trim() ? '#fff' : colors.textTertiary} />}
-                            </Pressable>
+                            <IconButton icon="arrow-up" label="Send feedback" onPress={() => void send()} loading={sending}
+                                disabled={!message.trim()} diameter={s(46)} size={s(18)} color={message.trim() ? accent : colors.textTertiary} />
                         </View>
                     </>
                 )}

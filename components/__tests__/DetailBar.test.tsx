@@ -87,12 +87,13 @@ describe('the bar above the keyboard', () => {
         expect(screen.queryByLabelText('Close Look')).toBeNull();
         expect(screen.getByText('Weekdays')).toBeTruthy();
     });
-    it('gives every panel one stable height and uses the chosen Look color', () => {
+    it('sizes the panel to what it holds and uses the chosen Look color', () => {
         const custom = [{ id: 'look', icon: 'rocket-outline' as const, color: '#EC4899', label: 'Look', content: <Text>Compact look controls</Text> }];
         const screen = render(<DetailBar fitContent items={custom} open="look" onToggle={jest.fn()} accent="#6B8AF5" />);
-        // One stable height for every setting, so the card never jumps.
+        // An animated height that follows the content, never a fixed half screen.
         expect(typeof flatten(screen.getByTestId('detail-panel').props.style).height).toBe('number');
-        expect(screen.getByLabelText('Look')).toHaveStyle({ borderColor: '#EC4899' });
+        // The open chip is filled with the Look's own colour.
+        expect(screen.UNSAFE_root.findAll((node: { props: { style?: unknown } }) => flatten(node.props.style as never)?.borderColor === '#EC4899').length).toBeGreaterThan(0);
         screen.rerender(<DetailBar fitContent items={custom} open={null} onToggle={jest.fn()} accent="#6B8AF5" />);
         expect(screen.queryByText('Compact look controls')).toBeNull();
     });

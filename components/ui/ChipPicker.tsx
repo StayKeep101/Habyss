@@ -1,5 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { textOn } from '@/theme/tokens';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import Animated, { Easing, LinearTransition, ReduceMotion, FadeIn } from 'react-native-reanimated';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -39,7 +41,6 @@ export function ChipPicker<T extends string>({ options, value, onChange, accent 
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
     const { selectionFeedback } = useHaptics();
 
     const chosen = options.find(option => option.id === value);
@@ -61,20 +62,22 @@ export function ChipPicker<T extends string>({ options, value, onChange, accent 
                             accessibilityState={{ selected: on }}
                             accessibilityLabel={option.label}
                             onPress={() => { if (!on) { selectionFeedback(); onChange(option.id); } }}
-                            style={[styles.chip, {
-                                backgroundColor: on ? accent + '22' : isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                                borderColor: on ? accent + '66' : colors.border,
-                            }]}
                         >
+                        {/* The matte pill every chip is. The chosen one is filled
+                            solid with the accent, still matte — like Phantom's
+                            selected tab — with dark or light text, whichever reads. */}
+                        <MatteSurface radius={999} level="control" tint={on ? accent : undefined}
+                            edge={on ? accent : undefined} style={styles.chip}>
                             {option.icon ? (
-                                <Ionicons name={option.icon} size={s(13)} color={on ? accent : colors.textTertiary} />
+                                <Ionicons name={option.icon} size={s(13)} color={on ? textOn(accent) : colors.textTertiary} />
                             ) : null}
                             <Text
                                 numberOfLines={1}
-                                style={[styles.chipText, { color: on ? accent : colors.textSecondary }]}
+                                style={[styles.chipText, { color: on ? textOn(accent) : colors.textSecondary }, on && styles.chipTextOn]}
                             >
                                 {option.label}
                             </Text>
+                        </MatteSurface>
                         </Pressable>
                     );
                 })}
@@ -97,16 +100,15 @@ export function ChipPicker<T extends string>({ options, value, onChange, accent 
 
 const styles = StyleSheet.create({
     wrap: { paddingVertical: vs(10), gap: vs(8) },
-    strip: { flexDirection: 'row', gap: s(8), paddingHorizontal: s(14) },
+    strip: { flexDirection: 'row', gap: s(8), paddingHorizontal: s(14), paddingVertical: vs(6) },
     chip: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: s(6),
         paddingHorizontal: s(12),
         paddingVertical: vs(8),
-        borderRadius: 999,
-        borderWidth: StyleSheet.hairlineWidth,
     },
     chipText: { fontSize: ms(13), fontFamily: FontFamily.medium },
+    chipTextOn: { fontFamily: FontFamily.semibold },
     detail: { fontSize: ms(12), lineHeight: ms(17), fontFamily: FontFamily.regular, paddingHorizontal: s(14) },
 });

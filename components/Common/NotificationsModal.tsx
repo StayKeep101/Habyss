@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Animated as RNAnimated } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import Animated, { FadeInDown, FadeInUp, SlideOutRight } from 'react-native-reanimated';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -180,14 +181,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ visible,
                     rightSlot={
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                             {unreadCount > 0 && (
-                                <TouchableOpacity onPress={handleMarkAllRead} style={[styles.iconButton, { backgroundColor: accentColor + '20' }]}>
-                                    <Ionicons name="checkmark-done" size={20} color={accentColor} />
-                                </TouchableOpacity>
+                                <IconButton icon="checkmark-done" label="Mark all read" onPress={handleMarkAllRead} diameter={40} color={accentColor} />
                             )}
                             {notifications.length > 0 && (
-                                <TouchableOpacity onPress={handleClearAll} style={[styles.iconButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                                </TouchableOpacity>
+                                <IconButton icon="trash-outline" label="Clear all" onPress={handleClearAll} diameter={40} size={18} color={colors.error} />
                             )}
                         </View>
                     }

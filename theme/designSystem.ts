@@ -98,6 +98,15 @@ export const Elevation = {
         shadowRadius: 18,
         elevation: 6,
     },
+    // Buttons, chips and fields: a tighter shadow than a card, so a control
+    // reads as something you can press, sitting on the card or the page.
+    control: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
+        elevation: 4,
+    },
     floating: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 18 },
@@ -120,7 +129,7 @@ export const surfaceFor = (theme: string): SurfaceTone =>
 /** Daylight needs a fainter shadow than a dark room, or the card looks dirty. */
 export const elevationFor = (theme: string, level: keyof typeof Elevation = 'card') =>
     theme === 'light'
-        ? { ...Elevation[level], shadowOpacity: level === 'card' ? 0.07 : 0.12, shadowColor: '#0F172A' }
+        ? { ...Elevation[level], shadowOpacity: level === 'card' ? 0.07 : level === 'control' ? 0.06 : 0.12, shadowColor: '#0F172A' }
         : Elevation[level];
 export const Radius = { small: 12, control: 18, card: 22, sheet: 24, pill: 999 } as const;
 export const Control = { height: 54, hitTarget: 44, icon: 20 } as const;

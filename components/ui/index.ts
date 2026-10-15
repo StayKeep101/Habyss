@@ -6,7 +6,8 @@
  *   VoidShell      a tab page's background and safe area
  *   SheetScreen    a pushed page with its header (title, back)
  *   ModalHeader    the header of a modal or sheet
- *   VoidCard       the card: glass, plain or matte
+ *   MatteSurface   the one matte surface (gradient, edge, shadow) every piece is drawn with
+ *   VoidCard       the card (MatteSurface at card size)
  *   SheetSection   a titled group inside a sheet
  *   VoidModal      a centred modal window
  *   VoidSheet      a bottom sheet with a grabber
@@ -37,6 +38,8 @@ export { VoidShell } from './VoidShell';
 export { SheetScreen } from './SheetScreen';
 export { ModalHeader } from './ModalHeader';
 export { VoidCard } from './VoidCard';
+export { MatteSurface } from './MatteSurface';
+export { MatteInput } from './MatteInput';
 export { SheetSection } from './SheetSection';
 export { VoidModal } from './VoidModal';
 export { VoidSheet } from './VoidSheet';

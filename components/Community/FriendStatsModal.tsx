@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -110,7 +111,7 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                     backIcon="close"
                     rightSlot={friend.username !== 'You' ? (
                         <TouchableOpacity
-                            style={[styles.iconButton, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                            accessibilityRole="button"
                             accessibilityLabel="Manage friendship"
                             // One menu, not a menu and a button and a link:
                             // nudging, removing, blocking and reporting are all
@@ -133,7 +134,9 @@ export const FriendStatsModal: React.FC<FriendStatsModalProps> = ({
                                 ]);
                             }}
                         >
-                            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
+                            <MatteSurface radius={18} level="control" style={styles.iconButton}>
+                                <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
+                            </MatteSurface>
                         </TouchableOpacity>
                     ) : undefined}
                 />

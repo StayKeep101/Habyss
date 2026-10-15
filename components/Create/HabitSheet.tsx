@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
@@ -370,7 +371,7 @@ export const HabitSheet: React.FC<{
             content: (
                 <>
                     <View style={styles.amountRow}>
-                        <TextInput accessibilityLabel="Habit target number" value={amountText ?? (draft.amount === undefined ? '' : String(draft.amount))}
+                        <MatteInput accessibilityLabel="Habit target number" value={amountText ?? (draft.amount === undefined ? '' : String(draft.amount))}
                             keyboardType="decimal-pad" placeholder="1" placeholderTextColor={colors.textTertiary}
                             onFocus={() => setUnitPicker(false)}
                             onChangeText={value => {
@@ -505,7 +506,7 @@ export const HabitSheet: React.FC<{
                     </View>
 
                     {/* What it says. Left empty, Echo writes it in your voice. */}
-                    <TextInput
+                    <MatteInput
                         value={draft.reminderMessage ?? ''}
                         onChangeText={reminderMessage => change({ reminderMessage })}
                         placeholder="What it should say — leave empty and Echo writes it"
@@ -538,7 +539,7 @@ export const HabitSheet: React.FC<{
             id: 'notes', icon: 'document-text-outline', label: 'Note',
             value: draft.description ? 'Written' : undefined,
             content: (
-                <TextInput
+                <MatteInput
                     // The row exists to be typed in, so opening it opens the
                     // keyboard. Anything else is a tap to reach the only thing
                     // the row does.

@@ -1,6 +1,6 @@
 import React from 'react';
-import {View, TouchableOpacity, StyleSheet, Platform} from 'react-native';
-import { BlurView } from 'expo-blur';
+import {View, TouchableOpacity, StyleSheet} from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
@@ -104,17 +104,15 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
         ]}>
 
             {/* 1. Navigation Pill */}
-            <BlurView intensity={Platform.OS === 'ios' ? 80 : 40} tint={theme === 'light' ? 'light' : 'dark'} style={[
+            {/* The matte card surface as a pill, floating on its shadow. */}
+            <MatteSurface radius={tabBarHeight / 2} elevation="floating" style={[
                 styles.navPill,
                 {
                     height: tabBarHeight,
-                    borderRadius: tabBarHeight / 2,
                     paddingHorizontal: isCompactWidth ? 12 : 16,
                     maxWidth: isCompactWidth ? 236 : 260,
                 },
-                { backgroundColor: theme === 'light' ? 'rgba(255, 255, 255, 0.75)' : (theme === 'trueDark' ? palette.background : (Platform.OS === 'android' ? 'rgba(10, 15, 20, 0.95)' : 'rgba(10, 15, 20, 0.75)')) }
             ]}>
-                <View style={[styles.glassBorder, { borderRadius: tabBarHeight / 2, borderColor: theme === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)' }]} />
 
                 <View style={styles.tabsRow}>
                     {state.routes.map((route: any, index: number) => {
@@ -171,7 +169,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                         );
                     })}
                 </View>
-            </BlurView>
+            </MatteSurface>
 
             {/* 2. Creation Orb (Plus Button) - Uses accent gradient */}
             <TouchableOpacity
@@ -222,23 +220,9 @@ const styles = StyleSheet.create({
     },
     navPill: {
         flex: 1,
-        overflow: 'hidden',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-
-        // backgroundColor set inline for dynamic theme
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 10,
-    },
-    glassBorder: {
-        ...StyleSheet.absoluteFill,
-        borderWidth: 1,
-        // borderColor set inline
-        pointerEvents: 'none',
     },
     tabsRow: {
         flexDirection: 'row',
@@ -265,11 +249,12 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         marginTop: 4,
     },
+    // The plus floats like the dock beside it, on a glow of its own colour.
     orbContainer: {
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-        elevation: 10,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.55,
+        shadowRadius: 20,
+        elevation: 14,
     },
     orbGradient: {
         flex: 1,

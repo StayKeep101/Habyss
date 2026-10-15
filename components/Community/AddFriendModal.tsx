@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -211,7 +212,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                                 description="Their username or invite link."
                                 style={{ marginTop: 0, marginBottom: 10 }}
                             />
-                            <TextInput
+                            <MatteInput
                                 style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' }]}
                                 placeholder="username"
                                 placeholderTextColor={colors.textTertiary}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import { habitStatus, isLive } from '@/lib/habitStatus';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, interpolateColor, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
@@ -233,7 +234,7 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                     <Animated.View entering={enter} exiting={exit} layout={morph} style={styles.editor}>
                         <Text style={[Typography.caption, { color: colors.textSecondary }]}>Total for today · {unit}</Text>
                         <View style={styles.entryRow}>
-                            <TextInput autoFocus value={draft} onChangeText={text => { setDraft(text); setInputError(null); }} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={saveDraft} selectTextOnFocus accessibilityLabel={`Total ${unit} for today`} style={[styles.input, { color: colors.textPrimary, backgroundColor: raised, borderColor: inputError ? colors.error : tone.line }]} />
+                            <MatteInput autoFocus value={draft} onChangeText={text => { setDraft(text); setInputError(null); }} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={saveDraft} selectTextOnFocus accessibilityLabel={`Total ${unit} for today`} style={[styles.input, { color: colors.textPrimary, backgroundColor: raised, borderColor: inputError ? colors.error : tone.line }]} />
                             <Pressable onPress={saveDraft} accessibilityRole="button" accessibilityLabel="Save total" style={[styles.save, { backgroundColor: accent }]}><AppIcon name="checkmark" color={readableAccent('#FFFFFF', accent)} /></Pressable>
                         </View>
                         {inputError && <Text accessibilityRole="alert" style={[Typography.caption, { color: colors.error }]}>{inputError}</Text>}

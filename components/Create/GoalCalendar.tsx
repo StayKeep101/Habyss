@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -85,7 +86,7 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                     onPress={() => setYear(String(Number(year) - 1))} style={styles.arrow}>
                     <AppIcon name="chevron-back" size={18} color={accent} />
                 </Pressable>
-                <TextInput accessibilityLabel="Calendar year" value={year} onChangeText={setYear} keyboardType="number-pad" maxLength={4}
+                <MatteInput accessibilityLabel="Calendar year" value={year} onChangeText={setYear} keyboardType="number-pad" maxLength={4}
                     style={[styles.year, { color: colors.textPrimary, borderColor: colors.border }]} />
                 <Pressable accessibilityRole="button" accessibilityLabel="Next year" disabled={!validYear || Number(year) >= 9999}
                     onPress={() => setYear(String(Number(year) + 1))} style={styles.arrow}>

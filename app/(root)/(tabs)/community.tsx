@@ -1,6 +1,7 @@
 import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert, Share, ActivityIndicator } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
 import { Colors } from '@/theme/colors';
 import { vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
@@ -559,18 +560,8 @@ export default function CommunityScreen() {
                                     <Text style={[styles.username, { color: colors.textPrimary, flex: 1, marginLeft: 12 }]}>
                                         {request.fromName ?? request.fromUsername}
                                     </Text>
-                                    <TouchableOpacity
-                                        onPress={() => handleAcceptRequest(request.id)}
-                                        style={[styles.actionBtn, { backgroundColor: colors.success }]}
-                                    >
-                                        <Ionicons name="checkmark" size={18} color="#fff" />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={() => handleDeclineRequest(request.id)}
-                                        style={[styles.actionBtn, { backgroundColor: colors.error, marginLeft: 8 }]}
-                                    >
-                                        <Ionicons name="close" size={18} color="#fff" />
-                                    </TouchableOpacity>
+                                    <IconButton icon="checkmark" label="Accept request" onPress={() => handleAcceptRequest(request.id)} diameter={34} size={18} color={colors.success} />
+                                    <IconButton icon="close" label="Decline request" onPress={() => handleDeclineRequest(request.id)} diameter={34} size={18} color={colors.error} style={{ marginLeft: 8 }} />
                                 </View>
                             ))}
                         </VoidCard>

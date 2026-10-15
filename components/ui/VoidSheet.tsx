@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { elevationFor, surfaceFor } from '@/theme/designSystem';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
     Easing, ReduceMotion, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming,
@@ -48,7 +50,7 @@ export const VoidSheet: React.FC<{
 }> = ({ visible, onClose, title, caption, children, footer }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
+    const tone = surfaceFor(theme);
     const insets = useSafeAreaInsets();
     const { height } = useWindowDimensions();
     const { lightFeedback } = useHaptics();
@@ -127,12 +129,17 @@ export const VoidSheet: React.FC<{
                                 // that it is a screen, and should be a page sheet.
                                 maxHeight: height * 0.68,
                                 paddingBottom: insets.bottom + vs(8),
-                                borderColor: colors.border,
-                                backgroundColor: isLight ? 'rgba(255,255,255,0.96)' : 'rgba(16,19,24,0.96)',
+                                borderColor: tone.lip,
+                                backgroundColor: tone.fill,
                             },
+                            // Floats over the page: the shadow is cast upward.
+                            { ...elevationFor(theme, 'floating'), shadowOffset: { width: 0, height: -10 } },
                         ]}
                     >
-                        <BlurView intensity={isLight ? 30 : 50} tint={isLight ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+                        {/* The matte card surface: lighter at the top, no blur. */}
+                        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.fillLayer]}>
+                            <LinearGradient colors={[tone.top, tone.fill, tone.bottom]} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
+                        </View>
 
                         <View style={[styles.grabber, { backgroundColor: colors.textTertiary }]} />
 
@@ -143,14 +150,10 @@ export const VoidSheet: React.FC<{
                                     <Text numberOfLines={1} style={[styles.caption, { color: colors.textTertiary }]}>{caption}</Text>
                                 ) : null}
                             </View>
-                            <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel="Close"
-                                hitSlop={10}
-                                onPress={dismiss}
-                                style={[styles.close, { backgroundColor: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.08)' }]}
-                            >
-                                <Ionicons name="close" size={ms(16)} color={colors.textSecondary} />
+                            <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} onPress={dismiss}>
+                                <MatteSurface radius={s(14)} level="control" style={styles.close}>
+                                    <Ionicons name="close" size={ms(16)} color={colors.textSecondary} />
+                                </MatteSurface>
                             </Pressable>
                         </View>
 
@@ -169,7 +172,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: s(24), borderTopRightRadius: s(24),
         borderTopWidth: StyleSheet.hairlineWidth,
         borderLeftWidth: StyleSheet.hairlineWidth, borderRightWidth: StyleSheet.hairlineWidth,
-        overflow: 'hidden',
+        // Not clipped, so its shadow shows; the gradient layer clips itself.
         paddingTop: vs(8),
     },
     grabber: { alignSelf: 'center', width: s(36), height: vs(4), borderRadius: 999, opacity: 0.4 },
@@ -180,5 +183,6 @@ const styles = StyleSheet.create({
     headText: { flex: 1 },
     title: { fontSize: ms(17), fontFamily: FontFamily.semibold },
     caption: { fontSize: ms(12), fontFamily: FontFamily.regular, marginTop: vs(1) },
-    close: { width: s(28), height: s(28), borderRadius: s(14), alignItems: 'center', justifyContent: 'center' },
+    close: { width: s(28), height: s(28), alignItems: 'center', justifyContent: 'center' },
+    fillLayer: { borderTopLeftRadius: s(24), borderTopRightRadius: s(24), overflow: 'hidden' },
 });

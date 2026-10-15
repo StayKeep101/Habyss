@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -17,7 +18,7 @@ export function GoalUnitPicker({ value, onChange, accent }: {
     const [group, setGroup] = useState<keyof typeof UNIT_GROUPS>('All');
     const units = findGoalUnits(query, group);
     return <View testID="goal-unit-picker" style={styles.content}>
-        <View style={[styles.search, { borderColor: colors.border }]}>
+        <MatteSurface radius={12} level="control" style={styles.search}>
             <AppIcon name="search-outline" size={16} color={colors.textTertiary} />
             <TextInput value={query} onChangeText={setQuery} accessibilityLabel="Search units"
                 placeholder="Search units, e.g. books or USD" placeholderTextColor={colors.textTertiary}
@@ -25,7 +26,7 @@ export function GoalUnitPicker({ value, onChange, accent }: {
             {query ? <Pressable accessibilityRole="button" accessibilityLabel="Clear unit search" onPress={() => setQuery('')} hitSlop={10}>
                 <AppIcon name="close-circle" size={18} color={colors.textTertiary} />
             </Pressable> : null}
-        </View>
+        </MatteSurface>
         {!query ? <View style={styles.groups}>
             {(Object.keys(UNIT_GROUPS) as (keyof typeof UNIT_GROUPS)[]).map(item =>
                 <Pressable key={item} accessibilityRole="radio" accessibilityLabel={`${item} units`}
@@ -47,7 +48,7 @@ export function GoalUnitPicker({ value, onChange, accent }: {
 }
 
 const styles = StyleSheet.create({
-    content: { gap: 10 }, search: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderWidth: 1, borderRadius: 12 },
+    content: { gap: 10 }, search: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12 },
     input: { flex: 1, minHeight: 44, fontSize: 13, fontFamily: FontFamily.regular },
     groups: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
     group: { minHeight: 36, paddingHorizontal: 10, justifyContent: 'center', borderRadius: 10 },

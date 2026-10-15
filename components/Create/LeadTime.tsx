@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Segmented } from '@/components/ui/Segmented';
 import { Colors } from '@/theme/colors';
@@ -72,7 +73,7 @@ export const LeadTime: React.FC<{
                     style={[styles.stepper, { backgroundColor: tile, opacity: amount <= 0 ? 0.4 : 1 }]}>
                     <Ionicons name="remove" size={18} color={colors.textPrimary} />
                 </Pressable>
-                <TextInput
+                <MatteInput
                     value={typing ?? String(amount)}
                     onChangeText={text => {
                         const clean = text.replace(/[^0-9]/g, '').slice(0, 3);

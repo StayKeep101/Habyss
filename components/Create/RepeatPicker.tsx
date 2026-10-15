@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Choices } from '@/components/Create/DetailBar';
 import { Wheel } from '@/components/ui/Wheel';
@@ -123,7 +124,7 @@ export const RepeatPicker: React.FC<{
             {preset !== 'weekdays' && preset !== 'weekends' ? (
                 <Animated.View layout={MORPH} style={styles.everyRow}>
                     <Text style={[styles.label, { color: colors.textSecondary }]}>Every</Text>
-                    <TextInput
+                    <MatteInput
                         value={String(every)}
                         onChangeText={setEvery}
                         keyboardType="number-pad"

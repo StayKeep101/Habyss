@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
@@ -124,7 +125,7 @@ export function GoalColorWheel({ value, onChange, accent }: { value: string; onC
         </View>
         <View style={styles.hexRow}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Hex</Text>
-            <TextInput accessibilityLabel="Exact hex color" value={hex} onChangeText={setHex} autoCapitalize="characters"
+            <MatteInput accessibilityLabel="Exact hex color" value={hex} onChangeText={setHex} autoCapitalize="characters"
                 autoCorrect={false} maxLength={7} returnKeyType="done" onSubmitEditing={() => { if (valid) onChange(valid); }}
                 style={[styles.hex, { color: colors.textPrimary, borderColor: colors.border }]} />
             <Pressable accessibilityRole="button" accessibilityLabel="Apply hex color" disabled={!valid}

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
+import { IconButton } from '@/components/ui/IconButton';
+import { MatteInput } from '@/components/ui/MatteInput';
 import { CountUp } from '@/components/ui/Motion';
 import Animated, {
     Easing, FadeIn, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle,
@@ -349,7 +351,7 @@ export const DayCard: React.FC<{
             {writing && onComment ? (
                 <Animated.View layout={MORPH} entering={FadeIn.duration(160)}
                     style={[styles.composer, { borderTopColor: colors.border }]}>
-                    <TextInput
+                    <MatteInput
                         autoFocus
                         value={draft}
                         onChangeText={setDraft}
@@ -364,11 +366,8 @@ export const DayCard: React.FC<{
                             backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
                         }]}
                     />
-                    <Pressable accessibilityRole="button" accessibilityLabel="Send the note"
-                        disabled={!draft.trim()} onPress={send}
-                        style={[styles.send, { backgroundColor: draft.trim() ? primary : 'transparent', borderColor: colors.border }]}>
-                        <Ionicons name="arrow-up" size={ms(15)} color={draft.trim() ? '#fff' : colors.textTertiary} />
-                    </Pressable>
+                    <IconButton icon="arrow-up" label="Send the note" onPress={send} disabled={!draft.trim()}
+                        diameter={s(38)} size={ms(15)} color={draft.trim() ? primary : colors.textTertiary} />
                 </Animated.View>
             ) : null}
         </VoidCard>
