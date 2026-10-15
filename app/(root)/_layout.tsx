@@ -141,20 +141,6 @@ export default function RootLayout() {
             presentation: 'modal'
           }}
         />
-        <Stack.Screen
-          name="contact"
-          options={{
-            headerShown: false,
-            presentation: 'modal'
-          }}
-        />
-        <Stack.Screen
-          name="about"
-          options={{
-            headerShown: false,
-            presentation: 'modal'
-          }}
-        />
 
       </Stack>
     </>

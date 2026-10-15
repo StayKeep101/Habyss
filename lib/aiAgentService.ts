@@ -190,8 +190,8 @@ export const SCREEN_MAP: Record<string, string> = {
     'ai-settings': '/(root)/ai-settings',
     'privacy': '/(root)/privacy',
     'help': '/(root)/help',
-    'contact': '/(root)/contact',
-    'about': '/(root)/about',
+    'contact': '/(root)/help',
+    'about': '/(root)/help',
     'paywall': '/(root)/paywall',
 };
 

@@ -1,14 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
-import { AppSwitch as Switch } from '@/components/ui/AppSwitch';
+import { ActivityIndicator, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { VoidCard } from '@/components/ui/VoidCard';
-import { Colors } from '@/theme/colors';
-import { FontFamily, surfaceFor } from '@/theme/designSystem';
-import { ms, s, vs } from '@/theme/scale';
-import { useTheme } from '@/context/ThemeContext';
+import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
+import { vs } from '@/theme/scale';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { ALL_SHARED, SHARING_LABELS, getSharing, setSharing, type Sharing } from '@/lib/profileSync';
@@ -27,9 +22,6 @@ import { styles } from '@/styles/screens/sharing.styles';
  */
 export default function SharingScreen() {
     const router = useRouter();
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    const tone = surfaceFor(theme);
     const { primary: accent } = useAccentGradient();
     const { selectionFeedback } = useHaptics();
 
@@ -58,71 +50,49 @@ export default function SharingScreen() {
 
     if (!sharing || !prefs) {
         return (
-            <SheetScreen title="Sharing" onBack={() => router.back()}>
+            <SheetScreen title="Friends & sharing" onBack={() => router.back()}>
                 <ActivityIndicator color={accent} style={{ marginTop: vs(40) }} />
             </SheetScreen>
         );
     }
 
     return (
-        <SheetScreen title="Sharing" onBack={() => router.back()}>
+        <SheetScreen title="Friends & sharing" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>WHAT FRIENDS SEE</Text>
-                <Text style={[styles.groupNote, { color: colors.textTertiary }]}>
-                    Turning one off removes it from the server, not just from the screen.
-                </Text>
-                <VoidCard matte style={styles.list}>
-                    {SHARING_LABELS.map((item, index) => (
-                        <View key={item.id}>
-                            {index > 0 ? <View style={[styles.divider, { backgroundColor: tone.line }]} /> : null}
-                            <View style={styles.row}>
-                                <View style={styles.rowText}>
-                                    <Text style={[styles.label, { color: colors.textPrimary }]}>{item.label}</Text>
-                                    <Text style={[styles.detail, { color: colors.textSecondary }]}>{item.detail}</Text>
-                                </View>
-                                <Switch
-                                    value={sharing[item.id]}
-                                    onValueChange={value => void flip(item.id, value)}
-                                    trackColor={{ false: tone.raised, true: accent }}
-                                    accessibilityLabel={item.label}
-                                />
-                            </View>
-                        </View>
+                {/* Only accepted friends ever see any of this. */}
+                <SettingsGroup title="Friends see">
+                    {SHARING_LABELS.map(item => (
+                        <SettingsRow key={item.id} icon={SEE_ICON[item.id].icon} color={SEE_ICON[item.id].color} label={item.label}
+                            toggle={sharing[item.id]} onToggle={value => void flip(item.id, value)} />
                     ))}
-                </VoidCard>
+                </SettingsGroup>
 
-                <Text style={[styles.groupTitle, { color: colors.textTertiary }]}>WHAT YOU ARE TOLD</Text>
-                <Text style={[styles.groupNote, { color: colors.textTertiary }]}>
-                    Separate from your reminders: those are the app talking to you about your own day.
-                </Text>
-                <VoidCard matte style={styles.list}>
-                    {PREF_LABELS.map((item, index) => (
-                        <View key={item.id}>
-                            {index > 0 ? <View style={[styles.divider, { backgroundColor: tone.line }]} /> : null}
-                            <View style={styles.row}>
-                                <View style={styles.rowText}>
-                                    <Text style={[styles.label, { color: colors.textPrimary }]}>{item.label}</Text>
-                                    <Text style={[styles.detail, { color: colors.textSecondary }]}>{item.detail}</Text>
-                                </View>
-                                <Switch
-                                    value={prefs[item.id]}
-                                    onValueChange={value => void tell(item.id, value)}
-                                    trackColor={{ false: tone.raised, true: accent }}
-                                    accessibilityLabel={item.label}
-                                />
-                            </View>
-                        </View>
+                <SettingsGroup title="Tell me when">
+                    {PREF_LABELS.map(item => (
+                        <SettingsRow key={item.id} icon={TELL_ICON[item.id].icon} color={TELL_ICON[item.id].color} label={item.label}
+                            toggle={prefs[item.id]} onToggle={value => void tell(item.id, value)} />
                     ))}
-                </VoidCard>
+                </SettingsGroup>
 
-                <View style={styles.note}>
-                    <Ionicons name="lock-closed-outline" size={s(13)} color={colors.textTertiary} />
-                    <Text style={[styles.noteText, { color: colors.textTertiary }]}>
-                        Only people you have accepted as friends can see any of this, and a habit’s
-                        name only ever reaches somebody you have shared that habit with.
-                    </Text>
-                </View>
+                <SettingsGroup>
+                    <SettingsRow icon="hand-left" color="#8A8A94" label="Blocked" onPress={() => router.push('/(root)/blocked')} />
+                </SettingsGroup>
             </ScrollView>
         </SheetScreen>
     );
 }
+
+const SEE_ICON: Record<keyof Sharing, { icon: string; color: string }> = {
+    name: { icon: 'person', color: '#5B8CFF' },
+    photo: { icon: 'image', color: '#BF5AF2' },
+    bio: { icon: 'text', color: '#64D2FF' },
+    progress: { icon: 'trending-up', color: '#30D158' },
+    habits: { icon: 'repeat', color: '#FF9F0A' },
+    tasks: { icon: 'checkmark-done', color: '#FF453A' },
+};
+const TELL_ICON: Record<keyof NotificationPrefs, { icon: string; color: string }> = {
+    sharedDone: { icon: 'checkmark-circle', color: '#30D158' },
+    shareOffers: { icon: 'gift', color: '#BF5AF2' },
+    reactions: { icon: 'heart', color: '#FF375F' },
+    friendRequests: { icon: 'person-add', color: '#5B8CFF' },
+};

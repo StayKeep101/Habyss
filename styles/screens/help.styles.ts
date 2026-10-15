@@ -1,47 +1,13 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
+import { FontFamily } from '@/theme/designSystem';
+import { space } from '@/theme/tokens';
 
-/** The look of app/(root)/help.tsx. Values are exactly what the screen used. */
+/** The look of app/(root)/help.tsx. */
 export const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    content: { ...UIStyles.screenContent },
-    sectionTitle: UIStyles.sectionTitle,
-    card: {
-        borderRadius: Radius.card,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    faqItem: {
-        padding: 16,
-    },
-    question: {
-        fontSize: 15,
-        fontFamily: FontFamily.semibold,
-        marginBottom: 6,
-    },
-    answer: {
-        fontSize: 13,
-        fontFamily: FontFamily.regular,
-        lineHeight: 20,
-    },
-    divider: {
-        height: 1,
-        marginHorizontal: 16,
-    },
-    contactBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: Radius.card,
-        borderWidth: 1,
-        gap: 12,
-    },
-    contactText: {
-        flex: 1,
-        fontSize: 15,
-        fontFamily: FontFamily.semibold,
-    },
-
+    content: { paddingHorizontal: space.xl, paddingTop: space.sm, paddingBottom: space['4xl'], gap: space['2xl'] },
+    question: { paddingVertical: space.lg, gap: space.xs },
+    q: { fontSize: 15, fontFamily: FontFamily.medium },
+    a: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular },
+    footer: { alignItems: 'center' },
+    version: { fontSize: 12, fontFamily: FontFamily.regular },
 });

@@ -1,17 +1,10 @@
-import { useAccentGradient } from '@/context/AccentContext';
-import { AppButton } from '@/components/ui/AppButton';
-import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import { useState } from 'react';
-import { ScrollView, View, Text, Alert } from 'react-native';
-import { AppSwitch as Switch } from '@/components/ui/AppSwitch';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { Colors } from '@/theme/colors';
+import { ScrollView, Alert } from 'react-native';
+import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { VoidCard } from '@/components/ui/VoidCard';
-import { useTheme } from '@/context/ThemeContext';
 
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { deleteAllLocalData, restartAfterDeletion } from '@/lib/accountDeletion';
@@ -20,11 +13,6 @@ import { styles } from '@/styles/screens/privacy.styles';
 
 const Privacy = () => {
   // const colorScheme = useColorScheme();
-  const { theme } = useTheme();
-  const colors = Colors[theme];
-  const { primary: accent } = useAccentGradient();
-  const isLight = theme === 'light';
-  const isTrueDark = theme === 'trueDark';
   const { lightFeedback } = useHaptics();
   const { isAppLockEnabled, setIsAppLockEnabled } = useAppSettings();
 
@@ -89,72 +77,18 @@ const Privacy = () => {
   };
 
   return (
-    <SheetScreen title="Privacy & security" onBack={() => router.back()}>
-
-        {/* Settings */}
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {/* Data Collection */}
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>DATA COLLECTION</Text>
-          <VoidCard
-            glass={!isTrueDark}
-            intensity={isLight ? 20 : 80}
-            style={[
-              styles.card,
-              {
-                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
-                borderColor: colors.border
-              }
-            ]}
-          >
-            <View style={styles.row}>
-              <View style={styles.rowContent}>
-                <Ionicons name="phone-portrait-outline" size={22} color={colors.textSecondary} />
-                <View style={styles.textContent}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>Everything stays on this device</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    Habyss has no analytics or tracking, and your habits are never uploaded to us.
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </VoidCard>
-
-          {/* Security */}
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>SECURITY</Text>
-          <VoidCard
-            glass={!isTrueDark}
-            intensity={isLight ? 20 : 80}
-            style={[
-              styles.card,
-              {
-                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
-                borderColor: colors.border
-              }
-            ]}
-          >
-            <View style={styles.row}>
-              <View style={styles.rowContent}>
-                <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} />
-                <View style={styles.textContent}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>App Lock</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Face ID, Touch ID or device passcode</Text>
-                </View>
-              </View>
-              <Switch
-                value={isAppLockEnabled}
-                disabled={changingLock}
-                accessibilityLabel="App Lock"
-                onValueChange={changeAppLock}
-                trackColor={{ false: colors.border, true: accent }}
-              />
-            </View>
-          </VoidCard>
-
-          {/* Danger Zone */}
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>DANGER ZONE</Text>
-          <AppButton label="Delete Account" variant="danger" icon="trash-outline" onPress={handleDeleteAccount} loading={deleting} />
-        </ScrollView>
-      </SheetScreen>
+    <SheetScreen title="Privacy" onBack={() => router.back()}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <SettingsGroup>
+          <SettingsRow icon="scan" color="#30D158" label="Face ID lock" toggle={isAppLockEnabled} disabled={changingLock}
+            onToggle={value => void changeAppLock(value)} />
+        </SettingsGroup>
+        <SettingsGroup>
+          <SettingsRow icon="trash" color="#FF453A" label={deleting ? 'Deleting…' : 'Delete account'} destructive disabled={deleting}
+            onPress={handleDeleteAccount} />
+        </SettingsGroup>
+      </ScrollView>
+    </SheetScreen>
   );
 };
 

@@ -2,7 +2,9 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import React from 'react';
 import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { AppSwitch } from '@/components/ui/AppSwitch';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { IconTile } from '@/components/ui/IconTile';
+import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { AlivePreview } from '@/components/Echo/AlivePreview';
 import { aliveLine } from '@/lib/echoAlive';
 import { AnimatedFill } from '@/components/ui/Motion';
@@ -105,7 +107,7 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
             ) : null}
             {engine === null && !isDownloading && canDownload ? (
                 <TouchableOpacity accessibilityRole="button" onPress={download} style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
-                    <Text style={{ color: colors.primary, fontSize: 14, fontFamily: FontFamily.semibold }}>Download now</Text>
+                    <Text style={{ color: colors.textPrimary, fontSize: 14, fontFamily: FontFamily.medium }}>Download now</Text>
                 </TouchableOpacity>
             ) : null}
             {engine === 'llama' ? (
@@ -190,14 +192,12 @@ const AISettings = () => {
         <SheetScreen title="Echo" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* What Echo sounds like, heard rather than described. */}
-                <View style={[styles.sample, { borderColor: colors.border, backgroundColor: isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.04)' }]}>
-                    <View style={[styles.sampleMark, { backgroundColor: colors.primary + '1f' }]}>
-                        <Ionicons name="sparkles" size={16} color={colors.primary} />
-                    </View>
+                <MatteSurface radius={16} style={styles.sample}>
+                    <IconTile icon="sparkles" color="#5E5CE6" size={32} />
                     <Text style={[styles.sampleText, { color: colors.textSecondary }]}>
                         “{coachHello(aiPersonality, name)}”
                     </Text>
-                </View>
+                </MatteSurface>
 
                 {/* Every option visible at once, as a grid; the one in use
                     says what it is in a word or two underneath. */}
@@ -294,7 +294,7 @@ const AISettings = () => {
                             await RevenueCatUI.presentCustomerCenter();
                         }}
                     >
-                        <Text style={{ color: colors.primary, fontFamily: FontFamily.semibold, fontSize: 14 }}>Manage subscription</Text>
+                        <Text style={{ color: colors.textSecondary, fontFamily: FontFamily.medium, fontSize: 14 }}>Manage subscription</Text>
                     </TouchableOpacity>
                 ) : null}
             </ScrollView>
@@ -310,8 +310,6 @@ function OptionGrid<T extends string>({ options, value, onChange }: {
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const accent = colors.primary;
     const selected = options.find(option => option.id === value);
     return (
         <View>
@@ -326,13 +324,13 @@ function OptionGrid<T extends string>({ options, value, onChange }: {
                             accessibilityLabel={`${option.label}. ${option.detail}`}
                             activeOpacity={0.75}
                             onPress={() => onChange(option.id)}
-                            style={[styles.tile, {
-                                backgroundColor: on ? accent + '1F' : (isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.04)'),
-                                borderColor: on ? accent + '88' : colors.border,
-                            }]}
+                            style={styles.tilePress}
                         >
-                            <Ionicons name={option.icon as any} size={18} color={on ? accent : colors.textSecondary} />
-                            <Text numberOfLines={1} style={[styles.tileLabel, { color: on ? colors.textPrimary : colors.textSecondary }]}>{option.label}</Text>
+                            {/* Matte; chosen, it turns solid and light — no accent. */}
+                            <MatteSurface radius={16} level="control" elevation="none" tint={on ? colors.textPrimary : undefined} style={styles.tile}>
+                                <Ionicons filled name={option.icon as any} size={18} color={on ? colors.background : colors.textSecondary} />
+                                <Text numberOfLines={1} style={[styles.tileLabel, { color: on ? colors.background : colors.textSecondary }]}>{option.label}</Text>
+                            </MatteSurface>
                         </TouchableOpacity>
                     );
                 })}
@@ -342,45 +340,19 @@ function OptionGrid<T extends string>({ options, value, onChange }: {
     );
 }
 
-/** A titled group of rows, as one card, like the Settings tab. */
-const Group = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => {
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const rows = React.Children.toArray(children).filter(Boolean);
-    return (
-        <View style={styles.group}>
-            <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>{title.toUpperCase()}</Text>
-            {hint ? <Text style={[styles.groupHint, { color: colors.textTertiary }]}>{hint}</Text> : null}
-            <View style={[styles.groupCard, { backgroundColor: isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.04)', borderColor: colors.border }]}>
-                {rows.map((row, index) => (
-                    <View key={index}>
-                        {index > 0 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
-                        {row}
-                    </View>
-                ))}
-            </View>
-        </View>
-    );
-};
+/** A titled group of rows: the shared settings card. */
+const Group = ({ title, children }: { title: string; hint?: string; children: React.ReactNode }) => (
+    <SettingsGroup title={title}>{children}</SettingsGroup>
+);
 
-const ToggleRow = ({ icon, label, detail, value, disabled, colors, accent, onChange }: any) => (
-    <TouchableOpacity
-        accessibilityRole="switch"
-        accessibilityState={{ checked: value, disabled: !!disabled }}
-        activeOpacity={0.7}
-        disabled={disabled}
-        onPress={() => onChange(!value)}
-        style={[styles.row, disabled && { opacity: 0.5 }]}
-    >
-        <Ionicons name={icon} size={17} color={value ? accent : colors.textTertiary} />
-        <View style={styles.rowText}>
-            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
-            {detail ? <Text numberOfLines={1} style={[styles.rowDetail, { color: colors.textTertiary }]}>{detail}</Text> : null}
-        </View>
-        {/* The system switch, the same one as every other on/off row. */}
-        <View pointerEvents="none"><AppSwitch value={value} disabled={disabled} /></View>
-    </TouchableOpacity>
+const ROW_COLOURS: Record<string, string> = {
+    'sunny-outline': '#FF9F0A', 'moon-outline': '#5E5CE6', 'person-outline': '#5B8CFF', 'create-outline': '#BF5AF2',
+    'sparkles-outline': '#FF375F', 'refresh-outline': '#30D158',
+};
+/** An on/off row: the shared settings row with a switch. */
+const ToggleRow = ({ icon, label, value, disabled, onChange }: any) => (
+    <SettingsRow icon={String(icon).replace('-outline', '')} color={ROW_COLOURS[icon] ?? '#8A8A94'} label={label}
+        toggle={!!value} disabled={disabled} onToggle={onChange} />
 );
 
 /** A time the user can change, in the phone's own picker. */

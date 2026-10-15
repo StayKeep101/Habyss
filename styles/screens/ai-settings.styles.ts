@@ -3,13 +3,14 @@ import { FontFamily, UIStyles } from '@/theme/designSystem';
 
 /** The look of app/(root)/ai-settings.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
-    sample: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, marginTop: 6 },
+    sample: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginTop: 6 },
     sampleMark: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
     sampleText: { flex: 1, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, fontStyle: 'italic' },
     group: { marginTop: 22 },
     gridTitle: { marginTop: 22, marginBottom: 8 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    tile: { width: '48.8%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 14, borderRadius: 14, borderWidth: 1 },
+    tilePress: { width: '48.8%', flexGrow: 1 },
+    tile: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 14 },
     tileLabel: { flex: 1, fontSize: 14, fontFamily: FontFamily.semibold },
     groupTitle: { fontSize: 11, letterSpacing: 1.2, fontFamily: FontFamily.medium, marginLeft: 4 },
     groupHint: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 3, marginBottom: 8, marginLeft: 4 },

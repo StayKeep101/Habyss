@@ -6,7 +6,6 @@ To bring a page in line with the design system, open its file here and swap its 
 
 | Page | Style file |
 |---|---|
-| `app/(root)/about.tsx` | `styles/screens/about.styles.ts` |
 | `app/(root)/account.tsx` | `styles/screens/account.styles.ts` |
 | `app/(root)/add-friend.tsx` | `styles/screens/add-friend.styles.ts` |
 | `app/(root)/ai-config.tsx` | `styles/screens/ai-config.styles.ts` |
@@ -15,7 +14,6 @@ To bring a page in line with the design system, open its file here and swap its 
 | `app/(root)/appearance.tsx` | `styles/screens/appearance.styles.ts` |
 | `app/(auth)/onboarding.tsx` | `styles/screens/auth/onboarding.styles.ts` |
 | `app/(root)/blocked.tsx` | `styles/screens/blocked.styles.ts` |
-| `app/(root)/contact.tsx` | `styles/screens/contact.styles.ts` |
 | `app/(root)/goal-detail.tsx` | `styles/screens/goal-detail.styles.ts` |
 | `app/(root)/goal-roadmap.tsx` | `styles/screens/goal-roadmap.styles.ts` |
 | `app/(root)/goals-overview.tsx` | `styles/screens/goals-overview.styles.ts` |

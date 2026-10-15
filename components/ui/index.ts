@@ -40,6 +40,7 @@ export { ModalHeader } from './ModalHeader';
 export { VoidCard } from './VoidCard';
 export { IconTile } from './IconTile';
 export { ChoicePill } from './ChoicePill';
+export { SettingsGroup, SettingsRow } from './SettingsList';
 export { MatteSurface } from './MatteSurface';
 export { MatteInput } from './MatteInput';
 export { SheetSection } from './SheetSection';

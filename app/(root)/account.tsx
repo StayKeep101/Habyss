@@ -4,6 +4,7 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/theme/colors';
@@ -12,7 +13,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/ui/VoidCard';
 import {
-    currentAccount, deleteAccount, isEmail, onAccountChange, requestCode, signInWithPassword,
+    currentAccount, isEmail, onAccountChange, requestCode, signInWithPassword,
     signOut, signUpWithPassword, verifyCode,
     type Account,
 } from '@/lib/account';
@@ -215,41 +216,13 @@ export default function AccountScreen() {
         );
     };
 
-    const confirmDelete = () => {
-        lightFeedback();
-        Alert.alert(
-            'Delete your account?',
-            'This permanently deletes your account, your backup, your friends and everything on this phone. It cannot be undone.\n\nAny subscription stays with your Apple ID; cancel it in Settings.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete everything', style: 'destructive',
-                    onPress: async () => {
-                        setBusy('delete');
-                        const result = await deleteAccount();
-                        setBusy(null);
-                        if (!result.ok) {
-                            setMessage({ tone: 'error', text: `${result.error} Nothing was deleted.` });
-                            return;
-                        }
-                        if (!(await restartAfterDeletion())) router.replace('/(auth)/onboarding');
-                    },
-                },
-            ],
-        );
-    };
 
     const renderSignedOut = () => (
         <>
             <VoidCard style={styles.card}>
                 <Ionicons name="cloud-upload-outline" size={24} color={accent} />
                 <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-                    {restoring ? 'Welcome back' : 'Back up your habits'}
-                </Text>
-                <Text style={[styles.cardBody, { color: colors.textSecondary }]}>
-                    {restoring
-                        ? 'Sign in the way you did before. Your habits, goals and tasks come back with you.'
-                        : 'Keep a backup, move to a new phone without losing anything, and add friends.'}
+                    {restoring ? 'Welcome back' : 'Sign in to back up'}
                 </Text>
             </VoidCard>
 
@@ -303,7 +276,7 @@ export default function AccountScreen() {
                         onPress={() => void withPassword(true)}
                         style={styles.secondary}
                     >
-                        <Text style={[styles.secondaryText, { color: accent }]}>Create an account with this password</Text>
+                        <Text style={[styles.secondaryText, { color: colors.textSecondary }]}>Create an account with this password</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         accessibilityRole="button"
@@ -335,7 +308,7 @@ export default function AccountScreen() {
                         onPress={sendCode}
                         style={styles.secondary}
                     >
-                        <Text style={[styles.secondaryText, { color: resendIn > 0 ? colors.textTertiary : accent }]}>
+                        <Text style={[styles.secondaryText, { color: resendIn > 0 ? colors.textTertiary : colors.textSecondary }]}>
                             {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
                         </Text>
                     </TouchableOpacity>
@@ -357,28 +330,20 @@ export default function AccountScreen() {
 
     const renderSignedIn = () => (
         <>
-            <VoidCard style={styles.card}>
-                <View style={styles.row}>
-                    <View style={[styles.avatar, { backgroundColor: accent + '22' }]}>
-                        <Ionicons name="person" size={20} color={accent} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.cardTitle, { color: colors.textPrimary, marginTop: 0 }]} numberOfLines={1}>{account?.email ?? 'Signed in'}</Text>
-                        <Text style={[styles.cardBody, { color: colors.textTertiary, marginTop: 2 }]}>{since(lastSync)}</Text>
-                    </View>
-                </View>
-            </VoidCard>
-
-            <AppButton label="Back up now" onPress={backUpNow} loading={busy === 'sync'} />
-
-            <View style={{ height: 24 }} />
-            <AppButton label="Sign out" variant="secondary" onPress={confirmSignOut} disabled={!!busy} loading={busy === 'signout'} />
-            <AppButton label="Delete account" variant="danger" onPress={confirmDelete} disabled={!!busy} loading={busy === 'delete'} />
+            <SettingsGroup>
+                <SettingsRow icon="person-circle" color="#5B8CFF" label={account?.email ?? 'Signed in'} />
+                <SettingsRow icon="cloud-upload" color="#30D158" label={busy === 'sync' ? 'Backing up…' : 'Back up now'}
+                    value={since(lastSync)} disabled={!!busy} onPress={backUpNow} />
+            </SettingsGroup>
+            {/* Deleting lives in Privacy, once, for signed-in and signed-out alike. */}
+            <SettingsGroup>
+                <SettingsRow icon="log-out" color="#8A8A94" label="Sign out" disabled={!!busy} onPress={confirmSignOut} />
+            </SettingsGroup>
         </>
     );
 
     return (
-        <SheetScreen title="Account & backup" onBack={closeAccount}>
+        <SheetScreen title="Account" onBack={closeAccount}>
 
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

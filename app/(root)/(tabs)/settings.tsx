@@ -1,8 +1,7 @@
-import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { MatteSurface } from '@/components/ui/MatteSurface';
-import { textOn } from '@/theme/tokens';
+import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/theme/colors';
@@ -16,141 +15,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { PAYWALL_ENABLED } from '@/constants/features';
-import { hasAnyIntegration, integrationsSummary } from '@/lib/integrationAvailability';
+import { hasAnyIntegration } from '@/lib/integrationAvailability';
 import { APP_SLOGAN } from '@/constants/brand';
 import { currentAccount, onAccountChange } from '@/lib/account';
 import Constants from 'expo-constants';
-import { emit } from '@/lib/appEvents';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useAccentGradient } from '@/context/AccentContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { styles } from '@/styles/screens/tabs/settings.styles';
-
-// Settings configuration
-
-
-/**
- * A titled group of rows.
- *
- * Declared here rather than inside the screen: a component created during
- * render is a new component type on every render, so React threw away every
- * row and built it again each time anything on the page changed.
- */
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => {
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const rows = React.Children.toArray(children).filter(Boolean);
-    return (
-        <View style={styles.group}>
-            <Text style={[styles.sectionHeading, { color: colors.textTertiary }]}>{title.toUpperCase()}</Text>
-            <View style={[styles.sectionCardPlain, { backgroundColor: isLight ? colors.surfaceSecondary : 'rgba(255,255,255,0.04)', borderColor: colors.border }]}>
-                {rows.map((row, index) => (
-                    <View key={index}>
-                        {index > 0 ? <View style={[styles.rowDivider, { backgroundColor: colors.border }]} /> : null}
-                        {row}
-                    </View>
-                ))}
-            </View>
-        </View>
-    );
-};
-
-/**
- * One setting. A small monochrome icon, the name, and either what it is set to
- * or a switch. No gradient tiles: this is a list, and every row shouting the
- * accent colour made none of them readable.
- */
-const Row = ({ icon, label, value, toggle, onPress }: {
-    icon: React.ComponentProps<typeof Ionicons>['name']; label: string; value?: string;
-    toggle?: boolean; onPress: () => void;
-}) => {
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const { primary: accentColor } = useAccentGradient();
-    const { selectionFeedback } = useHaptics();
-
-    return (
-    <TouchableOpacity
-        accessibilityRole={toggle === undefined ? 'button' : 'switch'}
-        accessibilityState={toggle === undefined ? undefined : { checked: toggle }}
-        accessibilityLabel={label}
-        activeOpacity={0.7}
-        onPress={() => { selectionFeedback(); onPress(); }}
-        style={styles.row}
-    >
-        <View style={[styles.rowIcon, { backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)' }]}>
-            <Ionicons name={icon} size={16} color={colors.textSecondary} />
-        </View>
-        <Text numberOfLines={1} style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
-        {toggle === undefined ? (
-            <>
-                {value ? <Text numberOfLines={1} style={[styles.rowValue, { color: colors.textTertiary }]}>{value}</Text> : null}
-                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
-            </>
-        ) : (
-            <View style={[styles.switch, { backgroundColor: toggle ? accentColor : (isLight ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.12)') }]}>
-                <View style={[styles.knob, { alignSelf: toggle ? 'flex-end' : 'flex-start' }]} />
-            </View>
-        )}
-    </TouchableOpacity>
-    );
-};
-
-/**
- * Two switches in the room of one.
- *
- * Sound and haptics are the same decision — how loudly the app answers you —
- * so they read better as one row with two channels than as two rows repeating
- * the same shape. Each is still a separate switch; it just stops spending a
- * full row each to say so.
- */
-const FeedbackRow = ({ sounds, haptics, onSounds, onHaptics }: {
-    sounds: boolean; haptics: boolean; onSounds: () => void; onHaptics: () => void;
-}) => {
-    const { theme } = useTheme();
-    const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const { primary: accentColor } = useAccentGradient();
-    const { selectionFeedback } = useHaptics();
-
-    const channels = [
-        { on: sounds, icon: 'volume-medium' as const, off: 'volume-mute-outline' as const, label: 'Sounds', press: onSounds },
-        { on: haptics, icon: 'phone-portrait' as const, off: 'phone-portrait-outline' as const, label: 'Haptics', press: onHaptics },
-    ];
-
-    return (
-        <View style={styles.row}>
-            <View style={[styles.rowIcon, { backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)' }]}>
-                <Ionicons name="pulse-outline" size={16} color={colors.textSecondary} />
-            </View>
-            <Text numberOfLines={1} style={[styles.rowLabel, { color: colors.textPrimary }]}>Sound &amp; haptics</Text>
-            <View style={styles.channels}>
-                {channels.map(channel => (
-                    <TouchableOpacity
-                        key={channel.label}
-                        accessibilityRole="switch"
-                        accessibilityState={{ checked: channel.on }}
-                        accessibilityLabel={channel.label}
-                        activeOpacity={0.7}
-                        onPress={() => { selectionFeedback(); channel.press(); }}
-                    >
-                        {/* A matte toggle; on, it is filled solid with the accent like a chosen chip. */}
-                        <MatteSurface radius={15} level="control" style={styles.channel}
-                            tint={channel.on ? accentColor : undefined}>
-                            <Ionicons
-                                name={channel.on ? channel.icon : channel.off}
-                                size={15}
-                                color={channel.on ? textOn(accentColor) : colors.textTertiary}
-                            />
-                        </MatteSurface>
-                    </TouchableOpacity>
-                ))}
-            </View>
-        </View>
-    );
-};
 
 export default function ProfileScreen() {
     const { theme } = useTheme();
@@ -164,8 +35,6 @@ export default function ProfileScreen() {
 
     // Settings state - use global context
     const {
-        hapticsEnabled, setHapticsEnabled,
-        soundsEnabled, setSoundsEnabled,
         notificationsEnabled,
         aiPersonality,
     } = useAppSettings();
@@ -204,7 +73,7 @@ export default function ProfileScreen() {
                 {/* Header - No Settings Button */}
                 <View style={[styles.header, { paddingHorizontal: horizontalPadding, paddingTop: topSpacing * 0.4 }]}>
                     <View style={{ width: isCompactWidth ? 32 : 40 }} />
-                    <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: isCompactWidth ? 26 : 30 }]}>SETTINGS</Text>
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: isCompactWidth ? 26 : 30 }]}>Settings</Text>
                     <View style={{ width: isCompactWidth ? 32 : 40 }} />
                 </View>
 
@@ -235,84 +104,42 @@ export default function ProfileScreen() {
                         <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                     </TouchableOpacity>
 
-                    <Section title="Account">
-                        <Row
-                            icon="cloud-upload-outline"
-                            label="Account & backup"
-                            value={accountEmail ? 'Signed in' : 'Sign in'}
-                            onPress={() => router.push('/(root)/account')}
-                        />
-                        <Row icon="people-outline" label="Sharing & friends" value="What friends see" onPress={() => router.push('/(root)/sharing')} />
-                        <Row icon="shield-checkmark-outline" label="Privacy & security" onPress={() => router.push('/(root)/privacy')} />
-                        <Row icon="hand-left-outline" label="Blocked accounts" onPress={() => router.push('/(root)/blocked')} />
+                    {/* Four short groups, each row an icon you can recognise
+                        without reading: who you are, your plan, the app, help. */}
+                    <SettingsGroup>
+                        <SettingsRow icon="person-circle" color="#5B8CFF" label="Account"
+                            value={accountEmail ? 'Signed in' : 'Sign in'} onPress={() => router.push('/(root)/account')} />
+                        <SettingsRow icon="people" color="#30D158" label="Friends & sharing" onPress={() => router.push('/(root)/sharing')} />
+                        <SettingsRow icon="lock-closed" color="#8A8A94" label="Privacy" onPress={() => router.push('/(root)/privacy')} />
                         {PAYWALL_ENABLED ? (
-                            <Row icon="star-outline" label="Subscription" value="Manage" onPress={() => router.push('/(root)/paywall')} />
+                            <SettingsRow icon="star" color="#FFB020" label="Subscription" onPress={() => router.push('/(root)/paywall')} />
                         ) : null}
-                    </Section>
+                    </SettingsGroup>
 
-                    <Section title="Your plan">
-                        {/* The promise is two numbers, so the row is the choice
-                            rather than a page that holds one. */}
-                        <Row
-                            icon="checkmark-circle-outline"
-                            label="Daily tasks"
-                            value={`${dailyTarget} a day`}
-                            onPress={() => void saveDailyTarget(dailyTarget === 3 ? 5 : 3)}
-                        />
-                        <Row icon="git-branch-outline" label="Full roadmap" onPress={() => router.push('/(root)/goal-roadmap')} />
-                        <Row icon="list-outline" label="All habits" value="Including archived" onPress={() => router.push('/(root)/all-habits')} />
-                    </Section>
+                    <SettingsGroup>
+                        <SettingsRow icon="checkmark-done" color="#FF9F0A" label="Tasks a day"
+                            choices={[{ id: '3', label: '3' }, { id: '5', label: '5' }]}
+                            chosen={String(dailyTarget)} onChoose={id => void saveDailyTarget(Number(id) as 3 | 5)} />
+                        <SettingsRow icon="repeat" color="#BF5AF2" label="All habits" onPress={() => router.push('/(root)/all-habits')} />
+                        <SettingsRow icon="flag" color="#FF453A" label="Goal plans" onPress={() => router.push('/(root)/goal-roadmap')} />
+                    </SettingsGroup>
 
-                    <Section title="Echo & reminders">
-                        <Row
-                            icon="sparkles-outline"
-                            label="Echo"
+                    <SettingsGroup>
+                        <SettingsRow icon="sparkles" color="#5E5CE6" label="Echo"
                             value={PERSONALITY_MODES.find(mode => mode.id === aiPersonality)?.name ?? 'Friendly'}
-                            onPress={() => router.push('/(root)/ai-settings')}
-                        />
-                        <Row
-                            icon="notifications-outline"
-                            label="Notifications"
-                            value={notificationsEnabled ? 'On' : 'Off'}
-                            onPress={() => router.push('/(root)/notifications')}
-                        />
-                    </Section>
+                            onPress={() => router.push('/(root)/ai-settings')} />
+                        <SettingsRow icon="notifications" color="#FF453A" label="Notifications"
+                            value={notificationsEnabled ? 'On' : 'Off'} onPress={() => router.push('/(root)/notifications')} />
+                        <SettingsRow icon="color-palette" color="#0A84FF" label="Appearance" onPress={() => router.push('/(root)/appearance')} />
+                        {hasAnyIntegration() ? (
+                            <SettingsRow icon="heart" color="#FF375F" label="Apple Health" onPress={() => router.push('/(root)/integrations')} />
+                        ) : null}
+                    </SettingsGroup>
 
-                    <Section title="Appearance & feedback">
-                        <Row icon="color-palette-outline" label="Appearance" onPress={() => router.push('/(root)/appearance')} />
-                        <Row icon="grid-outline" label="UI catalogue" onPress={() => router.push('/(root)/ui-catalog')} />
-                        <FeedbackRow
-                            sounds={soundsEnabled}
-                            haptics={hapticsEnabled}
-                            onSounds={() => setSoundsEnabled(!soundsEnabled)}
-                            onHaptics={() => setHapticsEnabled(!hapticsEnabled)}
-                        />
-                    </Section>
-
-                    {hasAnyIntegration() ? (
-                        <Section title="Connections">
-                            <Row
-                                icon="link-outline"
-                                label="Integrations"
-                                value={integrationsSummary()}
-                                onPress={() => router.push('/(root)/integrations')}
-                            />
-                        </Section>
-                    ) : null}
-
-                    <Section title="Support">
-                        {/* First, because it is the one people actually need,
-                            and it opens a box rather than another screen. */}
-                        <Row
-                            icon="paper-plane-outline"
-                            label="Send feedback"
-                            value="Or hold the Settings tab"
-                            onPress={() => emit('show_feedback', { screen: 'settings' })}
-                        />
-                        <Row icon="help-circle-outline" label="Help centre" onPress={() => router.push('/(root)/help')} />
-                        <Row icon="chatbubble-ellipses-outline" label="Contact support" onPress={() => router.push('/(root)/contact')} />
-                        <Row icon="information-circle-outline" label="About Habyss" onPress={() => router.push('/(root)/about')} />
-                    </Section>
+                    <SettingsGroup>
+                        <SettingsRow icon="help-buoy" color="#64D2FF" label="Help" onPress={() => router.push('/(root)/help')} />
+                        <SettingsRow icon="grid" color="#8A8A94" label="UI catalogue" onPress={() => router.push('/(root)/ui-catalog')} />
+                    </SettingsGroup>
 
                     <View style={styles.footer}>
                         <Text style={[styles.quote, { color: colors.textSecondary }]}>{APP_SLOGAN}</Text>

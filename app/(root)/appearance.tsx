@@ -1,165 +1,56 @@
-import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { SheetScreen } from '@/components/ui/SheetScreen';
-import { VoidCard } from '@/components/ui/VoidCard';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
+import { Pressable, ScrollView, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/theme/colors';
-import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
-import { useTheme, ThemeMode } from '@/context/ThemeContext';
-import { useAppSettings, RoadMapCardSize } from '@/context/AppSettingsContext';
+import { SheetScreen } from '@/components/ui/SheetScreen';
+import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
+import { AppIcon } from '@/components/ui/AppIcon';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useTheme, type ThemeMode } from '@/context/ThemeContext';
+import { useAppSettings, type RoadMapCardSize } from '@/context/AppSettingsContext';
 import { useAccent, ACCENT_GRADIENTS } from '@/context/AccentContext';
 import { styles } from '@/styles/screens/appearance.styles';
 
-const Appearance = () => {
-    const { theme, mode, setTheme } = useTheme();
-    const colors = Colors[theme];
-    const { cardSize, setCardSize } = useAppSettings();
+/**
+ * How the app looks and feels, on one screen: theme, card size, sound and
+ * touch as rows you can change in place, and the colour as a row of circles.
+ */
+export default function Appearance() {
+    const { mode, setTheme } = useTheme();
+    const { cardSize, setCardSize, soundsEnabled, setSoundsEnabled, hapticsEnabled, setHapticsEnabled } = useAppSettings();
     const { accentGradient, setAccentGradientId } = useAccent();
-    const { lightFeedback, mediumFeedback } = useHaptics();
-
-    const themes: { id: ThemeMode; name: string; icon: string; desc: string }[] = [
-        { id: 'system', name: 'System', icon: 'settings-outline', desc: 'Follows device settings' },
-        { id: 'light', name: 'Light', icon: 'sunny-outline', desc: 'Bright and clean' },
-        { id: 'abyss', name: 'Dark', icon: 'moon-outline', desc: 'The Habyss look' },
-    ];
-
-    const sizes: { id: RoadMapCardSize; name: string }[] = [
-        { id: 'small', name: 'Compact' },
-        { id: 'standard', name: 'Standard' },
-        { id: 'big', name: 'Large' },
-    ];
-
-    const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
-
-    const renderCard = (children: React.ReactNode, key?: string) => (
-        <VoidCard
-            key={key}
-            glass={!isTrueDark}
-            intensity={isLight ? 20 : 80}
-            style={[
-                styles.card,
-                {
-                    backgroundColor: isLight ? colors.surfaceSecondary : undefined,
-                    borderColor: colors.border
-                }
-            ]}
-        >
-            {children}
-        </VoidCard>
-    );
+    const { selectionFeedback } = useHaptics();
 
     return (
         <SheetScreen title="Appearance" onBack={() => router.back()}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SettingsGroup>
+                    <SettingsRow icon="contrast" color="#5B5BD6" label="Theme"
+                        choices={[{ id: 'light', label: 'Light' }, { id: 'abyss', label: 'Dark' }, { id: 'system', label: 'Auto' }]}
+                        chosen={mode === 'trueDark' ? 'abyss' : mode} onChoose={id => setTheme(id as ThemeMode)} />
+                    <SettingsRow icon="albums" color="#FF9F0A" label="Cards"
+                        choices={[{ id: 'small', label: 'S' }, { id: 'standard', label: 'M' }, { id: 'big', label: 'L' }]}
+                        chosen={cardSize} onChoose={id => setCardSize(id as RoadMapCardSize)} />
+                    <SettingsRow icon="volume-high" color="#FF453A" label="Sound" toggle={soundsEnabled} onToggle={setSoundsEnabled} />
+                    <SettingsRow icon="pulse" color="#30D158" label="Vibration" toggle={hapticsEnabled} onToggle={setHapticsEnabled} />
+                </SettingsGroup>
 
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                    {/* Theme Section */}
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>THEME</Text>
-                    {renderCard(
-                        themes.map((t, index) => (
-                            <View key={t.id}>
-                                {index > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
-                                <TouchableOpacity
-                                    accessibilityRole="radio"
-                                    accessibilityState={{ selected: mode === t.id }}
-                                    style={styles.themeRow}
-                                    onPress={() => { lightFeedback(); setTheme(t.id); }}
-                                >
-                                    <Ionicons
-                                        name={t.icon as any}
-                                        size={22}
-                                        color={mode === t.id ? accentGradient.colors[0] : colors.textSecondary}
-                                    />
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.themeName, { color: colors.textPrimary }]}>{t.name}</Text>
-                                        <Text style={[styles.themeDesc, { color: colors.textTertiary }]}>{t.desc}</Text>
-                                    </View>
-                                    {mode === t.id && (
-                                        <Ionicons name="checkmark-circle" size={22} color={accentGradient.colors[0]} />
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        ))
-                    )}
-
-                    {/* Accent Gradient Section */}
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>ACCENT COLOR</Text>
-                    <Text style={[styles.sectionDesc, { color: colors.textTertiary }]}>
-                        Customize buttons, icons, and highlights
-                    </Text>
-                    <View style={styles.gradientGrid}>
-                        {ACCENT_GRADIENTS.map((g) => {
-                            const isSelected = accentGradient.id === g.id;
-                            return (
-                                <TouchableOpacity
-                                    key={g.id}
-                                    accessibilityRole="radio"
-                                    accessibilityLabel={g.name}
-                                    accessibilityState={{ selected: isSelected }}
-                                    style={[
-                                        styles.gradientCell,
-                                        { borderColor: isSelected ? colors.textPrimary : colors.border, borderWidth: 2 }
-                                    ]}
-                                    onPress={() => { mediumFeedback(); setAccentGradientId(g.id); }}
-                                    activeOpacity={0.7}
-                                >
-                                    <LinearGradient
-                                        colors={g.colors as [string, string]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.gradientInner}
-                                    >
-                                        {isSelected && (
-                                            <View style={styles.checkContainer}>
-                                                <Ionicons name="checkmark" size={16} color="#fff" />
-                                            </View>
-                                        )}
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                    <Text style={[styles.gradientName, { color: colors.textSecondary }]}>
-                        {accentGradient.name}
-                    </Text>
-
-                    {/* Card Size Section */}
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>CARD SIZE</Text>
-                    <Text style={[styles.sectionDesc, { color: colors.textTertiary }]}>
-                        Size of goal and habit cards in Roadmap
-                    </Text>
-                    <View style={styles.sizeRow}>
-                        {sizes.map((s) => (
-                            <TouchableOpacity
-                                key={s.id}
-                                style={[
-                                    styles.sizeBtn,
-                                    {
-                                        backgroundColor: cardSize === s.id ? accentGradient.colors[0] : (isLight ? colors.surfaceSecondary : colors.surface),
-                                        borderColor: cardSize === s.id ? accentGradient.colors[0] : colors.border,
-                                    }
-                                ]}
-                                onPress={() => { lightFeedback(); setCardSize(s.id); }}
-                                activeOpacity={0.7}
-                            >
-                                <Text
-                                    style={[
-                                        styles.sizeBtnText,
-                                        { color: cardSize === s.id ? '#fff' : colors.textPrimary }
-                                    ]}
-                                >
-                                    {s.name}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </ScrollView>
-            </SheetScreen>
+                {/* The app's colour: tap one. */}
+                <View style={styles.swatches} accessibilityRole="radiogroup" accessibilityLabel="App colour">
+                    {ACCENT_GRADIENTS.map(gradient => {
+                        const on = accentGradient.id === gradient.id;
+                        return (
+                            <Pressable key={gradient.id} accessibilityRole="radio" accessibilityLabel={gradient.name} accessibilityState={{ selected: on }}
+                                onPress={() => { selectionFeedback(); setAccentGradientId(gradient.id); }}
+                                style={[styles.swatchRing, on && styles.swatchRingOn]}>
+                                <LinearGradient colors={gradient.colors as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.swatch}>
+                                    {on ? <AppIcon name="checkmark" size={16} color="#FFFFFF" /> : null}
+                                </LinearGradient>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+            </ScrollView>
+        </SheetScreen>
     );
-};
-
-
-export default Appearance;
+}

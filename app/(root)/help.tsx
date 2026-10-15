@@ -1,85 +1,68 @@
-import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
-import { ScrollView, View, Text, TouchableOpacity, Linking } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { Colors } from '@/theme/colors';
-import { useHaptics } from '@/hooks/useHaptics';
+import React, { useState } from 'react';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
-
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { VoidCard } from '@/components/ui/VoidCard';
+import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
+import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
+import { emit } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/help.styles';
 
-const Help = () => {
-    // const colorScheme = useColorScheme();
+const QUESTIONS = [
+    { q: 'How do I add a habit?', a: 'Tap + at the bottom of the screen.' },
+    { q: 'How does my streak work?', a: 'Do one habit or task a day and it keeps going.' },
+    { q: 'Does it work offline?', a: 'Yes. Everything saves on your phone first.' },
+    { q: 'What are Marks?', a: 'Points for keeping your habits and tasks. They go down when you miss.' },
+];
+
+/**
+ * Everything about getting help, in one place: talk to us, the questions
+ * people ask, and the small print. It used to be four pages — Help centre,
+ * Contact support, Send feedback and About — that said the same thing.
+ */
+export default function Help() {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
-    const { lightFeedback } = useHaptics();
-
-    const faqs = [
-        { q: 'How do I create a habit?', a: 'Tap the + button on the home screen to create a new habit.' },
-        { q: 'How do streaks work?', a: 'Complete all habits for a day to maintain your streak.' },
-        { q: 'Can I use Habyss offline?', a: 'Yes! Your habits sync when you\'re back online.' },
-    ];
-
-    const openEmail = () => {
-        lightFeedback();
-        Linking.openURL('mailto:support@habyss.app');
-    };
+    const [open, setOpen] = useState<number | null>(null);
+    const version = Constants.expoConfig?.version || '1.0.0';
 
     return (
-        <SheetScreen title="Help centre" onBack={() => router.back()}>
+        <SheetScreen title="Help" onBack={() => router.back()}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SettingsGroup>
+                    <SettingsRow icon="chatbubble" color="#5B8CFF" label="Send feedback"
+                        onPress={() => emit('show_feedback', { screen: 'help' })} />
+                    <SettingsRow icon="mail" color="#3DDC97" label="Email support"
+                        onPress={() => void Linking.openURL('mailto:support@habyss.app')} />
+                    <SettingsRow icon="logo-twitter" color="#1D9BF0" label="Habyss on X"
+                        onPress={() => void Linking.openURL('https://twitter.com/habyss')} />
+                </SettingsGroup>
 
-                {/* FAQ */}
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <SettingsGroup title="Questions">
+                    {QUESTIONS.map((item, index) => (
+                        <Pressable key={item.q} accessibilityRole="button" accessibilityState={{ expanded: open === index }}
+                            onPress={() => setOpen(open === index ? null : index)} style={styles.question}>
+                            <Text style={[styles.q, { color: colors.textPrimary }]}>{item.q}</Text>
+                            {open === index ? (
+                                <Animated.Text entering={FadeIn.duration(180)} style={[styles.a, { color: colors.textSecondary }]}>{item.a}</Animated.Text>
+                            ) : null}
+                        </Pressable>
+                    ))}
+                </SettingsGroup>
 
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>FAQ</Text>
-                    <VoidCard
-                        glass={!isTrueDark}
-                        intensity={isLight ? 20 : 80}
-                        style={[
-                            styles.card,
-                            {
-                                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
-                                borderColor: colors.border
-                            }
-                        ]}
-                    >
-                        {faqs.map((item, index) => (
-                            <View key={index}>
-                                {index > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
-                                <View style={styles.faqItem}>
-                                    <Text style={[styles.question, { color: colors.textPrimary }]}>{item.q}</Text>
-                                    <Text style={[styles.answer, { color: colors.textSecondary }]}>{item.a}</Text>
-                                </View>
-                            </View>
-                        ))}
-                    </VoidCard>
+                <SettingsGroup>
+                    <SettingsRow icon="shield-checkmark" color="#8A8A94" label="Privacy policy"
+                        onPress={() => void Linking.openURL('https://habyss.app/privacy')} />
+                    <SettingsRow icon="document-text" color="#8A8A94" label="Terms"
+                        onPress={() => void Linking.openURL('https://habyss.app/terms')} />
+                </SettingsGroup>
 
-                    {/* Contact */}
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>NEED MORE HELP?</Text>
-                    <TouchableOpacity onPress={openEmail} activeOpacity={0.7}>
-                        <VoidCard
-                            glass={!isTrueDark}
-                            intensity={isLight ? 20 : 80}
-                            style={[
-                                styles.contactBtn,
-                                {
-                                    backgroundColor: isLight ? colors.surfaceSecondary : undefined,
-                                    borderColor: colors.border
-                                }
-                            ]}
-                        >
-                            <Ionicons name="mail-outline" size={22} color={colors.primary} />
-                            <Text style={[styles.contactText, { color: colors.textPrimary }]}>Email Support</Text>
-                            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-                        </VoidCard>
-                    </TouchableOpacity>
-                </ScrollView>
-            </SheetScreen>
+                <View style={styles.footer}>
+                    <Text style={[styles.version, { color: colors.textTertiary }]}>Habyss {version}</Text>
+                </View>
+            </ScrollView>
+        </SheetScreen>
     );
-};
-
-export default Help;
+}
