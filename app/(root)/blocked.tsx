@@ -71,7 +71,7 @@ export default function BlockedScreen() {
                     <Animated.View layout={MORPH} style={styles.list}>
                         {people.map(person => (
                             <Animated.View key={person.id} entering={FadeIn.duration(180)} layout={MORPH}>
-                                <VoidCard {...surface} style={[styles.row, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                                <VoidCard {...surface} style={[styles.row]}>
                                     <View style={[styles.avatar, { backgroundColor: primary + '18' }]}>
                                         {person.avatarUrl ? (
                                             <Image source={{ uri: person.avatarUrl }} style={styles.photo} />

@@ -134,16 +134,8 @@ export default function UICatalog() {
                 {/* ───────────────────────── Surfaces ───────────────────────── */}
                 <CatalogSection title="Surfaces" description="Cards, sections, headers and windows." />
 
-                <Specimen number={8} name="Card" file="components/ui/VoidCard.tsx">
-                    <Variant letter="a" label="Plain">
-                        <VoidCard><View style={styles.cardBody}><Text variant="heading">Morning run</Text><Text tone="muted">Every day · 07:00</Text></View></VoidCard>
-                    </Variant>
-                    <Variant letter="b" label="Glass">
-                        <VoidCard glass intensity={60}><View style={styles.cardBody}><Text variant="heading">Morning run</Text><Text tone="muted">Every day · 07:00</Text></View></VoidCard>
-                    </Variant>
-                    <Variant letter="c" label="Matte">
-                        <VoidCard matte><View style={styles.cardBody}><Text variant="heading">Morning run</Text><Text tone="muted">Every day · 07:00</Text></View></VoidCard>
-                    </Variant>
+                <Specimen number={8} name="Card" file="components/ui/VoidCard.tsx" note="matte: flat fill, one light edge, no blur or shadow">
+                    <VoidCard><View style={styles.cardBody}><Text variant="heading">Morning run</Text><Text tone="muted">Every day · 07:00</Text></View></VoidCard>
                 </Specimen>
 
                 <Specimen number={9} name="Sheet section" file="components/ui/SheetSection.tsx">

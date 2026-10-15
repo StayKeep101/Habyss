@@ -41,7 +41,7 @@ export const GoalsProgressBar: React.FC<GoalsProgressBarProps> = ({ progress, on
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container]}>
                 <View style={styles.header}>
                     <View style={styles.titleRow}>
                         <Ionicons name="flag" size={s(16)} color={primary} />

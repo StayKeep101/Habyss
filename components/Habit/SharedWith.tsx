@@ -68,7 +68,7 @@ export const SharedWith: React.FC<{ habitId: string; doneToday: boolean }> = ({ 
             <VoidCard
                 glass={!isTrueDark}
                 intensity={isLight ? 20 : 80}
-                style={[styles.card, isLight && { backgroundColor: colors.surfaceSecondary }, { borderColor: tint + '44' }]}
+                style={[styles.card, { borderColor: tint + '44' }]}
             >
                 <View style={styles.head}>
                     <Ionicons name={state.complete ? 'people' : 'people-outline'} size={s(16)} color={tint} />

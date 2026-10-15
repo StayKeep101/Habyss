@@ -120,7 +120,7 @@ export const DayCard: React.FC<{
         <VoidCard
             glass={!isTrueDark}
             intensity={isLight ? 20 : 80}
-            style={[styles.card, isLight && { backgroundColor: colors.surfaceSecondary }]}
+            style={[styles.card]}
         >
             <Pressable
                 accessibilityRole="button"

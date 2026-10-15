@@ -50,7 +50,7 @@ export const MomentumCard: React.FC<{ momentum: Momentum; onPress: () => void }>
                 : `Momentum ${rate} percent`}
             style={styles.touchable}
         >
-            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container]}>
                 <View style={styles.iconContainer}>
                     <View style={[styles.iconCircle, { backgroundColor: tint + '30' }]}>
                         <Ionicons name={icon as never} size={s(20)} color={tint} />

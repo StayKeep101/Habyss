@@ -56,7 +56,8 @@ export const ProfileView: React.FC<{
     const { primary, secondary } = useAccentGradient();
 
     const surface = { glass: !isTrueDark, intensity: isLight ? 20 : 80 };
-    const tint = isLight ? { backgroundColor: colors.surfaceSecondary } : null;
+    // Cards carry their own matte fill; nothing is painted over it.
+    const tint = null;
 
     const Cover = edit ? Pressable : View;
 

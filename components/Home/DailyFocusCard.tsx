@@ -49,7 +49,7 @@ export const DailyFocusCard: React.FC<{
             : null;
 
     return (
-        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container]}>
             <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel={`Today's tasks, ${focus.done} of ${focus.target} done. Open task insights.`}

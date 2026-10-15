@@ -490,7 +490,7 @@ const GoalDetail = () => {
               <GoalPace measure={insights.measure} color={goal.color || accentColor} />
             </View>
           ) : null}
-          <VoidCard glass style={[styles.mainPanel, { backgroundColor: theme === 'light' ? colors.surfaceSecondary : undefined }]}>
+          <VoidCard glass style={[styles.mainPanel]}>
             <View style={styles.todayHeader}>
               <View>
                 <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Today</Text>

@@ -55,7 +55,7 @@ export const RecoveryCard: React.FC<{ recovery: Recovery; onPress: () => void }>
                 : rate === null ? 'Recovery, nothing missed yet' : `Recovery ${rate} percent`}
             style={styles.touchable}
         >
-            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container]}>
                 <Animated.View style={[styles.iconContainer, breathe]}>
                     <View style={[styles.iconCircle, { backgroundColor: tint + '30' }]}>
                         <Ionicons name={risk ? 'alert' : 'refresh'} size={s(20)} color={tint} />

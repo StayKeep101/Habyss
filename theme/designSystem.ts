@@ -46,26 +46,26 @@ export interface SurfaceTone {
 }
 
 export const Surfaces: Record<'light' | 'abyss' | 'trueDark', SurfaceTone> = {
+    // Matte, like Phantom: a flat, opaque step above the page in a neutral
+    // grey, one crisp light edge, and no blur, gloss or glow.
     light: {
-        fill: '#FFFFFF',
-        raised: '#F8FAFC',
-        lip: 'rgba(255,255,255,0.9)',
+        fill: '#F4F4F6',
+        raised: '#EAEAEE',
+        lip: 'rgba(15,23,42,0.06)',
         line: 'rgba(15,23,42,0.07)',
     },
     abyss: {
-        // Four percent above the void. Enough to read as a surface at a glance,
-        // far too little to look grey.
-        fill: '#13161C',
-        raised: '#1A1E26',
+        fill: '#151517',
+        raised: '#202023',
         lip: 'rgba(255,255,255,0.07)',
         line: 'rgba(255,255,255,0.06)',
     },
     trueDark: {
-        // OLED still wants the page itself pure black; the cards do not have to
-        // be, and when they were, they disappeared.
-        fill: '#0F0F11',
-        raised: '#17171A',
-        lip: 'rgba(255,255,255,0.06)',
+        // The page stays pure black for OLED; the cards are the same matte
+        // grey, which is what keeps them visible on it.
+        fill: '#141414',
+        raised: '#1F1F1F',
+        lip: 'rgba(255,255,255,0.07)',
         line: 'rgba(255,255,255,0.05)',
     },
 };

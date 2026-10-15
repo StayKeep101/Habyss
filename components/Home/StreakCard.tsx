@@ -34,7 +34,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
 
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
-            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+            <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container]}>
                 <View style={styles.iconContainer}>
                     {isRainbow ? (
                         <LinearGradient

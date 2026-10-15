@@ -51,7 +51,8 @@ export const RecoveryModal = ({ visible, onClose, habits, history, completions }
 
     const result = useMemo(() => recovery(habits, history, completions, 90), [habits, history, completions]);
     const surface = { glass: !isTrueDark, intensity: isLight ? 20 : 80 };
-    const tintStyle = isLight ? { backgroundColor: colors.surfaceSecondary } : null;
+    // Cards carry their own matte fill; nothing is painted over it.
+    const tintStyle = null;
 
     const settled = result.perHabit.filter(item => !item.atRisk);
     const open = (id: string) => { lightFeedback(); onClose(); router.push({ pathname: '/habit-detail', params: { habitId: id } }); };

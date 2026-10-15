@@ -72,7 +72,8 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
     const names = useMemo(() => new Map(habits.map(habit => [habit.id, habit.name])), [habits]);
 
     const surface = { glass: !isTrueDark, intensity: isLight ? 20 : 80 };
-    const tint = { backgroundColor: colors.surfaceSecondary };
+    // Cards carry their own matte fill; nothing is painted over it.
+    const tint = null;
     const glassy = (extra?: object) => [isLight ? tint : null, extra] as never;
 
     // What the readout can say, worked out once. A worklet picks from these; it

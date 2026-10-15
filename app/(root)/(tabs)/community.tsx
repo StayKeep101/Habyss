@@ -550,7 +550,7 @@ export default function CommunityScreen() {
                 {friendRequests.length > 0 && (
                     <View style={{ marginBottom: 24 }}>
                         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PENDING REQUESTS</Text>
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }, isLight && { backgroundColor: colors.surfaceSecondary }]}>
+                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }]}>
                             {friendRequests.map(request => (
                                 <View key={request.id} style={styles.requestRow}>
                                     <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>

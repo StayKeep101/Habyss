@@ -29,7 +29,7 @@ export const MarksBoard: React.FC<{ people: MarksPerson[]; onPick?: (id: string)
     const top = Math.max(1, sorted[0].marks);
 
     return (
-        <VoidCard glass={theme !== 'trueDark'} intensity={light ? 20 : 80} style={[styles.card, light && { backgroundColor: colors.surfaceSecondary }]}>
+        <VoidCard glass={theme !== 'trueDark'} intensity={light ? 20 : 80} style={[styles.card]}>
             <View style={styles.head}>
                 <Text style={[styles.title, { color: colors.textPrimary }]}>MARKS</Text>
                 <Text style={[styles.sub, { color: colors.textTertiary }]}>Discipline, kept over time</Text>
