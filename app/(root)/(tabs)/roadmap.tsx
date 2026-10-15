@@ -500,23 +500,83 @@ const CalendarScreen = () => {
             )
         );
 
+        measuredAt.current = scrollY.get();
         goalDropLayouts.current = Object.fromEntries(entries.filter((entry): entry is [string, { x: number; y: number; width: number; height: number }] => !!entry[1]));
     }, []);
 
     const getHoveredGoalAtPoint = useCallback((x: number, y: number) => {
+        // The targets were measured before any auto-scroll; move them with it.
+        const shift = measuredAt.current - scrollY.get();
         for (const [goalId, layout] of Object.entries(goalDropLayouts.current)) {
-            if (x >= layout.x && x <= layout.x + layout.width && y >= layout.y && y <= layout.y + layout.height) {
+            const top = layout.y + shift;
+            if (x >= layout.x && x <= layout.x + layout.width && y >= top && y <= top + layout.height) {
                 return goalId;
             }
         }
         return null;
+    }, [scrollY]);
+
+    /**
+     * Holding something near the top or bottom edge scrolls the list, so a
+     * habit far down can reach a goal far up. The speed depends only on how
+     * deep into the edge the finger is — gentle at its border, steady at most
+     * ~9 points a frame — and never builds up the longer you hold.
+     */
+    const listRef = useRef<any>(null);
+    const viewport = useRef({ top: 0, height: 0 });
+    const contentHeight = useRef(0);
+    const finger = useRef<{ x: number; y: number } | null>(null);
+    const autoFrame = useRef<number | null>(null);
+    const measuredAt = useRef(0);
+    const EDGE = 96;
+    const MAX_STEP = 9;
+    const autoScrollStep = useCallback(() => {
+        const point = finger.current;
+        if (!point) { autoFrame.current = null; return; }
+        const { top, height } = viewport.current;
+        const bottom = top + height - tabBarClearance;
+        const depth = point.y < top + EDGE ? -(top + EDGE - point.y) / EDGE
+            : point.y > bottom - EDGE ? (point.y - (bottom - EDGE)) / EDGE : 0;
+        if (depth !== 0 && height > 0) {
+            const clamped = Math.max(-1, Math.min(1, depth));
+            // Eased: the first part of the edge creeps, the far end moves.
+            const step = Math.sign(clamped) * clamped * clamped * MAX_STEP;
+            const max = Math.max(0, contentHeight.current - height);
+            const now = scrollY.get();
+            const next = Math.max(0, Math.min(max, now + step));
+            if (Math.abs(next - now) > 0.1) {
+                listRef.current?.scrollTo({ y: next, animated: false });
+                scrollY.set(next);
+                const hovered = getHoveredGoalAtPoint(point.x, point.y);
+                if (hovered !== hoveredGoalRef.current) {
+                    hoveredGoalRef.current = hovered;
+                    setHoveredGoalId(hovered);
+                    if (hovered) selectionFeedback();
+                }
+            }
+        }
+        autoFrame.current = requestAnimationFrame(autoScrollStep);
+    }, [getHoveredGoalAtPoint, scrollY, selectionFeedback, tabBarClearance]);
+    const followFinger = useCallback((x: number, y: number) => {
+        finger.current = { x, y };
+        if (autoFrame.current === null) autoFrame.current = requestAnimationFrame(autoScrollStep);
+    }, [autoScrollStep]);
+    const stopFollowing = useCallback(() => {
+        finger.current = null;
+        if (autoFrame.current !== null) cancelAnimationFrame(autoFrame.current);
+        autoFrame.current = null;
     }, []);
+    const measureViewport = useCallback(() => {
+        listRef.current?.measureInWindow?.((_x: number, y: number, _w: number, height: number) => { viewport.current = { top: y, height }; });
+    }, []);
+    useEffect(() => stopFollowing, [stopFollowing]);
 
     const handleHabitDragStart = useCallback(async (habit: Habit, x: number, y: number) => {
         selectionFeedback();
         setDraggingHabit(habit);
         setRemoveDrag({ active: !!habit.goalId });
         measureArea();
+        measureViewport();
         dragY.set(y);
         dragX.set(x);
         dragLift.set(withSpring(1, { damping: 18, stiffness: 260 }));
@@ -525,7 +585,7 @@ const CalendarScreen = () => {
         const initial = getHoveredGoalAtPoint(x, y);
         hoveredGoalRef.current = initial;
         setHoveredGoalId(initial);
-    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift]);
+    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift, measureArea, measureViewport]);
 
     const handleHabitDragMove = useCallback((habit: Habit, x: number, y: number) => {
         // dragY is a shared value, so the floating card follows the finger on the UI
@@ -534,6 +594,7 @@ const CalendarScreen = () => {
         // row for each frame of the drag.
         dragY.set(y);
         dragX.set(x);
+        followFinger(x, y);
         const removing = isOverRemove(x, y, !!habit.goalId);
         trackRemove(removing);
         const next = removing ? null : getHoveredGoalAtPoint(x, y);
@@ -544,9 +605,10 @@ const CalendarScreen = () => {
             // felt rather than guessed at.
             if (next) selectionFeedback();
         }
-    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove]);
+    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove, followFinger]);
 
     const handleHabitDragEnd = useCallback(async (habit: Habit, x: number, y: number) => {
+        stopFollowing();
         const removing = isOverRemove(x, y, !!habit.goalId);
         const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
 
@@ -583,7 +645,7 @@ const CalendarScreen = () => {
             setHabitsStore(items => items.map(item => item.id === habit.id ? { ...item, goalId: habit.goalId } : item));
             Alert.alert('Could not move habit', 'Your habit is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing]);
 
     /**
      * Tasks move between goals exactly like habits: hold one, drag it onto a
@@ -595,6 +657,7 @@ const CalendarScreen = () => {
         setDraggingTask(task);
         setRemoveDrag({ active: !!task.goalId });
         measureArea();
+        measureViewport();
         dragY.set(y);
         dragX.set(x);
         dragLift.set(withSpring(1, { damping: 18, stiffness: 260 }));
@@ -602,11 +665,12 @@ const CalendarScreen = () => {
         const initial = getHoveredGoalAtPoint(x, y);
         hoveredGoalRef.current = initial;
         setHoveredGoalId(initial);
-    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift]);
+    }, [measureGoalDropTargets, getHoveredGoalAtPoint, selectionFeedback, habitsStore, dragX, dragY, dragLift, measureArea, measureViewport]);
 
     const handleTaskDragMove = useCallback((task: Task, x: number, y: number) => {
         dragY.set(y);
         dragX.set(x);
+        followFinger(x, y);
         const removing = isOverRemove(x, y, !!task.goalId);
         trackRemove(removing);
         const next = removing ? null : getHoveredGoalAtPoint(x, y);
@@ -615,9 +679,10 @@ const CalendarScreen = () => {
             setHoveredGoalId(next);
             if (next) selectionFeedback();
         }
-    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove]);
+    }, [getHoveredGoalAtPoint, selectionFeedback, dragX, dragY, isOverRemove, trackRemove, followFinger]);
 
     const handleTaskDragEnd = useCallback(async (task: Task, x: number, y: number) => {
+        stopFollowing();
         const removing = isOverRemove(x, y, !!task.goalId);
         const targetGoalId = removing ? null : getHoveredGoalAtPoint(x, y);
         dragLift.set(withTiming(0, { duration: 170 }));
@@ -651,7 +716,7 @@ const CalendarScreen = () => {
             setTasks(items => items.map(item => item.id === task.id ? { ...item, goalId: task.goalId } : item));
             Alert.alert('Could not move task', 'Your task is still in its original goal. Please try again.');
         }
-    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove]);
+    }, [getHoveredGoalAtPoint, lightFeedback, dragLift, isOverRemove, trackRemove, stopFollowing]);
 
     const toggleGoalExpansion = (goalId: string) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -664,6 +729,10 @@ const CalendarScreen = () => {
 
     // --- Grouping Logic ---
     const goals = useMemo(() => habitsStore.filter(h => h.isGoal), [habitsStore]);
+    // Goals are shared through their own table, so they get their own question.
+    const goalIds = useMemo(() => goals.map(goal => goal.id), [goals]);
+    const noGoalTicks = useMemo(() => ({}), []);
+    const { stateFor: sharedGoalFor } = useSharedItems(goalIds, noGoalTicks, 'goal');
 
     // Only show habits scheduled for the selected date
     // Memoized Data derivation with additional filters
@@ -857,6 +926,8 @@ const CalendarScreen = () => {
                             </MatteSurface>
                         </Animated.View>
                         <Animated.ScrollView
+                            ref={listRef}
+                            onContentSizeChange={(_w, height) => { contentHeight.current = height; }}
                             onScroll={scrollHandler}
                             scrollEventThrottle={16}
                             contentContainerStyle={{ paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance, paddingTop: isCompactHeight ? 4 : 8 }}
@@ -959,6 +1030,7 @@ const CalendarScreen = () => {
                                                             size={cardSize}
                                                             isExpanded={!!isExpanded}
                                                             linkedHabitsCount={linkedHabits.length}
+                                                            shared={sharedGoalFor(goal.id)}
                                                             isDropTarget={hoveredGoalId === goal.id}
                                                             onToggleExpand={() => toggleGoalExpansion(goal.id)}
                                                             onPress={() => router.push({ pathname: '/goal-detail', params: { goalId: goal.id } })}
@@ -1020,11 +1092,6 @@ const CalendarScreen = () => {
                                                                 /></ListItem>
                                                             ))}
 
-                                                            {linkedHabits.length === 0 && !dayTasks.some(task => task.goalId === goal.id) ? (
-                                                                <Text style={{ color: colors.textSecondary, fontSize: 12, fontStyle: 'italic', paddingVertical: 8 }}>
-                                                                    Nothing linked yet.
-                                                                </Text>
-                                                            ) : null}
                                                         </ListItem>
                                                     )}
                                                     </View>

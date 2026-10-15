@@ -1,5 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
+import { SharedFaces } from '@/components/Common/SharedFaces';
+import type { SharedState } from '@/lib/shared';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { textOn } from '@/theme/tokens';
 import { AnimatedFill, CountUp } from '@/components/ui/Motion';
@@ -21,12 +23,12 @@ interface GoalCardProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   linkedHabitsCount: number;
-  sharedWith?: { id: string; avatarUrl?: string; username?: string }[];
+  shared?: SharedState | null;
   isDropTarget?: boolean;
 }
 
 export const GoalCard: React.FC<GoalCardProps> = ({
-  goal, progress, onPress, size, isExpanded, onToggleExpand, linkedHabitsCount, sharedWith, isDropTarget = false
+  goal, progress, onPress, size, isExpanded, onToggleExpand, linkedHabitsCount, shared, isDropTarget = false
 }) => {
   const { theme } = useTheme();
   const colors = Colors[theme];
@@ -118,46 +120,8 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             </View>
           </View>
 
-          {/* Shared With Avatars */}
-          {sharedWith && sharedWith.length > 0 && (
-            <View style={{ flexDirection: 'row', marginRight: 8 }}>
-              {sharedWith.slice(0, 3).map((friend, idx) => (
-                <View
-                  key={friend.id}
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 11,
-                    backgroundColor: colors.surfaceTertiary,
-                    borderWidth: 2,
-                    borderColor: colors.surface,
-                    marginLeft: idx > 0 ? -8 : 0,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {friend.avatarUrl ? (
-                    <Image source={{ uri: friend.avatarUrl }} style={{ width: 18, height: 18, borderRadius: 9 }} />
-                  ) : (
-                    <Text style={{ fontSize: 9, color: colors.textSecondary }}>
-                      {friend.username?.[0]?.toUpperCase() || '?'}
-                    </Text>
-                  )}
-                </View>
-              ))}
-              {sharedWith.length > 3 && (
-                <View style={{
-                  width: 22, height: 22, borderRadius: 11,
-                  backgroundColor: colors.surfaceTertiary, marginLeft: -8,
-                  alignItems: 'center', justifyContent: 'center',
-                  borderWidth: 2, borderColor: colors.surface,
-                }}>
-                  <Text style={{ fontSize: 8, color: colors.textSecondary }}>+{sharedWith.length - 3}</Text>
-                </View>
-              )}
-            </View>
-          )}
+          {/* Who it is shared with: their photos, right on the card. */}
+          {shared ? <View style={{ marginRight: 8 }}><SharedFaces people={shared.people} tint={goal.color || colors.textPrimary} size={24} /></View> : null}
         </TouchableOpacity>
 
         {/* RIGHT SIDE: Expand Trigger */}

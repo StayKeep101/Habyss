@@ -37,7 +37,7 @@ export function useSharedItems(
      * shared" rather than as "asked the wrong question". Call the hook once per
      * kind instead of guessing.
      */
-    kind: 'habit' | 'task' = 'habit',
+    kind: 'habit' | 'task' | 'goal' = 'habit',
 ) {
     const [people, setPeople] = useState<Record<string, SharedRow[]>>({});
     const key = ids.slice().sort().join(',');

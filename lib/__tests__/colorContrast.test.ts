@@ -22,3 +22,15 @@ it.each(ACCENT_GRADIENTS.map(preset => [preset.id, preset.colors] as const))(
         }
     },
 );
+
+describe('mixHex', () => {
+    const { mixHex } = require('../colorContrast');
+    it('finds the middle of a gradient', () => {
+        expect(mixHex('#000000', '#FFFFFF')).toBe('#808080');
+        expect(mixHex('#3B82F6', '#8B5CF6')).toBe('#636FF6');
+    });
+    it('returns either end at 0 and 1', () => {
+        expect(mixHex('#102030', '#A0B0C0', 0)).toBe('#102030');
+        expect(mixHex('#102030', '#A0B0C0', 1)).toBe('#A0B0C0');
+    });
+});

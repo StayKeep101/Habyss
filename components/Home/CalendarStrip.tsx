@@ -2,7 +2,9 @@ import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Dimensions, ListRenderItemInfo } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
-import { useAnimatedProps } from 'react-native-reanimated';
+import Animated, { Easing, ReduceMotion, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { textOn } from '@/theme/tokens';
 import { AnimatedCircle, useProgress } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -94,22 +96,9 @@ const DateButtonComponent = ({
         style={{ width, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' }}
       >
         <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
-          {isDeadline ? (
-            <View
-              style={{
-                position: 'absolute',
-                width: size + 6,
-                height: size + 6,
-                borderRadius: (size + 6) / 2,
-                backgroundColor: deadlineColor + '30',
-                borderWidth: 1,
-                borderColor: deadlineColor,
-                zIndex: -1,
-              }}
-            />
-          ) : null}
+          {isDeadline ? <GoalDay color={deadlineColor} size={size} selected={selected} ring={isLight ? 'black' : 'white'} /> : null}
 
-          <View style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+          {!isDeadline ? <View style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
             <Svg width={size} height={size}>
               <Circle
                 cx={size / 2}
@@ -131,25 +120,21 @@ const DateButtonComponent = ({
                 strokeLinecap="round"
               />
             </Svg>
-          </View>
+          </View> : null}
 
           <View
             style={{
               width: size - 8,
               height: size - 8,
               borderRadius: (size - 8) / 2,
-              backgroundColor: selected ? (isDeadline ? deadlineColor : accentColor) : 'transparent',
+              backgroundColor: selected && !isDeadline ? accentColor : 'transparent',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            {isDeadline && !selected ? (
-              <Ionicons name="flag" size={14} color={deadlineColor} />
-            ) : (
-              <Text style={{ color: selected ? 'white' : (isLight ? 'black' : colors.textSecondary), fontSize: 14, fontFamily: FontFamily.bold }}>
-                {item.dayNumber}
-              </Text>
-            )}
+            <Text style={{ color: isDeadline ? textOn(deadlineColor) : selected ? 'white' : (isLight ? 'black' : colors.textSecondary), fontSize: 14, fontFamily: FontFamily.bold }}>
+              {item.dayNumber}
+            </Text>
           </View>
         </View>
 
@@ -163,15 +148,44 @@ const DateButtonComponent = ({
           {item.dayName}
         </Text>
 
-        {isDeadline ? (
-          <View style={{ position: 'absolute', bottom: -4, width: 4, height: 4, borderRadius: 2, backgroundColor: deadlineColor }} />
-        ) : null}
       </TouchableOpacity>
     </View>
   );
 };
 
 DateButtonComponent.displayName = 'DateButton';
+
+/**
+ * A goal's finish day: a solid, top-lit disc in the goal's own colour, a soft
+ * glow that breathes, and a small flag badge on its shoulder — the one day on
+ * the strip that looks like an occasion rather than a date.
+ */
+const GoalDay = ({ color, size, selected, ring }: { color: string; size: number; selected: boolean; ring: string }) => {
+  const breath = useSharedValue(0);
+  useEffect(() => {
+    breath.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.System }), -1, true);
+  }, [breath]);
+  const glow = useAnimatedStyle(() => ({ opacity: 0.25 + breath.value * 0.35, transform: [{ scale: 1 + breath.value * 0.18 }] }));
+  const disc = size + 4;
+  return (
+    <>
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: disc, height: disc, borderRadius: disc / 2, backgroundColor: color }, glow]} />
+      <View pointerEvents="none" style={{
+        position: 'absolute', width: disc, height: disc, borderRadius: disc / 2, overflow: 'hidden',
+        borderWidth: selected ? 2 : 0, borderColor: ring,
+        shadowColor: color, shadowOpacity: 0.8, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
+      }}>
+        <LinearGradient colors={[color, color + 'CC']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={{ flex: 1 }} /> {/* ui-allow: goal colour */}
+      </View>
+      <View pointerEvents="none" style={{
+        position: 'absolute', top: -6, right: -8, width: 16, height: 16, borderRadius: 8,
+        backgroundColor: ring === 'white' ? '#000000' : '#FFFFFF', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Ionicons name="flag" size={10} color={color} />
+      </View>
+    </>
+  );
+};
 
 const DateButton = React.memo(DateButtonComponent);
 
@@ -317,7 +331,7 @@ export const CalendarStrip: React.FC<CalendarStripProps> = ({
             <Text style={{ fontSize: 24, color: colors.textPrimary, fontFamily: FontFamily.semibold }}>
               {headerTitle}
             </Text>
-            <Text style={{ fontSize: 14, color: colors.primary, fontFamily: FontFamily.medium }}>
+            <Text style={{ fontSize: 14, color: accentColor, fontFamily: FontFamily.medium }}>
               {headerDate}
             </Text>
           </TouchableOpacity>

@@ -371,7 +371,7 @@ const GoalDetail = () => {
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <Text style={{ color: colors.textSecondary }}>Goal is unavailable</Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
-          <Text style={{ color: colors.primary }}>Go Back</Text>
+          <Text style={{ color: accentColor }}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );

@@ -12,6 +12,7 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
 import { Control, FontFamily, Radius, Typography, surfaceFor } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useFocusTime } from '@/context/FocusTimeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Habit } from '@/lib/habitsSQLite';
@@ -47,7 +48,8 @@ interface Props {
 export function HabitProgressCard({ habit, date, value, saving, ready, error, canUndo, onChange, onAdd, onUndo, onToday }: Props) {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const accent = habit.color || colors.primary;
+    const { primary: accentSolid } = useAccentGradient();
+    const accent = habit.color || accentSolid;
     const ink = readableAccent(accent, colors.surfaceSecondary);
     const { kind, target, unit, step, quickAmounts, secondsPerUnit } = measurementFor(habit);
     // One step above the card, for the things that sit on it: the dial's well,

@@ -149,11 +149,6 @@ export default function GoalRoadmapScreen() {
                                 <View style={[styles.branch, { borderLeftColor: isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.12)' }]}>
                                     {plan.habits.map(habit => <ListItem key={habit.id}><HabitRow habit={habit} /></ListItem>)}
                                     {plan.tasks.map(task => <ListItem key={task.id}><TaskRow task={task} /></ListItem>)}
-                                    {plan.habits.length === 0 && plan.tasks.length === 0 ? (
-                                        <Text style={[styles.meta, { color: colors.textTertiary, paddingVertical: 6 }]}>
-                                            Nothing attached yet.
-                                        </Text>
-                                    ) : null}
                                 </View>
                             </VoidCard>
                         ))}

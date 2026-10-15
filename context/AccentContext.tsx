@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/theme/colors';
-import { readableAccent } from '@/lib/colorContrast';
+import { mixHex, readableAccent } from '@/lib/colorContrast';
 
 // Beautiful gradient presets for app accent
 export const ACCENT_GRADIENTS = [
@@ -69,7 +69,7 @@ export function AccentProvider({ children }: { children: ReactNode }) {
 
     const accentGradient = ACCENT_GRADIENTS.find(g => g.id === gradientId) || ACCENT_GRADIENTS[0];
 
-    const getAccentColor = () => accentGradient.colors[0];
+    const getAccentColor = () => mixHex(accentGradient.colors[0], accentGradient.colors[1]);
 
     return (
         <AccentContext.Provider value={{ accentGradient, setAccentGradientId, getAccentColor }}>
@@ -90,13 +90,19 @@ export function useAccent() {
 export function useAccentGradient() {
     const { accentGradient } = useAccent();
     const { theme } = useTheme();
-    return useMemo(() => ({
+    return useMemo(() => {
+        // One accent colour for every solid use — the middle of the gradient —
+        // so a blue-to-purple theme fills chips, rings and icons in the same
+        // violet its gradient button reads as, not in the blue of one end.
+        const solid = mixHex(accentGradient.colors[0], accentGradient.colors[1]);
+        return {
         colors: accentGradient.colors as [string, string],
-        shadowColor: accentGradient.shadowColor,
-        primary: accentGradient.colors[0],
+        shadowColor: solid,
+        primary: solid,
         secondary: accentGradient.colors[1],
-        foreground: readableAccent(accentGradient.colors[0], Colors[theme].background),
+        foreground: readableAccent(solid, Colors[theme].background),
         // White button labels remain readable even on the brightest presets.
         buttonColors: accentGradient.colors.map(color => readableAccent(color, '#ffffff')) as [string, string],
-    }), [accentGradient, theme]);
+        };
+    }, [accentGradient, theme]);
 }

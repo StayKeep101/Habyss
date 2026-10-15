@@ -16,6 +16,7 @@ import { HabitSheet } from '@/components/Create/HabitSheet';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Typography } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Habit, getHabits, getHabitMeasurement, saveHabitMeasurement } from '@/lib/habitsSQLite';
 import { historyWindow, loadedData } from '@/lib/dataStore';
@@ -47,6 +48,7 @@ export default function HabitDetailScreen() {
     const requestedDate = param(params.date);
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: accentSolid } = useAccentGradient();
     const { lightFeedback, selectionFeedback, successFeedback, errorFeedback } = useHaptics();
     const [today, setToday] = useState(localHabitDate);
     const [date, setDate] = useState(validDate(requestedDate) ? requestedDate! : localHabitDate());
@@ -256,7 +258,7 @@ export default function HabitDetailScreen() {
         setUndo(null);
         setDate(next);
     };
-    const accent = habit?.color || colors.primary;
+    const accent = habit?.color || accentSolid;
     const ink = readableAccent(accent, colors.surfaceSecondary);
     const schedule = habit
         ? `${habit.frequency === 'daily' || !habit.frequency ? 'Daily' : habit.frequency.charAt(0).toUpperCase() + habit.frequency.slice(1)}${habit.startTime ? ` · ${habit.startTime}` : ' · Anytime'}`

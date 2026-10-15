@@ -5,6 +5,7 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
 import { ScrollPickerModal } from './ScrollPickerModal';
 import { useHaptics } from '@/hooks/useHaptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -36,6 +37,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     const { successFeedback } = useHaptics();
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: accentSolid } = useAccentGradient();
     const isLight = theme === 'light';
 
     // Form State
@@ -199,7 +201,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                         keyboardShouldPersistTaps="handled"
                         alwaysBounceVertical={false}
                     >
-                        {loading ? <ActivityIndicator color={colors.primary} /> : null}
+                        {loading ? <ActivityIndicator color={accentSolid} /> : null}
 
                         {/* The badge sits outside the clipped circle, so it is a
                             whole button rather than the half-moon it was. */}
@@ -220,7 +222,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                                         </View>
                                     )}
                                 </View>
-                                <View style={[styles.cameraIcon, { backgroundColor: colors.primary, borderColor: colors.background }]}>
+                                <View style={[styles.cameraIcon, { backgroundColor: accentSolid, borderColor: colors.background }]}>
                                     <Ionicons name="camera" size={13} color="#000" />
                                 </View>
                             </View>
@@ -252,7 +254,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                                 </Text>
                                 {displayedAge ? (
                                     <View style={[styles.agePill, { backgroundColor: colors.surfaceTertiary }]}>
-                                        <Text style={[styles.ageText, { color: colors.primary }]}>{displayedAge}</Text>
+                                        <Text style={[styles.ageText, { color: accentSolid }]}>{displayedAge}</Text>
                                     </View>
                                 ) : (
                                     <Ionicons name="calendar-outline" size={18} color={colors.textTertiary} />

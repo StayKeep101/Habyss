@@ -249,12 +249,14 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               <Text style={[styles.title, { fontSize, color: colors.textPrimary, textDecorationLine: isCompleted ? 'line-through' : 'none' }, isActive && { fontFamily: FontFamily.bold, color: accentColor }]} numberOfLines={1}>
                 {habit.name}
               </Text>
-              {shared && !isSmall ? (
+              {shared ? (
                 <View style={styles.sharedRow}>
-                  <SharedFaces people={shared.people} tint={accentColor} size={18} />
-                  <Text numberOfLines={1} style={{ fontSize: 10, color: shared.waitingOnYou ? colors.warning : colors.textTertiary, fontFamily: FontFamily.medium }}>
-                    {shared.line}
-                  </Text>
+                  <SharedFaces people={shared.people} tint={accentColor} size={isSmall ? 16 : 20} />
+                  {!isSmall ? (
+                    <Text numberOfLines={1} style={{ fontSize: 10, color: shared.waitingOnYou ? colors.warning : colors.textTertiary, fontFamily: FontFamily.medium }}>
+                      {shared.line}
+                    </Text>
+                  ) : null}
                 </View>
               ) : skipped && !isCompleted && !isSmall ? (
                 <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.medium, marginTop: 2 }}>Skipped today</Text>

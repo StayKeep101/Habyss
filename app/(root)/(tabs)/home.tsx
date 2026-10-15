@@ -347,8 +347,8 @@ const Home = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
+              tintColor={accentColor}
+              colors={[accentColor]}
             />
           }
         >
@@ -383,7 +383,7 @@ const Home = () => {
               }}>
                 {displayedQuote}
                 {displayedQuote.length < motivationalQuote.length && (
-                  <Text style={{ color: colors.primary }}>|</Text>
+                  <Text style={{ color: accentColor }}>|</Text>
                 )}
               </Text>
             </Animated.View>
@@ -397,6 +397,7 @@ const Home = () => {
             <GoalsProgressBar
               progress={avgGoalProgress}
               goalsCount={goals.length}
+              series={goalsData.overallSeries}
               onPress={() => router.push('/goals-overview')}
             />
           </Animated.View>

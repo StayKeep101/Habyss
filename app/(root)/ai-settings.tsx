@@ -49,6 +49,7 @@ const GREETING_STYLES: { id: GreetingStyle; label: string; icon: string; descrip
  * the first time, and can be downloaded now or removed here.
  */
 const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
+    const { primary: accentSolid } = useAccentGradient();
     const [engine, setEngine] = React.useState(currentEngine());
     const [isDownloading, setIsDownloading] = React.useState(false);
     const [progress, setProgress] = React.useState(0);
@@ -104,7 +105,7 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
             </Text>
             {isDownloading ? (
                 <View style={{ height: 4, backgroundColor: colors.surface, borderRadius: 2, overflow: 'hidden' }}>
-                    <AnimatedFill progress={progress / 100} style={{ height: '100%', backgroundColor: colors.primary }} />
+                    <AnimatedFill progress={progress / 100} style={{ height: '100%', backgroundColor: accentSolid }} />
                 </View>
             ) : null}
             {engine === null && !isDownloading && canDownload ? (
@@ -126,6 +127,7 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
 const AISettings = () => {
     const { theme } = useTheme();
     const colors = Colors[theme];
+    const { primary: accentSolid } = useAccentGradient();
     const isLight = theme === 'light';
     const isTrueDark = theme === 'trueDark';
     const { mediumFeedback, selectionFeedback } = useHaptics();
@@ -224,7 +226,7 @@ const AISettings = () => {
                         detail={morningCheckIn(day)}
                         value={echo.morning}
                         colors={colors}
-                        accent={colors.primary}
+                        accent={accentSolid}
                         onChange={(value: boolean) => saveEcho({ ...echo, morning: value })}
                     />
                     <ToggleRow
@@ -233,7 +235,7 @@ const AISettings = () => {
                         detail={eveningCheckIn(day)}
                         value={echo.evening}
                         colors={colors}
-                        accent={colors.primary}
+                        accent={accentSolid}
                         onChange={(value: boolean) => saveEcho({ ...echo, evening: value })}
                     />
                     <ToggleRow
@@ -243,7 +245,7 @@ const AISettings = () => {
                         value={echo.useName && !!name}
                         disabled={!name}
                         colors={colors}
-                        accent={colors.primary}
+                        accent={accentSolid}
                         onChange={(value: boolean) => saveEcho({ ...echo, useName: value })}
                     />
                     <ToggleRow
@@ -253,7 +255,7 @@ const AISettings = () => {
                         value={echo.writeReminders && hasModel}
                         disabled={!hasModel}
                         colors={colors}
-                        accent={colors.primary}
+                        accent={accentSolid}
                         onChange={(value: boolean) => {
                             // Turning it off throws the written lines away, so
                             // the next reminder is the built-in one again.
@@ -265,13 +267,13 @@ const AISettings = () => {
 
                 {/* Echo's nudges around a planned session, shown not explained. */}
                 <Group title="Echo Alive">
-                    <AlivePreview lines={aliveLines} accent={colors.primary} />
+                    <AlivePreview lines={aliveLines} accent={accentSolid} />
                     <ToggleRow
                         icon="sparkles-outline"
                         label="Echo Alive"
                         value={!!echo.alive && notificationsEnabled}
                         colors={colors}
-                        accent={colors.primary}
+                        accent={accentSolid}
                         onChange={(value: boolean) => void setAlive(value)}
                     />
                     <ToggleRow
@@ -280,7 +282,7 @@ const AISettings = () => {
                         value={echo.aliveFollowUp !== false}
                         disabled={!echo.alive}
                         colors={colors}
-                        accent={colors.primary}
+                        accent={accentSolid}
                         onChange={(value: boolean) => saveEcho({ ...echo, aliveFollowUp: value })}
                     />
                 </Group>

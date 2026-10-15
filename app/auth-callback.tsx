@@ -44,7 +44,7 @@ export default function AuthCallback() {
     return <SheetScreen title="Signing in">
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 20 }}>
             {error ? <><Text accessibilityRole="alert" style={[Typography.body, { color: Colors[theme].error, textAlign: 'center' }]}>{error}</Text><AppButton label="Back to sign in" onPress={() => router.replace('/(root)/account')} /></>
-                : <><ActivityIndicator color={Colors[theme].primary} /><Text style={[Typography.body, { color: Colors[theme].textSecondary }]}>Finishing your sign-in…</Text></>}
+                : <><ActivityIndicator color={Colors[theme].textSecondary} /><Text style={[Typography.body, { color: Colors[theme].textSecondary }]}>Finishing your sign-in…</Text></>}
         </View>
     </SheetScreen>;
 }

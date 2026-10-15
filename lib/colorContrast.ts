@@ -24,3 +24,18 @@ export function readableAccent(accent: string, background: string, minimum = 4.5
     }
     return target === 255 ? '#ffffff' : '#000000';
 }
+
+/**
+ * The colour halfway along a two-stop gradient — what the eye reads the whole
+ * gradient as. Used for every solid accent fill, so a chosen chip, a ring and
+ * the gradient button beside them are visibly one colour.
+ */
+export function mixHex(a: string, b: string, amount = 0.5): string {
+    const parse = (hex: string) => {
+        const clean = hex.replace('#', '');
+        const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean.slice(0, 6);
+        return [0, 2, 4].map(i => parseInt(full.slice(i, i + 2), 16));
+    };
+    const [from, to] = [parse(a), parse(b)];
+    return '#' + from.map((channel, i) => Math.round(channel + (to[i] - channel) * amount).toString(16).padStart(2, '0')).join('').toUpperCase();
+}

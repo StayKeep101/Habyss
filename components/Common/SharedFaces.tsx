@@ -58,7 +58,7 @@ export const SharedFaces: React.FC<{
                         zIndex: shown.length - index,
                         // Three steps, not two: done, on it, and not yet
                         // answered — which is fainter than either.
-                        opacity: person.pending ? 0.38 : person.done ? 1 : 0.55,
+                        opacity: person.pending ? 0.7 : 1,
                     }]}
                 >
                     {person.avatarUrl ? (
