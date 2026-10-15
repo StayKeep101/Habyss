@@ -94,10 +94,11 @@ export default function InboxScreen() {
     // Pulling down on an empty inbox gets a new line each time, for fun.
     const [joke, setJoke] = useState(0);
     const refresh = useCallback(async () => {
-        setJoke(index => index + 1);
         setRefreshing(true);
         setItems(await FriendsService.getInbox().catch(() => []));
         setRefreshing(false);
+        // The next line arrives once the spinner has tucked itself away.
+        setTimeout(() => setJoke(index => index + 1), 350);
     }, []);
 
     const answer = async (item: InboxItem, accept: boolean) => {
