@@ -19,6 +19,8 @@ export interface DaySummary {
     skipped: string[];
     /** Tasks finished on this day. */
     tasks: string[];
+    /** Tasks due this day that were not finished on it (done later, or still open). */
+    tasksOpen: string[];
     /** Check-ins asked for: scheduled habits, minus the skipped ones. */
     scheduled: number;
     /** Everything logged that day, habits and tasks together, for the chart. */
@@ -70,6 +72,17 @@ export function monthDays(input: MonthInput): DaySummary[] {
         else tasksByDay.set(day, [task.id]);
     }
 
+    // Due on a day and not finished that day: what the day asked for and did not get.
+    const openByDay = new Map<string, string[]>();
+    for (const task of input.tasks) {
+        if (task.status === 'cancelled' || !task.dueDate) continue;
+        if (task.dueDate < firstDay || task.dueDate > lastDay) continue;
+        if (taskDoneOn(task) === task.dueDate) continue;
+        const bucket = openByDay.get(task.dueDate);
+        if (bucket) bucket.push(task.id);
+        else openByDay.set(task.dueDate, [task.id]);
+    }
+
     const days: DaySummary[] = [];
     for (let day = 1; day <= count; day++) {
         const date = dayKey(year, index, day);
@@ -98,6 +111,7 @@ export function monthDays(input: MonthInput): DaySummary[] {
             missed: future ? [] : missed,
             skipped,
             tasks,
+            tasksOpen: future ? [] : openByDay.get(date) ?? [],
             scheduled,
             total: done.length + tasks.length,
             complete: !future && scheduled > 0 && missed.length === 0,

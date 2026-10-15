@@ -10,7 +10,6 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -335,8 +334,10 @@ const DayCard = ({ day, frame, morph, screen, colors, isLight, accent, habitName
 }) => {
     const margin = 16;
     const width = screen.width - margin * 2;
-    const rows = day.done.length + day.missed.length + day.skipped.length + day.tasks.length;
-    const height = Math.min(screen.height * 0.55, 132 + rows * 30);
+    const habitRows = day.done.length + day.missed.length + day.skipped.length;
+    const taskRows = day.tasks.length + day.tasksOpen.length;
+    const rows = habitRows + taskRows;
+    const height = Math.min(screen.height * 0.6, 96 + rows * 34 + (habitRows ? 32 : 0) + (taskRows ? 32 : 0));
     // Below the ring when there is room, otherwise above it.
     const top = Math.min(frame.y + frame.height + 10, screen.height - height - 24);
 
@@ -352,24 +353,30 @@ const DayCard = ({ day, frame, morph, screen, colors, isLight, accent, habitName
     const scrim = useAnimatedStyle(() => ({ opacity: morph.value * 0.45 }));
 
     const date = dateAt(day.date);
-    const line = (id: string, kind: 'done' | 'missed' | 'skipped' | 'task') => {
-        const icon = kind === 'done' ? 'checkmark-circle' : kind === 'task' ? 'flash' : kind === 'skipped' ? 'remove-circle-outline' : 'ellipse-outline';
-        const color = kind === 'done' ? accent : kind === 'task' ? TASK_COLOR : colors.textTertiary;
-        return (
-            <View key={kind + id} style={styles.line}>
-                <Ionicons name={icon} size={16} color={color} />
-                <Text
-                    numberOfLines={1}
-                    style={[styles.lineText, {
-                        color: kind === 'missed' ? colors.textTertiary : colors.textSecondary,
-                        textDecorationLine: kind === 'skipped' ? 'line-through' : 'none',
-                    }]}
-                >
-                    {kind === 'task' ? taskName(id) : habitName(id)}
-                </Text>
+    /** One thing the day asked for: a filled tick if it was done, an empty circle if not. */
+    const line = (name: string, state: 'done' | 'open' | 'skipped', key: string) => (
+        <View key={key} style={styles.line}>
+            <View style={[styles.check, state === 'done'
+                ? { backgroundColor: colors.success, borderColor: colors.success }
+                : { borderColor: colors.textTertiary }]}>
+                {state === 'done' ? <Ionicons name="checkmark" size={13} color={colors.background} /> : null}
+                {state === 'skipped' ? <View style={[styles.skipBar, { backgroundColor: colors.textTertiary }]} /> : null}
             </View>
-        );
-    };
+            <Text numberOfLines={1} style={[styles.lineText, {
+                color: state === 'done' ? colors.textPrimary : colors.textTertiary,
+                textDecorationLine: state === 'skipped' ? 'line-through' : 'none',
+            }]}>
+                {name}
+            </Text>
+            {state === 'skipped' ? <Text style={[styles.lineTag, { color: colors.textTertiary }]}>Skipped</Text> : null}
+        </View>
+    );
+    const section = (title: string, done: number, total: number) => (
+        <View style={styles.cardSection}>
+            <Text style={[styles.cardSectionTitle, { color: colors.textPrimary }]}>{title}</Text>
+            <Text style={[styles.cardSectionCount, { color: done === total ? colors.success : colors.textSecondary }]}>{done}/{total}</Text>
+        </View>
+    );
 
     return (
         <>
@@ -388,21 +395,20 @@ const DayCard = ({ day, frame, morph, screen, colors, isLight, accent, habitName
                             <Text style={[styles.cardDate, { color: colors.textPrimary }]}>
                                 {date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
                             </Text>
-                            <Text style={[styles.cardMeta, { color: colors.textTertiary }]}>
-                                {day.scheduled ? `${day.done.length} of ${day.scheduled} habits` : 'No habits scheduled'}
-                                {day.tasks.length ? ` · ${day.tasks.length} task${day.tasks.length === 1 ? '' : 's'}` : ''}
-                            </Text>
                         </View>
                         <IconButton icon="close" label="Close day" onPress={onClose} diameter={32} size={20} color={colors.textTertiary} />
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
-                        {day.done.map(id => line(id, 'done'))}
-                        {day.tasks.map(id => line(id, 'task'))}
-                        {day.skipped.map(id => line(id, 'skipped'))}
-                        {day.missed.map(id => line(id, 'missed'))}
+                        {habitRows ? section('Habits', day.done.length, day.done.length + day.missed.length) : null}
+                        {day.done.map(id => line(habitName(id), 'done', `d${id}`))}
+                        {day.missed.map(id => line(habitName(id), 'open', `m${id}`))}
+                        {day.skipped.map(id => line(habitName(id), 'skipped', `s${id}`))}
+                        {taskRows ? section('Tasks', day.tasks.length, taskRows) : null}
+                        {day.tasks.map(id => line(taskName(id), 'done', `t${id}`))}
+                        {day.tasksOpen.map(id => line(taskName(id), 'open', `o${id}`))}
                         {rows === 0 ? (
-                            <Text style={[styles.empty, { color: colors.textTertiary }]}>Nothing</Text>
+                            <Text style={[styles.empty, { color: colors.textTertiary }]}>Nothing planned</Text>
                         ) : null}
                     </ScrollView>
                 </Animated.View>

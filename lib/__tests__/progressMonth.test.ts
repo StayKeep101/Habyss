@@ -20,6 +20,23 @@ const base = {
 };
 
 describe('a month of progress', () => {
+    it('lists the tasks a day asked for and did not get', () => {
+        const days = monthDays({
+            ...base,
+            tasks: [
+                task({ id: 'late', dueDate: '2026-09-04', status: 'done', completedAt: '2026-09-06T10:00:00' }),
+                task({ id: 'open', dueDate: '2026-09-04' }),
+                task({ id: 'kept', dueDate: '2026-09-04', status: 'done', completedAt: '2026-09-04T10:00:00' }),
+                task({ id: 'ahead', dueDate: '2026-09-20' }),
+            ],
+        });
+        const fourth = days.find(day => day.date === '2026-09-04')!;
+        expect(fourth.tasks).toEqual(['kept']);
+        expect(fourth.tasksOpen.sort()).toEqual(['late', 'open']);
+        // Nothing in the future is unfinished yet.
+        expect(days.find(day => day.date === '2026-09-20')!.tasksOpen).toEqual([]);
+    });
+
     it('covers every day of the month', () => {
         expect(monthDays(base)).toHaveLength(30);
     });
