@@ -23,6 +23,10 @@ import { useTasks } from '@/hooks/useTasks';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useHistory } from '@/hooks/useHistory';
 import { dayFill, monthDays, monthTotals, type DaySummary } from '@/lib/progressMonth';
+import { streakFrom } from '@/lib/dayComplete';
+import { SectionTitle } from '@/components/ui/SectionTitle';
+import { VoidCard } from '@/components/ui/VoidCard';
+import { ValuePill } from '@/components/Goal/GoalRows';
 import { dateAt } from '@/lib/goalInsights';
 import { styles } from '@/styles/screens/progress.styles';
 
@@ -71,6 +75,19 @@ export default function ProgressScreen() {
     }), [habits, tasks, history, skips, completions, skippedToday, month, today]);
 
     const totals = useMemo(() => monthTotals(days), [days]);
+    // The month before, over the same number of days, so a half-finished
+    // month is compared fairly: "+3" means ahead of this point last month.
+    const elapsed = days.filter(day => !day.future).length;
+    const before = useMemo(() => {
+        const previous = new Date(month.getFullYear(), month.getMonth() - 1, 1);
+        const all = monthDays({ habits, tasks, history, skips, month: previous, today });
+        return monthTotals(all.slice(0, Math.max(1, elapsed)));
+    }, [habits, tasks, history, skips, month, today, elapsed]);
+    // Your streak, worked out exactly as Home works it out.
+    const streak = useMemo(() => {
+        const merged = { ...history, [today]: Object.keys(completions).filter(id => completions[id]) };
+        return streakFrom(habits, tasks, merged, skips, today, undefined, dailyTarget).streak;
+    }, [habits, tasks, history, skips, completions, today, dailyTarget]);
     const name = (id: string) => habits.find(habit => habit.id === id)?.name ?? 'Habit';
     const taskName = (id: string) => tasks.find(task => task.id === id)?.title ?? 'Task';
 
@@ -183,14 +200,24 @@ export default function ProgressScreen() {
     const screen = Dimensions.get('window');
 
     return (
-        <SheetScreen title="Progress" onBack={() => router.back()} backIcon="close">
+        <SheetScreen title="Streak" onBack={() => router.back()} backIcon="close">
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!selected}>
-                <View style={styles.monthRow}>
-                    <IconButton icon="chevron-back" label="Previous month" onPress={() => goMonth(-1)} diameter={36} size={20} color={colors.textSecondary} />
+                {/* The answer first. */}
+                <View style={styles.hero}>
+                    <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={streak} />
+                    <View style={styles.heroLabelRow}>
+                        <Ionicons name="flame" size={16} color={colors.warning} />
+                        <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>{streak === 1 ? 'day in a row' : 'days in a row'}</Text>
+                    </View>
+                </View>
+
+                {/* Swipe the calendar for another month. */}
+                <View style={styles.monthRow} accessible accessibilityLabel={month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                    accessibilityActions={[{ name: 'increment', label: 'Next month' }, { name: 'decrement', label: 'Previous month' }]}
+                    onAccessibilityAction={event => goMonth(event.nativeEvent.actionName === 'increment' ? 1 : -1)}>
                     <Text style={[styles.month, { color: colors.textPrimary }]}>
                         {month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                     </Text>
-                    <IconButton icon="chevron-forward" label="Next month" onPress={() => goMonth(1)} diameter={36} size={20} color={offset >= 0 ? colors.border : colors.textSecondary} disabled={offset >= 0} />
                 </View>
 
                 <GestureDetector gesture={swipeMonth}>
@@ -214,17 +241,16 @@ export default function ProgressScreen() {
                 </Animated.View>
                 </GestureDetector>
 
-                {/* The month in numbers. */}
-                <View style={styles.totals}>
-                    <View>
-                        <CountUp style={[styles.big, { color: colors.textPrimary }]} value={totals.activeDays} replay={offset} />
-                        <Text style={[styles.bigLabel, { color: colors.textTertiary }]}>Active days</Text>
-                    </View>
-                    <View style={styles.statList}>
-                        <Stat icon="checkmark-circle-outline" value={String(totals.checkIns)} replay={offset} label="Check-ins" color={accent} colors={colors} />
-                        <Stat icon="flash-outline" value={String(totals.tasks)} replay={offset} label="Tasks" color={TASK_COLOR} colors={colors} />
-                        <Stat icon="trending-up-outline" value={totals.rate === null ? '—' : `${totals.rate}%`} replay={offset} label="Hit rate" color={colors.success} colors={colors} />
-                    </View>
+                {/* The month in numbers, each against the same days of last month. */}
+                <View>
+                    <SectionTitle>This month</SectionTitle>
+                    <VoidCard style={styles.list}>
+                        <NumberRow label="Days active" value={totals.activeDays} change={totals.activeDays - before.activeDays} replay={offset} />
+                        <NumberRow label="Perfect days" value={totals.perfectDays} change={totals.perfectDays - before.perfectDays} replay={offset} />
+                        <NumberRow label="Habits done" value={totals.checkIns} change={totals.checkIns - before.checkIns} replay={offset} />
+                        <NumberRow label="Habits kept" value={totals.rate} suffix="%" change={totals.rate !== null && before.rate !== null ? totals.rate - before.rate : 0} replay={offset} />
+                        <NumberRow label="Tasks done" value={totals.tasks} change={totals.tasks - before.tasks} replay={offset} />
+                    </VoidCard>
                 </View>
 
                 {/* One bar per day, so a good week is visible as a shape — and
@@ -264,7 +290,6 @@ export default function ProgressScreen() {
                 </GestureDetector>
                 <View style={styles.chartAxis}>
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>1</Text>
-                    <Text style={[styles.axisText, { color: colors.textTertiary }]}>Drag to read a day</Text>
                     <Text style={[styles.axisText, { color: colors.textTertiary }]}>{days.length}</Text>
                 </View>
             </ScrollView>
@@ -378,16 +403,23 @@ const DayBar = ({ day, index, reading, busiest, accent, idle, replay }: {
     );
 };
 
-const Stat = ({ icon, value, label, color, colors, replay }: {
-    icon: React.ComponentProps<typeof Ionicons>['name']; value: string; label: string; color: string; colors: typeof Colors.light;
-    replay?: unknown;
-}) => (
-    <View style={styles.stat}>
-        <Ionicons name={icon} size={15} color={color} />
-        <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={value} replay={replay} />
-        <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{label}</Text>
-    </View>
-);
+/** A row of the month: what it is, the number in a pill, and the change since last month. */
+const NumberRow = ({ label, value, suffix = '', change, replay }: {
+    label: string; value: number | null; suffix?: string; change: number; replay?: unknown;
+}) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const tone = change > 0 ? colors.success : change < 0 ? colors.error : colors.textTertiary;
+    return (
+        <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
+            {value !== null && change !== 0 ? (
+                <Text style={[styles.rowChange, { color: tone }]}>{change > 0 ? '+' : '−'}{Math.abs(change)}{suffix}</Text>
+            ) : null}
+            <ValuePill value={value === null ? '—' : `${value}${suffix}`} key={String(replay)} />
+        </View>
+    );
+};
 
 /**
  * The day's detail, morphing out of its ring.
