@@ -7,7 +7,7 @@ import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Choices } from '@/components/Create/DetailBar';
 import { Wheel } from '@/components/ui/Wheel';
-import { Segmented } from '@/components/ui/Segmented';
+import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -115,7 +115,7 @@ export const RepeatPicker: React.FC<{
                 weekends are weekly rules, so they live under Weekly as one-tap
                 shortcuts beside the days themselves. */}
             <View style={styles.segmented}>
-                <Segmented
+                <ChoiceRow
                     accessibilityLabel="Kind of repeat"
                     options={KINDS}
                     value={(preset === 'weekdays' || preset === 'weekends' ? 'weekly' : preset) as Kind}

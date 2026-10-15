@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { IconTile } from '@/components/ui/IconTile';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { Segmented } from '@/components/ui/Segmented';
+import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
 import { CountUp, useProgress } from '@/components/ui/Motion';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -146,7 +146,7 @@ export const MomentumModal = ({ visible, onClose, habits, history, completions }
                 </Text>
 
                 <View style={styles.switcher}>
-                    <Segmented
+                    <ChoiceRow
                         accessibilityLabel="Window"
                         options={WINDOWS.map(window => ({ id: window.id as number, label: window.label }))}
                         value={days}

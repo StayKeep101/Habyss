@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import Svg from 'react-native-svg';
 import {
     AnimatedFill, AppButton, AppIcon, AppTextField, Badge, ChartCard, CheckPop, ChipPicker, CountUp, Divider, EmptyState,
-    GrowBar, HabitRow, HalfCircleProgress, IconButton, ModalHeader, PopIn, ProgressRing, Reveal, Segmented, SheetScreen,
+    GrowBar, HabitRow, HalfCircleProgress, IconButton, ModalHeader, PopIn, ProgressRing, Reveal, ChoiceRow, SheetScreen,
     SheetSection, StatTile, SwipeRow, Text, TimeRow, Toggle, ViewSwitcher, VoidCard, VoidModal, VoidSheet, Wheel,
 } from '@/components/ui';
 import { CatalogSection, Specimen, Swatch, Variant } from '@/components/Catalog/Specimen';
@@ -62,7 +62,7 @@ export default function UICatalog() {
                     <Text variant="body" tone="muted">
                         Every building block in the app, numbered. Tell Claude the number and what to change. Every screen using that piece changes with it.
                     </Text>
-                    <Segmented<ThemeMode>
+                    <ChoiceRow<ThemeMode>
                         accessibilityLabel="Theme"
                         options={[{ id: 'light', label: 'Light' }, { id: 'abyss', label: 'Dark' }]}
                         value={mode === 'system' ? 'abyss' : mode}
@@ -179,8 +179,8 @@ export default function UICatalog() {
                     <Variant letter="b" label="Error"><AppTextField label="Habit name" value="" onChangeText={() => undefined} error="Give it a name" /></Variant>
                 </Specimen>
 
-                <Specimen number={16} name="Segmented control" file="components/ui/Segmented.tsx">
-                    <Segmented options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} value={segment} onChange={setSegment} />
+                <Specimen number={16} name="Choice row" file="components/ui/ChoiceRow.tsx">
+                    <ChoiceRow options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} value={segment} onChange={setSegment} />
                 </Specimen>
 
                 <Specimen number={17} name="Chip picker" file="components/ui/ChipPicker.tsx">

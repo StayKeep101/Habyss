@@ -17,7 +17,7 @@ import { TimeRange, endTime } from '@/components/Create/TimeRange';
 import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, type Recurrence, type Weekday } from '@/lib/recurrence';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { LeadTime } from '@/components/Create/LeadTime';
-import { Segmented } from '@/components/ui/Segmented';
+import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
@@ -429,7 +429,7 @@ export const HabitSheet: React.FC<{
                     {/* One question at a time: off, tied to the start, or a
                         clock time. The minutes-before only belongs to the
                         start; a clock time already says exactly when. */}
-                    <Segmented
+                    <ChoiceRow
                         accessibilityLabel="When to remind you"
                         options={draft.startTime
                             ? [{ id: 'off', label: 'Off' }, { id: 'start', label: 'When it starts' }, { id: 'pick', label: 'At a time' }]

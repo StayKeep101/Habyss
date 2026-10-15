@@ -14,7 +14,7 @@
  *   VoidSheet      a bottom sheet with a grabber
  *
  * Controls
- *   AppButton, IconButton, AppTextField, Segmented, ChipPicker, Toggle,
+ *   AppButton, IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
  *   TimeRow, Wheel, ViewSwitcher, SwipeRow
  *
  * Content
@@ -52,7 +52,7 @@ export { VoidSheet } from './VoidSheet';
 export { AppButton } from './AppButton';
 export { IconButton } from './IconButton';
 export { AppTextField } from './AppTextField';
-export { Segmented } from './Segmented';
+export { ChoiceRow } from './ChoiceRow';
 export { ChipPicker } from './ChipPicker';
 export { Toggle, type ToggleProps } from './Toggle';
 export { TimeRow } from './TimeRow';

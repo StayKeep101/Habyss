@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ChoicePill } from '@/components/ui/ChoicePill';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
-import { Segmented } from '@/components/ui/Segmented';
+import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -84,7 +84,7 @@ export const LeadTime: React.FC<{
                 />
                 <IconButton icon="add" label="More" onPress={() => step(1)} diameter={38} size={18} color={colors.textPrimary} />
                 <View style={styles.units}>
-                    <Segmented
+                    <ChoiceRow
                         accessibilityLabel="Unit"
                         options={UNITS}
                         value={unit}

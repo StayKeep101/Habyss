@@ -4,7 +4,7 @@ import { CountUp, PopIn, useProgress } from '@/components/ui/Motion';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeOut, useAnimatedStyle } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
-import { Segmented } from '@/components/ui/Segmented';
+import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -107,7 +107,7 @@ export default function TaskStatsScreen() {
 
                 {/* The shape of it. */}
                 <View style={styles.block}>
-                    <Segmented
+                    <ChoiceRow
                         accessibilityLabel="How far back"
                         options={[{ id: 30, label: '30 days' }, { id: 90, label: '90 days' }]}
                         value={days}
