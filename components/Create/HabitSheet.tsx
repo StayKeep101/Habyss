@@ -19,7 +19,7 @@ import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, 
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { LeadTime } from '@/components/Create/LeadTime';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
-import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
+import { MeasureField } from '@/components/Create/MeasureField';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
 import { goalUnitLabel } from '@/lib/goalUnits';
@@ -149,7 +149,6 @@ export const HabitSheet: React.FC<{
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<Row>(null);
-    const [unitPicker, setUnitPicker] = useState(false);
     const [amountText, setAmountText] = useState<string | null>(null);
     const [findingPlace, setFindingPlace] = useState(false);
 
@@ -206,7 +205,6 @@ export const HabitSheet: React.FC<{
         setText(prefill || current?.name || '');
         setEdits({});
         setOpenRow(null);
-        setUnitPicker(false);
         setAmountText(null);
         setError(null);
     }
@@ -274,7 +272,7 @@ export const HabitSheet: React.FC<{
     // so the choice is held here and sent the moment the habit has an id.
     const share = useShareDraft('habit', current?.id);
     const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
-    const toggleRow = (id: string | null) => { setOpenRow(id as Row); setUnitPicker(false); };
+    const toggleRow = (id: string | null) => { setOpenRow(id as Row); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
     const save = async () => {
@@ -381,33 +379,25 @@ export const HabitSheet: React.FC<{
             value: draft.amount ? `${draft.amount} ${draft.unit ?? 'times'}` : undefined,
             content: (
                 <>
-                    <View style={styles.amountRow}>
-                        <MatteInput accessibilityLabel="Habit target number" value={amountText ?? (draft.amount === undefined ? '' : String(draft.amount))}
-                            keyboardType="decimal-pad" placeholder="1" placeholderTextColor={colors.textTertiary}
-                            onFocus={() => setUnitPicker(false)}
-                            onChangeText={value => {
-                                setAmountText(value);
-                                const amount = Number(value.replace(',', '.'));
-                                change({ amount: value.trim() ? amount : undefined, unit: draft.unit ?? 'times' });
-                            }} style={[styles.number, { color: colors.textPrimary, borderColor: colors.border }]} />
-                        <Pressable accessibilityRole="button" accessibilityLabel="Choose habit unit" accessibilityState={{ expanded: unitPicker }}
-                            onPress={() => { Keyboard.dismiss(); setUnitPicker(!unitPicker); }}
-                            style={[styles.unitButton, { borderColor: 'transparent', backgroundColor: colors.surfaceTertiary }]}>
-                            <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{goalUnitLabel(draft.unit === 'min' ? 'minutes' : draft.unit === 'times' ? 'sessions' : draft.unit ?? 'sessions')}</Text>
-                            <Ionicons name={unitPicker ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textSecondary} />
-                        </Pressable>
-                    </View>
-                    {unitPicker ? <GoalUnitPicker value={draft.unit === 'min' ? 'minutes' : draft.unit === 'times' ? 'sessions' : draft.unit}
-                        accent={accentText} onChange={unit => { change({ unit: unit === 'minutes' ? 'min' : unit === 'sessions' ? 'times' : unit, amount: draft.amount ?? 1 }); setUnitPicker(false); }} />
-                        : <Pressable accessibilityRole="button" onPress={() => { change({ amount: undefined, unit: undefined }); setAmountText(null); }} style={styles.link}>
-                            <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>Use a simple check-in</Text>
-                        </Pressable>}
+                    <MeasureField
+                        amountLabel="Habit target number"
+                        amount={amountText ?? (draft.amount === undefined ? '' : String(draft.amount))}
+                        onAmount={value => {
+                            setAmountText(value);
+                            const amount = Number(value.replace(',', '.'));
+                            change({ amount: value.trim() ? amount : undefined, unit: draft.unit ?? 'times' });
+                        }}
+                        unit={draft.unit === 'min' ? 'minutes' : draft.unit === 'times' ? 'sessions' : draft.unit}
+                        onUnit={unit => change({ unit: unit === 'minutes' ? 'min' : unit === 'sessions' ? 'times' : unit, amount: draft.amount ?? 1 })}
+                        accent={accentText}
+                        onClear={draft.amount !== undefined ? () => { change({ amount: undefined, unit: undefined }); setAmountText(null); } : undefined}
+                    />
 
                     {/* Who answers for this habit. Only shown when Health
                         measures the same thing the habit does — offering to
                         fill "8 glasses" from a step count would be worse than
                         offering nothing, because the number would look right. */}
-                    {!unitPicker && healthOptions.length ? (
+                    {healthOptions.length ? (
                         <>
                             <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>Who counts it</Text>
                             <Choices
@@ -585,7 +575,7 @@ export const HabitSheet: React.FC<{
                         <CreationTextInput
                             key={session} text={text} segments={habitTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
                             onChangeText={value => { setText(value); setAmountText(null); }}
-                            onFocus={() => { setOpenRow(null); setUnitPicker(false); }}
+                            onFocus={() => { setOpenRow(null); }}
                             // Open ready to type, editing as well as creating: the
                             // caret lands after what is already written, so the first
                             // keystroke adds to it rather than replacing it.

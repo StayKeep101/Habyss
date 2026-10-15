@@ -29,7 +29,8 @@ it('preserves midnight when editing', async () => {
     const screen = render(<TaskFormModal visible task={saved} />);
     fireEvent.press(screen.getByLabelText('Time, 00:00'));
     // The wheel is on screen the moment the row opens, not behind "Pick a time".
-    expect(screen.UNSAFE_getByType('DateTimePicker' as any).props.value.getHours()).toBe(0);
+    const hour = within(screen.getByTestId('start-hour')).getAllByRole('radio').find(row => row.props.accessibilityState?.selected);
+    expect(hour?.props.accessibilityLabel).toBe('00');
     await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
     expect(updateTask).toHaveBeenCalledWith('t1', expect.objectContaining({ dueTime: '00:00' }));
 });

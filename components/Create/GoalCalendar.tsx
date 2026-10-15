@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
+import Animated, { Easing, LinearTransition, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { textOn } from '@/theme/tokens';
 import { IconButton } from '@/components/ui/IconButton';
@@ -14,6 +15,8 @@ import { localDateKey } from '@/lib/habitSchedule';
 /** Timed, never sprung: a sprung height overshoots and the grid bounces. */
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 const monthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
+/** A day's row height: compact, so the shortcuts beside it fit without scrolling. */
+const CELL = 36;
 
 const firstOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1, 12);
 const shiftMonth = (date: Date, delta: number) => new Date(date.getFullYear(), date.getMonth() + delta, 1, 12);
@@ -39,6 +42,30 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
         selectionFeedback();
         setMonth(next < minimumMonth ? minimumMonth : next);
     };
+    // Swipe left for the next month, right for the one before: the grid follows
+    // the finger, slides out, and the new month slides in from the other side.
+    const [width, setWidth] = useState(0);
+    const slide = useSharedValue(0);
+    const step = (direction: 1 | -1) => {
+        if (direction === -1 && !canGoBack) return;
+        showMonth(shiftMonth(month, direction));
+        slide.value = direction * (width || 320);
+        slide.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) });
+    };
+    const swipe = Gesture.Pan()
+        .activeOffsetX([-14, 14])
+        .failOffsetY([-12, 12])
+        .onUpdate(event => {
+            const blocked = event.translationX > 0 && !canGoBack;
+            slide.value = blocked ? event.translationX * 0.2 : event.translationX;
+        })
+        .onEnd(event => {
+            const go = event.translationX < -50 || event.velocityX < -500 ? 1
+                : (event.translationX > 50 || event.velocityX > 500) && canGoBack ? -1 : 0;
+            if (!go) { slide.value = withSpring(0, { damping: 20, stiffness: 240 }); return; }
+            slide.value = withTiming(-go * (width || 320), { duration: 140 }, done => { if (done) runOnJS(step)(go as 1 | -1); });
+        });
+    const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.value }] }));
     const validYear = /^\d{4}$/.test(year) && Number(year) >= minimumMonth.getFullYear() && Number(year) <= 9999;
 
     const days = (page: Date) => {
@@ -74,10 +101,11 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                 </Text>
                 <AppIcon name={jump ? 'chevron-up' : 'chevron-down'} size={14} color={accent} />
             </Pressable>
-            {!jump ? <>
-                <IconButton icon="chevron-back" label="Previous month" onPress={() => showMonth(shiftMonth(month, -1))} diameter={36} size={18} color={canGoBack ? accent : colors.textTertiary} disabled={!canGoBack} />
-                <IconButton icon="chevron-forward" label="Next month" onPress={() => showMonth(shiftMonth(month, 1))} diameter={36} size={18} color={accent} />
-            </> : null}
+            {showToday && !jump && monthKey(month) !== monthKey(thisMonth) ? (
+                <Pressable accessibilityRole="button" accessibilityLabel="Go to current month" onPress={() => showMonth(thisMonth)} style={styles.today}>
+                    <Text style={[styles.hint, { color: accent }]}>Today</Text>
+                </Pressable>
+            ) : null}
         </View>
         {jump ? <View style={styles.jump}>
             <View style={styles.yearRow}>
@@ -106,41 +134,36 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) =>
                     <Text key={index} style={[styles.weekday, { color: colors.textTertiary }]}>{day}</Text>)}
             </View>
-            {/* One month, changed by the arrows above. The grid morphs to the
-                new month's height so a 5-row month does not jolt into a 6-row
-                one, and the days fade in rather than cutting. */}
-            <Animated.View
-                testID="calendar-viewport"
-                layout={MORPH}
-                style={{ height: monthRows(month) * 40, overflow: 'hidden' }}
-            >
-                <Animated.View key={monthKey(month)} entering={FadeIn.duration(180)}>
-                    {days(month)}
+            {/* One month at a time, swiped left and right. The grid morphs to
+                the new month's height so a 5-row month does not jolt into a
+                6-row one. */}
+            <GestureDetector gesture={swipe}>
+                <Animated.View
+                    testID="calendar-viewport"
+                    accessible
+                    accessibilityLabel={month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                    accessibilityActions={[{ name: 'increment', label: 'Next month' }, { name: 'decrement', label: 'Previous month' }]}
+                    onAccessibilityAction={event => step(event.nativeEvent.actionName === 'increment' ? 1 : -1)}
+                    onLayout={event => setWidth(event.nativeEvent.layout.width)}
+                    layout={MORPH}
+                    style={{ height: monthRows(month) * CELL, overflow: 'hidden' }}
+                >
+                    <Animated.View style={slideStyle}>{days(month)}</Animated.View>
                 </Animated.View>
-            </Animated.View>
+            </GestureDetector>
         </>}
-        <View style={styles.footer}>
-            {/* Hidden where the sheet offers a Today shortcut of its own, so
-                the word does not appear twice a few points apart. */}
-            {showToday ? (
-                <Pressable accessibilityRole="button" accessibilityLabel="Go to current month" onPress={() => { showMonth(thisMonth); setJump(false); }} style={styles.today}>
-                    <Text style={[styles.hint, { color: accent }]}>Today</Text>
-                </Pressable>
-            ) : <View />}
-            <Text style={[styles.hint, { color: colors.textTertiary }]}>{''}</Text>
-        </View>
     </View>;
 }
 
 const styles = StyleSheet.create({
     calendar: { gap: 2 }, header: { flexDirection: 'row', alignItems: 'center' },
-    monthButton: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    monthButton: { flex: 1, minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 8 },
     month: { fontSize: 16, fontFamily: FontFamily.medium },
     arrow: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
     grid: { flexDirection: 'row', flexWrap: 'wrap' },
-    weekday: { width: '14.285714%', textAlign: 'center', fontSize: 11, fontFamily: FontFamily.medium, paddingVertical: 6 },
-    cell: { width: '14.285714%', height: 40, alignItems: 'center', justifyContent: 'center' },
-    day: { width: 36, height: 36, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+    weekday: { width: '14.285714%', textAlign: 'center', fontSize: 11, fontFamily: FontFamily.medium, paddingVertical: 4 },
+    cell: { width: '14.285714%', height: CELL, alignItems: 'center', justifyContent: 'center' },
+    day: { width: 32, height: 32, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
     dayText: { fontSize: 14, fontFamily: FontFamily.medium },
     footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     today: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 8 },

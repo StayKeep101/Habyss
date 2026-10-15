@@ -23,7 +23,6 @@ import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseTask } from '@/lib/smartParse';
 import { describeParsedTask, parseTaskText } from '@/lib/taskParser';
 import { createTask, updateTask, type Task, type TaskMeasure, type TaskPriority } from '@/lib/tasks';
-import { goalMilestones } from '@/lib/goalInsights';
 import { localDateKey } from '@/lib/habitSchedule';
 import { getGoals, type Habit } from '@/lib/habitsSQLite';
 import { emit, on } from '@/lib/appEvents';
@@ -59,7 +58,6 @@ interface Draft {
     /** A count, or minutes for time. */
     target?: number;
     unit?: string;
-    milestoneId?: string;
 }
 
 
@@ -74,7 +72,6 @@ const fromTask = (task: Task): Draft => ({
     measure: task.measure ?? 'done',
     target: task.target,
     unit: task.unit,
-    milestoneId: task.milestoneId,
 });
 
 const shortDate = (date?: string) => {
@@ -107,7 +104,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     const [eventVisible, setEventVisible] = useState(false);
     const [editing, setEditing] = useState<Task | null>(null);
     const [eventGoal, setEventGoal] = useState<string | undefined>(undefined);
-    const [eventMilestone, setEventMilestone] = useState<string | undefined>(undefined);
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<string | null>(null);
@@ -146,7 +142,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             emit('close_creation_modal');
             setEditing((data?.task ?? null) as Task | null);
             setEventGoal(typeof data?.goalId === 'string' ? data.goalId : undefined);
-            setEventMilestone(typeof data?.milestoneId === 'string' ? data.milestoneId : undefined);
             // Opened from somewhere that already knows which question is being
             // asked — the goal roadmap only ever asks about the date.
             setRequestedRow(data?.focus ?? null);
@@ -174,7 +169,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         // in Reminders — but only a brand new one.
         const start: Draft = current
             ? fromTask(current)
-            : { title: '', priority: 2, dueDate: localDateKey(new Date()), goalId: eventGoal, measure: 'done', milestoneId: eventMilestone };
+            : { title: '', priority: 2, dueDate: localDateKey(new Date()), goalId: eventGoal, measure: 'done' };
         const read: Draft = parsed ? {
             ...start,
             title: parsed.title || start.title,
@@ -184,7 +179,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             priority: parsed.priority ?? start.priority,
         } : start;
         return { ...read, ...edits };
-    }, [current, eventGoal, eventMilestone, parsed, edits]);
+    }, [current, eventGoal, parsed, edits]);
 
     const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
@@ -204,7 +199,6 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 estimatedMinutes: draft.estimate,
                 priority: draft.priority,
                 goalId: draft.goalId,
-                milestoneId: draft.goalId && steps.some(step => step.id === draft.milestoneId) ? draft.milestoneId : undefined,
             };
             if (current) await updateTask(current.id, input);
             else {
@@ -229,9 +223,10 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         date.setDate(date.getDate() + days);
         return localDateKey(date);
     };
+    /** Days until Saturday. */
+    const toWeekend = (6 - new Date().getDay() + 7) % 7;
     const chosenGoal = goals.find(goal => goal.id === draft.goalId);
     const goalName = chosenGoal?.name;
-    const steps = chosenGoal ? goalMilestones(chosenGoal) : [];
     // A task is done or it is not: no counts or timers to fill in first.
     const canSave = !!text.trim();
     const items: DetailItem[] = [
@@ -239,20 +234,20 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             id: 'due', icon: 'calendar-outline', label: 'Date', value: shortDate(draft.dueDate),
             content: (
                 <>
-                    {/* The calendar answers the question; the shortcuts sit
-                        underneath it, next to "Today", where the eye already
-                        is once it has finished reading the month. */}
-                    <GoalCalendar allowPast showToday={false} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
+                    {/* The shortcuts first, so they are in view without
+                        scrolling; the month underneath for anything else. */}
                     <Choices
                         options={[
                             { id: quickDay(0), label: 'Today' },
                             { id: quickDay(1), label: 'Tomorrow' },
+                            ...(toWeekend > 1 ? [{ id: quickDay(toWeekend), label: 'Weekend' }] : []),
                             { id: quickDay(7), label: 'Next week' },
                         ]}
                         value={draft.dueDate ?? ''}
                         accent={accent}
                         onChange={id => change({ dueDate: id || undefined })}
                     />
+                    <GoalCalendar allowPast showToday={false} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
                 </>
             ),
         },
@@ -285,19 +280,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     options={[{ id: '', label: 'None' }, ...goals.map(goal => ({ id: goal.id, label: goal.name }))]}
                     value={draft.goalId ?? ''}
                     accent={accent}
-                    onChange={id => change({ goalId: id || undefined, milestoneId: undefined })}
-                />
-            ),
-        }] : []),
-        ...(steps.length > 0 ? [{
-            id: 'step', icon: 'git-commit-outline' as const, label: 'Step',
-            value: steps.find(step => step.id === draft.milestoneId)?.title,
-            content: (
-                <Choices
-                    options={[{ id: '', label: 'None' }, ...steps.map(step => ({ id: step.id, label: step.title }))]}
-                    value={draft.milestoneId ?? ''}
-                    accent={accent}
-                    onChange={id => change({ milestoneId: id || undefined })}
+                    onChange={id => change({ goalId: id || undefined })}
                 />
             ),
         }] : []),

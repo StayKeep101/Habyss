@@ -44,8 +44,8 @@ describe('the goal sheet', () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Get better at the guitar');
 
-        // No number in it, so it reads as a project and asks for its steps.
-        expect(screen.getByText('Add the major steps')).toBeTruthy();
+        // No number in it, so it reads as a project: it only needs a date.
+        expect(screen.getByText('Add a finish date')).toBeTruthy();
         // As a number goal, the button says what it still needs.
         fireEvent.press(screen.getByRole('radio', { name: 'Number' }));
         const button = screen.getByText('Add a number to hit');
@@ -53,7 +53,7 @@ describe('the goal sheet', () => {
         expect(addHabit).not.toHaveBeenCalled();
 
         fireEvent.changeText(screen.getByLabelText('Target number'), '30');
-        fireEvent.press(screen.getByLabelText('Choose target unit'));
+        fireEvent.press(screen.getByLabelText('Time units'));
         fireEvent.press(screen.getByLabelText('Unit Minutes'));
         fireEvent.press(screen.getByText('By when'));
         const today = new Date();
@@ -65,14 +65,10 @@ describe('the goal sheet', () => {
         expect(saved()).toMatchObject({ name: 'Get better at the guitar', goalValue: 30, unit: 'minutes', targetDate: date });
     });
 
-    it('turns a project into ordered steps', async () => {
+    it('saves a project with only a finish date, no steps', async () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Launch Habyss');
-        fireEvent.press(screen.getByText('Steps'));
-        fireEvent.changeText(screen.getByLabelText('Add a step'), 'Onboarding');
-        fireEvent(screen.getByLabelText('Add a step'), 'submitEditing');
-        fireEvent.changeText(screen.getByLabelText('Add a step'), 'Dashboard');
-        fireEvent.press(screen.getByLabelText('Add step'));
+        expect(screen.queryByText('Steps')).toBeNull();
         fireEvent.press(screen.getByText('By when'));
         const today = new Date();
         const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -82,7 +78,7 @@ describe('the goal sheet', () => {
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
         const spec = JSON.parse(saved().goalSpec);
         expect(spec.kind).toBe('complete');
-        expect(spec.milestones.map((step: { title: string }) => step.title)).toEqual(['Onboarding', 'Dashboard']);
+        expect(spec.milestones).toBeUndefined();
     });
 
     it('keeps a unit the user picked over the one it read', async () => {
@@ -90,7 +86,6 @@ describe('the goal sheet', () => {
         write(screen, 'Read 300 pages this month');
         // The chip reads as the target it holds once it has one.
         fireEvent.press(screen.getByLabelText('Target, 300 Pages'));
-        fireEvent.press(screen.getByLabelText('Choose target unit'));
         fireEvent.press(screen.getByLabelText('Unit Books'));
 
         await act(async () => { fireEvent.press(screen.getByText('Create goal')); });
@@ -113,7 +108,7 @@ describe('the goal sheet', () => {
         write(screen, 'Read 12 books');
         fireEvent.press(screen.getByLabelText('By when'));
         expect(screen.getByTestId('goal-calendar')).toBeTruthy();
-        fireEvent.press(screen.getByLabelText('Next month'));
+        fireEvent(screen.getByTestId('calendar-viewport'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
         const next = new Date();
         next.setDate(1);
         next.setMonth(next.getMonth() + 1);
@@ -123,18 +118,13 @@ describe('the goal sheet', () => {
         expect(saved()).toMatchObject({ targetDate: date, goalValue: 12, unit: 'books' });
     });
 
-    it('only shows unit choices after tapping Unit and keeps the number when a unit changes', async () => {
+    it('shows the units of the kind already chosen and keeps the number when a unit changes', async () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Save 500 dollars this month');
         fireEvent.press(screen.getByLabelText('Target, 500 USD'));
-        expect(screen.queryByTestId('goal-unit-picker')).toBeNull();
+        expect(screen.getByTestId('measure-field')).toBeTruthy();
         expect(screen.queryByText('At least')).toBeNull();
-        expect(screen.queryByText('At most')).toBeNull();
-        expect(screen.queryByText('Reach')).toBeNull();
-        fireEvent.press(screen.getByLabelText('Choose target unit'));
-        expect(screen.getByTestId('goal-unit-picker')).toBeTruthy();
         fireEvent.press(screen.getByLabelText('Unit EUR'));
-        expect(screen.queryByTestId('goal-unit-picker')).toBeNull();
         expect(screen.getByLabelText('Target number').props.value).toBe('500');
         await act(async () => { fireEvent.press(screen.getByText('Create goal')); });
         expect(saved()).toMatchObject({ goalValue: 500, unit: 'euros' });
@@ -148,8 +138,8 @@ describe('the goal sheet', () => {
         fireEvent.changeText(screen.getByLabelText('Target number'), '5.');
         expect(screen.getByLabelText('Target number').props.value).toBe('5.');
         fireEvent.changeText(screen.getByLabelText('Target number'), '5.5');
-        fireEvent.press(screen.getByLabelText('Choose target unit'));
-        fireEvent.changeText(screen.getByLabelText('Search units'), 'miles');
+        fireEvent.press(screen.getByLabelText('Search units'));
+        fireEvent.changeText(screen.getByLabelText('Unit search'), 'miles');
         expect(screen.queryByLabelText('Unit Books')).toBeNull();
         fireEvent.press(screen.getByLabelText('Unit Miles'));
         expect(screen.getByLabelText('Target number').props.value).toBe('5.5');

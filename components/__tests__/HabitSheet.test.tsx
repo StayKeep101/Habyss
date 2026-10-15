@@ -199,8 +199,8 @@ describe('shared habit controls', () => {
         write(screen, 'Read');
         fireEvent.press(screen.getByLabelText('Measure'));
         fireEvent.changeText(screen.getByLabelText('Habit target number'), '1');
-        fireEvent.press(screen.getByLabelText('Choose habit unit'));
-        fireEvent.changeText(screen.getByLabelText('Search units'), 'books');
+        fireEvent.press(screen.getByLabelText('Search units'));
+        fireEvent.changeText(screen.getByLabelText('Unit search'), 'books');
         fireEvent.press(screen.getByLabelText('Unit Books'));
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
         expect(addHabit).toHaveBeenCalledWith(expect.objectContaining({ goalValue: 1, unit: 'books', trackingMethod: 'numeric' }));
@@ -212,7 +212,8 @@ describe('shared habit controls', () => {
         write(screen, 'Stretch at 00:00');
         fireEvent.press(screen.getByLabelText('Time, 00:00'));
         // The wheel is on screen the moment the row opens, not behind a button.
-        expect(screen.UNSAFE_getByType('DateTimePicker' as any).props.value.getHours()).toBe(0);
+        const hour = within(screen.getByTestId('start-hour')).getAllByRole('radio').find(row => row.props.accessibilityState?.selected);
+        expect(hour?.props.accessibilityLabel).toBe('00');
         await act(async () => {});
     });
 });

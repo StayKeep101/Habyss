@@ -318,18 +318,16 @@ describe('goal kinds', () => {
     });
 
     it('counts a complete goal as tasks done out of all its tasks', () => {
-        const launch = goal({ name: 'Launch Habyss', goalSpec: spec({ kind: 'complete', milestones: [{ id: 'm1', title: 'Onboarding' }, { id: 'm2', title: 'Dashboard' }] }) });
+        const launch = goal({ name: 'Launch Habyss', goalSpec: spec({ kind: 'complete' }) });
         const tasks = [
-            task({ milestoneId: 'm1', status: 'done', completedAt: '2026-09-12T10:00:00' }),
-            task({ milestoneId: 'm1', status: 'done', completedAt: '2026-09-13T10:00:00' }),
-            task({ milestoneId: 'm2' }),
-            task({ milestoneId: 'm2' }),
+            task({ status: 'done', completedAt: '2026-09-12T10:00:00' }),
+            task({ status: 'done', completedAt: '2026-09-13T10:00:00' }),
+            task(),
+            task(),
         ];
         const insights = buildGoalInsights({ goal: launch, habits: [habit()], tasks, history: doneThrough(TODAY), today: TODAY });
         expect(insights.measure).toMatchObject({ kind: 'complete', done: 2, total: 4, unit: 'tasks' });
         expect(insights.progress).toBe(50);
-        expect(insights.milestones.map(step => [step.milestone.title, step.done, step.total, step.complete]))
-            .toEqual([['Onboarding', 2, 2, true], ['Dashboard', 0, 2, false]]);
     });
 
     it('measures a time goal in minutes, from timed habits and time tasks', () => {

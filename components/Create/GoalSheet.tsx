@@ -12,7 +12,8 @@ import { ModalHeader } from '@/components/ui/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { GoalCalendar } from '@/components/Create/GoalCalendar';
-import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
+import { MeasureField } from '@/components/Create/MeasureField';
+import { DurationWheels, formatDuration } from '@/components/Create/DurationWheels';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
 import { readableAccent } from '@/lib/colorContrast';
 import { goalTextSegments } from '@/lib/goalTextHighlight';
@@ -24,7 +25,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseGoal } from '@/lib/smartParse';
-import { parseGoalText, type Direction, type GoalKind, type GoalSpec, type GoalWindow, type HabitRef, type Milestone } from '@/lib/goalParser';
+import { parseGoalText, type Direction, type GoalKind, type GoalSpec, type GoalWindow, type HabitRef } from '@/lib/goalParser';
 import { generateId } from '@/lib/database';
 import { addHabit, updateHabit, getHabits, type Habit } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -39,7 +40,6 @@ type Row = 'target' | 'window' | 'baseline' | 'steps' | 'tracks' | 'look' | 'not
 interface Draft {
     /** Unset until chosen; read from the sentence until then. */
     kind?: GoalKind;
-    milestones: Milestone[];
     title: string;
     target?: number;
     unit?: string;
@@ -56,7 +56,7 @@ interface Draft {
     description?: string;
 }
 
-const blank = (): Draft => ({ title: '', direction: 'at_least', linked: [], milestones: [], icon: 'flag-outline', color: '#6B8AF5' });
+const blank = (): Draft => ({ title: '', direction: 'at_least', linked: [], icon: 'flag-outline', color: '#6B8AF5' });
 
 const KINDS: { id: GoalKind; label: string; icon: IconName; hint: string }[] = [
     { id: 'number', label: 'Number', icon: 'stats-chart-outline', hint: '2000 calls by Dec 1' },
@@ -82,7 +82,6 @@ const fromGoal = (from: Habit): Draft => {
 
     return {
         kind: spec.kind,
-        milestones: Array.isArray(spec.milestones) ? spec.milestones : [],
         title: from.name,
         target: spec.target ?? (from.unit === 'percent' ? from.goalValue / 100 : from.goalValue),
         unit: spec.metric_unit ?? from.unit,
@@ -138,7 +137,6 @@ export const GoalSheet: React.FC<{
     const [text, setText] = useState('');
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<Row>(null);
-    const [unitPicker, setUnitPicker] = useState(false);
     const [targetText, setTargetText] = useState<string | null>(null);
     const [habits, setHabits] = useState<HabitRef[]>([]);
     const [saving, setSaving] = useState(false);
@@ -159,7 +157,6 @@ export const GoalSheet: React.FC<{
         setText(current?.name ?? '');
         setEdits({});
         setOpenRow(null);
-        setUnitPicker(false);
         setTargetText(null);
         setError(null);
     }
@@ -224,12 +221,13 @@ export const GoalSheet: React.FC<{
     const accent = draft.color || appAccent;
     const accentText = readableAccent(accent, colors.background);
     const kind = draft.kind ?? 'number';
+    /** A time goal's target in minutes, whichever unit it was written in. */
+    const targetMinutes = draft.target === undefined ? 0 : draft.unit === 'minutes' ? draft.target : draft.target * 60;
     // The chosen kind's own example first, then the rest.
     const goalExamples = useMemo(() => {
         const hint = KINDS.find(option => option.id === kind)?.hint;
         return hint ? [hint, ...GOAL_EXAMPLES.filter(example => example !== hint)] : GOAL_EXAMPLES;
     }, [kind]);
-    const [stepText, setStepText] = useState('');
 
     // Deciding to do this with somebody happens while writing it, not after —
     // so the choice is held here and sent the moment the goal has an id.
@@ -241,8 +239,8 @@ export const GoalSheet: React.FC<{
     const needsBaseline = draft.deltaFromBaseline !== undefined && draft.target === undefined;
     const missing: { row: Exclude<Row, null>; what: string }[] = [];
     if (kind === 'complete') {
-        if (draft.milestones.length === 0) missing.push({ row: 'steps', what: 'the major steps' });
-    } else if (draft.target === undefined && draft.deltaFromBaseline === undefined) missing.push({ row: 'target', what: kind === 'time' ? 'how many hours' : 'a number to hit' });
+        // Nothing to measure: it is done when it is done.
+    } else if (draft.target === undefined && draft.deltaFromBaseline === undefined) missing.push({ row: 'target', what: kind === 'time' ? 'how long' : 'a number to hit' });
     else if (kind === 'number' && !draft.unit) missing.push({ row: 'target', what: 'what it is measured in' });
     if (kind === 'number' && needsBaseline && draft.baseline === undefined) missing.push({ row: 'baseline', what: 'where you are starting from' });
     if (draft.window?.kind !== 'fixed') missing.push({ row: 'window', what: 'a finish date' });
@@ -272,7 +270,6 @@ export const GoalSheet: React.FC<{
             const spec: GoalSpec = {
                 ...previous,
                 kind,
-                milestones: kind === 'complete' ? draft.milestones : undefined,
                 title,
                 type: result?.goal.type ?? (window.kind === 'recurring' ? 'frequency' : 'volume'),
                 metric_unit: unit,
@@ -328,84 +325,15 @@ export const GoalSheet: React.FC<{
     };
 
     const segments = goalTextSegments(text, rules?.goal);
-    const toggleRow = (id: string | null) => { setUnitPicker(false); setOpenRow(id as Row); };
-
-    const addStep = () => {
-        const title = stepText.trim();
-        if (!title) return;
-        lightFeedback();
-        change({ milestones: [...draft.milestones, { id: generateId(), title }] });
-        setStepText('');
-    };
-    const moveStep = (index: number, by: number) => {
-        const next = [...draft.milestones];
-        const [step] = next.splice(index, 1);
-        next.splice(Math.max(0, Math.min(next.length, index + by)), 0, step);
-        change({ milestones: next });
-    };
+    const toggleRow = (id: string | null) => { setOpenRow(id as Row); };
 
     const items: DetailItem[] = [
-        ...(kind === 'complete' ? [{
-            id: 'steps', icon: 'git-commit-outline' as const, label: 'Steps',
-            value: draft.milestones.length ? `${draft.milestones.length} step${draft.milestones.length === 1 ? '' : 's'}` : undefined,
-            content: (
-                <>
-                    {draft.milestones.map((step, index) => (
-                        <View key={step.id} style={styles.stepRow}>
-                            <Text style={[styles.stepIndex, { color: accentText }]}>{index + 1}</Text>
-                            <MatteInput
-                                value={step.title}
-                                onChangeText={value => change({ milestones: draft.milestones.map(item => item.id === step.id ? { ...item, title: value } : item) })}
-                                accessibilityLabel={`Step ${index + 1}`}
-                                style={[styles.stepInput, { color: colors.textPrimary }]}
-                            />
-                            {index > 0 ? (
-                                <IconButton icon="chevron-up" label={`Move step ${index + 1} up`} onPress={() => moveStep(index, -1)} diameter={28} size={16} color={colors.textTertiary} />
-                            ) : null}
-                            <IconButton icon="close" label={`Remove step ${index + 1}`} onPress={() => change({ milestones: draft.milestones.filter(item => item.id !== step.id) })} diameter={28} size={16} color={colors.textTertiary} />
-                        </View>
-                    ))}
-                    <View style={styles.stepRow}>
-                        <Text style={[styles.stepIndex, { color: colors.textTertiary }]}>{draft.milestones.length + 1}</Text>
-                        <MatteInput
-                            value={stepText}
-                            onChangeText={setStepText}
-                            onSubmitEditing={addStep}
-                            blurOnSubmit={false}
-                            returnKeyType="done"
-                            placeholder={draft.milestones.length ? 'Next step' : 'e.g. Onboarding'}
-                            placeholderTextColor={colors.textTertiary}
-                            accessibilityLabel="Add a step"
-                            style={[styles.stepInput, { color: colors.textPrimary }]}
-                        />
-                        <IconButton icon="add-circle" label="Add step" onPress={addStep} diameter={32} size={22} color={stepText.trim() ? accent : colors.textTertiary} disabled={!stepText.trim()} />
-                    </View>
-                </>
-            ),
-        }] : []),
         ...(kind === 'time' ? [{
-            id: 'target', icon: 'time-outline' as const, label: 'Hours',
-            value: draft.target === undefined ? undefined : `${draft.unit === 'minutes' ? Math.round((draft.target / 60) * 10) / 10 : draft.target} h`,
+            id: 'target', icon: 'time-outline' as const, label: 'Time',
+            value: draft.target === undefined ? undefined : formatDuration(targetMinutes * 60),
             content: (
-                <View style={styles.targetRow}>
-                    <MatteInput
-                        value={targetText ?? (draft.target === undefined ? '' : String(draft.unit === 'minutes' ? Math.round((draft.target / 60) * 10) / 10 : draft.target))}
-                        onChangeText={value => {
-                            setTargetText(value);
-                            const amount = Number(value.replace(',', '.'));
-                            change({ unit: 'hours', target: value.trim() && Number.isFinite(amount) ? amount : undefined });
-                        }}
-                        keyboardType="decimal-pad"
-                        placeholder="0"
-                        placeholderTextColor={colors.textTertiary}
-                        accessibilityLabel="Target hours"
-                        style={[styles.number, {
-                            color: colors.textPrimary, borderColor: colors.border,
-                            backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
-                        }]}
-                    />
-                    <Text style={[styles.help, { color: colors.textSecondary, flex: 1 }]}>hours</Text>
-                </View>
+                <DurationWheels seconds={targetMinutes * 60}
+                    onChange={seconds => change({ unit: 'minutes', target: seconds > 0 ? seconds / 60 : undefined })} />
             ),
         }] : []),
         ...(kind === 'number' ? [{
@@ -413,40 +341,22 @@ export const GoalSheet: React.FC<{
             value: draft.target === undefined && draft.deltaFromBaseline === undefined ? undefined : describeTarget(draft),
             content: (
                 <>
-                    <View style={styles.targetRow}>
-                        <MatteInput
-                            value={targetText ?? (draft.target === undefined ? '' : String(draft.unit === 'percent' ? Math.round(draft.target * 100) : draft.target))}
-                            onChangeText={value => {
-                                setTargetText(value);
-                                const amount = Number(value.replace(',', '.'));
-                                change({ target: value.trim() && Number.isFinite(amount) ? (draft.unit === 'percent' ? amount / 100 : amount) : undefined });
-                            }}
-                            onFocus={() => setUnitPicker(false)}
-                            keyboardType="decimal-pad"
-                            placeholder="0"
-                            placeholderTextColor={colors.textTertiary}
-                            accessibilityLabel="Target number"
-                            style={[styles.number, {
-                                color: colors.textPrimary, borderColor: colors.border,
-                                backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
-                            }]}
-                        />
-                        <Pressable accessibilityRole="button" accessibilityLabel="Choose target unit"
-                            accessibilityState={{ expanded: unitPicker }}
-                            onPress={() => { Keyboard.dismiss(); lightFeedback(); setUnitPicker(value => !value); }}
-                            style={[styles.unitButton, { backgroundColor: colors.surfaceTertiary, borderColor: 'transparent' }]}>
-                            <Text style={[styles.unitLabel, { color: colors.textPrimary }]}>{draft.unit ? goalUnitLabel(draft.unit) : 'Unit'}</Text>
-                            <Ionicons name={unitPicker ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textSecondary} />
-                        </Pressable>
-                    </View>
-                    {unitPicker ? <GoalUnitPicker value={draft.unit} accent={accentText}
-                        onChange={unit => {
+                    <MeasureField
+                        amountLabel="Target number"
+                        amount={targetText ?? (draft.target === undefined ? '' : String(draft.unit === 'percent' ? Math.round(draft.target * 100) : draft.target))}
+                        onAmount={value => {
+                            setTargetText(value);
+                            const amount = Number(value.replace(',', '.'));
+                            change({ target: value.trim() && Number.isFinite(amount) ? (draft.unit === 'percent' ? amount / 100 : amount) : undefined });
+                        }}
+                        unit={draft.unit}
+                        onUnit={unit => {
                             // Keep the displayed amount when moving to or from percent.
                             const amount = draft.target === undefined ? undefined : draft.unit === 'percent' ? draft.target * 100 : draft.target;
                             change({ unit, target: amount === undefined ? undefined : unit === 'percent' ? amount / 100 : amount });
-                            setUnitPicker(false);
-                        }} />
-                        : null}
+                        }}
+                        accent={accentText}
+                    />
 
                 </>
             ),
@@ -560,7 +470,7 @@ export const GoalSheet: React.FC<{
                             {...(Platform.OS === 'web' ? { value: text } : {})}
                             onChangeText={value => { setText(value); setTargetText(null); }}
                             selectionColor={accent}
-                            onFocus={() => { setOpenRow(null); setUnitPicker(false); }}
+                            onFocus={() => { setOpenRow(null); }}
                             // Open ready to type, editing as well as creating: the
                             // caret lands after what is already written, so the first
                             // keystroke adds to it rather than replacing it.

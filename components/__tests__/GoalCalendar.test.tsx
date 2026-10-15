@@ -16,21 +16,14 @@ describe('goal calendar navigation', () => {
         await act(async () => {});
     });
 
-    it('moves forward and backward on the arrows', async () => {
-        // Swiping was removed: the arrows already did this, and a horizontal
-        // pager inside a sheet that scrolls vertically fights the gesture.
+    it('changes month by swiping, with no arrows', async () => {
         const screen = render(<GoalCalendar value="2028-01-01" onChange={jest.fn()} accent="#00b9e8" />);
-        fireEvent.press(screen.getByLabelText('Next month'));
+        expect(screen.queryByLabelText('Next month')).toBeNull();
+        const grid = screen.getByTestId('calendar-viewport');
+        fireEvent(grid, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
         expect(screen.getByText('February 2028')).toBeTruthy();
-        fireEvent.press(screen.getByLabelText('Previous month'));
+        fireEvent(screen.getByTestId('calendar-viewport'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } });
         expect(screen.getByText('January 2028')).toBeTruthy();
-        await act(async () => {});
-    });
-
-    it('no longer offers a swipe to change month', async () => {
-        const screen = render(<GoalCalendar value="2028-01-01" onChange={jest.fn()} accent="#00b9e8" />);
-        expect(screen.queryByLabelText('Swipe calendar month')).toBeNull();
-        expect(screen.queryByText('Swipe to change month')).toBeNull();
         await act(async () => {});
     });
 
@@ -39,9 +32,10 @@ describe('goal calendar navigation', () => {
         fireEvent.press(screen.getByLabelText('Choose month and year'));
         fireEvent.changeText(screen.getByLabelText('Calendar year'), '12');
         expect(screen.getByLabelText('Show Jan 12')).toBeDisabled();
+        fireEvent.changeText(screen.getByLabelText('Calendar year'), '2028');
+        fireEvent.press(screen.getByLabelText('Show Jan 2028'));
         fireEvent.press(screen.getByLabelText('Go to current month'));
         expect(screen.getByText(new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }))).toBeTruthy();
-        expect(screen.getByLabelText('Previous month')).toBeDisabled();
         await act(async () => {});
     });
 });

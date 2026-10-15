@@ -1,6 +1,6 @@
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
-import type { GoalKind, Milestone } from './goalParser';
+import type { GoalKind } from './goalParser';
 import { createHabitSchedule, localDateKey, parseHabitDate } from './habitSchedule';
 
 /**
@@ -103,17 +103,6 @@ export interface GoalInsights {
     habits: HabitSummary[];
     upNext: UpNextItem[];
     measure: GoalMeasure;
-    milestones: MilestoneProgress[];
-}
-
-/** One step of a complete goal, with the tasks that make it up. */
-export interface MilestoneProgress {
-    milestone: Milestone;
-    tasks: Task[];
-    done: number;
-    total: number;
-    /** Every task in it is done (and it has at least one). */
-    complete: boolean;
 }
 
 export interface GoalInsightInput {
@@ -225,14 +214,6 @@ export function goalKind(goal: Habit): GoalKind {
     const target = goalTarget(goal);
     if (!target) return 'complete';
     return MINUTES_PER[target.unit] ? 'time' : 'number';
-}
-
-/** The steps of a complete goal, in order. */
-export function goalMilestones(goal: Habit): Milestone[] {
-    const list = readSpec(goal).milestones;
-    return Array.isArray(list)
-        ? list.filter((item: any) => item && typeof item.id === 'string' && typeof item.title === 'string')
-        : [];
 }
 
 /** What one check-in of a habit delivers toward a time goal, in minutes. */
@@ -354,24 +335,6 @@ export function goalMeasure(input: GoalInsightInput, measured = measureByDay(inp
     };
 }
 
-/** Each step of a complete goal and how much of it is done. Unsorted tasks come last. */
-export function milestoneProgress(goal: Habit, tasks: Task[]): MilestoneProgress[] {
-    const linked = linkedTasks(goal, tasks);
-    const steps = goalMilestones(goal);
-    const known = new Set(steps.map(step => step.id));
-    const out = steps.map(milestone => {
-        const own = linked.filter(task => task.milestoneId === milestone.id);
-        const done = own.filter(task => task.status === 'done').length;
-        return { milestone, tasks: own, done, total: own.length, complete: own.length > 0 && done === own.length };
-    });
-    const loose = linked.filter(task => !task.milestoneId || !known.has(task.milestoneId));
-    if (steps.length > 0 && loose.length > 0) {
-        const done = loose.filter(task => task.status === 'done').length;
-        out.push({ milestone: { id: '', title: 'Other tasks' }, tasks: loose, done, total: loose.length, complete: done === loose.length });
-    }
-    return out;
-}
-
 export function linkedHabits(goal: Habit, habits: Habit[]): Habit[] {
     return habits.filter(habit => habit.goalId === goal.id && !habit.isGoal && !habit.isArchived);
 }
@@ -486,7 +449,6 @@ export function buildGoalInsights(input: GoalInsightInput): GoalInsights {
         habits: summaries,
         upNext,
         measure,
-        milestones: milestoneProgress(goal, input.tasks),
     };
 }
 
