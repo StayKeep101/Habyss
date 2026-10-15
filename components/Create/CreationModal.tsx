@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {Dimensions, Pressable, StyleSheet, Text, View} from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import Animated, {
-    Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming,
+    Easing, interpolate, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -15,7 +15,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
 /** Where the plus button is on screen, as it measured itself. */
 interface Anchor { x: number; y: number; size: number }
@@ -102,7 +102,7 @@ export const CreationModal = () => {
     const right = anchor ? Math.max(0, screen.width - (anchor.x + size)) : horizontalPadding;
     const bottom = anchor ? Math.max(0, screen.height - (anchor.y + size)) : tabBarBottomOffset;
 
-    const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+    const blurProps = useAnimatedProps(() => ({ intensity: progress.value * 25 }));
     const plusStyle = useAnimatedStyle(() => ({
         transform: [{ rotate: `${interpolate(progress.value, [0, 1], [0, 45])}deg` }],
     }));
@@ -116,16 +116,13 @@ export const CreationModal = () => {
     return (
         visible ? <View style={StyleSheet.absoluteFill}>
             <View style={{ flex: 1 }}>
-                {/* A heavy blur over the page, so the three choices are the only
-                    sharp things on screen. */}
-                <AnimatedPressable
-                    accessibilityLabel="Close creation menu"
-                    onPress={dismiss}
-                    style={[StyleSheet.absoluteFill, scrimStyle]}
-                >
-                    <BlurView intensity={70} tint={isLight ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: isLight ? 'rgba(15,23,42,0.18)' : 'rgba(0,0,0,0.45)' }]} />
-                </AnimatedPressable>
+                {/* Just a blur over the page — no darkening — so the three
+                    choices are the only sharp things on screen. The blur's own
+                    strength is animated: fading a blur through its parent's
+                    opacity makes iOS draw it as a black sheet. */}
+                <Pressable accessibilityLabel="Close creation menu" onPress={dismiss} style={StyleSheet.absoluteFill}>
+                    <AnimatedBlurView tint="default" animatedProps={blurProps} style={StyleSheet.absoluteFill} />
+                </Pressable>
 
                 <View accessibilityViewIsModal pointerEvents="box-none" style={[styles.stack, { right, bottom }]}>
                     {items.map((item, index) => (
