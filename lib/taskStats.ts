@@ -81,3 +81,53 @@ export function describeDay(
     if (parts.length === 0) return 'Nothing scheduled';
     return parts.join(' · ');
 }
+
+export interface WeekDone {
+    /** The Monday the week starts on. */
+    start: string;
+    done: number;
+}
+
+/**
+ * Tasks finished in each of the last `weeks` weeks, oldest first, the current
+ * week last (so far). Monday starts a week. This is the line that shows
+ * whether you are getting better.
+ */
+export function weeklyDone(tasks: Task[], today: string, weeks = 8): WeekDone[] {
+    const end = new Date(`${today}T12:00:00`);
+    const monday = new Date(end);
+    monday.setDate(end.getDate() - ((end.getDay() + 6) % 7));
+    const starts = Array.from({ length: weeks }, (_, index) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() - (weeks - 1 - index) * 7);
+        return localDateKey(date);
+    });
+    const counts = starts.map(start => ({ start, done: 0 }));
+    for (const task of tasks) {
+        if (task.status !== 'done' || !task.completedAt) continue;
+        const day = localDateKey(new Date(task.completedAt));
+        if (day > today) continue;
+        for (let index = starts.length - 1; index >= 0; index--) {
+            if (day >= starts[index]) { counts[index].done += 1; break; }
+        }
+    }
+    return counts;
+}
+
+/** This week against the same days of last week: the honest comparison mid-week. */
+export function weekChange(tasks: Task[], today: string): { thisWeek: number; lastWeek: number; change: number } {
+    const end = new Date(`${today}T12:00:00`);
+    const daysIn = (end.getDay() + 6) % 7; // 0 on Monday
+    const monday = new Date(end); monday.setDate(end.getDate() - daysIn);
+    const lastMonday = new Date(monday); lastMonday.setDate(monday.getDate() - 7);
+    const lastSameDay = new Date(lastMonday); lastSameDay.setDate(lastMonday.getDate() + daysIn);
+    const [from, lastFrom, lastTo] = [monday, lastMonday, lastSameDay].map(localDateKey);
+    let thisWeek = 0; let lastWeek = 0;
+    for (const task of tasks) {
+        if (task.status !== 'done' || !task.completedAt) continue;
+        const day = localDateKey(new Date(task.completedAt));
+        if (day >= from && day <= today) thisWeek += 1;
+        else if (day >= lastFrom && day <= lastTo) lastWeek += 1;
+    }
+    return { thisWeek, lastWeek, change: thisWeek - lastWeek };
+}

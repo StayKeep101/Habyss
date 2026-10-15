@@ -99,3 +99,23 @@ it('counts a late-night completion on its local calendar date', () => {
     expect(taskStatsForDay([completed], '2026-09-18').done).toBe(0);
     expect(onTimeRate([completed])).toBe(100);
 });
+
+describe('weekly progress', () => {
+    const { weeklyDone, weekChange } = require('../taskStats');
+    const done = (day: string) => ({ id: day + Math.random(), title: 't', status: 'done', completedAt: `${day}T10:00:00`, priority: 2 });
+    // 2026-10-15 is a Thursday; its week starts Monday 2026-10-12.
+    const today = '2026-10-15';
+
+    it('counts tasks finished in each week, current week last', () => {
+        const tasks = [done('2026-10-12'), done('2026-10-15'), done('2026-10-05'), done('2026-09-01')];
+        const weeks = weeklyDone(tasks, today, 3);
+        expect(weeks.map((week: { start: string }) => week.start)).toEqual(['2026-09-28', '2026-10-05', '2026-10-12']);
+        expect(weeks.map((week: { done: number }) => week.done)).toEqual([0, 1, 2]);
+    });
+
+    it('compares this week with the same days of last week', () => {
+        const tasks = [done('2026-10-12'), done('2026-10-13'), done('2026-10-14'), done('2026-10-06'), done('2026-10-10')];
+        // Last week Mon–Thu holds one (the 6th); the Saturday 10th is past the same point.
+        expect(weekChange(tasks, today)).toEqual({ thisWeek: 3, lastWeek: 1, change: 2 });
+    });
+});
