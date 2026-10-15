@@ -35,8 +35,12 @@ export const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, section:
  *             whole recipe.
  */
 export interface SurfaceTone {
-    /** The card's own colour, opaque. */
+    /** The card's own colour, opaque: the middle of its gradient. */
     fill: string;
+    /** The top of the card's gradient, a little lighter, where light falls. */
+    top: string;
+    /** The bottom of the card's gradient, a little darker. */
+    bottom: string;
     /** A lighter fill for something raised above a card — a chip on a panel. */
     raised: string;
     /** The hairline along the edge, where a raised surface catches light. */
@@ -46,26 +50,33 @@ export interface SurfaceTone {
 }
 
 export const Surfaces: Record<'light' | 'abyss' | 'trueDark', SurfaceTone> = {
-    // Matte, like Phantom: a flat, opaque step above the page in a neutral
-    // grey, one crisp light edge, and no blur, gloss or glow.
+    // Matte, like Phantom: a dark, opaque card with a soft gradient — lighter
+    // at the top, falling off towards the bottom — one faint light edge, and a
+    // soft shadow under it. No blur and no gloss.
     light: {
-        fill: '#F4F4F6',
-        raised: '#EAEAEE',
+        fill: '#F2F2F5',
+        top: '#F8F8FA',
+        bottom: '#ECECF0',
+        raised: '#E6E6EB',
         lip: 'rgba(15,23,42,0.06)',
         line: 'rgba(15,23,42,0.07)',
     },
     abyss: {
-        fill: '#151517',
-        raised: '#202023',
-        lip: 'rgba(255,255,255,0.07)',
-        line: 'rgba(255,255,255,0.06)',
+        fill: '#111113',
+        top: '#18181B',
+        bottom: '#0C0C0E',
+        raised: '#1C1C1F',
+        lip: 'rgba(255,255,255,0.06)',
+        line: 'rgba(255,255,255,0.05)',
     },
     trueDark: {
-        // The page stays pure black for OLED; the cards are the same matte
-        // grey, which is what keeps them visible on it.
-        fill: '#141414',
-        raised: '#1F1F1F',
-        lip: 'rgba(255,255,255,0.07)',
+        // The page stays pure black for OLED; the cards keep the same gradient,
+        // which is what keeps them visible on it.
+        fill: '#101010',
+        top: '#171717',
+        bottom: '#0B0B0B',
+        raised: '#1B1B1B',
+        lip: 'rgba(255,255,255,0.06)',
         line: 'rgba(255,255,255,0.05)',
     },
 };
@@ -78,11 +89,13 @@ export const Surfaces: Record<'light' | 'abyss' | 'trueDark', SurfaceTone> = {
  * a sheet, a menu — sits higher. That is the whole vocabulary.
  */
 export const Elevation = {
+    // Close and soft, like Phantom's: enough to lift a card off a black page
+    // without a glow around it.
     card: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.28,
-        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.45,
+        shadowRadius: 18,
         elevation: 6,
     },
     floating: {

@@ -134,7 +134,7 @@ export default function UICatalog() {
                 {/* ───────────────────────── Surfaces ───────────────────────── */}
                 <CatalogSection title="Surfaces" description="Cards, sections, headers and windows." />
 
-                <Specimen number={8} name="Card" file="components/ui/VoidCard.tsx" note="matte: flat fill, one light edge, no blur or shadow">
+                <Specimen number={8} name="Card" file="components/ui/VoidCard.tsx" note="matte: soft top-to-bottom gradient, one light edge, soft shadow">
                     <VoidCard><View style={styles.cardBody}><Text variant="heading">Morning run</Text><Text tone="muted">Every day · 07:00</Text></View></VoidCard>
                 </Specimen>
 
