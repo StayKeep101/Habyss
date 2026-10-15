@@ -12,6 +12,7 @@ import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { GoalCalendar } from '@/components/Create/GoalCalendar';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
+import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
 import { taskTextSegments } from '@/lib/creationTextHighlight';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -26,6 +27,10 @@ import { goalMilestones } from '@/lib/goalInsights';
 import { localDateKey } from '@/lib/habitSchedule';
 import { getGoals, type Habit } from '@/lib/habitsSQLite';
 import { emit, on } from '@/lib/appEvents';
+
+
+/** Typed out in the empty box, for a little inspiration. */
+const TASK_EXAMPLES = ['Call the bank tomorrow at 2pm', 'Send the invoice Friday', 'Book the dentist next week', 'Groceries tonight at 6'];
 
 interface Props {
     visible?: boolean;
@@ -307,7 +312,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     value={draft.description ?? ''}
                     onChangeText={description => change({ description })}
                     multiline
-                    placeholder="Anything you need to remember"
+                    placeholder="Notes"
                     placeholderTextColor={colors.textTertiary}
                     accessibilityLabel="Task notes"
                     style={[styles.notes, {
@@ -342,29 +347,33 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <CreationTextInput
-                        key={session} text={text} segments={taskTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
-                        onChangeText={setText}
-                        onFocus={() => setOpenRow(null)}
-                        // Open ready to type, editing as well as creating: the
-                        // caret lands after what is already written, so the first
-                        // keystroke adds to it rather than replacing it. Unless
-                        // the sheet was opened on a row, in which case the
-                        // keyboard would take the screen the row needs.
-                        autoFocus={!openedWith}
-                        multiline
-                        placeholder="Call the bank tomorrow at 2pm for 30 min"
-                        placeholderTextColor={colors.textTertiary}
-                        accessibilityLabel="Describe the task"
-                        style={[styles.input, {
-                            color: colors.textPrimary, borderColor: colors.border,
-                            backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                        }]}
-                    />
+                    <TypingPlaceholder examples={TASK_EXAMPLES} active={!text}>
+                        {placeholder => (
+                        <CreationTextInput
+                            key={session} text={text} segments={taskTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
+                            onChangeText={setText}
+                            onFocus={() => setOpenRow(null)}
+                            // Open ready to type, editing as well as creating: the
+                            // caret lands after what is already written, so the first
+                            // keystroke adds to it rather than replacing it. Unless
+                            // the sheet was opened on a row, in which case the
+                            // keyboard would take the screen the row needs.
+                            autoFocus={!openedWith}
+                            multiline
+                            placeholder={placeholder}
+                            placeholderTextColor={colors.textTertiary}
+                            accessibilityLabel="Describe the task"
+                            style={[styles.input, {
+                                color: colors.textPrimary, borderColor: colors.border,
+                                backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
+                            }]}
+                        />
+                        )}
+                    </TypingPlaceholder>
 
                     <View style={styles.readRow}>
                         <Text numberOfLines={1} style={[styles.read, { color: colors.textSecondary }]}>
-                            {parsed ? describeParsedTask({ ...parsed, matched: rules?.matched ?? { date: false, time: false, estimate: false, priority: false } }) : 'It will show up on the day you give it.'}
+                            {parsed ? describeParsedTask({ ...parsed, matched: rules?.matched ?? { date: false, time: false, estimate: false, priority: false } }) : ''}
                         </Text>
                         <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} />
                     </View>

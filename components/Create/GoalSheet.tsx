@@ -3,6 +3,7 @@ import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleShee
 import { ChoicePill } from '@/components/ui/ChoicePill';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
+import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
@@ -28,6 +29,10 @@ import { generateId } from '@/lib/database';
 import { addHabit, updateHabit, getHabits, type Habit } from '@/lib/habitsSQLite';
 import { localDateKey } from '@/lib/habitSchedule';
 import { emit, on } from '@/lib/appEvents';
+
+
+/** Typed out in the empty box, for a little inspiration. */
+const GOAL_EXAMPLES = ['Run 50km this month', 'Read 12 books this year', 'Launch the app by Jan 1', '100 hours of piano', 'Save $5,000 by summer'];
 
 type Row = 'target' | 'window' | 'baseline' | 'steps' | 'tracks' | 'look' | 'notes' | null;
 
@@ -219,6 +224,11 @@ export const GoalSheet: React.FC<{
     const accent = draft.color || appAccent;
     const accentText = readableAccent(accent, colors.background);
     const kind = draft.kind ?? 'number';
+    // The chosen kind's own example first, then the rest.
+    const goalExamples = useMemo(() => {
+        const hint = KINDS.find(option => option.id === kind)?.hint;
+        return hint ? [hint, ...GOAL_EXAMPLES.filter(example => example !== hint)] : GOAL_EXAMPLES;
+    }, [kind]);
     const [stepText, setStepText] = useState('');
 
     // Deciding to do this with somebody happens while writing it, not after —
@@ -370,7 +380,6 @@ export const GoalSheet: React.FC<{
                         />
                         <IconButton icon="add-circle" label="Add step" onPress={addStep} diameter={32} size={22} color={stepText.trim() ? accent : colors.textTertiary} disabled={!stepText.trim()} />
                     </View>
-                    <Text style={[styles.help, { color: colors.textTertiary }]}>The big phases, in order. You add each step&apos;s tasks on the goal&apos;s roadmap.</Text>
                 </>
             ),
         }] : []),
@@ -395,7 +404,7 @@ export const GoalSheet: React.FC<{
                             backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
                         }]}
                     />
-                    <Text style={[styles.help, { color: colors.textSecondary, flex: 1 }]}>hours in total, split into daily sessions.</Text>
+                    <Text style={[styles.help, { color: colors.textSecondary, flex: 1 }]}>hours</Text>
                 </View>
             ),
         }] : []),
@@ -437,7 +446,7 @@ export const GoalSheet: React.FC<{
                             change({ unit, target: amount === undefined ? undefined : unit === 'percent' ? amount / 100 : amount });
                             setUnitPicker(false);
                         }} />
-                        : <Text style={[styles.help, { color: colors.textTertiary }]}>Set an amount, then tap the unit to choose how to measure it.</Text>}
+                        : null}
 
                 </>
             ),
@@ -458,9 +467,6 @@ export const GoalSheet: React.FC<{
             value: draft.baseline === undefined ? undefined : `${draft.baseline} ${draft.unit ?? ''}`.trim(),
             content: (
                 <>
-                    <Text style={[styles.help, { color: colors.textSecondary }]}>
-                        {result?.clarifying_question ?? `What is your ${draft.unit ?? 'current value'} right now?`}
-                    </Text>
                     <MatteInput
                         value={draft.baseline === undefined ? '' : String(draft.baseline)}
                         onChangeText={value => {
@@ -484,7 +490,6 @@ export const GoalSheet: React.FC<{
             value: draft.linked.length ? `${draft.linked.length} habit${draft.linked.length === 1 ? '' : 's'}` : undefined,
             content: (
                 <>
-                    <Text style={[styles.help, { color: colors.textSecondary }]}>Which habits move this goal forward.</Text>
                     <Choices
                         options={habits.map(habit => ({ id: habit.id, label: habit.name }))}
                         value={draft.linked}
@@ -513,7 +518,7 @@ export const GoalSheet: React.FC<{
                     value={draft.description ?? ''}
                     onChangeText={description => change({ description })}
                     multiline
-                    placeholder="What changes when you get there?"
+                    placeholder="Notes"
                     placeholderTextColor={colors.textTertiary}
                     accessibilityLabel="Why this goal matters"
                     style={[styles.notes, {
@@ -548,29 +553,33 @@ export const GoalSheet: React.FC<{
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <MatteInput
-                        key={session}
-                        {...(Platform.OS === 'web' ? { value: text } : {})}
-                        onChangeText={value => { setText(value); setTargetText(null); }}
-                        selectionColor={accent}
-                        onFocus={() => { setOpenRow(null); setUnitPicker(false); }}
-                        // Open ready to type, editing as well as creating: the
-                        // caret lands after what is already written, so the first
-                        // keystroke adds to it rather than replacing it.
-                        autoFocus
-                        multiline
-                        placeholder={KINDS.find(option => option.id === kind)?.hint ?? 'Run 50km this month'}
-                        placeholderTextColor={colors.textTertiary}
-                        accessibilityLabel="Describe your goal"
-                        style={[styles.input, {
-                            color: colors.textPrimary, borderColor: colors.border,
-                            backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                        }]}
-                    >
-                        {Platform.OS !== 'web' ? <Text>{segments.map((part, index) =>
-                            <Text key={index} style={{ color: part.highlighted ? accentText : colors.textPrimary }}>{part.text}</Text>
-                        )}</Text> : null}
-                    </MatteInput>
+                    <TypingPlaceholder examples={goalExamples} active={!text}>
+                        {placeholder => (
+                        <MatteInput
+                            key={session}
+                            {...(Platform.OS === 'web' ? { value: text } : {})}
+                            onChangeText={value => { setText(value); setTargetText(null); }}
+                            selectionColor={accent}
+                            onFocus={() => { setOpenRow(null); setUnitPicker(false); }}
+                            // Open ready to type, editing as well as creating: the
+                            // caret lands after what is already written, so the first
+                            // keystroke adds to it rather than replacing it.
+                            autoFocus
+                            multiline
+                            placeholder={placeholder}
+                            placeholderTextColor={colors.textTertiary}
+                            accessibilityLabel="Describe your goal"
+                            style={[styles.input, {
+                                color: colors.textPrimary, borderColor: colors.border,
+                                backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
+                            }]}
+                        >
+                            {Platform.OS !== 'web' ? <Text>{segments.map((part, index) =>
+                                <Text key={index} style={{ color: part.highlighted ? accentText : colors.textPrimary }}>{part.text}</Text>
+                            )}</Text> : null}
+                        </MatteInput>
+                        )}
+                    </TypingPlaceholder>
 
                     <View style={styles.kinds} accessibilityRole="radiogroup">
                         {KINDS.map(option => {
@@ -593,7 +602,6 @@ export const GoalSheet: React.FC<{
                     ) : null}
 
 
-                    {result?.goal.window?.kind === 'recurring' && !draft.window ? <Text style={[styles.help, { color: colors.textSecondary }]}>Goals have one finish date. Choose when you want to complete this goal.</Text> : null}
 
                     {error ? (
                         <View style={[styles.error, { backgroundColor: colors.error + '18', borderColor: colors.error + '44' }]}>

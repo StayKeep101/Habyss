@@ -167,11 +167,7 @@ export const TimeRange: React.FC<{
                 >
                     {`${start} → ${endTime(start, minutes)} · ${lengthLabel(minutes)}`}
                 </Animated.Text>
-            ) : (
-                <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                    Give it an end, or leave it open.
-                </Text>
-            )}
+            ) : null}
         </Animated.View>
     );
 };

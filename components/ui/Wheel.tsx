@@ -49,9 +49,15 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
 
     const offset = useSharedValue(index * WHEEL_ROW);
     const centred = useSharedValue(index);
-    /** The row the wheel is resting on, so a scroll it caused is not reported back. */
+    /** Where the wheel opens. Read once: handing the scroll view a new offset
+     *  on every render can snap it back to the old value mid-turn. */
+    const initial = useRef({ x: 0, y: index * WHEEL_ROW }).current;
+    /** The row the wheel last settled on (or was told to show). */
     const settled = useRef(index);
     const touching = useRef(false);
+    const lastY = useRef(index * WHEEL_ROW);
+    const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
     // The value changed from outside (another control, a reset): turn to it,
     // unless the finger is on the wheel — then the finger wins.
@@ -62,10 +68,12 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
     }, [index, ref]);
 
     const tick = useCallback(() => selectionFeedback(), [selectionFeedback]);
+    const track = useCallback((y: number) => { lastY.current = y; }, []);
 
     const onScroll = useAnimatedScrollHandler({
         onScroll: event => {
             offset.value = event.contentOffset.y;
+            runOnJS(track)(event.contentOffset.y);
             const row = Math.min(options.length - 1, Math.max(0, Math.round(event.contentOffset.y / WHEEL_ROW)));
             if (row !== centred.value) {
                 centred.value = row;
@@ -74,27 +82,48 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
         },
     });
 
-    const commit = useCallback((y: number) => {
-        const row = Math.min(options.length - 1, Math.max(0, Math.round(y / WHEEL_ROW)));
-        if (row === settled.current) return;
-        settled.current = row;
-        onChange(options[row].id);
-    }, [options, onChange]);
+    /**
+     * Report the row in the middle once the wheel has truly stopped — the way
+     * a UIPickerView only changes its value at rest. Every "it ended" event
+     * (finger up, momentum over) just restarts a short timer; any further
+     * movement cancels it. So a flick, a slow drag and a drag that ends with a
+     * snap all land on the row you can see, never on one it passed.
+     */
+    const settleSoon = useCallback(() => {
+        if (settleTimer.current) clearTimeout(settleTimer.current);
+        settleTimer.current = setTimeout(() => {
+            settleTimer.current = null;
+            touching.current = false;
+            const row = Math.min(options.length - 1, Math.max(0, Math.round(lastY.current / WHEEL_ROW)));
+            if (Math.abs(lastY.current - row * WHEEL_ROW) > 1) {
+                ref.current?.scrollTo({ y: row * WHEEL_ROW, animated: true });
+            }
+            if (row === settled.current) return;
+            settled.current = row;
+            onChange(options[row].id);
+        }, 90);
+    }, [options, onChange, ref]);
 
-    const onMomentumEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        touching.current = false;
-        commit(event.nativeEvent.contentOffset.y);
-    }, [commit]);
+    const onBegin = useCallback(() => {
+        touching.current = true;
+        if (settleTimer.current) { clearTimeout(settleTimer.current); settleTimer.current = null; }
+    }, []);
 
-    // Let go without a flick: nothing more is coming, so snap to the nearest
-    // row and report it. Let go with one: wait for the momentum to finish.
-    const onDragEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        if (Math.abs(event.nativeEvent.velocity?.y ?? 0) > 0.05) return;
+    const onEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        lastY.current = event.nativeEvent.contentOffset.y;
+        settleSoon();
+    }, [settleSoon]);
+
+    /** A tap on a row turns it to the middle and chooses it, as on iOS. */
+    const choose = useCallback((position: number) => {
+        if (settleTimer.current) { clearTimeout(settleTimer.current); settleTimer.current = null; }
         touching.current = false;
-        const y = event.nativeEvent.contentOffset.y;
-        ref.current?.scrollTo({ y: Math.round(y / WHEEL_ROW) * WHEEL_ROW, animated: true });
-        commit(y);
-    }, [commit, ref]);
+        lastY.current = position * WHEEL_ROW;
+        ref.current?.scrollTo({ y: position * WHEEL_ROW, animated: true });
+        if (position === settled.current) return;
+        settled.current = position;
+        onChange(options[position].id);
+    }, [options, onChange, ref]);
 
     return (
         <View style={[styles.frame, { height }]} testID={testID}>
@@ -107,13 +136,14 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
                 showsVerticalScrollIndicator={false}
                 snapToInterval={WHEEL_ROW}
                 decelerationRate="fast"
-                contentOffset={{ x: 0, y: index * WHEEL_ROW }}
+                contentOffset={initial}
                 contentContainerStyle={{ paddingVertical: pad }}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
-                onScrollBeginDrag={() => { touching.current = true; }}
-                onScrollEndDrag={onDragEnd}
-                onMomentumScrollEnd={onMomentumEnd}
+                onScrollBeginDrag={onBegin}
+                onMomentumScrollBegin={onBegin}
+                onScrollEndDrag={onEnd}
+                onMomentumScrollEnd={onEnd}
                 nestedScrollEnabled
             >
                 {options.map((option, position) => (
@@ -126,13 +156,7 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
                         visible={visible}
                         style={style}
                         color={colors.textPrimary}
-                        onPress={() => {
-                            if (position === settled.current) return;
-                            settled.current = position;
-                            ref.current?.scrollTo({ y: position * WHEEL_ROW, animated: true });
-                            selectionFeedback();
-                            onChange(option.id);
-                        }}
+                        onPress={() => choose(position)}
                     />
                 ))}
             </Animated.ScrollView>

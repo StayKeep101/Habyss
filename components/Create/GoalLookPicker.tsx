@@ -204,7 +204,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
 
         {tab === 'icons' ? <>
             <MatteInput accessibilityLabel={`Search ${subject.toLowerCase()} icons`} value={query} onChangeText={setQuery}
-                placeholder={`Search ${ICONS.length} icons, or type an emoji`} placeholderTextColor={colors.textTertiary}
+                placeholder="Search icons or emoji" placeholderTextColor={colors.textTertiary}
                 autoCorrect={false} autoCapitalize="none"
                 style={[styles.search, { color: colors.textPrimary, borderColor: colors.border,
                     backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)' }]} />
@@ -246,7 +246,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                     </Pressable>)}
                 </View>
             </ScrollView>
-            {!icons.length && !glyph ? <Text style={[styles.label, { color: colors.textSecondary }]}>No icons found. Try “art”, “work”, or an emoji.</Text> : null}
+            {!icons.length && !glyph ? <Text style={[styles.label, { color: colors.textSecondary }]}>No icons</Text> : null}
         </> : <>
             {/* With the wheel open the swatches become one row, so the wheel and
                 its slider fit on screen without scrolling. */}

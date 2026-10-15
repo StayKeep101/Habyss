@@ -12,6 +12,7 @@ import { ModalHeader } from '@/components/ui/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
+import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
 import { RepeatPicker } from '@/components/Create/RepeatPicker';
 import { TimeRange, endTime } from '@/components/Create/TimeRange';
 import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, type Recurrence, type Weekday } from '@/lib/recurrence';
@@ -22,7 +23,7 @@ import { GoalUnitPicker } from '@/components/Create/GoalUnitPicker';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
 import { goalUnitLabel } from '@/lib/goalUnits';
-import { healthDetail, healthLabel, metricsForUnit, type HealthMetric } from '@/lib/healthMetrics';
+import { healthLabel, metricsForUnit, type HealthMetric } from '@/lib/healthMetrics';
 import { shortLead } from '@/lib/leadTime';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -36,6 +37,10 @@ import { addHabit, updateHabit, getGoals, type Habit, type LocationReminder } fr
 import { localDateKey } from '@/lib/habitSchedule';
 import { NotificationService } from '@/lib/notificationService';
 import { emit, on } from '@/lib/appEvents';
+
+
+/** Typed out in the empty box, for a little inspiration. */
+const HABIT_EXAMPLES = ['Gym Monday, Wednesday, Friday at 6', 'Read 20 pages every night', 'Meditate 10 minutes each morning', 'Walk 8000 steps daily'];
 
 const DAYS: { id: string; label: string }[] = [
     { id: 'mon', label: 'M' }, { id: 'tue', label: 'T' }, { id: 'wed', label: 'W' },
@@ -412,11 +417,6 @@ export const HabitSheet: React.FC<{
                                 accent={accent}
                                 onChange={id => change({ health: (id || undefined) as HealthMetric | undefined })}
                             />
-                            {draft.health ? (
-                                <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                                    {`${healthDetail(draft.health)} — read from Apple Health and never lowered by it.`}
-                                </Text>
-                            ) : null}
                         </>
                     ) : null}
                 </>
@@ -468,10 +468,7 @@ export const HabitSheet: React.FC<{
                     <View style={[styles.placeCard, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(15,23,42,0.03)' : 'rgba(255,255,255,0.03)' }]}>
                         <View style={styles.placeHead}>
                             <IconTile icon="location" color={accent} size={28} shape="square" />
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.placeTitle, { color: colors.textPrimary }]}>At a place</Text>
-                                <Text style={[styles.hint, { color: colors.textTertiary }]}>When you get to — or leave — somewhere, like the gym.</Text>
-                            </View>
+                            <Text style={[styles.placeTitle, { color: colors.textPrimary, flex: 1 }]}>At a place</Text>
                         </View>
                         {draft.places.map(place => {
                             const leaving = place.trigger === 'leave';
@@ -510,7 +507,7 @@ export const HabitSheet: React.FC<{
                     <MatteInput
                         value={draft.reminderMessage ?? ''}
                         onChangeText={reminderMessage => change({ reminderMessage })}
-                        placeholder="What it should say — leave empty and Echo writes it"
+                        placeholder="Message"
                         placeholderTextColor={colors.textTertiary}
                         accessibilityLabel="Reminder message"
                         style={[styles.message, {
@@ -548,7 +545,7 @@ export const HabitSheet: React.FC<{
                     value={draft.description ?? ''}
                     onChangeText={description => change({ description })}
                     multiline
-                    placeholder="Why this one matters to you"
+                    placeholder="Notes"
                     placeholderTextColor={colors.textTertiary}
                     accessibilityLabel="Note about this habit"
                     style={[styles.notes, {
@@ -583,23 +580,27 @@ export const HabitSheet: React.FC<{
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <CreationTextInput
-                        key={session} text={text} segments={habitTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
-                        onChangeText={value => { setText(value); setAmountText(null); }}
-                        onFocus={() => { setOpenRow(null); setUnitPicker(false); }}
-                        // Open ready to type, editing as well as creating: the
-                        // caret lands after what is already written, so the first
-                        // keystroke adds to it rather than replacing it.
-                        autoFocus
-                        placeholder="Gym Monday, Wednesday, Friday at 6 for 45 minutes"
-                        placeholderTextColor={colors.textTertiary}
-                        accessibilityLabel="Describe the habit"
-                        multiline
-                        style={[styles.input, {
-                            color: colors.textPrimary, borderColor: colors.border,
-                            backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                        }]}
-                    />
+                    <TypingPlaceholder examples={HABIT_EXAMPLES} active={!text}>
+                        {placeholder => (
+                        <CreationTextInput
+                            key={session} text={text} segments={habitTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
+                            onChangeText={value => { setText(value); setAmountText(null); }}
+                            onFocus={() => { setOpenRow(null); setUnitPicker(false); }}
+                            // Open ready to type, editing as well as creating: the
+                            // caret lands after what is already written, so the first
+                            // keystroke adds to it rather than replacing it.
+                            autoFocus
+                            placeholder={placeholder}
+                            placeholderTextColor={colors.textTertiary}
+                            accessibilityLabel="Describe the habit"
+                            multiline
+                            style={[styles.input, {
+                                color: colors.textPrimary, borderColor: colors.border,
+                                backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
+                            }]}
+                        />
+                        )}
+                    </TypingPlaceholder>
 
                     {draft.name && draft.name !== text.trim() ? (
                         <View style={styles.readRow}>

@@ -59,11 +59,6 @@ export const FriendsGate: React.FC<Props> = ({ needsUsername, onReady }) => {
             <Text style={[styles.title, { color: colors.textPrimary }]}>
                 {needsUsername ? 'Pick a username' : 'Do it with friends'}
             </Text>
-            <Text style={[styles.body, { color: colors.textSecondary }]}>
-                {needsUsername
-                    ? 'Friends find you by it. They see how consistent you are, never your habits unless you share one.'
-                    : 'Sign in to add friends, see each other’s streaks and share a habit or goal. It also backs up your data.'}
-            </Text>
 
             {needsUsername ? (
                 <>

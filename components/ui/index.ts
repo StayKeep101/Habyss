@@ -15,7 +15,7 @@
  *
  * Controls
  *   AppButton, IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
- *   TimeRow, Wheel, ViewSwitcher, SwipeRow
+ *   TimeRow, Wheel, ViewSwitcher, SwipeRow, TypingPlaceholder
  *
  * Content
  *   IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
@@ -59,6 +59,7 @@ export { TimeRow } from './TimeRow';
 export { Wheel } from './Wheel';
 export { ViewSwitcher } from './ViewSwitcher';
 export { SwipeRow } from './SwipeRow';
+export { TypingPlaceholder } from './TypingPlaceholder';
 
 export { AppIcon, type IconName } from './AppIcon';
 export { Text, type UITextProps, type TextTone } from './Text';

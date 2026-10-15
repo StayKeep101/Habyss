@@ -22,7 +22,7 @@ export function GoalUnitPicker({ value, onChange, accent }: {
         <MatteSurface radius={12} level="control" style={styles.search}>
             <AppIcon name="search-outline" size={16} color={colors.textTertiary} />
             <TextInput value={query} onChangeText={setQuery} accessibilityLabel="Search units"
-                placeholder="Search units, e.g. books or USD" placeholderTextColor={colors.textTertiary}
+                placeholder="Search units" placeholderTextColor={colors.textTertiary}
                 autoCorrect={false} style={[styles.input, { color: colors.textPrimary }]} />
             {query ? <Pressable accessibilityRole="button" accessibilityLabel="Clear unit search" onPress={() => setQuery('')} hitSlop={10}>
                 <AppIcon name="close-circle" size={18} color={colors.textTertiary} />
@@ -44,7 +44,7 @@ export function GoalUnitPicker({ value, onChange, accent }: {
                 <Text style={[styles.label, { color: value === unit.id ? textOn(accent) : colors.textPrimary }]}>{unit.label}</Text>
             </Pressable>)}
         </ScrollView>
-        {!units.length ? <Text style={[styles.empty, { color: colors.textSecondary }]}>No matching units. Try “pages”, “km” or “USD”.</Text> : null}
+        {!units.length ? <Text style={[styles.empty, { color: colors.textSecondary }]}>No units</Text> : null}
     </View>;
 }
 

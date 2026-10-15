@@ -31,7 +31,7 @@ export const MarksBoard: React.FC<{ people: MarksPerson[]; onPick?: (id: string)
 
     return (
         <View>
-        <SectionTitle first right={<Text style={[styles.sub, { color: colors.textTertiary }]}>Discipline, kept over time</Text>}>Marks</SectionTitle>
+        <SectionTitle first>Marks</SectionTitle>
         <VoidCard glass={theme !== 'trueDark'} intensity={light ? 20 : 80} style={[styles.card]}>
             {sorted.map((person, index) => {
                 const { rank } = rankFor(person.marks);
@@ -71,7 +71,6 @@ export const MarksBoard: React.FC<{ people: MarksPerson[]; onPick?: (id: string)
 
 const styles = StyleSheet.create({
     card: { paddingHorizontal: s(16), paddingVertical: s(6), borderRadius: s(22), marginBottom: s(16) },
-    sub: { fontSize: ms(12), fontFamily: FontFamily.regular, flexShrink: 1 },
     row: { flexDirection: 'row', alignItems: 'center', gap: s(10), paddingVertical: s(10) },
     place: { width: s(16), textAlign: 'center', fontSize: ms(13), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
     avatar: { width: s(32), height: s(32), borderRadius: s(16), alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },

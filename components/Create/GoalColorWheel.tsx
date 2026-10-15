@@ -104,7 +104,6 @@ export function GoalColorWheel({ value, onChange, accent }: { value: string; onC
             </GestureDetector>
             <View style={styles.previewColumn}>
                 <Animated.View style={[styles.preview, preview]} />
-                <Text style={[styles.hint, { color: colors.textSecondary }]}>Drag to find your color</Text>
             </View>
         </View>
         <View style={styles.brightness}>
@@ -133,7 +132,7 @@ export function GoalColorWheel({ value, onChange, accent }: { value: string; onC
                 <Text style={[styles.label, { color: valid ? accent : colors.textTertiary }]}>Apply</Text>
             </Pressable>
         </View>
-        {!valid ? <Text style={[styles.hint, { color: colors.textSecondary }]}>Use 3 or 6 hex digits, like #6B8AF5.</Text> : null}
+        {!valid ? <Text style={[styles.hint, { color: colors.textSecondary }]}>Not a colour</Text> : null}
     </View>;
 }
 

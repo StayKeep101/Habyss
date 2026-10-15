@@ -60,7 +60,6 @@ export default function GoalsOverview() {
                     <VoidCard style={styles.emptyCard}>
                         <Ionicons name="flag-outline" size={32} color={colors.textTertiary} />
                         <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No goals yet</Text>
-                        <Text style={[styles.emptyBody, { color: colors.textTertiary }]}>Create a goal and it shows up here.</Text>
                     </VoidCard>
                 ) : (
                     <>

@@ -2,12 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
-import { ms, s, vs } from '@/theme/scale';
+import { vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -96,13 +95,6 @@ export default function BlockedScreen() {
                     </Animated.View>
                 )}
 
-                <View style={styles.note}>
-                    <Ionicons name="information-circle-outline" size={s(13)} color={colors.textTertiary} />
-                    <Text style={[styles.noteText, { color: colors.textTertiary }]}>
-                        A blocked account cannot see your day, react to it, write to you, or send you a
-                        friend request. The block is kept on the server, not just hidden here.
-                    </Text>
-                </View>
             </ScrollView>
         </SheetScreen>
     );

@@ -100,7 +100,7 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                     </Pressable>;
                 })}
             </View>
-            {!validYear ? <Text style={[styles.hint, { color: colors.textSecondary }]}>Enter a year from {minimumMonth.getFullYear()} to 9999.</Text> : null}
+            {!validYear ? <Text style={[styles.hint, { color: colors.textSecondary }]}>Not a valid year</Text> : null}
         </View> : <>
             <View style={styles.grid}>
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) =>
@@ -127,7 +127,7 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                     <Text style={[styles.hint, { color: accent }]}>Today</Text>
                 </Pressable>
             ) : <View />}
-            <Text style={[styles.hint, { color: colors.textTertiary }]}>{jump ? 'Pick a month' : ''}</Text>
+            <Text style={[styles.hint, { color: colors.textTertiary }]}>{''}</Text>
         </View>
     </View>;
 }
