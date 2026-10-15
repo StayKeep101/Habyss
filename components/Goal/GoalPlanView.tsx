@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
-import { AnimatedFill, CountUp, ListItem } from '@/components/ui/Motion';
+import { AnimatedFill, ListItem } from '@/components/ui/Motion';
 import { router } from 'expo-router';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
-import { Countdown } from '@/components/Goal/Countdown';
+import { GoalHabitRow, SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { TaskItem } from '@/components/Roadmap/TaskItem';
 import { HabitSheet } from '@/components/Create/HabitSheet';
 import { Colors } from '@/theme/colors';
@@ -13,10 +13,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
-import { addDays, dateAt, daysBetween, friendlyDate, minutesPerCheckIn, type MilestoneProgress } from '@/lib/goalInsights';
+import { addDays, type MilestoneProgress } from '@/lib/goalInsights';
 import { isTimedHabit, toggleCompletion, updateHabit, type Habit } from '@/lib/habitsSQLite';
 import { generateId } from '@/lib/database';
-import { GoalPace, goalAmount } from '@/components/Goal/GoalPace';
 import { deleteTask, setTaskStatus, updateTask, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 
@@ -154,20 +153,12 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
             <Outer {...(embedded
                 ? { style: styles.content }
                 : { contentContainerStyle: styles.content, showsVerticalScrollIndicator: false })}>
-                <GoalPace measure={measure} color={color} />
-
-                <Countdown
-                    span={Math.max(1, Math.round(
-                        (dateAt(insights.endDate).getTime() - dateAt(insights.startDate).getTime()) / 86400000))}
-                    left={insights.daysLeft ?? 0}
-                    endLabel={goal.targetDate
-                        ? dateAt(insights.endDate).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
-                        : 'no end date'}
-                />
+                {/* The page above already shows the number and the days
+                    left; this tab is only the plan. */}
 
                 {isProject ? (
                     <>
-                        <SectionLabel>{`Steps · ${milestones.filter(step => step.complete).length} of ${milestones.filter(step => step.milestone.id).length} done`}</SectionLabel>
+                        <SectionLabel right={<ValuePill value={`${milestones.filter(step => step.complete).length}/${milestones.filter(step => step.milestone.id).length}`} />}>Steps</SectionLabel>
                         <View>
                             {milestones.map((step, index) => (
                                 <StepNode
@@ -183,101 +174,44 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
                                 />
                             ))}
                         </View>
-                        <TouchableOpacity accessibilityRole="button" onPress={addStep} style={[styles.addStep, { borderColor: color + '55' }]}>
-                            <Ionicons name="add" size={16} color={color} />
-                            <Text style={[styles.addStepText, { color }]}>Add a step</Text>
-                        </TouchableOpacity>
+                        <AddButton label="Add a step" onPress={addStep} />
                     </>
                 ) : (
                     <>
-                        <SectionLabel>{`Tasks · ${tasks.done} of ${tasks.total} done`}</SectionLabel>
+                        <SectionLabel right={tasks.total ? <ValuePill value={`${tasks.done}/${tasks.total}`} /> : undefined}>Tasks</SectionLabel>
                         {tasks.total === 0 ? (
                             <Text style={[styles.hint, { color: colors.textTertiary }]}>
                                 {measure.kind === 'complete'
                                     ? 'Break it into steps, then the tasks inside each.'
-                                    : 'One-off pushes, like "Call 25 leads". Add a task.'}
+                                    : 'One-off pushes, like "Call 25 leads".'}
                             </Text>
                         ) : null}
-
-                        {tasks.overdue.length ? (
-                            <View style={styles.day}>
-                                <Text style={[styles.dayLabel, { color: colors.error }]}>Overdue</Text>
-                                {tasks.overdue.map(renderTask)}
-                            </View>
-                        ) : null}
-
-                        {byDay.map(group => (
-                            <View key={group.date} style={styles.day}>
-                                <Text style={[styles.dayLabel, { color: group.date === today ? color : colors.textSecondary }]}>
-                                    {daysBetween(today, group.date) < 7 ? friendlyDate(group.date, today) : ''}
-                                    {group.date !== today ? (
-                                        <Text style={{ color: colors.textTertiary }}>
-                                            {`${daysBetween(today, group.date) < 7 ? '  ' : ''}${dateAt(group.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}`}
-                                        </Text>
-                                    ) : null}
-                                </Text>
-                                {group.tasks.map(renderTask)}
-                            </View>
-                        ))}
-
-                        {tasks.undated.length ? (
-                            <View style={styles.day}>
-                                <Text style={[styles.dayLabel, { color: colors.textSecondary }]}>No date</Text>
-                                {tasks.undated.map(renderTask)}
-                            </View>
-                        ) : null}
+                        {/* One list, most urgent first: each row already says when it is due. */}
+                        {[...tasks.overdue, ...tasks.upcoming, ...tasks.undated].map(renderTask)}
 
                         <View style={styles.addRow}>
-                            <TouchableOpacity accessibilityRole="button" onPress={() => addTaskTo()} style={[styles.addStep, { borderColor: color + '55', flex: 1 }]}>
-                                <Ionicons name="add" size={16} color={color} />
-                                <Text style={[styles.addStepText, { color }]}>Task</Text>
-                            </TouchableOpacity>
-                            {measure.kind === 'complete' ? (
-                                <TouchableOpacity accessibilityRole="button" onPress={addStep} style={[styles.addStep, { borderColor: color + '55', flex: 1 }]}>
-                                    <Ionicons name="git-commit-outline" size={16} color={color} />
-                                    <Text style={[styles.addStepText, { color }]}>Step</Text>
-                                </TouchableOpacity>
-                            ) : null}
+                            <AddButton label="Task" onPress={() => addTaskTo()} />
+                            {measure.kind === 'complete' ? <AddButton label="Step" onPress={addStep} /> : null}
                         </View>
                     </>
                 )}
 
-                <SectionLabel>{`Every day · ${insights.habits.length} habit${insights.habits.length === 1 ? '' : 's'}`}</SectionLabel>
+                <SectionLabel>Habits</SectionLabel>
                 {insights.habits.length ? insights.habits.map(summary => {
-                    const gives = measure.kind === 'time'
-                        ? minutesPerCheckIn(summary.habit)
-                        : measure.kind === 'number' ? Number(summary.habit.goalValue) || 0 : 0;
                     return (
                         <GoalHabitRow
                             key={summary.habit.id}
                             summary={summary}
                             color={color}
-                            showWeek
-                            detail={[
-                                summary.schedule,
-                                gives > 0 ? `+${goalAmount(measure, gives)}${measure.kind === 'number' && measure.unit !== 'sessions' ? ` ${measure.unit}` : ''} each` : null,
-                                summary.nextDate ? `next ${friendlyDate(summary.nextDate, today).toLowerCase()}` : 'ended',
-                            ].filter(Boolean).join(' · ')}
+                            detail={summary.schedule}
                             onToggle={() => toggleHabit(summary.habit, summary.doneToday)}
                             onPress={() => router.push({ pathname: '/habit-detail', params: { habitId: summary.habit.id } })}
                             onLongPress={() => setEditingHabit(summary.habit)}
                         />
                     );
                 }) : (
-                    <Text style={[styles.hint, { color: colors.textTertiary }]}>What will you repeat to get there? Add a habit.</Text>
+                    <Text style={[styles.hint, { color: colors.textTertiary }]}>What will you repeat to get there?</Text>
                 )}
-
-                {goal.targetDate ? (
-                    <View style={[styles.target, { borderColor: color + '55', backgroundColor: color + '12' }]}>
-                        <Ionicons name="flag" size={16} color={color} />
-                        <Text style={[styles.targetText, { color: colors.textPrimary }]}>
-                            Target · {dateAt(insights.endDate).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long' })}
-                        </Text>
-                        {insights.daysLeft !== null ? (
-                            <CountUp style={[styles.targetDays, { color: colors.textTertiary }]} value={`${insights.daysLeft} days`} />
-                        ) : null}
-                    </View>
-                ) : null}
 
                 {tasks.completed.length && !isProject ? (
                     <>
@@ -298,6 +232,20 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
         </>
     );
 }
+
+/** A matte pill to add something to the plan. */
+const AddButton: React.FC<{ label: string; onPress: () => void }> = ({ label, onPress }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    return (
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Add ${label.toLowerCase()}`} onPress={onPress} activeOpacity={0.8} style={{ flex: 1 }}>
+            <MatteSurface radius={999} level="control" style={styles.addButton}>
+                <Ionicons name="add" size={18} color={colors.textPrimary} />
+                <Text style={[styles.addButtonText, { color: colors.textPrimary }]}>{label}</Text>
+            </MatteSurface>
+        </TouchableOpacity>
+    );
+};
 
 /** One step of a project on the path: a node, its count, and its tasks. */
 const StepNode: React.FC<{
@@ -381,7 +329,9 @@ const styles = StyleSheet.create({
     target: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 16, borderWidth: 1, marginTop: 10 },
     targetText: { flex: 1, fontSize: 14, fontFamily: FontFamily.semibold },
     targetDays: { fontSize: 12, fontFamily: FontFamily.regular },
-    addRow: { flexDirection: 'row', gap: 10 },
+    addRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
+    addButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 13 },
+    addButtonText: { fontSize: 14, fontFamily: FontFamily.semibold },
     addStep: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 999, borderWidth: 1, borderStyle: 'dashed', marginTop: 6 },
     addStepText: { fontSize: 13, fontFamily: FontFamily.semibold },
     step: { flexDirection: 'row' },

@@ -1,4 +1,4 @@
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, elevationFor, surfaceFor } from '@/theme/designSystem';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CountUp } from '@/components/ui/Motion';
@@ -8,7 +8,8 @@ import Animated, {
     Easing, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue,
     runOnJS, withRepeat, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -31,7 +32,7 @@ export const StreakSuccessModal = ({ visible, streak, onClose, completedDates = 
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
+    const tone = surfaceFor(theme);
     const insets = useSafeAreaInsets();
     const { successFeedback, lightFeedback } = useHaptics();
     const reduceMotion = useReducedMotion();
@@ -104,17 +105,21 @@ export const StreakSuccessModal = ({ visible, streak, onClose, completedDates = 
                     style={[StyleSheet.absoluteFill, scrim, { backgroundColor: '#000' }]}
                 />
 
-                <Animated.View style={[styles.card, card, {
+                <Animated.View style={[styles.card, card, elevationFor(theme, 'floating'), {
                     paddingBottom: Math.max(insets.bottom, 14) + 6,
-                    backgroundColor: isLight ? '#FFFFFF' : '#0E1116',
-                    borderColor: colors.border,
+                    backgroundColor: tone.fill,
                 }]}>
-                    <BlurView intensity={isLight ? 0 : 18} tint="dark" style={StyleSheet.absoluteFill} />
+                    {/* The card's own matte material, lit from the top, in a
+                        clipped layer of its own so the flame can still rise out
+                        of the top edge. */}
+                    <View pointerEvents="none" style={styles.material}>
+                        <LinearGradient colors={[tone.top, tone.fill, tone.bottom]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+                    </View>
 
                     {/* Just the flame, half out of the card's top edge: a badge
                         around it made it look like an app icon stuck on. */}
                     <Animated.View style={[styles.badgeWrap, badge]}>
-                        <Ionicons name="flame" size={58} color={FLAME} />
+                        <Ionicons name="flame" size={84} color={FLAME} />
                     </Animated.View>
 
                     <CountUp style={[styles.title, { color: colors.textPrimary }]} value={`${streak}-day streak`} />
@@ -130,20 +135,16 @@ export const StreakSuccessModal = ({ visible, streak, onClose, completedDates = 
                                 index={index}
                                 progress={progress}
                                 colors={colors}
+                                theme={theme}
                             />
                         ))}
                     </View>
 
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Keep going"
-                        onPress={close}
-                        // Static, not a function: a Pressable whose style is a function
-                        // does not lay out with flex on this React Native, and this
-                        // button has to stretch the width of the card.
-                        style={[styles.button, { backgroundColor: colors.primary }]}
-                    >
-                        <Text style={styles.buttonText}>Keep going</Text>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Keep going" onPress={close} style={styles.buttonWrap}>
+                        {/* Matte, like every other button in the app. */}
+                        <MatteSurface radius={18} level="control" style={styles.button}>
+                            <Text style={[styles.buttonText, { color: colors.textPrimary }]}>Keep going</Text>
+                        </MatteSurface>
                     </Pressable>
                 </Animated.View>
             </View>
@@ -152,9 +153,9 @@ export const StreakSuccessModal = ({ visible, streak, onClose, completedDates = 
 };
 
 /** One day of the week strip, filling in after the card has arrived. */
-const Day = ({ label, done, isToday, index, progress, colors }: {
+const Day = ({ label, done, isToday, index, progress, colors, theme }: {
     label: string; done: boolean; isToday: boolean; index: number;
-    progress: SharedValue<number>; colors: typeof Colors.light;
+    progress: SharedValue<number>; colors: typeof Colors.light; theme: string;
 }) => {
     const start = 0.35 + index * 0.06;
     const style = useAnimatedStyle(() => {
@@ -169,7 +170,7 @@ const Day = ({ label, done, isToday, index, progress, colors }: {
         <View style={styles.day}>
             <Text style={[styles.dayLabel, { color: colors.textTertiary }]}>{label}</Text>
             <Animated.View style={[styles.dayDot, style, {
-                backgroundColor: done ? FLAME : colors.surfaceSecondary,
+                backgroundColor: done ? FLAME : surfaceFor(theme).raised,
                 borderColor: isToday ? FLAME : 'transparent',
                 borderWidth: isToday ? 2 : 0,
             }]}>
@@ -182,12 +183,12 @@ const Day = ({ label, done, isToday, index, progress, colors }: {
 const styles = StyleSheet.create({
     root: { flex: 1, justifyContent: 'flex-end' },
     card: {
-        marginHorizontal: 10, marginBottom: 10, borderRadius: 30, borderWidth: StyleSheet.hairlineWidth,
-        paddingTop: 58, paddingHorizontal: 24, alignItems: 'center', gap: 8,
-        shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 14,
+        marginHorizontal: 10, marginBottom: 10, borderRadius: 30,
+        paddingTop: 70, paddingHorizontal: 24, alignItems: 'center', gap: 8,
     },
+    material: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 30, overflow: 'hidden' },
     badgeWrap: {
-        position: 'absolute', top: -40, alignItems: 'center', justifyContent: 'center',
+        position: 'absolute', top: -54, alignItems: 'center', justifyContent: 'center',
         shadowColor: FLAME, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 0 },
     },
     title: { fontSize: 25, fontFamily: FontFamily.bold, letterSpacing: -0.4 },
@@ -196,6 +197,7 @@ const styles = StyleSheet.create({
     day: { alignItems: 'center', gap: 9 },
     dayLabel: { fontSize: 12, fontFamily: FontFamily.regular },
     dayDot: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-    button: { alignSelf: 'stretch', paddingVertical: 16, borderRadius: 18, alignItems: 'center' },
-    buttonText: { color: '#fff', fontFamily: FontFamily.semibold, fontSize: 16 },
+    buttonWrap: { alignSelf: 'stretch' },
+    button: { paddingVertical: 16, alignItems: 'center' },
+    buttonText: { fontFamily: FontFamily.semibold, fontSize: 16 },
 });

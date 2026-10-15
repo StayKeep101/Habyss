@@ -23,8 +23,8 @@ describe('design tokens', () => {
         expect(colorRoles.light.accent).toBe(Colors.light.primary);
     });
     it('tints a colour at three strengths', () => {
-        expect(tint('#8BADD6', 'subtle')).toBe('rgba(139,173,214,0.12)');
-        expect(tint('#FFF', 'soft')).toBe('rgba(255,255,255,0.2)');
+        expect(tint('#8BADD6', 'subtle')).toBe('rgba(139,173,214,0.16)');
+        expect(tint('#FFF', 'soft')).toBe('rgba(255,255,255,0.28)');
     });
     it('picks text that reads on a fill', () => {
         expect(textOn('#000000')).toBe('#FFFFFF');

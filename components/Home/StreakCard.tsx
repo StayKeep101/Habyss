@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { CountUp } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,9 +47,7 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
                             <Ionicons name="flame" size={s(20)} color="white" />
                         </LinearGradient>
                     ) : (
-                        <View style={[styles.flameGradient, { backgroundColor: flameColors[0] + '30' }]}>
-                            <Ionicons name="flame" size={s(20)} color={flameColors[0]} />
-                        </View>
+                        <IconTile icon="flame" color={flameColors[0]} size={s(36)} />
                     )}
                 </View>
 

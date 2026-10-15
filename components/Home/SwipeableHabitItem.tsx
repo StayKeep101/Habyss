@@ -2,6 +2,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { formatClock, formatDuration } from '@/lib/habitMeasurement';
 import React, { useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
+import { textOn } from '@/theme/tokens';
 import { CountUp } from '@/components/ui/Motion';
 import { TouchableOpacity, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SwipeRow } from '@/components/ui/SwipeRow';
@@ -236,8 +237,9 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
             </TouchableOpacity>
 
             {/* Icon */}
-            <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: isCompleted ? accentColor + '15' : (habit.color || accentColor) + '15' }]}>
-              <Ionicons filled name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={isCompleted ? accentColor : habit.color || colors.textSecondary} />
+            {/* A solid tile of the habit's colour, Phantom-style; once done it steps back to a tint. */}
+            <View style={[styles.iconContainer, { width: iconBoxSize, height: iconBoxSize }, { backgroundColor: isCompleted ? (habit.color || accentColor) + '33' : (habit.color || accentColor) }]}>
+              <Ionicons filled name={(habit.icon as any) || 'ellipse-outline'} size={iconSize} color={isCompleted ? habit.color || accentColor : textOn(habit.color || accentColor)} />
             </View>
 
             {/* Text Info */}

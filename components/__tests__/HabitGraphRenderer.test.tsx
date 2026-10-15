@@ -1,4 +1,5 @@
 import React from 'react';
+import { Colors } from '@/theme/colors';
 import { render } from '@testing-library/react-native';
 import { Line, Path, Rect } from 'react-native-svg';
 import { HabitGraphRenderer } from '../Habit/HabitGraphRenderer';
@@ -62,7 +63,7 @@ describe('the bar chart', () => {
     // The colours the bars are drawn from, named here so the assertions below
     // read as what they mean rather than as a wall of rgba.
     const TRACK = 'rgba(255,255,255,0.045)';
-    const OFF = '#8B9AB0';
+    const OFF = Colors.abyss.textTertiary;
 
     it('gives every column a track, so an empty week still reads as a chart', () => {
         // Seven missed days used to be seven two-pixel slivers at eight percent

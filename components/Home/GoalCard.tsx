@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { textOn } from '@/theme/tokens';
 import { AnimatedFill, CountUp } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -83,7 +84,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
           <View
             style={[styles.iconBox, {
               width: iconBoxSize, height: iconBoxSize,
-              backgroundColor: (goal.color || defaultColor) + '20',
+              backgroundColor: goal.color || defaultColor,
               overflow: 'hidden'
             }]}
           >
@@ -94,7 +95,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({
                 resizeMode="cover"
               />
             ) : (
-              <Ionicons filled name={(goal.icon as any) || 'flag'} size={iconSize} color={goal.color || defaultColor} />
+              <Ionicons filled name={(goal.icon as any) || 'flag'} size={iconSize} color={textOn(goal.color || defaultColor)} />
             )}
           </View>
 

@@ -17,7 +17,7 @@
  *   TimeRow, Wheel, ViewSwitcher, SwipeRow
  *
  * Content
- *   AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
+ *   IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
  *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop
  *
  * Motion (how charts, bars and numbers move — use these, never a still bar)
@@ -38,6 +38,7 @@ export { VoidShell } from './VoidShell';
 export { SheetScreen } from './SheetScreen';
 export { ModalHeader } from './ModalHeader';
 export { VoidCard } from './VoidCard';
+export { IconTile } from './IconTile';
 export { MatteSurface } from './MatteSurface';
 export { MatteInput } from './MatteInput';
 export { SheetSection } from './SheetSection';

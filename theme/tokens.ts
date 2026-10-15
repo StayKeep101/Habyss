@@ -75,9 +75,9 @@ export const rolesFor = (theme: string): ColorRoles =>
 
 export const tintAlpha = {
     /** A selected row or option. */
-    subtle: 0.12,
+    subtle: 0.16,
     /** A chip, a pill, a badge background. */
-    soft: 0.2,
+    soft: 0.28,
     /** An outline in the accent. */
     border: 0.45,
 } as const;

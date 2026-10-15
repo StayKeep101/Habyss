@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { CountUp } from '@/components/ui/Motion';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -52,9 +52,7 @@ export const MomentumCard: React.FC<{ momentum: Momentum; onPress: () => void }>
         >
             <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container]}>
                 <View style={styles.iconContainer}>
-                    <View style={[styles.iconCircle, { backgroundColor: tint + '30' }]}>
-                        <Ionicons name={icon as never} size={s(20)} color={tint} />
-                    </View>
+                    <IconTile icon={icon} color={tint} size={s(36)} />
                 </View>
 
                 <View style={styles.readout}>

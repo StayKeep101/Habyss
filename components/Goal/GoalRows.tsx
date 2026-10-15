@@ -1,5 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { CountUp } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -22,7 +24,6 @@ export const GoalHabitRow: React.FC<{
 }> = ({ summary, color, detail, showWeek, onToggle, onPress, onLongPress }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
     const done = summary.doneToday;
     const canToggle = !!onToggle && (summary.scheduledToday || done);
 
@@ -33,8 +34,8 @@ export const GoalHabitRow: React.FC<{
             accessibilityLabel={`Habit: ${summary.habit.name}. ${detail ?? summary.schedule}`}
             onPress={onPress}
             onLongPress={onLongPress}
-            style={[styles.card, { backgroundColor: isLight ? '#fff' : 'rgba(255,255,255,0.05)', borderColor: colors.border }]}
         >
+        <MatteSurface radius={18} style={styles.card}>
             {canToggle ? (
                 <TouchableOpacity
                     accessibilityRole="checkbox"
@@ -59,7 +60,19 @@ export const GoalHabitRow: React.FC<{
 
             {showWeek ? <WeekDots marks={summary.last7} color={color} /> : null}
             <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+        </MatteSurface>
         </TouchableOpacity>
+    );
+};
+
+/** A number on the right of a row, in a small matte pill — Phantom's "46%". */
+export const ValuePill: React.FC<{ value: string; tone?: string }> = ({ value, tone }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    return (
+        <MatteSurface radius={999} level="control" elevation="none" style={styles.pill}>
+            <CountUp style={[styles.pillText, { color: tone ?? colors.textPrimary }]} value={value} />
+        </MatteSurface>
     );
 };
 
@@ -88,19 +101,23 @@ export const SectionLabel: React.FC<{ children: string; tone?: string; right?: R
     const colors = Colors[theme];
     return (
         <View style={styles.sectionRow}>
-            <Text style={[styles.section, { color: tone ?? colors.textSecondary }]}>{children.toUpperCase()}</Text>
+            <Text style={[styles.section, { color: tone ?? colors.textPrimary }]}>{children}</Text>
             {right}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    card: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, marginBottom: 8 },
+    card: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 14, marginBottom: 10 },
+    pill: { minWidth: 58, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
+    pillText: { fontSize: 14, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     ring: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
     title: { fontSize: 15, fontFamily: FontFamily.medium },
     meta: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 3 },
     week: { flexDirection: 'row', gap: 3 },
     dot: { width: 7, height: 7, borderRadius: 4, borderWidth: 1.2 },
-    sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 10 },
-    section: { fontSize: 11, letterSpacing: 1.2, fontFamily: FontFamily.semibold },
+    // A section reads as a title, the way Phantom heads "Soccer" or "Make a
+    // Prediction": large and plain, not a small capitalised label.
+    sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 26, marginBottom: 12 },
+    section: { fontSize: 20, fontFamily: FontFamily.bold, letterSpacing: -0.3 },
 });

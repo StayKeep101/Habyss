@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { CountUp } from '@/components/ui/Motion';
-import { router } from 'expo-router';
 import { VoidCard } from '@/components/ui/VoidCard';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
-import { SectionLabel, WeekDots } from '@/components/Goal/GoalRows';
-import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
+import { SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
 import { dateAt, type GoalPoint, type GoalStatus } from '@/lib/goalInsights';
-import { goalAmount, goalFraction, paceLine } from '@/components/Goal/GoalPace';
 
 const STATUS_LABEL: Record<GoalStatus, string> = {
     ahead: 'Ahead of pace',
@@ -31,7 +28,6 @@ const STATUS_LABEL: Record<GoalStatus, string> = {
 export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = ({ goalId, embedded = false }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
     const { primary: accent } = useAccentGradient();
     const { goal, insights, loaded } = useGoalInsights(goalId);
     const [scrub, setScrub] = useState<GoalPoint | null>(null);
@@ -52,16 +48,18 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
     }
 
     const shown = scrub?.actual ?? insights.progress;
-    const tile = isLight ? '#FFFFFF' : 'rgba(255,255,255,0.05)';
     const { tasks } = insights;
-    const openCount = tasks.upcoming.length + tasks.undated.length;
-    const { measure } = insights;
-    const fraction = goalFraction(measure);
-    // The amount, not only the percentage: "750 / 2000 calls".
-    const shownAmount = scrub?.value !== undefined
-        ? (measure.kind === 'time' ? goalAmount(measure, scrub.value).replace(/ (h|min)$/, '') : scrub.value.toLocaleString())
-        : fraction.done;
-    const pace = paceLine(measure);
+    const statusLine = scrub
+        ? `${dateAt(scrub.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} · pace ${Math.round(scrub.pace)}%`
+        : STATUS_LABEL[insights.status];
+
+    // The few numbers worth a row each, Phantom-style: a name and a pill.
+    const rows: { label: string; value: string; tone?: string }[] = [
+        { label: 'Habits kept, 30 days', value: insights.habitRate30 === null ? '—' : `${insights.habitRate30}%` },
+        { label: 'Tasks done', value: tasks.total ? `${tasks.done}/${tasks.total}` : '—' },
+        ...(tasks.overdue.length ? [{ label: 'Tasks overdue', value: String(tasks.overdue.length), tone: colors.error }] : []),
+        { label: insights.daysLeft === null ? 'End date' : 'Days left', value: insights.daysLeft === null ? 'Ongoing' : String(insights.daysLeft) },
+    ];
 
     return (
         <>
@@ -71,103 +69,56 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
                 ? { style: styles.content }
                 : { contentContainerStyle: styles.content, showsVerticalScrollIndicator: false, scrollEnabled: !scrub })}>
 
-                {/* Headline: the number, how it moved, and whether that is enough. */}
+                {/* One number, and one line saying whether it is enough. */}
                 <View style={styles.headline}>
-                    <Text style={[styles.bigNumber, { color: colors.textPrimary }]}>
-                        {shownAmount}
-                        <Text style={[styles.outOf, { color: colors.textTertiary }]}>{` / ${fraction.total}${fraction.unit ? ` ${fraction.unit}` : ''}`}</Text>
-                    </Text>
-                    <Text style={[styles.percentTag, { color }]}>{Math.round(shown)}%</Text>
-                    {!scrub && insights.status !== 'empty' ? (
-                        <View style={[styles.change, { backgroundColor: (insights.change7 > 0 ? colors.success : colors.textTertiary) + '22' }]}>
-                            <Ionicons name={insights.change7 > 0 ? 'caret-up' : 'remove'} size={12} color={insights.change7 > 0 ? colors.success : colors.textTertiary} />
-                            <Text style={[styles.changeText, { color: insights.change7 > 0 ? colors.success : colors.textTertiary }]}>
-                                {insights.change7 === 1 ? '1 pt' : `${insights.change7} pts`} · 7d
-                            </Text>
-                        </View>
+                    <CountUp style={[styles.bigNumber, { color: colors.textPrimary }]} value={`${Math.round(shown)}%`} />
+                    {!scrub && insights.status !== 'empty' && insights.change7 !== 0 ? (
+                        <Text style={[styles.change, { color: insights.change7 > 0 ? colors.success : colors.error }]}>
+                            {insights.change7 > 0 ? '▲' : '▼'} {Math.abs(insights.change7)} this week
+                        </Text>
                     ) : null}
                 </View>
-                {scrub ? (
-                    <Text style={[styles.subline, { color: colors.textSecondary }]}>
-                        {dateAt(scrub.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} · pace {Math.round(scrub.pace)}%
-                    </Text>
-                ) : (
-                    <View style={styles.statusRow}>
-                        <View style={[styles.statusDot, { backgroundColor: statusColor(insights.status) }]} />
-                        <Text style={[styles.subline, { color: colors.textSecondary }]}>
-                            {STATUS_LABEL[insights.status]}
-                            {insights.status === 'ahead' || insights.status === 'behind' || insights.status === 'on_pace'
-                                ? ` · ${insights.pace}% expected by now` : ''}
-                        </Text>
-                    </View>
-                )}
-                {!scrub && pace ? <Text style={[styles.subline, { color, marginTop: 4 }]}>{pace}</Text> : null}
+                <View style={styles.statusRow}>
+                    {!scrub ? <View style={[styles.statusDot, { backgroundColor: statusColor(insights.status) }]} /> : null}
+                    <Text style={[styles.subline, { color: colors.textSecondary }]}>{statusLine}</Text>
+                </View>
 
                 <View style={{ height: 18 }} />
                 {insights.series.length > 1 ? (
-                    <>
-                        <GoalProgressChart series={insights.series} color={color} onScrub={setScrub} />
-                        <View style={styles.legend}>
-                            <View style={[styles.legendLine, { backgroundColor: color }]} />
-                            <Text style={[styles.legendText, { color: colors.textTertiary }]}>Done</Text>
-                            <View style={[styles.legendLine, styles.legendDashed, { borderColor: colors.textTertiary }]} />
-                            <Text style={[styles.legendText, { color: colors.textTertiary }]}>Pace to finish on time</Text>
-                        </View>
-                    </>
+                    <GoalProgressChart series={insights.series} color={color} onScrub={setScrub} />
                 ) : (
                     <VoidCard style={styles.chartEmpty}>
-                        <Text style={[styles.legendText, { color: colors.textTertiary }]}>The chart fills in from the second day of the goal.</Text>
+                        <Text style={[styles.subline, { color: colors.textTertiary }]}>The chart fills in from the second day of the goal.</Text>
                     </VoidCard>
                 )}
 
-                {/* Four numbers that explain the headline. */}
-                <View style={styles.tiles}>
-                    <Tile label="Habits, 30 days" value={insights.habitRate30 === null ? '—' : `${insights.habitRate30}%`} background={tile} colors={colors} />
-                    <Tile label="Tasks done" value={tasks.total ? `${tasks.done}/${tasks.total}` : '—'} background={tile} colors={colors} />
-                    <Tile label="Tasks on time" value={tasks.onTime === null ? '—' : `${tasks.onTime}%`} background={tile} colors={colors} />
-                    <Tile
-                        label={insights.daysLeft === null ? 'End date' : 'Days left'}
-                        value={insights.daysLeft === null ? 'Ongoing' : String(insights.daysLeft)}
-                        background={tile}
-                        colors={colors}
-                    />
-                </View>
+                <SectionLabel>Numbers</SectionLabel>
+                <VoidCard style={styles.list}>
+                    {rows.map(row => (
+                        <View key={row.label} style={styles.row}>
+                            <Text style={[styles.rowTitle, { color: colors.textPrimary }]}>{row.label}</Text>
+                            <ValuePill value={row.value} tone={row.tone} />
+                        </View>
+                    ))}
+                </VoidCard>
 
                 {insights.habits.length > 0 ? (
                     <>
                         <SectionLabel>Habits</SectionLabel>
                         <VoidCard style={styles.list}>
-                            {insights.habits.map((summary, index) => (
-                                <View key={summary.habit.id} style={[styles.habitRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+                            {insights.habits.map(summary => (
+                                <View key={summary.habit.id} style={styles.row}>
+                                    {/* The habit's own icon on a tile of its colour. */}
+                                    <IconTile icon={summary.habit.icon || 'sparkles-outline'} color={summary.habit.color || color} size={38} shape="square" />
                                     <View style={{ flex: 1 }}>
                                         <Text numberOfLines={1} style={[styles.rowTitle, { color: colors.textPrimary }]}>{summary.habit.name}</Text>
                                         <Text style={[styles.rowMeta, { color: colors.textTertiary }]}>
                                             {summary.streak > 0 ? `${summary.streak} in a row` : 'No streak yet'}
                                         </Text>
                                     </View>
-                                    <WeekDots marks={summary.last7} color={color} />
-                                    <CountUp style={[styles.rate, { color: colors.textPrimary }]} value={summary.rate30 === null ? '—' : `${summary.rate30}%`} />
+                                    <ValuePill value={summary.rate30 === null ? '—' : `${summary.rate30}%`} />
                                 </View>
                             ))}
-                        </VoidCard>
-                    </>
-                ) : null}
-
-                {tasks.total > 0 ? (
-                    <>
-                        <SectionLabel>Tasks</SectionLabel>
-                        <VoidCard style={styles.list}>
-                            {/* One bar, three parts: done, still open, overdue. */}
-                            <View style={[styles.bar, { backgroundColor: colors.border }]}>
-                                <View style={{ flex: tasks.done, backgroundColor: TASK_COLOR }} />
-                                <View style={{ flex: openCount, backgroundColor: TASK_COLOR + '55' }} />
-                                <View style={{ flex: tasks.overdue.length, backgroundColor: colors.error }} />
-                            </View>
-                            <View style={styles.barLegend}>
-                                <Legend color={TASK_COLOR} label={`${tasks.done} done`} textColor={colors.textSecondary} />
-                                <Legend color={TASK_COLOR + '55'} label={`${openCount} open`} textColor={colors.textSecondary} />
-                                <Legend color={colors.error} label={`${tasks.overdue.length} overdue`} textColor={colors.textSecondary} />
-                            </View>
                         </VoidCard>
                     </>
                 ) : null}
@@ -176,49 +127,19 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
     );
 }
 
-const Tile: React.FC<{ label: string; value: string; background: string; colors: typeof Colors.light }> = ({ label, value, background, colors }) => (
-    <View style={[styles.tile, { backgroundColor: background, borderColor: colors.border }]}>
-        <CountUp style={[styles.tileValue, { color: colors.textPrimary }]} value={value} />
-        <Text style={[styles.tileLabel, { color: colors.textTertiary }]}>{label}</Text>
-    </View>
-);
-
-const Legend: React.FC<{ color: string; label: string; textColor: string }> = ({ color, label, textColor }) => (
-    <View style={styles.legendItem}>
-        <View style={[styles.legendSwatch, { backgroundColor: color }]} />
-        <Text style={[styles.legendText, { color: textColor }]}>{label}</Text>
-    </View>
-);
-
 const styles = StyleSheet.create({
     content: { paddingHorizontal: 20, paddingBottom: 40 },
     empty: { textAlign: 'center', marginTop: 40, fontFamily: FontFamily.regular },
-    goalName: { fontSize: 14, fontFamily: FontFamily.medium, marginTop: 4 },
-    headline: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-    bigNumber: { fontSize: 44, fontFamily: FontFamily.bold, letterSpacing: -1.5, fontVariant: ['tabular-nums'], flexShrink: 1 },
-    outOf: { fontSize: 18, fontFamily: FontFamily.medium, letterSpacing: 0 },
-    percentTag: { fontSize: 15, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
-    change: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
-    changeText: { fontSize: 12, fontFamily: FontFamily.semibold },
-    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    headline: { flexDirection: 'row', alignItems: 'baseline', gap: 12, marginTop: 4 },
+    bigNumber: { fontSize: 48, fontFamily: FontFamily.bold, letterSpacing: -1.5, fontVariant: ['tabular-nums'] },
+    change: { fontSize: 14, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
+    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
     statusDot: { width: 8, height: 8, borderRadius: 4 },
     subline: { fontSize: 14, fontFamily: FontFamily.regular },
-    legend: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
-    legendLine: { width: 16, height: 2.5, borderRadius: 2, marginLeft: 6 },
-    legendDashed: { height: 0, borderTopWidth: 1.5, borderStyle: 'dashed', backgroundColor: 'transparent' },
-    legendText: { fontSize: 12, fontFamily: FontFamily.regular },
     chartEmpty: { padding: 24, alignItems: 'center' },
-    tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 22 },
-    tile: { flexBasis: '47%', flexGrow: 1, padding: 14, borderRadius: 16, borderWidth: 1 },
-    tileValue: { fontSize: 22, fontFamily: FontFamily.bold },
-    tileLabel: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 4 },
     list: { paddingHorizontal: 16, paddingVertical: 6 },
-    habitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-    rowTitle: { fontSize: 15, fontFamily: FontFamily.medium },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+    iconTile: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    rowTitle: { flex: 1, fontSize: 15, fontFamily: FontFamily.medium },
     rowMeta: { fontSize: 12, fontFamily: FontFamily.regular, marginTop: 2 },
-    rate: { width: 44, textAlign: 'right', fontSize: 14, fontFamily: FontFamily.semibold },
-    bar: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', marginTop: 12 },
-    barLegend: { flexDirection: 'row', gap: 14, paddingVertical: 12 },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    legendSwatch: { width: 10, height: 10, borderRadius: 3 },
 });

@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { IconTile } from '@/components/ui/IconTile';
 import { CountUp } from '@/components/ui/Motion';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -57,9 +57,7 @@ export const RecoveryCard: React.FC<{ recovery: Recovery; onPress: () => void }>
         >
             <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container]}>
                 <Animated.View style={[styles.iconContainer, breathe]}>
-                    <View style={[styles.iconCircle, { backgroundColor: tint + '30' }]}>
-                        <Ionicons name={risk ? 'alert' : 'refresh'} size={s(20)} color={tint} />
-                    </View>
+                    <IconTile icon={risk ? 'alert' : 'refresh'} color={tint} size={s(36)} />
                 </Animated.View>
 
                 <View style={styles.readout}>

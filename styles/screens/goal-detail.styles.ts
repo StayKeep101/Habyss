@@ -12,6 +12,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    // The page opens as a sheet, which has no status bar to clear, so the
+    // safe area adds nothing: this is the breathing room under its top edge.
+    paddingTop: 16,
     zIndex: 50,
   },
   blurBtn: {

@@ -2,6 +2,7 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { textOn } from '@/theme/tokens';
 import { ListItem } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
@@ -119,8 +120,8 @@ export default function AllHabitsScreen() {
                                 onPress={() => { lightFeedback(); router.push({ pathname: '/habit-detail', params: { habitId: habit.id } }); }}
                             >
                                 <VoidCard style={styles.row}>
-                                    <View style={[styles.icon, { backgroundColor: (habit.color ?? accent) + '22' }]}>
-                                        <Ionicons filled name={(habit.icon ?? 'ellipse-outline') as any} size={18} color={habit.color ?? accent} />
+                                    <View style={[styles.icon, { backgroundColor: habit.color ?? accent }]}>
+                                        <Ionicons filled name={(habit.icon ?? 'ellipse-outline') as any} size={18} color={textOn(habit.color ?? accent)} />
                                     </View>
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.name, { color: habit.isArchived ? colors.textTertiary : colors.textPrimary }]} numberOfLines={1}>

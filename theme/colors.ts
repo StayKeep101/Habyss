@@ -44,23 +44,23 @@ export const Colors = {
     gradientEnd: '#8B5CF6', // Violet-500
   },
   abyss: {
-    text: '#E0E6ED', // High Emphasis (Cloud White)
+    text: '#F4F5F7', // High emphasis: crisp white
     background: '#050505', // Void Black (Not pure black)
-    tint: '#8BADD6', // Muted Light Blue (softer look)
-    tabIconDefault: '#94A3B8', // Low Emphasis (Blue-Grey)
-    tabIconSelected: '#8BADD6', // Muted Light Blue
+    tint: '#8EB0FF', // Habyss blue, bright
+    tabIconDefault: '#8A8A94', // Neutral grey
+    tabIconSelected: '#8EB0FF', // Habyss blue, bright
 
     // Brand Colors (Muted Blue Palette)
-    primary: '#8BADD6', // Muted Light Blue
+    primary: '#8EB0FF', // Habyss blue, bright
     primaryLight: '#7B2CBF', // Phantom Purple (Wisdom) - used for secondary brand elements
     primaryDark: '#0A0F14', // Trench Blue (Secondary Background)
     secondary: '#121826', // Abyssal Navy (Surfaces)
     accent: '#FF4757', // Alert Coral
 
     // Status
-    success: '#4ECDC4', // Softer teal green
+    success: '#3DDC97', // Vivid green
     brandSuccess: '#4ECDC4',
-    warning: '#F59E0B',
+    warning: '#FFB020', // Vivid amber
     error: '#FF4757', // Alert Coral
 
     // Surfaces
@@ -71,9 +71,9 @@ export const Colors = {
     border: 'rgba(255, 255, 255, 0.08)', // Glass White
     borderLight: 'rgba(255, 255, 255, 0.15)',
 
-    textPrimary: '#E0E6ED', // High Emphasis
-    textSecondary: '#94A3B8', // Low Emphasis
-    textTertiary: '#8B9AB0', // Muted
+    textPrimary: '#F4F5F7', // Crisp white
+    textSecondary: '#A3A3AD', // Neutral grey
+    textTertiary: '#8A8A94', // Quiet neutral grey
 
     // Gradients
     gradientStart: '#0A0F14', // Trench Blue
