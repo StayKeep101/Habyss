@@ -1,7 +1,10 @@
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import React from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { AppSwitch } from '@/components/ui/AppSwitch';
+import { AlivePreview } from '@/components/Echo/AlivePreview';
+import { aliveLine } from '@/lib/echoAlive';
 import { AnimatedFill } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -122,7 +125,7 @@ const AISettings = () => {
     const isLight = theme === 'light';
     const isTrueDark = theme === 'trueDark';
     const { mediumFeedback, selectionFeedback } = useHaptics();
-    const { aiPersonality, setAIPersonality, greetingStyle, setGreetingStyle } = useAppSettings();
+    const { aiPersonality, setAIPersonality, greetingStyle, setGreetingStyle, notificationsEnabled, setNotificationsEnabled } = useAppSettings();
     // const { registerPlacement } = useSuperwall();
 
     const handleSelectPersonality = (id: PersonalityModeId) => {
@@ -160,6 +163,23 @@ const AISettings = () => {
             .then(() => NotificationService.refreshReminders())
             .catch(() => undefined);
     };
+
+    /** Echo Alive needs notifications; turning it on asks for them if needed. */
+    const setAlive = async (alive: boolean) => {
+        if (alive && !(await NotificationService.requestPermissions())) {
+            Alert.alert('Allow notifications for Echo', 'Enable Habyss notifications in iOS Settings.', [
+                { text: 'Not now', style: 'cancel' }, { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+            ]);
+            return;
+        }
+        if (alive && !notificationsEnabled) await setNotificationsEnabled(true);
+        saveEcho({ ...echo, alive });
+    };
+    const sample = { key: 'habit:run:preview', kind: 'habit' as const, id: 'run', title: 'Run 5 km', day: '', start: new Date(), end: new Date(), url: '' };
+    const aliveLines = [
+        { ...aliveLine(sample, 'before', aiPersonality), when: '7:50' },
+        { ...aliveLine(sample, 'follow-up', aiPersonality), when: '8:45' },
+    ];
 
     const handleSelectGreeting = (style: GreetingStyle) => {
         selectionFeedback();
@@ -238,6 +258,28 @@ const AISettings = () => {
                             if (!value) void clearWrittenLines();
                             saveEcho({ ...echo, writeReminders: value });
                         }}
+                    />
+                </Group>
+
+                {/* Echo's nudges around a planned session, shown not explained. */}
+                <Group title="Echo Alive">
+                    <AlivePreview lines={aliveLines} accent={colors.primary} />
+                    <ToggleRow
+                        icon="sparkles-outline"
+                        label="Echo Alive"
+                        value={!!echo.alive && notificationsEnabled}
+                        colors={colors}
+                        accent={colors.primary}
+                        onChange={(value: boolean) => void setAlive(value)}
+                    />
+                    <ToggleRow
+                        icon="refresh-outline"
+                        label="Follow-up"
+                        value={echo.aliveFollowUp !== false}
+                        disabled={!echo.alive}
+                        colors={colors}
+                        accent={colors.primary}
+                        onChange={(value: boolean) => saveEcho({ ...echo, aliveFollowUp: value })}
                     />
                 </Group>
 
@@ -334,11 +376,10 @@ const ToggleRow = ({ icon, label, detail, value, disabled, colors, accent, onCha
         <Ionicons name={icon} size={17} color={value ? accent : colors.textTertiary} />
         <View style={styles.rowText}>
             <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
-            <Text numberOfLines={1} style={[styles.rowDetail, { color: colors.textTertiary }]}>{detail}</Text>
+            {detail ? <Text numberOfLines={1} style={[styles.rowDetail, { color: colors.textTertiary }]}>{detail}</Text> : null}
         </View>
-        <View style={[styles.switch, { backgroundColor: value ? accent : colors.surfaceTertiary }]}>
-            <View style={[styles.knob, { alignSelf: value ? 'flex-end' : 'flex-start' }]} />
-        </View>
+        {/* The system switch, the same one as every other on/off row. */}
+        <View pointerEvents="none"><AppSwitch value={value} disabled={disabled} /></View>
     </TouchableOpacity>
 );
 

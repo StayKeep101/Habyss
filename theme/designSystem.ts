@@ -1,12 +1,21 @@
 import { StyleSheet } from 'react-native';
 
 /** Shared geometry and the font files loaded by app/_layout.tsx. */
+/**
+ * Three weights, one typeface — the way the goal Stats page reads:
+ *   bold     titles and the big numbers
+ *   medium   names, labels, anything you tap
+ *   regular  the quiet grey lines under them
+ * `semibold` and `display` are kept as names so older screens compile, and
+ * draw as medium and bold, so no screen can add a fourth weight or a second
+ * typeface.
+ */
 export const FontFamily = {
     regular: 'Lexend_400Regular',
     medium: 'Lexend_500Medium',
-    semibold: 'Lexend_600SemiBold',
+    semibold: 'Lexend_500Medium',
     bold: 'Lexend_700Bold',
-    display: 'SpaceGrotesk_700Bold',
+    display: 'Lexend_700Bold',
 } as const;
 
 export const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, section: 32, bottom: 40 } as const;
@@ -141,7 +150,7 @@ export const Typography = StyleSheet.create({
     body: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 22 },
     bodySmall: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 20 },
     caption: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 18 },
-    label: { fontFamily: FontFamily.semibold, fontSize: 11, lineHeight: 16, letterSpacing: 1.2, textTransform: 'uppercase' },
+    label: { fontFamily: FontFamily.medium, fontSize: 12, lineHeight: 16 },
     button: { fontFamily: FontFamily.semibold, fontSize: 15, lineHeight: 22 },
 });
 

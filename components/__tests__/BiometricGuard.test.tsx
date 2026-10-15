@@ -29,9 +29,9 @@ it('hides private content while saved settings load', () => {
 it('requires a successful result on cold launch and keeps cancellation locked', async () => {
     (authenticateAppLock as jest.Mock).mockResolvedValueOnce({ success: false, error: 'user_cancel' }).mockResolvedValueOnce({ success: true });
     const view = screen();
-    await waitFor(() => expect(view.getByText('Habyss stays locked until you authenticate.')).toBeTruthy());
+    await waitFor(() => expect(view.getByLabelText('Unlock Habyss')).toBeTruthy());
     expect(view.queryByText('Private habits')).toBeNull();
-    fireEvent.press(view.getByText('Unlock Habyss'));
+    fireEvent.press(view.getByLabelText('Unlock Habyss'));
     await waitFor(() => expect(view.getByText('Private habits')).toBeTruthy());
 });
 it('relocks after even a brief trip to the background', async () => {
@@ -39,7 +39,7 @@ it('relocks after even a brief trip to the background', async () => {
     const view = screen();
     await waitFor(() => expect(view.getByText('Private habits')).toBeTruthy());
     act(() => { changeState('inactive'); changeState('background'); changeState('active'); });
-    await waitFor(() => expect(view.getByText('Habyss stays locked until you authenticate.')).toBeTruthy());
+    await waitFor(() => expect(view.getByLabelText('Unlock Habyss')).toBeTruthy());
     expect(authenticateAppLock).toHaveBeenCalledTimes(2);
 });
 it('does not reauthenticate for an inactive-only system sheet', async () => {

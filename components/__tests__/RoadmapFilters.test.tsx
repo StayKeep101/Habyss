@@ -35,7 +35,7 @@ const props = (over: Partial<React.ComponentProps<typeof RoadmapFilters>> = {}) 
 describe('the roadmap filter menu', () => {
     it('shows every choice at once, without a page of its own', () => {
         const screen = render(<RoadmapFilters {...props()} />);
-        for (const label of ['Goals', 'Habits', 'Tasks', 'Shared with someone', 'Morning', 'Noon', 'Evening', 'Created', 'Name', 'Progress']) {
+        for (const label of ['Goals', 'Habits', 'Tasks', 'Shared only', 'Morning', 'Noon', 'Evening', 'Created', 'Name', 'Progress']) {
             expect(screen.getByText(label)).toBeTruthy();
         }
         // No per-goal row: the filter is about what kind of thing, and when.
@@ -58,7 +58,8 @@ describe('the roadmap filter menu', () => {
     it('offers Reset only when something is actually filtered', () => {
         const onReset = jest.fn();
         const clean = render(<RoadmapFilters {...props({ onReset })} />);
-        fireEvent.press(clean.getByLabelText('Reset filters'));
+        // Nothing filtered: there is no Reset to press at all.
+        expect(clean.queryByLabelText('Reset filters')).toBeNull();
         expect(onReset).not.toHaveBeenCalled();
         clean.unmount();
 
@@ -123,20 +124,20 @@ describe('nothing chosen is how you say "no filter"', () => {
 describe('filtering to what is shared', () => {
     it('offers it alongside the rest', () => {
         const screen = render(<RoadmapFilters {...props()} />);
-        expect(screen.getByText('Shared with someone')).toBeTruthy();
+        expect(screen.getByText('Shared only')).toBeTruthy();
     });
 
     it('reports the choice', () => {
         const onSharedOnly = jest.fn();
         const screen = render(<RoadmapFilters {...props({ onSharedOnly })} />);
-        fireEvent.press(screen.getByText('Shared with someone'));
+        fireEvent.press(screen.getByText('Shared only'));
         expect(onSharedOnly).toHaveBeenCalledWith(true);
     });
 
     it('turns itself off the second time, being one toggle rather than two', () => {
         const onSharedOnly = jest.fn();
         const screen = render(<RoadmapFilters {...props({ sharedOnly: true, onSharedOnly })} />);
-        fireEvent.press(screen.getByText('Shared with someone'));
+        fireEvent.press(screen.getByText('Shared only'));
         expect(onSharedOnly).toHaveBeenCalledWith(false);
     });
 

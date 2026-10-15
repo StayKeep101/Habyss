@@ -1,7 +1,7 @@
-import { FontFamily, UIStyles, Radius } from '@/theme/designSystem';
 import { useState, useEffect } from 'react';
-import { ScrollView, View, Text, Switch, Alert, Linking, Pressable } from 'react-native';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
+import { ScrollView, View, Text, Alert, Linking } from 'react-native';
+import { AppSwitch as Switch } from '@/components/ui/AppSwitch';
+import { IconTile } from '@/components/ui/IconTile';
 import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
@@ -15,19 +15,15 @@ import { useAccentGradient } from '@/context/AccentContext';
 import * as Notifs from 'expo-notifications';
 import { NotificationService } from '@/lib/notificationService';
 import { TimeRow } from '@/components/ui/TimeRow';
-import { DEFAULT_ECHO, DEFAULT_DAY, getEchoConfig, saveEchoConfig, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
-import { aliveLine } from '@/lib/echoAlive';
+import { DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
 import { scheduledActivitiesEnabled, setScheduledActivitiesEnabled, scheduledActivitiesCapability } from '@/lib/scheduledActivities';
-import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { styles } from '@/styles/screens/notifications.styles';
 
 const Notifications = () => {
   const { theme } = useTheme();
   const colors = Colors[theme];
-  const isLight = theme === 'light';
-  const isTrueDark = theme === 'trueDark';
   const { lightFeedback } = useHaptics();
-  const { notificationsEnabled, setNotificationsEnabled, aiPersonality } = useAppSettings();
+  const { notificationsEnabled, setNotificationsEnabled } = useAppSettings();
   const { primary: accentColor } = useAccentGradient();
 
   const [asking, setAsking] = useState(false);
@@ -40,43 +36,23 @@ const Notifications = () => {
       .then(() => NotificationService.refreshReminders())
       .catch(() => undefined);
   };
-  const [echo, setEcho] = useState(DEFAULT_ECHO);
   const [day, setDay] = useState(DEFAULT_DAY);
   const [activities, setActivities] = useState(true);
   const [ready, setReady] = useState(false);
   const capability = scheduledActivitiesCapability();
   useEffect(() => {
     let alive = true;
-    Promise.all([getEchoConfig(), getDayWindow(), scheduledActivitiesEnabled()]).then(([config, window, enabled]) => {
-      if (alive) { setEcho(config); setDay(window); setActivities(enabled); setReady(true); }
+    Promise.all([getDayWindow(), scheduledActivitiesEnabled()]).then(([window, enabled]) => {
+      if (alive) { setDay(window); setActivities(enabled); setReady(true); }
     }).catch(() => { if (alive) setReady(true); });
     return () => { alive = false; };
   }, []);
-  const updateEcho = async (patch: Partial<typeof echo>) => {
-    setAsking(true);
-    try {
-      if (patch.alive && !(await NotificationService.requestPermissions())) {
-        Alert.alert('Allow notifications for Echo', 'Enable Habyss notifications in iOS Settings.', [
-          { text: 'Not now', style: 'cancel' }, { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-        ]);
-        return;
-      }
-      if (patch.alive && !notificationsEnabled) await setNotificationsEnabled(true);
-      const next = { ...echo, ...patch };
-      await saveEchoConfig(next); setEcho(next);
-      await NotificationService.refreshReminders();
-    } catch { Alert.alert('Could not update Echo', 'Please try again.'); }
-    finally { setAsking(false); }
-  };
   const toggleActivities = async (wanted: boolean) => {
     setAsking(true);
     try { await setScheduledActivitiesEnabled(wanted); setActivities(wanted); }
     catch { Alert.alert('Could not save setting', 'Please try again.'); }
     finally { setAsking(false); }
   };
-  const sample = { key: 'habit:run:preview', kind: 'habit' as const, id: 'run', title: 'Run 5 km', day: '', start: new Date(), end: new Date(), url: '' };
-  const before = aliveLine(sample, 'before', aiPersonality);
-  const after = aliveLine(sample, 'follow-up', aiPersonality);
 
   /**
    * iOS delivers nothing until it has been asked, and it only offers to ask
@@ -144,138 +120,48 @@ const Notifications = () => {
   return (
     <SheetScreen title="Notifications" onBack={() => router.back()}>
 
-        {/* Settings */}
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {/* Master Toggle */}
-          <VoidCard
-            glass={!isTrueDark}
-            intensity={isLight ? 20 : 80}
-            style={[
-              styles.card,
-              {
-                borderColor: colors.border,
-                backgroundColor: isLight ? colors.surfaceSecondary : undefined
-              }
-            ]}
-          >
-            <View style={styles.row}>
-              <View style={styles.rowContent}>
-                <Ionicons name="notifications" size={22} color={accentColor} />
-                <View style={styles.textContent}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>Notifications</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enable all notifications</Text>
-                </View>
-              </View>
-              <Switch
-                value={notificationsEnabled}
-                disabled={asking}
-                onValueChange={(v) => { lightFeedback(); void toggleAll(v); }}
-                trackColor={{ false: colors.border, true: accentColor }}
-              />
-            </View>
+          {/* On and off, nothing else. Echo's nudges live in Echo's settings. */}
+          <VoidCard style={styles.card}>
+            <SettingRow icon="notifications" color={accentColor} label="Notifications"
+              value={notificationsEnabled} disabled={asking}
+              onChange={v => { lightFeedback(); void toggleAll(v); }} />
+            <SettingRow icon="alarm" color={colors.warning} label="Habit reminders"
+              value={habitReminders && notificationsEnabled} disabled={!notificationsEnabled}
+              onChange={v => toggleSetting('notif_habits', v, setHabitReminders)} />
+            <SettingRow icon="phone-portrait" color={colors.success} label="Live Activities"
+              value={activities && capability !== 'unavailable'} disabled={!ready || asking || capability === 'unavailable'}
+              onChange={wanted => void toggleActivities(wanted)} />
           </VoidCard>
 
-          {/* Individual Settings */}
-          <VoidCard
-            glass={!isTrueDark}
-            intensity={isLight ? 20 : 80}
-            style={[
-              styles.card,
-              {
-                borderColor: colors.border,
-                backgroundColor: isLight ? colors.surfaceSecondary : undefined,
-                opacity: notificationsEnabled ? 1 : 0.5
-              }
-            ]}
-          >
-            <View style={styles.row}>
-              <View style={styles.rowContent}>
-                <Ionicons name="alarm-outline" size={22} color={colors.textSecondary} />
-                <Text style={[styles.label, { color: colors.textPrimary }]}>Habit Reminders</Text>
-              </View>
-              <Switch
-                value={habitReminders && notificationsEnabled}
-                onValueChange={(v) => toggleSetting('notif_habits', v, setHabitReminders)}
-                disabled={!notificationsEnabled}
-                trackColor={{ false: colors.border, true: accentColor }}
-              />
-            </View>
-
-          </VoidCard>
-
-          <VoidCard glass={!isTrueDark} style={[styles.card, { borderColor: echo.alive ? accentColor + '66' : colors.border }]}>
-            <View style={styles.row}>
-              <View style={styles.rowContent}>
-                <Ionicons name="sparkles-outline" size={22} color={accentColor} />
-                <View style={styles.textContent}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>Echo Alive</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>A little encouragement, right on time.</Text>
-                </View>
-              </View>
-              <Switch accessibilityLabel="Echo Alive" value={!!echo.alive && notificationsEnabled} disabled={!ready || asking}
-                onValueChange={alive => void updateEcho({ alive })} trackColor={{ false: colors.border, true: accentColor }} />
-            </View>
-            <Text style={[styles.detail, { color: colors.textSecondary }]}>For habits and tasks with a start time: Echo checks in 10 minutes before, using your chosen personality. Regular reminders for those items are replaced.</Text>
-            <View style={[styles.preview, { backgroundColor: accentColor + '12' }]}>
-              <Text style={[styles.previewTime, { color: accentColor }]}>7:50 AM · BEFORE YOUR 8 AM RUN</Text>
-              <Text style={[styles.previewTitle, { color: colors.textPrimary }]}>{before.title}</Text>
-              <Text style={[styles.previewBody, { color: colors.textSecondary }]}>{before.body}</Text>
-            </View>
-            <View style={styles.row}>
-              <View style={styles.textContent}>
-                <Text style={[styles.label, { color: colors.textPrimary }]}>Check in if I haven’t finished</Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Once, 15 minutes after the planned session.</Text>
-              </View>
-              <Switch accessibilityLabel="Echo follow-up" value={echo.aliveFollowUp !== false} disabled={!echo.alive || !notificationsEnabled || asking}
-                onValueChange={aliveFollowUp => void updateEcho({ aliveFollowUp })} trackColor={{ false: colors.border, true: accentColor }} />
-            </View>
-            {echo.aliveFollowUp !== false ? <View style={[styles.preview, { backgroundColor: colors.surfaceSecondary }]}>
-              <Text style={[styles.previewTitle, { color: colors.textPrimary }]}>{after.title}</Text>
-              <Text style={[styles.previewBody, { color: colors.textSecondary }]}>{after.body}</Text>
-            </View> : null}
-            <Text style={[styles.detail, { color: colors.textTertiary }]}>Quiet hours: {day.sleep}–{day.wake}. Finishing or skipping cancels that session’s nudges. Untimed habits and tasks keep their usual reminders.</Text>
-            <Pressable accessibilityRole="button" onPress={() => router.push('/(root)/ai-settings')} style={styles.echoLink}>
-              <Text style={{ color: accentColor, fontFamily: FontFamily.medium }}>Echo’s voice · {PERSONALITY_MODES.find(mode => mode.id === aiPersonality)?.name}</Text>
-              <Ionicons name="chevron-forward" size={16} color={accentColor} />
-            </Pressable>
-          </VoidCard>
-
-          {/* Quiet hours, in the place that decides when you are interrupted. */}
-          <VoidCard glass={!isTrueDark} style={[styles.card, { borderColor: colors.border, opacity: notificationsEnabled ? 1 : 0.5 }]}>
-            <View style={styles.row}>
-              <View style={styles.rowContent}>
-                <Ionicons name="moon-outline" size={22} color={accentColor} />
-                <View style={styles.textContent}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>Your day</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Nothing reaches you outside these hours</Text>
-                </View>
-              </View>
-            </View>
-            <TimeRow icon="alarm-outline" label="Wake up" value={day.wake} accent={accentColor} onChange={time => saveDay({ ...day, wake: time })} />
-            <TimeRow icon="bed-outline" label="Sleep" value={day.sleep} accent={accentColor} onChange={time => saveDay({ ...day, sleep: time })} />
-          </VoidCard>
-
-          <VoidCard glass={!isTrueDark} style={[styles.card, { borderColor: colors.border }]}>
-            <View style={styles.row}>
-              <View style={styles.rowContent}>
-                <Ionicons name="time-outline" size={22} color={accentColor} />
-                <View style={styles.textContent}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>Scheduled Live Activities</Text>
-                  <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Your next step, on the Lock Screen.</Text>
-                </View>
-              </View>
-              <Switch accessibilityLabel="Scheduled Live Activities" value={activities && capability !== 'unavailable'} disabled={!ready || asking || capability === 'unavailable'}
-                onValueChange={wanted => void toggleActivities(wanted)} trackColor={{ false: colors.border, true: accentColor }} />
-            </View>
-            <Text style={[styles.detail, { color: colors.textSecondary }]}>{capability === 'scheduled'
-              ? 'A card appears at the scheduled time, even when Habyss is closed. Finish or skip to clear it. iOS controls Live Activity availability and how many upcoming cards can be queued.'
-              : capability === 'foreground' ? 'On this iOS version, timed cards start while Habyss is open. Automatic starts with the app closed require iOS 26 or later.'
-              : 'Available in the native iOS app. Install the latest Habyss build to use scheduled cards.'}</Text>
+          {/* Nothing reaches you outside these hours. */}
+          <VoidCard style={[styles.card, { opacity: notificationsEnabled ? 1 : 0.5 }]}>
+            <TimeRow icon="sunny-outline" label="Wake up" value={day.wake} accent={accentColor} onChange={time => saveDay({ ...day, wake: time })} />
+            <TimeRow icon="moon-outline" label="Sleep" value={day.sleep} accent={accentColor} onChange={time => saveDay({ ...day, sleep: time })} />
           </VoidCard>
         </ScrollView>
       </SheetScreen>
   );
 };
 
+
+/** One setting: its icon on a solid tile, its name, and a switch. */
+const SettingRow = ({ icon, color, label, value, disabled, onChange }: {
+  icon: string; color: string; label: string; value: boolean; disabled?: boolean; onChange: (value: boolean) => void;
+}) => {
+  const { theme } = useTheme();
+  const colors = Colors[theme];
+  const { primary } = useAccentGradient();
+  return (
+    <View style={[styles.row, { opacity: disabled ? 0.5 : 1 }]}>
+      <View style={styles.rowContent}>
+        <IconTile icon={icon} color={color} size={30} shape="square" />
+        <Text style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>
+      </View>
+      <Switch accessibilityLabel={label} value={value} disabled={disabled} onValueChange={onChange}
+        trackColor={{ false: colors.border, true: primary }} />
+    </View>
+  );
+};
 
 export default Notifications;

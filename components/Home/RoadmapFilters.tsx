@@ -1,15 +1,14 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import Animated, {
-    Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming,
+    Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import type { Habit } from '@/lib/habitsSQLite';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
-import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
 type Show = 'all' | 'goals_only' | 'habits_only' | 'tasks_only';
@@ -46,8 +45,6 @@ const CLOSE = { duration: 150, easing: Easing.in(Easing.cubic) };
 export const RoadmapFilters = (props: Props) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const { primary } = useAccentGradient();
     const { lightFeedback, selectionFeedback } = useHaptics();
 
     const [mounted, setMounted] = useState(props.visible);
@@ -109,224 +106,98 @@ export const RoadmapFilters = (props: Props) => {
                         width: screen.width - margin * 2,
                         // Grows out of the button, not the middle of the screen.
                         transformOrigin: anchor ? `${Math.min(screen.width - margin * 2, Math.max(0, anchor.x - margin + anchor.width / 2))}px 0px` : 'top center',
-                        borderColor: colors.border,
-                        backgroundColor: isLight ? 'rgba(255,255,255,0.94)' : 'rgba(16,19,24,0.94)',
                     },
                 ]}
             >
-                <BlurView intensity={isLight ? 30 : 50} tint={isLight ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+                {/* The matte card, floating over the list it filters. */}
+                <MatteSurface radius={24} elevation="floating" style={styles.card}>
+                    <View style={styles.header}>
+                        <Text style={[styles.title, { color: colors.textPrimary }]}>Filter</Text>
+                        {active ? (
+                            <Pressable accessibilityRole="button" accessibilityLabel="Reset filters" hitSlop={8}
+                                onPress={() => { selectionFeedback(); props.onReset(); }}>
+                                <Text style={[styles.reset, { color: colors.textSecondary }]}>Reset</Text>
+                            </Pressable>
+                        ) : null}
+                    </View>
 
-                <View style={styles.header}>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>Filter</Text>
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Reset filters"
-                        disabled={!active}
-                        onPress={() => { selectionFeedback(); props.onReset(); }}
-                        hitSlop={8}
-                    >
-                        <Text style={[styles.reset, { color: active ? primary : colors.textTertiary }]}>Reset</Text>
-                    </Pressable>
-                </View>
+                    {/* Nothing chosen means everything is shown. Tap a choice to
+                        narrow the list, tap it again to undo it. */}
+                    <Group label="Show">
+                        {(['goals_only', 'habits_only', 'tasks_only'] as const).map((id, index) => (
+                            <Pill key={id} label={['Goals', 'Habits', 'Tasks'][index]} on={props.show === id}
+                                onPress={() => props.onShow(props.show === id ? 'all' : id)} />
+                        ))}
+                    </Group>
 
-                {/* No "All", no "Any", no "Any goal".
-                    Every one of these sections had a first option meaning "do
-                    not filter", which is what the section already means when
-                    nothing in it is chosen — a whole segment, in every row, to
-                    say nothing. Choosing the thing that is already chosen turns
-                    it off instead, and that is a rule worth having once rather
-                    than a word under every control explaining it. */}
-                <Row label="Show">
-                    <Segmented
-                        options={[
-                            { id: 'goals_only', label: 'Goals' },
-                            { id: 'habits_only', label: 'Habits' },
-                            { id: 'tasks_only', label: 'Tasks' },
-                        ]}
-                        value={props.show}
-                        onChange={value => props.onShow((value ?? 'all') as Show)}
-                        clearable
-                        primary={primary}
-                        colors={colors}
-                    />
-                </Row>
+                    <Group label="Time">
+                        {(['morning', 'afternoon', 'evening'] as const).map((id, index) => (
+                            <Pill key={id} label={['Morning', 'Noon', 'Evening'][index]} on={props.focus === id}
+                                onPress={() => props.onFocus(props.focus === id ? 'all' : id)} />
+                        ))}
+                    </Group>
 
-                <Row label="Time">
-                    <Segmented
-                        options={[
-                            { id: 'morning', label: 'Morning' },
-                            { id: 'afternoon', label: 'Noon' },
-                            { id: 'evening', label: 'Evening' },
-                        ]}
-                        value={props.focus}
-                        onChange={value => props.onFocus((value ?? 'all') as Focus)}
-                        clearable
-                        primary={primary}
-                        colors={colors}
-                    />
-                </Row>
+                    <Group label="With others">
+                        <Pill label="Shared only" on={props.sharedOnly} onPress={() => props.onSharedOnly(!props.sharedOnly)} />
+                    </Group>
 
-                {/* One toggle rather than a two-option switch: "Everything" was
-                    a segment whose only job was to be the other one's opposite. */}
-                <Row label="Shared">
-                    <Chip
-                        label="Shared with someone"
-                        selected={props.sharedOnly}
-                        onPress={() => props.onSharedOnly(!props.sharedOnly)}
-                        primary={primary}
-                        colors={colors}
-                    />
-                </Row>
-
-
-                {/* Sort keeps every option: there is no "unsorted" list, so
-                    tapping the chosen one reverses it rather than clearing it.
-                    The arrow beside it says so without a line of text. */}
-                <Row label="Sort">
-                    <Segmented
-                        options={[
-                            { id: 'default', label: 'Created' },
-                            { id: 'name', label: 'Name' },
-                            { id: 'progress', label: 'Progress' },
-                        ]}
-                        value={props.order}
-                        onChange={value => props.onOrder(value as Order)}
-                        primary={primary}
-                        colors={colors}
-                        trailingIcon={props.direction === 1 ? 'arrow-up' : 'arrow-down'}
-                    />
-                </Row>
+                    {/* Sorting always has an answer; tapping the chosen one flips it. */}
+                    <Group label="Sort">
+                        {(['default', 'name', 'progress'] as const).map((id, index) => (
+                            <Pill key={id} label={['Created', 'Name', 'Progress'][index]} on={props.order === id}
+                                icon={props.order === id ? (props.direction === 1 ? 'arrow-up' : 'arrow-down') : undefined}
+                                onPress={() => props.onOrder(id)} />
+                        ))}
+                    </Group>
+                </MatteSurface>
             </Animated.View>
         </Modal>
     );
 };
 
-const Row = ({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) => {
+/** A small plain label over one row of choices. */
+const Group = ({ label, children }: { label: string; children: React.ReactNode }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     return (
-        <View style={styles.row}>
-            <View style={styles.rowHead}>
-                <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>{label.toUpperCase()}</Text>
-                {hint ? <Text style={[styles.hint, { color: colors.textTertiary }]}>{hint}</Text> : null}
-            </View>
-            {children}
+        <View style={styles.group}>
+            <Text style={[styles.groupLabel, { color: colors.textTertiary }]}>{label}</Text>
+            <View style={styles.pills}>{children}</View>
         </View>
     );
 };
 
-/** One pill that slides between the options, rather than buttons lighting up. */
-const Segmented = ({ options, value, onChange, primary, colors, trailingIcon, clearable }: {
-    options: { id: string; label: string }[];
-    value: string;
-    onChange: (id: string | null) => void;
-    primary: string;
-    colors: typeof Colors.light;
-    trailingIcon?: 'arrow-up' | 'arrow-down';
-    /**
-     * Whether choosing what is already chosen turns it off.
-     *
-     * The alternative was a first option in every row meaning "do not filter",
-     * which is a whole segment spent saying nothing — and it is what the row
-     * already means when none of them is on.
-     */
-    clearable?: boolean;
-}) => {
+/**
+ * One choice: a matte pill. Chosen, it turns solid and light with dark text,
+ * the way Phantom marks its selected range — no accent colour.
+ */
+const Pill = ({ label, on, onPress, icon }: { label: string; on: boolean; onPress: () => void; icon?: 'arrow-up' | 'arrow-down' }) => {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
-    const [width, setWidth] = useState(0);
-    const found = options.findIndex(option => option.id === value);
-    // -1 is a real answer on a clearable row: nothing is chosen, and the pill
-    // has nowhere to be. It stays where it was and fades, rather than sliding
-    // back to the first option as though that had been picked.
-    const index = Math.max(0, found);
-    const position = useSharedValue(index);
-    const chosen = found >= 0;
-    const shown = useSharedValue(chosen ? 1 : 0);
-
-    useEffect(() => {
-        position.value = withSpring(index, { damping: 18, stiffness: 240, mass: 0.6 });
-    }, [index]);
-    useEffect(() => {
-        shown.value = withTiming(chosen ? 1 : 0, { duration: 140 });
-    }, [chosen]);
-
-    const slot = width ? (width - 6) / options.length : 0;
-    const pill = useAnimatedStyle(() => ({
-        width: slot,
-        opacity: shown.value,
-        transform: [{ translateX: position.value * slot }, { scale: 0.94 + shown.value * 0.06 }],
-    }));
-
+    const ink = on ? colors.background : colors.textSecondary;
     return (
-        <View
-            onLayout={event => setWidth(event.nativeEvent.layout.width)}
-            style={[styles.segmented, { backgroundColor: colors.surfaceSecondary }]}
-        >
-            {slot > 0 ? <Animated.View style={[styles.pill, pill, { backgroundColor: primary + '26', borderColor: primary + '55' }]} /> : null}
-            {options.map(option => {
-                const selected = option.id === value;
-                return (
-                    <Pressable
-                        key={option.id}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        onPress={() => {
-                            selectionFeedback();
-                            onChange(clearable && selected ? null : option.id);
-                        }}
-                        style={styles.segment}
-                    >
-                        <Text numberOfLines={1} style={[styles.segmentText, { color: selected ? primary : colors.textSecondary }]}>
-                            {option.label}
-                        </Text>
-                        {selected && trailingIcon ? <Ionicons name={trailingIcon} size={12} color={primary} /> : null}
-                    </Pressable>
-                );
-            })}
-        </View>
-    );
-};
-
-const Chip = ({ label, selected, onPress, primary, colors }: {
-    label: string; selected: boolean; onPress: () => void; primary: string; colors: typeof Colors.light;
-}) => {
-    const { selectionFeedback } = useHaptics();
-    return (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            onPress={() => { selectionFeedback(); onPress(); }}
-            style={[styles.chip, {
-                backgroundColor: selected ? primary + '20' : colors.surfaceSecondary,
-                borderColor: selected ? primary + '66' : 'transparent',
-            }]}
-        >
-            <Text numberOfLines={1} style={[styles.chipText, { color: selected ? primary : colors.textSecondary }]}>{label}</Text>
+        <Pressable accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={label}
+            onPress={() => { selectionFeedback(); onPress(); }} style={styles.pillPress}>
+            <MatteSurface radius={999} level="control" elevation="none" tint={on ? colors.textPrimary : undefined} style={styles.pill}>
+                <Text numberOfLines={1} style={[styles.pillText, { color: ink }, on && styles.pillTextOn]}>{label}</Text>
+                {icon ? <Ionicons name={icon} size={12} color={ink} /> : null}
+            </MatteSurface>
         </Pressable>
     );
 };
 
 const styles = StyleSheet.create({
-    panel: {
-        position: 'absolute', borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden',
-        // Tight on purpose: this panel covers the list it is filtering, so
-        // every point it takes is a row of that list you cannot see while
-        // deciding. The labels are what carry the structure, not the gaps.
-        paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12, gap: 9,
-        shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 12,
-    },
+    panel: { position: 'absolute' },
+    card: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16, gap: 14 },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    title: { fontSize: 15, fontFamily: FontFamily.semibold },
-    reset: { fontSize: 13, fontFamily: FontFamily.medium },
-    row: { gap: 5 },
-    rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    rowLabel: { fontSize: 10, letterSpacing: 1.1, fontFamily: FontFamily.medium },
-    hint: { fontSize: 10, fontFamily: FontFamily.regular },
-    segmented: { flexDirection: 'row', borderRadius: 12, padding: 3 },
-    pill: { position: 'absolute', top: 3, bottom: 3, left: 3, borderRadius: 9, borderWidth: 1 },
-    segment: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 7 },
-    segmentText: { fontSize: 12, fontFamily: FontFamily.medium },
-    chips: { gap: 6, paddingRight: 4 },
-    chip: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, maxWidth: 170 },
-    chipText: { fontSize: 12, fontFamily: FontFamily.medium },
+    title: { fontSize: 18, fontFamily: FontFamily.bold },
+    reset: { fontSize: 14, fontFamily: FontFamily.medium },
+    group: { gap: 8 },
+    groupLabel: { fontSize: 12, fontFamily: FontFamily.medium },
+    pills: { flexDirection: 'row', gap: 8 },
+    pillPress: { flex: 1 },
+    pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 8 },
+    pillText: { fontSize: 13, fontFamily: FontFamily.medium },
+    pillTextOn: { fontFamily: FontFamily.semibold },
 });

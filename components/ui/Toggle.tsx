@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Pressable, View } from 'react-native';
-import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { AppSwitch } from './AppSwitch';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Text } from './Text';
@@ -18,19 +18,11 @@ export interface ToggleProps {
 export function Toggle({ value, onChange, label, detail, disabled }: ToggleProps) {
     const t = useTokens();
     const { selectionFeedback } = useHaptics();
-    const width = t.space['3xl'] + t.space.md;
-    const knob = t.space.xl + t.space.xs;
-    const travel = width - knob - t.space.xs;
-    const x = useSharedValue(value ? travel : 0);
-    useEffect(() => {
-        x.set(withTiming(value ? travel : 0, { duration: 180, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System }));
-    }, [value, travel, x]);
-    const knobStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.get() }] }));
-
+    // The system switch (AppSwitch), the same one every on/off row uses. The
+    // whole row is the target; the switch only shows the state.
     const track = (
-        <View style={{ width, height: knob + t.space.xs, borderRadius: t.radius.full, padding: t.space.xs / 2, justifyContent: 'center',
-            backgroundColor: value ? t.color.accent : t.color.surfaceRaised }}>
-            <Animated.View style={[{ width: knob, height: knob, borderRadius: t.radius.full, backgroundColor: t.color.textPrimary }, knobStyle]} />
+        <View pointerEvents="none">
+            <AppSwitch value={value} disabled={disabled} />
         </View>
     );
     return (

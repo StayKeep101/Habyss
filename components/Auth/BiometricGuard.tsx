@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Modal, StyleSheet, Text, View } from 'react-native';
+import { AppState, Modal, StyleSheet, View } from 'react-native';
 import { useAppSettings } from '@/context/AppSettingsContext';
-import { AppIcon } from '@/components/ui/AppIcon';
-import { AppButton } from '@/components/ui/AppButton';
 import { Colors } from '@/theme/colors';
-import { Typography } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
-import { VoidShell } from '@/components/ui/VoidShell';
 import { authenticateAppLock } from '@/lib/biometricLock';
+import { IconButton } from '@/components/ui/IconButton';
 
 /** Covers native sheets too, and keeps navigation mounted after unlocking. */
 export const BiometricGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -94,14 +91,14 @@ export const BiometricGuard: React.FC<{ children: React.ReactNode }> = ({ childr
     }, [authenticate]);
 
     const covered = !isLoaded || (isAppLockEnabled && (locked || obscured));
-    const lockScreen = <VoidShell><View style={styles.container}>
-        {!isLoaded ? <ActivityIndicator color={colors.primary} /> : <View style={styles.content}>
-            <View style={[styles.icon, { backgroundColor: colors.surfaceSecondary }]}><AppIcon name="lock-closed-outline" size={38} color={colors.primary} /></View>
-            <Text style={[Typography.screenTitle, { color: colors.textPrimary }]}>Habyss is locked</Text>
-            <Text accessibilityRole={error ? 'alert' : undefined} style={[Typography.body, styles.center, { color: colors.textSecondary }]}>{error || 'A little privacy for your personal growth.\nAuthenticate to continue.'}</Text>
-            <AppButton label="Unlock Habyss" icon="lock-open-outline" loading={busy} onPress={authenticate} />
-        </View>}
-    </View></VoidShell>;
+    // Like Phantom: a plain dark screen, and the system's Face ID prompt on
+    // top of it — no title, no paragraph. If the prompt is dismissed, one
+    // matte lock button brings it back.
+    const lockScreen = <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {isLoaded && error && !busy ? (
+            <IconButton icon="lock-closed" label="Unlock Habyss" onPress={authenticate} diameter={56} size={24} />
+        ) : null}
+    </View>;
 
     // On first launch, do not render private content while settings are loading.
     if (!isLoaded || (isAppLockEnabled && !hasUnlocked)) return lockScreen;
@@ -114,8 +111,5 @@ export const BiometricGuard: React.FC<{ children: React.ReactNode }> = ({ childr
 };
 const styles = StyleSheet.create({
     flex: { flex: 1 },
-    container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
-    content: { alignItems: 'center', gap: 20, width: '100%', maxWidth: 360 },
-    icon: { width: 88, height: 88, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-    center: { textAlign: 'center' },
+    container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,11 +1,12 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { MatteSurface } from '@/components/ui/MatteSurface';
 import { ListItem } from '@/components/ui/Motion';
 import Animated, {
     useAnimatedScrollHandler,
     useSharedValue,
-    useAnimatedStyle, runOnJS, withSpring, withTiming
+    useAnimatedStyle, runOnJS, withSpring, withTiming, interpolate, Extrapolation,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
@@ -219,6 +220,9 @@ const CalendarScreen = () => {
      * with the list already at the top, and only counts while the finger is
      * still down — a bounce on its own never opens anything.
      */
+    // How far past the top the finger has pulled, while it is down.
+    const pull = useSharedValue(0);
+    const PULL_TO_OPEN = 80;
     const scrollHandler = useAnimatedScrollHandler({
         onBeginDrag: (event) => {
             wasAtTop.value = event.contentOffset.y <= 2;
@@ -227,18 +231,31 @@ const CalendarScreen = () => {
         onScroll: (event) => {
             const currentY = event.contentOffset.y;
             scrollY.value = currentY;
-            if (currentY < -90 && wasAtTop.value && !filterTriggered.value) {
-                filterTriggered.value = true;
-                runOnJS(lightFeedback)();
-                runOnJS(openFilterModal)();
+            pull.value = wasAtTop.value ? Math.max(0, -currentY) : 0;
+            // Armed past the line: a tick you can feel. Letting go opens it;
+            // easing back under the line before letting go does not.
+            const armed = pull.value > PULL_TO_OPEN;
+            if (armed !== filterTriggered.value) {
+                filterTriggered.value = armed;
+                if (armed) runOnJS(lightFeedback)();
             }
         },
         onEndDrag: () => {
+            if (wasAtTop.value && filterTriggered.value) runOnJS(openFilterModal)();
             // Released: whatever momentum does next is not a pull.
             wasAtTop.value = false;
             filterTriggered.value = false;
+            pull.value = 0;
         },
     });
+    // The filter icon that rises out of the pull, the way Transit shows it.
+    const pullIcon = useAnimatedStyle(() => ({
+        opacity: interpolate(pull.value, [12, PULL_TO_OPEN], [0, 1], Extrapolation.CLAMP),
+        transform: [
+            { translateY: Math.min(pull.value, PULL_TO_OPEN + 20) / 2 - 18 },
+            { scale: interpolate(pull.value, [12, PULL_TO_OPEN, PULL_TO_OPEN + 24], [0.6, 1, 1.12], Extrapolation.CLAMP) },
+        ],
+    }));
 
     // --- Subscriptions & Effects ---
 
@@ -776,6 +793,11 @@ const CalendarScreen = () => {
                     </View>
 
                     <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+                        <Animated.View pointerEvents="none" style={[styles.pullIcon, pullIcon]}>
+                            <MatteSurface radius={18} level="control" style={styles.pullDisc}>
+                                <Ionicons name="filter" size={16} color={colors.textPrimary} />
+                            </MatteSurface>
+                        </Animated.View>
                         <Animated.ScrollView
                             onScroll={scrollHandler}
                             scrollEventThrottle={16}

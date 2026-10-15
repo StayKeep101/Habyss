@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, Text, View } from 'react-native';
+import { AppSwitch as Switch } from '@/components/ui/AppSwitch';
 import { router } from 'expo-router';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';

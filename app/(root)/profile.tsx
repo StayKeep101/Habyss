@@ -88,14 +88,13 @@ export default function ProfileScreen() {
         if (!ImagePicker) { Alert.alert('Not available', 'Photos need the full app build.'); return; }
         lightFeedback();
         try {
-            const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!permission.granted) {
-                Alert.alert('Photos are off', 'Habyss needs access to your photos to set a picture.');
-                return;
-            }
+            // Straight to the system picker. It needs no library permission
+            // (only the photo chosen is shared), and without a crop step iOS
+            // opens its modern picker, which appears at once; the circle and
+            // the backdrop crop the photo anyway.
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'], allowsEditing: true,
-                aspect: which === 'cover' ? [16, 9] : [1, 1], quality: 0.7,
+                mediaTypes: ['images'], allowsEditing: false, quality: 0.7,
+                preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
             });
             if (!result.canceled && result.assets?.[0]?.uri) change({ [which]: result.assets[0].uri });
         } catch {

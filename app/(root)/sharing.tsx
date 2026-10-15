@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { AppSwitch as Switch } from '@/components/ui/AppSwitch';
 import { useRouter } from 'expo-router';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { SheetScreen } from '@/components/ui/SheetScreen';
