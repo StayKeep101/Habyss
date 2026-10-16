@@ -46,7 +46,6 @@ export const RecoveryModal: React.FC<{
                 {bounce.atRisk.length ? (
                     <>
                         <SectionTitle>Save today</SectionTitle>
-                        <Text style={[styles.hint, { color: colors.textTertiary }]}>You missed these last time. Do them today and it stays a single miss.</Text>
                         <VoidCard style={styles.list}>
                             {bounce.atRisk.map((item, index) => (
                                 <ListItem key={item.id} index={index}>
@@ -66,9 +65,7 @@ export const RecoveryModal: React.FC<{
                 <View style={styles.hero}>
                     <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={bounce.rate === null ? '—' : `${bounce.rate}%`} replay={visible} />
                     <Text style={[styles.heroText, { color: colors.textSecondary }]}>
-                        {bounce.rate === null
-                            ? 'No misses in the last 90 days. Keep it that way.'
-                            : `of the time, after missing a habit you did it the very next time it was due (${bounce.recovered} of ${bounce.judged}, last 90 days).`}
+                        {bounce.rate === null ? 'No misses in 90 days' : `back on it after a miss · ${bounce.recovered} of ${bounce.judged}`}
                     </Text>
                 </View>
 
@@ -82,7 +79,7 @@ export const RecoveryModal: React.FC<{
                                         <View style={styles.flex}>
                                             <Text numberOfLines={1} style={[styles.rowName, { color: colors.textPrimary }]}>{item.name}</Text>
                                             <Text style={[styles.rowMeta, { color: colors.textTertiary }]}>
-                                                {item.doubles ? `Missed twice in a row ${item.doubles}×` : 'Never missed twice'}
+                                                {item.doubles ? `Missed twice ${item.doubles}×` : 'Never missed twice'}
                                             </Text>
                                         </View>
                                         <Text style={[styles.rowRate, { color: (item.rate ?? 0) >= 70 ? colors.success : colors.textSecondary }]}>
@@ -103,7 +100,6 @@ const styles = StyleSheet.create({
     content: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.bottom },
     flex: { flex: 1 },
     rule: { fontFamily: FontFamily.medium, fontSize: 15, lineHeight: 22, textAlign: 'center', paddingVertical: Spacing.md },
-    hint: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 19, marginBottom: Spacing.sm },
     hero: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xl },
     heroValue: { fontFamily: FontFamily.bold, fontSize: 52, lineHeight: 58, letterSpacing: -2, fontVariant: ['tabular-nums'] },
     heroText: { fontFamily: FontFamily.medium, fontSize: 14, lineHeight: 20, textAlign: 'center' },

@@ -57,6 +57,6 @@ describe('bounce back', () => {
 
     it('says so when there have been no misses', () => {
         const screen = show('....');
-        expect(screen.getByText(/No misses in the last 90 days/)).toBeTruthy();
+        expect(screen.getByText(/No misses in 90 days/)).toBeTruthy();
     });
 });

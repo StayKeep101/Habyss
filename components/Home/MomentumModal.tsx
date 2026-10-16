@@ -43,10 +43,7 @@ export const MomentumModal: React.FC<{
 
     const up = trend.comparable && trend.delta > 0;
     const down = trend.comparable && trend.delta < 0;
-    const changeLine = !trend.comparable
-        ? 'Not enough history yet to compare with the month before.'
-        : trend.delta === 0 ? 'The same as the 30 days before.'
-            : `${up ? 'Up' : 'Down'} ${Math.abs(trend.delta)} points from the 30 days before.`;
+    const changeLine = !trend.comparable ? '' : trend.delta === 0 ? 'Same as last month' : `${up ? '↑' : '↓'} ${Math.abs(trend.delta)} vs last month`;
 
     return (
         <VoidModal visible={visible} onClose={onClose}>
@@ -54,13 +51,9 @@ export const MomentumModal: React.FC<{
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.hero}>
                     <CountUp style={[styles.heroValue, { color: colors.textPrimary }]} value={`${trend.rate}%`} replay={visible} />
-                    <Text style={[styles.heroText, { color: colors.textSecondary }]}>of your habits kept in the last 30 days</Text>
-                    <Text style={[styles.change, { color: up ? colors.success : down ? colors.warning : colors.textTertiary }]}>{changeLine}</Text>
+                    <Text style={[styles.heroText, { color: colors.textSecondary }]}>of habits kept · last 30 days</Text>
+                    {changeLine ? <Text style={[styles.change, { color: up ? colors.success : down ? colors.warning : colors.textTertiary }]}>{changeLine}</Text> : null}
                 </View>
-
-                <Text style={[styles.explain, { color: colors.textTertiary }]}>
-                    Trend tells you if you are getting better. It compares your last 30 days with the 30 before, so adding a new habit or having a big week never hides the direction.
-                </Text>
 
                 <SectionTitle>Week by week</SectionTitle>
                 <VoidCard style={styles.chartCard}>
@@ -129,7 +122,6 @@ const styles = StyleSheet.create({
     heroValue: { fontFamily: FontFamily.bold, fontSize: 56, lineHeight: 62, letterSpacing: -2, fontVariant: ['tabular-nums'] },
     heroText: { fontFamily: FontFamily.medium, fontSize: 15, textAlign: 'center' },
     change: { fontFamily: FontFamily.semibold, fontSize: 14, textAlign: 'center', marginTop: Spacing.xs },
-    explain: { fontFamily: FontFamily.regular, fontSize: 13, lineHeight: 19, textAlign: 'center', marginBottom: Spacing.md },
     chartCard: { padding: Spacing.lg, gap: Spacing.sm },
     chart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: CHART + 20 },
     barCol: { flex: 1, alignItems: 'center', gap: Spacing.xs },

@@ -39,13 +39,8 @@ describe('trend', () => {
         // Kept every day lately, never before: up 100 points.
         const screen = show([habit()], history(back => (back <= 30 ? ['h1'] : [])));
         expect(screen.getByText('100%')).toBeTruthy();
-        expect(screen.getByText(/of your habits kept in the last 30 days/)).toBeTruthy();
-        expect(screen.getByText(/Up 100 points/)).toBeTruthy();
-    });
-
-    it('explains what it is for', () => {
-        const screen = show([habit()], history(() => ['h1']));
-        expect(screen.getByText(/tells you if you are getting better/)).toBeTruthy();
+        expect(screen.getByText(/of habits kept/)).toBeTruthy();
+        expect(screen.getByText(/↑ 100 vs last month/)).toBeTruthy();
     });
 
     it('sorts habits into rising and slipping', () => {
