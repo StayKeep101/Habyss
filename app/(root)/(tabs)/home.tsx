@@ -4,6 +4,7 @@ import {View, Text, ScrollView, RefreshControl} from 'react-native';
 import { EchoLine } from '@/components/Home/EchoLine';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ClimbMomentOverlay } from '@/components/Home/ClimbMomentOverlay';
+import { SleepCard } from '@/components/Home/SleepCard';
 import { loadClimbState, nextMoment, saveClimbState, type ClimbMoment } from '@/lib/climbMoments';
 import { afterPaint } from '@/lib/afterPaint';
 import { s, ms } from '@/theme/scale';
@@ -373,6 +374,11 @@ const Home = () => {
               onPress={() => router.push('/goals-overview')}
             />
           </Animated.View>
+
+          {/* Last night's sleep; good nights earn Marks. */}
+          <View style={{ marginTop: sectionGap }}>
+            <SleepCard />
+          </View>
 
           {/* 3-Column Stats Row: Streak | Consistency | Completion */}
           <Animated.View style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: sectionGap }}>

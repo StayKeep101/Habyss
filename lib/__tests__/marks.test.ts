@@ -95,3 +95,12 @@ describe('the league you are in', () => {
         expect(rankBand(20000)).toEqual({ name: 'Eternal', min: 12000, max: null });
     });
 });
+
+describe('sleep', () => {
+    it('earns Marks for a night that reached the goal, and nothing is lost for a short one', () => {
+        const base = computeMarks({ habits: [], tasks: [], history: {}, today: '2026-10-16' });
+        const slept = computeMarks({ habits: [], tasks: [], history: {}, goodNights: ['2026-10-15', '2026-10-16'], today: '2026-10-16' });
+        expect(slept.total - base.total).toBe(10);
+        expect(slept.events.filter(event => event.item === 'sleep')).toHaveLength(2);
+    });
+});
