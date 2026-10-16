@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FeedService, type LeaderRow } from '@/lib/feedService';
+import { useMyProfile } from '@/hooks/useMyProfile';
 import { styles } from '@/styles/screens/leaderboard.styles';
 
 type Scope = 'friends' | 'world';
@@ -27,6 +28,7 @@ export default function LeaderboardScreen() {
     const { lightFeedback } = useHaptics();
     const [scope, setScope] = useState<Scope>('friends');
     const [rows, setRows] = useState<LeaderRow[] | null>(null);
+    const myProfile = useMyProfile();
 
     useEffect(() => {
         let alive = true;
@@ -72,7 +74,7 @@ export default function LeaderboardScreen() {
                                         style={[styles.row, (index > 0) && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, gap && styles.gap]}
                                         accessibilityLabel={`Number ${row.rank}, ${row.isMe ? 'you' : row.name}, ${row.marks} Marks`}>
                                         <Text style={[styles.place, { color: row.rank <= 3 ? primary : colors.textTertiary }]}>{row.rank}</Text>
-                                        <Avatar name={row.name} uri={row.avatarUrl} size={36} ring={row.isMe ? primary : undefined} />
+                                        <Avatar name={row.name} uri={row.isMe ? myProfile.avatar : row.avatarUrl} size={36} ring={row.isMe ? primary : undefined} />
                                         <Text numberOfLines={1} style={[styles.name, { color: row.isMe ? primary : colors.textPrimary }]}>
                                             {row.isMe ? 'You' : row.name}
                                         </Text>

@@ -8,10 +8,10 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
+import { useMyProfile } from '@/hooks/useMyProfile';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { saveDailyTarget } from '@/lib/dailyFocus';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
 import { PAYWALL_ENABLED } from '@/constants/features';
@@ -31,7 +31,10 @@ export default function ProfileScreen() {
     // User state
     const { selectionFeedback } = useHaptics();
     const dailyTarget = useDailyTarget();
-    const [username, setUsername] = useState('');
+    // You, from the one profile store (lib/profile.ts).
+    const me = useMyProfile();
+    const username = me.name;
+    const avatarUri = me.avatar;
 
     // Settings state - use global context
     const {
@@ -39,22 +42,6 @@ export default function ProfileScreen() {
         aiPersonality,
     } = useAppSettings();
 
-    // Profile picture state
-    const [avatarUri, setAvatarUri] = useState<string | null>(null);
-
-    // Load user profile from local storage
-    useEffect(() => {
-        const loadProfile = async () => {
-            const savedNickname = await AsyncStorage.getItem('profile_nickname');
-            if (savedNickname) setUsername(savedNickname);
-            else setUsername('User');
-
-            // Load saved avatar
-            const savedAvatar = await AsyncStorage.getItem('profile_avatar');
-            if (savedAvatar) setAvatarUri(savedAvatar);
-        };
-        loadProfile();
-    }, []);
 
 
     // Signed-in state for the Account row. Signing out lives on the Account

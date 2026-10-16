@@ -12,6 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { FriendsService } from '@/lib/friendsService';
 import { sharedState, type Participant } from '@/lib/shared';
+import { currentProfile } from '@/lib/profile';
 
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 const FACE = 36;
@@ -37,7 +38,8 @@ export const SharedWith: React.FC<{ habitId: string; doneToday: boolean }> = ({ 
             .then(rows => rows.map(row => ({
                 userId: row.userId,
                 username: row.username,
-                avatarUrl: row.avatarUrl,
+                // Your own face from the one profile store.
+                avatarUrl: row.isYou ? currentProfile().avatar ?? undefined : row.avatarUrl,
                 // Your own state is known exactly on this phone.
                 done: row.isYou ? doneToday : !!row.completedToday,
                 isYou: !!row.isYou,
@@ -108,7 +110,7 @@ const styles = StyleSheet.create({
     card: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs },
     row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
     face: { width: FACE, height: FACE, borderRadius: FACE / 2, borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-    photo: { width: '100%', height: '100%' },
+    photo: { width: '100%', height: '100%', resizeMode: 'cover' },
     initial: { fontSize: 14, fontFamily: FontFamily.bold },
     tick: { position: 'absolute', right: -3, bottom: -3, width: 18, height: 18, borderRadius: 9, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
     name: { flex: 1, fontSize: 15, fontFamily: FontFamily.medium },

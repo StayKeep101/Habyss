@@ -13,7 +13,8 @@ import { localDateKey } from '@/lib/habitSchedule';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useMarks } from '@/hooks/useMarks';
-import { EMPTY_PROFILE, ageFrom, getProfile, initials, saveProfile, type Profile } from '@/lib/profile';
+import { ageFrom, initials, saveProfile, type Profile } from '@/lib/profile';
+import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { ProfileDays } from '@/components/Profile/ProfileDays';
 import { seriesForProfile } from '@/lib/marksSync';
@@ -44,19 +45,14 @@ export default function ProfileScreen() {
     const router = useRouter();
     const { lightFeedback, selectionFeedback } = useHaptics();
 
-    const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
-    const [loaded, setLoaded] = useState(false);
+    // The one profile store; only what is being typed right now is held here.
+    const stored = useMyProfile();
+    const [draft, setDraft] = useState<{ name?: string; bio?: string }>({});
+    const profile: Profile = { ...stored, ...draft };
 
-    useEffect(() => {
-        let alive = true;
-        getProfile().then(found => { if (alive) { setProfile(found); setLoaded(true); } });
-        return () => { alive = false; };
-    }, []);
-
-    /** Optimistic: the field shows what you typed and writes behind you. */
+    /** Saved to the store (every screen updates at once), then the draft is dropped. */
     const change = useCallback((patch: Partial<Profile>) => {
-        setProfile(current => ({ ...current, ...patch }));
-        void saveProfile(patch);
+        void saveProfile(patch).then(() => setDraft({}));
     }, []);
 
     const insets = useSafeAreaInsets();
@@ -87,14 +83,16 @@ export default function ProfileScreen() {
         if (!ImagePicker) { Alert.alert('Not available', 'Photos need the full app build.'); return; }
         lightFeedback();
         try {
-            // Straight to the system picker. It needs no library permission
-            // (only the photo chosen is shared), and without a crop step iOS
-            // opens its modern picker, which appears at once; the circle and
-            // the backdrop crop the photo anyway.
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'], allowsEditing: false, quality: 0.7,
-                preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
-            });
+            // A profile photo is framed in a square crop step, so it fills
+            // its circle exactly and comes back as a real JPEG; without it the
+            // whole photo (any shape, often HEIC) was used and could show bars.
+            // A cover keeps the whole photo: it is framed to the top of the page.
+            const result = await ImagePicker.launchImageLibraryAsync(which === 'avatar'
+                ? { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 }
+                : {
+                    mediaTypes: ['images'], allowsEditing: false, quality: 0.8,
+                    preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+                });
             if (!result.canceled && result.assets?.[0]?.uri) change({ [which]: result.assets[0].uri });
         } catch {
             Alert.alert('Could not open your photos', 'Please try again.');
@@ -151,9 +149,9 @@ export default function ProfileScreen() {
                     marksSeries={seriesForProfile(marks.series)}
                     numbers={{ streak, habits: tracked, goals: goalCount, todayDone: today.done, todayTotal: today.total }}
                     edit={{
-                        onName: name => setProfile(current => ({ ...current, name })),
+                        onName: name => setDraft(current => ({ ...current, name })),
                         onNameDone: () => change({ name: profile.name.trim() }),
-                        onBio: bio => setProfile(current => ({ ...current, bio })),
+                        onBio: bio => setDraft(current => ({ ...current, bio })),
                         onBioDone: () => change({ bio: profile.bio.trim() }),
                         onPick: which => void pickPhoto(which),
                         onRemove: which => Alert.alert(which === 'avatar' ? 'Remove your picture?' : 'Remove your cover?', undefined, [

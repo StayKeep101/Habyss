@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     // rather than a photograph with a card under it.
     avatarPress: { width: s(96), height: s(96), marginTop: -s(48) },
     avatar: { width: s(96), height: s(96), borderRadius: s(48), borderWidth: s(3), overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-    photo: { width: '100%', height: '100%' },
+    photo: { width: '100%', height: '100%', resizeMode: 'cover' },
     initials: { fontSize: ms(30), fontFamily: FontFamily.bold },
     status: { position: 'absolute', right: s(2), bottom: s(2), borderRadius: 999, borderWidth: 3, alignItems: 'center', justifyContent: 'center', minWidth: s(26), minHeight: s(26) },
     camera: { position: 'absolute', right: 0, bottom: 0, width: s(28), height: s(28), borderRadius: s(14), borderWidth: 2, alignItems: 'center', justifyContent: 'center' },

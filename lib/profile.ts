@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { emit } from './appEvents';
 
 /**
  * Who you are in this app.
@@ -37,7 +36,29 @@ const KEYS = {
     age: 'profile_age',
 } as const;
 
-export async function getProfile(): Promise<Profile> {
+/*
+ * Your profile, held once in memory: the one source every screen reads.
+ *
+ * It used to be read straight from storage by each screen, and kept in step by
+ * an event only some of them listened to — so a new photo showed on one page
+ * and not the next. Now there is one copy: saving updates it at once, every
+ * reader re-renders from it (hooks/useMyProfile.ts), and storage is only where
+ * it is kept between launches.
+ */
+let current: Profile = EMPTY_PROFILE;
+let loading: Promise<Profile> | null = null;
+let loaded = false;
+const listeners = new Set<() => void>();
+const publish = (next: Profile) => { current = next; listeners.forEach(listener => listener()); };
+
+export const currentProfile = (): Profile => current;
+export const profileLoaded = (): boolean => loaded;
+export function subscribeProfile(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
+}
+
+async function readStored(): Promise<Profile> {
     try {
         const pairs = await AsyncStorage.multiGet([KEYS.name, KEYS.bio, KEYS.avatar, KEYS.cover, KEYS.birthday, KEYS.gender]);
         const found = Object.fromEntries(pairs) as Record<string, string | null>;
@@ -54,13 +75,20 @@ export async function getProfile(): Promise<Profile> {
     }
 }
 
-/**
- * Writes only what was passed, and announces an avatar change.
- *
- * Clearing a field is done by passing an empty string, not by leaving it out:
- * leaving it out has to mean "unchanged", or editing one field would wipe the
- * rest.
- */
+/** The profile, loaded from storage the first time and from memory after. */
+export async function getProfile(): Promise<Profile> {
+    if (loaded) return current;
+    loading ??= readStored().then(found => { loaded = true; publish(found); return found; });
+    return loading;
+}
+
+/** Forgets the in-memory copy (signing out clears storage underneath it). */
+export function resetProfileStore(): void {
+    loaded = false;
+    loading = null;
+    publish(EMPTY_PROFILE);
+}
+
 export async function saveProfile(changes: Partial<Profile>): Promise<void> {
     const writes: [string, string][] = [];
     const removes: string[] = [];
@@ -83,10 +111,23 @@ export async function saveProfile(changes: Partial<Profile>): Promise<void> {
         put(KEYS.age, changes.birthday ? String(ageFrom(changes.birthday) ?? '') : null);
     }
 
+    // Every screen shows the change at once; storage catches up behind it.
+    const base = loaded ? current : await getProfile();
+    const clean = (value: string | null | undefined, keepEmpty: boolean) =>
+        value === undefined ? undefined : value === '' && !keepEmpty ? null : value;
+    const next: Profile = {
+        name: clean(changes.name, true) ?? base.name,
+        bio: clean(changes.bio, true) ?? base.bio,
+        avatar: changes.avatar !== undefined ? clean(changes.avatar, false) ?? null : base.avatar,
+        cover: changes.cover !== undefined ? clean(changes.cover, false) ?? null : base.cover,
+        birthday: changes.birthday !== undefined ? changes.birthday || null : base.birthday,
+        gender: changes.gender !== undefined ? changes.gender || null : base.gender,
+    };
+    publish(next);
+
     try {
         if (writes.length) await AsyncStorage.multiSet(writes);
         if (removes.length) await AsyncStorage.multiRemove(removes);
-        if (changes.avatar !== undefined) emit('profile_avatar_changed', changes.avatar ?? '');
         // The parts other people are shown have to leave the phone. Which of
         // them actually travel is decided by the sharing switches.
         if (changes.name !== undefined || changes.bio !== undefined || changes.avatar !== undefined || changes.cover !== undefined) {

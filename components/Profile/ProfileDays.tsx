@@ -8,6 +8,7 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FeedService, type FeedPost } from '@/lib/feedService';
+import { useMyProfile } from '@/hooks/useMyProfile';
 import { announceChange, listenToFriends } from '@/lib/livePulse';
 
 /**
@@ -19,6 +20,7 @@ export function ProfileDays({ userId }: { userId: string | null }) {
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
     const [posts, setPosts] = useState<FeedPost[] | null>(null);
+    const myProfile = useMyProfile();
 
     const load = useCallback(async () => {
         if (!userId) return;
@@ -50,7 +52,7 @@ export function ProfileDays({ userId }: { userId: string | null }) {
                 <Text style={[styles.empty, { color: colors.textTertiary }]}>Nothing posted yet</Text>
             ) : (posts ?? []).map((post, index) => (
                 <ListItem key={post.day} index={index}>
-                    <DayPostCard name={post.name} avatarUrl={post.avatarUrl} postedAt={post.postedAt} card={post.card}
+                    <DayPostCard name={post.mine ? (myProfile.name || post.name) : post.name} avatarUrl={post.mine ? myProfile.avatar ?? undefined : post.avatarUrl} postedAt={post.postedAt} card={post.card}
                         mine={post.mine} ackCount={post.ackCount} acked={post.ackedByMe} ackFaces={[]}
                         onAcknowledge={() => void acknowledge(post)} onOpenAuthor={() => undefined} />
                 </ListItem>

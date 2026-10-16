@@ -149,6 +149,9 @@ export async function deleteAllLocalData(): Promise<DeletionReport> {
     // may need in order to find what they are clearing.
     steps.push(await run('settings', 'Profile and settings', async () => {
         await AsyncStorage.clear();
+        // The in-memory profile goes with the storage under it.
+        const { resetProfileStore } = require('./profile') as typeof import('./profile');
+        resetProfileStore();
         resetLocalUserCache();
         (require('./habitsSQLite') as typeof import('./habitsSQLite')).clearHabitsCache();
     }));

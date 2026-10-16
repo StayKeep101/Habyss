@@ -43,7 +43,7 @@ export function Avatar({ name, uri, size = 44, ring, badge, style, dim }: {
 
 const styles = StyleSheet.create({
     face: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-    photo: { width: '100%', height: '100%' },
+    photo: { width: '100%', height: '100%', resizeMode: 'cover' },
     initial: { fontFamily: FontFamily.bold },
     badge: { position: 'absolute', borderRadius: 999, borderWidth: 2 },
 });

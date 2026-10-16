@@ -44,7 +44,6 @@ export interface AppEvents {
     social_state_updated: void;
     premium_status_updated: void;
     notifications_updated: { unreadCount: number };
-    profile_avatar_changed: string;
 
     /* -------------------------------------------------- a screen is being asked */
     /** Where on screen the creation modal should grow from. */

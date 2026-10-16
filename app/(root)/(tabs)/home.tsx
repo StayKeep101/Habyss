@@ -2,6 +2,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {View, Text, ScrollView, RefreshControl} from 'react-native';
 import { EchoLine } from '@/components/Home/EchoLine';
+import { useMyProfile } from '@/hooks/useMyProfile';
 import { afterPaint } from '@/lib/afterPaint';
 import { s, ms } from '@/theme/scale';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +15,6 @@ import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { CelebrationAnimation } from '@/components/Celebrations/CelebrationAnimation';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSounds } from '@/hooks/useSounds';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useFocusEffect } from 'expo-router';
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -81,7 +81,8 @@ const Home = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const [showMomentumModal, setShowMomentumModal] = useState(false);
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
-  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  // Your photo, from the one profile store (lib/profile.ts).
+  const { avatar: profileAvatar } = useMyProfile();
   const [refreshing, setRefreshing] = useState(false);
   const [motivationalQuote, setMotivationalQuote] = useState('');
 
@@ -123,25 +124,11 @@ const Home = () => {
   // Load initial data & Sync on Focus
   useFocusEffect(
     useCallback(() => {
-      const loadData = async () => {
-        const savedAvatar = await AsyncStorage.getItem('profile_avatar');
-        if (savedAvatar) setProfileAvatar(savedAvatar);
-      };
-
-      loadData();
-
       // A new line from Echo every time Home comes into view.
       showEchoLine();
     }, [showEchoLine])
   );
 
-  // Listen for profile avatar changes (syncs instantly when changed in settings)
-  useEffect(() => {
-    const avatarListener = on('profile_avatar_changed', (uri: string) => {
-      setProfileAvatar(uri);
-    });
-    return () => avatarListener.remove();
-  }, []);
 
   // Subscribe to habits
   useEffect(() => {

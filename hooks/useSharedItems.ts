@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { FriendsService } from '@/lib/friendsService';
 import { sharedState, type SharedState } from '@/lib/shared';
 import { on } from '@/lib/appEvents';
+import { useMyProfile } from '@/hooks/useMyProfile';
 
 /** A row as `getSharedItemParticipants` hands it over. */
 interface SharedRow {
@@ -41,6 +42,7 @@ export function useSharedItems(
     kind: 'habit' | 'task' | 'goal' = 'habit',
 ) {
     const [people, setPeople] = useState<Record<string, SharedRow[]>>({});
+    const myProfile = useMyProfile();
     const key = ids.slice().sort().join(',');
 
     /** Everything the rows need, in one pass, off the render path. */
@@ -96,13 +98,14 @@ export function useSharedItems(
         if (!rows || rows.length < 2) return null;
         return sharedState(rows.map(row => ({
             userId: row.userId,
-            username: row.username,
-            avatarUrl: row.avatarUrl,
+            username: row.isYou ? (myProfile.name || row.username) : row.username,
+            // Your own face from the one profile store, so a new photo shows at once.
+            avatarUrl: row.isYou ? myProfile.avatar ?? undefined : row.avatarUrl,
             done: row.isYou ? !!doneByMe[id] : !!row.completedToday,
             isYou: !!row.isYou,
             pending: !!row.pending,
         })));
-    }, [people, doneByMe]);
+    }, [people, doneByMe, myProfile.name, myProfile.avatar]);
 
     return { stateFor, reload: load };
 }

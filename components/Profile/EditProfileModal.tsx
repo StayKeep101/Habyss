@@ -15,7 +15,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { AppTextField } from '@/components/ui/AppTextField';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SettingsModal } from '@/components/Common/SettingsModal';
-import { saveProfile } from '@/lib/profile';
+import { getProfile, saveProfile } from '@/lib/profile';
 import { getMyUsername, setMyUsername } from '@/lib/friendsService';
 
 // Conditionally require ImagePicker
@@ -88,23 +88,20 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
             setLoading(true);
             try {
                 // Load from local storage
-                const savedNickname = await AsyncStorage.getItem('profile_nickname');
-                if (savedNickname) setNickname(savedNickname);
+                // From the one profile store, not the storage keys directly.
+                const me = await getProfile();
+                if (me.name) setNickname(me.name);
                 setHandleError(undefined);
                 void getMyUsername().then(current => { setSavedHandle(current); setHandle(current ?? ''); }).catch(() => undefined);
-                const savedAvatar = await AsyncStorage.getItem('profile_avatar');
-                const savedBio = await AsyncStorage.getItem('profile_bio');
                 const savedAge = await AsyncStorage.getItem('profile_age');
-                const savedGender = await AsyncStorage.getItem('profile_gender');
-                const savedBirthday = await AsyncStorage.getItem('profile_birthday');
-                if (savedBirthday) {
-                    const [y, m, d] = savedBirthday.split('-').map(Number);
+                if (me.birthday) {
+                    const [y, m, d] = me.birthday.split('-').map(Number);
                     if (y && m && d) setBirthday(new Date(y, m - 1, d));
                 }
-                if (savedAvatar) setAvatarUri(savedAvatar);
-                if (savedBio) setDescription(savedBio);
+                if (me.avatar) setAvatarUri(me.avatar);
+                if (me.bio) setDescription(me.bio);
+                if (me.gender) setGender(me.gender);
                 if (savedAge) setAge(savedAge);
-                if (savedGender) setGender(savedGender);
             } catch (e) {
                 console.error(e);
             } finally {

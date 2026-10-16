@@ -28,6 +28,7 @@ import { listenToFriends, announceChange } from '@/lib/livePulse';
 import { onAccountChange } from '@/lib/account';
 import { on } from '@/lib/appEvents';
 import { OFFLINE_LINES, useOnline } from '@/lib/connectivity';
+import { useMyProfile } from '@/hooks/useMyProfile';
 import { styles } from '@/styles/screens/tabs/community.styles';
 
 const PAGE = 15;
@@ -48,7 +49,9 @@ export default function CommunityScreen() {
     const { horizontalPadding, topSpacing, tabBarClearance } = useResponsiveLayout();
 
     const [gate, setGate] = useState<'signed_out' | 'needs_username' | null | undefined>(undefined);
-    const [me, setMe] = useState<{ id: string; name: string; avatarUrl?: string } | null>(null);
+    const [me, setMe] = useState<{ id: string; name: string } | null>(null);
+    // Your own name and photo come from the one profile store, not the server's copy.
+    const myProfile = useMyProfile();
     const [userCode, setUserCode] = useState('');
     const [unread, setUnread] = useState(0);
     const [requests, setRequests] = useState<FriendRequest[]>([]);
@@ -89,7 +92,7 @@ export default function CommunityScreen() {
                 FeedService.shareSettings(),
                 FriendsService.unreadCount(),
             ]);
-            if (current) setMe({ id: current.id, name: current.displayName || current.username, avatarUrl: current.avatarUrl });
+            if (current) setMe({ id: current.id, name: current.displayName || current.username });
             setRequests(requestList);
             setStatuses(statusList);
             setPosts(feed);
@@ -143,9 +146,11 @@ export default function CommunityScreen() {
     /** Names and faces for the people who acknowledged a post. */
     const people = useMemo(() => {
         const map = new Map(statuses.map(row => [row.userId, { name: row.name, avatarUrl: row.avatarUrl }]));
-        if (me) map.set(me.id, { name: me.name, avatarUrl: me.avatarUrl });
+        if (me) map.set(me.id, { name: myProfile.name || me.name, avatarUrl: myProfile.avatar ?? undefined });
         return map;
-    }, [statuses, me]);
+    }, [statuses, me, myProfile.name, myProfile.avatar]);
+    /** Each friend's status now, for the mark on their photo in the feed. */
+    const statusById = useMemo(() => new Map(rail.map(friend => [friend.userId, friend.status])), [rail]);
 
     const acknowledge = async (post: FeedPost) => {
         selectionFeedback();
@@ -269,8 +274,9 @@ export default function CommunityScreen() {
                 renderItem={({ item, index }) => (
                     <ListItem index={index}>
                         <DayPostCard
-                            name={item.name}
-                            avatarUrl={item.avatarUrl}
+                            name={item.mine ? (myProfile.name || item.name) : item.name}
+                            avatarUrl={item.mine ? myProfile.avatar ?? undefined : item.avatarUrl}
+                            status={item.mine ? undefined : statusById.get(item.userId)}
                             postedAt={item.postedAt}
                             card={item.card}
                             mine={item.mine}

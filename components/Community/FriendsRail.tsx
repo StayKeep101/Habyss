@@ -27,8 +27,8 @@ export function FriendsRail({ friends, onOpen }: { friends: RailFriend[]; onOpen
     if (friends.length === 0) return null;
     const sorted = [...friends].sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.name.localeCompare(b.name));
 
-    // Away needs no mark on the rail: the name under the face says enough.
-    const badgeFor = (status: FriendStatus) => (status === 'away' ? null : <StatusBadge status={status} />);
+    // Every face carries its mark, away included, the same as on profiles.
+    const badgeFor = (status: FriendStatus) => <StatusBadge status={status} />;
 
     return (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>

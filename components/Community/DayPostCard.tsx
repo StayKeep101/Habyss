@@ -13,6 +13,8 @@ import { FontFamily, Radius, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { cardShare, type DayCardData, type DayCardLine } from '@/lib/dayCard';
+import type { FriendStatus } from '@/lib/presence';
+import { StatusBadge } from './StatusBadge';
 
 const LIMIT = 5;
 
@@ -33,9 +35,11 @@ const postedLabel = (postedAt: string) => {
  * what they did not — habits and tasks, by name. Friends acknowledge it with
  * one tap; the people who did are shown.
  */
-export function DayPostCard({ name, avatarUrl, postedAt, card, mine, ackCount, acked, ackFaces, onAcknowledge, onOpenAuthor }: {
+export function DayPostCard({ name, avatarUrl, status, postedAt, card, mine, ackCount, acked, ackFaces, onAcknowledge, onOpenAuthor }: {
     name: string;
     avatarUrl?: string;
+    /** The author's status now, as a mark on their photo. */
+    status?: FriendStatus;
     postedAt: string;
     card: DayCardData;
     mine: boolean;
@@ -98,7 +102,7 @@ export function DayPostCard({ name, avatarUrl, postedAt, card, mine, ackCount, a
             <View style={styles.body}>
                 <View style={styles.head}>
                     <Pressable onPress={onOpenAuthor} accessibilityRole="button" accessibilityLabel={`${name}'s profile`}>
-                        <Avatar name={name} uri={avatarUrl} size={42} />
+                        <Avatar name={name} uri={avatarUrl} size={42} badge={status ? <StatusBadge status={status} size={16} /> : undefined} />
                     </Pressable>
                     <View style={styles.headText}>
                         <Text numberOfLines={1} style={[styles.name, { color: colors.textPrimary }]}>{mine ? 'You' : name}</Text>
