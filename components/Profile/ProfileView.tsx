@@ -47,6 +47,8 @@ export const ProfileView: React.FC<{
     subline?: React.ReactNode;
     /** Absent when they keep their progress private. */
     numbers?: ProfileNumbers;
+    /** What to say in place of the numbers when they are not shown. */
+    hiddenNote?: string;
     /** Their Marks: shown as their level, above the numbers. */
     marks?: number;
     /** Absent for a friend's page: theirs is not yours to edit. */
@@ -61,7 +63,7 @@ export const ProfileView: React.FC<{
     topInset?: number;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, cover, initials, subline, numbers, marks, edit, topInset = 0, children }) => {
+}> = ({ name, bio, meta, avatar, cover, initials, subline, numbers, hiddenNote, marks, edit, topInset = 0, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -197,7 +199,7 @@ export const ProfileView: React.FC<{
                         ))}
                     </View>
                 ) : (
-                    <Text style={[styles.private, { color: colors.textTertiary }]}>Progress is private</Text>
+                    <Text style={[styles.private, { color: colors.textTertiary }]}>{hiddenNote ?? 'Progress is private'}</Text>
                 )}
             </View>
 

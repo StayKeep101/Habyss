@@ -39,17 +39,26 @@ export default function FriendScreen() {
     const [profile, setProfile] = useState<FriendProfile>({});
     const [marks, setMarks] = useState<number | undefined>();
     const [nudged, setNudged] = useState(false);
+    // Friends see the whole page; anyone else (from the world leaderboard) sees
+    // only their name, picture and level, and a way to add them.
+    const [relation, setRelation] = useState<{ kind: 'self' | 'friend' | 'requested' | 'incoming' | 'none'; requestId?: string } | null>(null);
+    const [stranger, setStranger] = useState<{ name: string; username?: string; avatarUrl?: string } | null>(null);
+    const [adding, setAdding] = useState(false);
     const [clock, setClock] = useState(() => new Date());
 
     const load = useCallback(async () => {
         if (!id) return;
-        const [found, statuses, about, marksMap, already] = await Promise.all([
+        const [found, statuses, about, marksMap, already, link, open] = await Promise.all([
             FriendsService.getFriendProfile(id),
             FeedService.friendStatuses(),
             FriendsService.profileOf(id),
             FriendsService.marksFor([id]),
             FriendsService.nudgedToday(id),
+            FriendsService.relationTo(id),
+            FriendsService.publicProfile(id),
         ]);
+        setRelation(link);
+        setStranger(open);
         setFriend(found);
         setStatus(statuses.find(row => row.userId === id) ?? null);
         setProfile(about);
@@ -65,21 +74,34 @@ export default function FriendScreen() {
         return () => { clearInterval(timer); stop?.(); };
     }, [load, id]);
 
-    const name = friend?.displayName || status?.name || 'Friend';
-    const username = friend?.username || status?.username;
+    const isFriend = relation?.kind === 'friend';
+    const name = friend?.displayName || status?.name || stranger?.name || 'Friend';
+    const username = friend?.username || status?.username || stranger?.username;
     const now = useMemo(() => (status ? statusOf(status, clock) : 'away'), [status, clock]);
     const statusColor = now === 'focus' ? primary : now === 'live' ? colors.success : colors.textTertiary;
     const statusLine = now === 'focus' && status?.focusLabel ? `${STATUS_LABEL.focus} · ${status.focusLabel}` : STATUS_LABEL[now];
 
     // The same four numbers your own profile shows; absent when they keep
     // their progress private (friend_stats leaves them out).
-    const numbers: ProfileNumbers | undefined = friend ? {
+    const numbers: ProfileNumbers | undefined = isFriend && friend ? {
         streak: friend.currentStreak ?? 0,
         habits: friend.todayTotal ?? 0,
         goals: friend.goalsActive ?? 0,
         todayDone: (friend.todayCompleted ?? 0) + (friend.tasksDone ?? 0),
         todayTotal: (friend.todayTotal ?? 0) + (friend.tasksTotal ?? 0),
     } : undefined;
+
+    const add = async () => {
+        if (!relation || adding) return;
+        mediumFeedback();
+        setAdding(true);
+        const ok = relation.kind === 'incoming' && relation.requestId
+            ? await FriendsService.acceptFriendRequest(relation.requestId)
+            : await FriendsService.sendFriendRequest(id);
+        setAdding(false);
+        if (ok) void load();
+        else Alert.alert('Could not send that', 'Please try again.');
+    };
 
     const nudge = async () => {
         if (nudged) return;
@@ -102,11 +124,11 @@ export default function FriendScreen() {
 
     const menu: MorphMenuItem[] = [
         { label: 'Report', icon: 'flag-outline', onPress: report },
-        {
+        ...(!isFriend ? [] : [{
             label: 'Remove friend', icon: 'person-remove-outline', destructive: true, onPress: async () => {
                 if (await FriendsService.removeFriend(id)) router.back();
             },
-        },
+        } satisfies MorphMenuItem]),
         {
             label: 'Block', icon: 'hand-left-outline', destructive: true, onPress: () => Alert.alert(`Block ${name}?`, 'They will not see your day and cannot reach you. It also removes them as a friend.', [
                 { text: 'Cancel', style: 'cancel' },
@@ -122,13 +144,14 @@ export default function FriendScreen() {
                     name={name}
                     bio={profile.bio ?? ''}
                     meta={username ? `@${username}` : ''}
-                    avatar={profile.avatarUrl ?? friend?.avatarUrl ?? status?.avatarUrl}
+                    avatar={profile.avatarUrl ?? friend?.avatarUrl ?? status?.avatarUrl ?? stranger?.avatarUrl}
                     cover={profile.coverUrl}
                     initials={name.slice(0, 1).toUpperCase()}
                     topInset={insets.top}
                     marks={marks}
                     numbers={numbers}
-                    subline={
+                    hiddenNote={isFriend ? undefined : 'Add them as a friend to see their day'}
+                    subline={!isFriend ? null : 
                         // What only someone else has: what they are doing now.
                         <View style={styles.status}>
                             <AppIcon name={now === 'focus' ? 'lock-closed' : now === 'asleep' ? 'moon' : now === 'live' ? 'radio-button-on' : 'ellipse-outline'} size={13} color={statusColor} />
@@ -138,10 +161,18 @@ export default function FriendScreen() {
                 />
 
                 <View style={styles.actions}>
-                    <AppButton label={nudged ? 'Nudged today' : 'Nudge'} icon="hand-left-outline" onPress={() => void nudge()} disabled={nudged} />
+                    {relation === null ? null : isFriend ? (
+                        <AppButton label={nudged ? 'Nudged today' : 'Nudge'} icon="hand-left-outline" onPress={() => void nudge()} disabled={nudged} />
+                    ) : relation.kind === 'requested' ? (
+                        <AppButton label="Requested" icon="time-outline" onPress={() => undefined} disabled />
+                    ) : relation.kind === 'incoming' ? (
+                        <AppButton label="Accept friend request" icon="checkmark" onPress={() => void add()} loading={adding} />
+                    ) : relation.kind === 'none' ? (
+                        <AppButton label="Add friend" icon="person-add" onPress={() => void add()} loading={adding} />
+                    ) : null}
                 </View>
 
-                <ProfileDays userId={id ?? null} />
+                {isFriend ? <ProfileDays userId={id ?? null} /> : null}
             </ScrollView>
 
             {/* The same floating controls as your own profile. */}

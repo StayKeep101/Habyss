@@ -61,8 +61,14 @@ export default function LeaderboardScreen() {
                             return (
                                 <ListItem key={row.userId} index={index}>
                                     <Pressable
-                                        disabled={row.isMe || scope === 'world'}
-                                        onPress={() => { lightFeedback(); router.push({ pathname: '/(root)/friend' as never, params: { id: row.userId } }); }}
+                                        // Anyone on the board opens their page; for someone who is
+                                        // not a friend yet, that page offers to add them.
+                                        onPress={() => {
+                                            lightFeedback();
+                                            if (row.isMe) router.push('/(root)/profile');
+                                            else router.push({ pathname: '/(root)/friend' as never, params: { id: row.userId } });
+                                        }}
+                                        accessibilityRole="button"
                                         style={[styles.row, (index > 0) && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }, gap && styles.gap]}
                                         accessibilityLabel={`Number ${row.rank}, ${row.isMe ? 'you' : row.name}, ${row.marks} Marks`}>
                                         <Text style={[styles.place, { color: row.rank <= 3 ? primary : colors.textTertiary }]}>{row.rank}</Text>

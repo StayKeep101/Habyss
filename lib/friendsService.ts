@@ -558,6 +558,39 @@ export class FriendsService {
 
     /* --------------------------------------------------------------- requests */
 
+    /**
+     * How you stand with someone: friends, a request you sent, one they sent
+     * you (with its id, to accept), or nothing yet.
+     */
+    static async relationTo(userId: string): Promise<{ kind: 'self' | 'friend' | 'requested' | 'incoming' | 'none'; requestId?: string }> {
+        const ctx = await signedIn();
+        if (!ctx) return { kind: 'none' };
+        if (userId === ctx.me) return { kind: 'self' };
+        if ((await friendIds(ctx)).includes(userId)) return { kind: 'friend' };
+        const { data } = await ctx.sb.from('friend_requests')
+            .select('id, from_user_id')
+            .is('deleted_at', null)
+            .eq('status', 'pending')
+            .or(`and(from_user_id.eq.${ctx.me},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${ctx.me})`);
+        const incoming = (data ?? []).find((row: any) => row.from_user_id === userId);
+        if (incoming) return { kind: 'incoming', requestId: incoming.id };
+        return (data ?? []).length ? { kind: 'requested' } : { kind: 'none' };
+    }
+
+    /** Someone who is not a friend yet: only what anyone may see — name, handle, picture. */
+    static async publicProfile(userId: string): Promise<{ name: string; username?: string; avatarUrl?: string } | null> {
+        const ctx = await signedIn();
+        if (!ctx) return null;
+        const { data } = await ctx.sb.from('profiles').select('username, display_name, avatar_url, sharing').eq('id', userId).maybeSingle();
+        if (!data) return null;
+        const sharing = (data.sharing ?? {}) as { name?: boolean; photo?: boolean };
+        return {
+            name: (sharing.name !== false && data.display_name?.trim()) || data.username || 'Someone',
+            username: data.username ?? undefined,
+            avatarUrl: sharing.photo !== false ? data.avatar_url ?? undefined : undefined,
+        };
+    }
+
     static async sendFriendRequest(userId: string): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx || userId === ctx.me) return false;
