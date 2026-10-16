@@ -211,7 +211,13 @@ export async function pushProfile(profile?: Profile, sharing?: Sharing): Promise
         patch.avatar_url = null;
     }
 
-    await ctx.sb.from('profiles').update(patch).eq('id', ctx.me);
+    const { error } = await ctx.sb.from('profiles').update(patch).eq('id', ctx.me);
+    // Friends' cards and pages re-read faces when pinged; ping once the new
+    // picture is actually saved, not before it has finished uploading.
+    if (!error) {
+        const { announceChange } = require('./livePulse') as typeof import('./livePulse');
+        announceChange();
+    }
 }
 
 /**

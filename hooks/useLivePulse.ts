@@ -24,7 +24,6 @@ export function useLivePulse() {
             on('habit_deleted', announceChange),
             on('tasks_changed', announceChange),
             on('task_completed', announceChange),
-            on('profile_avatar_changed', announceChange),
             on('social_state_updated', recheck),
         ];
         const foreground = AppState.addEventListener('change', state => { if (state === 'active') recheck(); });

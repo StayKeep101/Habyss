@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { FriendsService } from '@/lib/friendsService';
 import { sharedState, type SharedState } from '@/lib/shared';
 import { on } from '@/lib/appEvents';
@@ -69,7 +70,18 @@ export function useSharedItems(
     useEffect(() => {
         // Somebody else finishing their half changes what these rows say.
         const stop = on('social_state_updated', () => { void load(); });
-        return () => stop.remove();
+        // So does a friend changing their photo or name, or ticking their part:
+        // their phone pings yours (lib/livePulse.ts), and the faces re-read.
+        let stopFriends: (() => void) | undefined;
+        let pending: ReturnType<typeof setTimeout> | null = null;
+        const { listenToFriends } = require('@/lib/livePulse') as typeof import('@/lib/livePulse');
+        void listenToFriends(() => {
+            if (pending) clearTimeout(pending);
+            pending = setTimeout(() => { pending = null; load(); }, 800);
+        }).then(unsubscribe => { stopFriends = unsubscribe; });
+        // And coming back to the app catches up on anything missed meanwhile.
+        const app = AppState.addEventListener('change', state => { if (state === 'active') load(); });
+        return () => { stop.remove(); stopFriends?.(); app.remove(); if (pending) clearTimeout(pending); };
     }, [load]);
 
     /**
