@@ -141,7 +141,6 @@ export default function ProfileScreen() {
                         <UsernamePill username={handle} onEdit={() => { selectionFeedback(); setEditingHandle(true); }} />
                     )}
                     avatar={profile.avatar}
-                    cover={profile.cover}
                     initials={initials(profile)}
                     topInset={insets.top}
                     marks={marks.total}

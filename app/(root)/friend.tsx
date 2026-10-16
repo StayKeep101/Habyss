@@ -145,7 +145,6 @@ export default function FriendScreen() {
                     bio={profile.bio ?? ''}
                     meta={username ? `@${username}` : ''}
                     avatar={profile.avatarUrl ?? friend?.avatarUrl ?? status?.avatarUrl ?? stranger?.avatarUrl}
-                    cover={profile.coverUrl}
                     initials={name.slice(0, 1).toUpperCase()}
                     topInset={insets.top}
                     marks={marks}

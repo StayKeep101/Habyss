@@ -43,7 +43,6 @@ export const ProfileView: React.FC<{
     bio: string;
     meta: string;
     avatar?: string | null;
-    cover?: string | null;
     initials: string;
     /** Their status, as a mark at the corner of their photo. */
     status?: FriendStatus;
@@ -71,36 +70,25 @@ export const ProfileView: React.FC<{
     topInset?: number;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, cover, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, children }) => {
+}> = ({ name, bio, meta, avatar, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
     const { primary, secondary } = useAccentGradient();
     const { height: screenHeight, width: screenWidth } = useWindowDimensions();
     // The banner, plus the half of the avatar that overlaps it.
     const coverHeight = topInset + vs(150) + s(48);
 
-    const Cover = edit ? Pressable : View;
 
     return (
         <>
             <Animated.View entering={FadeIn.duration(220)} layout={MORPH} style={styles.head}>
-                {/* The backdrop: the cover photo, or an aurora in the accent
-                    colours, filling the page behind everything and fading into
-                    the background — not a strip across the top. */}
+                {/* The backdrop: the person's Marks over time (or an aurora in
+                    the accent colours before there is a history), fading into
+                    the page. */}
                 {/* It also reaches a full screen above the top, in the same
                     colour, so pulling the page down never shows an edge. */}
                 <View pointerEvents="none" style={[styles.backdrop, { top: -screenHeight, height: screenHeight + coverHeight }]}>
-                    {cover ? (
-                        <>
-                            {/* Above the page, a soft blurred copy of the same photo,
-                                so pulling down never reveals an edge. */}
-                            <Image source={{ uri: cover }} style={[styles.coverFill, { height: screenHeight + coverHeight * 0.5 }]} blurRadius={30} />
-                            {/* The photo itself, framed to the top of the page at its
-                                own proportions rather than stretched over two screens. */}
-                            <Image source={{ uri: cover }} style={[styles.coverImage, { top: screenHeight, height: coverHeight }]} />
-                        </>
-                    ) : marksSeries && marksSeries.length > 1 ? (
+                    {marksSeries && marksSeries.length > 1 ? (
                         <>
                             <View style={[styles.below, { top: screenHeight }]}>
                                 <LinearGradient colors={[primary + '40', primary + '10', 'transparent']} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
@@ -124,28 +112,12 @@ export const ProfileView: React.FC<{
                         graph above the avatar stays clear. */}
                     <View style={[styles.below, { top: screenHeight }]}>
                         <LinearGradient colors={['transparent', colors.background + '99', colors.background]}
-                            locations={cover ? [0.45, 0.78, 1] : [0.7, 0.88, 1]} style={StyleSheet.absoluteFill} />
+                            locations={[0.7, 0.88, 1]} style={StyleSheet.absoluteFill} />
                     </View>
                 </View>
 
-                {/* The space the backdrop shows through; tap it to change the cover. */}
-                <Cover
-                    {...(edit ? {
-                        accessibilityRole: 'button' as const,
-                        accessibilityLabel: cover ? 'Change your cover image' : 'Add a cover image',
-                        onPress: () => edit.onPick('cover'),
-                        onLongPress: cover && edit.onRemove ? () => edit.onRemove?.('cover') : undefined,
-                        accessibilityHint: cover ? 'Hold to remove it' : undefined,
-                    } : {})}
-                    style={[styles.banner, { height: topInset + vs(150) }]}
-                >
-                    {edit ? (
-                        <View style={[styles.coverBadge, { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
-                            <Ionicons name="image" size={s(12)} color="#fff" />
-                            <Text style={styles.coverBadgeText}>{cover ? 'Change' : 'Add cover'}</Text>
-                        </View>
-                    ) : null}
-                </Cover>
+                {/* The space the Marks chart shows through. */}
+                <View style={[styles.banner, { height: topInset + vs(150) }]} />
 
                 <Pressable
                     accessibilityRole={edit ? 'button' : 'image'}
@@ -158,7 +130,7 @@ export const ProfileView: React.FC<{
                 >
                     {/* The ring is the page's own background, so the avatar
                         reads as sitting on the banner rather than in it. */}
-                    <View style={[styles.avatar, { borderColor: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.16)', backgroundColor: isLight ? colors.surfaceSecondary : '#101218' }]}>
+                    <View style={[styles.avatar, { borderColor: colors.background, backgroundColor: colors.surfaceSecondary }]}>
                         {avatar ? (
                             <Image source={{ uri: avatar }} style={styles.photo} />
                         ) : initials ? (
@@ -225,7 +197,7 @@ export const ProfileView: React.FC<{
                         {[
                             { label: 'Streak', value: numbers.streak, icon: 'flame', color: colors.warning },
                             { label: 'Habits', value: numbers.habits, icon: 'repeat', color: colors.success },
-                            { label: 'Goals', value: numbers.goals, icon: 'flag', color: colors.secondary },
+                            { label: 'Goals', value: numbers.goals, icon: 'flag', color: colors.error },
                             { label: 'Today', value: `${numbers.todayDone}/${numbers.todayTotal}`, icon: 'checkmark-done', color: primary },
                         ].map((stat, index) => (
                             <PopIn key={stat.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
@@ -252,15 +224,12 @@ const styles = StyleSheet.create({
     above: { position: 'absolute', top: 0, left: 0, right: 0 },
     below: { position: 'absolute', left: 0, right: 0, bottom: 0 },
     banner: { width: '100%', justifyContent: 'flex-end', alignItems: 'flex-end' },
-    coverFill: { position: 'absolute', top: 0, left: 0, right: 0, width: '100%', resizeMode: 'cover' },
-    coverImage: { position: 'absolute', left: 0, right: 0, width: '100%', resizeMode: 'cover' },
     graph: { position: 'absolute', left: 0, right: 0 },
-    coverBadge: { flexDirection: 'row', alignItems: 'center', gap: s(5), paddingHorizontal: s(9), paddingVertical: vs(4), borderRadius: 999, margin: s(10) },
-    coverBadgeText: { color: '#fff', fontSize: ms(10), fontFamily: FontFamily.medium },
     // Half on the banner, half off it: the overlap is what makes it a profile
     // rather than a photograph with a card under it.
     avatarPress: { width: s(96), height: s(96), marginTop: -s(48) },
-    avatar: { width: s(96), height: s(96), borderRadius: s(48), borderWidth: s(3), overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+    // The photo fills the circle; a thin edge in the page's own colour lifts it off the chart.
+    avatar: { width: s(96), height: s(96), borderRadius: s(48), borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     photo: { width: '100%', height: '100%', resizeMode: 'cover' },
     initials: { fontSize: ms(30), fontFamily: FontFamily.bold },
     status: { position: 'absolute', right: s(2), bottom: s(2), borderRadius: 999, borderWidth: 3, alignItems: 'center', justifyContent: 'center', minWidth: s(26), minHeight: s(26) },
