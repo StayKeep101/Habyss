@@ -5,6 +5,7 @@ import { GlassDock } from '@/components/TabBar/GlassDock';
 import { useDayCardPublisher } from '@/hooks/useDayCardPublisher';
 import { useAppSounds } from '@/hooks/useAppSounds';
 import { useLivePulse } from '@/hooks/useLivePulse';
+import { useFocusStatus, useStatusBroadcast } from '@/hooks/useStatusBroadcast';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -15,6 +16,9 @@ export default function TabLayout() {
   useAppSounds();
   // Friends see your day change as it happens.
   useLivePulse();
+  // Your status for friends: live, locked in, or (at your bedtime) asleep.
+  useStatusBroadcast();
+  useFocusStatus();
 
   return (
     <Tabs

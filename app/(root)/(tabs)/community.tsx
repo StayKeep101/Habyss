@@ -1,650 +1,271 @@
-import { FontFamily, Typography, UIStyles } from '@/theme/designSystem';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Alert, Share, ActivityIndicator } from 'react-native';
-import { IconButton } from '@/components/ui/IconButton';
-import { SectionTitle } from '@/components/ui/SectionTitle';
-import { Colors } from '@/theme/colors';
-import { vs } from '@/theme/scale';
-import { useTheme } from '@/context/ThemeContext';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { useHaptics } from '@/hooks/useHaptics';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { VoidCard } from '@/components/ui/VoidCard';
-import { useAccentGradient } from '@/context/AccentContext';
-import { FriendsService, Friend, FriendRequest, ReactionType, type DayComment, friendTasksToday, getMyUsername, inviteMessage } from '@/lib/friendsService';
-import { onAccountChange } from '@/lib/account';
+import { IconButton } from '@/components/ui/IconButton';
+import { SectionTitle } from '@/components/ui/SectionTitle';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { AppIcon } from '@/components/ui/AppIcon';
+import { Avatar } from '@/components/ui/Avatar';
+import { ListItem } from '@/components/ui/Motion';
 import { FriendsGate } from '@/components/Community/FriendsGate';
-import { FriendStatsModal } from '@/components/Community/FriendStatsModal';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
-import { useFocusEffect, useRouter } from 'expo-router';
-import Animated from 'react-native-reanimated';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { localDateKey } from '@/lib/habitSchedule';
-import { DayCard } from '@/components/Community/DayCard';
-import { Pulse } from '@/components/Community/Pulse';
-import { addNote, getNotes, mergeNotes, pendingNotes, removeNote, type DayNote } from '@/lib/dayNotes';
-import { buildFeed, pulseOrder, summarise } from '@/lib/feed';
-import { MarksBoard, type MarksPerson } from '@/components/Community/MarksBoard';
-import { evidenceListToday } from '@/lib/evidence';
-import type { Evidence } from '@/lib/proof';
+import { FriendsRail, type RailFriend } from '@/components/Community/FriendsRail';
+import { DayPostCard } from '@/components/Community/DayPostCard';
+import { Colors } from '@/theme/colors';
+import { Radius } from '@/theme/designSystem';
+import { useTheme } from '@/context/ThemeContext';
+import { useAccentGradient } from '@/context/AccentContext';
+import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { FriendsService, getMyUsername, type FriendRequest } from '@/lib/friendsService';
+import { FeedService, type FeedPost, type FriendStatusRow } from '@/lib/feedService';
+import { statusOf } from '@/lib/presence';
+import { listenToFriends, announceChange } from '@/lib/livePulse';
+import { onAccountChange } from '@/lib/account';
 import { on } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/tabs/community.styles';
-import { ChatList, type ChatPerson } from '@/components/Community/ChatList';
-import { ChatService } from '@/lib/chatService';
-import type { ChatMessage } from '@/lib/chatThread';
 
-/** Reactions are a thing about today, so they are stored under today. */
-const reactionsKey = () => `feed_reactions_${localDateKey(new Date())}`;
+const PAGE = 15;
 
-/** A server comment as the card draws it. One shape, whichever side it came from. */
-const asNote = (comment: DayComment): DayNote => ({
-    id: comment.id, cardId: comment.toUser, date: comment.day, text: comment.body,
-    at: Date.parse(comment.createdAt) || 0, mine: comment.mine, authorName: comment.authorName,
-});
-
+/**
+ * Community: what your friends are doing right now, and how their days went.
+ *
+ * Along the top, every friend's face and status — locked in, live, asleep.
+ * Below, the feed: each person's day, posted at the time they chose, which
+ * friends acknowledge. The leaderboard is one tap away in the header.
+ */
 export default function CommunityScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
-    const { primary: accentColor } = useAccentGradient();
+    const { primary } = useAccentGradient();
     const { thud, lightFeedback, mediumFeedback, selectionFeedback } = useHaptics();
     const router = useRouter();
-    const { horizontalPadding, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
-    const [refreshing, setRefreshing] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const hasLoadedOnce = useRef(false);
+    const { horizontalPadding, topSpacing, tabBarClearance } = useResponsiveLayout();
 
-    // State
-    const [friends, setFriends] = useState<Friend[]>([]);
-    const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<Friend[]>([]);
-    const [searching, setSearching] = useState(false);
-
-    const [sentReactions, setSentReactions] = useState<Record<string, ReactionType>>({});
-    const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
-    const [showFriendStats, setShowFriendStats] = useState(false);
-    const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+    const [gate, setGate] = useState<'signed_out' | 'needs_username' | null | undefined>(undefined);
+    const [me, setMe] = useState<{ id: string; name: string; avatarUrl?: string } | null>(null);
     const [userCode, setUserCode] = useState('');
     const [unread, setUnread] = useState(0);
-    // Friends need an account and a username; until then the tab says so.
-    const [gate, setGate] = useState<'signed_out' | 'needs_username' | null>(null);
+    const [requests, setRequests] = useState<FriendRequest[]>([]);
+    const [statuses, setStatuses] = useState<FriendStatusRow[]>([]);
+    const [posts, setPosts] = useState<FeedPost[]>([]);
+    const [rank, setRank] = useState<number | null>(null);
+    const [shareTime, setShareTime] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [endReached, setEndReached] = useState(false);
+    const [showAddFriend, setShowAddFriend] = useState(false);
+    // Status depends on the clock (bedtime, a focus session ending), so it is
+    // recomputed every minute without fetching anything.
+    const [clock, setClock] = useState(() => new Date());
+    const loading = useRef(false);
 
-    const isLoadingRef = useRef(false);
-    const refreshQueued = useRef(false);
-
-    // Chats: the last message with each friend, refreshed whenever the tab is
-    // shown and whenever a message arrives.
-    const [conversations, setConversations] = useState<Record<string, { last: ChatMessage; unread: number }>>({});
-    const [myId, setMyId] = useState<string | undefined>();
-    const loadChats = useCallback(() => {
-        void ChatService.conversations().then(setConversations).catch(() => undefined);
-        void ChatService.me().then(id => setMyId(id ?? undefined)).catch(() => undefined);
-    }, []);
-    useFocusEffect(loadChats);
-
-    // A friend ticked something: reload, a beat later so a burst is one reload.
-    useEffect(() => {
-        let stop: (() => void) | undefined;
-        let pending: ReturnType<typeof setTimeout> | null = null;
-        const { listenToFriends } = require('@/lib/livePulse') as typeof import('@/lib/livePulse');
-        void listenToFriends(() => {
-            if (pending) clearTimeout(pending);
-            pending = setTimeout(() => { pending = null; void loadDataRef.current?.(true); loadChats(); }, 800);
-        }).then(unsubscribe => { stop = unsubscribe; });
-        return () => { stop?.(); if (pending) clearTimeout(pending); };
-    }, [loadChats]);
-    useEffect(() => {
-        let stop: (() => void) | undefined;
-        void ChatService.listen(() => loadChats()).then(unsubscribe => { stop = unsubscribe; });
-        return () => stop?.();
-    }, [loadChats]);
-
-
-    const loadDataRef = useRef<((force?: boolean) => Promise<void>) | null>(null);
-    const loadData = useCallback(async (forceRefresh = false) => {
-        // Skip if already loaded and not forcing refresh
-        if (!forceRefresh && hasLoadedOnce.current) {
-            return;
-        }
-
-        // Prevent concurrent loads that cause flickering
-        if (isLoadingRef.current) { if (forceRefresh) refreshQueued.current = true; return; }
-        isLoadingRef.current = true;
-
-        // Only show full-page loader on initial load
-        if (!hasLoadedOnce.current) {
-            setLoading(true);
-        }
-
+    const load = useCallback(async () => {
+        if (loading.current) return;
+        loading.current = true;
         try {
-            if (!(await FriendsService.isAvailable())) {
-                setGate('signed_out');
-                setFriends([]);
-                setFriendRequests([]);
-                hasLoadedOnce.current = true;
-                return;
-            }
+            if (!(await FriendsService.isAvailable())) { setGate('signed_out'); return; }
             const username = await getMyUsername();
             setUserCode(username ?? '');
-            FriendsService.unreadCount().then(setUnread).catch(() => undefined);
             setGate(username ? null : 'needs_username');
-
-            await FriendsService.repairFriendshipsFromAcceptedRequests();
-            // Which habits and tasks are shared, so ticking one tells the
-            // people on it without a network call on every ordinary tick.
+            if (!username) return;
+            await FriendsService.repairFriendshipsFromAcceptedRequests().catch(() => undefined);
             void FriendsService.refreshSharedIds().catch(() => undefined);
-
-            const [friendsList, requests] = await Promise.all([
-                FriendsService.getFriendsWithProgress(),
+            const [current, requestList, statusList, feed, board, settings, unreadCount] = await Promise.all([
+                FriendsService.getCurrentUser(),
                 FriendsService.getFriendRequests(),
+                FeedService.friendStatuses(),
+                FeedService.feed(undefined, PAGE),
+                FeedService.leaderboard('friends'),
+                FeedService.shareSettings(),
+                FriendsService.unreadCount(),
             ]);
-            setFriends(friendsList);
-            setFriendRequests(requests);
-            // Your own published total, beside theirs.
-            // This phone's own count wins: it is always current, and it is
-            // there even before the server has a total to hand back.
-            void FriendsService.getCurrentUser().then(async me => {
-                if (!me) return;
-                const { localMarks } = require('@/lib/marksSync') as typeof import('@/lib/marksSync');
-                const local = await localMarks();
-                const total = local ?? (await FriendsService.marksFor([])).get(me.id);
-                if (typeof total === 'number') setMyMarks({ id: me.id, marks: total, avatarUrl: me.avatarUrl });
-            }).catch(() => undefined);
-
-            hasLoadedOnce.current = true;
-        } catch (error) {
-            console.error('Error loading community data:', error);
+            if (current) setMe({ id: current.id, name: current.displayName || current.username, avatarUrl: current.avatarUrl });
+            setRequests(requestList);
+            setStatuses(statusList);
+            setPosts(feed);
+            setEndReached(feed.length < PAGE);
+            setRank(board.find(row => row.isMe)?.rank ?? null);
+            setShareTime(settings?.enabled ? settings.time : null);
+            setUnread(unreadCount);
         } finally {
-            setLoading(false);
-            isLoadingRef.current = false;
-            if (refreshQueued.current) { refreshQueued.current = false; void loadData(true); }
+            loading.current = false;
         }
     }, []);
 
-    loadDataRef.current = loadData;
-
-    // Only load data once on initial mount
+    useFocusEffect(useCallback(() => { void load(); }, [load]));
     useEffect(() => {
-        if (!hasLoadedOnce.current) {
-            loadData();
-        }
-    }, []);
-
-    useEffect(() => {
-        const subscription = on('social_state_updated', () => {
-            loadData(true);
-        });
-        const stopWatchingAccount = onAccountChange(() => loadData(true));
-
-        return () => {
-            subscription.remove();
-            stopWatchingAccount();
-        };
-    }, [loadData]);
+        const timer = setInterval(() => setClock(new Date()), 60_000);
+        const social = on('social_state_updated', () => { void load(); });
+        const account = onAccountChange(() => { void load(); });
+        // A friend's day or status changed: refresh, a beat later so a burst is one load.
+        let pending: ReturnType<typeof setTimeout> | null = null;
+        let stop: (() => void) | undefined;
+        void listenToFriends(() => {
+            if (pending) clearTimeout(pending);
+            pending = setTimeout(() => { pending = null; void load(); }, 800);
+        }).then(unsubscribe => { stop = unsubscribe; });
+        return () => { clearInterval(timer); social.remove(); account(); stop?.(); if (pending) clearTimeout(pending); };
+    }, [load]);
 
     const onRefresh = async () => {
         thud();
         setRefreshing(true);
-        await loadData(true); // Force refresh bypasses cache
+        await load();
         setRefreshing(false);
     };
 
-    const handleSearch = async (query: string) => {
-        setSearchQuery(query);
-        if (query.length >= 1) { // Changed from 3 to 1 - search immediately
-            setSearching(true);
-            const results = await FriendsService.searchUsers(query);
-            setSearchResults(results);
-            setSearching(false);
-        } else {
-            setSearchResults([]);
-        }
+    const loadMore = async () => {
+        if (loadingMore || endReached || posts.length === 0) return;
+        setLoadingMore(true);
+        const next = await FeedService.feed(posts[posts.length - 1].postedAt, PAGE);
+        setPosts(prev => [...prev, ...next.filter(post => !prev.some(item => item.userId === post.userId && item.day === post.day))]);
+        setEndReached(next.length < PAGE);
+        setLoadingMore(false);
     };
 
-    const handleSendRequest = async (userId: string) => {
-        lightFeedback();
-        const success = await FriendsService.sendFriendRequest(userId);
-        if (success) {
-            Alert.alert('Request sent');
-            setSearchResults(prev => prev.filter(u => u.id !== userId));
-            setSearchQuery('');
-            await loadData(true); // Refresh to show new friend if auto-accepted
-        } else {
-            Alert.alert('Already Connected', 'You may already be friends or have a pending request with this user.');
-        }
-    };
+    const rail = useMemo<RailFriend[]>(() => statuses.map(row => ({
+        userId: row.userId, name: row.name, avatarUrl: row.avatarUrl, status: statusOf(row, clock),
+    })), [statuses, clock]);
 
-    const handleAcceptRequest = async (requestId: string) => {
-        lightFeedback();
-        const success = await FriendsService.acceptFriendRequest(requestId);
-        if (success) {
-            await loadData(true);
-        }
-    };
+    /** Names and faces for the people who acknowledged a post. */
+    const people = useMemo(() => {
+        const map = new Map(statuses.map(row => [row.userId, { name: row.name, avatarUrl: row.avatarUrl }]));
+        if (me) map.set(me.id, { name: me.name, avatarUrl: me.avatarUrl });
+        return map;
+    }, [statuses, me]);
 
-    const handleDeclineRequest = async (requestId: string) => {
-        lightFeedback();
-        await FriendsService.declineFriendRequest(requestId);
-        setFriendRequests(prev => prev.filter(r => r.id !== requestId));
-    };
-
-    const handleNudge = async (friend: Friend) => {
-        mediumFeedback();
-        if (await FriendsService.nudgedToday(friend.id)) {
-            Alert.alert('Already nudged today', 'Try again tomorrow.');
-            return;
-        }
-        const success = await FriendsService.nudgeFriend(friend.id, friend.displayName ?? friend.username);
-        if (success) {
-            Alert.alert('Nudged', `${friend.displayName ?? friend.username} will get a notification.`);
-        }
-    };
-
-
-
-
-
-    /**
-     * Reacting to someone's day.
-     *
-     * Tapping the same one again takes it back, because a reaction you cannot
-     * withdraw is a reaction people hesitate to give. It now reaches the person
-     * — `feed_reactions` holds one per pair per day, so a second reaction
-     * replaces the first — and it is still written to the device as well, so the
-     * feed does not lose its answer while the insert is in flight.
-     */
-    const handleReaction = async (friendId: string, reaction: ReactionType) => {
-        mediumFeedback();
-        const taken = sentReactions[friendId] === reaction;
-        const next = { ...sentReactions };
-        if (taken) delete next[friendId]; else next[friendId] = reaction;
-        setSentReactions(next);
-        void AsyncStorage.setItem(reactionsKey(), JSON.stringify(next)).catch(() => undefined);
-        if (taken) await FriendsService.clearDayReaction(friendId);
-        else await FriendsService.reactToDay(friendId, reaction);
-    };
-
-    /**
-     * Saying something about someone's day.
-     *
-     * Sent to `feed_comments`, and kept on the device when it cannot be: signed
-     * out, or the insert failed. A note kept that way is marked pending and goes
-     * on the next visit, so nothing typed is lost to a dropped connection.
-     */
-    const handleComment = async (cardId: string, text: string) => {
-        const day = localDateKey(new Date());
-        const sent = await FriendsService.addDayComment(cardId, text);
-        if (sent) {
-            selectionFeedback();
-            setNotes(current => ({ ...current, [cardId]: [...(current[cardId] ?? []), asNote(sent)] }));
-            return;
-        }
-        const note = await addNote(day, cardId, text);
-        if (!note) return;
+    const acknowledge = async (post: FeedPost) => {
         selectionFeedback();
-        setNotes(current => ({ ...current, [cardId]: [...(current[cardId] ?? []), note] }));
-    };
-
-    const handleDeleteNote = async (cardId: string, id: string) => {
-        lightFeedback();
-        setNotes(current => ({ ...current, [cardId]: (current[cardId] ?? []).filter(note => note.id !== id) }));
-        // One of the two holds it; asking both is cheaper than remembering which.
-        await Promise.all([
-            FriendsService.deleteDayComment(id),
-            removeNote(localDateKey(new Date()), cardId, id),
-        ]);
-    };
-
-    const getTimeAgo = (dateStr: string) => {
-        const diff = Date.now() - new Date(dateStr).getTime();
-        const mins = Math.floor(diff / 60000);
-        if (mins < 60) return `${mins}m ago`;
-        const hours = Math.floor(mins / 60);
-        if (hours < 24) return `${hours}h ago`;
-        return 'Today';
-    };
-
-    // One card per person, you included, ordered by what was done rather than
-    // by who anyone is.
-    // Your own evidence is known exactly — the app has your Health habits and
-    // your timer sessions. A friend's arrives with the feed migration; until
-    // then theirs reads as logged, which is the truthful default.
-    const [notes, setNotes] = useState<Record<string, DayNote[]>>({});
-    /** What each friend and I are doing together today, by their id. */
-    const [together, setTogether] = useState<Record<string, { id: string; name: string; mineDone: boolean; theirsDone: boolean }[]>>({});
-    const [myEvidence, setMyEvidence] = useState<Record<string, Evidence[]>>({});
-    /**
-     * Today's short list for everybody in the feed, keyed by user id.
-     *
-     * One call for all of them rather than one per card: a dozen friends would
-     * be a dozen requests arriving separately, and a dozen re-renders while
-     * somebody is trying to scroll.
-     */
-    const [todayTasks, setTodayTasks] = useState<Record<string, { id: string; title: string; done: boolean; dueTime?: string }[]>>({});
-    useEffect(() => {
-        if (friends.length === 0) return;
-        let alive = true;
-        friendTasksToday()
-            .then(found => { if (alive) setTodayTasks(found); })
-            .catch(() => undefined);
-        return () => { alive = false; };
-    }, [friends]);
-    useEffect(() => {
-        const me = friends.find(friend => friend.isCurrentUser);
-        if (!me) return;
-        let alive = true;
-        (async () => {
-            const { getHabits, getCompletions } = require('@/lib/habitsSQLite') as typeof import('@/lib/habitsSQLite');
-            const day = localDateKey(new Date());
-            const [habits, completions] = await Promise.all([getHabits(), getCompletions(day)]);
-            const doneIds = Object.keys(completions).filter(id => completions[id]);
-            const list = await evidenceListToday(habits, doneIds, day);
-            if (alive) setMyEvidence({ [me.userId]: list });
-        })().catch(() => undefined);
-        return () => { alive = false; };
-    }, [friends]);
-
-    const dayFeed = useMemo(() => buildFeed(friends, myEvidence), [friends, myEvidence]);
-    const [myMarks, setMyMarks] = useState<{ id: string; marks: number; avatarUrl?: string } | null>(null);
-    const marksPeople = useMemo<MarksPerson[]>(() => [
-        ...(myMarks ? [{ id: myMarks.id, name: 'You', marks: myMarks.marks, avatarUrl: myMarks.avatarUrl, isYou: true }] : []),
-        // A friend whose phone has not published a total yet starts at zero.
-        ...friends.map(friend => ({
-            id: friend.id, name: friend.displayName || friend.username, avatarUrl: friend.avatarUrl, marks: friend.marks ?? 0,
-        })),
-    ], [friends, myMarks]);
-    const marksById = useMemo(() => new Map(marksPeople.map(person => [person.id, person.marks])), [marksPeople]);
-
-    /**
-     * The rail along the top, and the one line above the feed.
-     *
-     * Ordered by who needs you rather than by who is doing best: somebody
-     * waiting on your half of a shared habit is the only fact on this screen
-     * you can act on, and sorting by achievement would bury them behind
-     * whoever tracks the most undemanding things. You are always last — a rail
-     * of faces is a list of other people.
-     */
-    const pulse = useMemo(() => pulseOrder(dayFeed, together), [dayFeed, together]);
-
-    const waiting = pulse.filter(person => person.waitingOnYou).length;
-
-    /**
-     * Where each card sits, so a tap on the rail can go to it.
-     *
-     * Measured rather than calculated: a card grows a composer, a notes list
-     * and a shared-items section, so its height is not something this screen
-     * can know in advance.
-     */
-    const cardTops = useRef<Record<string, number>>({});
-    /**
-     * Where the feed itself starts.
-     *
-     * `onLayout` reports a position inside the parent, not inside the scroll
-     * content, so a card's own `y` is measured from the top of the feed — and
-     * scrolling to it without this would land short by the height of the
-     * header, the requests and the rail above it.
-     */
-    const feedTop = useRef(0);
-    const scroller = useRef<ScrollView>(null);
-    const goToCard = useCallback((id: string) => {
-        const y = cardTops.current[id];
-        if (y === undefined) return;
-        // A little above it, so the card does not sit flush against the header.
-        scroller.current?.scrollTo({ y: Math.max(0, feedTop.current + y - vs(12)), animated: true });
-    }, []);
-
-    /**
-     * The named part of each friend's day.
-     *
-     * Only for people who are actually friends, and only for what has been
-     * shared between the two of you — a count can be derived from numbers the
-     * server already returns, but a name has to be something they chose to
-     * show you.
-     */
-    useEffect(() => {
-        const others = friends.filter(friend => !friend.isCurrentUser);
-        if (others.length === 0) { setTogether({}); return; }
-        let alive = true;
-        Promise.all(others.map(async friend => {
-            const items = await FriendsService.sharedWithFriend(friend.userId).catch(() => []);
-            return [friend.id || friend.userId, items] as const;
-        }))
-            .then(pairs => { if (alive) setTogether(Object.fromEntries(pairs.filter(([, items]) => items.length))); })
-            .catch(() => undefined);
-        return () => { alive = false; };
-    }, [friends]);
-
-    /**
-     * What has already been said today, from the server and from this device.
-     *
-     * Anything still pending here is sent first, so a note written offline
-     * arrives before the card is drawn and is then held in one place rather
-     * than two. The server's rows are the truth; `mergeNotes` puts whatever has
-     * not reached it after them.
-     */
-    useEffect(() => {
-        const day = localDateKey(new Date());
-        (async () => {
-            const [stored, waiting] = await Promise.all([
-                AsyncStorage.getItem(reactionsKey()).catch(() => null),
-                pendingNotes(day).catch(() => []),
-            ]);
-            if (stored) { try { setSentReactions(JSON.parse(stored)); } catch { /* keep none */ } }
-
-            for (const note of waiting) {
-                if (await FriendsService.addDayComment(note.cardId, note.text, day)) {
-                    await removeNote(day, note.cardId, note.id);
-                }
+        const next = !post.ackedByMe;
+        // Shown at once; put back if the server says no.
+        const flip = (acked: boolean) => setPosts(prev => prev.map(item => item.userId === post.userId && item.day === post.day
+            ? {
+                ...item,
+                ackedByMe: acked,
+                ackCount: item.ackCount + (acked ? 1 : -1),
+                ackUsers: acked ? [...item.ackUsers, me?.id ?? ''] : item.ackUsers.filter(id => id !== me?.id),
             }
+            : item));
+        flip(next);
+        const ok = next ? await FeedService.acknowledge(post) : await FeedService.unacknowledge(post);
+        if (!ok) flip(!next);
+        else announceChange();
+    };
 
-            const [fromServer, local, reactions] = await Promise.all([
-                FriendsService.getDayComments(day),
-                getNotes(day),
-                FriendsService.getDayReactions(day),
-            ]);
-            const cards = new Set([...Object.keys(fromServer), ...Object.keys(local)]);
-            const merged: Record<string, DayNote[]> = {};
-            for (const cardId of cards) {
-                merged[cardId] = mergeNotes((fromServer[cardId] ?? []).map(asNote), local[cardId]);
-            }
-            setNotes(merged);
-            // The server knows what was sent from any device; the local copy is
-            // only a guess made while an insert was in flight.
-            if (Object.keys(reactions.mine).length) setSentReactions(reactions.mine);
-        })().catch(() => undefined);
-    }, []);
-
-    const handleFriendPress = (friend: Friend) => {
-        // Allow viewing own profile too - shows what friends see
+    const openFriend = (userId: string) => {
         lightFeedback();
-        setSelectedFriend(friend);
-        setShowFriendStats(true);
+        router.push({ pathname: '/(root)/friend' as never, params: { id: userId } });
     };
 
-    const handleShareCode = async () => {
-        try {
-            lightFeedback();
-            await Share.share({
-                message: inviteMessage(userCode),
-            });
-        } catch (error) {
-            console.error(error);
-        }
+    const answer = async (request: FriendRequest, accept: boolean) => {
+        lightFeedback();
+        setRequests(prev => prev.filter(item => item.id !== request.id));
+        if (accept) await FriendsService.acceptFriendRequest(request.id);
+        else await FriendsService.declineFriendRequest(request.id);
+        void load();
     };
+
+    const header = (
+        <View>
+            <View style={styles.header}>
+                <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Community</Text>
+                {gate === null ? (
+                    <View style={styles.headerActions}>
+                        {/* Your place among friends; the world board is inside. */}
+                        <Pressable onPress={() => { lightFeedback(); router.push('/(root)/leaderboard' as never); }}
+                            accessibilityRole="button" accessibilityLabel={rank ? `Leaderboard, you are number ${rank}` : 'Leaderboard'}>
+                            <MatteSurface radius={Radius.pill} level="control" style={styles.rank}>
+                                <AppIcon name="trophy" size={15} color={primary} />
+                                <Text style={[styles.rankText, { color: colors.textPrimary }]}>{rank ? `#${rank}` : '—'}</Text>
+                            </MatteSurface>
+                        </Pressable>
+                        <IconButton icon={unread > 0 ? 'notifications' : 'notifications-outline'}
+                            label={unread > 0 ? `Inbox, ${unread} waiting` : 'Inbox'}
+                            onPress={() => { lightFeedback(); router.push('/(root)/inbox'); }} diameter={40} size={20} badge={unread} />
+                        <IconButton icon="person-add" label="Add a friend" onPress={() => { mediumFeedback(); setShowAddFriend(true); }} diameter={40} size={20} />
+                    </View>
+                ) : null}
+            </View>
+
+            {gate ? <FriendsGate needsUsername={gate === 'needs_username'} onReady={() => { void load(); }} /> : null}
+
+            {gate === null && requests.length > 0 ? (
+                <View style={styles.block}>
+                    <SectionTitle first>Requests</SectionTitle>
+                    <VoidCard style={styles.requests}>
+                        {requests.map(request => {
+                            const name = request.fromName ?? request.fromUsername;
+                            return (
+                                <View key={request.id} style={styles.requestRow}>
+                                    <Avatar name={name} uri={request.fromAvatarUrl} size={36} />
+                                    <Text numberOfLines={1} style={[styles.requestName, { color: colors.textPrimary }]}>{name}</Text>
+                                    <IconButton icon="checkmark" label={`Accept ${name}`} onPress={() => void answer(request, true)} diameter={34} size={18} color={colors.success} />
+                                    <IconButton icon="close" label={`Decline ${name}`} onPress={() => void answer(request, false)} diameter={34} size={18} color={colors.textTertiary} />
+                                </View>
+                            );
+                        })}
+                    </VoidCard>
+                </View>
+            ) : null}
+
+            {gate === null && rail.length > 0 ? (
+                <View style={styles.block}>
+                    <FriendsRail friends={rail} onOpen={friend => openFriend(friend.userId)} />
+                </View>
+            ) : null}
+
+            {gate === null ? <SectionTitle first>Feed</SectionTitle> : null}
+        </View>
+    );
+
+    if (gate === undefined) {
+        return <VoidShell><View style={styles.loader}><ActivityIndicator color={colors.textTertiary} /></View></VoidShell>;
+    }
 
     return (
         <VoidShell>
-            {/* Full-Page Loading Overlay (Initial Load Only) */}
-            {loading && !refreshing && !hasLoadedOnce.current && (
-                <Animated.View
-                    exiting={require('react-native-reanimated').FadeOut.duration(300)}
-                    style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        backgroundColor: colors.background,
-                        zIndex: 100,
-                    }}
-                >
-                    {/* An ordinary spinner. A logo turning over is a brand
-                        animation, and waiting is not the moment for one. */}
-                    <ActivityIndicator color={colors.textTertiary} />
-                </Animated.View>
-            )}
-
-            <ScrollView
-                ref={scroller}
-                contentContainerStyle={{ paddingTop: topSpacing + vs(36), paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
+            <FlatList
+                data={gate === null ? posts : []}
+                keyExtractor={post => `${post.userId}:${post.day}`}
+                ListHeaderComponent={header}
+                contentContainerStyle={{ paddingTop: topSpacing + 36, paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
                 showsVerticalScrollIndicator={false}
-                refreshControl={
-                    // The native spinner: it follows the pull and tucks away
-                    // without pushing the page down when it finishes.
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={colors.textTertiary}
-                        progressViewOffset={topSpacing}
-                    />
-                }
-            >
-                {/* Header */}
-                <View style={{ marginBottom: isCompactWidth ? 20 : 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View>
-                        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Community</Text>
-                    </View>
-                    {!gate && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-
-                        {/* Where a friend request waits. Without somewhere to
-                            put it, being asked was invisible unless you came
-                            here and scrolled past the feed. */}
-                        <IconButton icon={unread > 0 ? 'notifications' : 'notifications-outline'}
-                            label={unread > 0 ? `Inbox, ${unread} waiting` : 'Inbox'}
-                            onPress={() => { lightFeedback(); router.push('/(root)/inbox'); }}
-                            diameter={40} size={20} badge={unread} />
-
-                        <IconButton icon="person-add" label="Add a friend" onPress={() => {
-                                mediumFeedback();
-                                setShowAddFriendModal(true);
-                            }} diameter={40} size={20} />
-                    </View>}
-                </View>
-
-                {gate ? (
-                    <FriendsGate needsUsername={gate === 'needs_username'} onReady={() => loadData(true)} />
-                ) : (<>
-                {/* Friend Requests */}
-                {friendRequests.length > 0 && (
-                    <View style={{ marginBottom: 24 }}>
-                        <SectionTitle first>Friend requests</SectionTitle>
-                        <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[{ padding: 16 }]}>
-                            {friendRequests.map(request => (
-                                <View key={request.id} style={styles.requestRow}>
-                                    <View style={[styles.avatar, { backgroundColor: colors.surfaceTertiary }]}>
-                                        <Text style={{ fontSize: 16 }}>{(request.fromName ?? request.fromUsername)[0]?.toUpperCase()}</Text>
-                                    </View>
-                                    <Text style={[styles.username, { color: colors.textPrimary, flex: 1, marginLeft: 12 }]}>
-                                        {request.fromName ?? request.fromUsername}
-                                    </Text>
-                                    <IconButton icon="checkmark" label="Accept request" onPress={() => handleAcceptRequest(request.id)} diameter={34} size={18} color={colors.success} />
-                                    <IconButton icon="close" label="Decline request" onPress={() => handleDeclineRequest(request.id)} diameter={34} size={18} color={colors.error} style={{ marginLeft: 8 }} />
-                                </View>
-                            ))}
-                        </VoidCard>
-                    </View>
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={topSpacing} />}
+                onEndReached={() => { void loadMore(); }}
+                onEndReachedThreshold={0.6}
+                renderItem={({ item, index }) => (
+                    <ListItem index={index}>
+                        <DayPostCard
+                            name={item.name}
+                            avatarUrl={item.avatarUrl}
+                            postedAt={item.postedAt}
+                            card={item.card}
+                            mine={item.mine}
+                            ackCount={item.ackCount}
+                            acked={item.ackedByMe}
+                            ackFaces={item.ackUsers.flatMap(id => { const face = people.get(id); return face ? [face] : []; })}
+                            onAcknowledge={() => void acknowledge(item)}
+                            onOpenAuthor={() => (item.mine ? router.push('/(root)/profile') : openFriend(item.userId))}
+                        />
+                    </ListItem>
                 )}
-
-                {/* Talking to each other, with each day sent along as a card. */}
-                <ChatList
-                    people={friends.filter(friend => !friend.isCurrentUser).map<ChatPerson>(friend => ({
-                        id: friend.id || friend.userId, name: friend.displayName || friend.username, avatarUrl: friend.avatarUrl,
-                    }))}
-                    conversations={conversations}
-                    me={myId}
-                    onOpen={person => {
-                        lightFeedback();
-                        // Cast until the typed-routes file regenerates with the new page.
-                        router.push({ pathname: '/(root)/chat' as never, params: { id: person.id, name: person.name } });
-                    }}
-                />
-
-                {/* The day, as everyone finished it. This replaced a ranked
-                    table: a leaderboard answers "who is winning", which rewards
-                    whoever tracks the least demanding things and makes a bad
-                    week public. */}
-                <View
-                    style={styles.feed}
-                    onLayout={event => { feedTop.current = event.nativeEvent.layout.y; }}
-                >
-                    {/* Everybody at once, before the feed shows anybody in
-                        detail. Tapping a face takes you to their card. */}
-                    <Pulse people={pulse} onPick={goToCard} />
-
-                    {/* Everybody's Marks: something to keep up with. */}
-                    <MarksBoard people={marksPeople} onPick={goToCard} />
-
-                    <View style={styles.feedHead}>
-                        <SectionTitle first style={styles.feedTitle}>Today</SectionTitle>
-                        {/* The line says what you can do about it when there is
-                            something, and how the group is going when there is
-                            not. Never who is winning. */}
-                        <Text style={[styles.feedSummary, { color: waiting > 0 ? accentColor : colors.textTertiary }]}>
-                            {waiting > 0
-                                ? (waiting === 1 ? '1 person is waiting on you' : `${waiting} people are waiting on you`)
-                                : summarise(dayFeed)}
+                ListEmptyComponent={gate === null ? (
+                    <View style={styles.empty}>
+                        <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+                            {shareTime ? `Your day posts here at ${shareTime}. Your friends' days show up at the times they choose.` : "Your friends' days show up here at the times they choose."}
                         </Text>
+                        <Pressable onPress={() => router.push('/(root)/sharing')} accessibilityRole="button">
+                            <Text style={[styles.emptyLink, { color: primary }]}>{shareTime ? 'Change the time' : 'Turn on daily posts'}</Text>
+                        </Pressable>
                     </View>
-                    {dayFeed.map(card => (
-                        <View
-                            key={card.id}
-                            onLayout={event => { cardTops.current[card.id] = event.nativeEvent.layout.y; }}
-                        >
-                            <DayCard
-                                card={card}
-                                reaction={sentReactions[card.id]}
-                                onReact={value => void handleReaction(card.id, value)}
-                                onOpen={() => {
-                                    const found = friends.find(item => (item.id || item.userId) === card.id);
-                                    if (found) handleFriendPress(found);
-                                }}
-                                together={together[card.id]}
-                                tasks={todayTasks[card.id]}
-                                notes={notes[card.id]}
-                                onComment={text => void handleComment(card.id, text)}
-                                onDeleteNote={id => void handleDeleteNote(card.id, id)}
-                                marks={marksById.get(card.id)}
-                            />
-                        </View>
-                    ))}
-                </View>
-
-                </>)}
-            </ScrollView>
-
-            {/* Friend Stats Modal */}
-            <FriendStatsModal
-                visible={showFriendStats}
-                friend={selectedFriend}
-                onClose={() => setShowFriendStats(false)}
-                onNudge={handleNudge}
-                // Their card has to go straight away, not at the next refresh.
-                onBlocked={() => { void loadData(true); }}
+                ) : null}
+                ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.more} color={colors.textTertiary} /> : null}
             />
 
-
-            {/* Add Friend Modal */}
-            <AddFriendModal
-                visible={showAddFriendModal}
-                onClose={() => setShowAddFriendModal(false)}
-                userCode={userCode}
-                onFriendAdded={() => loadData(true)}
-            />
+            <AddFriendModal visible={showAddFriend} onClose={() => setShowAddFriend(false)} userCode={userCode} onFriendAdded={() => { void load(); }} />
         </VoidShell>
     );
 }

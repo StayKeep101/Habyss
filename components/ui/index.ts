@@ -18,7 +18,7 @@
  *   TimeRow, Wheel, ViewSwitcher, SwipeRow, TypingPlaceholder
  *
  * Content
- *   IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
+ *   Avatar (a face: photo or initial, optional ring and badge), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
  *   StatTile, ChartCard, HabitRow, ProgressRing, HalfCircleProgress, CheckPop
  *
  * Motion (how charts, bars and numbers move — use these, never a still bar)
@@ -40,6 +40,7 @@ export { SheetScreen } from './SheetScreen';
 export { ModalHeader } from './ModalHeader';
 export { VoidCard } from './VoidCard';
 export { IconTile } from './IconTile';
+export { Avatar } from './Avatar';
 export { ChoicePill } from './ChoicePill';
 export { SettingsGroup, SettingsRow } from './SettingsList';
 export { MatteSurface } from './MatteSurface';

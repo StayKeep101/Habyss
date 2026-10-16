@@ -1,5 +1,4 @@
 import { buildDayCard, cardShare, sameCard } from '../dayCard';
-import { buildThread, preview, type ChatMessage, type StoredDayCard } from '../chatThread';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 
@@ -42,30 +41,5 @@ describe('the day card', () => {
         expect(sameCard(card, { ...card })).toBe(true);
         expect(sameCard(card, { ...card, habitsDone: 2 })).toBe(false);
         expect(sameCard(null, card)).toBe(false);
-    });
-});
-
-describe('a chat thread', () => {
-    const message = (id: string, from: string, at: string): ChatMessage => ({ id, fromUser: from, toUser: from === 'me' ? 'sam' : 'me', body: id, createdAt: at });
-    const day = (userId: string, date: string, updatedAt: string, total = 2): StoredDayCard => ({
-        userId, day: date, updatedAt,
-        card: { habitsDone: 1, habitsTotal: total, tasksDone: 0, tasksTotal: 0, streak: 1 },
-    });
-
-    it('puts each day card after that day’s messages and leaves out empty days', () => {
-        const thread = buildThread('me', [
-            message('hi', 'sam', '2026-10-14T10:00:00.000Z'),
-            message('yo', 'me', '2026-10-15T08:00:00.000Z'),
-        ], [
-            day('sam', '2026-10-14', '2026-10-15T09:00:00.000Z'),
-            day('me', '2026-10-13', '2026-10-13T12:00:00.000Z', 0),
-        ]);
-        expect(thread.map(item => item.id)).toEqual(['m:hi', 'c:sam:2026-10-14', 'm:yo']);
-        expect(thread[2].mine).toBe(true);
-    });
-
-    it('previews the newest item', () => {
-        const [item] = buildThread('me', [message('see you', 'me', '2026-10-15T08:00:00.000Z')], []);
-        expect(preview(item)).toBe('You: see you');
     });
 });

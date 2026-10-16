@@ -1,0 +1,62 @@
+import { useEffect } from 'react';
+import { AppState } from 'react-native';
+import { FeedService } from '@/lib/feedService';
+import { HEARTBEAT_MS } from '@/lib/presence';
+import { getDayWindow } from '@/lib/echo';
+import { announceChange } from '@/lib/livePulse';
+import { useFocusTime } from '@/context/FocusTimeContext';
+
+/**
+ * Tells friends whether you are here: "live" while the app is open (refreshed
+ * every few minutes, so a phone that dies does not stay live), "away" when it
+ * goes to the background. Your time zone and sleep window ride along, so
+ * friends see you as asleep at your bedtime, not theirs. Mounted once.
+ */
+export function useStatusBroadcast() {
+    useEffect(() => {
+        let beat: ReturnType<typeof setInterval> | null = null;
+
+        const live = async () => {
+            const day = await getDayWindow().catch(() => null);
+            await FeedService.setStatus({
+                presence: 'live',
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                ...(day ? { wakeTime: day.wake, sleepTime: day.sleep } : {}),
+            }).catch(() => undefined);
+        };
+        const start = () => {
+            void live().then(() => announceChange());
+            if (!beat) beat = setInterval(() => { void live(); }, HEARTBEAT_MS);
+        };
+        const stop = () => {
+            if (beat) { clearInterval(beat); beat = null; }
+            void FeedService.setStatus({ presence: 'away' }).catch(() => undefined);
+        };
+
+        if (AppState.currentState === 'active') start();
+        const subscription = AppState.addEventListener('change', state => {
+            if (state === 'active') start();
+            else if (state === 'background') stop();
+        });
+        return () => { subscription.remove(); if (beat) clearInterval(beat); };
+    }, []);
+}
+
+/**
+ * "Locked in" while a focus session runs: written when it starts, pauses or
+ * ends, never every second. A flow session has no end, so it is given two
+ * hours and renewed when it is resumed.
+ */
+export function useFocusStatus() {
+    const focus = useFocusTime();
+    const running = focus.isRunning && !focus.isPaused;
+    const seconds = focus.activeMode === 'flow' ? 2 * 3600 : focus.timeLeft;
+    useEffect(() => {
+        const until = running ? new Date(Date.now() + Math.max(60, seconds) * 1000).toISOString() : null;
+        void FeedService.setStatus({ focusUntil: until, focusLabel: running ? focus.activeHabitName ?? null : null })
+            .then(() => announceChange())
+            .catch(() => undefined);
+        // Only on start, pause, resume and stop — not on every tick of timeLeft.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [running, focus.activeHabitId]);
+}

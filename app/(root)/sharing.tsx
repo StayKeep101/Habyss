@@ -9,6 +9,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { ALL_SHARED, SHARING_LABELS, getSharing, setSharing, type Sharing } from '@/lib/profileSync';
 import { PREF_LABELS, getNotificationPrefs, setNotificationPrefs, type NotificationPrefs } from '@/lib/notificationPrefs';
 import { styles } from '@/styles/screens/sharing.styles';
+import { TimeRow } from '@/components/ui/TimeRow';
+import { FeedService } from '@/lib/feedService';
 
 /**
  * What friends see of you, and what they are allowed to interrupt you about.
@@ -27,6 +29,14 @@ export default function SharingScreen() {
 
     const [sharing, setSharingState] = useState<Sharing | null>(null);
     const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+    // Your day card goes to the feed at this time each day (the server posts it).
+    const [post, setPost] = useState<{ time: string; enabled: boolean }>({ time: '21:00', enabled: true });
+    useEffect(() => { void FeedService.shareSettings().then(found => { if (found) setPost(found); }); }, []);
+    const changePost = (change: { time?: string; enabled?: boolean }) => {
+        selectionFeedback();
+        setPost(current => ({ ...current, ...change }));
+        void FeedService.setShareSettings(change);
+    };
 
     useEffect(() => {
         let alive = true;
@@ -59,6 +69,14 @@ export default function SharingScreen() {
     return (
         <SheetScreen title="Friends & sharing" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <SettingsGroup title="Daily post">
+                    <SettingsRow icon="newspaper" color={accent} label="Post my day to the feed"
+                        toggle={post.enabled} onToggle={value => changePost({ enabled: value })} />
+                    {post.enabled ? (
+                        <TimeRow icon="time" label="At" value={post.time} accent={accent} onChange={time => changePost({ time })} />
+                    ) : null}
+                </SettingsGroup>
+
                 {/* Only accepted friends ever see any of this. */}
                 <SettingsGroup title="Friends see">
                     {SHARING_LABELS.map(item => (

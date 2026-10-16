@@ -121,11 +121,15 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
-          name="brain-dump"
+          name="leaderboard"
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
-          name="chat"
+          name="friend"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="brain-dump"
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
