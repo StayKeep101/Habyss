@@ -1,13 +1,13 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '@/components/ui/Avatar';
-import { AppIcon } from '@/components/ui/AppIcon';
 import { ListItem } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { STATUS_LABEL, type FriendStatus } from '@/lib/presence';
+import { StatusBadge } from './StatusBadge';
 
 export interface RailFriend { userId: string; name: string; avatarUrl?: string; status: FriendStatus }
 
@@ -27,12 +27,8 @@ export function FriendsRail({ friends, onOpen }: { friends: RailFriend[]; onOpen
     if (friends.length === 0) return null;
     const sorted = [...friends].sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.name.localeCompare(b.name));
 
-    const badgeFor = (status: FriendStatus) => {
-        if (status === 'focus') return <View style={[styles.badge, { backgroundColor: primary }]}><AppIcon name="lock-closed" size={10} color={colors.background} /></View>;
-        if (status === 'live') return <View style={[styles.dot, { backgroundColor: colors.success }]} />;
-        if (status === 'asleep') return <View style={[styles.badge, { backgroundColor: colors.surfaceTertiary }]}><AppIcon name="moon" size={10} color={colors.textSecondary} /></View>;
-        return null;
-    };
+    // Away needs no mark on the rail: the name under the face says enough.
+    const badgeFor = (status: FriendStatus) => (status === 'away' ? null : <StatusBadge status={status} />);
 
     return (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>

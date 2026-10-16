@@ -4,6 +4,8 @@ import { IconTile } from '@/components/ui/IconTile';
 import { CountUp, PopIn } from '@/components/ui/Motion';
 import { LevelCard } from './LevelCard';
 import { MarksBackdrop } from './MarksBackdrop';
+import { StatusBadge } from '@/components/Community/StatusBadge';
+import { STATUS_LABEL, type FriendStatus } from '@/lib/presence';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -44,6 +46,8 @@ export const ProfileView: React.FC<{
     avatar?: string | null;
     cover?: string | null;
     initials: string;
+    /** Their status, as a mark at the corner of their photo. */
+    status?: FriendStatus;
     /** A line under the name and handle (a friend's status). */
     subline?: React.ReactNode;
     /** Absent when they keep their progress private. */
@@ -68,7 +72,7 @@ export const ProfileView: React.FC<{
     topInset?: number;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, cover, initials, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, children }) => {
+}> = ({ name, bio, meta, avatar, cover, initials, status, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -168,6 +172,12 @@ export const ProfileView: React.FC<{
                         <View style={[styles.camera, { backgroundColor: primary, borderColor: colors.background }]}>
                             <Ionicons name="camera" size={s(12)} color="#fff" />
                         </View>
+                    ) : status ? (
+                        // What they are doing now, at the corner of their photo.
+                        <View style={[styles.status, { borderColor: colors.background, backgroundColor: colors.background }]}
+                            accessible accessibilityLabel={STATUS_LABEL[status]}>
+                            <StatusBadge status={status} size={s(26)} />
+                        </View>
                     ) : null}
                 </Pressable>
 
@@ -254,6 +264,7 @@ const styles = StyleSheet.create({
     avatar: { width: s(96), height: s(96), borderRadius: s(48), borderWidth: s(3), overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     photo: { width: '100%', height: '100%' },
     initials: { fontSize: ms(30), fontFamily: FontFamily.bold },
+    status: { position: 'absolute', right: s(2), bottom: s(2), borderRadius: 999, borderWidth: 3, alignItems: 'center', justifyContent: 'center', minWidth: s(26), minHeight: s(26) },
     camera: { position: 'absolute', right: 0, bottom: 0, width: s(28), height: s(28), borderRadius: s(14), borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
     identityText: { alignSelf: 'stretch', alignItems: 'center', paddingHorizontal: s(24), gap: vs(2) },
     name: { fontSize: ms(24), fontFamily: FontFamily.bold, paddingVertical: 0, textAlign: 'center', alignSelf: 'stretch' },
