@@ -1,18 +1,15 @@
 import { StyleSheet } from 'react-native';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 
-/** The look of app/(root)/brain-dump.tsx. */
+/** The look of app/(root)/brain-dump.tsx: a page to write on, nothing more. */
 export const styles = StyleSheet.create({
     flex: { flex: 1 },
-    content: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.bottom, gap: Spacing.sm },
-    composer: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.md },
-    input: { flex: 1, minHeight: 52, maxHeight: 180, fontFamily: FontFamily.regular, fontSize: 16, lineHeight: 22, paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.md, borderRadius: 22 },
-    day: { fontFamily: FontFamily.semibold, fontSize: 13, marginTop: Spacing.lg, marginBottom: Spacing.xs },
-    item: { marginBottom: Spacing.sm },
-    thought: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: Spacing.xs },
-    text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 22 },
-    foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    actions: { flexDirection: 'row', gap: Spacing.xs + 2 },
-    time: { fontFamily: FontFamily.regular, fontSize: 11 },
-    empty: { fontFamily: FontFamily.regular, fontSize: 14, textAlign: 'center', marginTop: Spacing.section },
+    content: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.bottom * 2 },
+    composer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md, marginBottom: Spacing.md },
+    input: { flex: 1, fontFamily: FontFamily.medium, fontSize: 20, lineHeight: 28, paddingVertical: Spacing.sm },
+    divider: { borderTopWidth: StyleSheet.hairlineWidth },
+    empty: { fontFamily: FontFamily.regular, fontSize: 15, textAlign: 'center', marginTop: Spacing.section },
+    undo: { position: 'absolute', left: Spacing.xl, right: Spacing.xl, bottom: Spacing.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: 999 },
+    undoText: { fontFamily: FontFamily.medium, fontSize: 14 },
+    undoAction: { fontFamily: FontFamily.semibold, fontSize: 15 },
 });

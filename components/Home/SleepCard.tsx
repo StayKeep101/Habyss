@@ -1,7 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { router } from 'expo-router';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { IconTile } from '@/components/ui/IconTile';
 import { AppIcon } from '@/components/ui/AppIcon';
@@ -10,7 +9,6 @@ import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
-import { useHaptics } from '@/hooks/useHaptics';
 import { useSleep } from '@/hooks/useSleep';
 import { formatSleep } from '@/lib/sleepLog';
 import { MARKS } from '@/lib/marks';
@@ -22,30 +20,17 @@ const NIGHTS = 7;
 /**
  * Last night's sleep, from Apple Health, and the week behind it. A night that
  * reaches your goal earns 5 Marks; a recorded night short of it costs 5. The goal is set
- * in Settings. Without Health connected, it offers the way to connect it.
+ * in Settings. Only shown when something actually records sleep.
  */
 export function SleepCard() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
-    const { lightFeedback } = useHaptics();
     const sleep = useSleep();
 
-    if (!sleep.connected) {
-        return (
-            <Pressable onPress={() => { lightFeedback(); router.push('/(root)/integrations'); }} accessibilityRole="button"
-                accessibilityLabel="Connect Apple Health to count your sleep">
-                <VoidCard style={styles.connect}>
-                    <IconTile icon="moon" color={primary} size={36} />
-                    <View style={styles.flex}>
-                        <Text style={[styles.title, { color: colors.textPrimary }]}>Sleep</Text>
-                        <Text style={[styles.sub, { color: colors.textTertiary }]}>Connect Apple Health and good nights earn Marks</Text>
-                    </View>
-                    <AppIcon name="chevron-forward" size={16} color={colors.textTertiary} />
-                </VoidCard>
-            </Pressable>
-        );
-    }
+    // No sleep tracker (no Watch, Garmin, ring…) or Health not connected:
+    // no card at all, rather than an empty one or a prompt.
+    if (!sleep.connected || Object.keys(sleep.nights).length === 0) return null;
 
     const today = new Date();
     const mornings = Array.from({ length: NIGHTS }, (_, index) => {

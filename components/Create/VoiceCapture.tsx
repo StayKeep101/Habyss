@@ -67,11 +67,14 @@ export function VoiceCapture() {
         };
 
         const listeners = [
+            // Only its own sessions: a text field dictating (useDictation) shares
+            // the same speech module and must not open the + button's pill.
             module.addListener('result', event => {
+                if (!active.current) return;
                 latest.current = event.results[0]?.transcript ?? '';
                 emit('voice_state', { listening: true, heard: latest.current });
             }),
-            module.addListener('volumechange', event => { voiceLevel.value = normaliseLevel(event.value); }),
+            module.addListener('volumechange', event => { if (active.current) voiceLevel.value = normaliseLevel(event.value); }),
             module.addListener('end', finish),
             module.addListener('error', event => {
                 // Letting go before anything was said is not an error worth a word.

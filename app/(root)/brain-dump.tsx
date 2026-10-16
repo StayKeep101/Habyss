@@ -1,125 +1,166 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
+import { MatteInput } from '@/components/ui/MatteInput';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { MatteInput } from '@/components/ui/MatteInput';
-import { IconButton } from '@/components/ui/IconButton';
-import { VoidCard } from '@/components/ui/VoidCard';
-import { ListItem } from '@/components/ui/Motion';
+import { MicButton } from '@/components/ui/MicButton';
+import { ThoughtRow } from '@/components/BrainDump/ThoughtRow';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useDictation } from '@/hooks/useDictation';
 import { emit } from '@/lib/appEvents';
-import { addThought, byDay, getThoughts, removeThought, type Thought } from '@/lib/brainDump';
-import { localDateKey } from '@/lib/habitSchedule';
+import { addThought, getThoughts, moveItem, removeThought, reorderThoughts, restoreThought, updateThought, type Thought } from '@/lib/brainDump';
 import { styles } from '@/styles/screens/brain-dump.styles';
 
-const dayLabel = (day: string, today: string) => day === today ? 'Today'
-    : new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
-const timeOf = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const UNDO_MS = 4000;
 
 /**
- * Somewhere to put what is on your mind. Write it, send it, and it is out of
- * your head. Hold a thought to turn it into a task, habit or goal. Private:
- * it stays on this phone.
+ * Somewhere to empty your head, with nothing in the way.
+ *
+ * Type and press return: it is saved and the cursor waits for the next one.
+ * Or tap the mic and say it. Below, just the words. Swipe left to delete
+ * (with a moment to undo), swipe right to turn it into a task, habit or goal,
+ * tap to reword, hold and drag to move. Private: it stays on this phone.
  */
 export default function BrainDumpScreen() {
     const router = useRouter();
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
-    const { lightFeedback, selectionFeedback } = useHaptics();
+    const { lightFeedback } = useHaptics();
     const [thoughts, setThoughts] = useState<Thought[]>([]);
     const [draft, setDraft] = useState('');
-    const today = localDateKey(new Date());
+    const [undo, setUndo] = useState<{ thought: Thought; index: number } | null>(null);
+    const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const input = useRef<React.ElementRef<typeof MatteInput>>(null);
 
     useEffect(() => { void getThoughts().then(setThoughts); }, []);
-    const days = useMemo(() => byDay(thoughts, iso => localDateKey(new Date(iso))), [thoughts]);
 
-    const send = async () => {
+    // Talking fills the field; return (or the mic again) saves it like typing does.
+    const base = useRef('');
+    const dictation = useDictation(heard => setDraft(`${base.current}${base.current && heard ? ' ' : ''}${heard}`));
+    const talk = () => { base.current = draft.trim(); void dictation.toggle(); };
+
+    const save = async () => {
         const thought = await addThought(draft);
         if (!thought) return;
         lightFeedback();
         setDraft('');
         setThoughts(prev => [thought, ...prev]);
+        input.current?.focus();
     };
 
-    /** Leaves this page first: the sheets open over the app, not over a modal. */
-    const turnInto = (kind: 'task' | 'habit' | 'goal', text: string) => {
+    const remove = useCallback(async (thought: Thought) => {
+        const index = thoughts.findIndex(item => item.id === thought.id);
+        setThoughts(prev => prev.filter(item => item.id !== thought.id));
+        await removeThought(thought.id);
+        setUndo({ thought, index });
+        if (undoTimer.current) clearTimeout(undoTimer.current);
+        undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
+    }, [thoughts]);
+
+    const bringBack = async () => {
+        if (!undo) return;
+        await restoreThought(undo.thought, undo.index);
+        setThoughts(await getThoughts());
+        setUndo(null);
+    };
+
+    /** The thought becomes the real thing, and leaves the dump (undo brings it back). */
+    const turnInto = (thought: Thought, kind: 'task' | 'habit' | 'goal') => {
+        void remove(thought);
         router.back();
         setTimeout(() => {
-            if (kind === 'habit') emit('show_quick_add', { prefillName: text });
-            else if (kind === 'goal') emit('show_goal_quick_add', { prefill: text });
-            else emit('show_task_form', { prefill: text });
+            if (kind === 'habit') emit('show_quick_add', { prefillName: thought.text });
+            else if (kind === 'goal') emit('show_goal_quick_add', { prefill: thought.text });
+            else emit('show_task_form', { prefill: thought.text });
         }, 400);
     };
 
-    const remove = async (id: string) => {
-        await removeThought(id);
-        setThoughts(prev => prev.filter(item => item.id !== id));
+    const edit = async (thought: Thought, text: string) => {
+        await updateThought(thought.id, text);
+        setThoughts(await getThoughts());
     };
 
-    const act = (thought: Thought) => {
-        selectionFeedback();
-        const choices = ['Make it a task', 'Make it a habit', 'Make it a goal', 'Delete', 'Cancel'];
-        const pick = (index: number) => {
-            if (index === 0) turnInto('task', thought.text);
-            if (index === 1) turnInto('habit', thought.text);
-            if (index === 2) turnInto('goal', thought.text);
-            if (index === 3) void remove(thought.id);
-        };
-        if (Platform.OS === 'ios') {
-            ActionSheetIOS.showActionSheetWithOptions({ options: choices, destructiveButtonIndex: 3, cancelButtonIndex: 4 }, pick);
+    // Hold and drag: rows measure themselves, and the drop lands where the
+    // dragged row's middle ends up among the others.
+    const heights = useRef<Record<string, number>>({});
+    const measure = (id: string) => (event: LayoutChangeEvent) => { heights.current[id] = event.nativeEvent.layout.height; };
+    const dropAt = (from: number, dy: number): number => {
+        let to = from;
+        let travelled = dy;
+        if (dy > 0) {
+            while (to < thoughts.length - 1 && travelled > (heights.current[thoughts[to + 1].id] ?? 48) / 2) {
+                travelled -= heights.current[thoughts[to + 1].id] ?? 48;
+                to += 1;
+            }
         } else {
-            Alert.alert('', undefined, choices.slice(0, 4).map((text, index) => ({ text, onPress: () => pick(index) })));
+            while (to > 0 && -travelled > (heights.current[thoughts[to - 1].id] ?? 48) / 2) {
+                travelled += heights.current[thoughts[to - 1].id] ?? 48;
+                to -= 1;
+            }
         }
+        return to;
+    };
+    const drop = (from: number, dy: number) => {
+        const to = dropAt(from, dy);
+        if (to === from) return;
+        const next = moveItem(thoughts, from, to);
+        setThoughts(next);
+        void reorderThoughts(next.map(item => item.id));
     };
 
     return (
         <SheetScreen title="Brain dump" onBack={() => router.back()}>
             <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
-                <View style={styles.composer}>
-                    <MatteInput
-                        autoFocus
-                        multiline
-                        value={draft}
-                        onChangeText={setDraft}
-                        placeholder="What's on your mind?"
-                        accessibilityLabel="New thought"
-                        style={styles.input}
-                    />
-                    <IconButton icon="arrow-up" label="Save thought" onPress={() => void send()} disabled={!draft.trim()}
-                        diameter={52} size={18} color={draft.trim() ? primary : colors.textTertiary} />
-                </View>
-                <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
+                <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
+                    {/* Just a place to write: no box, no button. Return saves. */}
+                    <View style={styles.composer}>
+                        <MatteInput
+                            bare
+                            ref={input}
+                            autoFocus
+                            value={draft}
+                            onChangeText={setDraft}
+                            placeholder="What’s on your mind?"
+                            placeholderTextColor={colors.textTertiary}
+                            returnKeyType="done"
+                            blurOnSubmit={false}
+                            onSubmitEditing={() => void save()}
+                            selectionColor={primary}
+                            style={[styles.input, { color: colors.textPrimary }]}
+                            accessibilityLabel="New thought. Press return to save it"
+                        />
+                        {dictation.available ? <MicButton listening={dictation.listening} onPress={talk} /> : null}
+                    </View>
+
                     {thoughts.length === 0 ? (
                         <Text style={[styles.empty, { color: colors.textTertiary }]}>Empty head. Nice.</Text>
-                    ) : days.map(group => (
-                        <View key={group.day}>
-                            <Text style={[styles.day, { color: colors.textTertiary }]}>{dayLabel(group.day, today)}</Text>
-                            {group.thoughts.map((thought, index) => (
-                                <ListItem key={thought.id} index={index} style={styles.item}>
-                                    <Pressable onLongPress={() => act(thought)} delayLongPress={300}
-                                        accessibilityHint="Hold for more options" accessibilityLabel={thought.text}>
-                                        <VoidCard style={styles.thought}>
-                                            <Text style={[styles.text, { color: colors.textPrimary }]}>{thought.text}</Text>
-                                            <View style={styles.foot}>
-                                                <Text style={[styles.time, { color: colors.textTertiary }]}>{timeOf(thought.createdAt)}</Text>
-                                                {/* One tap turns a thought into something to do. */}
-                                                <View style={styles.actions}>
-                                                    <IconButton icon="checkbox-outline" label="Make it a task" onPress={() => { selectionFeedback(); turnInto('task', thought.text); }} diameter={32} size={15} />
-                                                    <IconButton icon="repeat" label="Make it a habit" onPress={() => { selectionFeedback(); turnInto('habit', thought.text); }} diameter={32} size={15} />
-                                                    <IconButton icon="flag-outline" label="Make it a goal" onPress={() => { selectionFeedback(); turnInto('goal', thought.text); }} diameter={32} size={15} />
-                                                </View>
-                                            </View>
-                                        </VoidCard>
-                                    </Pressable>
-                                </ListItem>
-                            ))}
+                    ) : thoughts.map((thought, index) => (
+                        <View key={thought.id} style={index > 0 ? [styles.divider, { borderTopColor: colors.border }] : undefined}>
+                            <ThoughtRow
+                                thought={thought}
+                                onDelete={() => void remove(thought)}
+                                onTurnInto={kind => turnInto(thought, kind)}
+                                onEdit={text => void edit(thought, text)}
+                                onLayout={measure(thought.id)}
+                                onDragStart={() => undefined}
+                                onDragMove={() => undefined}
+                                onDragEnd={dy => drop(index, dy)}
+                            />
                         </View>
                     ))}
                 </ScrollView>
+
+                {undo ? (
+                    <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={[styles.undo, { backgroundColor: colors.surfaceTertiary }]}>
+                        <Text numberOfLines={1} style={[styles.undoText, { color: colors.textSecondary }]}>Deleted</Text>
+                        <Text onPress={() => void bringBack()} style={[styles.undoAction, { color: primary }]} accessibilityRole="button">Undo</Text>
+                    </Animated.View>
+                ) : null}
             </KeyboardAvoidingView>
         </SheetScreen>
     );

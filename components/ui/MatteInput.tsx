@@ -23,10 +23,25 @@ const BOX = /^(backgroundColor|border|shadow|elevation|overflow)/;
  * position go to the box, its text styles stay on the text, and any box look
  * it carried (a background, a border) is replaced, so no field can drift.
  */
-export const MatteInput = forwardRef<TextInput, TextInputProps & { invalid?: boolean; boxStyle?: StyleProp<ViewStyle> }>(
-    function MatteInput({ style, onFocus, onBlur, invalid, boxStyle, placeholderTextColor, selectionColor, ...props }, ref) {
+export const MatteInput = forwardRef<TextInput, TextInputProps & { invalid?: boolean; boxStyle?: StyleProp<ViewStyle>; bare?: boolean }>(
+    function MatteInput({ style, onFocus, onBlur, invalid, boxStyle, placeholderTextColor, selectionColor, bare, ...props }, ref) {
         const { theme } = useTheme();
         const colors = Colors[theme];
+        // A page to write on rather than a field (the brain dump): the same
+        // input, its colours and caret, with no box around it.
+        if (bare) {
+            return (
+                <TextInput
+                    ref={ref}
+                    placeholderTextColor={placeholderTextColor ?? colors.textTertiary}
+                    selectionColor={selectionColor ?? colors.textPrimary}
+                    {...props}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                    style={[{ color: colors.textPrimary, padding: 0 }, style]}
+                />
+            );
+        }
         const flat = (StyleSheet.flatten(style) ?? {}) as TextStyle & Record<string, unknown>;
         const box: Record<string, unknown> = {};
         const text: Record<string, unknown> = {};
