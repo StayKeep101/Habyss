@@ -274,8 +274,19 @@ export const nameOf = (row: { display_name?: string | null; username?: string | 
 
 /** Your own name, for a notification somebody else reads. */
 async function myName(ctx: Context): Promise<string> {
-    const { data } = await ctx.sb.from('profiles').select('username, display_name').eq('id', ctx.me).maybeSingle();
-    return nameOf(data);
+    const { data } = await ctx.sb.from('profiles').select('username, display_name, sharing').eq('id', ctx.me).maybeSingle();
+    if (data?.display_name?.trim()) return data.display_name.trim();
+    // The name on this phone, when it has not reached the server yet — unless
+    // the person chose to show friends only their username.
+    const showName = (data?.sharing as { name?: boolean } | null)?.name !== false;
+    if (showName) {
+        try {
+            const { getProfile } = require('./profile') as typeof import('./profile');
+            const local = (await getProfile()).name.trim();
+            if (local) return local;
+        } catch { /* fall through */ }
+    }
+    return data?.username || 'A friend';
 }
 
 interface PersonRow { username: string | null; display_name: string | null; avatar_url: string | null }
@@ -1344,13 +1355,23 @@ export class FriendsService {
         const people = await this.getSharedItemParticipants(itemId, kind).catch(() => []);
         // Only people who said yes, and only while their part is still open:
         // somebody who already did it, or never accepted, has nothing to act on.
-        const others = (people as any[]).filter(person => !person.isYou && !person.pending && !person.completedToday);
-        if (others.length === 0) return;
-
+        const agreed = (people as any[]).filter(person => !person.isYou && !person.pending);
+        if (agreed.length === 0) return;
+        const waiting = agreed.filter(person => !person.completedToday);
         const me = await myName(ctx);
-        await Promise.all(others.map(person => this.notify(ctx, person.userId, 'shared_done', {
-            title: `${me} did ${itemName}`,
-            body: 'Your turn.',
+
+        if (waiting.length > 0) {
+            // Still open for them: it does not count for anybody until they do it.
+            await Promise.all(waiting.map(person => this.notify(ctx, person.userId, 'shared_done', {
+                title: `${me} did ${itemName}`,
+                body: 'Your turn. It counts for both of you once you do it.',
+            })));
+            return;
+        }
+        // You were the last one: everybody else already did it, so tell them it counts now.
+        await Promise.all(agreed.map(person => this.notify(ctx, person.userId, 'shared_done', {
+            title: `${me} finished ${itemName} too`,
+            body: agreed.length > 1 ? 'Everyone did it. It counts for all of you today.' : 'It counts for both of you today.',
         })));
     }
 
@@ -1391,8 +1412,10 @@ export class FriendsService {
         // Either answer is news to the person who asked. Silence after a share
         // is the same as not knowing whether it arrived.
         const me = await myName(ctx);
+        const what = await itemName(ctx, type as 'habit' | 'task' | 'goal', itemId).catch(() => null);
+        const named = what ? `“${what}”` : `your ${type}`;
         await this.notify(ctx, ownerId, status === 'accepted' ? 'share_accepted' : 'share_declined', {
-            title: status === 'accepted' ? `${me} accepted your ${type}` : `${me} passed on your ${type}`,
+            title: status === 'accepted' ? `${me} joined ${named}` : `${me} passed on ${named}`,
             body: status === 'accepted'
                 ? 'It is on their list now, and neither of you has kept it until both of you have.'
                 : 'Nothing has changed on your side.',
@@ -1442,8 +1465,8 @@ export class FriendsService {
         const name = await itemName(ctx, type, itemId);
         const me = await myName(ctx);
         await this.notify(ctx, friendId, 'share_offer', {
-            title: `${me} shared a ${type} with you`,
-            body: name ? `“${name}” — accept and it joins your list.` : 'Accept and it joins your list.',
+            title: name ? `${me} shared “${name}” with you` : `${me} shared a ${type} with you`,
+            body: 'Accept and it joins your list.',
         });
     }
 
