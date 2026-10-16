@@ -106,13 +106,13 @@ struct RingLegendRow: View {
                 .frame(width: 8, height: 8)
             
             Text(label)
-                .font(.system(.caption2, design: .rounded))
+                .font(.system(.caption2, design: .default))
                 .foregroundColor(.secondary)
             
             Spacer()
             
             Text("\(Int(value * 100))%")
-                .font(.system(.caption2, design: .rounded, weight: .bold))
+                .font(.system(.caption2, design: .default, weight: .bold))
                 .foregroundColor(color)
         }
     }

@@ -25,10 +25,9 @@ struct FocusTimerView: View {
     var activeTimerView: some View {
         VStack(spacing: 12) {
             // Mode label
-            Text(vm.selectedMode.displayName.uppercased())
-                .font(.system(.caption2, design: .rounded, weight: .semibold))
+            Text(vm.selectedMode.displayName)
+                .font(.system(.caption2, design: .default, weight: .semibold))
                 .foregroundColor(Color(hex: vm.selectedMode.colorHex))
-                .kerning(1.5)
             
             // Circular progress ring with time
             ZStack {
@@ -48,7 +47,7 @@ struct FocusTimerView: View {
                 
                 VStack(spacing: 2) {
                     Text(vm.timeRemainingString)
-                        .font(.system(size: 32, weight: .bold, design: .rounded).monospacedDigit())
+                        .font(.system(size: 32, weight: .bold, design: .default).monospacedDigit())
                     
                     Text(vm.isPaused ? "PAUSED" : "FOCUS")
                         .font(.system(size: 10, weight: .bold))
@@ -119,7 +118,7 @@ struct FocusTimerView: View {
                                 .font(.caption)
                                 .foregroundColor(Color(hex: mode.colorHex))
                             Text(mode.displayName)
-                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .font(.system(.caption, design: .default, weight: .semibold))
                             Spacer()
                             Text(mode.defaultDuration > 0 ? "\(Int(mode.defaultDuration/60))m" : "∞")
                                 .font(.caption2)
@@ -163,11 +162,11 @@ struct ModeCard: View {
                     .foregroundColor(Color(hex: mode.colorHex))
                 
                 Text(mode.displayName)
-                    .font(.system(.caption2, design: .rounded, weight: .semibold))
+                    .font(.system(.caption2, design: .default, weight: .semibold))
                     .lineLimit(1)
                 
                 Text("\(Int(mode.defaultDuration/60))m")
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(.caption2, design: .default))
                     .foregroundColor(.secondary)
             }
             .frame(maxWidth: .infinity)

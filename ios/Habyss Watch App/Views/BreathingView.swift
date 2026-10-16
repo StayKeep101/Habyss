@@ -17,7 +17,7 @@ struct BreathingView: View {
         VStack(spacing: 16) {
             // Instruction
             Text(phase.instruction)
-                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .font(.system(.caption, design: .default, weight: .semibold))
                 .foregroundColor(.secondary)
                 .animation(.easeInOut, value: phase)
             
@@ -33,7 +33,7 @@ struct BreathingView: View {
             
             // Countdown
             Text("\(countdownSeconds)")
-                .font(.system(size: 28, weight: .bold, design: .rounded).monospacedDigit())
+                .font(.system(size: 28, weight: .bold, design: .default).monospacedDigit())
             
             // Session progress dots
             HStack(spacing: 6) {

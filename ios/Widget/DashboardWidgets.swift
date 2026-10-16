@@ -7,7 +7,7 @@ struct DashboardEntry: TimelineEntry {
     let date: Date
     let snapshot: DashboardSnapshot?
     var goalID: String? = nil
-    var accent: Color { Color(habyssHex: snapshot?.accent.from) ?? Habyss.fallbackFrom }
+    var accent: Color { Habyss.accent(from: snapshot?.accent.from, to: snapshot?.accent.to) }
 }
 struct DashboardProvider: TimelineProvider {
     func placeholder(in context: Context) -> DashboardEntry { DashboardEntry(date: .now, snapshot: .preview) }
@@ -78,7 +78,7 @@ struct HabitHeatmapView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Image(systemName: "flame.fill").font(.system(size: 16)).foregroundStyle(entry.accent)
-                Text(entry.snapshot?.streak.map(String.init) ?? "—").font(.system(size: 27, weight: .semibold, design: .rounded)).foregroundStyle(.white)
+                Text(entry.snapshot?.streak.map(String.init) ?? "—").font(.system(size: 27, weight: .semibold)).foregroundStyle(.white)
                 Text("day streak").font(.system(size: 11)).foregroundStyle(Habyss.dim)
                 Spacer(minLength: 0)
             }
@@ -110,8 +110,9 @@ struct HabitHeatmapView: View {
                         }
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Text(entry.snapshot?.dayKey == today ? "Every check-in adds up" : "Open Habyss to refresh your streak")
-                    .font(.system(size: 9)).foregroundStyle(Habyss.faint).lineLimit(1)
+                if entry.snapshot?.dayKey != today {
+                    Text("Open Habyss to refresh").font(.system(size: 9)).foregroundStyle(Habyss.faint).lineLimit(1)
+                }
             }
         }
         .padding(12)
@@ -137,7 +138,7 @@ struct GoalsProgressView: View {
                 let color = Color(habyssHex: goal.color) ?? entry.accent
                 Text(goal.name).font(.system(size: 12, weight: .medium)).foregroundStyle(.white).lineLimit(1)
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text("\(Int(goal.progress.rounded()))").font(.system(size: 28, weight: .semibold, design: .rounded)).foregroundStyle(color)
+                    Text("\(Int(goal.progress.rounded()))").font(.system(size: 28, weight: .semibold)).foregroundStyle(color)
                     Text("% complete").font(.system(size: 10)).foregroundStyle(Habyss.dim)
                 }
                 let points = goal.points ?? []

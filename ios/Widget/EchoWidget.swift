@@ -47,9 +47,7 @@ struct EchoProvider: TimelineProvider {
 
     private func accent() -> Color {
         let defaults = UserDefaults(suiteName: appGroup)
-        return Color(habyssHex: defaults?.string(forKey: "accentTo"))
-            ?? Color(habyssHex: defaults?.string(forKey: "accentFrom"))
-            ?? Habyss.fallbackTo
+        return Habyss.accent(from: defaults?.string(forKey: "accentFrom"), to: defaults?.string(forKey: "accentTo"))
     }
 
     private func timeline() -> [EchoEntry] {

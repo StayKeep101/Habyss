@@ -40,9 +40,13 @@ class WatchSessionManager: NSObject, WCSessionDelegate {
     
     // MARK: - Sending Data
     
+    /// The last snapshot sent, so a watch that asks (or wakes up) gets it at once.
+    private(set) var lastContext: [String: Any] = [:]
+
     func updateContext(context: [String: Any]) {
+        lastContext = context
         guard WCSession.default.activationState == .activated else { return }
-        
+
         do {
             try WCSession.default.updateApplicationContext(context)
         } catch {
@@ -59,6 +63,17 @@ class WatchSessionManager: NSObject, WCSessionDelegate {
         WCSession.default.sendMessage(message, replyHandler: replyHandler, errorHandler: errorHandler)
     }
     
+    // A watch asking for the latest snapshot gets it in the reply.
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        replyHandler(lastContext)
+        self.session(session, didReceiveMessage: message)
+    }
+
+    // Messages the watch queued while out of reach arrive this way.
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        self.session(session, didReceiveMessage: userInfo)
+    }
+
     // Listen for Focus events from Watch
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         if let type = message["type"] as? String {

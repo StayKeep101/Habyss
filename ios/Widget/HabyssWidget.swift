@@ -48,6 +48,21 @@ enum Habyss {
     static let matteBottom = Color(.sRGB, red: 0.047, green: 0.047, blue: 0.055) // #0C0C0E
     /// A control on the card: a step lighter, never the accent.
     static let raised = Color.white.opacity(0.08)
+
+    /// The app's one accent colour: the middle of the theme's two gradient
+    /// stops (context/AccentContext.tsx, mixHex). Using one end made the widget
+    /// a different colour from every chip and ring inside the app.
+    static func accent(from: String?, to: String?) -> Color {
+        func rgb(_ hex: String?) -> (Double, Double, Double)? {
+            guard var value = hex?.trimmingCharacters(in: .whitespaces), !value.isEmpty else { return nil }
+            if value.hasPrefix("#") { value.removeFirst() }
+            guard value.count == 6, let raw = UInt32(value, radix: 16) else { return nil }
+            return (Double((raw >> 16) & 0xFF) / 255, Double((raw >> 8) & 0xFF) / 255, Double(raw & 0xFF) / 255)
+        }
+        let a = rgb(from) ?? (0.227, 0.353, 0.549)
+        let b = rgb(to) ?? rgb(from) ?? (0.545, 0.678, 0.839)
+        return Color(.sRGB, red: (a.0 + b.0) / 2, green: (a.1 + b.1) / 2, blue: (a.2 + b.2) / 2)
+    }
 }
 
 /// A plain label, the way headings read in the app now: sentence case, no tracking.
@@ -107,7 +122,7 @@ struct SimpleEntry: TimelineEntry {
     var accentTo: String? = nil
     var dayKey: String? = nil
     var needsSync: Bool { summary == nil || dayKey != Self.todayKey(date) }
-    var accentSolid: Color { Color(habyssHex: accentFrom) ?? Habyss.fallbackFrom }
+    var accentSolid: Color { Habyss.accent(from: accentFrom, to: accentTo) }
     var accent: LinearGradient {
         LinearGradient(colors: [accentSolid, Color(habyssHex: accentTo) ?? Habyss.fallbackTo], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
@@ -142,7 +157,7 @@ struct WidgetEntryView: View {
             }.gaugeStyle(.accessoryCircular)
         case .accessoryRectangular:
             VStack(alignment: .leading) {
-                Text("HABYSS · TASKS").font(.caption.bold())
+                Text("Tasks").font(.caption.weight(.semibold))
                 Text(entry.needsSync ? "Open Habyss to sync" : rows.first?.name ?? "All clear").font(.headline).lineLimit(1)
                 if !entry.needsSync { Text("\(remaining) remaining").font(.caption) }
             }
@@ -154,7 +169,7 @@ struct WidgetEntryView: View {
                     Text("Today").sectionLabel()
                     Spacer(minLength: 3)
                     if !entry.needsSync {
-                        Text(remaining == 0 && !rows.isEmpty ? "All done" : "\(remaining) left").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(remaining == 0 && !rows.isEmpty ? Habyss.done : entry.accentSolid)
+                        Text(remaining == 0 && !rows.isEmpty ? "All done" : "\(remaining) left").font(.system(size: 11, weight: .semibold)).foregroundStyle(remaining == 0 && !rows.isEmpty ? Habyss.done : entry.accentSolid)
                     }
                     // Medium only: a small widget has one tap target, its rows.
                     if family == .systemMedium {
@@ -237,7 +252,7 @@ struct QuickAddLink: View {
         Link(destination: URL(string: "habyss://add?kind=\(kind)")!) {
             HStack(spacing: 2) {
                 Image(systemName: "plus").font(.system(size: 9, weight: .bold))
-                Text(label).font(.system(size: 10, weight: .semibold, design: .rounded))
+                Text(label).font(.system(size: 10, weight: .semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 7).padding(.vertical, 3)
@@ -254,9 +269,9 @@ struct QuickAddEntry: TimelineEntry {
 
 struct QuickAddProvider: TimelineProvider {
     private func current() -> QuickAddEntry {
-        QuickAddEntry(date: .now, accent: Color(habyssHex: DashboardSnapshot.read()?.accent.from) ?? Habyss.fallbackFrom)
+        QuickAddEntry(date: .now, accent: Habyss.accent(from: DashboardSnapshot.read()?.accent.from, to: DashboardSnapshot.read()?.accent.to))
     }
-    func placeholder(in context: Context) -> QuickAddEntry { QuickAddEntry(date: .now, accent: Habyss.fallbackFrom) }
+    func placeholder(in context: Context) -> QuickAddEntry { QuickAddEntry(date: .now, accent: Habyss.accent(from: nil, to: nil)) }
     func getSnapshot(in context: Context, completion: @escaping (QuickAddEntry) -> Void) { completion(current()) }
     func getTimeline(in context: Context, completion: @escaping (Timeline<QuickAddEntry>) -> Void) {
         completion(Timeline(entries: [current()], policy: .after(Date().addingTimeInterval(6 * 60 * 60))))

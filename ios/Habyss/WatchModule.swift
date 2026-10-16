@@ -4,9 +4,24 @@ import React
 @objc(WatchModule)
 class WatchModule: RCTEventEmitter {
     
+    private var hasListeners = false
+
     override init() {
         super.init()
         WatchSessionManager.shared.activateSession()
+        // What the watch sends (a habit ticked, a request for data) reaches JS.
+        NotificationCenter.default.addObserver(self, selector: #selector(forward(_:)),
+                                               name: NSNotification.Name("WatchMessageReceived"), object: nil)
+    }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    override func startObserving() { hasListeners = true }
+    override func stopObserving() { hasListeners = false }
+
+    @objc private func forward(_ notification: Notification) {
+        guard hasListeners, let message = notification.object as? [String: Any] else { return }
+        sendEvent(withName: "onWatchMessage", body: message)
     }
     
     @objc
@@ -15,7 +30,7 @@ class WatchModule: RCTEventEmitter {
     }
     
     override func supportedEvents() -> [String]! {
-        return ["onWatchMessage"] // Example event
+        return ["onWatchMessage"]
     }
     
     @objc(updateContext:)

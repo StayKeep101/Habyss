@@ -89,7 +89,7 @@ struct HabitRowView: View {
                     Text(habit.emoji)
                         .font(.system(size: 14))
                     Text(habit.title)
-                        .font(.system(.body, design: .rounded))
+                        .font(.system(.body, design: .default))
                         .foregroundColor(habit.isCompletedToday ? .secondary : .primary)
                         .strikethrough(habit.isCompletedToday && !habit.supportsCountable)
                         .lineLimit(1)
@@ -101,7 +101,7 @@ struct HabitRowView: View {
                         .tint(Color(hex: habit.color))
                         .scaleEffect(y: 0.7)
                     Text("\(habit.completionCount)/\(habit.targetCount) \(habit.unit)")
-                        .font(.system(.caption2, design: .rounded))
+                        .font(.system(.caption2, design: .default))
                         .foregroundColor(.secondary)
                 }
             }
@@ -114,7 +114,7 @@ struct HabitRowView: View {
                     Text("🔥")
                         .font(.system(size: 10))
                     Text("\(habit.streakCount)")
-                        .font(.system(.caption2, design: .rounded, weight: .bold))
+                        .font(.system(.caption2, design: .default, weight: .bold))
                         .foregroundColor(.habyssAmber)
                 }
             }

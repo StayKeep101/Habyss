@@ -356,8 +356,11 @@ function InnerLayout() {
     // Every change refreshes straight away; this is only the fallback, and each
     // pass reads the whole day back, so it runs every five minutes, not every one.
     const interval = setInterval(enqueue, 5 * 60000);
+    // The watch asking for the day gets a fresh snapshot; its ticks land here.
+    const { listenToWatch } = require('@/lib/watchSync') as typeof import('@/lib/watchSync');
+    const stopWatch = listenToWatch(enqueue);
     enqueue();
-    return () => { alive = false; stop(); subscription.remove(); clearInterval(interval); if (timer) clearTimeout(timer); };
+    return () => { alive = false; stop(); stopWatch(); subscription.remove(); clearInterval(interval); if (timer) clearTimeout(timer); };
   }, [foreground]);
 
   return (

@@ -1,13 +1,19 @@
 import SwiftUI
 
 extension Color {
-    // MARK: - Habyss Brand Colors
-    static let habyssBlue   = Color(hex: "#3B82F6")
-    static let habyssIndigo = Color(hex: "#6366F1")
+    // MARK: - Habyss Colors
+    // The accent follows the theme chosen on the phone, sent with each update
+    // (the middle of its gradient, the same colour the app fills chips with).
+    // The fixed blue the watch used to draw with matched no theme.
+    static var habyssAccent: Color { Color(hex: UserDefaults.standard.string(forKey: "watchAccent") ?? "#5B7FD6") }
+    static var habyssAccentFrom: Color { Color(hex: UserDefaults.standard.string(forKey: "watchAccentFrom") ?? "#3A5A8C") }
+    static var habyssAccentTo: Color { Color(hex: UserDefaults.standard.string(forKey: "watchAccentTo") ?? "#8BADD6") }
+    static var habyssBlue: Color { habyssAccent }
+    static var habyssIndigo: Color { habyssAccentTo }
+    static var habyssViolet: Color { habyssAccentFrom }
     static let habyssGreen  = Color(hex: "#10B981")
     static let habyssAmber  = Color(hex: "#F59E0B")
     static let habyssRose   = Color(hex: "#F43F5E")
-    static let habyssViolet = Color(hex: "#8B5CF6")
     
     // MARK: - Hex Initializer
     init(hex: String) {

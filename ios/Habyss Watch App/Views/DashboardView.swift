@@ -29,7 +29,7 @@ struct DashboardView: View {
             VStack(spacing: 12) {
                 // Greeting
                 Text(greeting)
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
@@ -49,10 +49,10 @@ struct DashboardView: View {
                     
                     VStack(spacing: 2) {
                         Text("\(completedCount)")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .font(.system(size: 28, weight: .bold, design: .default))
                             .foregroundColor(.white)
                         Text("/ \(totalCount) habits")
-                            .font(.system(.caption2, design: .rounded))
+                            .font(.system(.caption2, design: .default))
                             .foregroundColor(.secondary)
                     }
                 }
@@ -65,7 +65,7 @@ struct DashboardView: View {
                             Text("🔥")
                                 .font(.system(size: 16))
                             Text("\(topStreak)-day streak")
-                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .font(.system(.caption, design: .default, weight: .semibold))
                                 .foregroundColor(.habyssAmber)
                         }
                         .padding(.horizontal, 12)
@@ -82,7 +82,7 @@ struct DashboardView: View {
                 if let next = nextIncompleteHabit {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Up Next")
-                            .font(.system(.caption2, design: .rounded))
+                            .font(.system(.caption2, design: .default))
                             .foregroundColor(.secondary)
                         
                         NavigationLink(destination: HabitDetailView(habit: next)) {
@@ -91,7 +91,7 @@ struct DashboardView: View {
                                     .font(.system(size: 18))
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(next.title)
-                                        .font(.system(.body, design: .rounded, weight: .semibold))
+                                        .font(.system(.body, design: .default, weight: .semibold))
                                         .foregroundColor(.white)
                                         .lineLimit(1)
                                     if next.supportsCountable {
@@ -119,7 +119,7 @@ struct DashboardView: View {
                 HStack(spacing: 8) {
                     NavigationLink(destination: FocusTimerView()) {
                         Label("Focus", systemImage: "timer")
-                            .font(.system(.caption, design: .rounded, weight: .semibold))
+                            .font(.system(.caption, design: .default, weight: .semibold))
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.habyssBlue)
@@ -128,7 +128,7 @@ struct DashboardView: View {
                         logAllRemaining()
                     } label: {
                         Text("Log All")
-                            .font(.system(.caption, design: .rounded, weight: .semibold))
+                            .font(.system(.caption, design: .default, weight: .semibold))
                     }
                     .buttonStyle(.bordered)
                     .disabled(completedCount >= totalCount)

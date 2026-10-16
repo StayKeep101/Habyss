@@ -26,7 +26,7 @@ struct HabitDetailView: View {
                         .font(.system(size: 28))
                     VStack(alignment: .leading) {
                         Text(habit.title)
-                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .font(.system(.headline, design: .default, weight: .bold))
                         Text(habit.category.rawValue.capitalized)
                             .font(.caption2)
                             .foregroundColor(.secondary)
@@ -52,7 +52,7 @@ struct HabitDetailView: View {
                             
                             Spacer()
                             Text("\(currentCount)")
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .font(.system(size: 28, weight: .bold, design: .default))
                             Text("/ \(habit.targetCount)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -129,9 +129,9 @@ struct StatPill: View {
             Text(emoji)
                 .font(.system(size: 14))
             Text(value)
-                .font(.system(.caption, design: .rounded, weight: .bold))
+                .font(.system(.caption, design: .default, weight: .bold))
             Text(label)
-                .font(.system(.caption2, design: .rounded))
+                .font(.system(.caption2, design: .default))
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -152,7 +152,7 @@ struct WeeklyHeatmapView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("This Week")
-                .font(.system(.caption2, design: .rounded))
+                .font(.system(.caption2, design: .default))
                 .foregroundColor(.secondary)
             
             HStack(spacing: 4) {
@@ -163,7 +163,7 @@ struct WeeklyHeatmapView: View {
                     
                     VStack(spacing: 2) {
                         Text(days[index])
-                            .font(.system(size: 8, design: .rounded))
+                            .font(.system(size: 8, design: .default))
                             .foregroundColor(isToday ? .habyssBlue : .secondary)
                         
                         ZStack {

@@ -5,6 +5,7 @@ import { scheduledMoments, type ScheduledMoment } from './scheduledMoments';
 import { emit } from './appEvents';
 import { engagementLifecycle } from './engagementLifecycle';
 import { readAccent } from './widgetSync';
+import { mixHex } from './colorContrast';
 
 const KEY = 'habyss_scheduled_live_activities';
 export async function scheduledActivitiesEnabled() { return (await AsyncStorage.getItem(KEY)) !== 'false'; }
@@ -39,7 +40,8 @@ export function refreshScheduledActivities() {
         ]);
         const plan = enabled ? activityPlan(scheduledMoments(habits, tasks, now, completed, skipped), now, scheduledActivitiesCapability() === 'scheduled') : [];
         const result = await HabyssLiveActivity!.reconcileScheduledActivities!(plan.map(item => ({ ...item,
-            accentHex: habits.find(habit => item.key.startsWith(`habit:${habit.id}:`))?.color ?? accent.from })));
+            // A habit's own colour, otherwise the app's accent (the gradient's middle, as in the app).
+            accentHex: habits.find(habit => item.key.startsWith(`habit:${habit.id}:`))?.color ?? mixHex(accent.from, accent.to) })));
         if (result.failed) console.warn(`[Live Activities] iOS could not schedule ${result.failed} card(s).`);
         return result;
     });

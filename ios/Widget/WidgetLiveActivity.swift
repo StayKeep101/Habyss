@@ -33,7 +33,7 @@ struct HabyssLiveActivity: Widget {
                     HStack {
                         Spacer()
                         Text(timerInterval: min(Date(), Date(timeIntervalSince1970: endDate / 1000))...Date(timeIntervalSince1970: endDate / 1000), countsDown: true)
-                            .font(.system(size: 60, weight: .bold, design: .rounded)).monospacedDigit()
+                            .font(.system(size: 60, weight: .bold)).monospacedDigit()
                             // White, like the big numbers in the app; the colour lives in the progress bar.
                             .foregroundColor(.white)
                             .multilineTextAlignment(.center)

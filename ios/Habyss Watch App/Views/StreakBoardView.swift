@@ -38,11 +38,11 @@ struct StreakBoardView: View {
                         Text(champion.emoji)
                             .font(.system(size: 28))
                         Text(champion.title)
-                            .font(.system(.body, design: .rounded, weight: .bold))
+                            .font(.system(.body, design: .default, weight: .bold))
                         HStack(spacing: 4) {
                             Text("🔥")
                             Text("\(champion.streakCount) days")
-                                .font(.system(.caption, design: .rounded, weight: .bold))
+                                .font(.system(.caption, design: .default, weight: .bold))
                                 .foregroundColor(.habyssAmber)
                         }
                     }
@@ -59,11 +59,11 @@ struct StreakBoardView: View {
                         HStack {
                             Text(habit.emoji)
                             Text(habit.title)
-                                .font(.system(.caption, design: .rounded))
+                                .font(.system(.caption, design: .default))
                                 .lineLimit(1)
                             Spacer()
                             Text("\(habit.streakCount)d")
-                                .font(.system(.caption, design: .rounded, weight: .bold))
+                                .font(.system(.caption, design: .default, weight: .bold))
                                 .foregroundColor(.habyssAmber)
                             if habit.streakCount >= 7 { Text("🔥").font(.caption2) }
                         }

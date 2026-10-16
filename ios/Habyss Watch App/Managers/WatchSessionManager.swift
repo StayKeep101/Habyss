@@ -181,6 +181,10 @@ extension WatchSessionManager: WCSessionDelegate {
     }
     
     private func handleMessage(_ data: [String: Any]) {
+        // The phone's theme, so the watch is the same colour as the app.
+        for (key, stored) in [("accent", "watchAccent"), ("accentFrom", "watchAccentFrom"), ("accentTo", "watchAccentTo")] {
+            if let hex = data[key] as? String { UserDefaults.standard.set(hex, forKey: stored) }
+        }
         if let habitsData = data["habits"] as? [[String: Any]] {
             self.habits = habitsData.map { Habit(dictionary: $0) }
             self.lastSyncDate = .now
