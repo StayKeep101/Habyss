@@ -384,6 +384,9 @@ export async function setMyUsername(raw: string): Promise<UsernameResult> {
         return { ok: false, error: error.code === '23505' ? 'That username is taken.' : 'Could not save your username.' };
     }
     if (!data?.username) return { ok: false, error: 'Your profile is not ready yet. Please sign in again.' };
+    // Friends looking at Community see the new name straight away.
+    const { announceChange } = require('./livePulse') as typeof import('./livePulse');
+    announceChange();
     return { ok: true };
 }
 

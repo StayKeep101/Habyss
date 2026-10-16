@@ -16,6 +16,7 @@ import { AppTextField } from '@/components/ui/AppTextField';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SettingsModal } from '@/components/Common/SettingsModal';
 import { saveProfile } from '@/lib/profile';
+import { getMyUsername, setMyUsername } from '@/lib/friendsService';
 
 // Conditionally require ImagePicker
 let ImagePicker: any = null;
@@ -42,6 +43,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
 
     // Form State
     const [nickname, setNickname] = useState(currentUsername);
+    // The @handle friends find you by. Changeable, with the same rules as when
+    // it was first chosen; only sent when it actually changed.
+    const [handle, setHandle] = useState('');
+    const [savedHandle, setSavedHandle] = useState<string | null>(null);
+    const [handleError, setHandleError] = useState<string | undefined>();
     const [gender, setGender] = useState('');
     const [description, setDescription] = useState('');
     const [age, setAge] = useState('');
@@ -84,6 +90,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 // Load from local storage
                 const savedNickname = await AsyncStorage.getItem('profile_nickname');
                 if (savedNickname) setNickname(savedNickname);
+                setHandleError(undefined);
+                void getMyUsername().then(current => { setSavedHandle(current); setHandle(current ?? ''); }).catch(() => undefined);
                 const savedAvatar = await AsyncStorage.getItem('profile_avatar');
                 const savedBio = await AsyncStorage.getItem('profile_bio');
                 const savedAge = await AsyncStorage.getItem('profile_age');
@@ -145,6 +153,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     const handleSave = async () => {
         setSaving(true);
         try {
+            const wanted = handle.trim().replace(/^@/, '').toLowerCase();
+            if (savedHandle !== null && wanted && wanted !== savedHandle) {
+                const result = await setMyUsername(wanted);
+                if (!result.ok) { setHandleError(result.error); setSaving(false); return; }
+                setSavedHandle(wanted);
+            }
             // Through `saveProfile`, not by setting the keys here.
             //
             // This screen wrote the six AsyncStorage keys by hand, and
@@ -239,6 +253,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                             placeholderTextColor={colors.textTertiary}
                             accessibilityLabel="Your name"
                         />
+
+                        {savedHandle !== null ? (
+                            <AppTextField
+                                label="Username"
+                                value={handle}
+                                onChangeText={value => { setHandle(value); setHandleError(undefined); }}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                maxLength={21}
+                                leadingIcon="at"
+                                placeholder="username"
+                                placeholderTextColor={colors.textTertiary}
+                                accessibilityLabel="Your username"
+                                error={handleError}
+                            />
+                        ) : null}
 
                         <View style={styles.group}>
                             <Text style={[Typography.caption, { color: colors.textSecondary }]}>Birthday</Text>
