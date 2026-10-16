@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, Text } from 'react-native';
+import { Alert, Linking, ScrollView, Text } from 'react-native';
 import { router } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
@@ -67,13 +67,19 @@ export default function IntegrationsScreen() {
     }, [successFeedback]);
 
     return (
-        <SheetScreen title="Apple Health" onBack={() => router.back()}>
+        <SheetScreen title="Integrations" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* One switch. Everything that writes to Health — watches,
                     rings, gyms — comes through it. */}
-                <SettingsGroup>
+                <SettingsGroup title="Health">
                     <SettingsRow icon="heart" color="#FF375F" label="Apple Health"
                         toggle={connected} disabled={busy} onToggle={value => { lightFeedback(); void connect(value); }} />
+                </SettingsGroup>
+                {/* Habyss already answers Siri and Shortcuts (log a habit, add a
+                    task); this is where to find them. */}
+                <SettingsGroup title="Siri & Shortcuts">
+                    <SettingsRow icon="mic" color="#5E5CE6" label="Open Shortcuts"
+                        onPress={() => { lightFeedback(); void Linking.openURL('shortcuts://').catch(() => undefined); }} />
                 </SettingsGroup>
                 {filled !== null && filled > 0 ? (
                     <Text style={[styles.filled, { color: colors.textTertiary }]}>{filled} filled in from Health</Text>

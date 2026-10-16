@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HealthMetric } from './healthMetrics';
 
@@ -18,18 +18,28 @@ import type { HealthMetric } from './healthMetrics';
 
 type HealthValue = { value?: number };
 
-let AppleHealthKit: any = null;
+/**
+ * The native module itself, and the library's constants, kept apart.
+ *
+ * react-native-health builds its export with `Object.assign({}, NativeModules.AppleHealthKit, …)`.
+ * On React Native's new architecture the native module is a host object whose
+ * methods are not plain copyable properties, so that copy came out with no
+ * methods at all: every check said Health was missing and every request
+ * quietly failed. Calling the native module directly works on both.
+ */
+const AppleHealthKit: any = Platform.OS === 'ios' ? NativeModules.AppleHealthKit ?? null : null;
+let Permissions: Record<string, string> = {};
 try {
-    AppleHealthKit = require('react-native-health');
+    Permissions = require('react-native-health')?.Constants?.Permissions ?? {};
 } catch {
-    AppleHealthKit = null;
+    Permissions = {};
 }
 
 /** Set once the Health sheet has been answered on this phone. */
 const CONNECTED_KEY = 'habyss_health_connected';
 const rememberedConnected = () => AsyncStorage.getItem(CONNECTED_KEY).then(value => value === '1').catch(() => false);
 
-const permission = (key: string): string | null => AppleHealthKit?.Constants?.Permissions?.[key] ?? null;
+const permission = (key: string): string | null => Permissions[key] ?? null;
 
 /**
  * Everything the app ever asks for, in one prompt.

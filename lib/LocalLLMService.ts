@@ -135,6 +135,11 @@ class LocalLLMService {
         }
     }
 
+    /** Whether the model's files are fully on this phone (it may not be loaded yet). */
+    isDownloaded(): Promise<boolean> {
+        return hasCompleteIOSModelFiles(this.modelId).catch(() => false);
+    }
+
     isReady() {
         return this.isModelReady;
     }

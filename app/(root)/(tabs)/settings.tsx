@@ -132,7 +132,7 @@ export default function ProfileScreen() {
                             value={notificationsEnabled ? 'On' : 'Off'} onPress={() => router.push('/(root)/notifications')} />
                         <SettingsRow icon="color-palette" color="#0A84FF" label="Appearance" onPress={() => router.push('/(root)/appearance')} />
                         {hasAnyIntegration() ? (
-                            <SettingsRow icon="heart" color="#FF375F" label="Apple Health" onPress={() => router.push('/(root)/integrations')} />
+                            <SettingsRow icon="extension-puzzle" color="#5E5CE6" label="Integrations" onPress={() => router.push('/(root)/integrations')} />
                         ) : null}
                     </SettingsGroup>
 

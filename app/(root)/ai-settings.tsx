@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppButton } from '@/components/ui/AppButton';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import React from 'react';
@@ -54,6 +55,15 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     const [engine, setEngine] = React.useState(currentEngine());
     const [isDownloading, setIsDownloading] = React.useState(false);
     const [progress, setProgress] = React.useState(0);
+    // On disk, whether or not it is loaded right now: the honest answer to
+    // "is it downloaded?". Loaded-in-memory used to stand in for it.
+    const [downloaded, setDownloaded] = React.useState<boolean | null>(null);
+    const checkDownloaded = React.useCallback(() => {
+        const Service = localModel();
+        if (!Service) { setDownloaded(false); return; }
+        void Service.isDownloaded().then(setDownloaded);
+    }, []);
+    React.useEffect(checkDownloaded, [checkDownloaded]);
 
     const download = async () => {
         const Service = localModel();
@@ -67,7 +77,8 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
         if (success) await AsyncStorage.setItem(LLAMA_OPT_IN_KEY, '1').catch(() => undefined);
         setIsDownloading(false);
         setEngine(currentEngine());
-        if (!success) Alert.alert('Download failed', 'Check your connection and try again. On Wi-Fi it also downloads by itself.');
+        checkDownloaded();
+        if (!success) Alert.alert('Download failed', 'Check your connection and try again.');
     };
 
     const remove = () => {
@@ -78,20 +89,24 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
                     await localModel()?.deleteModel();
                     await AsyncStorage.removeItem(LLAMA_OPT_IN_KEY).catch(() => undefined);
                     setEngine(currentEngine());
+                    checkDownloaded();
                 },
             },
         ]);
     };
 
     const canDownload = !!localModel();
-    const title = engine === 'apple' ? 'Apple Intelligence' : 'Llama 3.2 (1B)';
-    const status = engine === 'apple'
-        ? 'Built in. Private.'
-        : engine === 'llama'
-            ? 'On this phone · 1.2 GB. Private.'
-            : isDownloading
-                ? `Downloading… ${Math.round(progress)}%`
-                : 'Downloads on Wi-Fi · 1.2 GB.';
+    const apple = engine === 'apple';
+    const onPhone = apple || downloaded === true;
+    const title = apple ? 'Apple Intelligence' : 'Llama 3.2 (1B)';
+    const badge = apple ? 'Built in' : isDownloading ? `${Math.round(progress)}%` : downloaded ? 'Downloaded' : downloaded === false ? 'Not downloaded' : '';
+    const status = apple
+        ? 'Part of this iPhone. Nothing to download. Private.'
+        : isDownloading
+            ? 'Downloading to this phone…'
+            : downloaded
+                ? '1.2 GB on this phone. Runs privately, without the internet.'
+                : 'Not on this phone. 1.2 GB; Wi-Fi recommended. Habyss works without it.';
 
     return (
         <VoidCard
@@ -100,9 +115,11 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
             style={{ borderRadius: 16, padding: 16, backgroundColor: isLight ? colors.surfaceSecondary : undefined, gap: 10 }}
         >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name={engine ? 'hardware-chip' : 'hardware-chip-outline'} size={20} color={engine ? colors.success : colors.textTertiary} />
+                <Ionicons name={onPhone ? 'hardware-chip' : 'hardware-chip-outline'} size={20} color={onPhone ? colors.success : colors.textTertiary} />
                 <Text style={{ flex: 1, fontSize: 16, color: colors.textPrimary, fontFamily: FontFamily.semibold }}>{title}</Text>
-                {engine ? <Text style={{ fontSize: 12, color: colors.success, fontFamily: FontFamily.semibold }}>Ready</Text> : null}
+                {badge ? (
+                    <Text style={{ fontSize: 12, color: onPhone ? colors.success : isDownloading ? accentSolid : colors.textTertiary, fontFamily: FontFamily.semibold }}>{badge}</Text>
+                ) : null}
             </View>
             <Text style={{ fontSize: 13, lineHeight: 18, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
                 {status}
@@ -112,15 +129,11 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
                     <AnimatedFill progress={progress / 100} style={{ height: '100%', backgroundColor: accentSolid }} />
                 </View>
             ) : null}
-            {engine === null && !isDownloading && canDownload ? (
-                <TouchableOpacity accessibilityRole="button" onPress={download} style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
-                    <Text style={{ color: colors.textPrimary, fontSize: 14, fontFamily: FontFamily.medium }}>Download now</Text>
-                </TouchableOpacity>
+            {!apple && downloaded === false && !isDownloading && canDownload ? (
+                <AppButton label="Download · 1.2 GB" icon="cloud-download-outline" onPress={() => void download()} />
             ) : null}
-            {engine === 'llama' ? (
-                <TouchableOpacity accessibilityRole="button" onPress={remove} style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
-                    <Text style={{ color: colors.error, fontSize: 14, fontFamily: FontFamily.medium }}>Remove from this phone</Text>
-                </TouchableOpacity>
+            {!apple && downloaded ? (
+                <AppButton label="Remove from this phone" variant="danger" onPress={remove} />
             ) : null}
         </VoidCard>
     );
