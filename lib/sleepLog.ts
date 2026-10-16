@@ -82,9 +82,13 @@ export async function setSleepTarget(minutes: number): Promise<void> {
     await save({ ...state, target: Math.max(4 * 60, Math.min(11 * 60, Math.round(minutes / 30) * 30)) });
 }
 
-/** Nights that reached the goal, for Marks. */
+/** Nights that reached the goal (+5 Marks each). */
 export const goodNights = (sleep: SleepState): string[] =>
     Object.entries(sleep.nights).filter(([, minutes]) => minutes >= sleep.target).map(([date]) => date);
+
+/** Recorded nights that fell short of it (−5 Marks each). No data is not a short night. */
+export const shortNights = (sleep: SleepState): string[] =>
+    Object.entries(sleep.nights).filter(([, minutes]) => minutes > 0 && minutes < sleep.target).map(([date]) => date);
 
 export const formatSleep = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);

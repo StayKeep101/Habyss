@@ -22,7 +22,7 @@ import { countedHistory, countedTasks } from './sharedGate';
 export const MARKS = {
     add: { habit: 1, task: 2, goal: 5 },
     complete: { habit: 5, task: 10, goal: 50, sleep: 5 },
-    miss: { habit: -2, task: -4, goal: -15 },
+    miss: { habit: -2, task: -4, goal: -15, sleep: -5 },
 } as const;
 
 export interface Rank { name: string; min: number }
@@ -80,8 +80,10 @@ export interface MarksInput {
     skips?: Record<string, string[]>;
     /** The day each goal reached 100%, when it has. */
     goalsCompletedOn?: Record<string, string | null | undefined>;
-    /** Mornings after a night that reached the sleep goal. A short night costs nothing. */
+    /** Mornings after a night that reached the sleep goal: +5 each. */
     goodNights?: string[];
+    /** Mornings after a recorded night that fell short of it: −5 each. A night with no data counts for nothing. */
+    shortNights?: string[];
     today: string;
 }
 
@@ -179,6 +181,9 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     // ----------------------------------------------------------------- sleep
     for (const night of input.goodNights ?? []) {
         if (night >= floor) record(night, MARKS.complete.sleep, 'complete', 'sleep', 'A full night’s sleep');
+    }
+    for (const night of input.shortNights ?? []) {
+        if (night >= floor) record(night, MARKS.miss.sleep, 'miss', 'sleep', 'A short night');
     }
 
     // ---------------------------------------------------------------- series

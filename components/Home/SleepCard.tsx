@@ -21,7 +21,7 @@ const NIGHTS = 7;
 
 /**
  * Last night's sleep, from Apple Health, and the week behind it. A night that
- * reaches your goal earns Marks; a short one costs nothing. The goal is set
+ * reaches your goal earns 5 Marks; a recorded night short of it costs 5. The goal is set
  * in Settings. Without Health connected, it offers the way to connect it.
  */
 export function SleepCard() {
@@ -62,10 +62,13 @@ export function SleepCard() {
             <View style={styles.head}>
                 <IconTile icon="moon" color={primary} size={32} />
                 <Text style={[styles.title, styles.flex, { color: colors.textPrimary }]}>Sleep</Text>
-                {met ? (
-                    <View style={[styles.earned, { backgroundColor: colors.success + '22' }]}>{/* ui-allow: tint */}
-                        <AppIcon name="sparkles" size={12} color={colors.success} />
-                        <Text style={[styles.earnedText, { color: colors.success }]}>+{MARKS.complete.sleep} Marks</Text>
+                {last !== undefined ? (
+                    // What last night did to your Marks: +5 at your goal, −5 short of it.
+                    <View style={[styles.earned, { backgroundColor: (met ? colors.success : colors.error) + '22' }]}>{/* ui-allow: tint */}
+                        <AppIcon name={met ? 'sparkles' : 'trending-down'} size={12} color={met ? colors.success : colors.error} />
+                        <Text style={[styles.earnedText, { color: met ? colors.success : colors.error }]}>
+                            {met ? `+${MARKS.complete.sleep}` : `${MARKS.miss.sleep}`} Marks
+                        </Text>
                     </View>
                 ) : null}
             </View>

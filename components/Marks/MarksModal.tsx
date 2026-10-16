@@ -89,7 +89,7 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                                 <View key={`${event.date}-${index}`} style={[styles.eventRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
                                     <View style={{ flex: 1 }}>
                                         <Text numberOfLines={1} style={[styles.eventTitle, { color: colors.textPrimary }]}>{event.title}</Text>
-                                        <Text style={[styles.eventMeta, { color: colors.textTertiary }]}>{`${event.item === 'sleep' ? 'Slept your goal' : `${VERB[event.kind]} ${event.item}`} · ${shortDay(event.date)}`}</Text>
+                                        <Text style={[styles.eventMeta, { color: colors.textTertiary }]}>{`${event.item === 'sleep' ? (event.kind === 'miss' ? 'Slept short of your goal' : 'Slept your goal') : `${VERB[event.kind]} ${event.item}`} · ${shortDay(event.date)}`}</Text>
                                     </View>
                                     <Text style={[styles.points, { color: event.points > 0 ? colors.success : colors.error }]}>
                                         {event.points > 0 ? '+' : '−'}{Math.abs(event.points)}
