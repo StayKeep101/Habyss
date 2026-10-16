@@ -43,7 +43,7 @@ export const CreationModal = () => {
     const [visible, setVisible] = useState(false);
     const [anchor, setAnchor] = useState<Anchor | null>(null);
     const progress = useSharedValue(0);
-    const pending = useRef<'habit' | 'goal' | 'task' | null>(null);
+    const pending = useRef<'habit' | 'goal' | 'task' | 'thought' | null>(null);
     const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
     const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -81,9 +81,10 @@ export const CreationModal = () => {
         if (selection === 'habit') emit('show_quick_add');
         if (selection === 'goal') emit('show_goal_quick_add');
         if (selection === 'task') emit('show_task_form');
+        if (selection === 'thought') require('expo-router').router.push('/brain-dump');
     };
 
-    const choose = (selection: 'habit' | 'goal' | 'task') => {
+    const choose = (selection: 'habit' | 'goal' | 'task' | 'thought') => {
         if (pending.current) return;
         mediumFeedback();
         pending.current = selection;
@@ -111,6 +112,7 @@ export const CreationModal = () => {
         { id: 'goal', label: 'Goal', icon: 'flag-outline', color: primary, hint: 'Where you are heading' },
         { id: 'habit', label: 'Habit', icon: 'repeat', color: '#10B981', hint: 'Something you repeat' },
         { id: 'task', label: 'Task', icon: 'checkmark-circle-outline', color: '#F59E0B', hint: 'Done once, by a date' },
+        { id: 'thought', label: 'Thought', icon: 'bulb-outline', color: colors.secondary, hint: 'Get it out of your head' },
     ] as const;
 
     return (
