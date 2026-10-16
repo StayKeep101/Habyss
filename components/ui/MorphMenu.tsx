@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { Easing, interpolate, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon, type IconName } from '@/components/ui/AppIcon';
@@ -19,6 +20,8 @@ export interface MorphMenuItem {
 const WIDTH = 248;
 const ROW = 48;
 const HEAD = 52;
+/** Room kept between the menu and the edges of the screen. */
+const MARGIN = 12;
 const OPEN = { damping: 20, stiffness: 240, mass: 0.8, reduceMotion: ReduceMotion.System };
 const CLOSE = { duration: 170, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 
@@ -30,6 +33,12 @@ const CLOSE = { duration: 170, easing: Easing.out(Easing.cubic), reduceMotion: R
  * red — then folds back into the button. Replaces the system action sheet so
  * menus look like the rest of the app. An option runs after the menu has
  * closed, so an alert it raises is never hidden behind it.
+ *
+ * It always drops down from the button, wherever the button is and on any
+ * screen: positioned against the layer it is drawn in (measured, not assumed —
+ * a page presented as a sheet sits lower than the screen), opening leftwards
+ * from a button on the right and rightwards from one on the left, and never
+ * taller than the room above the home indicator (it scrolls if it must).
  */
 export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', label = 'More options', diameter = Control.hitTarget, style }: {
     items: MorphMenuItem[];
@@ -43,16 +52,27 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
     const { lightFeedback, selectionFeedback } = useHaptics();
+    const insets = useSafeAreaInsets();
     const trigger = useRef<View>(null);
+    const layerRef = useRef<View>(null);
     const [anchor, setAnchor] = useState<{ x: number; y: number; width: number } | null>(null);
+    const [layer, setLayer] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const progress = useSharedValue(0);
-    const height = HEAD + items.length * ROW + Spacing.sm;
+    const fullHeight = HEAD + items.length * ROW + Spacing.sm;
 
     const open = () => {
         lightFeedback();
         trigger.current?.measureInWindow((x, y, width) => {
-            setAnchor({ x, y, width: width || diameter });
             progress.value = 0;
+            setLayer(null);
+            setAnchor({ x, y, width: width || diameter });
+        });
+    };
+
+    /** Where the menu's own layer sits on screen; the menu opens once this is known. */
+    const measureLayer = () => {
+        layerRef.current?.measureInWindow((x, y, width, height) => {
+            setLayer({ x, y, width, height });
             progress.value = withSpring(1, OPEN);
         });
     };
@@ -64,18 +84,38 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
     };
     const finish = (then?: () => void) => {
         setAnchor(null);
+        setLayer(null);
         then?.();
     };
 
-    const screen = Dimensions.get('window');
-    const right = anchor ? screen.width - (anchor.x + anchor.width) : 0;
+    // The button's place inside the layer, then which way the menu can open.
+    const place = anchor && layer ? (() => {
+        const top = anchor.y - layer.y;
+        const left = anchor.x - layer.x;
+        const rightEdge = left + anchor.width;
+        const width = Math.min(WIDTH, layer.width - MARGIN * 2);
+        const fromRight = rightEdge - width >= MARGIN;
+        const room = layer.height - top - Math.max(insets.bottom, MARGIN);
+        return {
+            top,
+            width,
+            height: Math.min(fullHeight, Math.max(diameter, room)),
+            side: fromRight
+                ? { right: layer.width - rightEdge }
+                : { left: Math.max(MARGIN, Math.min(left, layer.width - width - MARGIN)) },
+            fromRight,
+        };
+    })() : null;
+    const width = place?.width ?? WIDTH;
+    const height = place?.height ?? fullHeight;
 
     const windowStyle = useAnimatedStyle(() => ({
-        width: interpolate(progress.value, [0, 1], [diameter, WIDTH]),
+        width: interpolate(progress.value, [0, 1], [diameter, width]),
         height: interpolate(progress.value, [0, 1], [diameter, height]),
         borderRadius: interpolate(progress.value, [0, 1], [diameter / 2, Radius.card]),
     }));
     const contentStyle = useAnimatedStyle(() => ({ opacity: interpolate(progress.value, [0.5, 1], [0, 1], 'clamp') }));
+    const scrolls = height < fullHeight;
     const dotsStyle = useAnimatedStyle(() => ({
         opacity: interpolate(progress.value, [0, 0.4], [1, 0], 'clamp'),
         transform: [{ rotate: `${progress.value * 90}deg` }],
@@ -91,41 +131,45 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
             </Pressable>
 
             <Modal visible={!!anchor} transparent animationType="none" statusBarTranslucent onRequestClose={() => close()}>
-                <Pressable style={StyleSheet.absoluteFill} onPress={() => close()} accessibilityLabel="Close menu">
-                    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }, scrimStyle]} />
-                </Pressable>
-                {anchor ? (
-                    <Animated.View style={[styles.window, { top: anchor.y, right }, windowStyle]} accessibilityViewIsModal>
-                        <MatteSurface radius={Radius.card} elevation="floating" style={StyleSheet.absoluteFill}>
-                            <Animated.View style={[styles.dots, { width: diameter, height: diameter }, dotsStyle]} pointerEvents="none">
-                                <AppIcon name="ellipsis-horizontal" size={Control.icon} color={colors.textPrimary} />
-                            </Animated.View>
-                            <Animated.View style={[styles.content, contentStyle]}>
-                                <View style={[styles.head, { height: HEAD }]}>
-                                    <View style={[styles.logo, { backgroundColor: primary }]}>
-                                        <AppIcon name={titleIcon} size={13} color={colors.background} />
+                <View ref={layerRef} style={StyleSheet.absoluteFill} onLayout={measureLayer} pointerEvents="box-none">
+                    <Pressable style={StyleSheet.absoluteFill} onPress={() => close()} accessibilityLabel="Close menu">
+                        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }, scrimStyle]} />
+                    </Pressable>
+                    {place ? (
+                        <Animated.View style={[styles.window, { top: place.top }, place.side, windowStyle]} accessibilityViewIsModal>
+                            <MatteSurface radius={Radius.card} elevation="floating" style={StyleSheet.absoluteFill}>
+                                <Animated.View style={[styles.dots, place.fromRight ? styles.dotsRight : styles.dotsLeft, { width: diameter, height: diameter }, dotsStyle]} pointerEvents="none">
+                                    <AppIcon name="ellipsis-horizontal" size={Control.icon} color={colors.textPrimary} />
+                                </Animated.View>
+                                <Animated.View style={[styles.content, { width }, contentStyle]}>
+                                    <View style={[styles.head, { height: HEAD }]}>
+                                        <View style={[styles.logo, { backgroundColor: primary }]}>
+                                            <AppIcon name={titleIcon} size={13} color={colors.background} />
+                                        </View>
+                                        <Text numberOfLines={1} style={[styles.title, { color: colors.textSecondary }]}>{title ?? 'Options'}</Text>
+                                        <Pressable onPress={() => close()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close menu">
+                                            <AppIcon name="close" size={18} color={colors.textTertiary} />
+                                        </Pressable>
                                     </View>
-                                    <Text numberOfLines={1} style={[styles.title, { color: colors.textSecondary }]}>{title ?? 'Options'}</Text>
-                                    <Pressable onPress={() => close()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close menu">
-                                        <AppIcon name="close" size={18} color={colors.textTertiary} />
-                                    </Pressable>
-                                </View>
-                                {items.map((item, index) => (
-                                    <TouchableOpacity
-                                        key={item.label}
-                                        accessibilityRole="button"
-                                        onPress={() => { selectionFeedback(); close(item.onPress); }}
-                                        activeOpacity={0.6}
-                                        style={[styles.row, { height: ROW, borderTopColor: colors.border }]}
-                                    >
-                                        <AppIcon name={item.icon} size={18} color={item.destructive ? colors.error : colors.textPrimary} />
-                                        <Text style={[styles.rowLabel, { color: item.destructive ? colors.error : colors.textPrimary }]}>{item.label}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </Animated.View>
-                        </MatteSurface>
-                    </Animated.View>
-                ) : null}
+                                    <ScrollView scrollEnabled={scrolls} bounces={false} showsVerticalScrollIndicator={scrolls}>
+                                        {items.map(item => (
+                                            <TouchableOpacity
+                                                key={item.label}
+                                                accessibilityRole="button"
+                                                onPress={() => { selectionFeedback(); close(item.onPress); }}
+                                                activeOpacity={0.6}
+                                                style={[styles.row, { height: ROW, borderTopColor: colors.border }]}
+                                            >
+                                                <AppIcon name={item.icon} size={18} color={item.destructive ? colors.error : colors.textPrimary} />
+                                                <Text numberOfLines={1} style={[styles.rowLabel, { color: item.destructive ? colors.error : colors.textPrimary }]}>{item.label}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                </Animated.View>
+                            </MatteSurface>
+                        </Animated.View>
+                    ) : null}
+                </View>
             </Modal>
         </>
     );
@@ -134,11 +178,13 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
 const styles = StyleSheet.create({
     disc: { alignItems: 'center', justifyContent: 'center' },
     window: { position: 'absolute', overflow: 'hidden' },
-    dots: { position: 'absolute', top: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
-    content: { flex: 1, width: WIDTH },
+    dots: { position: 'absolute', top: 0, alignItems: 'center', justifyContent: 'center' },
+    dotsRight: { right: 0 },
+    dotsLeft: { left: 0 },
+    content: { flex: 1 },
     head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.lg },
     logo: { width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
     title: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 13 },
     row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.lg, borderTopWidth: StyleSheet.hairlineWidth },
-    rowLabel: { fontFamily: FontFamily.medium, fontSize: 15 },
+    rowLabel: { flex: 1, fontFamily: FontFamily.medium, fontSize: 15 },
 });
