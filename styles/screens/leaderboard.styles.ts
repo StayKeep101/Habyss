@@ -13,5 +13,11 @@ export const styles = StyleSheet.create({
     name: { flex: 1, fontFamily: FontFamily.medium, fontSize: 15 },
     marks: { fontFamily: FontFamily.semibold, fontSize: 15, fontVariant: ['tabular-nums'] },
     gap: { marginTop: Spacing.sm },
+    unranked: { alignItems: 'center', gap: Spacing.sm, padding: Spacing.xl },
+    unrankedTitle: { fontFamily: FontFamily.bold, fontSize: 22, lineHeight: 28, marginTop: Spacing.xs },
+    unrankedText: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+    track: { alignSelf: 'stretch', height: 6, borderRadius: 3, overflow: 'hidden', marginTop: Spacing.sm },
+    fill: { height: '100%', borderRadius: 3 },
+    unrankedMeta: { fontFamily: FontFamily.regular, fontSize: 12, fontVariant: ['tabular-nums'] },
     empty: { fontFamily: FontFamily.regular, fontSize: 14, textAlign: 'center', paddingVertical: Spacing.xl },
 });

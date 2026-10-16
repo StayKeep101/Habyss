@@ -5,7 +5,8 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { Avatar } from '@/components/ui/Avatar';
-import { CountUp, ListItem } from '@/components/ui/Motion';
+import { AnimatedFill, CountUp, ListItem } from '@/components/ui/Motion';
+import { IconTile } from '@/components/ui/IconTile';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -33,16 +34,19 @@ export default function LeaderboardScreen() {
     const [rows, setRows] = useState<LeaderRow[] | null>(null);
     // Your rank band, from your own Marks: the league is everyone in it.
     const [band, setBand] = useState<ReturnType<typeof rankBand> | null>(null);
-    useEffect(() => { void localMarks().then(total => setBand(rankBand(total ?? 0))); }, []);
+    const [myMarks, setMyMarks] = useState(0);
+    useEffect(() => { void localMarks().then(total => { setMyMarks(total ?? 0); setBand(rankBand(total ?? 0)); }); }, []);
+    // Lost is the qualifying stage: no league until the first rank is reached.
+    const unranked = band?.min === 0;
     const myProfile = useMyProfile();
 
     useEffect(() => {
-        if (scope === 'league' && !band) return;
+        if (scope === 'league' && (!band || unranked)) { setRows([]); return; }
         let alive = true;
         setRows(null);
         void FeedService.leaderboard(scope, scope === 'league' && band ? band : undefined).then(list => { if (alive) setRows(list); });
         return () => { alive = false; };
-    }, [scope, band]);
+    }, [scope, band, unranked]);
 
     const mine = rows?.find(row => row.isMe);
     const total = rows?.length ?? 0;
@@ -50,19 +54,34 @@ export default function LeaderboardScreen() {
     return (
         <SheetScreen title="Leaderboard" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <ChoiceRow<Scope> options={[{ id: 'friends', label: 'Friends' }, { id: 'league', label: band ? `${band.name} league` : 'League' }]}
+                <ChoiceRow<Scope> options={[{ id: 'friends', label: 'Friends' }, { id: 'league', label: !band ? 'League' : unranked ? 'Unranked' : `${band.name} league` }]}
                     value={scope} onChange={setScope} accessibilityLabel="Leaderboard scope" />
 
-                <View style={styles.hero}>
+                {scope === 'league' && unranked && band ? (
+                    // Not in a league yet: what it takes to get into one.
+                    <VoidCard style={styles.unranked}>
+                        <IconTile icon="lock-closed" color={primary} size={48} shape="square" />
+                        <Text style={[styles.unrankedTitle, { color: colors.textPrimary }]}>Unranked</Text>
+                        <Text style={[styles.unrankedText, { color: colors.textSecondary }]}>
+                            Reach Beginner to join your first league. {Math.max(0, (band.max ?? 0) - myMarks).toLocaleString()} Marks to go.
+                        </Text>
+                        <View style={[styles.track, { backgroundColor: colors.surfaceTertiary }]}>
+                            <AnimatedFill progress={band.max ? myMarks / band.max : 0} style={[styles.fill, { backgroundColor: primary }]} />
+                        </View>
+                        <Text style={[styles.unrankedMeta, { color: colors.textTertiary }]}>{myMarks.toLocaleString()} / {(band.max ?? 0).toLocaleString()} Marks</Text>
+                    </VoidCard>
+                ) : null}
+
+                {scope === 'league' && unranked ? null : <View style={styles.hero}>
                     <CountUp style={[styles.heroRank, { color: colors.textPrimary }]} value={mine ? `#${mine.rank}` : '—'} replay={scope} />
                     <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
                         {scope === 'league' && band
                             ? `${band.name} league · ${band.max ? `${band.min.toLocaleString()}–${(band.max - 1).toLocaleString()}` : `${band.min.toLocaleString()}+`} Marks`
                             : mine ? `${mine.marks.toLocaleString()} Marks` : 'Earn Marks to get on the board'}
                     </Text>
-                </View>
+                </View>}
 
-                {rows === null ? <ActivityIndicator color={colors.textTertiary} /> : total === 0 ? (
+                {scope === 'league' && unranked ? null : rows === null ? <ActivityIndicator color={colors.textTertiary} /> : total === 0 ? (
                     <Text style={[styles.empty, { color: colors.textTertiary }]}>Nobody here yet</Text>
                 ) : (
                     <VoidCard style={styles.list}>
