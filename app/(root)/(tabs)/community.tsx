@@ -193,7 +193,7 @@ export default function CommunityScreen() {
         lightFeedback();
         const success = await FriendsService.sendFriendRequest(userId);
         if (success) {
-            Alert.alert('Success! 🎉', 'Friend request sent (or auto-accepted if they already requested you)!');
+            Alert.alert('Request sent');
             setSearchResults(prev => prev.filter(u => u.id !== userId));
             setSearchQuery('');
             await loadData(true); // Refresh to show new friend if auto-accepted
@@ -224,18 +224,10 @@ export default function CommunityScreen() {
         }
         const success = await FriendsService.nudgeFriend(friend.id, friend.displayName ?? friend.username);
         if (success) {
-            Alert.alert('Nudged! 👋', `${friend.displayName ?? friend.username} has been notified.`);
+            Alert.alert('Nudged', `${friend.displayName ?? friend.username} will get a notification.`);
         }
     };
 
-    // Animation for 1st place crown
-
-    const getRankIcon = (rank: number) => {
-        if (rank === 1) return '🥇';
-        if (rank === 2) return '🥈';
-        if (rank === 3) return '🥉';
-        return `#${rank}`;
-    };
 
 
 

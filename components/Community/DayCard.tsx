@@ -27,12 +27,14 @@ const EASE = { duration: 640, easing: Easing.out(Easing.cubic), reduceMotion: Re
 /** Timed, never sprung: the card grows a composer and a spring would bounce it. */
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
 
-export const REACTIONS: { id: ReactionType; glyph: string; label: string }[] = [
-    { id: 'fire', glyph: '🔥', label: 'Fire' },
-    { id: 'clap', glyph: '👏', label: 'Respect' },
-    { id: 'muscle', glyph: '💪', label: 'Strong' },
-    { id: 'heart', glyph: '❤️', label: 'Love' },
-    { id: 'star', glyph: '⭐', label: 'Star' },
+type ReactionIcon = 'flame' | 'thumbs-up' | 'barbell' | 'heart' | 'star';
+/** Drawn with the app's own icons, not emoji: outline until picked, then solid accent. */
+export const REACTIONS: { id: ReactionType; icon: ReactionIcon; label: string }[] = [
+    { id: 'fire', icon: 'flame', label: 'Fire' },
+    { id: 'clap', icon: 'thumbs-up', label: 'Respect' },
+    { id: 'muscle', icon: 'barbell', label: 'Strong' },
+    { id: 'heart', icon: 'heart', label: 'Love' },
+    { id: 'star', icon: 'star', label: 'Star' },
 ];
 
 /**
@@ -173,8 +175,8 @@ export const DayCard: React.FC<{
                         ) : null}
                         {card.streak > 1 ? (
                             <View style={styles.streak}>
-                                <Ionicons name="flame" size={s(11)} color="#F59E0B" />
-                                <CountUp style={[styles.streakText, { color: '#F59E0B' }]} value={card.streak} />
+                                <Ionicons name="flame" size={s(11)} color={colors.warning} />
+                                <CountUp style={[styles.streakText, { color: colors.warning }]} value={card.streak} />
                             </View>
                         ) : null}
                     </View>
@@ -294,10 +296,12 @@ export const DayCard: React.FC<{
                 {REACTIONS.map(item => (
                     <Reaction
                         key={item.id}
-                        glyph={item.glyph}
+                        icon={item.icon}
                         label={item.label}
                         chosen={reaction === item.id}
                         accent={primary}
+                        idle={colors.textTertiary}
+                        onAccent={colors.background}
                         onPress={() => { selectionFeedback(); onReact(item.id); }}
                     />
                 ))}
@@ -410,10 +414,10 @@ const Strand: React.FC<{
     );
 };
 
-/** One emoji, which springs when it is the one you picked. */
+/** One reaction: an outline icon that fills into a solid accent disc, with a spring, when picked. */
 const Reaction: React.FC<{
-    glyph: string; label: string; chosen: boolean; accent: string; onPress: () => void;
-}> = ({ glyph, label, chosen, accent, onPress }) => {
+    icon: ReactionIcon; label: string; chosen: boolean; accent: string; idle: string; onAccent: string; onPress: () => void;
+}> = ({ icon, label, chosen, accent, idle, onAccent, onPress }) => {
     const pop = useSharedValue(chosen ? 1 : 0);
     useEffect(() => {
         pop.value = chosen
@@ -421,11 +425,8 @@ const Reaction: React.FC<{
             : withTiming(0, { duration: 160, reduceMotion: ReduceMotion.System });
     }, [chosen, pop]);
 
-    const style = useAnimatedStyle(() => ({
-        transform: [{ scale: 1 + pop.value * 0.22 }],
-        opacity: 0.55 + pop.value * 0.45,
-    }));
-    const halo = useAnimatedStyle(() => ({ opacity: pop.value }));
+    const style = useAnimatedStyle(() => ({ transform: [{ scale: 1 + pop.value * 0.12 }] }));
+    const disc = useAnimatedStyle(() => ({ opacity: pop.value, transform: [{ scale: 0.6 + pop.value * 0.4 }] }));
 
     return (
         <Pressable
@@ -436,8 +437,10 @@ const Reaction: React.FC<{
             onPress={onPress}
             style={styles.reactionPress}
         >
-            <Animated.View style={[styles.halo, halo, { backgroundColor: accent + '22' }]} /> {/* ui-allow: decorative */}
-            <Animated.Text style={[styles.glyph, style]}>{glyph}</Animated.Text>
+            <Animated.View style={[styles.halo, disc, { backgroundColor: accent }]} />
+            <Animated.View style={style}>
+                <Ionicons name={chosen ? icon : `${icon}-outline`} size={ms(17)} color={chosen ? onAccent : idle} />
+            </Animated.View>
         </Pressable>
     );
 };
@@ -490,5 +493,4 @@ const styles = StyleSheet.create({
     input: { flex: 1, minHeight: vs(38), borderWidth: StyleSheet.hairlineWidth, borderRadius: s(12), paddingHorizontal: s(12), fontSize: ms(13), fontFamily: FontFamily.regular },
     send: { width: s(38), height: s(38), borderRadius: s(19), borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
     halo: { position: 'absolute', width: s(34), height: s(34), borderRadius: s(17) },
-    glyph: { fontSize: ms(20) },
 });
