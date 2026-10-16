@@ -1,6 +1,5 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { IconTile } from '@/components/ui/IconTile';
 import { CountUp, PopIn } from '@/components/ui/Motion';
 import { LevelCard } from './LevelCard';
 import { MarksBackdrop } from './MarksBackdrop';
@@ -104,7 +103,7 @@ export const ProfileView: React.FC<{
                     ) : marksSeries && marksSeries.length > 1 ? (
                         <>
                             <View style={[styles.below, { top: screenHeight }]}>
-                                <LinearGradient colors={[primary + '26', 'transparent']} style={StyleSheet.absoluteFill} />
+                                <LinearGradient colors={[primary + '40', primary + '10', 'transparent']} locations={[0, 0.6, 1]} style={StyleSheet.absoluteFill} />
                             </View>
                             <View style={[styles.graph, { top: screenHeight, height: coverHeight }]}>
                                 <MarksBackdrop series={marksSeries} width={screenWidth} height={coverHeight} color={primary} />
@@ -121,10 +120,11 @@ export const ProfileView: React.FC<{
                             </View>
                         </>
                     )}
-                    {/* Fades into the page under the photo or graph. */}
+                    {/* Fades into the page under the photo or graph — late, so the
+                        graph above the avatar stays clear. */}
                     <View style={[styles.below, { top: screenHeight }]}>
-                        <LinearGradient colors={['transparent', colors.background + '99', colors.background]} locations={[0.45, 0.78, 1]}
-                            style={StyleSheet.absoluteFill} />
+                        <LinearGradient colors={['transparent', colors.background + '99', colors.background]}
+                            locations={cover ? [0.45, 0.78, 1] : [0.7, 0.88, 1]} style={StyleSheet.absoluteFill} />
                     </View>
                 </View>
 
@@ -220,22 +220,21 @@ export const ProfileView: React.FC<{
                 {marks !== undefined ? <LevelCard marks={marks} /> : null}
                 {/* Four numbers, each with its own mark, two by two. */}
                 {numbers ? (
-                    <View style={styles.grid}>
+                    // One card, four even columns: icon, number, label.
+                    <VoidCard style={styles.statsCard}>
                         {[
-                            { label: 'Day streak', value: numbers.streak, icon: 'flame', color: colors.warning },
+                            { label: 'Streak', value: numbers.streak, icon: 'flame', color: colors.warning },
                             { label: 'Habits', value: numbers.habits, icon: 'repeat', color: colors.success },
                             { label: 'Goals', value: numbers.goals, icon: 'flag', color: colors.secondary },
                             { label: 'Today', value: `${numbers.todayDone}/${numbers.todayTotal}`, icon: 'checkmark-done', color: primary },
                         ].map((stat, index) => (
-                            <PopIn key={stat.label} index={index} style={styles.tileWrap}>
-                                <VoidCard style={styles.tile}>
-                                    <IconTile icon={stat.icon} color={stat.color} size={32} />
-                                    <CountUp style={[styles.tileValue, { color: colors.textPrimary }]} value={stat.value} />
-                                    <Text style={[styles.tileLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
-                                </VoidCard>
+                            <PopIn key={stat.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
+                                <Ionicons name={stat.icon as never} size={s(16)} color={stat.color} />
+                                <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={stat.value} />
+                                <Text style={[styles.statLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
                             </PopIn>
                         ))}
-                    </View>
+                    </VoidCard>
                 ) : (
                     <Text style={[styles.private, { color: colors.textTertiary }]}>{hiddenNote ?? 'Progress is private'}</Text>
                 )}
@@ -272,10 +271,9 @@ const styles = StyleSheet.create({
     // No box: a bio reads as a sentence about someone, not as a filled field.
     bio: { alignSelf: 'stretch', fontSize: ms(14), lineHeight: ms(20), fontFamily: FontFamily.regular, textAlign: 'center', paddingTop: vs(6) },
     statsBlock: { marginHorizontal: s(20), marginTop: vs(16), gap: vs(12) },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -s(6) },
-    tileWrap: { width: '50%', padding: s(6) },
-    tile: { padding: s(14), gap: vs(6) },
-    tileValue: { fontSize: ms(24), lineHeight: ms(30), fontFamily: FontFamily.bold, letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
-    tileLabel: { fontSize: ms(12), fontFamily: FontFamily.regular },
+    statsCard: { flexDirection: 'row', paddingVertical: vs(14) },
+    stat: { flex: 1, alignItems: 'center', gap: vs(4) },
+    statValue: { fontSize: ms(20), lineHeight: ms(26), fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] },
+    statLabel: { fontSize: ms(11), fontFamily: FontFamily.regular },
     private: { fontSize: ms(13), fontFamily: FontFamily.regular, textAlign: 'center', paddingVertical: vs(12) },
 });

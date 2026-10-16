@@ -27,12 +27,28 @@ import { emit } from './appEvents';
 
 type Kind = 'habit' | 'task' | 'goal';
 
-/** Whether the local row already exists, whatever state it is in. */
+/**
+ * Whether a live local copy already exists. A copy left behind by an earlier
+ * share that was given back (deleted = 1) does not count: accepting again
+ * brings it back.
+ */
 async function alreadyHere(table: 'habits' | 'tasks', id: string): Promise<boolean> {
     const db = await getDatabase();
     if (!db) return true;
-    const found = await db.getFirstAsync(`SELECT id FROM ${table} WHERE id = ?`, id) as { id?: string } | null;
-    return !!found?.id;
+    const found = await db.getFirstAsync(`SELECT id, deleted FROM ${table} WHERE id = ?`, id) as { id?: string; deleted?: number } | null;
+    return !!found?.id && !found.deleted;
+}
+
+/**
+ * Tells every screen the list changed. A row written straight into the
+ * database is invisible to the habit list's in-memory copy until it is
+ * reloaded — which is why an accepted habit never appeared on the Roadmap.
+ */
+async function announce(kind: Kind): Promise<void> {
+    if (kind === 'task') { emit('tasks_changed'); return; }
+    const { reloadHabitsFromStorage } = require('./habitsSQLite') as typeof import('./habitsSQLite');
+    await reloadHabitsFromStorage().catch(() => undefined);
+    emit('habit_updated', {});
 }
 
 /**
@@ -69,12 +85,14 @@ export async function adoptShared(kind: Kind, itemId: string): Promise<boolean> 
         : { ...habitToLocal(row as never), user_id: me };
 
     const columns = Object.keys(local);
+    // New, or brought back from an earlier share that was given back.
     await db.runAsync(
-        `INSERT OR IGNORE INTO ${table} (${columns.join(', ')}, synced, deleted) VALUES (${columns.map(() => '?').join(', ')}, 0, 0)`,
+        `INSERT INTO ${table} (${columns.join(', ')}, synced, deleted) VALUES (${columns.map(() => '?').join(', ')}, 0, 0)
+         ON CONFLICT(id) DO UPDATE SET ${columns.filter(name => name !== 'id').map(name => `${name} = excluded.${name}`).join(', ')}, deleted = 0`,
         ...columns.map(name => (local as Record<string, unknown>)[name] ?? null),
     );
 
-    emit(kind === 'task' ? 'tasks_changed' : 'habit_updated', {});
+    await announce(kind);
     // A goal is its plan: its habits and tasks come with it, now rather than
     // on the next backup, so the goal is not empty the moment it is accepted.
     if (kind === 'goal') {
@@ -100,7 +118,7 @@ export async function dropShared(kind: Kind, itemId: string): Promise<void> {
         `UPDATE ${table} SET deleted = 1, updated_at = ?, synced = 1 WHERE id = ?`,
         new Date().toISOString(), itemId,
     );
-    emit(kind === 'task' ? 'tasks_changed' : 'habit_updated', {});
+    await announce(kind);
 }
 
 /**

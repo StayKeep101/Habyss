@@ -16,7 +16,6 @@ import { useMarks } from '@/hooks/useMarks';
 import { ageFrom, initials, saveProfile, type Profile } from '@/lib/profile';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
-import { ProfileDays } from '@/components/Profile/ProfileDays';
 import { seriesForProfile } from '@/lib/marksSync';
 import { UsernameCard, UsernamePill } from '@/components/Profile/UsernameCard';
 import { buildDayCard } from '@/lib/dayCard';
@@ -160,9 +159,6 @@ export default function ProfileScreen() {
                         ]),
                     }}
                 />
-
-                {/* What friends see under your profile, here too. */}
-                <ProfileDays userId={myId} />
 
             </ScrollView>
             {/* Floats over the backdrop, below the status bar: this is a

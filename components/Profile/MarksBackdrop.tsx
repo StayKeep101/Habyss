@@ -15,9 +15,10 @@ export function MarksBackdrop({ series, width, height, color }: {
     const min = Math.min(...series);
     const max = Math.max(...series);
     const span = Math.max(1, max - min);
-    // The curve lives in the lower part of the area, under the status bar and buttons.
-    const top = height * 0.35;
-    const bottom = height * 0.92;
+    // Above the photo, where nothing covers it: from under the status bar to
+    // just over the avatar's top edge.
+    const top = height * 0.22;
+    const bottom = height * 0.62;
     const points = series.map((value, index) => ({
         x: (index / (series.length - 1)) * width,
         y: bottom - ((value - min) / span) * (bottom - top),
@@ -40,12 +41,12 @@ export function MarksBackdrop({ series, width, height, color }: {
                 <Svg width={width} height={height}>
                     <Defs>
                         <SvgGradient id="marks-fill" x1="0" y1="0" x2="0" y2="1">
-                            <Stop offset="0" stopColor={color} stopOpacity={0.45} />
-                            <Stop offset="1" stopColor={color} stopOpacity={0} />
+                            <Stop offset="0" stopColor={color} stopOpacity={0.6} />
+                            <Stop offset="1" stopColor={color} stopOpacity={0.05} />
                         </SvgGradient>
                     </Defs>
                     <Path d={area} fill="url(#marks-fill)" />
-                    <Path d={line} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    <Path d={line} stroke={color} strokeWidth={3.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
             </Reveal>
         </View>

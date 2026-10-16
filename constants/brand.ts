@@ -14,3 +14,6 @@ export const APP_NAME = 'HABYSS';
 export const APP_SLOGAN = 'Descend into discipline, Rise through Time';
 /** The slogan as the welcome screen sets it, one half per line. */
 export const APP_SLOGAN_LINES = ['Descend into Discipline', 'Rise Through Time'] as const;
+
+/** Where "Buy me a coffee" goes. Empty until there is a page; the popup then just says thanks. */
+export const BUY_ME_A_COFFEE_URL = '';

@@ -8,7 +8,6 @@ import { AppButton } from '@/components/ui/AppButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { MorphMenu, type MorphMenuItem } from '@/components/ui/MorphMenu';
 import { ProfileView, type ProfileNumbers } from '@/components/Profile/ProfileView';
-import { ProfileDays } from '@/components/Profile/ProfileDays';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -123,6 +122,7 @@ export default function FriendScreen() {
     };
 
     const menu: MorphMenuItem[] = [
+        ...(isFriend ? [{ label: nudged ? 'Nudged today' : 'Nudge', icon: 'hand-left-outline', onPress: () => void nudge() } satisfies MorphMenuItem] : []),
         { label: 'Report', icon: 'flag-outline', onPress: report },
         ...(!isFriend ? [] : [{
             label: 'Remove friend', icon: 'person-remove-outline', destructive: true, onPress: async () => {
@@ -162,19 +162,18 @@ export default function FriendScreen() {
                     }
                 />
 
-                <View style={styles.actions}>
-                    {relation === null ? null : isFriend ? (
-                        <AppButton label={nudged ? 'Nudged today' : 'Nudge'} icon="hand-left-outline" onPress={() => void nudge()} disabled={nudged} />
-                    ) : relation.kind === 'requested' ? (
-                        <AppButton label="Requested" icon="time-outline" onPress={() => undefined} disabled />
-                    ) : relation.kind === 'incoming' ? (
-                        <AppButton label="Accept friend request" icon="checkmark" onPress={() => void add()} loading={adding} />
-                    ) : relation.kind === 'none' ? (
-                        <AppButton label="Add friend" icon="person-add" onPress={() => void add()} loading={adding} />
-                    ) : null}
-                </View>
-
-                {isFriend ? <ProfileDays userId={id ?? null} /> : null}
+                {/* Someone who is not a friend yet: the way to add them. */}
+                {relation && !isFriend && relation.kind !== 'self' ? (
+                    <View style={styles.actions}>
+                        {relation.kind === 'requested' ? (
+                            <AppButton label="Requested" icon="time-outline" onPress={() => undefined} disabled />
+                        ) : relation.kind === 'incoming' ? (
+                            <AppButton label="Accept friend request" icon="checkmark" onPress={() => void add()} loading={adding} />
+                        ) : (
+                            <AppButton label="Add friend" icon="person-add" onPress={() => void add()} loading={adding} />
+                        )}
+                    </View>
+                ) : null}
             </ScrollView>
 
             {/* The same floating controls as your own profile. */}
