@@ -58,8 +58,10 @@ class ScreenTimeModule: NSObject {
     
     @objc func hasSelectedApps(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         if #available(iOS 16.0, *) {
-            let count = ScreenTimeManager.shared.activitySelection.applicationTokens.count
-            resolve(count > 0)
+            // A whole category ("Social") counts as a choice, not only single apps.
+            ScreenTimeManager.shared.loadSelection()
+            let selection = ScreenTimeManager.shared.activitySelection
+            resolve(selection.applicationTokens.count + selection.categoryTokens.count + selection.webDomainTokens.count > 0)
         } else {
             resolve(false)
         }

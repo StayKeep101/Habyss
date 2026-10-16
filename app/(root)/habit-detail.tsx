@@ -9,6 +9,7 @@ import { ViewSwitcher, type SwitcherOption } from '@/components/ui/ViewSwitcher'
 import { BottomFade } from '@/components/ui/BottomFade';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { HabitProgressCard } from '@/components/Habit/HabitProgressCard';
+import { FocusButton } from '@/components/Habit/FocusButton';
 import { SharedWith } from '@/components/Habit/SharedWith';
 import { HabitCalendarMap } from '@/components/Habit/HabitCalendarMap';
 import { ShareHabitModal } from '@/components/Social/ShareHabitModal';
@@ -305,6 +306,8 @@ export default function HabitDetailScreen() {
                 <ScrollView style={{ width: pageWidth }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                     <>
                         <HabitProgressCard key={`${habit.id}:${date}`} habit={habit} date={date} value={value} saving={saving} ready={ready} error={error} canUndo={undo !== null} onChange={next => void changeValue(next)} onAdd={amount => void changeValue(Math.round((valueRef.current + amount) * 1000) / 1000)} onUndo={() => { if (undo !== null) void changeValue(undo, true); }} onToday={() => selectDate(today)} />
+                        {/* A habit with a time can be focused on, apps blocked. */}
+                        {date === today ? <FocusButton habit={habit} isTimer={measurementFor(habit).kind === 'timer'} /> : null}
                         {!ready && error && <Pressable onPress={load} accessibilityRole="button" style={styles.retry}><Text style={[Typography.button, { color: ink }]}>Retry</Text></Pressable>}
 
                         {/* Only renders when somebody else is on it. */}
