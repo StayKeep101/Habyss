@@ -480,8 +480,7 @@ export default function CommunityScreen() {
                 >
                     {/* An ordinary spinner. A logo turning over is a brand
                         animation, and waiting is not the moment for one. */}
-                    <ActivityIndicator size="large" color={accentColor} />
-                    <Text style={{ color: colors.textSecondary, marginTop: vs(16), fontFamily: FontFamily.regular }}>Loading your people…</Text>
+                    <ActivityIndicator color={colors.textTertiary} />
                 </Animated.View>
             )}
 
@@ -490,20 +489,16 @@ export default function CommunityScreen() {
                 contentContainerStyle={{ paddingTop: topSpacing + vs(36), paddingHorizontal: horizontalPadding, paddingBottom: tabBarClearance }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
+                    // The native spinner: it follows the pull and tucks away
+                    // without pushing the page down when it finishes.
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
-                        tintColor={'transparent'}
-                        progressBackgroundColor={'transparent'}
-                        style={{ backgroundColor: 'transparent' }}
+                        tintColor={colors.textTertiary}
+                        progressViewOffset={topSpacing}
                     />
                 }
             >
-                {refreshing && (
-                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                        <ActivityIndicator color={colors.textTertiary} />
-                    </View>
-                )}
                 {/* Header */}
                 <View style={{ marginBottom: isCompactWidth ? 20 : 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View>

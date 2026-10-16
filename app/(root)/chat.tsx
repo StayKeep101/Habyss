@@ -11,6 +11,7 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useSounds } from '@/hooks/useSounds';
 import { ChatService } from '@/lib/chatService';
 import { buildThread, type ChatMessage, type StoredDayCard, type ThreadItem } from '@/lib/chatThread';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -31,6 +32,7 @@ export default function ChatScreen() {
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
     const { lightFeedback } = useHaptics();
+    const { playTap, playNotification } = useSounds();
     const [fetchedName, setFetchedName] = useState('');
     const friendName = name || fetchedName || 'Friend';
 
@@ -63,11 +65,12 @@ export default function ChatScreen() {
         let stop: (() => void) | undefined;
         void ChatService.listen(message => {
             if (message.fromUser !== id) return;
+            playNotification();
             setMessages(prev => prev.some(item => item.id === message.id) ? prev : [...prev, message]);
             void ChatService.markRead(id);
         }).then(unsubscribe => { stop = unsubscribe; });
         return () => stop?.();
-    }, [id]);
+    }, [id, playNotification]);
 
     // Newest first, because the list is inverted: it opens at the bottom.
     const items = useMemo(() => (me ? buildThread(me, messages, cards) : []).reverse(), [me, messages, cards]);
@@ -81,6 +84,7 @@ export default function ChatScreen() {
         const sent = await ChatService.send(id, text);
         setSending(false);
         if (sent) {
+            playTap();
             setMessages(prev => [...prev, sent]);
             list.current?.scrollToOffset({ offset: 0, animated: true });
         } else {

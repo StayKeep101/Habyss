@@ -53,8 +53,18 @@ export type SoundEffect =
  * needs to change: every function below already no-ops on a missing entry.
  */
 const SOUND_ASSETS: Partial<Record<SoundEffect, number>> = {
-    // complete: require('../assets/sounds/complete.mp3'),
-    // tap: require('../assets/sounds/tap.mp3'),
+    // Original tones made for Habyss (soft pentatonic chimes), bundled so they
+    // work offline and need no licence.
+    complete: require('../assets/sounds/complete.m4a'),
+    tap: require('../assets/sounds/tap.m4a'),
+    success: require('../assets/sounds/success.m4a'),
+    error: require('../assets/sounds/error.m4a'),
+    streak: require('../assets/sounds/streak.m4a'),
+    levelUp: require('../assets/sounds/levelUp.m4a'),
+    notification: require('../assets/sounds/notification.m4a'),
+    swipe: require('../assets/sounds/swipe.m4a'),
+    toggle: require('../assets/sounds/toggle.m4a'),
+    celebrate: require('../assets/sounds/celebrate.m4a'),
 };
 
 let warnedAboutMissingSounds = false;
@@ -95,7 +105,9 @@ export async function initializeAudio(): Promise<void> {
     if (!hasBundledSounds()) return;
     const expo = audio();
     if (!expo) return;
-    audioReady ??= expo.setAudioModeAsync({ playsInSilentMode: false })
+    // Respects the mute switch, and plays over whatever music is on rather
+    // than stopping it: a tick should never pause somebody's playlist.
+    audioReady ??= expo.setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' })
         .then(() => undefined)
         .catch(error => { console.warn('Failed to initialize audio mode:', error); });
     return audioReady;

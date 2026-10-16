@@ -29,6 +29,7 @@ export interface AppEvents {
     habit_deleted: { habitId: string };
     goal_deleted: { goalId: string };
     tasks_changed: void;
+    task_completed: { taskId: string };
     engagement_settings_changed: void;
     /** Every task and habit for the day is done. */
     day_complete: { tally: DayTally; streak: number; completedDates: string[] };
