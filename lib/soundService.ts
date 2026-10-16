@@ -134,7 +134,8 @@ export async function preloadSound(effect: SoundEffect): Promise<void> {
  */
 export async function preloadCommonSounds(): Promise<void> {
     if (!hasBundledSounds()) return;
-    const commonSounds: SoundEffect[] = ['complete', 'tap', 'success', 'toggle'];
+    // The ones the app actually plays, loaded ahead so the first is not silent.
+    const commonSounds: SoundEffect[] = ['complete', 'streak', 'celebrate', 'levelUp'];
     await Promise.all(commonSounds.map(preloadSound));
 }
 
@@ -160,7 +161,10 @@ export async function playSound(effect: SoundEffect, volume: number = 0.7): Prom
 
         if (player) {
             player.volume = volume;
-            player.seekTo(0);
+            // Rewound first, then played: calling play while the rewind was
+            // still in flight is what made the same sound play one time and
+            // not the next.
+            await player.seekTo(0).catch(() => undefined);
             player.play();
         }
     } catch (error) {

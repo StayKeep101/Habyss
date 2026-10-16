@@ -311,11 +311,10 @@ const CalendarScreen = () => {
 
     // Weekly Calcs - OPTIMIZED: only run on mount to prevent JS thread hammering
 
-    const { playComplete, playClick } = useSoundEffects();
+    const { playComplete } = useSoundEffects();
 
     const handleDateSelect = (date: Date) => {
         lightFeedback();
-        playClick();
         setSelectedDate(date);
     };
 
