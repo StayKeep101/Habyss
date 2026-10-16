@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {View, Text, ScrollView, RefreshControl} from 'react-native';
 import { EchoLine } from '@/components/Home/EchoLine';
 import { useMyProfile } from '@/hooks/useMyProfile';
+import { ClimbMomentOverlay } from '@/components/Home/ClimbMomentOverlay';
+import { loadClimbState, nextMoment, saveClimbState, type ClimbMoment } from '@/lib/climbMoments';
 import { afterPaint } from '@/lib/afterPaint';
 import { s, ms } from '@/theme/scale';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -57,7 +59,7 @@ const Home = () => {
   const colors = Colors[theme];
   const { primary: accentColor } = useAccentGradient();
   const { lightFeedback, selectionFeedback } = useHaptics();
-  const { playComplete } = useSounds();
+  const { playComplete, playLevelUp } = useSounds();
   const { horizontalPadding, sectionGap, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
   // Pro Hooks
@@ -183,6 +185,25 @@ const Home = () => {
   const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);
+
+  // The climb, as moments: your first foothold, then each new rank (lib/climbMoments.ts).
+  const [climbMoment, setClimbMoment] = useState<ClimbMoment | null>(null);
+  useEffect(() => {
+    if (!sharedData.historyLoaded || !sharedData.tasksLoaded) return;
+    const hasCompleted = Object.values(sharedData.history).some(ids => ids.length > 0)
+      || sharedData.tasks.some(task => task.status === 'done');
+    let alive = true;
+    void loadClimbState().then(previous => {
+      if (!alive) return;
+      const { moment, state } = nextMoment(previous, marks.total, hasCompleted);
+      void saveClimbState(state);
+      if (moment) {
+        setClimbMoment(moment);
+        if (moment.kind === 'rankUp') playLevelUp();
+      }
+    });
+    return () => { alive = false; };
+  }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, sharedData.history, sharedData.tasks, playLevelUp]);
   const [showMarks, setShowMarks] = useState(false);
   // Friends see your total; sent a moment after it settles, and only when it moved.
   useEffect(() => {
@@ -400,6 +421,7 @@ const Home = () => {
           completions={completions}
         />
         <MarksModal visible={showMarks} onClose={() => setShowMarks(false)} marks={marks} />
+        <ClimbMomentOverlay moment={climbMoment} onDone={() => setClimbMoment(null)} />
         <CelebrationAnimation visible={showCelebration} onComplete={() => setShowCelebration(false)} />
       </SafeAreaView>
     </VoidShell>

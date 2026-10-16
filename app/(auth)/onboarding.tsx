@@ -1,6 +1,6 @@
 import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { textOn } from '@/theme/tokens';
 import { IconButton } from '@/components/ui/IconButton';
@@ -18,7 +18,7 @@ import { useAppSettings } from '@/context/AppSettingsContext';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { QuietLoading } from '@/components/Loading/QuietLoading';
-import { APP_NAME, APP_SLOGAN, APP_SLOGAN_LINES } from '@/constants/brand';
+import { APP_SLOGAN } from '@/constants/brand';
 import { setOnboardingComplete } from '@/lib/localUser';
 import { localDateKey } from '@/lib/habitSchedule';
 import { FLOW_VERSION, clearDraft, loadDraft, saveDraft, type OnboardingDraft } from '@/lib/onboarding';
@@ -34,6 +34,7 @@ import { ECHO_NAME, hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
 import { currentAccount, onAccountChange } from '@/lib/account';
 import { getName } from '@/lib/echo';
 import { SignInOptions } from '@/components/Auth/SignInOptions';
+import { ClimbIntro } from '@/components/Onboarding/ClimbIntro';
 import type { SyncReport } from '@/lib/cloudSync';
 import { styles } from '@/styles/screens/auth/onboarding.styles';
 
@@ -317,24 +318,12 @@ export default function OnboardingScreen() {
         // a previous phone's data back, and a new account carries on with setup.
         <View style={styles.splash}>
             <View style={styles.splashInner}>
-                {/* The mark, exactly as the launch screen leaves it: no white
-                    disc to swap in, so the app simply continues from the splash
-                    instead of restating itself differently. */}
-                <View
-                    accessible
-                    accessibilityRole="image"
-                    accessibilityLabel={`${APP_NAME} logo`}
-                    style={styles.logoMark}
-                >
-                    <Image source={require('@/assets/images/habyss-mark.png')} style={styles.logoImage} resizeMode="contain" />
-                </View>
-                <Text style={[styles.brandSlogan, { color: colors.textPrimary }]}>
-                    {APP_SLOGAN_LINES[0]}{'\n'}{APP_SLOGAN_LINES[1]}
-                </Text>
+                {/* The story's first frame: the bottom of the abyss, and Echo. */}
+                <ClimbIntro />
             </View>
 
             <View style={styles.welcomeActions}>
-                <PrimaryButton label="Start Now" onPress={() => goTo(STEP.name)} />
+                <PrimaryButton label="Start climbing" onPress={() => goTo(STEP.name)} />
 
                 <View style={styles.welcomeOr}>
                     <View style={[styles.welcomeRule, { backgroundColor: colors.border }]} />

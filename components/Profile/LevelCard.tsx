@@ -10,8 +10,9 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { rankFor } from '@/lib/marks';
 
 /**
- * Someone's level: the rank their Marks have reached, the total, and how far
- * to the next rank. The same card on your profile and on a friend's page.
+ * Someone's place in the climb: the rank their Marks have reached, the total,
+ * and how far to the next ledge. The same card on your profile and on a
+ * friend's page. Lost is unranked: the first ledge is Beginner.
  */
 export function LevelCard({ marks }: { marks: number }) {
     const { theme } = useTheme();
@@ -24,7 +25,7 @@ export function LevelCard({ marks }: { marks: number }) {
                 <IconTile icon="trophy" color={primary} size={44} shape="square" />
                 <View style={styles.text}>
                     <Text style={[styles.rank, { color: colors.textPrimary }]}>{rank.name}</Text>
-                    <Text style={[styles.sub, { color: colors.textTertiary }]}>Level</Text>
+                    <Text style={[styles.sub, { color: colors.textTertiary }]}>{rank.min === 0 ? 'Unranked' : 'Rank'}</Text>
                 </View>
                 <View style={styles.right}>
                     <CountUp style={[styles.marks, { color: colors.textPrimary }]} value={marks} />
@@ -35,7 +36,10 @@ export function LevelCard({ marks }: { marks: number }) {
                 <AnimatedFill progress={progress} style={[styles.fill, { backgroundColor: primary }]} />
             </View>
             <Text style={[styles.next, { color: colors.textTertiary }]}>
-                {next ? `${toNext.toLocaleString()} to ${next.name}` : 'Highest level'}
+                {/* The climb, in its own words: Lost has not found the wall yet. */}
+                {!next ? 'Out of the abyss' : rank.min === 0
+                    ? `${toNext.toLocaleString()} Marks to the first ledge`
+                    : `${toNext.toLocaleString()} Marks to ${next.name}`}
             </Text>
         </VoidCard>
     );
