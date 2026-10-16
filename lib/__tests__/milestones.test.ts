@@ -8,6 +8,7 @@ const store: Record<string, string> = {};
 jest.mock('@react-native-async-storage/async-storage', () => ({
     getItem: jest.fn(async (key: string) => (key in store ? store[key] : null)),
     setItem: jest.fn(async (key: string, value: string) => { store[key] = value; }),
+    removeItem: jest.fn(async (key: string) => { delete store[key]; }),
 }));
 
 beforeEach(() => {
@@ -65,10 +66,17 @@ describe('what gets announced', () => {
         expect(emit).toHaveBeenCalledWith('daily_target_reached', { done: 5, target: 3 });
     });
 
-    it('does not announce the same day twice', async () => {
+    it('does not announce again while the day stays at or above the target', async () => {
         await announceDailyTarget(3, 3);
         await announceDailyTarget(4, 3);
         expect(emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('announces again when a task is unticked and ticked back to the target', async () => {
+        await announceDailyTarget(3, 3);
+        await announceDailyTarget(2, 3);
+        await announceDailyTarget(3, 3);
+        expect(emit).toHaveBeenCalledTimes(2);
     });
 
     it('carries the goal name, because that is what is worth reading', async () => {

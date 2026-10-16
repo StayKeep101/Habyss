@@ -30,6 +30,15 @@ export async function claimDailyTarget(today = localDateKey(new Date())): Promis
 }
 
 /** The goals already celebrated, so finishing one is announced exactly once. */
+/** Dropping back under the target clears today's claim, so reaching it again celebrates again. */
+export async function releaseDailyTarget(today = localDateKey(new Date())): Promise<void> {
+    try {
+        if ((await AsyncStorage.getItem(DAILY_TARGET_KEY)) === today) await AsyncStorage.removeItem(DAILY_TARGET_KEY);
+    } catch {
+        // The worst case is one missed celebration.
+    }
+}
+
 async function celebratedGoals(): Promise<string[]> {
     try {
         const raw = await AsyncStorage.getItem(GOAL_KEY);
@@ -71,14 +80,17 @@ export async function forgetGoal(goalId: string): Promise<void> {
 }
 
 /**
- * Announces the day's promise being kept, the first time it happens today.
+ * Announces the day's promise being kept, each time the day reaches it: a
+ * task unticked and ticked again (or swapped for another) gets the moment
+ * again, rather than only the first time today.
  *
  * This is the smaller of the two moments — three things, or five — and it is
  * deliberately separate from finishing the whole day, which also asks for
  * every habit.
  */
 export async function announceDailyTarget(done: number, target: number): Promise<void> {
-    if (done < target || target <= 0) return;
+    if (target <= 0) return;
+    if (done < target) { await releaseDailyTarget(); return; }
     if (!(await claimDailyTarget())) return;
     emit('daily_target_reached', { done, target });
 }
@@ -121,6 +133,7 @@ export async function checkMilestones(): Promise<void> {
         const wholeDay = isDayComplete(tallyDay(habits, completions, skipped, tasks, today, target));
         if (wholeDay) {
             if (focus.done >= target) await claimDailyTarget(today);
+            else await releaseDailyTarget(today);
         } else {
             await announceDailyTarget(focus.done, target);
         }
