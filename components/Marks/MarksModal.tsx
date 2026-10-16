@@ -8,7 +8,7 @@ import { ModalHeader } from '@/components/ui/ModalHeader';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
-import { FontFamily, UIStyles } from '@/theme/designSystem';
+import { FontFamily, Spacing, UIStyles } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { MARKS, RANKS, type MarkEvent } from '@/lib/marks';
@@ -136,6 +136,17 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                                 </View>
                             ))}
                         </View>
+                        {/* Sleep, from Apple Health: up when you reach your goal, down when you fall short. */}
+                        <View style={[styles.rules, styles.sleepRules, { backgroundColor: tile }]}>
+                            <View style={styles.ruleRow}>
+                                <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>Sleep goal reached</Text>
+                                <Text style={[styles.ruleCell, { color: colors.textPrimary }]}>+{MARKS.complete.sleep}</Text>
+                            </View>
+                            <View style={styles.ruleRow}>
+                                <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>Sleep goal missed</Text>
+                                <Text style={[styles.ruleCell, { color: colors.error }]}>−{Math.abs(MARKS.miss.sleep)}</Text>
+                            </View>
+                        </View>
                 <Text style={[styles.section, { color: colors.textPrimary }]}>Ranks</Text>
                         <View style={[styles.card, { backgroundColor: tile }]}>
                             {RANKS.map((rank, index) => {
@@ -181,6 +192,7 @@ const Change: React.FC<{ value: number; label: string }> = ({ value, label }) =>
 };
 
 const styles = StyleSheet.create({
+    sleepRules: { marginTop: Spacing.sm },
     content: { paddingHorizontal: 20, paddingBottom: 48 },
     overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 20 },
     window: { width: '100%', maxHeight: '78%', borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, paddingTop: 16, overflow: 'hidden' },
