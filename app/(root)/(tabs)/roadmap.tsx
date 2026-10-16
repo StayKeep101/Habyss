@@ -940,7 +940,6 @@ const CalendarScreen = () => {
                                 plan={dayPlan.plan}
                                 isToday={dayPlan.isToday}
                                 accent={accentColor}
-                                onEditDay={() => { lightFeedback(); router.push('/(root)/notifications'); }}
                             />
 
                             {/* Filter Indicator - Subtle compact pill */}

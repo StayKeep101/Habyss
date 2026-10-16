@@ -35,3 +35,17 @@ describe('the day as hours', () => {
         expect(plan.left).toBe(120);
     });
 });
+
+describe('what is on at a minute', () => {
+    it('finds what is running, or what is about to start nearby', () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { blocksAt } = require('../dayPlan') as typeof import('../dayPlan');
+        const plan = { blocks: [
+            { id: 'run', kind: 'habit' as const, title: 'Run', start: 480, end: 510, done: false },
+            { id: 'call', kind: 'task' as const, title: 'Call', start: 600, end: 600, done: true },
+        ] };
+        expect(blocksAt(plan, 495).map(block => block.id)).toEqual(['run']);
+        expect(blocksAt(plan, 595).map(block => block.id)).toEqual(['call']);
+        expect(blocksAt(plan, 700)).toEqual([]);
+    });
+});

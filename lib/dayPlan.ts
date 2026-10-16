@@ -144,3 +144,13 @@ export function spanLabel(minutes: number): string {
     if (!hours) return `${rest} min`;
     return rest ? `${hours} h ${rest} min` : `${hours} h`;
 }
+
+/**
+ * What is on at a minute of the day: every block running then, or — when the
+ * finger is between blocks — any starting or ending within `slack` minutes.
+ */
+export function blocksAt(plan: Pick<DayPlan, 'blocks'>, minute: number, slack = 10): PlanBlock[] {
+    const running = plan.blocks.filter(block => block.start <= minute && minute < Math.max(block.end, block.start + 1));
+    if (running.length) return running;
+    return plan.blocks.filter(block => Math.abs(block.start - minute) <= slack || Math.abs(block.end - minute) <= slack);
+}
