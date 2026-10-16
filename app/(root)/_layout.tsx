@@ -125,10 +125,6 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
-          name="friend"
-          options={{ headerShown: false, presentation: 'modal' }}
-        />
-        <Stack.Screen
           name="brain-dump"
           options={{ headerShown: false, presentation: 'modal' }}
         />

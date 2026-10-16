@@ -182,6 +182,18 @@ export async function pushProfile(profile?: Profile, sharing?: Sharing): Promise
         bio: allowed.bio ? (me.bio.trim().slice(0, 300) || null) : null,
     };
 
+    // The cover travels with the picture, under the same switch.
+    if (!allowed.photo || !me.cover) {
+        patch.cover_url = null;
+    } else {
+        const coverUrl = await uploadToOwnFolder(ctx, me.cover, `cover-${Date.now()}`);
+        if (coverUrl) patch.cover_url = coverUrl;
+        if (coverUrl && coverUrl !== me.cover) {
+            const { saveProfile } = require('./profile') as typeof import('./profile');
+            void saveProfile({ cover: coverUrl }).catch(() => undefined);
+        }
+    }
+
     if (!allowed.photo) {
         patch.avatar_url = null;
     } else if (me.avatar) {
@@ -215,7 +227,7 @@ export async function pushProfile(profile?: Profile, sharing?: Sharing): Promise
 export async function backfillProfile(): Promise<void> {
     const ctx = await signedIn();
     if (!ctx) return;
-    const { data } = await ctx.sb.from('profiles').select('display_name, bio, avatar_url, sharing').eq('id', ctx.me).maybeSingle();
+    const { data } = await ctx.sb.from('profiles').select('display_name, bio, avatar_url, cover_url, sharing').eq('id', ctx.me).maybeSingle();
     if (!data) return;
 
     const me = await getProfile();
@@ -230,6 +242,7 @@ export async function backfillProfile(): Promise<void> {
     if (!me.name.trim() && data.display_name) restore.name = data.display_name;
     if (!me.bio.trim() && data.bio) restore.bio = data.bio;
     if (!me.avatar && data.avatar_url) restore.avatar = data.avatar_url;
+    if (!me.cover && data.cover_url) restore.cover = data.cover_url;
     if (Object.keys(restore).length) {
         const { saveProfile } = require('./profile') as typeof import('./profile');
         // saveProfile sends the result back up, which settles anything else.
@@ -241,7 +254,8 @@ export async function backfillProfile(): Promise<void> {
         (allowed.name && !!me.name.trim() && me.name.trim() !== (data.display_name ?? ''))
         || (allowed.bio && !!me.bio.trim() && me.bio.trim().slice(0, 300) !== (data.bio ?? ''))
         // A picture still on the phone (file://) has not been uploaded yet.
-        || (allowed.photo && !!me.avatar && (!data.avatar_url || !/^https?:/.test(me.avatar)));
+        || (allowed.photo && !!me.avatar && (!data.avatar_url || !/^https?:/.test(me.avatar)))
+        || (allowed.photo && !!me.cover && (!data.cover_url || !/^https?:/.test(me.cover)));
     if (!differs) return;
 
     await pushProfile(me, allowed);

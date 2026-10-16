@@ -89,7 +89,7 @@ export async function saveProfile(changes: Partial<Profile>): Promise<void> {
         if (changes.avatar !== undefined) emit('profile_avatar_changed', changes.avatar ?? '');
         // The parts other people are shown have to leave the phone. Which of
         // them actually travel is decided by the sharing switches.
-        if (changes.name !== undefined || changes.bio !== undefined || changes.avatar !== undefined) {
+        if (changes.name !== undefined || changes.bio !== undefined || changes.avatar !== undefined || changes.cover !== undefined) {
             const { pushProfile } = require('./profileSync') as typeof import('./profileSync');
             void pushProfile().catch(() => undefined);
         }

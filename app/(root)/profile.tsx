@@ -17,9 +17,12 @@ import { localDateKey } from '@/lib/habitSchedule';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useMarks } from '@/hooks/useMarks';
-import { useAccentGradient } from '@/context/AccentContext';
 import { EMPTY_PROFILE, ageFrom, getProfile, initials, saveProfile, type Profile } from '@/lib/profile';
 import { ProfileView } from '@/components/Profile/ProfileView';
+import { ProfileDays } from '@/components/Profile/ProfileDays';
+import { buildDayCard } from '@/lib/dayCard';
+import { FeedService } from '@/lib/feedService';
+import { getMyUsername } from '@/lib/friendsService';
 import { styles } from '@/styles/screens/profile.styles';
 
 
@@ -81,7 +84,6 @@ export default function ProfileScreen() {
     // The same Marks Home shows and friends see, as your level.
     const goalsData = useGoalsInsights();
     const marks = useMarks(goalsData);
-    const { primary: accent } = useAccentGradient();
 
 
     /** One picker for both images; the crop is what tells them apart. */
@@ -109,9 +111,17 @@ export default function ProfileScreen() {
     };
 
     const age = profile.birthday ? ageFrom(profile.birthday) : null;
-    const finished = tasks.filter(task => task.status === 'done').length;
     const tracked = habits.filter(habit => !habit.isGoal && !habit.isArchived).length;
     const goalCount = habits.filter(habit => habit.isGoal && !habit.isArchived).length;
+    // Today, counted the way a friend's page counts it (the day card).
+    const today = React.useMemo(() => {
+        const card = buildDayCard({ habits, tasks, history: data.history, skips: data.skips, day: localDateKey(new Date()), streak });
+        return { done: card.habitsDone + card.tasksDone, total: card.habitsTotal + card.tasksTotal };
+    }, [habits, tasks, data.history, data.skips, streak]);
+    const [myId, setMyId] = useState<string | null>(null);
+    useEffect(() => { void FeedService.me().then(setMyId); }, []);
+    const [handle, setHandle] = useState<string | null>(null);
+    useEffect(() => { void getMyUsername().then(setHandle).catch(() => undefined); }, []);
 
     return (
         <VoidShell>
@@ -122,19 +132,13 @@ export default function ProfileScreen() {
                 <ProfileView
                     name={profile.name}
                     bio={profile.bio}
-                    meta={[tracked ? `${tracked} habit${tracked === 1 ? '' : 's'}` : null, age ? `${age}` : null]
-                        .filter(Boolean).join(' · ') || 'Nothing tracked yet'}
+                    meta={[handle ? `@${handle}` : null, age ? `${age}` : null].filter(Boolean).join(' · ')}
                     avatar={profile.avatar}
                     cover={profile.cover}
                     initials={initials(profile)}
                     topInset={insets.top}
                     marks={marks.total}
-                    stats={[
-                        { label: 'Day streak', value: streak, icon: 'flame', color: colors.warning },
-                        { label: 'Habits', value: tracked, icon: 'repeat', color: colors.success },
-                        { label: 'Tasks done', value: finished, icon: 'checkmark-done', color: accent },
-                        { label: 'Goals', value: goalCount, icon: 'flag', color: colors.secondary },
-                    ]}
+                    numbers={{ streak, habits: tracked, goals: goalCount, todayDone: today.done, todayTotal: today.total }}
                     edit={{
                         onName: name => setProfile(current => ({ ...current, name })),
                         onNameDone: () => change({ name: profile.name.trim() }),
@@ -158,6 +162,9 @@ export default function ProfileScreen() {
                         </View>
                     ) : null}
                 </ProfileView>
+
+                {/* What friends see under your profile, here too. */}
+                <ProfileDays userId={myId} />
 
             </ScrollView>
             {/* Floats over the backdrop, below the status bar: this is a

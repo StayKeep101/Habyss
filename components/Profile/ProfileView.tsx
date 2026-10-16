@@ -15,11 +15,13 @@ import { useAccentGradient } from '@/context/AccentContext';
 
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
-export interface ProfileStat {
-    label: string;
-    value: string | number;
-    icon: string;
-    color: string;
+/** The numbers every profile shows, yours and a friend's alike. */
+export interface ProfileNumbers {
+    streak: number;
+    habits: number;
+    goals: number;
+    todayDone: number;
+    todayTotal: number;
 }
 
 /**
@@ -41,7 +43,10 @@ export const ProfileView: React.FC<{
     avatar?: string | null;
     cover?: string | null;
     initials: string;
-    stats: ProfileStat[];
+    /** A line under the name and handle (a friend's status). */
+    subline?: React.ReactNode;
+    /** Absent when they keep their progress private. */
+    numbers?: ProfileNumbers;
     /** Their Marks: shown as their level, above the numbers. */
     marks?: number;
     /** Absent for a friend's page: theirs is not yours to edit. */
@@ -56,7 +61,7 @@ export const ProfileView: React.FC<{
     topInset?: number;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, cover, initials, stats, marks, edit, topInset = 0, children }) => {
+}> = ({ name, bio, meta, avatar, cover, initials, subline, numbers, marks, edit, topInset = 0, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -151,7 +156,8 @@ export const ProfileView: React.FC<{
                         <Text style={[styles.name, { color: colors.textPrimary }]}>{name}</Text>
                     )}
 
-                    <Text style={[styles.meta, { color: colors.textTertiary }]}>{meta}</Text>
+                    {meta ? <Text style={[styles.meta, { color: colors.textTertiary }]}>{meta}</Text> : null}
+                    {subline}
 
                     {edit ? (
                         <TextInput
@@ -173,17 +179,26 @@ export const ProfileView: React.FC<{
             <View style={styles.statsBlock}>
                 {marks !== undefined ? <LevelCard marks={marks} /> : null}
                 {/* Four numbers, each with its own mark, two by two. */}
-                <View style={styles.grid}>
-                    {stats.map((stat, index) => (
-                        <PopIn key={stat.label} index={index} style={styles.tileWrap}>
-                            <VoidCard style={styles.tile}>
-                                <IconTile icon={stat.icon} color={stat.color} size={32} />
-                                <CountUp style={[styles.tileValue, { color: colors.textPrimary }]} value={stat.value} />
-                                <Text style={[styles.tileLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
-                            </VoidCard>
-                        </PopIn>
-                    ))}
-                </View>
+                {numbers ? (
+                    <View style={styles.grid}>
+                        {[
+                            { label: 'Day streak', value: numbers.streak, icon: 'flame', color: colors.warning },
+                            { label: 'Habits', value: numbers.habits, icon: 'repeat', color: colors.success },
+                            { label: 'Goals', value: numbers.goals, icon: 'flag', color: colors.secondary },
+                            { label: 'Today', value: `${numbers.todayDone}/${numbers.todayTotal}`, icon: 'checkmark-done', color: primary },
+                        ].map((stat, index) => (
+                            <PopIn key={stat.label} index={index} style={styles.tileWrap}>
+                                <VoidCard style={styles.tile}>
+                                    <IconTile icon={stat.icon} color={stat.color} size={32} />
+                                    <CountUp style={[styles.tileValue, { color: colors.textPrimary }]} value={stat.value} />
+                                    <Text style={[styles.tileLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
+                                </VoidCard>
+                            </PopIn>
+                        ))}
+                    </View>
+                ) : (
+                    <Text style={[styles.private, { color: colors.textTertiary }]}>Progress is private</Text>
+                )}
             </View>
 
             {children}
@@ -219,4 +234,5 @@ const styles = StyleSheet.create({
     tile: { padding: s(14), gap: vs(6) },
     tileValue: { fontSize: ms(24), lineHeight: ms(30), fontFamily: FontFamily.bold, letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
     tileLabel: { fontSize: ms(12), fontFamily: FontFamily.regular },
+    private: { fontSize: ms(13), fontFamily: FontFamily.regular, textAlign: 'center', paddingVertical: vs(12) },
 });
