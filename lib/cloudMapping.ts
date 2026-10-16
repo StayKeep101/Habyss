@@ -167,7 +167,8 @@ export function habitToLocal(row: Row): Row {
 
 export function completionToRemote(row: Row, userId: string): Row {
     return {
-        id: row.id,
+        // No id: the server assigns one, and the row is matched on
+        // (user_id, habit_id, date).
         user_id: userId,
         habit_id: row.habit_id,
         date: dateOnly(row.date),

@@ -2,7 +2,7 @@
 --
 -- Applied 2026-09-27.
 -- Apply with:
---   node scripts/apply-migration.mjs supabase/migrations/20260927_feed_reactions_and_proof.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260927000100_feed_reactions_and_proof.sql
 --
 -- Until it is applied the feed still works — it is built from the day numbers
 -- friend_stats already returns — but reactions live only on the device that

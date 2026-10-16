@@ -1,12 +1,23 @@
--- A friend's chosen name, carried with their day.
+-- A friend's day, with how it was evidenced.
 --
--- Same body as 20260928_friend_stats_blocks, with `display_name` added to the
--- row. Recreated rather than replaced, because `create or replace` cannot add a
--- column to a function's return type; the argument list is unchanged, so an
--- older build simply ignores the new column.
+-- `evidence` landed on habit_completions with 20260927000100_feed_reactions_and_proof,
+-- and the phone started stamping it with local schema v13 — but a friend's
+-- completions are not readable by you, which is the whole reason friend_stats
+-- exists. So the number of backed check-ins has to come out of the same
+-- security-definer function as everything else you are allowed to know.
 --
--- Applied 2026-09-30.
---   node scripts/apply-migration.mjs supabase/migrations/20260930_friend_stats_display_name.sql
+-- `today_evidence` is one element per completion counted in `today_done`, using
+-- the identical predicate, so the two can never disagree about how many things
+-- were done. A row written before the column existed reads as 'self', which is
+-- the honest reading of a tick nobody checked.
+--
+-- Dropped and recreated rather than replaced: `create or replace` cannot add a
+-- column to a function's return type. The argument list is unchanged, so the
+-- app's existing `rpc('friend_stats', { p_today })` keeps working either way —
+-- an older build simply ignores the new column.
+--
+-- Applied 2026-09-27.
+--   node scripts/apply-migration.mjs supabase/migrations/20260927000200_friend_stats_evidence.sql
 
 drop function if exists public.friend_stats(date);
 
@@ -19,8 +30,7 @@ returns table (
     active_habits integer,
     week_done integer[],
     current_streak integer,
-    today_evidence text[],
-    display_name text
+    today_evidence text[]
 )
 language sql
 stable
@@ -35,20 +45,10 @@ as $function$
         where f.deleted_at is null
           and (f.user_id = (select auth.uid()) or f.friend_id = (select auth.uid()))
     ),
-    visible as (
-        -- Blocked either way: gone from the feed, whatever the friendship says.
-        select p.id from people p
-        where p.id = (select auth.uid())
-           or not exists (
-               select 1 from public.user_blocks b
-               where (b.blocker = (select auth.uid()) and b.blocked = p.id)
-                  or (b.blocker = p.id and b.blocked = (select auth.uid()))
-           )
-    ),
     days as (
         select c.user_id, c.date, count(*)::integer as done
         from public.habit_completions c
-        join visible p on p.id = c.user_id
+        join people p on p.id = c.user_id
         where c.deleted_at is null
           and c.completed is not false
           and c.date between p_today - 400 and p_today
@@ -79,9 +79,8 @@ as $function$
               where c.user_id = p.id
                 and c.date = p_today
                 and c.deleted_at is null
-                and c.completed is not false),
-        pr.display_name
-    from visible p
+                and c.completed is not false)
+    from people p
     join public.profiles pr on pr.id = p.id
     where (select auth.uid()) is not null;
 $function$;

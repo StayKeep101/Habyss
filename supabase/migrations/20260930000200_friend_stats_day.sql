@@ -17,11 +17,11 @@
 -- might be older than the switch. Hiding something in the client while the
 -- server still hands it over is not privacy, it is decoration.
 --
--- Same body as 20260930_friend_stats_display_name with four columns added, and
+-- Same body as 20260930000300_friend_stats_display_name with four columns added, and
 -- recreated rather than replaced because a function's return type cannot grow.
 --
 -- Applied 2026-09-30.
---   node scripts/apply-migration.mjs supabase/migrations/20260930_friend_stats_day.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260930000200_friend_stats_day.sql
 
 drop function if exists public.friend_stats(date);
 

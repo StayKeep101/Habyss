@@ -225,7 +225,7 @@ BEGIN
     END IF;
 
     INSERT INTO schema_migrations (version, applied_at)
-    VALUES ('20250318_create_routine_and_focus_tables', NOW())
+    VALUES ('20250318000100_create_routine_and_focus_tables', NOW())
     ON CONFLICT (version) DO NOTHING;
 END $$;
 

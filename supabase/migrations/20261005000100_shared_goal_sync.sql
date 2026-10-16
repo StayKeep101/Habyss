@@ -16,7 +16,7 @@
 -- Completions stay per person. Editing what a habit *is* is shared; whether
 -- you did it today is yours.
 --
---   node scripts/apply-migration.mjs supabase/migrations/20261005_shared_goal_sync.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20261005000100_shared_goal_sync.sql
 
 -- ------------------------------------------------------------ who is on what
 

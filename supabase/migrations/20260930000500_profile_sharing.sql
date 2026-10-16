@@ -1,7 +1,7 @@
 -- A profile a friend can actually see, and control over how much of it.
 --
 -- Three things were device-only and so invisible to everybody else: the name
--- (fixed by 20260930_display_name), the bio, and the picture. A profile page
+-- (fixed by 20260930000100_display_name), the bio, and the picture. A profile page
 -- that shows a friend less than it shows you is a page that is quietly lying
 -- about one of the two.
 --
@@ -15,7 +15,7 @@
 -- nothing" is not a privacy setting, it is an ultimatum.
 --
 -- Applied 2026-09-30.
---   node scripts/apply-migration.mjs supabase/migrations/20260930_profile_sharing.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260930000500_profile_sharing.sql
 
 alter table public.profiles
     add column if not exists bio text;

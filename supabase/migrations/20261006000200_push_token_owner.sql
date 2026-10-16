@@ -12,7 +12,7 @@
 -- token the sender holds, so a stale copy can never echo a notification back
 -- to the phone that caused it.
 --
---   node scripts/apply-migration.mjs supabase/migrations/20261006_push_token_owner.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20261006000200_push_token_owner.sql
 
 create or replace function public.claim_push_token(p_token text)
 returns void

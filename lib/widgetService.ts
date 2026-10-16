@@ -10,9 +10,19 @@ import type { EchoHour } from './echoLockScreen';
  * count and the ring can never disagree: they come from the same payload.
  * `lib/widgetSync.ts` decides what that payload is.
  */
+/**
+ * What was last handed to the widget. Redrawing a widget is real work for iOS,
+ * and the app refreshes on every change and once a minute, so an unchanged
+ * snapshot is not written or redrawn again.
+ */
+let lastPayload: string | null = null;
+let lastEcho: string | null = null;
+
 export const WidgetService = {
     async write(payload: WidgetPayload): Promise<void> {
         if (Platform.OS !== 'ios') return;
+        const fingerprint = JSON.stringify(payload);
+        if (fingerprint === lastPayload) return;
         try {
             if (payload.dashboard && !(await SharedDefaults.set('widgetDashboard', JSON.stringify(payload.dashboard)))) {
                 throw new Error('The iOS widget storage bridge is unavailable. Rebuild Habyss with SharedDefaults and its App Group entitlement.');
@@ -34,6 +44,7 @@ export const WidgetService = {
                 await SharedDefaults.set('accentTo', payload.accent.to);
             }
             await SharedDefaults.reloadTimelines();
+            lastPayload = fingerprint;
         } catch (error) {
             console.warn('WidgetService: could not update the widget', error);
             throw error;
@@ -49,9 +60,12 @@ export const WidgetService = {
      */
     async writeEcho(hours: EchoHour[]): Promise<void> {
         if (Platform.OS !== 'ios') return;
+        const fingerprint = JSON.stringify(hours);
+        if (fingerprint === lastEcho) return;
         try {
-            await SharedDefaults.set('echoHours', JSON.stringify(hours));
+            await SharedDefaults.set('echoHours', fingerprint);
             await SharedDefaults.reloadTimelines();
+            lastEcho = fingerprint;
         } catch (error) {
             console.warn('WidgetService: could not update Echo', error);
         }

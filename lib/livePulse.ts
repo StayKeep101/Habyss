@@ -57,6 +57,9 @@ async function publish(): Promise<void> {
 
 /** Something on this phone changed that friends can see. Bursts collapse into one. */
 export function announceChange(): void {
+    // A change that just arrived from the server is not news to send back.
+    const { isApplyingRemote } = require('./cloudSync') as typeof import('./cloudSync');
+    if (isApplyingRemote()) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => { timer = null; void publish(); }, SETTLE_MS);
 }

@@ -15,7 +15,7 @@
 -- Five at most, and only today's. A friend's backlog is not the feed's business.
 --
 -- Applied 2026-09-30.
---   node scripts/apply-migration.mjs supabase/migrations/20260930_friend_today_tasks.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260930000400_friend_today_tasks.sql
 
 create or replace function public.friend_today_tasks(p_today date)
 returns table (

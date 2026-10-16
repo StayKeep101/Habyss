@@ -20,7 +20,7 @@
 -- count.
 --
 -- Applied 2026-09-29.
---   node scripts/apply-migration.mjs supabase/migrations/20260929_feedback.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260929000200_feedback.sql
 
 create table if not exists public.feedback (
     id          uuid primary key default gen_random_uuid(),

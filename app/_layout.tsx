@@ -353,7 +353,9 @@ function InnerLayout() {
     });
     // Native ActivityKit schedules the exact start. This foreground fallback
     // also covers older iOS and replenishes the upcoming cards while browsing.
-    const interval = setInterval(enqueue, 60000);
+    // Every change refreshes straight away; this is only the fallback, and each
+    // pass reads the whole day back, so it runs every five minutes, not every one.
+    const interval = setInterval(enqueue, 5 * 60000);
     enqueue();
     return () => { alive = false; stop(); subscription.remove(); clearInterval(interval); if (timer) clearTimeout(timer); };
   }, [foreground]);

@@ -5,7 +5,7 @@
 -- uploading a column the server does not have would fail every habit sync, so
 -- the field stays on the device rather than breaking backup for everyone.
 --
--- Apply with:  node scripts/apply-migration.mjs supabase/migrations/20260926_habit_reminder_message.sql
+-- Apply with:  node scripts/apply-migration.mjs supabase/migrations/20260926000100_habit_reminder_message.sql
 -- Then add `reminder_message` to cloudMapping so it backs up and restores.
 
 alter table public.habits

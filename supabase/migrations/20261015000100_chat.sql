@@ -12,7 +12,7 @@
 -- counts. That is enforced here, not in the app, because an older app version
 -- must not be able to show more than somebody agreed to.
 --
---   node scripts/apply-migration.mjs supabase/migrations/20261015_chat.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20261015000100_chat.sql
 
 -- ----------------------------------------------------------------- messages
 create table if not exists public.messages (

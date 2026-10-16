@@ -42,7 +42,9 @@ const TABLES: TableSpec[] = [
     // Goals are habits, and habits point at goals, so habits go first.
     { local: 'habits', remote: 'habits', toRemote: habitToRemote, toLocal: habitToLocal, onConflict: 'id', localConflict: 'id' },
     // One completion per habit per day, on both sides.
-    { local: 'completions', remote: 'habit_completions', toRemote: completionToRemote, toLocal: completionToLocal, onConflict: 'habit_id,date', localConflict: 'habit_id, date' },
+    // Matched on what a completion is — one person, one habit, one day — not on
+    // its id: local ids are "<habit>_<date>", which the server cannot store.
+    { local: 'completions', remote: 'habit_completions', toRemote: completionToRemote, toLocal: completionToLocal, onConflict: 'user_id,habit_id,date', localConflict: 'habit_id, date' },
     { local: 'tasks', remote: 'tasks', toRemote: taskToRemote, toLocal: taskToLocal, onConflict: 'id', localConflict: 'id' },
 ];
 
@@ -196,9 +198,13 @@ async function upload(db: any, sb: any, spec: TableSpec, userId: string) {
     );
     if (rows.length === 0) return { uploaded: 0, failed: 0 };
 
-    const { upload: ordered, skipped } = orderForUpload(rows);
-    // A completion for a habit the server cannot hold would fail the batch.
-    const usable = spec.local === 'completions' ? ordered.filter(row => isUuid(row.habit_id)) : ordered;
+    // A completion's local id is "<habit>_<date>" and never goes to the server
+    // (it gets its own there), so only its habit has to be a real id. Every
+    // completion used to be skipped here for not having a UUID, which is why
+    // none ever reached the server and friends saw nothing done.
+    const isCompletion = spec.local === 'completions';
+    const { upload: ordered, skipped } = isCompletion ? { upload: rows, skipped: [] as any[] } : orderForUpload(rows);
+    const usable = isCompletion ? ordered.filter(row => isUuid(row.habit_id)) : ordered;
     let failed = skipped.length + (ordered.length - usable.length);
     let uploaded = 0;
 
@@ -316,6 +322,9 @@ async function download(db: any, sb: any, userId: string): Promise<number> {
  * Read whole rather than from a cursor. A shared plan is tens of rows, and a
  * cursor per friend is far more machinery than re-reading them.
  */
+/** On a shared task, what each person keeps for themselves when the plan refreshes. */
+const PERSONAL_TASK_FIELDS = ['status', 'completed_at', 'amount'];
+
 async function pullShared(db: any, sb: any, userId: string): Promise<number> {
     const mine = `owner_id.eq.${userId},shared_with_id.eq.${userId}`;
     const [goals, habits, tasks] = await Promise.all([
@@ -352,7 +361,14 @@ async function pullShared(db: any, sb: any, userId: string): Promise<number> {
             for (const remote of rows ?? []) {
                 try {
                     // Your copy of the row, so it is yours to tick, sync and see.
-                    written += await writeLocal(db, spec, { ...spec.toLocal(remote), user_id: userId });
+                    // A shared task's done-state is each person's own: the
+                    // owner finishing it must not tick it for you, so a new copy
+                    // starts open and an existing one keeps your progress.
+                    const isTask = spec.local === 'tasks';
+                    const local = isTask
+                        ? { ...spec.toLocal(remote), user_id: userId, status: 'open', completed_at: null, amount: null }
+                        : { ...spec.toLocal(remote), user_id: userId };
+                    written += await writeLocal(db, spec, local, isTask ? PERSONAL_TASK_FIELDS : []);
                 } catch (error: any) {
                     console.warn(`[Backup] could not refresh shared ${spec.remote} ${remote.id}:`, error?.message);
                 }
@@ -379,25 +395,46 @@ export async function refreshShared(): Promise<number> {
  * Inserts or replaces a local row from the server, except where the local row
  * has unsent changes: those win and are uploaded on the next pass.
  */
-async function writeLocal(db: any, spec: TableSpec, row: Record<string, any>): Promise<number> {
+async function writeLocal(db: any, spec: TableSpec, row: Record<string, any>, keep: string[] = []): Promise<number> {
     const columns = Object.keys(row);
     const placeholders = columns.map(() => '?').join(', ');
     const updates = columns
         .filter(column => column !== 'id' || spec.localConflict !== 'id')
+        .filter(column => !keep.includes(column))
         .map(column => `${column} = excluded.${column}`)
         .join(', ');
 
     const result = await db.runAsync(
         `INSERT INTO ${spec.local} (${columns.join(', ')}) VALUES (${placeholders})
          ON CONFLICT(${spec.localConflict}) DO UPDATE SET ${updates}
-         WHERE ${spec.local}.synced = 1`,
+         WHERE ${spec.local}.synced = 1
+           AND ${spec.local}.updated_at IS NOT excluded.updated_at`,
         ...columns.map(column => row[column]),
     );
     return result?.changes ?? 0;
 }
 
 /** Every screen reading habits, completions or tasks refreshes after a restore. */
+/**
+ * True while changes that came from the server are being announced, so
+ * listeners that send local changes out (lib/livePulse.ts) can tell them apart.
+ * Without it, every restore announced a change, the change started a backup,
+ * and the backup restored again — a loop every few seconds that kept the
+ * phone busy and hot.
+ */
+let applyingRemote = false;
+export const isApplyingRemote = () => applyingRemote;
+
 async function announceChanges(): Promise<void> {
+    applyingRemote = true;
+    try {
+        await announceRemote();
+    } finally {
+        applyingRemote = false;
+    }
+}
+
+async function announceRemote(): Promise<void> {
     try {
         const { reloadHabitsFromStorage } = require('./habitsSQLite');
         await reloadHabitsFromStorage();

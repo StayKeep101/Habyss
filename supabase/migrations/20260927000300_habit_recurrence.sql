@@ -10,7 +10,7 @@
 -- what validates it, and a jsonb round trip would only reorder the keys.
 --
 -- Applied 2026-09-27.
---   node scripts/apply-migration.mjs supabase/migrations/20260927_habit_recurrence.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260927000300_habit_recurrence.sql
 
 alter table public.habits
     add column if not exists recurrence text;

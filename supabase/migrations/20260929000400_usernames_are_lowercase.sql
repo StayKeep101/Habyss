@@ -19,7 +19,7 @@
 -- existing unique index case insensitive by construction.
 --
 -- Applied 2026-09-29.
---   node scripts/apply-migration.mjs supabase/migrations/20260929_usernames_are_lowercase.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260929000400_usernames_are_lowercase.sql
 
 -- Checked for collisions first: no two accounts here differ only by case.
 update public.profiles

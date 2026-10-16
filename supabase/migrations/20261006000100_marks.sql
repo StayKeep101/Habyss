@@ -8,7 +8,7 @@
 -- profiles is column-granted (see 20260918), so a new column is unreadable
 -- until it is granted.
 --
---   node scripts/apply-migration.mjs supabase/migrations/20261006_marks.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20261006000100_marks.sql
 
 alter table public.profiles add column if not exists marks integer
     check (marks is null or marks >= 0);

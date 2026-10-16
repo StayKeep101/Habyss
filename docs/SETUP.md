@@ -60,7 +60,7 @@ EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key_here
 
 3. Copy and paste the contents of:
    ```
-   /Users/erwan/Coding/Habyss/supabase/migrations/20250318_create_routine_and_focus_tables.sql
+   /Users/erwan/Coding/Habyss/supabase/migrations/20250318000100_create_routine_and_focus_tables.sql
    ```
 
 4. Click **Run** to execute the migration

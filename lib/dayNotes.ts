@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * long run", "same time tomorrow?" — which five emoji cannot carry.
  *
  * Kept on the device, like reactions, and for the same reason: `feed_comments`
- * is written in `supabase/migrations/20260927_feed_reactions_and_proof.sql` and
+ * is written in `supabase/migrations/20260927000100_feed_reactions_and_proof.sql` and
  * has not been applied, so there is nowhere on the server to put one yet. The
  * shape here is the shape of that table, so when it runs this becomes the
  * local half of a sync rather than something to throw away.

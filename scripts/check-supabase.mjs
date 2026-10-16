@@ -213,5 +213,5 @@ if (settings.ok) {
 
 console.log(problems === 0
     ? '\nEverything the app needs is there, and nothing it should not be.\n'
-    : `\n${problems} thing${problems === 1 ? '' : 's'} to fix. supabase/migrations/20260918_align_app_and_secure.sql covers the schema ones.\n`);
+    : `\n${problems} thing${problems === 1 ? '' : 's'} to fix. supabase/migrations/20260918000100_align_app_and_secure.sql covers the schema ones.\n`);
 process.exit(problems === 0 ? 0 : 1);

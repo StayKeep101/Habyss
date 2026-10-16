@@ -24,7 +24,7 @@
 -- being a habit tracker and becomes something with a different rulebook.
 --
 -- Applied 2026-09-29.
---   node scripts/apply-migration.mjs supabase/migrations/20260929_embers_and_pacts.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260929000100_embers_and_pacts.sql
 
 -- ------------------------------------------------------------------ ledger
 create table if not exists public.ember_ledger (

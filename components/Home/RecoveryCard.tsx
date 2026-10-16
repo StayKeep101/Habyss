@@ -40,7 +40,8 @@ export const RecoveryCard: React.FC<{ recovery: Recovery; onPress: () => void }>
     useEffect(() => {
         pulse.value = risk
             ? withRepeat(withSequence(withTiming(1.06, { duration: 900, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.System }),
-                withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.System })), -1, false)
+                // Three breaths when it appears, then still: a forever-loop costs a frame every frame.
+                withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.System })), 3, false)
             : withTiming(1, EASE);
     }, [risk, pulse]);
     const breathe = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));

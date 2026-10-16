@@ -11,7 +11,7 @@
 -- for the other — which is why this is a second column and not a rename.
 --
 -- Applied 2026-09-30.
---   node scripts/apply-migration.mjs supabase/migrations/20260930_display_name.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260930000100_display_name.sql
 
 alter table public.profiles
     add column if not exists display_name text;

@@ -64,7 +64,8 @@ export async function adoptShared(kind: Kind, itemId: string): Promise<boolean> 
     // Stored under your own user id. It is your copy of the arrangement, and a
     // row carrying somebody else's user id would never sync and never be yours.
     const local = kind === 'task'
-        ? { ...taskToLocal(row as never), user_id: me }
+        // Your copy starts open: finishing it is your part, not the owner's.
+        ? { ...taskToLocal(row as never), user_id: me, status: 'open', completed_at: null, amount: null }
         : { ...habitToLocal(row as never), user_id: me };
 
     const columns = Object.keys(local);

@@ -10,7 +10,7 @@
 -- the next build, an older build, or anyone reading the API sees it.
 --
 -- Applied 2026-09-28.
---   node scripts/apply-migration.mjs supabase/migrations/20260928_blocks_and_reports.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260928000100_blocks_and_reports.sql
 
 -- ------------------------------------------------------------------ blocks
 create table if not exists public.user_blocks (

@@ -1,6 +1,7 @@
 import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {View, Text, ScrollView, RefreshControl} from 'react-native';
+import { EchoLine } from '@/components/Home/EchoLine';
 import { afterPaint } from '@/lib/afterPaint';
 import { s, ms } from '@/theme/scale';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -83,7 +84,6 @@ const Home = () => {
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [motivationalQuote, setMotivationalQuote] = useState('');
-  const [displayedQuote, setDisplayedQuote] = useState('');
 
   // Echo's line: new on every visit and refresh. Stats are read from a ref so
   // the line always reflects the latest render without re-running the effect.
@@ -97,25 +97,6 @@ const Home = () => {
 
   // Track previous streak for celebration
 
-  // Typewriter animation effect - FIXED closure bug
-  useEffect(() => {
-    if (!motivationalQuote) return;
-
-    setDisplayedQuote('');
-    let currentIndex = 0;
-
-    const interval = setInterval(() => {
-      if (currentIndex < motivationalQuote.length) {
-        const char = motivationalQuote.charAt(currentIndex);
-        setDisplayedQuote(motivationalQuote.substring(0, currentIndex + 1));
-        currentIndex++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 30); // 30ms per character for smooth typing effect
-
-    return () => clearInterval(interval);
-  }, [motivationalQuote]);
 
   // Pull-to-refresh handler - OPTIMIZED: reload all stats data here
   const onRefresh = useCallback(async () => {
@@ -370,24 +351,7 @@ const Home = () => {
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
-          {motivationalQuote ? (
-            <Animated.View style={{ marginTop: sectionGap }}>
-              {/* Echo is the voice behind this line and the reminders. */}
-              <Text style={{ fontSize: ms(12), color: colors.textTertiary, fontFamily: FontFamily.medium, marginBottom: 4 }}>Echo</Text>
-              <Text style={{
-                fontSize: ms(15),
-                color: colors.text,
-                fontFamily: FontFamily.semibold,
-                textAlign: 'left',
-                lineHeight: ms(22),
-              }}>
-                {displayedQuote}
-                {displayedQuote.length < motivationalQuote.length && (
-                  <Text style={{ color: accentColor }}>|</Text>
-                )}
-              </Text>
-            </Animated.View>
-          ) : null}
+          {motivationalQuote ? <EchoLine text={motivationalQuote} style={{ marginTop: sectionGap }} /> : null}
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />

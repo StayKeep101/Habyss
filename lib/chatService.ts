@@ -6,7 +6,7 @@ import type { ChatMessage, StoredDayCard } from './chatThread';
 /**
  * Messages between friends, and the day cards that appear in those chats.
  *
- * Everything is checked by the database (supabase/migrations/20261015_chat.sql):
+ * Everything is checked by the database (supabase/migrations/20261015000100_chat.sql):
  * you can only write to a friend, never across a block, and a friend sees your
  * day card only as far as your sharing switches allow.
  */

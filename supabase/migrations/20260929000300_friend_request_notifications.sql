@@ -18,7 +18,7 @@
 -- not trusted from the app.
 --
 -- Applied 2026-09-29.
---   node scripts/apply-migration.mjs supabase/migrations/20260929_friend_request_notifications.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260929000300_friend_request_notifications.sql
 
 /**
  * Whether `p_from` has a request waiting for `p_to`.

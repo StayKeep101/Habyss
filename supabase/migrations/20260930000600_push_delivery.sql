@@ -12,7 +12,7 @@
 -- owner and by this trigger, which runs as the definer.
 --
 -- Applied 2026-09-30.
---   node scripts/apply-migration.mjs supabase/migrations/20260930_push_delivery.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260930000600_push_delivery.sql
 
 -- Installed into `net` on this project, which is where Supabase puts it; the
 -- schema is named explicitly below rather than left to a search_path this

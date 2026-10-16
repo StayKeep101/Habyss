@@ -163,7 +163,9 @@ DateButtonComponent.displayName = 'DateButton';
 const GoalDay = ({ color, size, selected, ring }: { color: string; size: number; selected: boolean; ring: string }) => {
   const breath = useSharedValue(0);
   useEffect(() => {
-    breath.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.System }), -1, true);
+    // Three breaths, then it settles lit. Breathing forever redrew every goal
+    // day on the strip each frame, all day — real battery and heat.
+    breath.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.System }), 5, true);
   }, [breath]);
   const glow = useAnimatedStyle(() => ({ opacity: 0.25 + breath.value * 0.35, transform: [{ scale: 1 + breath.value * 0.18 }] }));
   const disc = size + 4;
@@ -173,7 +175,6 @@ const GoalDay = ({ color, size, selected, ring }: { color: string; size: number;
       <View pointerEvents="none" style={{
         position: 'absolute', width: disc, height: disc, borderRadius: disc / 2, overflow: 'hidden',
         borderWidth: selected ? 2 : 0, borderColor: ring,
-        shadowColor: color, shadowOpacity: 0.8, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
       }}>
         <LinearGradient colors={[color, color + 'CC']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={{ flex: 1 }} /* ui-allow: goal colour */ />
       </View>

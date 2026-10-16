@@ -22,12 +22,21 @@ it('publishes the shared snapshot before requesting a widget reload', async () =
 
 it('reports a missing native bridge instead of pretending the widgets were synchronized', async () => {
     (SharedDefaults.set as jest.Mock).mockResolvedValueOnce(false);
-    await expect(WidgetService.write(payload)).rejects.toThrow('storage bridge is unavailable');
+    await expect(WidgetService.write({ ...payload, dayKey: '2026-09-30' })).rejects.toThrow('storage bridge is unavailable');
     expect(SharedDefaults.reloadTimelines).not.toHaveBeenCalled();
 });
 
 it('propagates failed publication so pending task actions remain recoverable', async () => {
     (SharedDefaults.set as jest.Mock).mockRejectedValueOnce(new Error('App Group unavailable'));
-    await expect(WidgetService.write(payload)).rejects.toThrow('App Group unavailable');
+    await expect(WidgetService.write({ ...payload, dayKey: '2026-10-01' })).rejects.toThrow('App Group unavailable');
+    expect(SharedDefaults.reloadTimelines).not.toHaveBeenCalled();
+});
+
+it('does not rewrite or redraw the widget when nothing changed', async () => {
+    const same = { ...payload, dayKey: '2026-10-02' };
+    await WidgetService.write(same);
+    jest.clearAllMocks();
+    await WidgetService.write({ ...same });
+    expect(SharedDefaults.set).not.toHaveBeenCalled();
     expect(SharedDefaults.reloadTimelines).not.toHaveBeenCalled();
 });

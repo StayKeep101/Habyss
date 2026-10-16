@@ -29,7 +29,7 @@ EXPO_PUBLIC_SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.YOUR_FULL_KEY_HERE
 ### 3️⃣ Create Database Tables
 
 1. Go to: https://app.supabase.com/project/wlbjhtlznzdumqxetilx/sql/new
-2. Copy contents of: `supabase/migrations/20250318_create_routine_and_focus_tables.sql`
+2. Copy contents of: `supabase/migrations/20250318000100_create_routine_and_focus_tables.sql`
 3. Paste and click **Run**
 
 This creates 5 missing tables: `routines`, `routine_habits`, `routine_sessions`, `focus_sessions`, `focus_stats`
@@ -62,7 +62,7 @@ Press `i` for iOS or `a` for Android.
 
 ### Files Created/Modified:
 - ✅ `lib/habits.ts` - Type definitions
-- ✅ `supabase/migrations/20250318_create_routine_and_focus_tables.sql` - Database migration
+- ✅ `supabase/migrations/20250318000100_create_routine_and_focus_tables.sql` - Database migration
 - ✅ `components/ErrorBoundary.tsx` - Error boundary
 - ✅ `app/_layout.tsx` - Added error boundary
 - ✅ `lib/habitRepository.ts` - Fixed type assertions

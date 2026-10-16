@@ -1,15 +1,15 @@
 -- A blocked account leaves the feed.
 --
--- The block already refuses their writes (20260928_blocks_and_reports). This is
+-- The block already refuses their writes (20260928000100_blocks_and_reports). This is
 -- the other half: while a friendship row can outlive a block — either side can
 -- be slow to delete it — nobody blocked should still appear in the one function
 -- that answers "who am I looking at today".
 --
--- Same signature and same body as 20260927_friend_stats_evidence, with one
+-- Same signature and same body as 20260927000200_friend_stats_evidence, with one
 -- `where not exists` on the people list.
 --
 -- Applied 2026-09-28.
---   node scripts/apply-migration.mjs supabase/migrations/20260928_friend_stats_blocks.sql
+--   node scripts/apply-migration.mjs supabase/migrations/20260928000200_friend_stats_blocks.sql
 
 drop function if exists public.friend_stats(date);
 
