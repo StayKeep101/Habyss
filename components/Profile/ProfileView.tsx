@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimension
 import { IconTile } from '@/components/ui/IconTile';
 import { CountUp, PopIn } from '@/components/ui/Motion';
 import { LevelCard } from './LevelCard';
+import { MarksBackdrop } from './MarksBackdrop';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -51,6 +52,8 @@ export const ProfileView: React.FC<{
     hiddenNote?: string;
     /** Their Marks: shown as their level, above the numbers. */
     marks?: number;
+    /** Their Marks over time: the backdrop when there is no cover photo. */
+    marksSeries?: number[];
     /** Absent for a friend's page: theirs is not yours to edit. */
     edit?: {
         onName: (value: string) => void;
@@ -58,17 +61,21 @@ export const ProfileView: React.FC<{
         onBio: (value: string) => void;
         onBioDone: () => void;
         onPick: (which: 'avatar' | 'cover') => void;
+        /** Hold a photo to take it off. */
+        onRemove?: (which: 'avatar' | 'cover') => void;
     };
     /** Room to leave at the top for the status bar, on a full-screen page. */
     topInset?: number;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, cover, initials, subline, numbers, hiddenNote, marks, edit, topInset = 0, children }) => {
+}> = ({ name, bio, meta, avatar, cover, initials, subline, numbers, hiddenNote, marks, marksSeries, edit, topInset = 0, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary, secondary } = useAccentGradient();
-    const { height: screenHeight } = useWindowDimensions();
+    const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+    // The banner, plus the half of the avatar that overlaps it.
+    const coverHeight = topInset + vs(150) + s(48);
 
     const Cover = edit ? Pressable : View;
 
@@ -80,9 +87,25 @@ export const ProfileView: React.FC<{
                     the background — not a strip across the top. */}
                 {/* It also reaches a full screen above the top, in the same
                     colour, so pulling the page down never shows an edge. */}
-                <View pointerEvents="none" style={[styles.backdrop, { top: -screenHeight, height: screenHeight * 1.85 }]}>
+                <View pointerEvents="none" style={[styles.backdrop, { top: -screenHeight, height: screenHeight + coverHeight }]}>
                     {cover ? (
-                        <Image source={{ uri: cover }} style={styles.bannerImage} blurRadius={2} />
+                        <>
+                            {/* Above the page, a soft blurred copy of the same photo,
+                                so pulling down never reveals an edge. */}
+                            <Image source={{ uri: cover }} style={[styles.coverFill, { height: screenHeight + coverHeight * 0.5 }]} blurRadius={30} />
+                            {/* The photo itself, framed to the top of the page at its
+                                own proportions rather than stretched over two screens. */}
+                            <Image source={{ uri: cover }} style={[styles.coverImage, { top: screenHeight, height: coverHeight }]} />
+                        </>
+                    ) : marksSeries && marksSeries.length > 1 ? (
+                        <>
+                            <View style={[styles.below, { top: screenHeight }]}>
+                                <LinearGradient colors={[primary + '26', 'transparent']} style={StyleSheet.absoluteFill} />
+                            </View>
+                            <View style={[styles.graph, { top: screenHeight, height: coverHeight }]}>
+                                <MarksBackdrop series={marksSeries} width={screenWidth} height={coverHeight} color={primary} />
+                            </View>
+                        </>
                     ) : (
                         <>
                             <View style={[styles.above, { height: screenHeight, backgroundColor: primary }]} />
@@ -94,8 +117,9 @@ export const ProfileView: React.FC<{
                             </View>
                         </>
                     )}
+                    {/* Fades into the page under the photo or graph. */}
                     <View style={[styles.below, { top: screenHeight }]}>
-                        <LinearGradient colors={['transparent', colors.background + '99', colors.background]} locations={[0.25, 0.6, 0.95]}
+                        <LinearGradient colors={['transparent', colors.background + '99', colors.background]} locations={[0.45, 0.78, 1]}
                             style={StyleSheet.absoluteFill} />
                     </View>
                 </View>
@@ -106,6 +130,8 @@ export const ProfileView: React.FC<{
                         accessibilityRole: 'button' as const,
                         accessibilityLabel: cover ? 'Change your cover image' : 'Add a cover image',
                         onPress: () => edit.onPick('cover'),
+                        onLongPress: cover && edit.onRemove ? () => edit.onRemove?.('cover') : undefined,
+                        accessibilityHint: cover ? 'Hold to remove it' : undefined,
                     } : {})}
                     style={[styles.banner, { height: topInset + vs(150) }]}
                 >
@@ -122,6 +148,8 @@ export const ProfileView: React.FC<{
                     accessibilityLabel={edit ? (avatar ? 'Change your picture' : 'Add a picture') : `${name}'s picture`}
                     disabled={!edit}
                     onPress={() => edit?.onPick('avatar')}
+                    onLongPress={avatar && edit?.onRemove ? () => edit.onRemove?.('avatar') : undefined}
+                    accessibilityHint={edit && avatar ? 'Hold to remove it' : undefined}
                     style={styles.avatarPress}
                 >
                     {/* The ring is the page's own background, so the avatar
@@ -215,7 +243,9 @@ const styles = StyleSheet.create({
     above: { position: 'absolute', top: 0, left: 0, right: 0 },
     below: { position: 'absolute', left: 0, right: 0, bottom: 0 },
     banner: { width: '100%', justifyContent: 'flex-end', alignItems: 'flex-end' },
-    bannerImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+    coverFill: { position: 'absolute', top: 0, left: 0, right: 0, width: '100%', resizeMode: 'cover' },
+    coverImage: { position: 'absolute', left: 0, right: 0, width: '100%', resizeMode: 'cover' },
+    graph: { position: 'absolute', left: 0, right: 0 },
     coverBadge: { flexDirection: 'row', alignItems: 'center', gap: s(5), paddingHorizontal: s(9), paddingVertical: vs(4), borderRadius: 999, margin: s(10) },
     coverBadgeText: { color: '#fff', fontSize: ms(10), fontFamily: FontFamily.medium },
     // Half on the banner, half off it: the overlap is what makes it a profile

@@ -21,7 +21,11 @@ export async function localMarks(): Promise<number | null> {
     }
 }
 
-export async function publishMarks(total: number): Promise<void> {
+/** The last 60 days of the running total, for the graph on a profile without a cover. */
+export const seriesForProfile = (series: { value: number }[] | undefined): number[] =>
+    (series ?? []).slice(-60).map(point => Math.max(0, Math.round(point.value)));
+
+export async function publishMarks(total: number, series?: { value: number }[]): Promise<void> {
     AsyncStorage.setItem(LOCAL_KEY, String(Math.max(0, Math.round(total)))).catch(() => { });
     try {
         const sb = getSupabase();
@@ -32,10 +36,11 @@ export async function publishMarks(total: number): Promise<void> {
         const { getSharing } = require('./profileSync') as typeof import('./profileSync');
         const allowed = (await getSharing()).progress;
         const value = allowed ? Math.max(0, Math.round(total)) : null;
-        const stamp = `${me}:${value}`;
+        const history = allowed ? seriesForProfile(series) : null;
+        const stamp = `${me}:${value}:${history?.length ?? 0}:${history?.[0] ?? ''}`;
         if ((await AsyncStorage.getItem(KEY)) === stamp) return;
         const { error } = await sb.from('profiles')
-            .update({ marks: value, marks_updated_at: new Date().toISOString() }).eq('id', me);
+            .update({ marks: value, marks_series: history, marks_updated_at: new Date().toISOString() }).eq('id', me);
         // A server without the column yet is not an error worth retrying hard.
         if (!error) {
             await AsyncStorage.setItem(KEY, stamp);

@@ -1,13 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { IconButton } from '@/components/ui/IconButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
-import { ms, s, vs } from '@/theme/scale';
-import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useTasks } from '@/hooks/useTasks';
 import { useData } from '@/hooks/useData';
@@ -20,6 +16,7 @@ import { useMarks } from '@/hooks/useMarks';
 import { EMPTY_PROFILE, ageFrom, getProfile, initials, saveProfile, type Profile } from '@/lib/profile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { ProfileDays } from '@/components/Profile/ProfileDays';
+import { seriesForProfile } from '@/lib/marksSync';
 import { UsernameCard, UsernamePill } from '@/components/Profile/UsernameCard';
 import { buildDayCard } from '@/lib/dayCard';
 import { FeedService } from '@/lib/feedService';
@@ -45,8 +42,6 @@ try { ImagePicker = require('expo-image-picker'); } catch { ImagePicker = null; 
  */
 export default function ProfileScreen() {
     const router = useRouter();
-    const { theme } = useTheme();
-    const colors = Colors[theme];
     const { lightFeedback, selectionFeedback } = useHaptics();
 
     const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
@@ -153,6 +148,7 @@ export default function ProfileScreen() {
                     initials={initials(profile)}
                     topInset={insets.top}
                     marks={marks.total}
+                    marksSeries={seriesForProfile(marks.series)}
                     numbers={{ streak, habits: tracked, goals: goalCount, todayDone: today.done, todayTotal: today.total }}
                     edit={{
                         onName: name => setProfile(current => ({ ...current, name })),
@@ -160,23 +156,12 @@ export default function ProfileScreen() {
                         onBio: bio => setProfile(current => ({ ...current, bio })),
                         onBioDone: () => change({ bio: profile.bio.trim() }),
                         onPick: which => void pickPhoto(which),
+                        onRemove: which => Alert.alert(which === 'avatar' ? 'Remove your picture?' : 'Remove your cover?', undefined, [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Remove', style: 'destructive', onPress: () => removePhoto(which) },
+                        ]),
                     }}
-                >
-                    {profile.avatar || profile.cover ? (
-                        <View style={styles.removeRow}>
-                            {profile.avatar ? (
-                                <Pressable accessibilityRole="button" onPress={() => removePhoto('avatar')}>
-                                    <Text style={[styles.removeText, { color: colors.textTertiary }]}>Remove picture</Text>
-                                </Pressable>
-                            ) : null}
-                            {profile.cover ? (
-                                <Pressable accessibilityRole="button" onPress={() => removePhoto('cover')}>
-                                    <Text style={[styles.removeText, { color: colors.textTertiary }]}>Remove cover</Text>
-                                </Pressable>
-                            ) : null}
-                        </View>
-                    ) : null}
-                </ProfileView>
+                />
 
                 {/* What friends see under your profile, here too. */}
                 <ProfileDays userId={myId} />

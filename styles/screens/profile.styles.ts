@@ -10,7 +10,5 @@ export const styles = StyleSheet.create({
     // Half on the banner, half off it: the overlap is what makes it a profile
     // rather than a photograph with a card under it.
     // No box: a bio reads as a sentence about someone, not as a filled field.
-    removeRow: { flexDirection: 'row', gap: s(16), paddingTop: vs(4) },
-    removeText: { fontSize: ms(12), fontFamily: FontFamily.medium },
     footnote: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular, textAlign: 'center', marginTop: vs(8), marginHorizontal: s(20) },
 });

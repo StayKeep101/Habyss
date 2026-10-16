@@ -201,10 +201,10 @@ const Home = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       const { publishMarks } = require('@/lib/marksSync') as typeof import('@/lib/marksSync');
-      void publishMarks(marks.total);
+      void publishMarks(marks.total, marks.series);
     }, 3000);
     return () => clearTimeout(timer);
-  }, [marks.total]);
+  }, [marks.total, marks.series]);
 
 
   /**

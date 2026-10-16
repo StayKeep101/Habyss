@@ -198,6 +198,8 @@ export interface FriendProfile {
     bio?: string;
     avatarUrl?: string;
     coverUrl?: string;
+    /** Their Marks over the last 60 days, when they share progress. */
+    marksSeries?: number[];
 }
 
 async function stats(ctx: Context): Promise<StatsRow[]> {
@@ -489,8 +491,11 @@ export class FriendsService {
         const ctx = await signedIn();
         if (!ctx) return {};
         const { data } = await ctx.sb.from('profiles')
-            .select('bio, avatar_url, cover_url').eq('id', friendId).maybeSingle();
-        return { bio: data?.bio ?? undefined, avatarUrl: data?.avatar_url ?? undefined, coverUrl: data?.cover_url ?? undefined };
+            .select('bio, avatar_url, cover_url, marks_series').eq('id', friendId).maybeSingle();
+        return {
+            bio: data?.bio ?? undefined, avatarUrl: data?.avatar_url ?? undefined, coverUrl: data?.cover_url ?? undefined,
+            marksSeries: data?.marks_series ?? undefined,
+        };
     }
 
     static async getFriendProfile(friendId: string): Promise<Friend | null> {
