@@ -4,7 +4,8 @@ import { GoalSheet } from '@/components/Create/GoalSheet';
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
 import { BottomFade } from '@/components/ui/BottomFade';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ActionSheetIOS, Alert, Dimensions, Image, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Dimensions, Image, ImageBackground, Platform, StyleSheet, StatusBar } from 'react-native';
+import { MorphMenu, type MorphMenuItem } from '@/components/ui/MorphMenu';
 import { IconButton } from '@/components/ui/IconButton';
 import { CountUp, ListItem } from '@/components/ui/Motion';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -242,35 +243,15 @@ const GoalDetail = () => {
    * One menu instead of four buttons competing with the goal's own name.
    * A shared goal is someone else's, so it only offers what it can do.
    */
-  const openGoalMenu = () => {
-    lightFeedback();
-    const actions: { label: string; destructive?: boolean; run: () => void }[] = [
-      { label: 'Change cover photo', run: handleChangeBackground },
-    ];
-    if (!isSharedGoal) {
-      actions.push(
-        { label: 'Share with a friend', run: () => setShowShareModal(true) },
-        { label: 'Edit goal', run: handleEditGoal },
-        { label: 'Delete goal', destructive: true, run: handleDeleteGoal },
-      );
-    }
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions({
-        title: goal?.name,
-        options: [...actions.map(action => action.label), 'Cancel'],
-        cancelButtonIndex: actions.length,
-        destructiveButtonIndex: actions.findIndex(action => action.destructive),
-        userInterfaceStyle: theme === 'light' ? 'light' : 'dark',
-      }, index => actions[index]?.run());
-      return;
-    }
-
-    Alert.alert(goal?.name ?? 'Goal', undefined, [
-      ...actions.map(action => ({ text: action.label, style: action.destructive ? 'destructive' as const : undefined, onPress: action.run })),
-      { text: 'Cancel', style: 'cancel' as const },
-    ], { cancelable: true });
-  };
+  /** The goal's options, in the menu the ⋯ button grows into. */
+  const goalMenu: MorphMenuItem[] = [
+    { label: 'Change cover photo', icon: 'image-outline', onPress: () => handleChangeBackground() },
+    ...(!isSharedGoal ? [
+      { label: 'Share with a friend', icon: 'person-add-outline' as const, onPress: () => setShowShareModal(true) },
+      { label: 'Edit goal', icon: 'create-outline' as const, onPress: () => handleEditGoal() },
+      { label: 'Delete goal', icon: 'trash-outline' as const, destructive: true, onPress: () => handleDeleteGoal() },
+    ] : []),
+  ];
 
   /**
    * The two buttons change what this page is showing rather than opening
@@ -411,7 +392,7 @@ const GoalDetail = () => {
           afterwards, so the buttons sat low the first time only. */}
       <View style={[styles.navHeader, Platform.OS === 'android' && { paddingTop: insets.top + 8 }]}>
         <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} diameter={40} size={24} />
-        <IconButton icon="ellipsis-horizontal" label="Goal options" onPress={openGoalMenu} diameter={40} />
+        <MorphMenu items={goalMenu} title={goal?.name} titleIcon="flag" label="Goal options" diameter={40} />
       </View>
 
       <Animated.ScrollView

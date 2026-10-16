@@ -5,7 +5,7 @@ import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { AppButton } from '@/components/ui/AppButton';
-import { IconButton } from '@/components/ui/IconButton';
+import { MorphMenu, type MorphMenuItem } from '@/components/ui/MorphMenu';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Avatar } from '@/components/ui/Avatar';
 import { CountUp, ListItem, PopIn } from '@/components/ui/Motion';
@@ -94,24 +94,20 @@ export default function FriendScreen() {
         ]);
     };
 
-    const menu = () => {
-        lightFeedback();
-        Alert.alert(name, undefined, [
-            {
-                text: 'Remove friend', style: 'destructive', onPress: async () => {
-                    if (await FriendsService.removeFriend(id)) router.back();
-                },
+    const menu: MorphMenuItem[] = [
+        { label: 'Report', icon: 'flag-outline', onPress: report },
+        {
+            label: 'Remove friend', icon: 'person-remove-outline', destructive: true, onPress: async () => {
+                if (await FriendsService.removeFriend(id)) router.back();
             },
-            {
-                text: 'Block', style: 'destructive', onPress: () => Alert.alert(`Block ${name}?`, 'They will not see your day and cannot reach you. It also removes them as a friend.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Block', style: 'destructive', onPress: async () => { if (await FriendsService.blockUser(id)) router.back(); } },
-                ]),
-            },
-            { text: 'Report', onPress: report },
-            { text: 'Cancel', style: 'cancel' },
-        ]);
-    };
+        },
+        {
+            label: 'Block', icon: 'hand-left-outline', destructive: true, onPress: () => Alert.alert(`Block ${name}?`, 'They will not see your day and cannot reach you. It also removes them as a friend.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Block', style: 'destructive', onPress: async () => { if (await FriendsService.blockUser(id)) router.back(); } },
+            ]),
+        },
+    ];
 
     const acknowledge = async (post: FeedPost) => {
         selectionFeedback();
@@ -128,7 +124,7 @@ export default function FriendScreen() {
     const week = friend?.weeklyActivity ?? [];
 
     return (
-        <SheetScreen title="" onBack={() => router.back()} rightSlot={<IconButton icon="ellipsis-horizontal" label="Manage friendship" onPress={menu} />}>
+        <SheetScreen title="" onBack={() => router.back()} rightSlot={<MorphMenu items={menu} title={name} titleIcon="person" label="Manage friendship" />}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.hero}>
                     <Avatar name={name} uri={friend?.avatarUrl ?? status?.avatarUrl} size={104}

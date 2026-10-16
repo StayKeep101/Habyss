@@ -15,7 +15,8 @@
  *
  * Controls
  *   AppButton, IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
- *   TimeRow, Wheel, ViewSwitcher, SwipeRow, TypingPlaceholder
+ *   TimeRow, Wheel, ViewSwitcher, SwipeRow, TypingPlaceholder,
+ *   MorphMenu (a ⋯ button that grows into its own menu)
  *
  * Content
  *   Avatar (a face: photo or initial, optional ring and badge), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
@@ -58,6 +59,7 @@ export { ChipPicker } from './ChipPicker';
 export { Toggle, type ToggleProps } from './Toggle';
 export { TimeRow } from './TimeRow';
 export { Wheel } from './Wheel';
+export { MorphMenu, type MorphMenuItem } from './MorphMenu';
 export { ViewSwitcher } from './ViewSwitcher';
 export { SwipeRow } from './SwipeRow';
 export { TypingPlaceholder } from './TypingPlaceholder';
