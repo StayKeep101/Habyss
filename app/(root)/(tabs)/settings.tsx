@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { useSleep } from '@/hooks/useSleep';
 import { setSleepTarget } from '@/lib/sleepLog';
+import { DEFAULT_VOICE_DESTINATION, VOICE_DESTINATIONS, getVoiceDestination, setVoiceDestination, type VoiceDestination } from '@/lib/voiceDestination';
 
 /** Sleep goals offered, in hours. */
 const SLEEP_GOALS = [6, 7, 8, 9];
@@ -39,6 +40,8 @@ export default function ProfileScreen() {
     // You, from the one profile store (lib/profile.ts).
     const me = useMyProfile();
     const sleep = useSleep();
+    const [voiceDestination, setVoiceDestinationState] = useState<VoiceDestination>(DEFAULT_VOICE_DESTINATION);
+    useEffect(() => { void getVoiceDestination().then(setVoiceDestinationState); }, []);
     const username = me.name;
     const avatarUri = me.avatar;
 
@@ -113,6 +116,10 @@ export default function ProfileScreen() {
                         <SettingsRow icon="checkmark-done" color="#FF9F0A" label="Tasks a day"
                             choices={[{ id: '3', label: '3' }, { id: '5', label: '5' }]}
                             chosen={String(dailyTarget)} onChoose={id => void saveDailyTarget(Number(id) as 3 | 5)} />
+                        {/* Hold + and speak: where the words go. */}
+                        <SettingsRow icon="mic" color="#FF375F" label="Hold + to say"
+                            choices={VOICE_DESTINATIONS} chosen={voiceDestination}
+                            onChoose={id => { setVoiceDestinationState(id as VoiceDestination); void setVoiceDestination(id as VoiceDestination); }} />
                         {/* A night that reaches this earns Marks (Home's sleep card). */}
                         <SettingsRow icon="moon" color="#5E5CE6" label="Sleep goal"
                             choices={SLEEP_GOALS.map(hours => ({ id: String(hours), label: `${hours}h` }))}

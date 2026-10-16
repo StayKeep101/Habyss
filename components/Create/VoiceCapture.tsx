@@ -3,6 +3,8 @@ import { Alert } from 'react-native';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit, on } from '@/lib/appEvents';
 import { readVoice } from '@/lib/voiceIntent';
+import { getVoiceDestination } from '@/lib/voiceDestination';
+import { addThought } from '@/lib/brainDump';
 import { normaliseLevel, voiceLevel } from '@/lib/voiceLevel';
 
 type Speech = typeof import('expo-speech-recognition')['ExpoSpeechRecognitionModule'];
@@ -23,9 +25,9 @@ function speech(): Speech | null {
 /**
  * Listens while the create button is held, and acts when it is let go.
  *
- * Hold: "create a habit of reading every night", "add a task to call mum
- * tomorrow", "new goal: save $5000". Release: the right sheet opens with the
- * words already in it, where the usual parser fills in the rest.
+ * Hold and speak; release, and the words go where Settings says: a thought
+ * in the brain dump (the default), or a task, habit or goal sheet opened with
+ * the words already in it, where the usual parser fills in the rest.
  *
  * Draws nothing itself. The button morphs into the listening pill
  * (components/TabBar/VoiceOrb.tsx) from the `voice_state` it announces.
@@ -46,15 +48,22 @@ export function VoiceCapture() {
             active.current = false;
             voiceLevel.value = 0;
             emit('voice_state', { listening: false, heard: '' });
-            const intent = readVoice(latest.current);
-            if (!intent) return;
+            const spoken = latest.current.trim();
+            if (!spoken) return;
             lightFeedback();
-            // A beat, so the pill has folded back into the button first.
-            setTimeout(() => {
-                if (intent.kind === 'habit') emit('show_quick_add', { prefillName: intent.text });
-                else if (intent.kind === 'goal') emit('show_goal_quick_add', { prefill: intent.text });
-                else emit('show_task_form', { prefill: intent.text });
-            }, 220);
+            // Where it goes is the person's choice in Settings (Brain dump by
+            // default). "Create a task to…" is still tidied off the front.
+            const text = readVoice(spoken)?.text ?? spoken;
+            void getVoiceDestination().then(destination => {
+                // A beat, so the pill has folded back into the button first.
+                setTimeout(() => {
+                    if (destination === 'thought') {
+                        void addThought(spoken).then(() => require('expo-router').router.push('/brain-dump'));
+                    } else if (destination === 'habit') emit('show_quick_add', { prefillName: text });
+                    else if (destination === 'goal') emit('show_goal_quick_add', { prefill: text });
+                    else emit('show_task_form', { prefill: text });
+                }, 220);
+            });
         };
 
         const listeners = [
