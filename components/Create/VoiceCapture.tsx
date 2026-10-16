@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { useHaptics } from '@/hooks/useHaptics';
 import { emit, on } from '@/lib/appEvents';
 import { readVoice } from '@/lib/voiceIntent';
+import { tidySpeech } from '@/lib/voiceClean';
 import { getVoiceDestination } from '@/lib/voiceDestination';
 import { addThought } from '@/lib/brainDump';
 import { normaliseLevel, voiceLevel } from '@/lib/voiceLevel';
@@ -48,13 +49,15 @@ export function VoiceCapture() {
             active.current = false;
             voiceLevel.value = 0;
             emit('voice_state', { listening: false, heard: '' });
-            const spoken = latest.current.trim();
-            if (!spoken) return;
+            const raw = latest.current.trim();
+            if (!raw) return;
             lightFeedback();
-            // Where it goes is the person's choice in Settings (Brain dump by
+            // Fillers out (and, with Apple's model, a ramble condensed), then
+            // where it goes is the person's choice in Settings (Brain dump by
             // default). "Create a task to…" is still tidied off the front.
-            const text = readVoice(spoken)?.text ?? spoken;
-            void getVoiceDestination().then(destination => {
+            void Promise.all([tidySpeech(raw), getVoiceDestination()]).then(([spoken, destination]) => {
+                if (!spoken) return;
+                const text = readVoice(spoken)?.text ?? spoken;
                 // A beat, so the pill has folded back into the button first.
                 setTimeout(() => {
                     if (destination === 'thought') {

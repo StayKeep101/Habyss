@@ -16,18 +16,31 @@ function speech(): Speech | null {
  * field as they are heard; tap again (or pause) to stop. The same speech
  * module as holding +, one session at a time. Absent on a build without it.
  */
-export function useDictation(onText: (heard: string) => void) {
+export function useDictation(onText: (heard: string) => void, onDone?: (heard: string) => void) {
     const module = useRef(speech()).current;
     const [listening, setListening] = useState(false);
     const mine = useRef(false);
     const latestOnText = useRef(onText);
     latestOnText.current = onText;
+    const latestOnDone = useRef(onDone);
+    latestOnDone.current = onDone;
+    const heardSoFar = useRef('');
 
     useEffect(() => {
         if (!module) return;
         const listeners = [
-            module.addListener('result', event => { if (mine.current) latestOnText.current(event.results[0]?.transcript ?? ''); }),
-            module.addListener('end', () => { if (mine.current) { mine.current = false; setListening(false); } }),
+            module.addListener('result', event => {
+                if (!mine.current) return;
+                heardSoFar.current = event.results[0]?.transcript ?? '';
+                latestOnText.current(heardSoFar.current);
+            }),
+            // Finished: the caller gets the whole of it, to tidy (lib/voiceClean.ts).
+            module.addListener('end', () => {
+                if (!mine.current) return;
+                mine.current = false;
+                setListening(false);
+                if (heardSoFar.current) latestOnDone.current?.(heardSoFar.current);
+            }),
             module.addListener('error', () => { if (mine.current) { mine.current = false; setListening(false); } }),
         ];
         return () => {
@@ -44,6 +57,7 @@ export function useDictation(onText: (heard: string) => void) {
             return;
         }
         mine.current = true;
+        heardSoFar.current = '';
         setListening(true);
         module.start({ lang: 'en-US', interimResults: true, continuous: false, addsPunctuation: true });
     }, [module]);

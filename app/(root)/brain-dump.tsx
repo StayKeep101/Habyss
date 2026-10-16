@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { MicButton } from '@/components/ui/MicButton';
+import { AppIcon } from '@/components/ui/AppIcon';
 import { ThoughtRow } from '@/components/BrainDump/ThoughtRow';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDictation } from '@/hooks/useDictation';
+import { tidySpeech } from '@/lib/voiceClean';
 import { emit } from '@/lib/appEvents';
 import { addThought, getThoughts, moveItem, removeThought, reorderThoughts, restoreThought, updateThought, type Thought } from '@/lib/brainDump';
 import { styles } from '@/styles/screens/brain-dump.styles';
@@ -20,8 +22,9 @@ const UNDO_MS = 4000;
 /**
  * Somewhere to empty your head, with nothing in the way.
  *
- * Type and press return: it is saved and the cursor waits for the next one.
- * Or tap the mic and say it. Below, just the words. Swipe left to delete
+ * The line to write on sits on the keyboard: type and press send (or the
+ * arrow), and the cursor waits for the next one. With nothing typed, the mic
+ * is there instead — tap it and say it. Below, just the words. Swipe left to delete
  * (with a moment to undo), swipe right to turn it into a task, habit or goal,
  * tap to reword, hold and drag to move. Private: it stays on this phone.
  */
@@ -41,7 +44,9 @@ export default function BrainDumpScreen() {
 
     // Talking fills the field; return (or the mic again) saves it like typing does.
     const base = useRef('');
-    const dictation = useDictation(heard => setDraft(`${base.current}${base.current && heard ? ' ' : ''}${heard}`));
+    const join = (heard: string) => `${base.current}${base.current && heard ? ' ' : ''}${heard}`;
+    // Live while talking; tidied once finished (fillers out, a ramble condensed).
+    const dictation = useDictation(heard => setDraft(join(heard)), heard => { void tidySpeech(heard).then(clean => setDraft(join(clean))); });
     const talk = () => { base.current = draft.trim(); void dictation.toggle(); };
 
     const save = async () => {
@@ -117,26 +122,6 @@ export default function BrainDumpScreen() {
         <SheetScreen title="Brain dump" onBack={() => router.back()}>
             <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
                 <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
-                    {/* Just a place to write: no box, no button. Return saves. */}
-                    <View style={styles.composer}>
-                        <MatteInput
-                            bare
-                            ref={input}
-                            autoFocus
-                            value={draft}
-                            onChangeText={setDraft}
-                            placeholder="What’s on your mind?"
-                            placeholderTextColor={colors.textTertiary}
-                            returnKeyType="done"
-                            blurOnSubmit={false}
-                            onSubmitEditing={() => void save()}
-                            selectionColor={primary}
-                            style={[styles.input, { color: colors.textPrimary }]}
-                            accessibilityLabel="New thought. Press return to save it"
-                        />
-                        {dictation.available ? <MicButton listening={dictation.listening} onPress={talk} /> : null}
-                    </View>
-
                     {thoughts.length === 0 ? (
                         <Text style={[styles.empty, { color: colors.textTertiary }]}>Empty head. Nice.</Text>
                     ) : thoughts.map((thought, index) => (
@@ -155,6 +140,34 @@ export default function BrainDumpScreen() {
                     ))}
                 </ScrollView>
 
+                {/* Docked on the keyboard: write, then the arrow (or return) saves;
+                    with nothing written, the mic is there instead. */}
+                <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+                    <MatteInput
+                        bare
+                        ref={input}
+                        autoFocus
+                        multiline
+                        value={draft}
+                        onChangeText={setDraft}
+                        placeholder="What’s on your mind?"
+                        placeholderTextColor={colors.textTertiary}
+                        returnKeyType="send"
+                        submitBehavior="submit"
+                        onSubmitEditing={() => void save()}
+                        selectionColor={primary}
+                        style={[styles.input, { color: colors.textPrimary }]}
+                        accessibilityLabel="New thought"
+                    />
+                    {draft.trim() && !dictation.listening ? (
+                        <Pressable onPress={() => void save()} accessibilityRole="button" accessibilityLabel="Save thought"
+                            style={[styles.send, { backgroundColor: primary }]}>
+                            <AppIcon name="arrow-up" size={18} color={colors.background} />
+                        </Pressable>
+                    ) : dictation.available ? (
+                        <MicButton listening={dictation.listening} onPress={talk} />
+                    ) : null}
+                </View>
                 {undo ? (
                     <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={[styles.undo, { backgroundColor: colors.surfaceTertiary }]}>
                         <Text numberOfLines={1} style={[styles.undoText, { color: colors.textSecondary }]}>Deleted</Text>

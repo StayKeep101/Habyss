@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { MicButton } from '@/components/ui/MicButton';
 import { Spacing } from '@/theme/designSystem';
 import { useDictation } from '@/hooks/useDictation';
+import { tidySpeech } from '@/lib/voiceClean';
 
 /**
  * A text field you can also talk into: the mic sits in its corner, and what
@@ -11,7 +12,9 @@ import { useDictation } from '@/hooks/useDictation';
  */
 export function DictateField({ text, onText, children }: { text: string; onText: (value: string) => void; children: React.ReactNode }) {
     const base = useRef('');
-    const dictation = useDictation(heard => onText(`${base.current}${base.current && heard ? ' ' : ''}${heard}`));
+    const join = (heard: string) => `${base.current}${base.current && heard ? ' ' : ''}${heard}`;
+    // Live while talking; tidied once finished (fillers out, a ramble condensed).
+    const dictation = useDictation(heard => onText(join(heard)), heard => { void tidySpeech(heard).then(clean => onText(join(clean))); });
     return (
         <View>
             {children}

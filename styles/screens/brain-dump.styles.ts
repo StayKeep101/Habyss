@@ -4,12 +4,13 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 /** The look of app/(root)/brain-dump.tsx: a page to write on, nothing more. */
 export const styles = StyleSheet.create({
     flex: { flex: 1 },
-    content: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.bottom * 2 },
-    composer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md, marginBottom: Spacing.md },
-    input: { flex: 1, fontFamily: FontFamily.medium, fontSize: 20, lineHeight: 28, paddingVertical: Spacing.sm },
+    content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.xl },
+    composer: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.md, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm + 2, borderTopWidth: StyleSheet.hairlineWidth },
+    input: { flex: 1, maxHeight: 120, fontFamily: FontFamily.medium, fontSize: 17, lineHeight: 24, paddingVertical: Spacing.sm },
+    send: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
     divider: { borderTopWidth: StyleSheet.hairlineWidth },
     empty: { fontFamily: FontFamily.regular, fontSize: 15, textAlign: 'center', marginTop: Spacing.section },
-    undo: { position: 'absolute', left: Spacing.xl, right: Spacing.xl, bottom: Spacing.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: 999 },
+    undo: { position: 'absolute', left: Spacing.xl, right: Spacing.xl, bottom: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: 999 },
     undoText: { fontFamily: FontFamily.medium, fontSize: 14 },
     undoAction: { fontFamily: FontFamily.semibold, fontSize: 15 },
 });
