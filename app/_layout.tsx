@@ -124,6 +124,14 @@ export default function MobileLayout() {
   // The phone runs the newest published update, not the one before it.
   useEffect(() => watchForUpdates(), []);
 
+  // The brain dump's week: clear last week's thoughts, schedule this week's review.
+  useEffect(() => {
+    const { syncBrainDumpReview } = require('@/lib/brainDumpReview') as typeof import('@/lib/brainDumpReview');
+    syncBrainDumpReview();
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') syncBrainDumpReview(); });
+    return () => subscription.remove();
+  }, []);
+
   // --- Notification Deep Linking ---
   useEffect(() => {
     const handle = async (response: Notifications.NotificationResponse | null) => {

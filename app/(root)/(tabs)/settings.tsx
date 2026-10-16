@@ -11,6 +11,8 @@ import { router } from 'expo-router';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { useSleep } from '@/hooks/useSleep';
 import { setSleepTarget } from '@/lib/sleepLog';
+import { DEFAULT_WEEK_START, getWeekStart, setWeekStart, type WeekStart } from '@/lib/weekStart';
+import { syncBrainDumpReview } from '@/lib/brainDumpReview';
 import { DEFAULT_VOICE_DESTINATION, VOICE_DESTINATIONS, getVoiceDestination, setVoiceDestination, type VoiceDestination } from '@/lib/voiceDestination';
 
 /** Sleep goals offered, in hours. */
@@ -41,6 +43,8 @@ export default function ProfileScreen() {
     const me = useMyProfile();
     const sleep = useSleep();
     const [voiceDestination, setVoiceDestinationState] = useState<VoiceDestination>(DEFAULT_VOICE_DESTINATION);
+    const [weekStart, setWeekStartState] = useState<WeekStart>(DEFAULT_WEEK_START);
+    useEffect(() => { void getWeekStart().then(setWeekStartState); }, []);
     useEffect(() => { void getVoiceDestination().then(setVoiceDestinationState); }, []);
     const username = me.name;
     const avatarUri = me.avatar;
@@ -121,6 +125,13 @@ export default function ProfileScreen() {
                         <SettingsRow icon="moon" color="#5E5CE6" label="Sleep goal"
                             choices={SLEEP_GOALS.map(hours => ({ id: String(hours), label: `${hours}h` }))}
                             chosen={String(sleep.target / 60)} onChoose={id => void setSleepTarget(Number(id) * 60)} />
+                        {/* When a week ends: the brain dump is reviewed and cleared then. */}
+                        <SettingsRow icon="calendar" color="#64D2FF" label="Week starts"
+                            choices={[{ id: 'monday', label: 'Mon' }, { id: 'sunday', label: 'Sun' }]} chosen={weekStart}
+                            onChoose={id => {
+                                setWeekStartState(id as WeekStart);
+                                void setWeekStart(id as WeekStart).then(() => syncBrainDumpReview());
+                            }} />
                         <SettingsRow icon="repeat" color="#BF5AF2" label="All habits" onPress={() => router.push('/(root)/all-habits')} />
                         <SettingsRow icon="flag" color="#FF453A" label="Goal plans" onPress={() => router.push('/(root)/goal-roadmap')} />
                     </SettingsGroup>

@@ -13,6 +13,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDictation } from '@/hooks/useDictation';
 import { tidySpeech } from '@/lib/voiceClean';
+import { getWeekStart, reviewTime } from '@/lib/weekStart';
 import { emit } from '@/lib/appEvents';
 import { addThought, getThoughts, moveItem, removeThought, reorderThoughts, restoreThought, updateThought, type Thought } from '@/lib/brainDump';
 import { styles } from '@/styles/screens/brain-dump.styles';
@@ -41,6 +42,11 @@ export default function BrainDumpScreen() {
     const input = useRef<React.ElementRef<typeof MatteInput>>(null);
 
     useEffect(() => { void getThoughts().then(setThoughts); }, []);
+    // When this week's thoughts clear: the last evening of the week (Settings).
+    const [clearsOn, setClearsOn] = useState('');
+    useEffect(() => {
+        void getWeekStart().then(start => setClearsOn(reviewTime(new Date(), start).toLocaleDateString(undefined, { weekday: 'long' })));
+    }, []);
 
     // Talking fills the field; return (or the mic again) saves it like typing does.
     const base = useRef('');
@@ -122,6 +128,9 @@ export default function BrainDumpScreen() {
         <SheetScreen title="Brain dump" onBack={() => router.back()}>
             <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
                 <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
+                    {thoughts.length > 0 && clearsOn ? (
+                        <Text style={[styles.clears, { color: colors.textTertiary }]}>Clears {clearsOn} night · sort what matters</Text>
+                    ) : null}
                     {thoughts.length === 0 ? (
                         <Text style={[styles.empty, { color: colors.textTertiary }]}>Empty head. Nice.</Text>
                     ) : thoughts.map((thought, index) => (

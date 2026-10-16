@@ -23,6 +23,8 @@ export async function getThoughts(): Promise<Thought[]> {
 
 async function save(list: Thought[]) {
     await AsyncStorage.setItem(KEY, JSON.stringify(list));
+    // The weekly reminder counts what is waiting, so it follows every change.
+    try { (require('./brainDumpReview') as typeof import('./brainDumpReview')).syncBrainDumpReview(); } catch { /* tests */ }
 }
 
 /** Newest first. Blank text is ignored. */
@@ -76,4 +78,21 @@ export function byDay(thoughts: Thought[], dayOf: (iso: string) => string): { da
         groups.set(day, [...(groups.get(day) ?? []), thought]);
     }
     return [...groups.entries()].map(([day, list]) => ({ day, thoughts: list }));
+}
+
+/**
+ * The weekly clear: a thought from before this week started is let go. Anything
+ * worth keeping was turned into a task, habit or goal when the review came.
+ */
+export function keptThisWeek(thoughts: Thought[], weekStartsAt: Date): Thought[] {
+    const floor = weekStartsAt.getTime();
+    return thoughts.filter(thought => new Date(thought.createdAt).getTime() >= floor);
+}
+
+/** Clears last week's thoughts. Returns how many were let go. */
+export async function clearPastWeeks(weekStartsAt: Date): Promise<number> {
+    const list = await getThoughts();
+    const kept = keptThisWeek(list, weekStartsAt);
+    if (kept.length !== list.length) await save(kept);
+    return list.length - kept.length;
 }
