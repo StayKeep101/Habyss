@@ -9,6 +9,11 @@ import { useTheme } from '@/context/ThemeContext';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
 import { useMyProfile } from '@/hooks/useMyProfile';
+import { useSleep } from '@/hooks/useSleep';
+import { setSleepTarget } from '@/lib/sleepLog';
+
+/** Sleep goals offered, in hours. */
+const SLEEP_GOALS = [6, 7, 8, 9];
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { saveDailyTarget } from '@/lib/dailyFocus';
 
@@ -33,6 +38,7 @@ export default function ProfileScreen() {
     const dailyTarget = useDailyTarget();
     // You, from the one profile store (lib/profile.ts).
     const me = useMyProfile();
+    const sleep = useSleep();
     const username = me.name;
     const avatarUri = me.avatar;
 
@@ -107,6 +113,10 @@ export default function ProfileScreen() {
                         <SettingsRow icon="checkmark-done" color="#FF9F0A" label="Tasks a day"
                             choices={[{ id: '3', label: '3' }, { id: '5', label: '5' }]}
                             chosen={String(dailyTarget)} onChoose={id => void saveDailyTarget(Number(id) as 3 | 5)} />
+                        {/* A night that reaches this earns Marks (Home's sleep card). */}
+                        <SettingsRow icon="moon" color="#5E5CE6" label="Sleep goal"
+                            choices={SLEEP_GOALS.map(hours => ({ id: String(hours), label: `${hours}h` }))}
+                            chosen={String(sleep.target / 60)} onChoose={id => void setSleepTarget(Number(id) * 60)} />
                         <SettingsRow icon="repeat" color="#BF5AF2" label="All habits" onPress={() => router.push('/(root)/all-habits')} />
                         <SettingsRow icon="flag" color="#FF453A" label="Goal plans" onPress={() => router.push('/(root)/goal-roadmap')} />
                     </SettingsGroup>

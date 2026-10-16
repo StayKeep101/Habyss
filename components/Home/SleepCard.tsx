@@ -4,7 +4,6 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { IconTile } from '@/components/ui/IconTile';
-import { IconButton } from '@/components/ui/IconButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CountUp, useProgress } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
@@ -13,7 +12,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useSleep } from '@/hooks/useSleep';
-import { formatSleep, setSleepTarget } from '@/lib/sleepLog';
+import { formatSleep } from '@/lib/sleepLog';
 import { MARKS } from '@/lib/marks';
 import { localDateKey } from '@/lib/habitSchedule';
 
@@ -22,14 +21,14 @@ const NIGHTS = 7;
 
 /**
  * Last night's sleep, from Apple Health, and the week behind it. A night that
- * reaches your goal earns Marks; a short one costs nothing. Tap the goal to
- * change it. Without Health connected, it offers the way to connect it.
+ * reaches your goal earns Marks; a short one costs nothing. The goal is set
+ * in Settings. Without Health connected, it offers the way to connect it.
  */
 export function SleepCard() {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
-    const { selectionFeedback, lightFeedback } = useHaptics();
+    const { lightFeedback } = useHaptics();
     const sleep = useSleep();
 
     if (!sleep.connected) {
@@ -58,8 +57,6 @@ export function SleepCard() {
     const met = last !== undefined && last >= sleep.target;
     const ceiling = Math.max(sleep.target * 1.25, ...mornings.map(day => sleep.nights[day.key] ?? 0));
 
-    const change = (delta: number) => { selectionFeedback(); void setSleepTarget(sleep.target + delta); };
-
     return (
         <VoidCard style={styles.card}>
             <View style={styles.head}>
@@ -77,11 +74,8 @@ export function SleepCard() {
                 <View style={styles.flex}>
                     <CountUp style={[styles.value, { color: colors.textPrimary }]} value={last !== undefined ? formatSleep(last) : '—'} />
                     <Text style={[styles.sub, { color: colors.textTertiary }]}>{last !== undefined ? 'Last night' : 'No sleep recorded last night'}</Text>
-                    <View style={styles.goal}>
-                        <IconButton icon="remove" label="Lower sleep goal" onPress={() => change(-30)} diameter={28} size={14} />
-                        <Text style={[styles.goalText, { color: colors.textSecondary }]}>Goal {formatSleep(sleep.target)}</Text>
-                        <IconButton icon="add" label="Raise sleep goal" onPress={() => change(30)} diameter={28} size={14} />
-                    </View>
+                    {/* The goal is set in Settings. */}
+                    <Text style={[styles.goalText, { color: colors.textSecondary }]}>Goal {formatSleep(sleep.target)}</Text>
                 </View>
                 <View style={styles.bars} accessible accessibilityLabel={`Last ${NIGHTS} nights`}>
                     {mornings.map((day, index) => {
@@ -121,8 +115,7 @@ const styles = StyleSheet.create({
     earnedText: { fontFamily: FontFamily.semibold, fontSize: 12 },
     body: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.lg },
     value: { fontFamily: FontFamily.bold, fontSize: 30, lineHeight: 36, letterSpacing: -0.6, fontVariant: ['tabular-nums'] },
-    goal: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm },
-    goalText: { fontFamily: FontFamily.medium, fontSize: 13, fontVariant: ['tabular-nums'] },
+    goalText: { fontFamily: FontFamily.medium, fontSize: 13, fontVariant: ['tabular-nums'], marginTop: Spacing.sm },
     bars: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.xs + 2 },
     barCol: { alignItems: 'center', gap: Spacing.xs },
     barTrack: { width: 10, height: BAR_HEIGHT, justifyContent: 'flex-end' },
