@@ -38,7 +38,7 @@ import { MarksModal } from '@/components/Marks/MarksModal';
 import { useMarks } from '@/hooks/useMarks';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyFocus, useDailyTarget } from '@/hooks/useDailyFocus';
-import { streakFrom } from '@/lib/dayComplete';
+import { bestStreakFrom, streakFrom } from '@/lib/dayComplete';
 import { useHistory } from '@/hooks/useHistory';
 import { useData } from '@/hooks/useData';
 import { getData } from '@/lib/dataStore';
@@ -206,14 +206,6 @@ const Home = () => {
     return () => { alive = false; };
   }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, sharedData.history, sharedData.tasks, playLevelUp]);
   const [showMarks, setShowMarks] = useState(false);
-  // Friends see your total; sent a moment after it settles, and only when it moved.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const { publishMarks } = require('@/lib/marksSync') as typeof import('@/lib/marksSync');
-      void publishMarks(marks.total, marks.series);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [marks.total, marks.series]);
 
 
   /**
@@ -225,13 +217,27 @@ const Home = () => {
    * card that appears when the day is won said three. Two answers to one
    * question is one too many; this is now the same `streakFrom` the card uses.
    */
-  const { streak } = useMemo(() => {
+  const { streak, bestStreak } = useMemo(() => {
     const today = localDateKey(new Date());
     // The whole shared history, so a run longer than any window still counts.
     const history = { ...sharedData.history, [today]: Object.keys(completions).filter(id => completions[id]) };
     const run = streakFrom(habits, allTasks, history, sharedData.skips, today, undefined, dailyTarget);
-    return { streak: run.streak };
+    return { streak: run.streak, bestStreak: bestStreakFrom(run.completedDates) };
   }, [habits, allTasks, sharedData.history, sharedData.skips, completions, dailyTarget]);
+  // Goals finished: the trophies on your profile, counted as Marks counts them.
+  const goalsCompleted = useMemo(
+    () => Object.values(goalsData.insightsById).filter(insights => insights.series.some(point => point.actual >= 100)).length,
+    [goalsData.insightsById],
+  );
+
+  // Friends see your total; sent a moment after it settles, and only when it moved.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const { publishMarks } = require('@/lib/marksSync') as typeof import('@/lib/marksSync');
+      void publishMarks(marks.total, marks.series, { bestStreak, goalsCompleted });
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [marks.total, marks.series, bestStreak, goalsCompleted]);
 
   // How hot the flame burns: how much of today is already done.
   const completionTier = useMemo(() => {

@@ -25,7 +25,12 @@ export async function localMarks(): Promise<number | null> {
 export const seriesForProfile = (series: { value: number }[] | undefined): number[] =>
     (series ?? []).slice(-60).map(point => Math.max(0, Math.round(point.value)));
 
-export async function publishMarks(total: number, series?: { value: number }[]): Promise<void> {
+export async function publishMarks(
+    total: number,
+    series?: { value: number }[],
+    /** What a profile shows to be proud of: the longest streak and goals finished. */
+    trophies?: { bestStreak: number; goalsCompleted: number },
+): Promise<void> {
     AsyncStorage.setItem(LOCAL_KEY, String(Math.max(0, Math.round(total)))).catch(() => { });
     try {
         const sb = getSupabase();
@@ -37,10 +42,15 @@ export async function publishMarks(total: number, series?: { value: number }[]):
         const allowed = (await getSharing()).progress;
         const value = allowed ? Math.max(0, Math.round(total)) : null;
         const history = allowed ? seriesForProfile(series) : null;
-        const stamp = `${me}:${value}:${history?.length ?? 0}:${history?.[0] ?? ''}`;
+        const best = allowed && trophies ? trophies.bestStreak : null;
+        const goals = allowed && trophies ? trophies.goalsCompleted : null;
+        const stamp = `${me}:${value}:${history?.length ?? 0}:${history?.[0] ?? ''}:${best}:${goals}`;
         if ((await AsyncStorage.getItem(KEY)) === stamp) return;
         const { error } = await sb.from('profiles')
-            .update({ marks: value, marks_series: history, marks_updated_at: new Date().toISOString() }).eq('id', me);
+            .update({
+                marks: value, marks_series: history, marks_updated_at: new Date().toISOString(),
+                ...(trophies ? { best_streak: best, goals_completed: goals } : {}),
+            }).eq('id', me);
         // A server without the column yet is not an error worth retrying hard.
         if (!error) {
             await AsyncStorage.setItem(KEY, stamp);

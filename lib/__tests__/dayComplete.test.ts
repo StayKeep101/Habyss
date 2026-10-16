@@ -179,3 +179,13 @@ describe('one definition of a streak', () => {
         expect(streakFrom([], tasks, {}, {}, today, 70, 3).streak).toBe(1);
     });
 });
+
+describe('the best streak', () => {
+    it('is the longest unbroken run of days', () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { bestStreakFrom } = require('../dayComplete') as typeof import('../dayComplete');
+        expect(bestStreakFrom(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-05', '2026-10-06'])).toBe(3);
+        expect(bestStreakFrom(['2026-10-06', '2026-10-05'])).toBe(2);
+        expect(bestStreakFrom([])).toBe(0);
+    });
+});

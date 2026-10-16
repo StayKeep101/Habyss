@@ -8,7 +8,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useTasks } from '@/hooks/useTasks';
 import { useData } from '@/hooks/useData';
 import { subscribeToHabits, type Habit } from '@/lib/habitsSQLite';
-import { streakFrom } from '@/lib/dayComplete';
+import { bestStreakFrom, streakFrom } from '@/lib/dayComplete';
 import { localDateKey } from '@/lib/habitSchedule';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
@@ -18,7 +18,6 @@ import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { seriesForProfile } from '@/lib/marksSync';
 import { UsernameCard, UsernamePill } from '@/components/Profile/UsernameCard';
-import { buildDayCard } from '@/lib/dayCard';
 import { FeedService } from '@/lib/feedService';
 import { getMyUsername } from '@/lib/friendsService';
 import { styles } from '@/styles/screens/profile.styles';
@@ -67,14 +66,21 @@ export default function ProfileScreen() {
     const data = useData();
     // The same streak the home screen and the day card show — one definition,
     // over the whole shared history.
-    const streak = React.useMemo(
-        () => streakFrom(habits, tasks, data.history, data.skips, localDateKey(new Date()), undefined, target).streak,
+    const run = React.useMemo(
+        () => streakFrom(habits, tasks, data.history, data.skips, localDateKey(new Date()), undefined, target),
         [habits, tasks, data.history, data.skips, target],
     );
+    const streak = run.streak;
+    const bestStreak = React.useMemo(() => bestStreakFrom(run.completedDates), [run.completedDates]);
 
     // The same Marks Home shows and friends see, as your level.
     const goalsData = useGoalsInsights();
     const marks = useMarks(goalsData);
+    // Goals finished: the trophies, counted as Marks counts them.
+    const goalsCompleted = React.useMemo(
+        () => Object.values(goalsData.insightsById).filter(insights => insights.series.some(point => point.actual >= 100)).length,
+        [goalsData.insightsById],
+    );
 
 
     /** One picker for both images; the crop is what tells them apart. */
@@ -104,13 +110,6 @@ export default function ProfileScreen() {
     };
 
     const age = profile.birthday ? ageFrom(profile.birthday) : null;
-    const tracked = habits.filter(habit => !habit.isGoal && !habit.isArchived).length;
-    const goalCount = habits.filter(habit => habit.isGoal && !habit.isArchived).length;
-    // Today, counted the way a friend's page counts it (the day card).
-    const today = React.useMemo(() => {
-        const card = buildDayCard({ habits, tasks, history: data.history, skips: data.skips, day: localDateKey(new Date()), streak });
-        return { done: card.habitsDone + card.tasksDone, total: card.habitsTotal + card.tasksTotal };
-    }, [habits, tasks, data.history, data.skips, streak]);
     const [myId, setMyId] = useState<string | null>(null);
     useEffect(() => { void FeedService.me().then(setMyId); }, []);
     // undefined while loading; null when there is none yet — then it is asked for.
@@ -145,7 +144,7 @@ export default function ProfileScreen() {
                     topInset={insets.top}
                     marks={marks.total}
                     marksSeries={seriesForProfile(marks.series)}
-                    numbers={{ streak, habits: tracked, goals: goalCount, todayDone: today.done, todayTotal: today.total }}
+                    numbers={{ streak, bestStreak, goalsCompleted }}
                     edit={{
                         onName: name => setDraft(current => ({ ...current, name })),
                         onNameDone: () => change({ name: profile.name.trim() }),

@@ -15,15 +15,15 @@ import { ms, s, vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 
+/** The colour of a finished goal: gold, the same on every theme. */
+const TROPHY = '#F5B700';
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
 /** The numbers every profile shows, yours and a friend's alike. */
 export interface ProfileNumbers {
     streak: number;
-    habits: number;
-    goals: number;
-    todayDone: number;
-    todayTotal: number;
+    bestStreak: number;
+    goalsCompleted: number;
 }
 
 /**
@@ -192,13 +192,12 @@ export const ProfileView: React.FC<{
                 {marks !== undefined ? <LevelCard marks={marks} /> : null}
                 {/* Four numbers, each with its own mark, two by two. */}
                 {numbers ? (
-                    // One card, four even columns: icon, number, label.
+                    // Things to be proud of, not today's to-do: the run, the best run, the trophies.
                     <VoidCard style={styles.statsCard}>
                         {[
                             { label: 'Streak', value: numbers.streak, icon: 'flame', color: colors.warning },
-                            { label: 'Habits', value: numbers.habits, icon: 'repeat', color: colors.success },
-                            { label: 'Goals', value: numbers.goals, icon: 'flag', color: colors.error },
-                            { label: 'Today', value: `${numbers.todayDone}/${numbers.todayTotal}`, icon: 'checkmark-done', color: primary },
+                            { label: 'Best streak', value: numbers.bestStreak, icon: 'medal', color: primary },
+                            { label: 'Goals done', value: numbers.goalsCompleted, icon: 'trophy', color: TROPHY },
                         ].map((stat, index) => (
                             <PopIn key={stat.label} index={index} style={[styles.stat, index > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border }]}>
                                 <Ionicons name={stat.icon as never} size={s(16)} color={stat.color} />

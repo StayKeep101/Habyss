@@ -84,10 +84,9 @@ export default function FriendScreen() {
     // their progress private (friend_stats leaves them out).
     const numbers: ProfileNumbers | undefined = isFriend && friend ? {
         streak: friend.currentStreak ?? 0,
-        habits: friend.todayTotal ?? 0,
-        goals: friend.goalsActive ?? 0,
-        todayDone: (friend.todayCompleted ?? 0) + (friend.tasksDone ?? 0),
-        todayTotal: (friend.todayTotal ?? 0) + (friend.tasksTotal ?? 0),
+        // Published by their phone with their Marks; their current run if not yet.
+        bestStreak: Math.max(profile.bestStreak ?? 0, friend.currentStreak ?? 0),
+        goalsCompleted: profile.goalsCompleted ?? 0,
     } : undefined;
 
     const add = async () => {

@@ -113,6 +113,24 @@ export function streakFrom(
     return { streak, completedDates };
 }
 
+/**
+ * The longest run ever kept: the most days in a row with something done,
+ * from the same days `streakFrom` counts. For the profile.
+ */
+export function bestStreakFrom(completedDates: string[]): number {
+    const days = [...new Set(completedDates)].sort();
+    let best = 0;
+    let run = 0;
+    let previous: number | null = null;
+    for (const day of days) {
+        const at = Math.round(new Date(`${day}T12:00:00`).getTime() / 86400000);
+        run = previous !== null && at - previous === 1 ? run + 1 : 1;
+        best = Math.max(best, run);
+        previous = at;
+    }
+    return best;
+}
+
 const KEY = 'habyss_day_celebrated';
 
 /** True the first time a day counts towards the streak, and never again that day. */
