@@ -100,9 +100,10 @@ export default function ProfileScreen() {
                         <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
                     </TouchableOpacity>
 
-                    {/* Four short groups, each row an icon you can recognise
-                        without reading: who you are, your plan, the app, help. */}
-                    <SettingsGroup>
+                    {/* Five groups, in the order people look for things: who you
+                        are, what you are working towards, getting thoughts in,
+                        how the app behaves, and help. */}
+                    <SettingsGroup title="You">
                         <SettingsRow icon="person-circle" color="#5B8CFF" label="Account"
                             value={accountEmail ? 'Signed in' : 'Sign in'} onPress={() => router.push('/(root)/account')} />
                         <SettingsRow icon="people" color="#30D158" label="Friends & sharing" onPress={() => router.push('/(root)/sharing')} />
@@ -112,14 +113,10 @@ export default function ProfileScreen() {
                         ) : null}
                     </SettingsGroup>
 
-                    <SettingsGroup>
+                    <SettingsGroup title="Your plan">
                         <SettingsRow icon="checkmark-done" color="#FF9F0A" label="Tasks a day"
                             choices={[{ id: '3', label: '3' }, { id: '5', label: '5' }]}
                             chosen={String(dailyTarget)} onChoose={id => void saveDailyTarget(Number(id) as 3 | 5)} />
-                        {/* Hold + and speak: where the words go. */}
-                        <SettingsRow icon="mic" color="#FF375F" label="Hold + to say"
-                            choices={VOICE_DESTINATIONS} chosen={voiceDestination}
-                            onChoose={id => { setVoiceDestinationState(id as VoiceDestination); void setVoiceDestination(id as VoiceDestination); }} />
                         {/* A night that reaches this earns Marks (Home's sleep card). */}
                         <SettingsRow icon="moon" color="#5E5CE6" label="Sleep goal"
                             choices={SLEEP_GOALS.map(hours => ({ id: String(hours), label: `${hours}h` }))}
@@ -128,7 +125,15 @@ export default function ProfileScreen() {
                         <SettingsRow icon="flag" color="#FF453A" label="Goal plans" onPress={() => router.push('/(root)/goal-roadmap')} />
                     </SettingsGroup>
 
-                    <SettingsGroup>
+                    <SettingsGroup title="Capture">
+                        {/* Hold + and speak: where the words go. */}
+                        <SettingsRow icon="mic" color="#FF375F" label="Hold + to say"
+                            choices={VOICE_DESTINATIONS} chosen={voiceDestination}
+                            onChoose={id => { setVoiceDestinationState(id as VoiceDestination); void setVoiceDestination(id as VoiceDestination); }} />
+                        <SettingsRow icon="bulb" color="#FFD60A" label="Brain dump" onPress={() => router.push('/brain-dump' as never)} />
+                    </SettingsGroup>
+
+                    <SettingsGroup title="App">
                         <SettingsRow icon="sparkles" color="#5E5CE6" label="Echo"
                             value={PERSONALITY_MODES.find(mode => mode.id === aiPersonality)?.name ?? 'Friendly'}
                             onPress={() => router.push('/(root)/ai-settings')} />
@@ -140,10 +145,13 @@ export default function ProfileScreen() {
                         ) : null}
                     </SettingsGroup>
 
-                    <SettingsGroup>
+                    <SettingsGroup title="Help">
                         <SettingsRow icon="book" color="#FFB020" label="How Habyss works" onPress={() => router.push('/(root)/guide')} />
                         <SettingsRow icon="help-buoy" color="#64D2FF" label="Help" onPress={() => router.push('/(root)/help')} />
-                        <SettingsRow icon="grid" color="#8A8A94" label="UI catalogue" onPress={() => router.push('/(root)/ui-catalog')} />
+                        {/* A developer's tool: only in development builds. */}
+                        {__DEV__ ? (
+                            <SettingsRow icon="grid" color="#8A8A94" label="UI catalogue" onPress={() => router.push('/(root)/ui-catalog')} />
+                        ) : null}
                     </SettingsGroup>
 
                     <View style={styles.footer}>
