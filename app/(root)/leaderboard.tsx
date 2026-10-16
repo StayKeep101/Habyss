@@ -11,14 +11,17 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FeedService, type LeaderRow } from '@/lib/feedService';
+import { localMarks } from '@/lib/marksSync';
+import { rankBand } from '@/lib/marks';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { styles } from '@/styles/screens/leaderboard.styles';
 
-type Scope = 'friends' | 'world';
+type Scope = 'friends' | 'league';
 
 /**
- * Where you stand, by Marks: among your friends, or among everyone on Habyss
- * who shares their progress. Your row is lit; tap a friend for their page.
+ * Where you stand, by Marks: among your friends, or in your league — everyone
+ * on Habyss in the same rank as you, so the race is always a fair one. Your
+ * row is lit; tap anyone for their page.
  */
 export default function LeaderboardScreen() {
     const router = useRouter();
@@ -28,14 +31,18 @@ export default function LeaderboardScreen() {
     const { lightFeedback } = useHaptics();
     const [scope, setScope] = useState<Scope>('friends');
     const [rows, setRows] = useState<LeaderRow[] | null>(null);
+    // Your rank band, from your own Marks: the league is everyone in it.
+    const [band, setBand] = useState<ReturnType<typeof rankBand> | null>(null);
+    useEffect(() => { void localMarks().then(total => setBand(rankBand(total ?? 0))); }, []);
     const myProfile = useMyProfile();
 
     useEffect(() => {
+        if (scope === 'league' && !band) return;
         let alive = true;
         setRows(null);
-        void FeedService.leaderboard(scope).then(list => { if (alive) setRows(list); });
+        void FeedService.leaderboard(scope, scope === 'league' && band ? band : undefined).then(list => { if (alive) setRows(list); });
         return () => { alive = false; };
-    }, [scope]);
+    }, [scope, band]);
 
     const mine = rows?.find(row => row.isMe);
     const total = rows?.length ?? 0;
@@ -43,13 +50,15 @@ export default function LeaderboardScreen() {
     return (
         <SheetScreen title="Leaderboard" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <ChoiceRow<Scope> options={[{ id: 'friends', label: 'Friends' }, { id: 'world', label: 'World' }]}
+                <ChoiceRow<Scope> options={[{ id: 'friends', label: 'Friends' }, { id: 'league', label: band ? `${band.name} league` : 'League' }]}
                     value={scope} onChange={setScope} accessibilityLabel="Leaderboard scope" />
 
                 <View style={styles.hero}>
                     <CountUp style={[styles.heroRank, { color: colors.textPrimary }]} value={mine ? `#${mine.rank}` : '—'} replay={scope} />
                     <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>
-                        {mine ? `${mine.marks.toLocaleString()} Marks` : 'Earn Marks to get on the board'}
+                        {scope === 'league' && band
+                            ? `${band.name} league · ${band.max ? `${band.min.toLocaleString()}–${(band.max - 1).toLocaleString()}` : `${band.min.toLocaleString()}+`} Marks`
+                            : mine ? `${mine.marks.toLocaleString()} Marks` : 'Earn Marks to get on the board'}
                     </Text>
                 </View>
 

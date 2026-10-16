@@ -110,10 +110,16 @@ export class FeedService {
         return error ? 'failed' : 'saved';
     }
 
-    static async leaderboard(scope: 'friends' | 'world'): Promise<LeaderRow[]> {
+    /**
+     * The board: your friends, or your league — everyone in the same rank band
+     * (pass the band's Marks range, from lib/marks.ts).
+     */
+    static async leaderboard(scope: 'friends' | 'league', band?: { min: number; max: number | null }): Promise<LeaderRow[]> {
         const ctx = await signedIn();
         if (!ctx) return [];
-        const { data, error } = await ctx.sb.rpc('leaderboard', { p_scope: scope });
+        const { data, error } = await ctx.sb.rpc('leaderboard', {
+            p_scope: scope, p_min: band?.min ?? null, p_max: band?.max ?? null,
+        });
         if (error) { console.warn('[Leaderboard] could not load:', error.message); return []; }
         return ((data as any[]) ?? []).map(row => ({
             rank: Number(row.rank),

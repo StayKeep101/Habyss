@@ -1,4 +1,4 @@
-import { computeMarks, rankFor, RANKS } from '../marks';
+import { computeMarks, rankBand, rankFor, RANKS } from '../marks';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 
@@ -85,5 +85,13 @@ describe('ranks', () => {
 
     it('says how far through the rank you are', () => {
         expect(rankFor(600)).toMatchObject({ rank: { name: 'Growing' }, next: { name: 'Consistent' }, progress: 0.5, toNext: 200 });
+    });
+});
+
+describe('the league you are in', () => {
+    it('is the Marks range of your rank, open-ended at the top', () => {
+        expect(rankBand(2)).toEqual({ name: 'Lost', min: 0, max: 150 });
+        expect(rankBand(150)).toEqual({ name: 'Beginner', min: 150, max: 400 });
+        expect(rankBand(20000)).toEqual({ name: 'Eternal', min: 12000, max: null });
     });
 });

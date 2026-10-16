@@ -40,6 +40,12 @@ export const RANKS: Rank[] = [
     { name: 'Eternal', min: 12000 },
 ];
 
+/** The Marks range of the rank someone is in: from its floor up to the next rank's. */
+export function rankBand(marks: number): { name: string; min: number; max: number | null } {
+    const { rank, next } = rankFor(marks);
+    return { name: rank.name, min: rank.min, max: next ? next.min : null };
+}
+
 export function rankFor(marks: number): { rank: Rank; next: Rank | null; progress: number; toNext: number } {
     let index = 0;
     for (let i = 0; i < RANKS.length; i++) if (marks >= RANKS[i].min) index = i;
