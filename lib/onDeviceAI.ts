@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateObject, generateText, type LanguageModel } from 'ai';
-import { hasExpoModule, hasTurboModule } from './nativeModules';
+import { hasTurboModule } from './nativeModules';
 import type { z } from 'zod';
 
 /**
@@ -19,7 +19,6 @@ import type { z } from 'zod';
 
 export type OnDeviceEngine = 'apple' | 'llama' | null;
 
-const LLAMA_DOWNLOADED_KEY = 'habyss_llama_downloaded';
 
 let appleChecked = false;
 let appleAvailable = false;
@@ -53,7 +52,16 @@ export function currentEngine(): OnDeviceEngine {
     return null;
 }
 
-export const isOnDeviceAIReady = (): boolean => currentEngine() !== null;
+/**
+ * Whether the quick, everywhere uses (reading what is typed in a sheet, the odd
+ * Echo line) may run. Apple's model only: it runs on the Neural Engine and is
+ * cheap. The downloaded model is far heavier — waking it on every pause in
+ * typing kept older iPhones hot — so it is kept for what it was downloaded for.
+ */
+export const isOnDeviceAIReady = (): boolean => isAppleReady();
+
+/** Set when someone chooses to download the offline model in AI settings. */
+export const LLAMA_OPT_IN_KEY = 'habyss_llama_opt_in';
 
 let preparing: Promise<void> | null = null;
 
@@ -66,22 +74,15 @@ export function prepareOnDeviceAI(): Promise<void> {
     if (preparing) return preparing;
     preparing = (async () => {
         if (isAppleReady()) return;
+        // The offline model is never downloaded or loaded on its own: ~700 MB on
+        // disk and a large share of memory once loaded, which on a phone without
+        // Apple Intelligence meant every launch fetched it and then held it,
+        // whether or not anything used it. It loads only for someone who chose it.
+        const chosen = await AsyncStorage.getItem(LLAMA_OPT_IN_KEY).catch(() => null);
+        if (chosen !== '1') return;
         const service = llama();
         if (!service) return;
         await service.init().catch(() => undefined);
-        if (service.isReady()) return;
-
-        // ~700 MB: only ever over Wi-Fi, never on cellular data.
-        if (!hasExpoModule('ExpoNetwork')) return;
-        try {
-            const Network = require('expo-network');
-            const state = await Network.getNetworkStateAsync();
-            if (state.type !== Network.NetworkStateType.WIFI) return;
-        } catch {
-            return;
-        }
-        const ok = await service.downloadModel().catch(() => false);
-        if (ok) await AsyncStorage.setItem(LLAMA_DOWNLOADED_KEY, '1').catch(() => undefined);
     })().finally(() => { preparing = null; });
     return preparing;
 }

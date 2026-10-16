@@ -1,124 +1,116 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
-import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
+import { AppIcon } from '@/components/ui/AppIcon';
 import { VoidCard } from '@/components/ui/VoidCard';
+import { SectionTitle } from '@/components/ui/SectionTitle';
+import { ListItem } from '@/components/ui/Motion';
+import { ValuePill } from '@/components/Goal/GoalRows';
 import { Colors } from '@/theme/colors';
-import { FontFamily } from '@/theme/designSystem';
-import { ms, s, vs } from '@/theme/scale';
+import { FontFamily, Spacing, surfaceFor } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { FriendsService } from '@/lib/friendsService';
-import { nameList, sharedState, type Participant } from '@/lib/shared';
+import { sharedState, type Participant } from '@/lib/shared';
 
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
+const FACE = 36;
 
 /**
- * Who else is doing this habit, and whether it is waiting on anyone.
+ * Who else is on this habit, and who it is still waiting on.
  *
- * Shown only when somebody else is actually on it: a card announcing that a
- * habit is yours alone is noise on every screen in the app.
+ * The same card as the rest of the page: a section title, then one matte card
+ * with a row per person — their face, their name, and where they stand today.
+ * It updates live: when a friend ticks it, their row turns to Done.
  *
- * A friend's state is now exact: `shared_completions` records who finished
- * which item on which day, so "waiting on Sam" means Sam has not done *this*.
- * Before that table the only available answer was "did Sam do anything today",
- * which called them done because they had ticked something else.
+ * Shown only when somebody else is actually on it.
  */
 export const SharedWith: React.FC<{ habitId: string; doneToday: boolean }> = ({ habitId, doneToday }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
-    const isLight = theme === 'light';
-    const isTrueDark = theme === 'trueDark';
+    const tone = surfaceFor(theme);
     const { primary } = useAccentGradient();
-
     const [people, setPeople] = useState<Participant[] | null>(null);
+
+    const load = useCallback(() => {
+        return FriendsService.getSharedItemParticipants(habitId, 'habit')
+            .then(rows => rows.map(row => ({
+                userId: row.userId,
+                username: row.username,
+                avatarUrl: row.avatarUrl,
+                // Your own state is known exactly on this phone.
+                done: row.isYou ? doneToday : !!row.completedToday,
+                isYou: !!row.isYou,
+                pending: !!row.pending,
+            })))
+            .catch(() => [] as Participant[]);
+    }, [habitId, doneToday]);
 
     useEffect(() => {
         let alive = true;
-        // Opening a shared habit is the other moment the cached list can be
-        // stale: somebody may have shared this one with you since last time.
         void FriendsService.refreshSharedIds().catch(() => undefined);
-        FriendsService.getSharedItemParticipants(habitId, 'habit')
-            .then(rows => {
-                if (!alive) return;
-                setPeople(rows.map(row => ({
-                    userId: row.userId,
-                    username: row.username,
-                    avatarUrl: row.avatarUrl,
-                    // Your own state is known exactly, and it is *yours* — not
-                    // the owner's. A habit a friend shared with you made them
-                    // "you" here, and gave them your check-in.
-                    done: row.isYou ? doneToday : !!row.completedToday,
-                    isYou: !!row.isYou,
-                    pending: !!row.pending,
-                })));
-            })
-            .catch(() => { if (alive) setPeople([]); });
-        return () => { alive = false; };
-    }, [habitId, doneToday]);
+        void load().then(list => { if (alive) setPeople(list); });
+        // A friend ticking it shows here without leaving the page.
+        let stop: (() => void) | undefined;
+        const { listenToFriends } = require('@/lib/livePulse') as typeof import('@/lib/livePulse');
+        void listenToFriends(() => { void load().then(list => { if (alive) setPeople(list); }); })
+            .then(unsubscribe => { stop = unsubscribe; });
+        return () => { alive = false; stop?.(); };
+    }, [load]);
 
-    // Alone on it, or not loaded: say nothing rather than reserve the space.
     if (!people || people.length < 2) return null;
 
     const state = sharedState(people);
-    const tint = state.complete ? colors.success : state.waitingOnYou ? colors.warning : primary;
+    const status = (person: Participant) => person.pending
+        ? { label: 'Invited', tone: colors.textTertiary }
+        : person.done ? { label: 'Done', tone: colors.success } : { label: 'Waiting', tone: colors.textSecondary };
 
     return (
-        <Animated.View entering={FadeIn.duration(220)} layout={MORPH}>
-            <VoidCard
-                glass={!isTrueDark}
-                intensity={isLight ? 20 : 80}
-                style={[styles.card, { borderColor: tint + '44' }]}
-            >
-                <View style={styles.head}>
-                    <Ionicons name={state.complete ? 'people' : 'people-outline'} size={s(16)} color={tint} />
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>{state.line}</Text>
-                </View>
-
-                <View style={styles.faces}>
-                    {state.people.map(person => (
-                        <View
-                            key={person.userId}
-                            style={[styles.face, {
-                                borderColor: person.done ? colors.success : colors.border,
-                                backgroundColor: colors.surfaceTertiary,
-                            }]}
-                        >
-                            {person.avatarUrl ? (
-                                <Image source={{ uri: person.avatarUrl }} style={styles.photo} />
-                            ) : (
-                                <Text style={[styles.initial, { color: primary }]}>
-                                    {(person.isYou ? 'you' : person.username).slice(0, 1).toUpperCase()}
-                                </Text>
-                            )}
-                            {person.done ? (
-                                <View style={[styles.tick, { backgroundColor: colors.success, borderColor: colors.background }]}>
-                                    <Ionicons name="checkmark" size={s(8)} color="#fff" />
+        <Animated.View entering={FadeIn.duration(220)} layout={MORPH} style={styles.wrap}>
+            <SectionTitle>Together</SectionTitle>
+            <VoidCard style={styles.card}>
+                {state.people.map((person, index) => {
+                    const { label, tone: statusTone } = status(person);
+                    return (
+                        <ListItem key={person.userId} index={index}>
+                            <View style={[styles.row, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+                                <View style={{ width: FACE, height: FACE, opacity: person.pending ? 0.6 : 1 }}>
+                                    <View style={[styles.face, { backgroundColor: tone.raised, borderColor: person.done ? colors.success : tone.fill }]}>
+                                        {person.avatarUrl
+                                            ? <Image source={{ uri: person.avatarUrl }} style={styles.photo} />
+                                            : <Text style={[styles.initial, { color: primary }]}>{(person.isYou ? 'You' : person.username).slice(0, 1).toUpperCase()}</Text>}
+                                    </View>
+                                    {person.done ? (
+                                        <View style={[styles.tick, { backgroundColor: colors.success, borderColor: tone.fill }]}>
+                                            <AppIcon name="checkmark" size={10} color={colors.background} />
+                                        </View>
+                                    ) : null}
                                 </View>
-                            ) : null}
-                        </View>
-                    ))}
-                </View>
-
-                <Text style={[styles.foot, { color: colors.textTertiary }]}>
-                    {state.complete
-                        ? `${nameList(state.people)} all did this today.`
-                        : `It counts once ${nameList(state.people)} have all done it.`}
-                </Text>
+                                <Text numberOfLines={1} style={[styles.name, { color: colors.textPrimary }]}>
+                                    {person.isYou ? 'You' : person.username}
+                                </Text>
+                                <ValuePill value={label} tone={statusTone} />
+                            </View>
+                        </ListItem>
+                    );
+                })}
             </VoidCard>
+            {/* The rule, once, and only while it matters. */}
+            {!state.complete && state.total > 1 ? (
+                <Text style={[styles.foot, { color: colors.textTertiary }]}>Counts for everyone once everyone's done it.</Text>
+            ) : null}
         </Animated.View>
     );
 };
 
 const styles = StyleSheet.create({
-    card: { padding: s(16), gap: vs(10), borderWidth: StyleSheet.hairlineWidth },
-    head: { flexDirection: 'row', alignItems: 'center', gap: s(8) },
-    title: { flex: 1, fontSize: ms(14), fontFamily: FontFamily.semibold },
-    faces: { flexDirection: 'row', gap: s(8) },
-    face: { width: s(34), height: s(34), borderRadius: s(17), borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
-    photo: { width: '100%', height: '100%', borderRadius: s(17) },
-    initial: { fontSize: ms(13), fontFamily: FontFamily.bold },
-    // Outside the circle, so a clipped avatar cannot cut it off.
-    tick: { position: 'absolute', right: -2, bottom: -2, width: s(14), height: s(14), borderRadius: s(7), borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-    foot: { fontSize: ms(11), lineHeight: ms(16), fontFamily: FontFamily.regular },
+    wrap: { marginTop: Spacing.xl },
+    card: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xs },
+    row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
+    face: { width: FACE, height: FACE, borderRadius: FACE / 2, borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+    photo: { width: '100%', height: '100%' },
+    initial: { fontSize: 14, fontFamily: FontFamily.bold },
+    tick: { position: 'absolute', right: -3, bottom: -3, width: 18, height: 18, borderRadius: 9, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+    name: { flex: 1, fontSize: 15, fontFamily: FontFamily.medium },
+    foot: { fontSize: 12, lineHeight: 18, fontFamily: FontFamily.regular, marginTop: Spacing.sm },
 });

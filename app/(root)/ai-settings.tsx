@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { FontFamily, UIStyles } from '@/theme/designSystem';
 import React from 'react';
@@ -15,7 +16,7 @@ import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings, GreetingStyle } from '@/context/AppSettingsContext';
-import { currentEngine } from '@/lib/onDeviceAI';
+import { currentEngine, LLAMA_OPT_IN_KEY } from '@/lib/onDeviceAI';
 import { coachHello } from '@/lib/coachMessages';
 import { NotificationService } from '@/lib/notificationService';
 import { PAYWALL_ENABLED } from '@/constants/features';
@@ -62,17 +63,20 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
         }
         setIsDownloading(true);
         const success = await Service.downloadModel((p: number) => setProgress(p));
+        // Chosen here, so it may load on later launches.
+        if (success) await AsyncStorage.setItem(LLAMA_OPT_IN_KEY, '1').catch(() => undefined);
         setIsDownloading(false);
         setEngine(currentEngine());
         if (!success) Alert.alert('Download failed', 'Check your connection and try again. On Wi-Fi it also downloads by itself.');
     };
 
     const remove = () => {
-        Alert.alert('Remove the on-device model?', 'Frees about 1.2 GB. Habyss keeps working with its built-in rules, and the model downloads again next time you are on Wi-Fi.', [
+        Alert.alert('Remove the on-device model?', 'Frees about 1.2 GB. Habyss keeps working with its built-in rules. You can download it again here any time.', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Remove', style: 'destructive', onPress: async () => {
                     await localModel()?.deleteModel();
+                    await AsyncStorage.removeItem(LLAMA_OPT_IN_KEY).catch(() => undefined);
                     setEngine(currentEngine());
                 },
             },
