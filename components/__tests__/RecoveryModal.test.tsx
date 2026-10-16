@@ -1,10 +1,11 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { RecoveryModal } from '../Home/RecoveryModal';
 import { shiftDay } from '@/lib/habitDays';
 import type { Habit } from '@/lib/habitsSQLite';
 
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/lib/habitsSQLite', () => ({ toggleCompletion: jest.fn() }));
 jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
 
 const mockPush = jest.fn();
@@ -37,42 +38,25 @@ const show = (pattern: string, habits = [habit()], completions: Record<string, b
 
 beforeEach(() => mockPush.mockClear());
 
-describe('what is savable today', () => {
-    it('leads with the habit that is about to be missed twice', () => {
-        // Missed yesterday, due again today, not done.
-        const screen = show('..x.');
-        expect(screen.getByText('Protect today')).toBeTruthy();
-        expect(screen.getByText(/^Missed /)).toBeTruthy();
+describe('bounce back', () => {
+    it('states the rule and how often you got straight back on it', () => {
+        // Missed two days ago, kept yesterday: one recovery out of one.
+        const screen = show('x..');
+        expect(screen.getByText(/Never miss twice/)).toBeTruthy();
+        // The figure counts up; its label carries the final value.
+        expect(screen.getByLabelText('100%')).toBeTruthy();
+        expect(screen.getByText(/1 of 1/)).toBeTruthy();
     });
 
-    it('opens the habit so the miss can actually be answered', () => {
-        const screen = show('..x.');
-        fireEvent.press(screen.getByLabelText(/^Read, missed on/));
-        expect(mockPush).toHaveBeenCalledWith({ pathname: '/habit-detail', params: { habitId: 'h1' } });
+    it('lists what can still be saved today, with a tick beside it', () => {
+        // Missed yesterday, due again today and not done yet.
+        const screen = show('.xx');
+        expect(screen.getByText('Save today')).toBeTruthy();
+        expect(screen.getByLabelText('Mark Read done')).toBeTruthy();
     });
 
-    it('says so plainly when nothing is at risk', () => {
-        const screen = show('....', [habit()], { h1: true });
-        expect(screen.queryByText('Protect today')).toBeNull();
-        expect(screen.getByText(/Nothing to protect today/)).toBeTruthy();
-    });
-});
-
-describe('the headline', () => {
-    it('refuses to show a damning zero before anything has been missed', () => {
-        const screen = show('....', [habit()], { h1: true });
-        expect(screen.getByTestId('recovery-rate')).toHaveTextContent('—');
-        expect(screen.getByText(/Nothing missed twice yet/)).toBeTruthy();
-    });
-
-    it('counts getting back up rather than being perfect', () => {
-        // One miss, answered the next day.
-        const screen = show('..x..', [habit()], { h1: true });
-        expect(screen.getByTestId('recovery-rate')).toHaveProp('accessibilityLabel', '100%');
-        expect(screen.getByText(/the very next time/)).toBeTruthy();
-    });
-
-    it('explains the rule it is built on', () => {
-        const screen = show('....', [habit()], { h1: true });
+    it('says so when there have been no misses', () => {
+        const screen = show('....');
+        expect(screen.getByText(/No misses in the last 90 days/)).toBeTruthy();
     });
 });

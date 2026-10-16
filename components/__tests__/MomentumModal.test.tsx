@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, within } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { MomentumModal } from '../Home/MomentumModal';
 import { shiftDay } from '@/lib/habitDays';
 import type { Habit } from '@/lib/habitsSQLite';
@@ -34,81 +34,24 @@ const show = (habits: Habit[], days: ReturnType<typeof history>) =>
         <MomentumModal visible onClose={jest.fn()} habits={habits} history={days} completions={{}} />,
     );
 
-describe('reading momentum', () => {
-    it('leads with the rate and says what it is measured against', () => {
-        const screen = show([habit()], history(() => ['h1']));
-        // The figure counts up; its label carries the real value from the start.
-        expect(screen.getByTestId('momentum-rate')).toHaveProp('accessibilityLabel', '100%');
-        expect(screen.getByText(/kept over 30 days/)).toBeTruthy();
-    });
-
-    it('shows the direction rather than only the grade', () => {
-        // Kept throughout the recent window, never in the one before it.
+describe('trend', () => {
+    it('answers in one sentence: how much was kept, against the month before', () => {
+        // Kept every day lately, never before: up 100 points.
         const screen = show([habit()], history(back => (back <= 30 ? ['h1'] : [])));
-        expect(screen.getByTestId('momentum-delta')).toHaveTextContent('+100');
+        expect(screen.getByText('100%')).toBeTruthy();
+        expect(screen.getByText(/of your habits kept in the last 30 days/)).toBeTruthy();
+        expect(screen.getByText(/Up 100 points/)).toBeTruthy();
     });
 
-    it('does not invent a trend before there is a window to compare with', () => {
-        const fresh = habit({ startDate: shiftDay(TODAY, -3) });
-        const screen = show([fresh], history(() => ['h1']));
-        expect(screen.queryByTestId('momentum-delta')).toBeNull();
-        expect(screen.getByText(/starts comparing itself/)).toBeTruthy();
-    });
-
-    it('ranks the habit that is dragging everything down first', () => {
-        const habits = [habit({ id: 'good', name: 'Meditate' }), habit({ id: 'bad', name: 'Run' })];
-        const screen = show(habits, history(() => ['good']));
-        const names = screen.getAllByText(/^(Meditate|Run)$/).map(node => node.props.children);
-        expect(names[0]).toBe('Run');
-    });
-});
-
-describe('opening a day', () => {
-    const yesterday = shiftDay(TODAY, -1);
-    const label = new Date(`${yesterday}T12:00:00`)
-        .toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
-
-    it('reads out the last day without opening it', () => {
+    it('explains what it is for', () => {
         const screen = show([habit()], history(() => ['h1']));
-        // The chart always says which day it is showing, the way a portfolio
-        // shows its latest value — but the panel underneath stays shut until a
-        // day is chosen.
-        expect(screen.getByText('Drag across the days')).toBeTruthy();
-        expect(screen.getByDisplayValue(label)).toBeTruthy();
-        expect(screen.queryByTestId('day-detail')).toBeNull();
+        expect(screen.getByText(/tells you if you are getting better/)).toBeTruthy();
     });
 
-    it('opens the tapped day and shows what it asked for', () => {
-        const habits = [habit({ id: 'h1', name: 'Read' }), habit({ id: 'h2', name: 'Run' })];
-        const screen = show(habits, history(() => ['h1']));
-
-        fireEvent.press(screen.getByLabelText(new RegExp(`^${label}`)));
-
-        // Scoped to the opened day: both names also appear in the ranking below.
-        const panel = within(screen.getByTestId('day-detail'));
-        expect(panel.getByText(label)).toBeTruthy();
-        expect(panel.getByText('1 of 2 kept')).toBeTruthy();
-        expect(panel.getByText('Read')).toBeTruthy();
-        expect(panel.getByText('Run')).toBeTruthy();
-    });
-
-    it('closes the day when the same bar is tapped again', () => {
-        const screen = show([habit()], history(() => ['h1']));
-        const bar = screen.getByLabelText(new RegExp(`^${label}`));
-
-        fireEvent.press(bar);
-        expect(screen.getByText(label)).toBeTruthy();
-
-        fireEvent.press(screen.getByLabelText(new RegExp(`^${label}`)));
-        expect(screen.queryByText(label)).toBeNull();
-    });
-
-    it('closes the open day when the window changes, so it cannot show a day that is gone', () => {
-        const screen = show([habit()], history(() => ['h1']));
-        fireEvent.press(screen.getByLabelText(new RegExp(`^${label}`)));
-        expect(screen.getByText(label)).toBeTruthy();
-
-        fireEvent.press(screen.getByText('14 days'));
-        expect(screen.queryByText(label)).toBeNull();
+    it('sorts habits into rising and slipping', () => {
+        const run = habit({ id: 'h2', name: 'Run' });
+        const screen = show([habit(), run], history(back => (back <= 30 ? ['h1'] : ['h2'])));
+        expect(screen.getByText('Rising')).toBeTruthy();
+        expect(screen.getByText('Slipping')).toBeTruthy();
     });
 });

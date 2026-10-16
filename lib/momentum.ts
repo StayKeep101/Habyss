@@ -112,3 +112,23 @@ export function habitMomentum(
         .filter(item => item.countable > 0)
         .sort((a, b) => a.rate - b.rate || b.countable - a.countable);
 }
+
+/**
+ * Habits kept, week by week, oldest first: the shape of the trend. Each week
+ * ends the day before the next; the last one ends yesterday (today is still
+ * in progress). A week with nothing scheduled has no rate.
+ */
+export function weeklyKept(
+    habits: Habit[],
+    history: HistoryDay[],
+    completions: Record<string, boolean>,
+    weeks = 8,
+    today: string = localDateKey(new Date()),
+): { start: string; rate: number | null }[] {
+    const window = habitDays(habits, history, completions, weeks * 7, shiftDay(today, -1), today);
+    return Array.from({ length: weeks }, (_, index) => {
+        const slice = window.slice(index * 7, index * 7 + 7);
+        const { countable, rate } = keptRate(slice);
+        return { start: slice[0]?.date ?? '', rate: countable ? rate : null };
+    });
+}

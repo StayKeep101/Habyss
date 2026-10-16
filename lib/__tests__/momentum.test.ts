@@ -124,3 +124,16 @@ describe('per-habit momentum', () => {
         expect(habitMomentum([future], [], {}, 30, TODAY)).toEqual([]);
     });
 });
+
+describe('the trend, week by week', () => {
+    it('gives one kept rate per week, oldest first, ending yesterday', () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { weeklyKept } = require('../momentum') as typeof import('../momentum');
+        const habit = { id: 'h', name: 'Run', startDate: '2026-01-01', createdAt: '2026-01-01', taskDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] } as never;
+        const history = Array.from({ length: 7 }, (_, index) => ({ date: `2026-10-${String(9 + index).padStart(2, '0')}`, completedIds: ['h'] }));
+        const weeks = weeklyKept([habit], history as never, {}, 2, '2026-10-16');
+        expect(weeks).toHaveLength(2);
+        expect(weeks[1]).toEqual({ start: '2026-10-09', rate: 100 });
+        expect(weeks[0].rate).toBe(0);
+    });
+});
