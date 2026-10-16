@@ -20,6 +20,7 @@ import { useMarks } from '@/hooks/useMarks';
 import { EMPTY_PROFILE, ageFrom, getProfile, initials, saveProfile, type Profile } from '@/lib/profile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { ProfileDays } from '@/components/Profile/ProfileDays';
+import { UsernameCard, UsernamePill } from '@/components/Profile/UsernameCard';
 import { buildDayCard } from '@/lib/dayCard';
 import { FeedService } from '@/lib/feedService';
 import { getMyUsername } from '@/lib/friendsService';
@@ -120,8 +121,10 @@ export default function ProfileScreen() {
     }, [habits, tasks, data.history, data.skips, streak]);
     const [myId, setMyId] = useState<string | null>(null);
     useEffect(() => { void FeedService.me().then(setMyId); }, []);
-    const [handle, setHandle] = useState<string | null>(null);
-    useEffect(() => { void getMyUsername().then(setHandle).catch(() => undefined); }, []);
+    // undefined while loading; null when there is none yet — then it is asked for.
+    const [handle, setHandle] = useState<string | null | undefined>(undefined);
+    const [editingHandle, setEditingHandle] = useState(false);
+    useEffect(() => { void getMyUsername().then(found => setHandle(found ?? null)).catch(() => setHandle(null)); }, []);
 
     return (
         <VoidShell>
@@ -132,7 +135,19 @@ export default function ProfileScreen() {
                 <ProfileView
                     name={profile.name}
                     bio={profile.bio}
-                    meta={[handle ? `@${handle}` : null, age ? `${age}` : null].filter(Boolean).join(' · ')}
+                    meta={age ? `${age}` : ''}
+                    subline={handle === undefined ? null : (handle === null || editingHandle) ? (
+                        <UsernameCard
+                            flush
+                            current={handle}
+                            signedIn={!!myId}
+                            onSaved={name => { setHandle(name); setEditingHandle(false); }}
+                            onCancel={handle ? () => setEditingHandle(false) : undefined}
+                            onSignIn={() => router.push('/(root)/account')}
+                        />
+                    ) : (
+                        <UsernamePill username={handle} onEdit={() => { selectionFeedback(); setEditingHandle(true); }} />
+                    )}
                     avatar={profile.avatar}
                     cover={profile.cover}
                     initials={initials(profile)}

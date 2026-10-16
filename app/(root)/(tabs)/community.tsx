@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { IconTile } from '@/components/ui/IconTile';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { VoidShell } from '@/components/ui/VoidShell';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -25,6 +27,7 @@ import { statusOf } from '@/lib/presence';
 import { listenToFriends, announceChange } from '@/lib/livePulse';
 import { onAccountChange } from '@/lib/account';
 import { on } from '@/lib/appEvents';
+import { OFFLINE_LINES, useOnline } from '@/lib/connectivity';
 import { styles } from '@/styles/screens/tabs/community.styles';
 
 const PAGE = 15;
@@ -61,6 +64,10 @@ export default function CommunityScreen() {
     // recomputed every minute without fetching anything.
     const [clock, setClock] = useState(() => new Date());
     const loading = useRef(false);
+    // Community is the one place that needs the internet; without it, a joke
+    // rather than an empty page, and a fresh one each time you pull.
+    const online = useOnline();
+    const [joke, setJoke] = useState(0);
 
     const load = useCallback(async () => {
         if (loading.current) return;
@@ -96,6 +103,8 @@ export default function CommunityScreen() {
     }, []);
 
     useFocusEffect(useCallback(() => { void load(); }, [load]));
+    // Back online: catch up at once.
+    useEffect(() => { if (online) void load(); }, [online, load]);
     useEffect(() => {
         const timer = setInterval(() => setClock(new Date()), 60_000);
         const social = on('social_state_updated', () => { void load(); });
@@ -113,8 +122,9 @@ export default function CommunityScreen() {
     const onRefresh = async () => {
         thud();
         setRefreshing(true);
-        await load();
+        if (online) await load();
         setRefreshing(false);
+        if (!online) setTimeout(() => setJoke(value => value + 1), 350);
     };
 
     const loadMore = async () => {
@@ -220,6 +230,26 @@ export default function CommunityScreen() {
             {gate === null ? <SectionTitle first>Feed</SectionTitle> : null}
         </View>
     );
+
+    if (!online) {
+        return (
+            <VoidShell>
+                <ScrollView
+                    contentContainerStyle={[styles.offlineContent, { paddingTop: topSpacing + 36, paddingHorizontal: horizontalPadding }]}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textTertiary} progressViewOffset={topSpacing} />}
+                >
+                    <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Community</Text>
+                    <View style={styles.offline}>
+                        <IconTile icon="cloud-offline" color={colors.textTertiary} size={56} />
+                        <Animated.Text key={joke} entering={FadeIn.duration(250)} style={[styles.offlineTitle, { color: colors.textPrimary }]}>
+                            {OFFLINE_LINES[joke % OFFLINE_LINES.length]}
+                        </Animated.Text>
+                        <Text style={[styles.offlineText, { color: colors.textTertiary }]}>Community comes back when you’re online. Everything else works without it.</Text>
+                    </View>
+                </ScrollView>
+            </VoidShell>
+        );
+    }
 
     if (gate === undefined) {
         return <VoidShell><View style={styles.loader}><ActivityIndicator color={colors.textTertiary} /></View></VoidShell>;

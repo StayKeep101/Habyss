@@ -17,4 +17,8 @@ export const styles = StyleSheet.create({
     emptyLink: { fontFamily: FontFamily.semibold, fontSize: 14 },
     loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     more: { paddingVertical: Spacing.lg },
+    offlineContent: { flexGrow: 1 },
+    offline: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.section * 3 },
+    offlineTitle: { fontFamily: FontFamily.bold, fontSize: 22, lineHeight: 28, letterSpacing: -0.3, textAlign: 'center' },
+    offlineText: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20, textAlign: 'center' },
 });
