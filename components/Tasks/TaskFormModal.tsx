@@ -12,6 +12,7 @@ import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { GoalCalendar } from '@/components/Create/GoalCalendar';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
+import { DictateField } from '@/components/Create/DictateField';
 import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
 import { taskTextSegments } from '@/lib/creationTextHighlight';
 import { Colors } from '@/theme/colors';
@@ -333,29 +334,31 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <TypingPlaceholder examples={TASK_EXAMPLES} active={!text}>
-                        {placeholder => (
-                        <CreationTextInput
-                            key={session} text={text} segments={taskTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
-                            onChangeText={setText}
-                            onFocus={() => setOpenRow(null)}
-                            // Open ready to type, editing as well as creating: the
-                            // caret lands after what is already written, so the first
-                            // keystroke adds to it rather than replacing it. Unless
-                            // the sheet was opened on a row, in which case the
-                            // keyboard would take the screen the row needs.
-                            autoFocus={!openedWith}
-                            multiline
-                            placeholder={placeholder}
-                            placeholderTextColor={colors.textTertiary}
-                            accessibilityLabel="Describe the task"
-                            style={[styles.input, {
-                                color: colors.textPrimary, borderColor: colors.border,
-                                backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                            }]}
-                        />
-                        )}
-                    </TypingPlaceholder>
+                    <DictateField text={text} onText={setText}>
+                        <TypingPlaceholder examples={TASK_EXAMPLES} active={!text}>
+                            {placeholder => (
+                            <CreationTextInput
+                                key={session} text={text} segments={taskTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
+                                onChangeText={setText}
+                                onFocus={() => setOpenRow(null)}
+                                // Open ready to type, editing as well as creating: the
+                                // caret lands after what is already written, so the first
+                                // keystroke adds to it rather than replacing it. Unless
+                                // the sheet was opened on a row, in which case the
+                                // keyboard would take the screen the row needs.
+                                autoFocus={!openedWith}
+                                multiline
+                                placeholder={placeholder}
+                                placeholderTextColor={colors.textTertiary}
+                                accessibilityLabel="Describe the task"
+                                style={[styles.input, {
+                                    color: colors.textPrimary, borderColor: colors.border,
+                                    backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
+                                }]}
+                            />
+                            )}
+                        </TypingPlaceholder>
+                    </DictateField>
 
                     <View style={styles.readRow}>
                         <Text numberOfLines={1} style={[styles.read, { color: colors.textSecondary }]}>

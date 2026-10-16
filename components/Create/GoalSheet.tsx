@@ -3,6 +3,7 @@ import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleShee
 import { ChoicePill } from '@/components/ui/ChoicePill';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
+import { DictateField } from '@/components/Create/DictateField';
 import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
@@ -466,33 +467,35 @@ export const GoalSheet: React.FC<{
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <TypingPlaceholder examples={goalExamples} active={!text}>
-                        {placeholder => (
-                        <MatteInput
-                            key={session}
-                            {...(Platform.OS === 'web' ? { value: text } : {})}
-                            onChangeText={value => { setText(value); setTargetText(null); }}
-                            selectionColor={accent}
-                            onFocus={() => { setOpenRow(null); }}
-                            // Open ready to type, editing as well as creating: the
-                            // caret lands after what is already written, so the first
-                            // keystroke adds to it rather than replacing it.
-                            autoFocus
-                            multiline
-                            placeholder={placeholder}
-                            placeholderTextColor={colors.textTertiary}
-                            accessibilityLabel="Describe your goal"
-                            style={[styles.input, {
-                                color: colors.textPrimary, borderColor: colors.border,
-                                backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                            }]}
-                        >
-                            {Platform.OS !== 'web' ? <Text>{segments.map((part, index) =>
-                                <Text key={index} style={{ color: part.highlighted ? accentText : colors.textPrimary }}>{part.text}</Text>
-                            )}</Text> : null}
-                        </MatteInput>
-                        )}
-                    </TypingPlaceholder>
+                    <DictateField text={text} onText={value => { setText(value); setTargetText(null); }}>
+                        <TypingPlaceholder examples={goalExamples} active={!text}>
+                            {placeholder => (
+                            <MatteInput
+                                key={session}
+                                {...(Platform.OS === 'web' ? { value: text } : {})}
+                                onChangeText={value => { setText(value); setTargetText(null); }}
+                                selectionColor={accent}
+                                onFocus={() => { setOpenRow(null); }}
+                                // Open ready to type, editing as well as creating: the
+                                // caret lands after what is already written, so the first
+                                // keystroke adds to it rather than replacing it.
+                                autoFocus
+                                multiline
+                                placeholder={placeholder}
+                                placeholderTextColor={colors.textTertiary}
+                                accessibilityLabel="Describe your goal"
+                                style={[styles.input, {
+                                    color: colors.textPrimary, borderColor: colors.border,
+                                    backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
+                                }]}
+                            >
+                                {Platform.OS !== 'web' ? <Text>{segments.map((part, index) =>
+                                    <Text key={index} style={{ color: part.highlighted ? accentText : colors.textPrimary }}>{part.text}</Text>
+                                )}</Text> : null}
+                            </MatteInput>
+                            )}
+                        </TypingPlaceholder>
+                    </DictateField>
 
                     <View style={styles.kinds} accessibilityRole="radiogroup">
                         {KINDS.map(option => {

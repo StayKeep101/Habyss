@@ -12,6 +12,7 @@ import { ModalHeader } from '@/components/ui/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
+import { DictateField } from '@/components/Create/DictateField';
 import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
 import { RepeatPicker } from '@/components/Create/RepeatPicker';
 import { TimeRange, endTime } from '@/components/Create/TimeRange';
@@ -570,27 +571,29 @@ export const HabitSheet: React.FC<{
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <TypingPlaceholder examples={HABIT_EXAMPLES} active={!text}>
-                        {placeholder => (
-                        <CreationTextInput
-                            key={session} text={text} segments={habitTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
-                            onChangeText={value => { setText(value); setAmountText(null); }}
-                            onFocus={() => { setOpenRow(null); }}
-                            // Open ready to type, editing as well as creating: the
-                            // caret lands after what is already written, so the first
-                            // keystroke adds to it rather than replacing it.
-                            autoFocus
-                            placeholder={placeholder}
-                            placeholderTextColor={colors.textTertiary}
-                            accessibilityLabel="Describe the habit"
-                            multiline
-                            style={[styles.input, {
-                                color: colors.textPrimary, borderColor: colors.border,
-                                backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
-                            }]}
-                        />
-                        )}
-                    </TypingPlaceholder>
+                    <DictateField text={text} onText={value => { setText(value); setAmountText(null); }}>
+                        <TypingPlaceholder examples={HABIT_EXAMPLES} active={!text}>
+                            {placeholder => (
+                            <CreationTextInput
+                                key={session} text={text} segments={habitTextSegments(text, rules)} accent={accentText} textColor={colors.textPrimary}
+                                onChangeText={value => { setText(value); setAmountText(null); }}
+                                onFocus={() => { setOpenRow(null); }}
+                                // Open ready to type, editing as well as creating: the
+                                // caret lands after what is already written, so the first
+                                // keystroke adds to it rather than replacing it.
+                                autoFocus
+                                placeholder={placeholder}
+                                placeholderTextColor={colors.textTertiary}
+                                accessibilityLabel="Describe the habit"
+                                multiline
+                                style={[styles.input, {
+                                    color: colors.textPrimary, borderColor: colors.border,
+                                    backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)',
+                                }]}
+                            />
+                            )}
+                        </TypingPlaceholder>
+                    </DictateField>
 
                     {draft.name && draft.name !== text.trim() ? (
                         <View style={styles.readRow}>
