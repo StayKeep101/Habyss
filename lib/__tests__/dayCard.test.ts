@@ -43,3 +43,18 @@ describe('the day card', () => {
         expect(sameCard(null, card)).toBe(false);
     });
 });
+
+describe('what a friend reads off the card', () => {
+    it('carries active habits and goals, and which goals moved today', () => {
+        const goal = habit({ id: 'g', name: 'Marathon', isGoal: true });
+        const card = buildDayCard({
+            habits: [goal, habit({ id: 'run', name: 'Run', goalId: 'g' }), habit({ id: 'read', name: 'Read' }), habit({ id: 'old', name: 'Old', isArchived: true })],
+            tasks: [],
+            history: { '2026-10-15': ['run'] },
+            skips: {},
+            day: '2026-10-15',
+            streak: 1,
+        });
+        expect([card.habitsActive, card.goalsActive, card.goalsMoved]).toEqual([2, 1, 1]);
+    });
+});

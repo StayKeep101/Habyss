@@ -99,15 +99,12 @@ export class FeedService {
     }
 
     /**
-     * Writes today's card, until it has been posted. Returns 'posted' once the
-     * server has published it, so the caller can stop sending updates.
+     * Writes today's card. It keeps updating after it is posted, so friends'
+     * numbers stay current all evening and the post shows how the day ended.
      */
-    static async publishDayCard(day: string, card: DayCardData): Promise<'saved' | 'posted' | 'failed'> {
+    static async publishDayCard(day: string, card: DayCardData): Promise<'saved' | 'failed'> {
         const ctx = await signedIn();
         if (!ctx) return 'failed';
-        const { data: existing } = await ctx.sb.from('day_cards').select('posted_at')
-            .eq('user_id', ctx.me).eq('day', day).maybeSingle();
-        if (existing?.posted_at) return 'posted';
         const { error } = await ctx.sb.from('day_cards')
             .upsert({ user_id: ctx.me, day, card, updated_at: new Date().toISOString() }, { onConflict: 'user_id,day' });
         return error ? 'failed' : 'saved';

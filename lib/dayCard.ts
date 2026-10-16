@@ -21,6 +21,11 @@ export interface DayCardData {
     tasksDone: number;
     tasksTotal: number;
     streak: number;
+    /** Every habit being kept, scheduled today or not. */
+    habitsActive?: number;
+    goalsActive?: number;
+    /** Goals something happened under today: a habit ticked or a task finished. */
+    goalsMoved?: number;
 }
 
 export function buildDayCard(input: {
@@ -43,8 +48,20 @@ export function buildDayCard(input: {
     const named = (ids: string[], names: Map<string, string>, extra: Partial<DayCardLine>) =>
         ids.map(id => ({ name: names.get(id) ?? '', ...extra })).filter(line => line.name) as DayCardLine[];
 
+    const live = input.habits.filter(habit => !habit.isArchived);
+    const goals = live.filter(habit => habit.isGoal);
+    const doneToday = new Set(input.history[input.day] ?? []);
+    const finishedToday = new Set(summary?.tasks ?? []);
+    const counts = {
+        habitsActive: live.filter(habit => !habit.isGoal).length,
+        goalsActive: goals.length,
+        goalsMoved: goals.filter(goal =>
+            live.some(habit => habit.goalId === goal.id && doneToday.has(habit.id))
+            || input.tasks.some(task => task.goalId === goal.id && finishedToday.has(task.id))).length,
+    };
+
     if (!summary) {
-        return { habits: [], tasks: [], habitsDone: 0, habitsTotal: 0, tasksDone: 0, tasksTotal: 0, streak: input.streak };
+        return { habits: [], tasks: [], habitsDone: 0, habitsTotal: 0, tasksDone: 0, tasksTotal: 0, streak: input.streak, ...counts };
     }
 
     const habits = [
@@ -64,6 +81,7 @@ export function buildDayCard(input: {
         tasksDone: summary.tasks.length,
         tasksTotal: summary.tasks.length + summary.tasksOpen.length,
         streak: input.streak,
+        ...counts,
     };
 }
 
