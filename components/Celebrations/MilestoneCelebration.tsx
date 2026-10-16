@@ -23,7 +23,8 @@ type Milestone =
     | { kind: 'daily'; title: string; line: string };
 
 /**
- * The two moments the app stops for.
+ * A finished goal, the biggest moment the app stops for. (The day's tasks
+ * kept have their own card: DailyTargetCelebration.)
  *
  * A finished goal and a kept daily promise are not the same size, and drawing
  * them the same way would make the larger one feel cheap. A goal gets the
@@ -54,11 +55,6 @@ export const MilestoneCelebration: React.FC = () => {
                 kind: 'goal',
                 title: payload?.name ?? 'Goal complete',
                 line: 'You set out to do this, and you did it.',
-            })),
-            on('daily_target_reached', payload => setShown({
-                kind: 'daily',
-                title: `${payload?.target ?? 3} for ${payload?.target ?? 3}`,
-                line: "Today's promise, kept.",
             })),
         ];
         return () => subs.forEach(sub => sub.remove());

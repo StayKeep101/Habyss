@@ -43,6 +43,7 @@ import { SiriService } from '@/lib/siriService';
 import { emit, on, onAny } from '@/lib/appEvents';
 import { watchForUpdates } from '@/lib/liveUpdates';
 import { VoiceCapture } from '@/components/Create/VoiceCapture';
+import { DailyTargetCelebration } from '@/components/Celebrations/DailyTargetCelebration';
 
 SplashScreen.preventAutoHideAsync().catch(() => { });
 
@@ -377,6 +378,7 @@ function InnerLayout() {
         </Stack>
         <DayCompleteCelebration />
         <MilestoneCelebration />
+        <DailyTargetCelebration />
         <CreationModal />
         {/* Hold the create button and speak. */}
         <VoiceCapture />
