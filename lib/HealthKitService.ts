@@ -16,8 +16,6 @@ import type { HealthMetric } from './healthMetrics';
  * and only one of them should ever be written into a habit.
  */
 
-type HealthValue = { value?: number };
-
 /**
  * The native module itself, and the library's constants, kept apart.
  *
@@ -42,22 +40,11 @@ const rememberedConnected = () => AsyncStorage.getItem(CONNECTED_KEY).then(value
 const permission = (key: string): string | null => Permissions[key] ?? null;
 
 /**
- * Everything the app ever asks for, in one prompt.
- *
- * iOS shows this sheet once per permission, and a second prompt weeks later
- * reads as an app that has changed its mind about what it wants. Asking for the
- * whole set up front — and only the set that some habit could actually use — is
- * both kinder and more likely to be granted.
+ * The one thing the app asks Health for: sleep. Read-only — Habyss writes
+ * nothing into Health.
  */
-const READ = [
-    'Steps', 'StepCount', 'DistanceWalkingRunning', 'DistanceCycling', 'DistanceSwimming',
-    'FlightsClimbed', 'AppleExerciseTime', 'AppleStandTime', 'ActiveEnergyBurned',
-    'Workout', 'SleepAnalysis', 'MindfulSession',
-    'Water', 'Protein', 'Caffeine', 'EnergyConsumed',
-];
-
-/** The two the app can write back, so a Habyss timer shows up in Health too. */
-const WRITE = ['MindfulSession', 'Workout'];
+const READ = ['SleepAnalysis'];
+const WRITE: string[] = [];
 
 const buildPermissions = () => ({
     permissions: {
@@ -69,14 +56,6 @@ const buildPermissions = () => ({
 const has = (method: string): boolean =>
     Platform.OS === 'ios' && !!AppleHealthKit && typeof AppleHealthKit[method] === 'function';
 
-/** Start of the day a reading is about, and the moment after it ends. */
-function bounds(date: Date) {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
-    return { startDate: start.toISOString(), endDate: end.toISOString() };
-}
 
 /** Adds up a set of samples, which is what most of these come back as. */
 const sum = (rows: any[] | undefined, pick: (row: any) => number): number =>
@@ -150,65 +129,7 @@ export class HealthKitService {
      * measured in kilometres would silently be told it had run five thousand.
      */
     static async read(metric: HealthMetric, date = new Date()): Promise<number | null> {
-        const day = bounds(date);
-        const onDay = { date: date.toISOString(), includeManuallyAdded: true };
-
-        switch (metric) {
-            case 'steps':
-                return ask('getStepCount', onDay, (results: HealthValue) => results?.value ?? 0);
-
-            case 'walkRun':
-                // Metres to kilometres.
-                return ask('getDistanceWalkingRunning', { ...onDay, unit: 'meter' },
-                    (results: HealthValue) => (results?.value ?? 0) / 1000);
-
-            case 'cycling':
-                return ask('getDistanceCycling', { ...onDay, unit: 'meter' },
-                    (results: HealthValue) => (results?.value ?? 0) / 1000);
-
-            case 'swimming':
-                // Left in metres: a swim is counted in lengths, not kilometres.
-                return ask('getDistanceSwimming', { ...onDay, unit: 'meter' },
-                    (results: HealthValue) => results?.value ?? 0);
-
-            case 'flights':
-                return ask('getFlightsClimbed', onDay, (results: HealthValue) => results?.value ?? 0);
-
-            case 'exercise':
-                return ask('getAppleExerciseTime', day, (rows: any[]) => sum(rows, row => row?.value));
-
-            case 'stand':
-                return ask('getAppleStandTime', day, (rows: any[]) => sum(rows, row => row?.value));
-
-            case 'activeEnergy':
-                return ask('getActiveEnergyBurned', day, (rows: any[]) => sum(rows, row => row?.value));
-
-            case 'workout':
-                return ask('getSamples', { ...day, type: permission('Workout') ?? 'Workout' },
-                    (rows: any[]) => sum(rows, row => (row?.duration ? row.duration / 60 : minutesOf(row))));
-
-            case 'sleep':
-                return this.sleep(date);
-
-            case 'mindfulness':
-                return ask('getMindfulSession', { ...day, limit: 100 },
-                    (rows: any[]) => sum(rows, minutesOf));
-
-            case 'water':
-                // Litres to millilitres, which is how a glass is counted.
-                return ask('getWater', { ...onDay, unit: 'liter' },
-                    (results: HealthValue) => (results?.value ?? 0) * 1000);
-
-            case 'protein':
-                return ask('getProteinSamples', { ...day, limit: 200 }, (rows: any[]) => sum(rows, row => row?.value));
-
-            case 'caffeine':
-                return ask('getSamples', { ...day, type: permission('Caffeine') ?? 'Caffeine' },
-                    (rows: any[]) => sum(rows, row => row?.value));
-
-            case 'calories':
-                return ask('getEnergyConsumedSamples', { ...day, limit: 200 }, (rows: any[]) => sum(rows, row => row?.value));
-        }
+        return metric === 'sleep' ? this.sleep(date) : null;
     }
 
     /**
@@ -232,23 +153,5 @@ export class HealthKitService {
                 (rows ?? []).filter(row => row?.value === 'ASLEEP' || row?.value === 'INBED'),
                 minutesOf,
             )));
-    }
-
-    /* ------------------------------------------------- the older callers */
-
-    static getSteps = (date = new Date()) => HealthKitService.read('steps', date).then(value => value ?? 0);
-    static getSleep = (date = new Date()) => HealthKitService.read('sleep', date).then(value => value ?? 0);
-    static getMindfulness = (date = new Date()) => HealthKitService.read('mindfulness', date).then(value => value ?? 0);
-    static getWorkout = (date = new Date()) => HealthKitService.read('workout', date).then(value => value ?? 0);
-
-    /** Writes a finished focus session back, so Habyss shows up in Health too. */
-    static async saveMindfulMinutes(startedAt: number, endedAt: number): Promise<boolean> {
-        if (!has('saveMindfulSession')) return false;
-        return new Promise(resolve => {
-            AppleHealthKit.saveMindfulSession(
-                { startDate: new Date(startedAt).toISOString(), endDate: new Date(endedAt).toISOString() },
-                (error: unknown) => resolve(!error),
-            );
-        });
     }
 }

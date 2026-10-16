@@ -43,7 +43,7 @@ describe('which habits the timer vouches for', () => {
 
 describe('what evidence each completion carries', () => {
     it('calls a Health-backed habit verified', async () => {
-        const habits = [habit({ id: 'h1', healthKitMetric: 'steps' })];
+        const habits = [habit({ id: 'h1', healthKitMetric: 'sleep' })];
         expect(await evidenceToday(habits, ['h1'], '2026-09-27')).toEqual({ h1: 'verified' });
     });
 
@@ -58,7 +58,7 @@ describe('what evidence each completion carries', () => {
 
     it('prefers Health over the timer when both apply', async () => {
         store['focus_session_1'] = session('h1', '2026-09-27');
-        const habits = [habit({ id: 'h1', healthKitMetric: 'workout' })];
+        const habits = [habit({ id: 'h1', healthKitMetric: 'sleep' })];
         expect(await evidenceToday(habits, ['h1'], '2026-09-27')).toEqual({ h1: 'verified' });
     });
 

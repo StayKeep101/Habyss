@@ -71,8 +71,10 @@ export default function IntegrationsScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* One switch. Everything that writes to Health — watches,
                     rings, gyms — comes through it. */}
-                <SettingsGroup title="Health">
-                    <SettingsRow icon="heart" color="#FF375F" label="Apple Health"
+                {/* Sleep only. Apple Watch, Garmin, Oura, Whoop and the rest all
+                    write their sleep into Apple Health, so this covers them. */}
+                <SettingsGroup title="Sleep">
+                    <SettingsRow icon="moon" color="#5E5CE6" label="Sleep from Apple Health"
                         toggle={connected} disabled={busy} onToggle={value => { lightFeedback(); void connect(value); }} />
                 </SettingsGroup>
                 {/* Habyss already answers Siri and Shortcuts (log a habit, add a

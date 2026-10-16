@@ -66,9 +66,9 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Habyss uses FaceID to securely authenticate your access.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Habyss reads steps, sleep and workouts from Apple Health to fill in your habits automatically.</string>
+	<string>Habyss reads your sleep from Apple Health — from Apple Watch, Garmin, Oura, Whoop or any sleep tracker — to fill in your sleep habits. Nothing else is read.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Habyss can save workouts you log to Apple Health.</string>
+	<string>Habyss does not write to Apple Health.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Habyss needs your location to send reminders when you arrive at specific places like Home or Work.</string>
 	<key>NSLocationAlwaysUsageDescription</key>

@@ -1,40 +1,15 @@
 import { canConvert, convert } from './unitKind';
 
 /**
- * Everything Apple Health can answer a habit with.
+ * Sleep, from Apple Health — the only thing Habyss reads.
  *
- * ── Why this is also the Garmin integration ───────────────────────────────
- *
- * On iOS, Garmin Connect, Whoop, Oura, Fitbit, Strava, Peloton, Zwift, Nike Run
- * Club, AutoSleep and most of the rest all write into Apple Health. Reading
- * Health deeply is therefore not a substitute for integrating with those apps —
- * it *is* the integration, and it is the one that keeps working when any of
- * them changes an API, an OAuth flow or a partner programme. One permission
- * prompt buys every device the person already owns.
- *
- * The alternative — talking to each service directly — needs a partner
- * agreement, an OAuth server to hold the secrets, and a public URL for their
- * webhooks. None of those can live inside the app, and every one of them is a
- * thing that breaks while you are asleep. Where a service genuinely cannot
- * reach Health, that is written down in `lib/integrations.ts` rather than
- * pretended otherwise.
- *
- * ── What belongs here ─────────────────────────────────────────────────────
- *
- * A metric earns its place if a person would plausibly make a habit of it and
- * a phone or watch records it without being asked. Blood glucose and vitamin K
- * are in HealthKit; neither is a habit.
+ * Garmin Connect, Oura, Whoop, Fitbit, AutoSleep and the Apple Watch all write
+ * their sleep into Apple Health on iOS, so reading Health's sleep is the
+ * integration with every one of them, and it keeps working when any of them
+ * changes an API. Nothing else is asked for: one permission, for one thing.
  */
 
-export type HealthMetric =
-    // Movement
-    | 'steps' | 'walkRun' | 'cycling' | 'swimming' | 'flights'
-    // Effort
-    | 'exercise' | 'stand' | 'activeEnergy' | 'workout'
-    // Recovery
-    | 'sleep' | 'mindfulness'
-    // Intake
-    | 'water' | 'protein' | 'caffeine' | 'calories';
+export type HealthMetric = 'sleep';
 
 export interface HealthMetricInfo {
     id: HealthMetric;
@@ -42,30 +17,12 @@ export interface HealthMetricInfo {
     /** The unit the reader returns, in the app's own vocabulary. */
     unit: string;
     detail: string;
-    /** Roughly what a day of it looks like, for a sensible first target. */
+    /** Roughly what a night of it looks like, for a sensible first target. */
     suggested: number;
-    group: 'Movement' | 'Effort' | 'Recovery' | 'Intake';
 }
 
 export const HEALTH_METRICS: HealthMetricInfo[] = [
-    { id: 'steps', label: 'Steps', unit: 'steps', detail: 'Today’s step count', suggested: 8000, group: 'Movement' },
-    { id: 'walkRun', label: 'Walk or run', unit: 'km', detail: 'Distance on foot today', suggested: 5, group: 'Movement' },
-    { id: 'cycling', label: 'Cycling', unit: 'km', detail: 'Distance ridden today', suggested: 15, group: 'Movement' },
-    { id: 'swimming', label: 'Swimming', unit: 'm', detail: 'Distance swum today', suggested: 1000, group: 'Movement' },
-    { id: 'flights', label: 'Flights climbed', unit: 'times', detail: 'Flights of stairs today', suggested: 10, group: 'Movement' },
-
-    { id: 'exercise', label: 'Exercise minutes', unit: 'minutes', detail: 'Apple exercise minutes today', suggested: 30, group: 'Effort' },
-    { id: 'stand', label: 'Stand hours', unit: 'times', detail: 'Hours you stood and moved', suggested: 12, group: 'Effort' },
-    { id: 'activeEnergy', label: 'Active calories', unit: 'calories', detail: 'Calories burned moving today', suggested: 500, group: 'Effort' },
-    { id: 'workout', label: 'Workouts', unit: 'minutes', detail: 'Minutes of recorded workouts', suggested: 45, group: 'Effort' },
-
-    { id: 'sleep', label: 'Sleep', unit: 'minutes', detail: 'Minutes asleep last night', suggested: 450, group: 'Recovery' },
-    { id: 'mindfulness', label: 'Mindful minutes', unit: 'minutes', detail: 'Mindful minutes today', suggested: 10, group: 'Recovery' },
-
-    { id: 'water', label: 'Water', unit: 'ml', detail: 'Water logged today', suggested: 2000, group: 'Intake' },
-    { id: 'protein', label: 'Protein', unit: 'g', detail: 'Protein logged today', suggested: 100, group: 'Intake' },
-    { id: 'caffeine', label: 'Caffeine', unit: 'mg', detail: 'Caffeine logged today', suggested: 200, group: 'Intake' },
-    { id: 'calories', label: 'Calories eaten', unit: 'calories', detail: 'Energy logged today', suggested: 2000, group: 'Intake' },
+    { id: 'sleep', label: 'Sleep', unit: 'minutes', detail: 'Minutes asleep last night', suggested: 450 },
 ];
 
 const BY_ID = new Map(HEALTH_METRICS.map(metric => [metric.id, metric]));
@@ -123,6 +80,7 @@ export const metricFits = (unit: string | null | undefined, metric: HealthMetric
 export async function readHealth(metric: HealthMetric, date = new Date()): Promise<number | null> {
     try {
         const { HealthKitService } = require('./HealthKitService') as typeof import('./HealthKitService');
+        if (metric !== 'sleep') return null;
         if (!HealthKitService.isAvailable) return null;
         if (!await HealthKitService.init()) return null;
         const value = await HealthKitService.read(metric, date);

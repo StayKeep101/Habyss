@@ -23,8 +23,8 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
         "NSLocationWhenInUseUsageDescription": "Habyss needs your location to send reminders when you arrive at specific places like Home or Work.",
         "NSMicrophoneUsageDescription": "Habyss uses the microphone when you choose to speak, such as holding the create button to add a habit, task or goal by voice, or talking to Echo.",
-        "NSHealthShareUsageDescription": "Habyss reads steps, sleep and workouts from Apple Health to fill in your habits automatically.",
-        "NSHealthUpdateUsageDescription": "Habyss can save workouts you log to Apple Health.",
+        "NSHealthShareUsageDescription": "Habyss reads your sleep from Apple Health — from Apple Watch, Garmin, Oura, Whoop or any sleep tracker — to fill in your sleep habits. Nothing else is read.",
+        "NSHealthUpdateUsageDescription": "Habyss does not write to Apple Health.",
         "UIBackgroundModes": [
           "remote-notification",
           "location"

@@ -103,17 +103,24 @@ describe('the habit sheet', () => {
         expect(screen.getAllByText('2 hr before').length).toBeGreaterThan(0);
     });
 
-    it('lets Health count a habit measured in something Health measures', async () => {
+    it('lets Health count a sleep habit', async () => {
         const screen = render(<HabitSheet visible />);
-        write(screen, 'Walk 8000 steps');
+        write(screen, 'Sleep 8 hours');
         fireEvent.press(screen.getByLabelText(/^Measure/));
-        // "Steps" is also the unit button's label; the chip is the later one.
-        const chips = screen.getAllByText('Steps');
+        // "Sleep" is the Health chip; it is the last match on screen.
+        const chips = screen.getAllByText('Sleep');
         fireEvent.press(chips[chips.length - 1]);
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
 
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
-        expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ healthKitMetric: 'steps' });
+        expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ healthKitMetric: 'sleep' });
+    });
+
+    it('does not offer Health for steps or anything other than sleep', async () => {
+        const screen = render(<HabitSheet visible />);
+        write(screen, 'Walk 8000 steps');
+        fireEvent.press(screen.getByLabelText(/^Measure/));
+        expect(screen.queryByText('Who counts it')).toBeNull();
     });
 
     it('does not offer Health for something Health cannot measure', async () => {
