@@ -57,7 +57,7 @@ export const MarksBoard: React.FC<{ people: MarksPerson[]; onPick?: (id: string)
                                 <Text numberOfLines={1} style={[styles.rank, { color: colors.textTertiary }]}>{rank.name}</Text>
                             </View>
                             <View style={[styles.track, { backgroundColor: light ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.07)' }]}>
-                                <AnimatedFill progress={Math.max(0.03, person.marks / top)} delay={index * MOTION.stagger} style={[styles.fill, { backgroundColor: person.isYou ? primary : primary + '99' }]} /> {/* ui-allow: decorative */}
+                                <AnimatedFill progress={Math.max(0.03, person.marks / top)} delay={index * MOTION.stagger} style={[styles.fill, { backgroundColor: person.isYou ? primary : primary + '99' }]} /* ui-allow: decorative */ />
                             </View>
                         </View>
                         <CountUp style={[styles.total, { color: colors.textPrimary }]} value={person.marks.toLocaleString()} />

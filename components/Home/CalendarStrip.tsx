@@ -175,7 +175,7 @@ const GoalDay = ({ color, size, selected, ring }: { color: string; size: number;
         borderWidth: selected ? 2 : 0, borderColor: ring,
         shadowColor: color, shadowOpacity: 0.8, shadowRadius: 10, shadowOffset: { width: 0, height: 0 },
       }}>
-        <LinearGradient colors={[color, color + 'CC']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={{ flex: 1 }} /> {/* ui-allow: goal colour */}
+        <LinearGradient colors={[color, color + 'CC']} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={{ flex: 1 }} /* ui-allow: goal colour */ />
       </View>
       <View pointerEvents="none" style={{
         position: 'absolute', top: -6, right: -8, width: 16, height: 16, borderRadius: 8,

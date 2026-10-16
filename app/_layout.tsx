@@ -41,6 +41,7 @@ import { ErrorBoundary } from '@/components/Common/ErrorBoundary';
 import { QuietLoading } from '@/components/Loading/QuietLoading';
 import { SiriService } from '@/lib/siriService';
 import { emit, on, onAny } from '@/lib/appEvents';
+import { watchForUpdates } from '@/lib/liveUpdates';
 
 SplashScreen.preventAutoHideAsync().catch(() => { });
 
@@ -117,6 +118,9 @@ export default function MobileLayout() {
   }, [loaded]);
 
   // Realtime Notifications removed — will be re-enabled with premium cloud sync
+
+  // The phone runs the newest published update, not the one before it.
+  useEffect(() => watchForUpdates(), []);
 
   // --- Notification Deep Linking ---
   useEffect(() => {
