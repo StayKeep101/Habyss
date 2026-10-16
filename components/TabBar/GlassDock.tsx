@@ -73,6 +73,8 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { mediumFeedback } = useHaptics();
     const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth } = useResponsiveLayout();
     const orbRef = React.useRef<any>(null);
+    /** True while the button is held for voice, so letting go stops listening. */
+    const voiceHeld = React.useRef(false);
 
     /**
      * While something in a goal is dragged on the Roadmap, the plus becomes
@@ -223,8 +225,13 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                 onLayout={measureOrb}
                 accessibilityRole="button"
                 accessibilityLabel={removeDrag.active ? 'Remove from goal' : 'Create a habit, goal, or task'}
+                accessibilityHint={removeDrag.active ? undefined : 'Hold to say it instead'}
                 activeOpacity={0.8}
                 disabled={removeDrag.active}
+                // Hold to speak a habit, task or goal; let go to open it.
+                delayLongPress={350}
+                onLongPress={() => { voiceHeld.current = true; emit('voice_start'); }}
+                onPressOut={() => { if (voiceHeld.current) { voiceHeld.current = false; emit('voice_stop'); } }}
                 onPress={() => {
                     mediumFeedback();
                     // The menu opens exactly on top of this button, wherever the

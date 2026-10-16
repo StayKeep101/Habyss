@@ -150,11 +150,13 @@ export const GoalSheet: React.FC<{
     // rendering rather than in an effect, so the first frame is already blank.
     const session = isOpen ? (current?.id ?? 'new') : 'closed';
     const [lastSession, setLastSession] = useState('closed');
+    const [prefill, setPrefill] = useState('');
     if (session !== lastSession) {
         setLastSession(session);
         // Editing starts from the goal's own words, so clearing the field
         // clears it rather than falling back to the old title.
-        setText(current?.name ?? '');
+        setText(current?.name ?? prefill);
+        setPrefill('');
         setEdits({});
         setOpenRow(null);
         setTargetText(null);
@@ -166,6 +168,7 @@ export const GoalSheet: React.FC<{
         const subscription = on('show_goal_quick_add', (data) => {
             emit('close_creation_modal');
             setEditing((data?.goal ?? null) as Habit | null);
+            setPrefill(data?.prefill ?? '');
             setEventVisible(true);
         });
         return () => subscription.remove();

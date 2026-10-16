@@ -50,10 +50,13 @@ export interface AppEvents {
     /** Where on screen the creation modal should grow from. */
     show_creation_modal: { x: number; y: number; size: number; height?: number } | undefined;
     close_creation_modal: void;
+    /** Holding the create button: listen for a habit, task or goal said aloud. */
+    voice_start: void;
+    voice_stop: void;
     show_habit_modal: { goalId?: string; initialHabit?: Habit } | undefined;
-    show_task_form: { task?: Task; goalId?: string; /** A row id to open with, e.g. 'due'. */ focus?: string } | undefined;
-    show_goal_quick_add: { goal?: Habit } | undefined;
-    show_quick_add: { goalId?: string } | undefined;
+    show_task_form: { task?: Task; goalId?: string; /** A row id to open with, e.g. 'due'. */ focus?: string; /** Words to start with (from voice). */ prefill?: string } | undefined;
+    show_goal_quick_add: { goal?: Habit; prefill?: string } | undefined;
+    show_quick_add: { goalId?: string; prefillName?: string } | undefined;
     openModal: { modal: string };
     /** Raise the feedback sheet from anywhere. `screen` is collected, not typed. */
     show_feedback: { screen?: string } | undefined;

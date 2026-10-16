@@ -125,9 +125,11 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     // frame is already blank.
     const session = isOpen ? (current?.id ?? 'new') : 'closed';
     const [lastSession, setLastSession] = useState('closed');
+    const [prefill, setPrefill] = useState('');
     if (session !== lastSession) {
         setLastSession(session);
-        setText(current?.title ?? '');
+        setText(current?.title ?? prefill);
+        setPrefill('');
         setEdits({});
         // Whatever the opener asked to land on, or nothing.
         setOpenRow(requestedRow);
@@ -145,6 +147,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             // Opened from somewhere that already knows which question is being
             // asked — the goal roadmap only ever asks about the date.
             setRequestedRow(data?.focus ?? null);
+            setPrefill(data?.prefill ?? '');
             setEventVisible(true);
         });
         return () => subscription.remove();

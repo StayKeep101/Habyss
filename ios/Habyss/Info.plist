@@ -75,8 +75,10 @@
 	<string>Habyss needs your location to send reminders when you arrive at specific places like Home or Work.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Habyss needs your location to send reminders when you arrive at specific places like Home or Work.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Habyss turns what you say into a habit, task or goal when you hold the create button and speak.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Habyss uses the microphone when you choose to speak to Echo, your AI coach.</string>
+	<string>Habyss uses the microphone when you choose to speak, such as holding the create button to add a habit, task or goal by voice, or talking to Echo.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>Habyss uses motion data together with your location to time place-based reminders accurately.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
