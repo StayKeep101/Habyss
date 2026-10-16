@@ -1,6 +1,7 @@
 import { NativeModules, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HealthMetric } from './healthMetrics';
+import { minutesAsleep, type SleepSample } from './sleepMath';
 
 /**
  * Reading Apple Health, which is where every other device already writes.
@@ -57,13 +58,7 @@ const has = (method: string): boolean =>
     Platform.OS === 'ios' && !!AppleHealthKit && typeof AppleHealthKit[method] === 'function';
 
 
-/** Adds up a set of samples, which is what most of these come back as. */
-const sum = (rows: any[] | undefined, pick: (row: any) => number): number =>
-    (rows ?? []).reduce((total, row) => total + (Number(pick(row)) || 0), 0);
 
-/** Minutes between two timestamps on a sample. */
-const minutesOf = (row: any): number =>
-    (new Date(row?.endDate).getTime() - new Date(row?.startDate).getTime()) / 60000;
 
 function ask<T>(method: string, options: object, read: (results: any) => T): Promise<T | null> {
     if (!has(method)) return Promise.resolve(null);
@@ -147,11 +142,9 @@ export class HealthKitService {
         const end = new Date(date);
         end.setHours(18, 0, 0, 0);
 
+        // Every asleep stage, overlapping sources merged (lib/sleepMath.ts).
         return ask('getSleepSamples',
-            { startDate: start.toISOString(), endDate: end.toISOString(), limit: 200 },
-            (rows: any[]) => Math.round(sum(
-                (rows ?? []).filter(row => row?.value === 'ASLEEP' || row?.value === 'INBED'),
-                minutesOf,
-            )));
+            { startDate: start.toISOString(), endDate: end.toISOString(), limit: 1000 },
+            (rows: SleepSample[]) => minutesAsleep(rows));
     }
 }
