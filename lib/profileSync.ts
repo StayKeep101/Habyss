@@ -189,6 +189,12 @@ export async function pushProfile(profile?: Profile, sharing?: Sharing): Promise
         // Only overwrite when the upload worked: clearing a good URL because a
         // network call failed would lose the picture for everybody else.
         if (url) patch.avatar_url = url;
+        // Point this phone at the uploaded copy too, so the same picture is
+        // not uploaded again on every launch.
+        if (url && url !== me.avatar) {
+            const { saveProfile } = require('./profile') as typeof import('./profile');
+            void saveProfile({ avatar: url }).catch(() => undefined);
+        }
     } else {
         patch.avatar_url = null;
     }
@@ -209,22 +215,36 @@ export async function pushProfile(profile?: Profile, sharing?: Sharing): Promise
 export async function backfillProfile(): Promise<void> {
     const ctx = await signedIn();
     if (!ctx) return;
-    const { data } = await ctx.sb.from('profiles').select('display_name, bio, avatar_url').eq('id', ctx.me).maybeSingle();
+    const { data } = await ctx.sb.from('profiles').select('display_name, bio, avatar_url, sharing').eq('id', ctx.me).maybeSingle();
     if (!data) return;
 
     const me = await getProfile();
-    // Against what this phone actually has, not against all three columns. The
-    // old test was `display_name && bio && avatar_url`, so somebody who had
-    // written no bio — which is most people — was backfilled on every launch,
-    // while somebody with all three was never corrected. Neither is the
-    // question. The question is whether anything here has yet to arrive.
-    const missing =
-        (!!me.name.trim() && !data.display_name)
-        || (!!me.bio.trim() && !data.bio)
-        || (!!me.avatar && !data.avatar_url);
-    if (!missing) return;
+    const allowed: Sharing = { ...ALL_SHARED, ...(data.sharing ?? {}) };
 
-    await pushProfile(me);
+    // Two ways, field by field. Signing out clears the phone, so an account
+    // signed back into arrives with no name or picture here: take the
+    // server's. A name changed on this phone after the server already had
+    // one used to never travel, because this only filled empty columns:
+    // send it.
+    const restore: Partial<Profile> = {};
+    if (!me.name.trim() && data.display_name) restore.name = data.display_name;
+    if (!me.bio.trim() && data.bio) restore.bio = data.bio;
+    if (!me.avatar && data.avatar_url) restore.avatar = data.avatar_url;
+    if (Object.keys(restore).length) {
+        const { saveProfile } = require('./profile') as typeof import('./profile');
+        // saveProfile sends the result back up, which settles anything else.
+        await saveProfile(restore);
+        return;
+    }
+
+    const differs =
+        (allowed.name && !!me.name.trim() && me.name.trim() !== (data.display_name ?? ''))
+        || (allowed.bio && !!me.bio.trim() && me.bio.trim().slice(0, 300) !== (data.bio ?? ''))
+        // A picture still on the phone (file://) has not been uploaded yet.
+        || (allowed.photo && !!me.avatar && (!data.avatar_url || !/^https?:/.test(me.avatar)));
+    if (!differs) return;
+
+    await pushProfile(me, allowed);
 }
 
 /**

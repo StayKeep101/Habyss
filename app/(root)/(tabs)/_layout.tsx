@@ -4,6 +4,7 @@ import { Colors } from '@/theme/colors';
 import { GlassDock } from '@/components/TabBar/GlassDock';
 import { useDayCardPublisher } from '@/hooks/useDayCardPublisher';
 import { useAppSounds } from '@/hooks/useAppSounds';
+import { useLivePulse } from '@/hooks/useLivePulse';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -12,6 +13,8 @@ export default function TabLayout() {
   useDayCardPublisher();
   // Sounds for the app's moments: a task done, a day closed, a goal reached.
   useAppSounds();
+  // Friends see your day change as it happens.
+  useLivePulse();
 
   return (
     <Tabs

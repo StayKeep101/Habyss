@@ -84,6 +84,18 @@ export default function CommunityScreen() {
         void ChatService.me().then(id => setMyId(id ?? undefined)).catch(() => undefined);
     }, []);
     useFocusEffect(loadChats);
+
+    // A friend ticked something: reload, a beat later so a burst is one reload.
+    useEffect(() => {
+        let stop: (() => void) | undefined;
+        let pending: ReturnType<typeof setTimeout> | null = null;
+        const { listenToFriends } = require('@/lib/livePulse') as typeof import('@/lib/livePulse');
+        void listenToFriends(() => {
+            if (pending) clearTimeout(pending);
+            pending = setTimeout(() => { pending = null; void loadDataRef.current?.(true); loadChats(); }, 800);
+        }).then(unsubscribe => { stop = unsubscribe; });
+        return () => { stop?.(); if (pending) clearTimeout(pending); };
+    }, [loadChats]);
     useEffect(() => {
         let stop: (() => void) | undefined;
         void ChatService.listen(() => loadChats()).then(unsubscribe => { stop = unsubscribe; });
@@ -91,6 +103,7 @@ export default function CommunityScreen() {
     }, [loadChats]);
 
 
+    const loadDataRef = useRef<((force?: boolean) => Promise<void>) | null>(null);
     const loadData = useCallback(async (forceRefresh = false) => {
         // Skip if already loaded and not forcing refresh
         if (!forceRefresh && hasLoadedOnce.current) {
@@ -150,6 +163,8 @@ export default function CommunityScreen() {
             if (refreshQueued.current) { refreshQueued.current = false; void loadData(true); }
         }
     }, []);
+
+    loadDataRef.current = loadData;
 
     // Only load data once on initial mount
     useEffect(() => {

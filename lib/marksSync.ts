@@ -37,7 +37,12 @@ export async function publishMarks(total: number): Promise<void> {
         const { error } = await sb.from('profiles')
             .update({ marks: value, marks_updated_at: new Date().toISOString() }).eq('id', me);
         // A server without the column yet is not an error worth retrying hard.
-        if (!error) await AsyncStorage.setItem(KEY, stamp);
+        if (!error) {
+            await AsyncStorage.setItem(KEY, stamp);
+            // Friends looking at the board see it move.
+            const { announceChange } = require('./livePulse') as typeof import('./livePulse');
+            announceChange();
+        }
     } catch {
         // Friends see a slightly older total; nothing on this phone is affected.
     }
