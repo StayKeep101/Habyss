@@ -10,6 +10,7 @@ import { AppIcon } from '@/components/ui/AppIcon';
 import { Avatar } from '@/components/ui/Avatar';
 import { CountUp, ListItem, PopIn } from '@/components/ui/Motion';
 import { DayPostCard } from '@/components/Community/DayPostCard';
+import { LevelCard } from '@/components/Profile/LevelCard';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -139,6 +140,8 @@ export default function FriendScreen() {
                     {bio ? <Text style={[styles.bio, { color: colors.textSecondary }]}>{bio}</Text> : null}
                 </View>
 
+                {marks !== undefined ? <View style={styles.level}><LevelCard marks={marks} /></View> : null}
+
                 <VoidCard>
                     <View style={styles.stats}>
                         <View style={styles.stat}>
@@ -146,8 +149,8 @@ export default function FriendScreen() {
                             <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Streak</Text>
                         </View>
                         <View style={styles.stat}>
-                            <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={marks ?? 0} />
-                            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Marks</Text>
+                            <CountUp style={[styles.statValue, { color: colors.textPrimary }]} value={week.slice(-7).filter(share => share > 0).length} />
+                            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Days this week</Text>
                         </View>
                         <View style={styles.stat}>
                             <CountUp style={[styles.statValue, { color: total > 0 && done === total ? colors.success : colors.textPrimary }]} value={`${done}/${total}`} />

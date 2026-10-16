@@ -1,6 +1,8 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
+import { IconTile } from '@/components/ui/IconTile';
+import { CountUp, PopIn } from '@/components/ui/Motion';
+import { LevelCard } from './LevelCard';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -15,7 +17,9 @@ const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 
 export interface ProfileStat {
     label: string;
-    value: string;
+    value: string | number;
+    icon: string;
+    color: string;
 }
 
 /**
@@ -38,6 +42,8 @@ export const ProfileView: React.FC<{
     cover?: string | null;
     initials: string;
     stats: ProfileStat[];
+    /** Their Marks: shown as their level, above the numbers. */
+    marks?: number;
     /** Absent for a friend's page: theirs is not yours to edit. */
     edit?: {
         onName: (value: string) => void;
@@ -50,7 +56,7 @@ export const ProfileView: React.FC<{
     topInset?: number;
     /** Anything the page wants under the numbers. */
     children?: React.ReactNode;
-}> = ({ name, bio, meta, avatar, cover, initials, stats, edit, topInset = 0, children }) => {
+}> = ({ name, bio, meta, avatar, cover, initials, stats, marks, edit, topInset = 0, children }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const isLight = theme === 'light';
@@ -165,15 +171,19 @@ export const ProfileView: React.FC<{
             </Animated.View>
 
             <View style={styles.statsBlock}>
-                <SectionLabel>Stats</SectionLabel>
-                <VoidCard style={styles.statsCard}>
-                    {stats.map(stat => (
-                        <View key={stat.label} style={styles.statRow}>
-                            <Text style={[styles.statLabel, { color: colors.textPrimary }]}>{stat.label}</Text>
-                            <ValuePill value={stat.value} />
-                        </View>
+                {marks !== undefined ? <LevelCard marks={marks} /> : null}
+                {/* Four numbers, each with its own mark, two by two. */}
+                <View style={styles.grid}>
+                    {stats.map((stat, index) => (
+                        <PopIn key={stat.label} index={index} style={styles.tileWrap}>
+                            <VoidCard style={styles.tile}>
+                                <IconTile icon={stat.icon} color={stat.color} size={32} />
+                                <CountUp style={[styles.tileValue, { color: colors.textPrimary }]} value={stat.value} />
+                                <Text style={[styles.tileLabel, { color: colors.textTertiary }]}>{stat.label}</Text>
+                            </VoidCard>
+                        </PopIn>
                     ))}
-                </VoidCard>
+                </View>
             </View>
 
             {children}
@@ -203,8 +213,10 @@ const styles = StyleSheet.create({
     meta: { fontSize: ms(12), fontFamily: FontFamily.regular },
     // No box: a bio reads as a sentence about someone, not as a filled field.
     bio: { alignSelf: 'stretch', fontSize: ms(14), lineHeight: ms(20), fontFamily: FontFamily.regular, textAlign: 'center', paddingTop: vs(6) },
-    statsBlock: { marginHorizontal: s(20) },
-    statsCard: { paddingHorizontal: s(16), paddingVertical: vs(6) },
-    statRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: vs(10) },
-    statLabel: { flex: 1, fontSize: ms(15), fontFamily: FontFamily.medium },
+    statsBlock: { marginHorizontal: s(20), marginTop: vs(16), gap: vs(12) },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -s(6) },
+    tileWrap: { width: '50%', padding: s(6) },
+    tile: { padding: s(14), gap: vs(6) },
+    tileValue: { fontSize: ms(24), lineHeight: ms(30), fontFamily: FontFamily.bold, letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
+    tileLabel: { fontSize: ms(12), fontFamily: FontFamily.regular },
 });

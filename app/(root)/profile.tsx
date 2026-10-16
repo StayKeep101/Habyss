@@ -9,15 +9,15 @@ import { FontFamily } from '@/theme/designSystem';
 import { ms, s, vs } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { useHistory } from '@/hooks/useHistory';
 import { useTasks } from '@/hooks/useTasks';
 import { useData } from '@/hooks/useData';
 import { subscribeToHabits, type Habit } from '@/lib/habitsSQLite';
-import { momentum } from '@/lib/momentum';
 import { streakFrom } from '@/lib/dayComplete';
 import { localDateKey } from '@/lib/habitSchedule';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
-import { recovery } from '@/lib/recovery';
+import { useGoalsInsights } from '@/hooks/useGoalInsights';
+import { useMarks } from '@/hooks/useMarks';
+import { useAccentGradient } from '@/context/AccentContext';
 import { EMPTY_PROFILE, ageFrom, getProfile, initials, saveProfile, type Profile } from '@/lib/profile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { styles } from '@/styles/screens/profile.styles';
@@ -70,7 +70,6 @@ export default function ProfileScreen() {
 
     const tasks = useTasks();
     const target = useDailyTarget();
-    const { rows: history } = useHistory(90);
     const data = useData();
     // The same streak the home screen and the day card show — one definition,
     // over the whole shared history.
@@ -79,8 +78,10 @@ export default function ProfileScreen() {
         [habits, tasks, data.history, data.skips, target],
     );
 
-    const trend = React.useMemo(() => momentum(habits, history, {}, 30), [habits, history]);
-    const bounce = React.useMemo(() => recovery(habits, history, {}, 90), [habits, history]);
+    // The same Marks Home shows and friends see, as your level.
+    const goalsData = useGoalsInsights();
+    const marks = useMarks(goalsData);
+    const { primary: accent } = useAccentGradient();
 
 
     /** One picker for both images; the crop is what tells them apart. */
@@ -110,6 +111,7 @@ export default function ProfileScreen() {
     const age = profile.birthday ? ageFrom(profile.birthday) : null;
     const finished = tasks.filter(task => task.status === 'done').length;
     const tracked = habits.filter(habit => !habit.isGoal && !habit.isArchived).length;
+    const goalCount = habits.filter(habit => habit.isGoal && !habit.isArchived).length;
 
     return (
         <VoidShell>
@@ -126,13 +128,12 @@ export default function ProfileScreen() {
                     cover={profile.cover}
                     initials={initials(profile)}
                     topInset={insets.top}
+                    marks={marks.total}
                     stats={[
-                        { label: 'Day streak', value: `${streak}` },
-                        { label: 'Momentum', value: `${trend.rate}%` },
-                        { label: 'Recovery', value: bounce.rate === null ? '—' : `${bounce.rate}%` },
-                        { label: 'Habits', value: `${tracked}` },
-                        { label: 'Finished', value: `${finished}` },
-                        { label: 'Best run', value: `${bounce.recovered}` },
+                        { label: 'Day streak', value: streak, icon: 'flame', color: colors.warning },
+                        { label: 'Habits', value: tracked, icon: 'repeat', color: colors.success },
+                        { label: 'Tasks done', value: finished, icon: 'checkmark-done', color: accent },
+                        { label: 'Goals', value: goalCount, icon: 'flag', color: colors.secondary },
                     ]}
                     edit={{
                         onName: name => setProfile(current => ({ ...current, name })),

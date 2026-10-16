@@ -10,6 +10,7 @@ export const styles = StyleSheet.create({
     status: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, marginTop: Spacing.sm },
     statusText: { fontFamily: FontFamily.semibold, fontSize: 13 },
     bio: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: Spacing.sm, paddingHorizontal: Spacing.lg },
+    level: { marginBottom: Spacing.md },
     stats: { flexDirection: 'row', paddingVertical: Spacing.lg },
     stat: { flex: 1, alignItems: 'center', gap: Spacing.xs },
     statValue: { fontFamily: FontFamily.bold, fontSize: 22, fontVariant: ['tabular-nums'] },
