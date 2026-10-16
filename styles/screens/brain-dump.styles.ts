@@ -11,6 +11,8 @@ export const styles = StyleSheet.create({
     item: { marginBottom: Spacing.sm },
     thought: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: Spacing.xs },
     text: { fontFamily: FontFamily.regular, fontSize: 15, lineHeight: 22 },
+    foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    actions: { flexDirection: 'row', gap: Spacing.xs + 2 },
     time: { fontFamily: FontFamily.regular, fontSize: 11 },
     empty: { fontFamily: FontFamily.regular, fontSize: 14, textAlign: 'center', marginTop: Spacing.section },
 });

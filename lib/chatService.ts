@@ -39,6 +39,21 @@ const sinceDay = () => {
     return localDateKey(date);
 };
 
+const messageListeners = new Set<(message: ChatMessage) => void>();
+let stopMessages: (() => void) | null = null;
+let openingMessages: Promise<void> | null = null;
+
+async function openMessages(): Promise<void> {
+    const ctx = await signedIn();
+    if (!ctx) return;
+    const channel = ctx.sb.channel(`messages:${ctx.me}`)
+        .on('postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'messages', filter: `to_user=eq.${ctx.me}` },
+            payload => { const message = toMessage(payload.new); messageListeners.forEach(listener => listener(message)); })
+        .subscribe();
+    stopMessages = () => { void ctx.sb.removeChannel(channel); };
+}
+
 export class ChatService {
     static async me(): Promise<string | null> {
         return (await signedIn())?.me ?? null;
@@ -117,17 +132,19 @@ export class ChatService {
     }
 
     /**
-     * New messages to or from this account, live. Returns the way to stop.
-     * Filtered on the server to messages sent to you; your own come back from `send`.
+     * New messages sent to this account, live. Returns the way to stop.
+     * One channel is shared by every screen listening; your own messages come
+     * back from `send`.
      */
     static async listen(onMessage: (message: ChatMessage) => void): Promise<() => void> {
-        const ctx = await signedIn();
-        if (!ctx) return () => undefined;
-        const channel = ctx.sb.channel(`messages:${ctx.me}`)
-            .on('postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'messages', filter: `to_user=eq.${ctx.me}` },
-                payload => onMessage(toMessage(payload.new)))
-            .subscribe();
-        return () => { void ctx.sb.removeChannel(channel); };
+        messageListeners.add(onMessage);
+        if (!stopMessages) {
+            openingMessages ??= openMessages().finally(() => { openingMessages = null; });
+            await openingMessages;
+        }
+        return () => {
+            messageListeners.delete(onMessage);
+            if (messageListeners.size === 0 && stopMessages) { stopMessages(); stopMessages = null; }
+        };
     }
 }

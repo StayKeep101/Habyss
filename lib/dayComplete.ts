@@ -5,6 +5,7 @@ import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
 import { DEFAULT_TARGET, doneOnDay, type DailyTarget } from './dailyFocus';
 import { tasksForDay } from './tasks';
 import { emit } from './appEvents';
+import { countedHistory, countedTasks } from './sharedGate';
 
 /**
  * Whether everything the day asked for is done.
@@ -74,6 +75,9 @@ export function streakFrom(
     back?: number,
     _target: DailyTarget = DEFAULT_TARGET,
 ): { streak: number; completedDates: string[] } {
+    // A shared habit or task counts only once everybody on it has done it.
+    history = countedHistory(history);
+    tasks = countedTasks(tasks);
     const known = new Set(habits.filter(habit => !habit.isGoal).map(habit => habit.id));
     const completedDates: string[] = [];
     let streak = 0;

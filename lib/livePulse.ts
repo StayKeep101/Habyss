@@ -61,15 +61,32 @@ export function announceChange(): void {
     timer = setTimeout(() => { timer = null; void publish(); }, SETTLE_MS);
 }
 
-/** Calls back when a friend's day changes. Returns the way to stop. */
-export async function listenToFriends(onChange: (friendId: string) => void): Promise<() => void> {
+/** One channel per phone, shared by every listener. */
+const listeners = new Set<(friendId: string) => void>();
+let stopChannel: (() => void) | null = null;
+let opening: Promise<void> | null = null;
+
+async function openChannel(): Promise<void> {
     const ctx = await context();
-    if (!ctx) return () => undefined;
+    if (!ctx) return;
     const channel = ctx.sb.channel(channelFor(ctx.me))
         .on('broadcast', { event: 'changed' }, message => {
             const from = (message.payload as { from?: string } | undefined)?.from;
-            if (from && from !== ctx.me) onChange(from);
+            if (from && from !== ctx.me) listeners.forEach(listener => listener(from));
         })
         .subscribe();
-    return () => { void ctx.sb.removeChannel(channel); };
+    stopChannel = () => { void ctx.sb.removeChannel(channel); };
+}
+
+/** Calls back when a friend's day changes. Returns the way to stop. */
+export async function listenToFriends(onChange: (friendId: string) => void): Promise<() => void> {
+    listeners.add(onChange);
+    if (!stopChannel) {
+        opening ??= openChannel().finally(() => { opening = null; });
+        await opening;
+    }
+    return () => {
+        listeners.delete(onChange);
+        if (listeners.size === 0 && stopChannel) { stopChannel(); stopChannel = null; }
+    };
 }

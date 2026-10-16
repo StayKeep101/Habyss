@@ -101,10 +101,18 @@ export default function BrainDumpScreen() {
                             {group.thoughts.map((thought, index) => (
                                 <ListItem key={thought.id} index={index} style={styles.item}>
                                     <Pressable onLongPress={() => act(thought)} delayLongPress={300}
-                                        accessibilityRole="button" accessibilityHint="Hold for options" accessibilityLabel={thought.text}>
+                                        accessibilityHint="Hold for more options" accessibilityLabel={thought.text}>
                                         <VoidCard style={styles.thought}>
                                             <Text style={[styles.text, { color: colors.textPrimary }]}>{thought.text}</Text>
-                                            <Text style={[styles.time, { color: colors.textTertiary }]}>{timeOf(thought.createdAt)}</Text>
+                                            <View style={styles.foot}>
+                                                <Text style={[styles.time, { color: colors.textTertiary }]}>{timeOf(thought.createdAt)}</Text>
+                                                {/* One tap turns a thought into something to do. */}
+                                                <View style={styles.actions}>
+                                                    <IconButton icon="checkbox-outline" label="Make it a task" onPress={() => { selectionFeedback(); turnInto('task', thought.text); }} diameter={32} size={15} />
+                                                    <IconButton icon="repeat" label="Make it a habit" onPress={() => { selectionFeedback(); turnInto('habit', thought.text); }} diameter={32} size={15} />
+                                                    <IconButton icon="flag-outline" label="Make it a goal" onPress={() => { selectionFeedback(); turnInto('goal', thought.text); }} diameter={32} size={15} />
+                                                </View>
+                                            </View>
                                         </VoidCard>
                                     </Pressable>
                                 </ListItem>

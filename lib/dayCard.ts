@@ -34,6 +34,8 @@ export function buildDayCard(input: {
     const summary = monthDays({
         habits: input.habits, tasks: input.tasks, history: input.history, skips: input.skips,
         month: new Date(`${input.day}T12:00:00`), today: input.day,
+        // Friends see what you actually ticked, shared or not.
+        raw: true,
     }).find(entry => entry.date === input.day);
 
     const habitName = new Map(input.habits.map(habit => [habit.id, habit.name]));

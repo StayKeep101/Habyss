@@ -2,6 +2,7 @@ import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import type { GoalKind } from './goalParser';
 import { createHabitSchedule, localDateKey, parseHabitDate } from './habitSchedule';
+import { countedHistory, countedTasks } from './sharedGate';
 
 /**
  * Everything the goal screen shows, worked out in one place.
@@ -354,6 +355,8 @@ export function goalProgress(input: GoalInsightInput, rounded = true): number {
 }
 
 export function buildGoalInsights(input: GoalInsightInput): GoalInsights {
+    // Shared work moves a goal once everybody on it has done their part.
+    input = { ...input, history: countedHistory(input.history), tasks: countedTasks(input.tasks) };
     const { goal, history, today } = input;
     const habits = linkedHabits(goal, input.habits);
     const tasks = linkedTasks(goal, input.tasks);

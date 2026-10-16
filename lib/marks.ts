@@ -2,6 +2,7 @@ import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import { createHabitSchedule, localDateKey, parseHabitDate } from './habitSchedule';
 import { addDays, dateAt } from './goalInsights';
+import { countedHistory, countedTasks } from './sharedGate';
 
 /**
  * Marks: the record your actions leave.
@@ -97,6 +98,8 @@ const dayOf = (stamp?: string | null): string | null => {
 };
 
 export function computeMarks(input: MarksInput, recent = 40): MarksResult {
+    // A shared habit or task earns nothing until everybody on it has done it.
+    input = { ...input, history: countedHistory(input.history), tasks: countedTasks(input.tasks) };
     const { today } = input;
     const floor = addDays(today, -HORIZON_DAYS);
     const byDay = new Map<string, number>();

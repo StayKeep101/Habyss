@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from './habitSchedule';
 import { taskRank, tasksForDay, todayKey, type Task } from './tasks';
 import { emit } from './appEvents';
+import { countedTasks } from './sharedGate';
 
 /**
  * The three things that move the needle today.
@@ -115,6 +116,7 @@ export function focusHistory(
     days = 30,
     today: string = todayKey(),
 ): FocusDay[] {
+    tasks = countedTasks(tasks);
     const out: FocusDay[] = [];
     for (let offset = days - 1; offset >= 0; offset--) {
         const date = new Date(`${today}T12:00:00`);

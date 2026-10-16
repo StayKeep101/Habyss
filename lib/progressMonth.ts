@@ -1,6 +1,7 @@
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
 import { createHabitSchedule, localDateKey } from './habitSchedule';
+import { countedHistory, countedTasks } from './sharedGate';
 
 /**
  * A month of progress, day by day.
@@ -40,6 +41,8 @@ export interface MonthInput {
     /** Any day inside the month to summarise. */
     month: Date;
     today: string;
+    /** Show every tick as made, even shared ones the others have not finished (the day card). */
+    raw?: boolean;
 }
 
 const dayKey = (year: number, month: number, day: number) =>
@@ -53,6 +56,8 @@ const taskDoneOn = (task: Task): string | null => {
 };
 
 export function monthDays(input: MonthInput): DaySummary[] {
+    // The Streak page counts a shared item once everybody on it has done it.
+    if (!input.raw) input = { ...input, history: countedHistory(input.history), tasks: countedTasks(input.tasks) };
     const { month, today, history, skips } = input;
     const year = month.getFullYear();
     const index = month.getMonth();
