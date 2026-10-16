@@ -1342,13 +1342,15 @@ export class FriendsService {
         const ctx = await signedIn();
         if (!ctx) return;
         const people = await this.getSharedItemParticipants(itemId, kind).catch(() => []);
-        const others = (people as any[]).filter(person => !person.isYou);
+        // Only people who said yes, and only while their part is still open:
+        // somebody who already did it, or never accepted, has nothing to act on.
+        const others = (people as any[]).filter(person => !person.isYou && !person.pending && !person.completedToday);
         if (others.length === 0) return;
 
         const me = await myName(ctx);
         await Promise.all(others.map(person => this.notify(ctx, person.userId, 'shared_done', {
-            title: `${me} finished ${itemName}`,
-            body: 'Your half is the one it is waiting on now.',
+            title: `${me} did ${itemName}`,
+            body: 'Your turn.',
         })));
     }
 

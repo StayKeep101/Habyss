@@ -233,7 +233,7 @@ const TaskItemComponent: React.FC<Props> = ({
                                 <Text style={[styles.meta, { color: done ? colors.textTertiary : TASK_COLOR, fontVariant: ['tabular-nums'] }]}>{amountLabel}</Text>
                             ) : null}
                             {shared ? (
-                                <SharedFaces people={shared.people} tint={TASK_COLOR} size={isSmall ? 16 : 20} />
+                                <SharedFaces people={shared.people} tint={TASK_COLOR} size={isSmall ? 20 : 24} />
                             ) : goalName && !isSmall ? (
                                 <Text numberOfLines={1} style={[styles.meta, { color: colors.textTertiary }]}>{goalName}</Text>
                             ) : null}

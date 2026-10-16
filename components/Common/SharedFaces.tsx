@@ -44,37 +44,46 @@ export const SharedFaces: React.FC<{
             accessible
             accessibilityLabel={label(people)}
         >
-            {shown.map((person, index) => (
-                <View
-                    key={person.userId}
-                    style={[styles.face, {
-                        width: size, height: size, borderRadius: size / 2,
-                        marginLeft: index === 0 ? 0 : -size / 3,
-                        backgroundColor: tone.raised,
-                        // The page's own colour behind each one, so overlapping
-                        // faces stay separate instead of becoming a smear.
-                        borderColor: person.pending ? colors.textTertiary : person.done ? tint : colors.background,
-                        borderStyle: person.pending ? 'dotted' : 'solid',
+            {shown.map((person, index) => {
+                const ring = person.pending ? colors.textTertiary : person.done ? tint : tone.fill;
+                const badge = Math.max(10, Math.round(size * 0.5));
+                return (
+                    // The outer box does not clip, so the tick can sit on the
+                    // edge of the face rather than being cut off inside it.
+                    <View key={person.userId} style={{
+                        width: size, height: size,
+                        marginLeft: index === 0 ? 0 : -Math.round(size * 0.3),
                         zIndex: shown.length - index,
-                        // Three steps, not two: done, on it, and not yet
-                        // answered — which is fainter than either.
                         opacity: person.pending ? 0.7 : 1,
-                    }]}
-                >
-                    {person.avatarUrl ? (
-                        <Image source={{ uri: person.avatarUrl }} style={styles.photo} />
-                    ) : (
-                        <Text style={[styles.initial, { color: colors.textSecondary, fontSize: size * 0.42 }]}>
-                            {person.username.slice(0, 1).toUpperCase()}
-                        </Text>
-                    )}
-                    {person.done ? (
-                        <View style={[styles.tick, { backgroundColor: tint, width: size * 0.42, height: size * 0.42, borderRadius: size * 0.21 }]}>
-                            <Ionicons name="checkmark" size={size * 0.28} color="#fff" />
+                    }}>
+                        <View style={[styles.face, {
+                            width: size, height: size, borderRadius: size / 2,
+                            backgroundColor: tone.raised,
+                            // A ring in the card's own colour cuts each face out
+                            // of the one behind it; done swaps it for the tint.
+                            borderColor: ring,
+                            borderStyle: person.pending ? 'dotted' : 'solid',
+                        }]}>
+                            {person.avatarUrl ? (
+                                <Image source={{ uri: person.avatarUrl }} style={styles.photo} />
+                            ) : (
+                                <Text style={[styles.initial, { color: colors.textSecondary, fontSize: size * 0.42 }]}>
+                                    {person.username.slice(0, 1).toUpperCase()}
+                                </Text>
+                            )}
                         </View>
-                    ) : null}
-                </View>
-            ))}
+                        {person.done ? (
+                            <View style={[styles.tick, {
+                                width: badge, height: badge, borderRadius: badge / 2,
+                                right: -badge * 0.3, bottom: -badge * 0.3,
+                                backgroundColor: tint, borderColor: tone.fill,
+                            }]}>
+                                <Ionicons name="checkmark" size={badge * 0.62} color={colors.background} />
+                            </View>
+                        ) : null}
+                    </View>
+                );
+            })}
             {extra > 0 ? (
                 <View style={[styles.face, styles.more, {
                     width: size, height: size, borderRadius: size / 2,
@@ -96,10 +105,11 @@ function label(people: Participant[]): string {
 }
 
 const styles = StyleSheet.create({
-    row: { flexDirection: 'row', alignItems: 'center' },
-    face: { borderWidth: 1.5, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+    // Room on the right and below for the tick that hangs off the last face.
+    row: { flexDirection: 'row', alignItems: 'center', paddingRight: 3, paddingBottom: 3 },
+    face: { borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     photo: { width: '100%', height: '100%' },
     initial: { fontFamily: FontFamily.bold },
-    tick: { position: 'absolute', right: -1, bottom: -1, alignItems: 'center', justifyContent: 'center' },
+    tick: { position: 'absolute', borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
     more: { alignItems: 'center', justifyContent: 'center' },
 });

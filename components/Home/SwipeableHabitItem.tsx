@@ -251,7 +251,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               </Text>
               {shared ? (
                 <View style={styles.sharedRow}>
-                  <SharedFaces people={shared.people} tint={accentColor} size={isSmall ? 16 : 20} />
+                  <SharedFaces people={shared.people} tint={accentColor} size={isSmall ? 20 : 24} />
                   {!isSmall ? (
                     <Text numberOfLines={1} style={{ fontSize: 10, color: shared.waitingOnYou ? colors.warning : colors.textTertiary, fontFamily: FontFamily.medium }}>
                       {shared.line}
