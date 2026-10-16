@@ -64,18 +64,31 @@ async function writeInbox(items: InAppNotification[]) {
   });
 }
 
+/** True when a push names the signed-in account as its sender. */
+export async function sentByMe(from: unknown): Promise<boolean> {
+  if (typeof from !== 'string' || !from) return false;
+  try {
+    const { getSupabase } = require('./supabase') as typeof import('./supabase');
+    const { data } = await getSupabase()?.auth.getSession() ?? { data: null };
+    return data?.session?.user.id === from;
+  } catch {
+    return false;
+  }
+}
+
 export class NotificationService {
   static async init() {
     // Set notification handler ONLY inside init, never at module scope
     if (!isHandlerSet) {
       try {
         Notifications.setNotificationHandler({
-          handleNotification: async () => ({
-            shouldPlaySound: true,
-            shouldSetBadge: false,
-            shouldShowBanner: true,
-            shouldShowList: true,
-          }),
+          handleNotification: async (notification) => {
+            // A push about something you did yourself (a nudge you sent, a
+            // share you made) never rings your own phone, even if the server
+            // still holds this phone's token on the other account.
+            const mine = await sentByMe(notification.request.content.data?.from);
+            return { shouldPlaySound: !mine, shouldSetBadge: false, shouldShowBanner: !mine, shouldShowList: !mine };
+          },
         });
         isHandlerSet = true;
       } catch (e) {

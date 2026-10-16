@@ -26,7 +26,7 @@ describe('when Echo checks in', () => {
     it('never schedules a time that has already gone', () => {
         const plan = buildCheckInPlan(both, day, new Date(2026, 8, 22, 12));
         expect(plan[0].date).toEqual(new Date(2026, 8, 22, 22, 0));
-        expect(plan.every(item => item.date.getTime() > Date.now() - 1e9)).toBe(true);
+        expect(plan.every(item => item.date.getTime() > new Date(2026, 8, 22, 12).getTime())).toBe(true);
     });
 
     it('only plans the half the user turned on', () => {

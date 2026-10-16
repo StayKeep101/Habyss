@@ -553,8 +553,13 @@ export class FriendsService {
         if (theirs) return this.acceptFriendRequest(theirs.id);
         if ((existing ?? []).length > 0) return true;
 
-        const { error } = await ctx.sb.from('friend_requests')
-            .insert({ from_user_id: ctx.me, to_user_id: userId, status: 'pending' });
+        // One row per pair is all the table allows, so asking again after a
+        // decline or an unfriend reopens the old row rather than inserting.
+        const { data: earlier } = await ctx.sb.from('friend_requests')
+            .select('id').eq('from_user_id', ctx.me).eq('to_user_id', userId).maybeSingle();
+        const { error } = earlier
+            ? await ctx.sb.from('friend_requests').update({ status: 'pending', deleted_at: null }).eq('id', earlier.id)
+            : await ctx.sb.from('friend_requests').insert({ from_user_id: ctx.me, to_user_id: userId, status: 'pending' });
         if (error) return false;
 
         // The request existing is not the same as the other person being told.
@@ -664,21 +669,34 @@ export class FriendsService {
     static async removeFriend(friendId: string): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;
-        const { error } = await ctx.sb.from('friendships').delete()
-            .or(`and(user_id.eq.${ctx.me},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${ctx.me})`);
-        return !error;
+        const pair = `and(user_id.eq.${ctx.me},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${ctx.me})`;
+        const { error } = await ctx.sb.from('friendships').delete().or(pair);
+        if (error) return false;
+        // The accepted request is retired too, or the repair on either phone
+        // would read it as an interrupted accept and make them friends again.
+        await ctx.sb.from('friend_requests').update({ deleted_at: new Date().toISOString() })
+            .or(`and(from_user_id.eq.${ctx.me},to_user_id.eq.${friendId}),and(from_user_id.eq.${friendId},to_user_id.eq.${ctx.me})`);
+        return true;
     }
 
     /* ----------------------------------------------------------- nudges, feed */
+
+    /** True once you have nudged this friend today: one nudge a day each, so it stays a nudge. */
+    static async nudgedToday(friendId: string): Promise<boolean> {
+        const key = `habyss_nudged_${friendId}`;
+        return (await AsyncStorage.getItem(key).catch(() => null)) === localDateKey(new Date());
+    }
 
     static async nudgeFriend(friendId: string, username?: string): Promise<boolean> {
         const ctx = await signedIn();
         if (!ctx) return false;
         const me = await myName(ctx);
-        return this.notify(ctx, friendId, 'nudge', {
+        const sent = await this.notify(ctx, friendId, 'nudge', {
             title: `${me} nudged you`,
             body: `${username ? `${username}, ` : ''}keep your streak going today.`,
         });
+        if (sent) await AsyncStorage.setItem(`habyss_nudged_${friendId}`, localDateKey(new Date())).catch(() => undefined);
+        return sent;
     }
 
     /**

@@ -4,7 +4,6 @@ import { AppState, AppStateStatus, Alert, Platform, Vibration } from 'react-nati
 
 import { NotificationService } from '@/lib/notificationService';
 import { IntegrationService } from '@/lib/integrationService';
-import { HealthKitService } from '@/lib/healthKit';
 import { getLocalUserId } from '@/lib/localUser';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
 import { getHabits, saveHabitMeasurement } from '@/lib/habitsSQLite';

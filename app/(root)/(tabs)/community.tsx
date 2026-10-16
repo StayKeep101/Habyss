@@ -200,6 +200,10 @@ export default function CommunityScreen() {
 
     const handleNudge = async (friend: Friend) => {
         mediumFeedback();
+        if (await FriendsService.nudgedToday(friend.id)) {
+            Alert.alert('Already nudged today', 'Try again tomorrow.');
+            return;
+        }
         const success = await FriendsService.nudgeFriend(friend.id, friend.displayName ?? friend.username);
         if (success) {
             Alert.alert('Nudged! 👋', `${friend.displayName ?? friend.username} has been notified.`);

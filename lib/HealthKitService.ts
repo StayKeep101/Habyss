@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HealthMetric } from './healthMetrics';
 
 /**
@@ -23,6 +24,10 @@ try {
 } catch {
     AppleHealthKit = null;
 }
+
+/** Set once the Health sheet has been answered on this phone. */
+const CONNECTED_KEY = 'habyss_health_connected';
+const rememberedConnected = () => AsyncStorage.getItem(CONNECTED_KEY).then(value => value === '1').catch(() => false);
 
 const permission = (key: string): string | null => AppleHealthKit?.Constants?.Permissions?.[key] ?? null;
 
@@ -98,14 +103,17 @@ export class HealthKitService {
      */
     static async authorised(): Promise<boolean> {
         if (!has('getAuthStatus')) return false;
+        // iOS never says whether *reading* was allowed — for privacy, a refused
+        // read looks the same as one never asked. So the app remembers that the
+        // sheet was answered, and also accepts a granted write as proof.
+        if (await rememberedConnected()) return true;
         return new Promise(resolve => {
             try {
                 AppleHealthKit.getAuthStatus(buildPermissions(), (error: unknown, results: any) => {
                     if (error) { resolve(false); return; }
-                    // iOS reports 2 for "sharing authorised" per permission; one
-                    // granted read is enough to say the connection exists.
-                    const read = results?.permissions?.read ?? [];
-                    resolve(Array.isArray(read) && read.some((state: number) => state === 2));
+                    // 2 is "sharing authorised"; only writes can ever report it.
+                    const states = [...(results?.permissions?.read ?? []), ...(results?.permissions?.write ?? [])];
+                    resolve(states.some((state: number) => state === 2));
                 });
             } catch {
                 resolve(false);
@@ -118,6 +126,7 @@ export class HealthKitService {
         return new Promise(resolve => {
             AppleHealthKit.initHealthKit(buildPermissions(), (error: string | null) => {
                 if (error) console.warn('HealthKit init error:', error);
+                else void AsyncStorage.setItem(CONNECTED_KEY, '1').catch(() => undefined);
                 resolve(!error);
             });
         });
