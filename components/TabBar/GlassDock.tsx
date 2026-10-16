@@ -14,6 +14,8 @@ import { emit, on } from '@/lib/appEvents';
 import { AppState } from 'react-native';
 import { FriendsService } from '@/lib/friendsService';
 import { getRemoveDrag, setOrbRect, subscribeRemoveDrag, type RemoveDrag } from '@/lib/dragBridge';
+import { VoiceOrb } from './VoiceOrb';
+import { useWindowDimensions } from 'react-native';
 
 interface TabIconProps {
     routeName: string;
@@ -73,6 +75,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { mediumFeedback } = useHaptics();
     const { horizontalPadding, tabBarHeight, floatingButtonSize, tabBarBottomOffset, isCompactWidth } = useResponsiveLayout();
     const orbRef = React.useRef<any>(null);
+    const { width: screenWidth } = useWindowDimensions();
     /** True while the button is held for voice, so letting go stops listening. */
     const voiceHeld = React.useRef(false);
 
@@ -271,6 +274,11 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             </TouchableOpacity>
             </Animated.View>
 
+            {/* Holding the plus stretches it into a listening pill over the dock. */}
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { left: horizontalPadding, right: horizontalPadding }]}>
+                <VoiceOrb size={floatingButtonSize} maxWidth={Math.max(floatingButtonSize, screenWidth - horizontalPadding * 2)}
+                    colors={buttonColors} ink="#fff" />
+            </View>
         </View>
     );
 };

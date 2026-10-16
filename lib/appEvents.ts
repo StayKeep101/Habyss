@@ -53,6 +53,8 @@ export interface AppEvents {
     /** Holding the create button: listen for a habit, task or goal said aloud. */
     voice_start: void;
     voice_stop: void;
+    /** What the voice listener is doing, for the create button to draw. */
+    voice_state: { listening: boolean; heard: string };
     show_habit_modal: { goalId?: string; initialHabit?: Habit } | undefined;
     show_task_form: { task?: Task; goalId?: string; /** A row id to open with, e.g. 'due'. */ focus?: string; /** Words to start with (from voice). */ prefill?: string } | undefined;
     show_goal_quick_add: { goal?: Habit; prefill?: string } | undefined;
