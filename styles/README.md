@@ -36,3 +36,4 @@ To bring a page in line with the design system, open its file here and swap its 
 
 Home, Paywall, Goal stats and Goal plan have no page-level styles: they are built entirely from components (`components/Home`, `components/Goal`, …), so their look lives in those components.
 | `app/(root)/guide.tsx` | `styles/screens/guide.styles.ts` |
+| `app/(root)/chat.tsx` | `styles/screens/chat.styles.ts` |

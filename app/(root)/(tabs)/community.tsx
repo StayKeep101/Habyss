@@ -16,7 +16,7 @@ import { onAccountChange } from '@/lib/account';
 import { FriendsGate } from '@/components/Community/FriendsGate';
 import { FriendStatsModal } from '@/components/Community/FriendStatsModal';
 import { AddFriendModal } from '@/components/Community/AddFriendModal';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Animated from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateKey } from '@/lib/habitSchedule';
@@ -30,6 +30,9 @@ import type { Evidence } from '@/lib/proof';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { on } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/tabs/community.styles';
+import { ChatList, type ChatPerson } from '@/components/Community/ChatList';
+import { ChatService } from '@/lib/chatService';
+import type { ChatMessage } from '@/lib/chatThread';
 
 /** Reactions are a thing about today, so they are stored under today. */
 const reactionsKey = () => `feed_reactions_${localDateKey(new Date())}`;
@@ -71,6 +74,21 @@ export default function CommunityScreen() {
 
     const isLoadingRef = useRef(false);
     const refreshQueued = useRef(false);
+
+    // Chats: the last message with each friend, refreshed whenever the tab is
+    // shown and whenever a message arrives.
+    const [conversations, setConversations] = useState<Record<string, { last: ChatMessage; unread: number }>>({});
+    const [myId, setMyId] = useState<string | undefined>();
+    const loadChats = useCallback(() => {
+        void ChatService.conversations().then(setConversations).catch(() => undefined);
+        void ChatService.me().then(id => setMyId(id ?? undefined)).catch(() => undefined);
+    }, []);
+    useFocusEffect(loadChats);
+    useEffect(() => {
+        let stop: (() => void) | undefined;
+        void ChatService.listen(() => loadChats()).then(unsubscribe => { stop = unsubscribe; });
+        return () => stop?.();
+    }, [loadChats]);
 
 
     const loadData = useCallback(async (forceRefresh = false) => {
@@ -539,6 +557,20 @@ export default function CommunityScreen() {
                         </VoidCard>
                     </View>
                 )}
+
+                {/* Talking to each other, with each day sent along as a card. */}
+                <ChatList
+                    people={friends.filter(friend => !friend.isCurrentUser).map<ChatPerson>(friend => ({
+                        id: friend.id || friend.userId, name: friend.displayName || friend.username, avatarUrl: friend.avatarUrl,
+                    }))}
+                    conversations={conversations}
+                    me={myId}
+                    onOpen={person => {
+                        lightFeedback();
+                        // Cast until the typed-routes file regenerates with the new page.
+                        router.push({ pathname: '/(root)/chat' as never, params: { id: person.id, name: person.name } });
+                    }}
+                />
 
                 {/* The day, as everyone finished it. This replaced a ranked
                     table: a leaderboard answers "who is winning", which rewards
