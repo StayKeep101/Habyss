@@ -382,7 +382,14 @@ export async function setMyUsername(raw: string): Promise<UsernameResult> {
     }
     const { data, error } = await ctx.sb.from('profiles').update({ username }).eq('id', ctx.me).select('username').single();
     if (error) {
-        return { ok: false, error: error.code === '23505' ? 'That username is taken.' : 'Could not save your username.' };
+        if (error.code === '23505') return { ok: false, error: 'That username is taken.' };
+        // The server allows one change every 30 days and says when the next is.
+        const until = error.message?.match(/username_recently_changed: (\d{4}-\d{2}-\d{2})/)?.[1];
+        if (until) {
+            const date = new Date(`${until}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+            return { ok: false, error: `You can change it again on ${date}.` };
+        }
+        return { ok: false, error: 'Could not save your username.' };
     }
     if (!data?.username) return { ok: false, error: 'Your profile is not ready yet. Please sign in again.' };
     // Friends looking at Community see the new name straight away.
@@ -1053,6 +1060,7 @@ export class FriendsService {
         return ids.map((id: string) => ({
             id, userId: id,
             username: people.get(id)?.username ?? 'Account',
+            displayName: nameOf(people.get(id), 'Account'),
             avatarUrl: people.get(id)?.avatar_url ?? undefined,
         }));
     }

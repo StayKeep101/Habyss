@@ -15,11 +15,11 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { setMyUsername } from '@/lib/friendsService';
 
 /**
- * Your @username, which is how friends find and add you.
- *
- * Without one, Community does not work, so it asks for it loudly: an accent
- * card at the top of your profile, a field and one button. With one, it is a
- * pill under your name; tap it to change it.
+ * Your @username: unique, made for you when the account was created, and how
+ * friends find and add you. Friends see your display name; the @username sits
+ * under it as a pill — tap it to change it (once every 30 days, which the
+ * server enforces). The loud "claim it" card only appears in the rare case an
+ * account has none.
  */
 export function UsernamePill({ username, onEdit }: { username: string; onEdit: () => void }) {
     const { theme } = useTheme();
@@ -77,7 +77,9 @@ export function UsernameCard({ current, signedIn, onSaved, onCancel, onSignIn, f
                         </View>
                         <View style={styles.headText}>
                             <Text style={[styles.title, { color: colors.textPrimary }]}>{current === null ? 'Claim your username' : 'Change your username'}</Text>
-                            <Text style={[styles.sub, { color: colors.textSecondary }]}>It’s how friends find and add you.</Text>
+                            <Text style={[styles.sub, { color: colors.textSecondary }]}>
+                                {current === null ? 'It’s how friends find and add you.' : 'Friends see your name; this is how they find you. Once every 30 days.'}
+                            </Text>
                         </View>
                     </View>
                     {signedIn ? (

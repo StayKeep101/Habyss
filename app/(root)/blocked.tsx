@@ -40,7 +40,7 @@ export default function BlockedScreen() {
     useEffect(load, [load]);
 
     const unblock = (person: Friend) => {
-        Alert.alert(`Unblock ${person.username}?`, 'They will be able to send you a friend request again.', [
+        Alert.alert(`Unblock ${person.displayName || person.username}?`, 'They will be able to send you a friend request again.', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Unblock', onPress: async () => {
@@ -76,14 +76,14 @@ export default function BlockedScreen() {
                                             <Image source={{ uri: person.avatarUrl }} style={styles.photo} />
                                         ) : (
                                             <Text style={[styles.initial, { color: colors.textSecondary }]}>
-                                                {person.username.slice(0, 1).toUpperCase()}
+                                                {(person.displayName || person.username).slice(0, 1).toUpperCase()}
                                             </Text>
                                         )}
                                     </View>
-                                    <Text numberOfLines={1} style={[styles.name, { color: colors.textPrimary }]}>{person.username}</Text>
+                                    <Text numberOfLines={1} style={[styles.name, { color: colors.textPrimary }]}>{person.displayName || person.username}</Text>
                                     <Pressable
                                         accessibilityRole="button"
-                                        accessibilityLabel={`Unblock ${person.username}`}
+                                        accessibilityLabel={`Unblock ${person.displayName || person.username}`}
                                         onPress={() => unblock(person)}
                                         style={[styles.action, { borderColor: colors.border }]}
                                     >
