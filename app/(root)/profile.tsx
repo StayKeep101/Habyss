@@ -17,7 +17,7 @@ import { ageFrom, initials, saveProfile, type Profile } from '@/lib/profile';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { seriesForProfile } from '@/lib/marksSync';
-import { UsernameCard, UsernamePill } from '@/components/Profile/UsernameCard';
+import { UsernameCard, UsernameInline, UsernamePill } from '@/components/Profile/UsernameCard';
 import { FeedService } from '@/lib/feedService';
 import { getMyUsername } from '@/lib/friendsService';
 import { styles } from '@/styles/screens/profile.styles';
@@ -127,7 +127,9 @@ export default function ProfileScreen() {
                     name={profile.name}
                     bio={profile.bio}
                     meta={age ? `${age}` : ''}
-                    subline={handle === undefined ? null : (handle === null || editingHandle) ? (
+                    subline={handle === undefined ? null : (handle && editingHandle) ? (
+                        <UsernameInline current={handle} onSaved={name => { setHandle(name); setEditingHandle(false); }} onCancel={() => setEditingHandle(false)} />
+                    ) : handle === null ? (
                         <UsernameCard
                             flush
                             current={handle}

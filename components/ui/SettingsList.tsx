@@ -60,6 +60,35 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
     // A chosen option wears the colour the user picked for the app.
     const { primary: accentFill } = useAccentGradient();
     const isSwitch = toggle !== undefined;
+    const pills = choices ? (
+        <View style={styles.choices}>
+            {choices.map(choice => {
+                const on = choice.id === chosen;
+                return (
+                    <Pressable key={choice.id} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${label}: ${choice.label}`}
+                        onPress={() => { if (!on) { selectionFeedback(); onChoose?.(choice.id); } }}>
+                        <MatteSurface radius={999} level="control" elevation="none" tint={on ? accentFill : undefined} style={styles.choice}>
+                            <Text style={[styles.choiceText, { color: on ? textOn(accentFill) : colors.textSecondary }]}>{choice.label}</Text>
+                        </MatteSurface>
+                    </Pressable>
+                );
+            })}
+        </View>
+    ) : null;
+    // Two choices sit beside the name; more would squeeze it out, so they get
+    // their own line under it.
+    const stacked = !!choices && choices.length > 2;
+    if (stacked) {
+        return (
+            <View style={[styles.stack, disabled && styles.disabled]}>
+                <View style={styles.stackHead}>
+                    <IconTile icon={icon} color={color} size={30} shape="square" />
+                    <Text numberOfLines={1} style={[styles.label, { color: destructive ? colors.error : colors.textPrimary }]}>{label}</Text>
+                </View>
+                <View style={styles.stackChoices}>{pills}</View>
+            </View>
+        );
+    }
     const content = (
         <>
             <IconTile icon={icon} color={color} size={30} shape="square" />
@@ -67,19 +96,7 @@ export function SettingsRow({ icon, color, label, value, onPress, toggle, onTogg
             {isSwitch ? (
                 <AppSwitch value={toggle} disabled={disabled} onValueChange={next => { selectionFeedback(); onToggle?.(next); }} />
             ) : choices ? (
-                <View style={styles.choices}>
-                    {choices.map(choice => {
-                        const on = choice.id === chosen;
-                        return (
-                            <Pressable key={choice.id} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`${label}: ${choice.label}`}
-                                onPress={() => { if (!on) { selectionFeedback(); onChoose?.(choice.id); } }}>
-                                <MatteSurface radius={999} level="control" elevation="none" tint={on ? accentFill : undefined} style={styles.choice}>
-                                    <Text style={[styles.choiceText, { color: on ? textOn(accentFill) : colors.textSecondary }]}>{choice.label}</Text>
-                                </MatteSurface>
-                            </Pressable>
-                        );
-                    })}
-                </View>
+                pills
             ) : (
                 <>
                     {value ? <Text numberOfLines={1} style={[styles.value, { color: colors.textTertiary }]}>{value}</Text> : null}
@@ -109,7 +126,10 @@ const styles = StyleSheet.create({
     disabled: { opacity: 0.5 },
     label: { flex: 1, fontSize: 15, fontFamily: FontFamily.medium },
     value: { maxWidth: '45%', fontSize: 14, fontFamily: FontFamily.regular },
-    choices: { flexDirection: 'row', gap: 6 },
+    choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    stack: { gap: 10, paddingVertical: 12 },
+    stackHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    stackChoices: { paddingLeft: 42 },
     choice: { minWidth: 40, paddingHorizontal: 12, paddingVertical: 6, alignItems: 'center' },
     choiceText: { fontSize: 13, fontFamily: FontFamily.medium },
 });

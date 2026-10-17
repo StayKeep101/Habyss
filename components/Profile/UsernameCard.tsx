@@ -5,6 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppTextField } from '@/components/ui/AppTextField';
+import { MatteInput } from '@/components/ui/MatteInput';
+import { IconButton } from '@/components/ui/IconButton';
 import { AppButton } from '@/components/ui/AppButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -33,6 +35,55 @@ export function UsernamePill({ username, onEdit }: { username: string; onEdit: (
                 <AppIcon name="pencil" size={12} color={colors.textTertiary} />
             </MatteSurface>
         </Pressable>
+    );
+}
+
+/**
+ * Changing your @username, in place of the pill: the same shape, now a field,
+ * with a tick to save and a cross to cancel. The error, if any, under it.
+ */
+export function UsernameInline({ current, onSaved, onCancel }: { current: string; onSaved: (username: string) => void; onCancel: () => void }) {
+    const { theme } = useTheme();
+    const colors = Colors[theme];
+    const { primary } = useAccentGradient();
+    const { successFeedback } = useHaptics();
+    const [value, setValue] = useState(current);
+    const [error, setError] = useState<string | undefined>();
+    const [saving, setSaving] = useState(false);
+
+    const save = async () => {
+        const wanted = value.trim().replace(/^@/, '').toLowerCase();
+        if (!wanted || wanted === current) { onCancel(); return; }
+        setSaving(true);
+        const result = await setMyUsername(wanted);
+        setSaving(false);
+        if (!result.ok) { setError(result.error); return; }
+        successFeedback();
+        onSaved(wanted);
+    };
+
+    return (
+        <Animated.View entering={FadeIn.duration(150)} style={styles.inlineWrap}>
+            <MatteSurface radius={Radius.pill} level="control" edge={error ? colors.error : undefined} style={styles.inline}>
+                <AppIcon name="at" size={14} color={primary} />
+                <MatteInput
+                    bare
+                    autoFocus
+                    value={value}
+                    onChangeText={next => { setValue(next); setError(undefined); }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={21}
+                    returnKeyType="done"
+                    onSubmitEditing={() => void save()}
+                    style={[styles.inlineInput, { color: colors.textPrimary }]}
+                    accessibilityLabel="Your username"
+                />
+                <IconButton icon="close" label="Cancel" onPress={onCancel} diameter={26} size={14} color={colors.textTertiary} />
+                <IconButton icon="checkmark" label="Save username" onPress={() => void save()} loading={saving} diameter={26} size={14} color={primary} />
+            </MatteSurface>
+            {error ? <Text style={[styles.inlineError, { color: colors.error }]}>{error}</Text> : null}
+        </Animated.View>
     );
 }
 
@@ -117,6 +168,10 @@ const styles = StyleSheet.create({
     pillWrap: { alignSelf: 'center', marginTop: Spacing.xs },
     pill: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs + 2 },
     pillText: { fontFamily: FontFamily.semibold, fontSize: 14 },
+    inlineWrap: { alignSelf: 'center', alignItems: 'center', marginTop: Spacing.xs, gap: Spacing.xs },
+    inline: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, paddingLeft: Spacing.md, paddingRight: Spacing.xs, paddingVertical: 2, minWidth: 200 },
+    inlineInput: { flex: 1, fontFamily: FontFamily.semibold, fontSize: 14, paddingVertical: Spacing.xs + 2 },
+    inlineError: { fontFamily: FontFamily.regular, fontSize: 12 },
     wrap: { marginHorizontal: Spacing.xl, marginTop: Spacing.lg },
     flush: { alignSelf: 'stretch', marginTop: Spacing.md },
     card: { overflow: 'hidden' },
