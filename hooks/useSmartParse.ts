@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { isOnDeviceAIReady } from '@/lib/onDeviceAI';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { currentEngine, isOnDeviceAIReady } from '@/lib/onDeviceAI';
 
 /**
  * Runs an on-device model reading of `text` once typing pauses.
@@ -24,27 +24,58 @@ export function useSmartParse<T>(
     enabled = true,
 ) {
     const [result, setResult] = useState<{ text: string; value: T } | null>(null);
-    const [thinking, setThinking] = useState(false);
+    const [thinking, setThinking] = useState<string | null>(null);
+    const [failedText, setFailedText] = useState<string | null>(null);
+    const pending = useRef(false);
+    const mounted = useRef(true);
+    const revision = useRef(0);
     const latest = useRef(text);
-    latest.current = text;
-    const available = isOnDeviceAIReady() && enabled;
+    useLayoutEffect(() => {
+        if (latest.current !== text) revision.current += 1;
+        latest.current = text;
+    }, [text]);
+    const automatic = isOnDeviceAIReady() && enabled;
+    const available = currentEngine() !== null && enabled;
+    useEffect(() => {
+        mounted.current = true;
+        return () => { mounted.current = false; };
+    }, []);
+
+    // A downloaded model on an older phone runs only on an explicit tap.
+    const request = async () => {
+        const trimmed = text.trim();
+        if (!available || trimmed.length < 3 || pending.current) return;
+        const requestedRevision = revision.current;
+        pending.current = true;
+        setThinking(trimmed);
+        setFailedText(null);
+        const value = await parse(trimmed).catch(() => null);
+        pending.current = false;
+        if (!mounted.current) return;
+        setThinking(null);
+        if (requestedRevision !== revision.current) return;
+        setFailedText(value ? null : trimmed);
+        if (value) setResult({ text: trimmed, value });
+    };
 
     useEffect(() => {
         const trimmed = text.trim();
-        if (!available || trimmed.length < 3) { setThinking(false); return; }
+        if (!automatic || trimmed.length < 3) return;
         let cancelled = false;
         const timer = setTimeout(async () => {
-            setThinking(true);
+            setThinking(trimmed);
             const value = await parse(trimmed).catch(() => null);
             if (cancelled || latest.current.trim() !== trimmed) return;
-            setThinking(false);
+            setThinking(null);
             if (value) setResult({ text: trimmed, value });
         }, delay);
         return () => { cancelled = true; clearTimeout(timer); };
         // `parse` is a module function; re-running on its identity would loop.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [text, available, delay]);
+    }, [text, automatic, delay]);
 
-    const fresh = result && result.text === text.trim() ? result.value : null;
-    return { result: fresh, thinking: thinking && !fresh, available };
+    const fresh = available && result && result.text === text.trim() ? result.value : null;
+    return { result: fresh, thinking: available && thinking !== null && (!automatic || thinking === text.trim()) && !fresh, available,
+        request: available && !automatic && text.trim().length >= 3 ? request : undefined,
+        failed: available && failedText === text.trim() };
 }

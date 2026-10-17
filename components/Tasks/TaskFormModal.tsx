@@ -364,7 +364,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         <Text numberOfLines={1} style={[styles.read, { color: colors.textSecondary }]}>
                             {parsed ? describeParsedTask({ ...parsed, matched: rules?.matched ?? { date: false, time: false, estimate: false, priority: false } }) : ''}
                         </Text>
-                        <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} />
+                        <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} onRequest={smart.request} failed={smart.failed} />
                     </View>
 
                     {draft.title && draft.title !== text.trim() ? (

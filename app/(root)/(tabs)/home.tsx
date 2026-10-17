@@ -2,6 +2,10 @@ import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {View, Text, ScrollView, RefreshControl} from 'react-native';
 import { EchoLine } from '@/components/Home/EchoLine';
+import { EchoCoachCard } from '@/components/Echo/EchoCoachCard';
+import { useEchoMemory } from '@/hooks/useEchoMemory';
+import { computeInsights } from '@/lib/echoInsights';
+import { energyToday } from '@/lib/echoMemory';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ClimbMomentOverlay } from '@/components/Home/ClimbMomentOverlay';
 import { SleepCard } from '@/components/Home/SleepCard';
@@ -186,6 +190,14 @@ const Home = () => {
   const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);
+  // Echo's one thing worth knowing today, counted from the same data (lib/echoInsights.ts).
+  const echoMemory = useEchoMemory();
+  const echoEnergy = energyToday(echoMemory, todayKeyString);
+  const echoInsight = useMemo(() => computeInsights({
+    habits: allHabits, tasks: allTasks, history: historyData, completions, today: todayKeyString,
+    voice: normalizeAIPersonality(aiPersonality || 'friendly'), energy: echoEnergy, dismissed: echoMemory.dismissed,
+    remembered: echoMemory.notes.map(note => note.key).filter((key): key is string => !!key),
+  })[0], [allHabits, allTasks, historyData, completions, todayKeyString, aiPersonality, echoEnergy, echoMemory.dismissed, echoMemory.notes]);
 
   // The climb, as moments: your first foothold, then each new rank (lib/climbMoments.ts).
   const [climbMoment, setClimbMoment] = useState<ClimbMoment | null>(null);
@@ -366,7 +378,12 @@ const Home = () => {
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
-          {motivationalQuote ? <EchoLine text={motivationalQuote} style={{ marginTop: sectionGap }} /> : null}
+          {motivationalQuote ? <EchoLine text={motivationalQuote} style={{ marginTop: sectionGap }} onPress={() => { lightFeedback(); router.push('/(root)/echo' as never); }} /> : null}
+          {echoInsight || !echoEnergy ? (
+            <View style={{ marginTop: sectionGap }}>
+              <EchoCoachCard insight={echoInsight} energy={echoEnergy} today={todayKeyString} />
+            </View>
+          ) : null}
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
@@ -381,10 +398,15 @@ const Home = () => {
             />
           </Animated.View>
 
-          {/* Last night's sleep; good nights earn Marks. */}
-          <View style={{ marginTop: sectionGap }}>
-            <SleepCard />
-          </View>
+          {/* The day's promise, and the few things that would keep it. */}
+          <Animated.View style={{ marginTop: sectionGap }}>
+            <DailyFocusCard
+              focus={focus}
+              onToggle={handleFocusToggle}
+              onOpen={() => router.push('/task-stats')}
+              onAdd={() => emit('show_task_form')}
+            />
+          </Animated.View>
 
           {/* 3-Column Stats Row: Streak | Consistency | Completion */}
           <Animated.View style={{ flexDirection: 'row', gap: isCompactWidth ? s(8) : s(12), marginTop: sectionGap }}>
@@ -403,16 +425,10 @@ const Home = () => {
             />
           </Animated.View>
 
-          {/* Under the three numbers: the day's promise, and the few things
-              that would keep it. */}
-          <Animated.View style={{ marginTop: sectionGap }}>
-            <DailyFocusCard
-              focus={focus}
-              onToggle={handleFocusToggle}
-              onOpen={() => router.push('/task-stats')}
-              onAdd={() => emit('show_task_form')}
-            />
-          </Animated.View>
+          {/* Under the three numbers: last night's sleep; good nights earn Marks. */}
+          <View style={{ marginTop: sectionGap }}>
+            <SleepCard />
+          </View>
 
 
         </ScrollView>

@@ -8,7 +8,7 @@ jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' })
 jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8', foreground: '#00b9e8' }) }));
 jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
 jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
-jest.mock('@/lib/onDeviceAI', () => ({ isOnDeviceAIReady: () => false }));
+jest.mock('@/lib/onDeviceAI', () => ({ isOnDeviceAIReady: () => false, currentEngine: () => null }));
 jest.mock('@/lib/notificationService', () => ({ NotificationService: { refreshReminders: jest.fn().mockResolvedValue(undefined) } }));
 jest.mock('@/lib/habitsSQLite', () => ({
     addHabit: jest.fn().mockResolvedValue({ id: 'h1' }),

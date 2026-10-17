@@ -77,7 +77,9 @@ export default function CommunityScreen() {
         loading.current = true;
         try {
             if (!(await FriendsService.isAvailable())) { setGate('signed_out'); return; }
-            const username = await getMyUsername();
+            // Unknown (the lookup failed) is not "no username": keep what is shown.
+            const username = await getMyUsername().catch(() => undefined);
+            if (username === undefined) return;
             setUserCode(username ?? '');
             setGate(username ? null : 'needs_username');
             if (!username) return;

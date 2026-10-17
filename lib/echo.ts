@@ -107,9 +107,11 @@ export interface EchoConfig {
      * model is on the phone.
      */
     writeReminders: boolean;
+    /** The weekly review notification on the week's last evening. On unless turned off. */
+    weeklyReview?: boolean;
 }
 
-export const DEFAULT_ECHO: EchoConfig = { morning: false, evening: false, useName: true, writeReminders: false, alive: false, aliveFollowUp: true };
+export const DEFAULT_ECHO: EchoConfig = { morning: false, evening: false, useName: true, writeReminders: false, alive: false, aliveFollowUp: true, weeklyReview: true };
 
 const ECHO_KEY = 'habyss_echo_config';
 

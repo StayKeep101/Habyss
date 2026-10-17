@@ -39,6 +39,7 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 import { DayPlanCard } from '@/components/Roadmap/DayPlanCard';
+import { DEFAULT_ROADMAP_FILTER, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { buildDayPlan } from '@/lib/dayPlan';
@@ -58,7 +59,6 @@ interface Habit extends StoreHabit {
     completed?: boolean;
 }
 
-type FilterType = 'all' | 'goals_only' | 'habits_only' | 'tasks_only';
 type SortType = 'default' | 'name' | 'progress';
 type TimeFilter = 'all' | 'morning' | 'afternoon' | 'evening';
 
@@ -160,12 +160,29 @@ const CalendarScreen = () => {
 
     // UI State
     const [showFilter, setShowFilter] = useState(false);
-    const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+    // Goals, habits and tasks each on or off, so "tasks and habits, no goals"
+    // is one tap. The whole filter is remembered between launches.
+    const [shown, setShown] = useState(DEFAULT_ROADMAP_FILTER.shown);
     /** Show only what somebody else is on too. */
     const [sharedOnly, setSharedOnly] = useState(false);
     const [activeSort, setActiveSort] = useState<SortType>('default');
     const [sortDirection, setSortDirection] = useState<1 | -1>(-1);
     const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>('all');
+    const filterLoaded = useRef(false);
+    useEffect(() => {
+        void loadRoadmapFilter().then(saved => {
+            setShown(saved.shown); setSharedOnly(saved.sharedOnly); setActiveSort(saved.sort);
+            setSortDirection(saved.direction); setActiveTimeFilter(saved.time);
+            filterLoaded.current = true;
+        });
+    }, []);
+    useEffect(() => {
+        if (filterLoaded.current) void saveRoadmapFilter({ shown, sharedOnly, sort: activeSort, direction: sortDirection, time: activeTimeFilter });
+    }, [shown, sharedOnly, activeSort, sortDirection, activeTimeFilter]);
+    const toggleKind = useCallback((kind: ShownKind) => setShown(current => toggleShown(current, kind)), []);
+    // Dragging along the day strip: only what is set for that moment is listed,
+    // as its real card; nothing set there leaves the list empty.
+    const [scrubIds, setScrubIds] = useState<Set<string> | null>(null);
     const [selectedGoalFilter, setSelectedGoalFilter] = useState<string | null>(null); // Filter by specific goal ID
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null); // Filter by life pillar
     const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
@@ -849,20 +866,28 @@ const CalendarScreen = () => {
     // not: `!isGoalFilter` quietly meant "and also not tasks_only" the moment a
     // fourth value existed, which is how a filter starts showing the wrong
     // things.
-    const showGoals = activeFilter === 'all' || activeFilter === 'goals_only';
-    const showHabits = activeFilter === 'all' || activeFilter === 'habits_only';
-    const showTasks = activeFilter === 'all' || activeFilter === 'tasks_only';
+    const scrubbing = scrubIds !== null;
+    const showGoals = shown.goals && !scrubbing;
+    const showHabits = shown.habits || scrubbing;
+    const showTasks = shown.tasks || scrubbing;
+    /** Habits and tasks under a goal sit inside its card; with goals hidden they are listed on their own. */
+    const looseOnly = showGoals;
+    const listedTasks = scrubbing ? dayTasks.filter(task => scrubIds.has(`task:${task.id}`))
+        : dayTasks.filter(task => !looseOnly || !task.goalId);
+    const listedHabits = scrubbing ? allHabits.filter(habit => scrubIds.has(`habit:${habit.id}`))
+        : looseOnly ? looseHabits : allHabits;
+    const filtered = isFiltered({ shown, sharedOnly, sort: activeSort, direction: sortDirection, time: activeTimeFilter });
     const hasActiveFilters = selectedGoalFilter !== null || selectedCategoryFilter !== null || sharedOnly;
 
     const activeGoalName = selectedGoalFilter ? goals.find(g => g.id === selectedGoalFilter)?.name : null;
-    const visibleHabitCount = activeFilter === 'all'
+    const visibleHabitCount = showGoals
         ? looseHabits.length + Object.values(habitsByGoal).flat().length
         : allHabits.length;
-    const visibleGoalCount = activeFilter === 'habits_only'
+    const visibleGoalCount = !showGoals
         ? 0
         : goals.filter(goal => activeTimeFilter === 'all' || (habitsByGoal[goal.id] || []).length > 0).length;
     const activeFilterCount = [
-        activeFilter !== 'all',
+        !shown.goals || !shown.habits || !shown.tasks,
         activeSort !== 'default',
         activeTimeFilter !== 'all',
         !!selectedGoalFilter,
@@ -871,7 +896,7 @@ const CalendarScreen = () => {
 
     const resetFilters = useCallback(() => {
         selectionFeedback();
-        setActiveFilter('all');
+        setShown(DEFAULT_ROADMAP_FILTER.shown);
         setActiveSort('default');
         setSortDirection(-1);
         setSelectedGoalFilter(null);
@@ -941,10 +966,11 @@ const CalendarScreen = () => {
                                 plan={dayPlan.plan}
                                 isToday={dayPlan.isToday}
                                 accent={accentColor}
+                                onScrub={setScrubIds}
                             />
 
                             {/* Filter Indicator - Subtle compact pill */}
-                            {(activeFilter !== 'all' || hasActiveFilters || activeTimeFilter !== 'all' || activeSort !== 'default') && (
+                            {!scrubbing && (filtered || hasActiveFilters) && (
                                 <View style={{
                                     alignSelf: 'flex-start',
                                     backgroundColor: accentColor + '25', // ui-allow: decorative
@@ -970,7 +996,7 @@ const CalendarScreen = () => {
                                         <Ionicons name="filter" size={10} color={accentColor} />
                                         <Text style={{ color: accentColor, fontSize: 9, fontFamily: FontFamily.semibold, letterSpacing: 0.5 }}>
                                             {[
-                                                activeFilter !== 'all' && (activeFilter === 'goals_only' ? 'Goals' : activeFilter === 'tasks_only' ? 'Tasks' : 'Habits'),
+                                                (!shown.goals || !shown.habits || !shown.tasks) && (['goals', 'habits', 'tasks'] as const).filter(kind => shown[kind]).map(kind => kind.charAt(0).toUpperCase() + kind.slice(1)).join(' + '),
                                                 selectedGoalFilter && goals.find(g => g.id === selectedGoalFilter)?.name?.slice(0, 12),
                                                 selectedCategoryFilter && selectedCategoryFilter.charAt(0).toUpperCase() + selectedCategoryFilter.slice(1),
                                                 activeTimeFilter !== 'all' && activeTimeFilter.charAt(0).toUpperCase() + activeTimeFilter.slice(1),
@@ -1109,11 +1135,10 @@ const CalendarScreen = () => {
                             {/* When tasks are the only thing asked for, the ones
                                 under a goal belong here too — otherwise the
                                 filter hides exactly what it was set to show. */}
-                            {showTasks && dayTasks.some(task => activeFilter === 'tasks_only' || !task.goalId) && (
+                            {showTasks && listedTasks.length > 0 && (
                                 <View style={{ marginBottom: 16 }}>
-                                    <SectionTitle first>Tasks</SectionTitle>
-                                    {dayTasks
-                                        .filter(task => activeFilter === 'tasks_only' || !task.goalId)
+                                    {scrubbing ? null : <SectionTitle first>Tasks</SectionTitle>}
+                                    {listedTasks
                                         .map(task => (
                                             <ListItem key={task.id}><TaskItem
                                                 key={task.id}
@@ -1135,11 +1160,11 @@ const CalendarScreen = () => {
                             )}
 
                             {/* HABITS SECTION */}
-                            {showHabits && (activeFilter === 'all' ? looseHabits : allHabits).length > 0 && (
+                            {showHabits && listedHabits.length > 0 && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
-                                    <SectionTitle first>{activeFilter === 'all' ? 'Other habits' : 'Habits'}</SectionTitle>
+                                    {scrubbing ? null : <SectionTitle first>{looseOnly ? 'Other habits' : 'Habits'}</SectionTitle>}
 
-                                    {(activeFilter === 'all' ? looseHabits : allHabits).map(habit => {
+                                    {listedHabits.map(habit => {
                                         // Find associated goal name for habit
                                         const associatedGoal = goals.find(g => g.id === habit.goalId);
                                         return (
@@ -1154,7 +1179,7 @@ const CalendarScreen = () => {
                                                 totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
                                                 canFocusNow={statusOf(habit) === 'focus-now'}
                                                 onFocusPress={handleFocusHabit}
-                                                goalName={activeFilter === 'habits_only' && associatedGoal ? associatedGoal.name : undefined}
+                                                goalName={!looseOnly && associatedGoal ? associatedGoal.name : undefined}
                                                 onDragStart={handleHabitDragStart}
                                                 onDragMove={handleHabitDragMove}
                                                 onDragEnd={handleHabitDragEnd}
@@ -1219,7 +1244,7 @@ const CalendarScreen = () => {
                     </View>
 
                     <RoadmapFilters visible={showFilter} onClose={closeFilterModal} goals={goals} anchor={filterAnchor}
-                        show={activeFilter} onShow={setActiveFilter} focus={activeTimeFilter} onFocus={setActiveTimeFilter}
+                        shown={shown} onToggleShown={toggleKind} focus={activeTimeFilter} onFocus={setActiveTimeFilter}
                         goal={selectedGoalFilter} onGoal={setSelectedGoalFilter}
                         sharedOnly={sharedOnly} onSharedOnly={setSharedOnly}
                         order={activeSort} direction={sortDirection}

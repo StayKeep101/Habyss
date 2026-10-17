@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { ms } from '@/theme/scale';
@@ -12,7 +12,7 @@ import { useAccentGradient } from '@/context/AccentContext';
  * Its own component so the typing re-renders only this line. It lived in the
  * Home screen's state, so every letter (every 30 ms) re-rendered all of Home.
  */
-export function EchoLine({ text, style }: { text: string; style?: object }) {
+export function EchoLine({ text, style, onPress }: { text: string; style?: object; onPress?: () => void }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
@@ -30,13 +30,13 @@ export function EchoLine({ text, style }: { text: string; style?: object }) {
     }, [text]);
 
     return (
-        <View style={style}>
+        <Pressable style={style} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityHint={onPress ? 'Opens Echo' : undefined}>
             <Text style={[styles.label, { color: colors.textTertiary }]}>Echo</Text>
             <Text style={[styles.line, { color: colors.text }]}>
                 {shown}
                 {shown.length < text.length ? <Text style={{ color: primary }}>|</Text> : null}
             </Text>
-        </View>
+        </Pressable>
     );
 }
 

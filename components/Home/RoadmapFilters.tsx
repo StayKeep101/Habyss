@@ -13,7 +13,7 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
-type Show = 'all' | 'goals_only' | 'habits_only' | 'tasks_only';
+type Kind = 'goals' | 'habits' | 'tasks';
 type Focus = 'all' | 'morning' | 'afternoon' | 'evening';
 type Order = 'default' | 'name' | 'progress';
 
@@ -23,7 +23,8 @@ export interface FilterAnchor { x: number; y: number; width: number; height: num
 interface Props {
     visible: boolean; onClose: () => void; goals: Habit[];
     anchor?: FilterAnchor | null;
-    show: Show; onShow: (value: Show) => void;
+    /** Goals, habits and tasks, each on or off (at least one stays on). */
+    shown: Record<Kind, boolean>; onToggleShown: (kind: Kind) => void;
     focus: Focus; onFocus: (value: Focus) => void;
     goal: string | null; onGoal: (value: string | null) => void;
     /** Only the habits, tasks and goals somebody else is on too. */
@@ -36,13 +37,12 @@ const OPEN = { duration: 220, easing: Easing.out(Easing.cubic) };
 const CLOSE = { duration: 150, easing: Easing.in(Easing.cubic) };
 
 /**
- * The roadmap's filters, as a menu rather than a page.
+ * The roadmap's filters, as a small menu rather than a page.
  *
- * Filtering is a small decision, so it does not deserve a full sheet from the
- * bottom: it drops out of the button that opened it, shows every choice at
- * once in four rows, and closes when you tap away. The selected option is one
- * pill that slides between choices, which is what makes a segmented control
- * read as a single control rather than a row of buttons.
+ * Filtering is a small decision, so it gets a small card: one row per
+ * question, a short label and compact pills beside it, no title. It drops out
+ * of the button that opened it and closes when you tap away. What it is set
+ * to is remembered between launches (lib/roadmapFilter.ts).
  */
 export const RoadmapFilters = (props: Props) => {
     const { theme } = useTheme();
@@ -70,6 +70,9 @@ export const RoadmapFilters = (props: Props) => {
     const anchor = props.anchor;
     const top = anchor ? anchor.y + anchor.height + 8 : 96;
     const margin = 12;
+    // Only as wide as its pills need, not the width of the screen.
+    const width = Math.min(340, screen.width - margin * 2);
+    const left = anchor ? Math.min(screen.width - margin - width, Math.max(margin, anchor.x)) : (screen.width - width) / 2;
 
     const scrim = useAnimatedStyle(() => ({ opacity: progress.value * 0.55 }));
     const panel = useAnimatedStyle(() => ({
@@ -81,7 +84,7 @@ export const RoadmapFilters = (props: Props) => {
         ],
     }));
 
-    const active = props.show !== 'all' || props.focus !== 'all' || !!props.goal
+    const active = !props.shown.goals || !props.shown.habits || !props.shown.tasks || props.focus !== 'all' || !!props.goal
         || props.order !== 'default' || props.sharedOnly;
     const close = () => { lightFeedback(); props.onClose(); };
 
@@ -104,31 +107,20 @@ export const RoadmapFilters = (props: Props) => {
                     panel,
                     {
                         top,
-                        left: margin,
-                        width: screen.width - margin * 2,
+                        left,
+                        width,
                         // Grows out of the button, not the middle of the screen.
-                        transformOrigin: anchor ? `${Math.min(screen.width - margin * 2, Math.max(0, anchor.x - margin + anchor.width / 2))}px 0px` : 'top center',
+                        transformOrigin: anchor ? `${Math.min(width, Math.max(0, anchor.x - left + anchor.width / 2))}px 0px` : 'top center',
                     },
                 ]}
             >
                 {/* The matte card, floating over the list it filters. */}
-                <MatteSurface radius={24} elevation="floating" style={styles.card}>
-                    <View style={styles.header}>
-                        <Text style={[styles.title, { color: colors.textPrimary }]}>Filter</Text>
-                        {active ? (
-                            <Pressable accessibilityRole="button" accessibilityLabel="Reset filters" hitSlop={8}
-                                onPress={() => { selectionFeedback(); props.onReset(); }}>
-                                <Text style={[styles.reset, { color: colors.textSecondary }]}>Reset</Text>
-                            </Pressable>
-                        ) : null}
-                    </View>
-
-                    {/* Nothing chosen means everything is shown. Tap a choice to
-                        narrow the list, tap it again to undo it. */}
+                <MatteSurface radius={20} elevation="floating" style={styles.card}>
+                    {/* Each kind is a switch: lit means shown. */}
                     <Group label="Show">
-                        {(['goals_only', 'habits_only', 'tasks_only'] as const).map((id, index) => (
-                            <Pill key={id} label={['Goals', 'Habits', 'Tasks'][index]} on={props.show === id}
-                                onPress={() => props.onShow(props.show === id ? 'all' : id)} />
+                        {(['goals', 'habits', 'tasks'] as const).map((kind, index) => (
+                            <Pill key={kind} label={['Goals', 'Habits', 'Tasks'][index]} on={props.shown[kind]}
+                                onPress={() => props.onToggleShown(kind)} />
                         ))}
                     </Group>
 
@@ -139,8 +131,8 @@ export const RoadmapFilters = (props: Props) => {
                         ))}
                     </Group>
 
-                    <Group label="With others">
-                        <Pill label="Shared only" on={props.sharedOnly} onPress={() => props.onSharedOnly(!props.sharedOnly)} />
+                    <Group label="Shared">
+                        <Pill label="Only shared" on={props.sharedOnly} onPress={() => props.onSharedOnly(!props.sharedOnly)} />
                     </Group>
 
                     {/* Sorting always has an answer; tapping the chosen one flips it. */}
@@ -151,6 +143,13 @@ export const RoadmapFilters = (props: Props) => {
                                 onPress={() => props.onOrder(id)} />
                         ))}
                     </Group>
+
+                    {active ? (
+                        <Pressable accessibilityRole="button" accessibilityLabel="Reset filters" hitSlop={8} style={styles.resetWrap}
+                            onPress={() => { selectionFeedback(); props.onReset(); }}>
+                            <Text style={[styles.reset, { color: colors.textTertiary }]}>Reset</Text>
+                        </Pressable>
+                    ) : null}
                 </MatteSurface>
             </Animated.View>
         </Modal>
@@ -192,15 +191,14 @@ const Pill = ({ label, on, onPress, icon }: { label: string; on: boolean; onPres
 
 const styles = StyleSheet.create({
     panel: { position: 'absolute' },
-    card: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16, gap: 14 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    title: { fontSize: 18, fontFamily: FontFamily.bold },
-    reset: { fontSize: 14, fontFamily: FontFamily.medium },
-    group: { gap: 8 },
-    groupLabel: { fontSize: 12, fontFamily: FontFamily.medium },
-    pills: { flexDirection: 'row', gap: 8 },
+    card: { paddingHorizontal: 12, paddingVertical: 12, gap: 10 },
+    resetWrap: { alignSelf: 'flex-end', marginTop: -2 },
+    reset: { fontSize: 12, fontFamily: FontFamily.medium },
+    group: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    groupLabel: { width: 50, fontSize: 12, fontFamily: FontFamily.medium },
+    pills: { flex: 1, flexDirection: 'row', gap: 6 },
     pillPress: { flex: 1 },
-    pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 8 },
-    pillText: { fontSize: 13, fontFamily: FontFamily.medium },
+    pill: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 7, paddingHorizontal: 6 },
+    pillText: { fontSize: 12, fontFamily: FontFamily.medium },
     pillTextOn: { fontFamily: FontFamily.semibold },
 });

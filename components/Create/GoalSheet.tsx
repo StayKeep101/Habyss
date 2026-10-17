@@ -508,12 +508,12 @@ export const GoalSheet: React.FC<{
                         })}
                     </View>
 
-                    {draft.title && draft.title !== text.trim() ? (
+                    {(draft.title && draft.title !== text.trim()) || smart.request || smart.thinking || smart.result ? (
                         <View style={styles.readRow}>
                             <Text numberOfLines={1} style={[styles.read, { color: colors.textSecondary }]}>
                                 Goal: <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.medium }}>{draft.title}</Text>
                             </Text>
-                            <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} />
+                            <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} onRequest={smart.request} failed={smart.failed} />
                         </View>
                     ) : null}
 

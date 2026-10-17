@@ -128,7 +128,9 @@ export default function MobileLayout() {
   useEffect(() => {
     const { syncBrainDumpReview } = require('@/lib/brainDumpReview') as typeof import('@/lib/brainDumpReview');
     syncBrainDumpReview();
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') syncBrainDumpReview(); });
+    const { syncWeeklyReviewNotice } = require('@/lib/weeklyReviewNotice') as typeof import('@/lib/weeklyReviewNotice');
+    void syncWeeklyReviewNotice();
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') { syncBrainDumpReview(); void syncWeeklyReviewNotice(); } });
     return () => subscription.remove();
   }, []);
 

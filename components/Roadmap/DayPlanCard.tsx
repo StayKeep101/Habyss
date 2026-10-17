@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { FadeIn, FadeOut, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { AppIcon } from '@/components/ui/AppIcon';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useHaptics } from '@/hooks/useHaptics';
 import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { Colors } from '@/theme/colors';
@@ -15,8 +14,10 @@ import { blocksAt, clockOf, spanLabel, type DayPlan } from '@/lib/dayPlan';
  * lived filled in, and the things with a time sitting on it.
  *
  * One accent line is both "now" and the finger: it rests where the day is,
- * follows the finger (touch and hold, or drag) to show the time and every habit and task set for
- * then, and snaps back to now the moment the finger lets go.
+ * follows the finger (touch and hold, or drag) to show the time, and snaps
+ * back to now the moment the finger lets go. While it is held, the roadmap
+ * below lists only the habits and tasks set for that moment, as their real
+ * cards (`onScrub`), and nothing at all when nothing is set then.
  */
 export const DayPlanCard: React.FC<{
     plan: DayPlan;
@@ -24,7 +25,9 @@ export const DayPlanCard: React.FC<{
     isToday: boolean;
     /** No longer used: the strip is for reading the day, not opening settings. */
     onEditDay?: () => void;
-}> = ({ plan, accent, isToday }) => {
+    /** "habit:<id>" / "task:<id>" set for the moment under the finger, or null when let go. */
+    onScrub?: (ids: Set<string> | null) => void;
+}> = ({ plan, accent, isToday, onScrub }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const light = theme === 'light';
@@ -69,7 +72,17 @@ export const DayPlanCard: React.FC<{
         .onFinalize(() => { runOnJS(release)(); });
     // Touching reads straight away (no wait for movement); lifting lets go.
     const gesture = pan;
-    const atScrub = scrub === null ? [] : blocksAt(plan, scrub);
+    // Tell the roadmap only when what is set there changes, not every minute
+    // the finger crosses, so the list re-renders as rarely as possible.
+    const lastKey = useRef<string | null>(null);
+    useEffect(() => {
+        const ids = scrub === null ? null : blocksAt(plan, scrub).map(block => `${block.kind}:${block.id}`);
+        const key = ids === null ? null : ids.join(',');
+        if (key === lastKey.current) return;
+        lastKey.current = key;
+        onScrub?.(ids === null ? null : new Set(ids));
+    }, [scrub, plan, onScrub]);
+    useEffect(() => () => { if (lastKey.current !== null) onScrub?.(null); }, [onScrub]);
 
     // An hour mark every three hours, labelled like a calendar's gutter.
     const ticks: number[] = [];
@@ -127,25 +140,6 @@ export const DayPlanCard: React.FC<{
                 )) : null}
             </View>
 
-            {/* What is on at the finger's time. */}
-            {scrub !== null ? (
-                <Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(160)} style={styles.readout}>
-                    {atScrub.length === 0 ? (
-                        <Text style={[styles.free, { color: colors.textTertiary }]}>Nothing set for {clockOf(scrub)}</Text>
-                    ) : atScrub.map(block => (
-                        <View key={`${block.kind}:${block.id}`} style={styles.item}>
-                            <View style={[styles.itemDot, { backgroundColor: block.kind === 'task' ? TASK_COLOR : (block.color || accent) }]} />
-                            <Text numberOfLines={1} style={[styles.itemTitle, { color: block.done ? colors.textTertiary : colors.textPrimary, textDecorationLine: block.done ? 'line-through' : 'none' }]}>
-                                {block.title}
-                            </Text>
-                            <Text style={[styles.itemTime, { color: colors.textTertiary }]}>
-                                {block.end > block.start ? `${clockOf(block.start)}–${clockOf(block.end)}` : clockOf(block.start)}
-                            </Text>
-                            {block.done ? <AppIcon name="checkmark" size={13} color={colors.success} /> : null}
-                        </View>
-                    ))}
-                </Animated.View>
-            ) : null}
         </View>
         </GestureDetector>
     );
@@ -162,12 +156,6 @@ const styles = StyleSheet.create({
     block: { position: 'absolute', height: 4, borderRadius: 2 },
     lived: { position: 'absolute', left: 0, height: 4, borderRadius: 2, opacity: 0.3 },
     cursor: { position: 'absolute', left: 0, width: 3, height: 22, top: -4, borderRadius: 1.5 },
-    readout: { marginTop: 10, gap: 6 },
-    free: { fontSize: 13, fontFamily: FontFamily.medium },
-    item: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    itemDot: { width: 8, height: 8, borderRadius: 4 },
-    itemTitle: { flex: 1, fontSize: 14, fontFamily: FontFamily.medium },
-    itemTime: { fontSize: 12, fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
     axis: { height: 14, marginTop: 4 },
     axisText: { position: 'absolute', width: 32, textAlign: 'center', fontSize: 10, fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
 });

@@ -13,7 +13,7 @@ jest.mock('react-native-gesture-handler', () => ({
 }));
 jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
 jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
-jest.mock('@/lib/onDeviceAI', () => ({ isOnDeviceAIReady: () => false }));
+jest.mock('@/lib/onDeviceAI', () => ({ isOnDeviceAIReady: () => false, currentEngine: () => null }));
 jest.mock('@/lib/habitsSQLite', () => ({
     addHabit: jest.fn().mockResolvedValue({ id: 'g1' }),
     updateHabit: jest.fn().mockResolvedValue(undefined),

@@ -115,7 +115,7 @@ export default function ProfileScreen() {
     // undefined while loading; null when there is none yet — then it is asked for.
     const [handle, setHandle] = useState<string | null | undefined>(undefined);
     const [editingHandle, setEditingHandle] = useState(false);
-    useEffect(() => { void getMyUsername().then(found => setHandle(found ?? null)).catch(() => setHandle(null)); }, []);
+    useEffect(() => { void getMyUsername().then(found => setHandle(found ?? null)).catch(() => undefined); }, []);
 
     return (
         <VoidShell>

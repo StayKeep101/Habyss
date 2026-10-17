@@ -369,11 +369,24 @@ export const normaliseUsername = (raw: string): string => raw.trim().replace(/^@
 
 export type UsernameResult = { ok: true } | { ok: false; error: string };
 
+let knownUsername: { me: string; username: string } | null = null;
+
+/**
+ * Your @username, or null when the account truly has none. A lookup that
+ * fails (offline, or the connection just coming back) is not "none": it
+ * answers with the last one known, or throws, so no screen ever asks someone
+ * to claim a username they already have.
+ */
 export async function getMyUsername(): Promise<string | null> {
     const ctx = await signedIn();
     if (!ctx) return null;
-    const { data } = await ctx.sb.from('profiles').select('username').eq('id', ctx.me).maybeSingle();
-    return data?.username ?? null;
+    const { data, error } = await ctx.sb.from('profiles').select('username').eq('id', ctx.me).maybeSingle();
+    if (error || !data) {
+        if (knownUsername?.me === ctx.me) return knownUsername.username;
+        throw new Error(error?.message ?? 'Profile not reachable');
+    }
+    if (data.username) knownUsername = { me: ctx.me, username: data.username };
+    return data.username ?? null;
 }
 
 /** Friends find each other by username, so a new account needs one. */

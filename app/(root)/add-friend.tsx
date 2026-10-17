@@ -46,7 +46,9 @@ export default function AddFriendScreen() {
         (async () => {
             if (!username) return setState({ kind: 'error', message: 'This invite link is broken.' });
             if (!(await currentAccount())) return setState({ kind: 'signed_out' });
-            if (!(await getMyUsername())) return setState({ kind: 'needs_username' });
+            const mine = await getMyUsername().catch(() => undefined);
+            if (mine === undefined) return setState({ kind: 'error', message: 'No connection. Try again when you are online.' });
+            if (!mine) return setState({ kind: 'needs_username' });
             setState({ kind: 'ready' });
         })();
     }, [username]);

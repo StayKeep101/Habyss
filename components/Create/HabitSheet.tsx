@@ -595,12 +595,12 @@ export const HabitSheet: React.FC<{
                         </TypingPlaceholder>
                     </DictateField>
 
-                    {draft.name && draft.name !== text.trim() ? (
+                    {(draft.name && draft.name !== text.trim()) || smart.request || smart.thinking || smart.result ? (
                         <View style={styles.readRow}>
                             <Text numberOfLines={1} style={[styles.read, { color: colors.textSecondary }]}>
                                 Habit: <Text style={{ color: colors.textPrimary, fontFamily: FontFamily.medium }}>{draft.name}</Text>
                             </Text>
-                            <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} />
+                            <AIBadge thinking={smart.thinking} used={!!smart.result} color={accent} onRequest={smart.request} failed={smart.failed} />
                         </View>
                     ) : null}
 
