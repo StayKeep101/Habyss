@@ -692,6 +692,15 @@ async function isTimed(db: any, uid: string, habitId: string): Promise<boolean> 
 export const isTimedHabit = (habit: Pick<Habit, 'unit' | 'goalValue' | 'durationMinutes' | 'type' | 'trackingMethod'>): boolean =>
     measurementFor(habit).kind === 'timer';
 
+/**
+ * Whether a tap on a finished habit in a list may take the tick back. Only
+ * for a plain done-or-not habit, which costs one tap to redo; four hours of
+ * study or 30 push-ups are not lost to a stray tap: the tap opens the habit,
+ * where undoing is a deliberate choice.
+ */
+export const tapUnticks = (habit: Pick<Habit, 'unit' | 'goalValue' | 'durationMinutes' | 'type' | 'trackingMethod'>): boolean =>
+    measurementFor(habit).kind === 'boolean';
+
 export function toggleCompletion(habitId: string, dateISO = todayString()): Promise<Record<string, boolean>> {
     return writeProgress(async () => {
         const { uid, db } = await progressStorage();
@@ -1023,7 +1032,14 @@ export function saveHabitMeasurement(habitId: string, amount: number, dateISO = 
         await progressTransaction(db, async (tx: any) => {
             const current = await readMeasurement(tx, uid, habitId, target, dateISO);
             if (add) value += current;
-            if (!fromTimer && value > current && measurementFor(habit).kind === 'timer') throw new TimedHabitError();
+            if (!fromTimer && value > current && measurementFor(habit).kind === 'timer') {
+                // Undoing a reset gives back time already run today (the
+                // day's row keeps its value when it is unticked); nothing more.
+                const earned = await tx.getFirstAsync(
+                    'SELECT value FROM completions WHERE user_id = ? AND habit_id = ? AND date = ? AND COALESCE(skipped, 0) = 0', uid, habitId, dateISO,
+                );
+                if (!earned || value > (earned.value || 0)) throw new TimedHabitError();
+            }
             if (!Number.isFinite(value) || value > 100000000) throw new Error('Enter a valid amount.');
             value = Math.round(value * 1000) / 1000;
             await tx.runAsync(

@@ -19,7 +19,7 @@ import { GoalCard } from '@/components/Home/GoalCard';
 import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
 
-import { setSkipped as setSkippedHabit, subscribeToHabits, toggleCompletion, isTimedHabit, removeHabitEverywhere, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
+import { setSkipped as setSkippedHabit, subscribeToHabits, toggleCompletion, isTimedHabit, tapUnticks, removeHabitEverywhere, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useHistory } from '@/hooks/useHistory';
@@ -341,8 +341,9 @@ const CalendarScreen = () => {
             return;
         }
 
-        // A timed habit is done by running its timer: open it instead.
-        if (!completions[habit.id] && isTimedHabit(habit)) {
+        // A timed habit is done by running its timer, and a finished timed or
+        // counted one is undone on its page, not by a stray tap: open it.
+        if ((!completions[habit.id] && isTimedHabit(habit)) || (completions[habit.id] && !tapUnticks(habit))) {
             isNavigating.current = false;
             lightFeedback();
             router.push({ pathname: '/habit-detail', params: { habitId: habit.id } });
@@ -1170,7 +1171,7 @@ const CalendarScreen = () => {
                                                     }
 
                                                     const wasDone = !!completions[h.id];
-                                                    if (!wasDone && isTimedHabit(h)) {
+                                                    if ((!wasDone && isTimedHabit(h)) || (wasDone && !tapUnticks(h))) {
                                                         router.push({ pathname: '/habit-detail', params: { habitId: h.id } });
                                                         return;
                                                     }

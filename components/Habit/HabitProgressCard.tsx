@@ -159,7 +159,9 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
     };
     const primary = () => {
         if (live) { selectionFeedback(); focus.isPaused ? focus.resumeTimer() : focus.pauseTimer(); }
-        else if (complete) onChange(0);
+        // Done is done: tapping "Completed" again does nothing. Undoing is the
+        // small Undo below, so hours of work are never lost to a stray tap.
+        else if (complete) selectionFeedback();
         else if (kind === 'timer') start();
         else if (kind === 'boolean') onChange(target);
         else onAdd(step);

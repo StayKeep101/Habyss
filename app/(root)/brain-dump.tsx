@@ -98,6 +98,12 @@ export default function BrainDumpScreen() {
 
     // Hold and drag: rows measure themselves, and the drop lands where the
     // dragged row's middle ends up among the others.
+    // One text box at a time: while a thought is reworded in place, the
+    // field for a new one steps aside.
+    const [editingId, setEditingId] = useState<string | null>(null);
+    // The keyboard comes up when the page opens, not again after each edit.
+    const opening = useRef(true);
+    useEffect(() => { opening.current = false; }, []);
     const heights = useRef<Record<string, number>>({});
     const measure = (id: string) => (event: LayoutChangeEvent) => { heights.current[id] = event.nativeEvent.layout.height; };
     const dropAt = (from: number, dy: number): number => {
@@ -140,6 +146,7 @@ export default function BrainDumpScreen() {
                                 onDelete={() => void remove(thought)}
                                 onTurnInto={kind => turnInto(thought, kind)}
                                 onEdit={text => void edit(thought, text)}
+                                onEditingChange={editing => setEditingId(current => editing ? thought.id : current === thought.id ? null : current)}
                                 onLayout={measure(thought.id)}
                                 onDragStart={() => undefined}
                                 onDragMove={() => undefined}
@@ -151,11 +158,12 @@ export default function BrainDumpScreen() {
 
                 {/* Docked on the keyboard: write, then the arrow (or return) saves;
                     with nothing written, the mic is there instead. */}
+                {editingId === null ? (
                 <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
                     <MatteInput
                         bare
                         ref={input}
-                        autoFocus
+                        autoFocus={opening.current}
                         multiline
                         value={draft}
                         onChangeText={setDraft}
@@ -177,6 +185,7 @@ export default function BrainDumpScreen() {
                         <MicButton listening={dictation.listening} onPress={talk} />
                     ) : null}
                 </View>
+                ) : null}
                 {undo ? (
                     <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={[styles.undo, { backgroundColor: colors.surfaceTertiary }]}>
                         <Text numberOfLines={1} style={[styles.undoText, { color: colors.textSecondary }]}>Deleted</Text>

@@ -24,11 +24,13 @@ const timeOf = (iso: string) => {
  * One thought: just its words. Swipe left to delete it, swipe right to turn
  * it into a task, habit or goal, tap to reword it, hold and drag to move it.
  */
-export function ThoughtRow({ thought, onDelete, onTurnInto, onEdit, onLayout, onDragStart, onDragMove, onDragEnd }: {
+export function ThoughtRow({ thought, onDelete, onTurnInto, onEdit, onEditingChange, onLayout, onDragStart, onDragMove, onDragEnd }: {
     thought: Thought;
     onDelete: () => void;
     onTurnInto: (kind: 'task' | 'habit' | 'goal') => void;
     onEdit: (text: string) => void;
+    /** Rewording in place starts or ends, so the page can hide its own field. */
+    onEditingChange?: (editing: boolean) => void;
     onLayout: (event: LayoutChangeEvent) => void;
     onDragStart: () => void;
     onDragMove: (dy: number) => void;
@@ -59,6 +61,7 @@ export function ThoughtRow({ thought, onDelete, onTurnInto, onEdit, onLayout, on
 
     const finish = () => {
         setEditing(false);
+        onEditingChange?.(false);
         if (draft.trim() !== thought.text) onEdit(draft);
     };
 
@@ -87,7 +90,7 @@ export function ThoughtRow({ thought, onDelete, onTurnInto, onEdit, onLayout, on
                                     accessibilityLabel="Edit thought"
                                 />
                             ) : (
-                                <Pressable onPress={() => { setDraft(thought.text); setEditing(true); }} style={styles.flex}
+                                <Pressable onPress={() => { setDraft(thought.text); setEditing(true); onEditingChange?.(true); }} style={styles.flex}
                                     accessibilityHint="Swipe left to delete, right to turn it into something, hold to move">
                                     <Text style={[styles.text, { color: colors.textPrimary }]}>{thought.text}</Text>
                                 </Pressable>
