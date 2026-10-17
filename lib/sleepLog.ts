@@ -47,8 +47,9 @@ async function loadStored(): Promise<void> {
 }
 
 /**
- * Reads the last nights from Health. Older nights already known are kept; the
- * last three are read again, since a watch can sync a night late.
+ * Reads the last nights from Health. This week's nights are read again every
+ * time (a watch can sync a night late, and a night read too early was only
+ * half there); older ones already known are kept for Marks.
  */
 export function refreshSleep(): Promise<void> {
     refreshing ??= (async () => {
@@ -64,7 +65,7 @@ export function refreshSleep(): Promise<void> {
             const date = new Date(today);
             date.setDate(today.getDate() - back);
             const key = localDateKey(date);
-            if (back > 2 && nights[key] !== undefined) continue;
+            if (back > 7 && nights[key] !== undefined) continue;
             const minutes = await HealthKitService.read('sleep', date).catch(() => null);
             if (minutes !== null && minutes > 0) nights[key] = Math.round(minutes);
         }

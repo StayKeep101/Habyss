@@ -10,16 +10,29 @@ export type WeekStart = 'sunday' | 'monday';
 const KEY = 'habyss_week_start';
 export const DEFAULT_WEEK_START: WeekStart = 'monday';
 
+// One copy in memory, so a screen showing the week follows Settings at once.
+let current: WeekStart = DEFAULT_WEEK_START;
+const listeners = new Set<() => void>();
+const publish = (next: WeekStart) => { if (next !== current) { current = next; listeners.forEach(listener => listener()); } };
+export const currentWeekStart = (): WeekStart => current;
+export function subscribeWeekStart(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
+}
+
 export async function getWeekStart(): Promise<WeekStart> {
     try {
         const stored = await AsyncStorage.getItem(KEY);
-        return stored === 'sunday' || stored === 'monday' ? stored : DEFAULT_WEEK_START;
+        const start = stored === 'sunday' || stored === 'monday' ? stored : DEFAULT_WEEK_START;
+        publish(start);
+        return start;
     } catch {
         return DEFAULT_WEEK_START;
     }
 }
 
 export async function setWeekStart(start: WeekStart): Promise<void> {
+    publish(start);
     await AsyncStorage.setItem(KEY, start).catch(() => undefined);
 }
 

@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import WidgetKit
 
 @objc
 class WatchSessionManager: NSObject, WCSessionDelegate {
@@ -74,8 +75,28 @@ class WatchSessionManager: NSObject, WCSessionDelegate {
         self.session(session, didReceiveMessage: userInfo)
     }
 
+    /// A tick from the wrist, written exactly as a widget tap is: one file in
+    /// the shared inbox. It lands even when the app is not running, the widget
+    /// shows it at once, and the app applies it the next time it refreshes.
+    private func recordToggle(_ payload: [String: Any]) {
+        guard let id = payload["id"] as? String, id.hasPrefix("habit:") || id.hasPrefix("task:"),
+              let done = payload["done"] as? Bool, let day = payload["day"] as? String,
+              let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.habyss.data") else { return }
+        let eventId = (payload["eventId"] as? String).flatMap { $0.contains("/") || $0.contains("..") ? nil : $0 } ?? UUID().uuidString
+        let timestamp = payload["timestamp"] as? Double ?? Date().timeIntervalSince1970 * 1000
+        let event: [String: Any] = ["eventId": eventId, "id": id, "day": day, "done": done, "timestamp": timestamp]
+        guard let data = try? JSONSerialization.data(withJSONObject: event) else { return }
+        let inbox = container.appendingPathComponent("widget-events", isDirectory: true)
+        try? FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
+        try? data.write(to: inbox.appendingPathComponent(eventId + ".json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        if #available(iOS 14.0, *) { WidgetCenter.shared.reloadAllTimelines() }
+    }
+
     // Listen for Focus events from Watch
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        if message["action"] as? String == "TOGGLE", let payload = message["payload"] as? [String: Any] {
+            recordToggle(payload)
+        }
         if let type = message["type"] as? String {
             if type == "focus_start" || type == "focus_resume" {
                 DispatchQueue.main.async {

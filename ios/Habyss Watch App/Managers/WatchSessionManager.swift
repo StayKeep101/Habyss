@@ -3,143 +3,168 @@ import WatchConnectivity
 import Combine
 import WatchKit
 
-class WatchSessionManager: NSObject, ObservableObject {
-    static let shared = WatchSessionManager()
-    
-    @Published var habits: [Habit] = []
-    @Published var isReachable = false
-    @Published var lastSyncDate: Date?
-    
-    private var offlineQueue: [[String: Any]] = []
-    
-    var lastSyncString: String {
-        guard let date = lastSyncDate else { return "Never" }
-        let formatter = RelativeDateTimeFormatter()
-        return formatter.localizedString(for: date, relativeTo: .now)
+/// One of today's habits, as the phone sends it.
+struct WatchHabit: Codable, Identifiable, Hashable {
+    var id: String
+    var title: String
+    var color: String
+    var completed: Bool
+    var streakCount: Int
+    /// A timed habit is finished by its timer on the phone, not a tap.
+    var canTick: Bool
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = (try? c.decode(String.self, forKey: .title)) ?? ""
+        color = (try? c.decode(String.self, forKey: .color)) ?? ""
+        completed = (try? c.decode(Bool.self, forKey: .completed)) ?? false
+        streakCount = (try? c.decode(Int.self, forKey: .streakCount)) ?? 0
+        canTick = (try? c.decode(Bool.self, forKey: .canTick)) ?? true
     }
-    
-    override private init() {
+}
+
+/// One of today's tasks, as the phone sends it.
+struct WatchTask: Codable, Identifiable, Hashable {
+    var id: String
+    var title: String
+    var completed: Bool
+    /// "HH:MM", or empty.
+    var time: String
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = (try? c.decode(String.self, forKey: .title)) ?? ""
+        completed = (try? c.decode(Bool.self, forKey: .completed)) ?? false
+        time = (try? c.decode(String.self, forKey: .time)) ?? ""
+    }
+}
+
+/**
+ * Today, on the wrist: the tasks and habits the phone sends, and a tap to tick
+ * one. A tick shows at once and goes to the phone (by message when it is in
+ * reach, otherwise queued by the system so it is never lost). Until the phone
+ * sends a snapshot that agrees, the tick is kept here, so a stale snapshot
+ * cannot undo it.
+ */
+final class WatchSessionManager: NSObject, ObservableObject {
+    static let shared = WatchSessionManager()
+
+    @Published private(set) var habits: [WatchHabit] = []
+    @Published private(set) var tasks: [WatchTask] = []
+    @Published private(set) var dayKey: String = ""
+
+    private let store = UserDefaults.standard
+    /// "habit:<id>" / "task:<id>" → the state tapped here, until the phone agrees.
+    private var pending: [String: Bool] = [:]
+
+    private override init() {
         super.init()
-        // Initialize haptics as enabled by default
-        if UserDefaults.standard.object(forKey: "watchHapticsEnabled") == nil {
-            UserDefaults.standard.set(true, forKey: "watchHapticsEnabled")
+        pending = (store.dictionary(forKey: "watchPending") as? [String: Bool]) ?? [:]
+        if let data = store.data(forKey: "watchSnapshot"),
+           let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            apply(raw, persist: false)
         }
         if WCSession.isSupported() {
             WCSession.default.delegate = self
             WCSession.default.activate()
         }
-        loadCachedHabits()
     }
-    
-    // MARK: - Send Operations
-    
-    func sendAction(_ action: String, payload: [String: Any]) {
-        let message: [String: Any] = ["action": action, "payload": payload]
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(message, replyHandler: nil, errorHandler: { [weak self] error in
-                print("Error sending message: \(error.localizedDescription)")
-                self?.queueOfflineMessage(message)
-            })
+
+    static var today: String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+
+    /// The snapshot is from an earlier day: the phone has not sent today yet.
+    var isStale: Bool { !dayKey.isEmpty && dayKey != Self.today }
+
+    var doneCount: Int { tasks.filter(\.completed).count + habits.filter(\.completed).count }
+    var totalCount: Int { tasks.count + habits.count }
+
+    // MARK: - Ticking
+
+    func toggleTask(_ task: WatchTask) {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        tasks[index].completed.toggle()
+        send(id: "task:\(task.id)", done: tasks[index].completed)
+    }
+
+    func toggleHabit(_ habit: WatchHabit) {
+        guard habit.canTick, let index = habits.firstIndex(where: { $0.id == habit.id }) else { return }
+        habits[index].completed.toggle()
+        send(id: "habit:\(habit.id)", done: habits[index].completed)
+    }
+
+    private func send(id: String, done: Bool) {
+        pending[id] = done
+        store.set(pending, forKey: "watchPending")
+        HapticService.play(done ? .click : .directionDown)
+        if done && doneCount == totalCount { HapticService.playAllComplete() }
+
+        let message: [String: Any] = ["action": "TOGGLE", "payload": [
+            "id": id, "done": done, "day": Self.today,
+            "eventId": UUID().uuidString, "timestamp": Date().timeIntervalSince1970 * 1000,
+        ]]
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil) { _ in session.transferUserInfo(message) }
         } else {
-            queueOfflineMessage(message)
+            session.transferUserInfo(message)
         }
     }
-    
-    func sendMessage(message: [String: Any]) {
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(message, replyHandler: nil, errorHandler: { error in
-                print("Error sending message: \(error.localizedDescription)")
-            })
-        }
+
+    // MARK: - Snapshot
+
+    private func requestSnapshot() {
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isReachable else { return }
+        session.sendMessage(["action": "REQUEST_INITIAL_DATA", "payload": [:]], replyHandler: { [weak self] reply in
+            DispatchQueue.main.async { self?.apply(reply, persist: true) }
+        }, errorHandler: nil)
     }
-    
-    func requestFullSync() {
-        let request: [String: Any] = ["action": "REQUEST_FULL_SYNC", "payload": ["timestamp": Date().timeIntervalSince1970]]
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(request, replyHandler: { [weak self] response in
-                if let habitsData = response["habits"] as? [[String: Any]] {
-                    DispatchQueue.main.async {
-                        self?.habits = habitsData.map { Habit(dictionary: $0) }
-                        self?.saveHabitsToCache()
-                        self?.lastSyncDate = .now
-                    }
-                }
-            }, errorHandler: nil)
+
+    private func apply(_ data: [String: Any], persist: Bool) {
+        for (key, stored) in [("accent", "watchAccent"), ("accentFrom", "watchAccentFrom"), ("accentTo", "watchAccentTo")] {
+            if let hex = data[key] as? String { store.set(hex, forKey: stored) }
         }
-    }
-    
-    func requestUpdate() {
-        guard WCSession.default.isReachable else { return }
-        sendAction("REQUEST_INITIAL_DATA", payload: [:])
-    }
-    
-    // MARK: - Cache
-    
-    func saveHabitsToCache() {
-        if let data = try? JSONEncoder().encode(habits) {
-            UserDefaults.standard.set(data, forKey: HabyssConstants.cachedHabitsKey)
-            UserDefaults.standard.set(Date(), forKey: HabyssConstants.habitCacheDateKey)
-        }
-    }
-    
-    func loadCachedHabits() {
-        // Try Codable cache first
-        if let data = UserDefaults.standard.data(forKey: HabyssConstants.cachedHabitsKey),
-           let cached = try? JSONDecoder().decode([Habit].self, from: data) {
-            self.habits = cached
-            return
-        }
-        // Fallback to App Group (shared with iOS app)
-        if let userDefaults = UserDefaults(suiteName: HabyssConstants.appGroupId),
-           let jsonStr = userDefaults.string(forKey: "habitsData"),
-           let data = jsonStr.data(using: .utf8),
-           let decoded = try? JSONDecoder().decode([Habit].self, from: data) {
-            self.habits = decoded
-        }
-    }
-    
-    func markHabitCompleted(habitId: String, count: Int = 1) {
-        if let idx = habits.firstIndex(where: { $0.id == habitId }) {
-            habits[idx].isCompletedToday = true
-            if habits[idx].supportsCountable {
-                habits[idx].completionCount = min(
-                    habits[idx].completionCount + count,
-                    habits[idx].targetCount
-                )
+        guard data["habits"] != nil || data["tasks"] != nil else { return }
+        var nextHabits = decode([WatchHabit].self, data["habits"]) ?? habits
+        var nextTasks = decode([WatchTask].self, data["tasks"]) ?? tasks
+        let day = data["dayKey"] as? String ?? dayKey
+        if day != dayKey { pending = pending.filter { _ in day == Self.today } }
+
+        // A tick made here wins until the phone's snapshot shows the same.
+        for (key, done) in pending {
+            if key.hasPrefix("habit:"), let i = nextHabits.firstIndex(where: { "habit:\($0.id)" == key }) {
+                if nextHabits[i].completed == done { pending[key] = nil } else { nextHabits[i].completed = done }
+            } else if key.hasPrefix("task:"), let i = nextTasks.firstIndex(where: { "task:\($0.id)" == key }) {
+                if nextTasks[i].completed == done { pending[key] = nil } else { nextTasks[i].completed = done }
             } else {
-                habits[idx].completionCount = habits[idx].targetCount
-            }
-            habits[idx].streakCount += 1
-            saveHabitsToCache()
-        }
-        // Notify phone
-        sendAction("COMPLETE_HABIT", payload: ["id": habitId, "count": count, "source": "watch"])
-    }
-    
-    // MARK: - Offline Queue
-    
-    private func queueOfflineMessage(_ message: [String: Any]) {
-        offlineQueue.append(message)
-        persistOfflineQueue()
-    }
-    
-    private func flushOfflineQueue() {
-        let pending = offlineQueue
-        offlineQueue.removeAll()
-        persistOfflineQueue()
-        for msg in pending {
-            if WCSession.default.isReachable {
-                WCSession.default.sendMessage(msg, replyHandler: nil, errorHandler: nil)
-            } else {
-                // Use transferUserInfo for guaranteed delivery
-                WCSession.default.transferUserInfo(msg)
+                pending[key] = nil
             }
         }
+        store.set(pending, forKey: "watchPending")
+
+        habits = nextHabits
+        tasks = nextTasks
+        dayKey = day
+        if persist, let saved = try? JSONSerialization.data(withJSONObject: [
+            "habits": data["habits"] ?? [], "tasks": data["tasks"] ?? [], "dayKey": day,
+        ]) {
+            store.set(saved, forKey: "watchSnapshot")
+        }
     }
-    
-    private func persistOfflineQueue() {
-        // Simplified persistence — convert to Data via NSKeyedArchiver or store count
-        UserDefaults.standard.set(offlineQueue.count, forKey: "offlineQueueCount")
+
+    private func decode<T: Decodable>(_ type: T.Type, _ value: Any?) -> T? {
+        guard let value, JSONSerialization.isValidJSONObject(value),
+              let data = try? JSONSerialization.data(withJSONObject: value) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
     }
 }
 
@@ -147,171 +172,27 @@ class WatchSessionManager: NSObject, ObservableObject {
 
 extension WatchSessionManager: WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        if let error = error {
-            print("WCSession activation failed: \(error.localizedDescription)")
-        } else {
-            print("WCSession activated with state: \(activationState.rawValue)")
-            DispatchQueue.main.async {
-                self.isReachable = session.isReachable
-            }
-            if activationState == .activated {
-                requestUpdate()
-                flushOfflineQueue()
-            }
-        }
-    }
-    
-    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        DispatchQueue.main.async { self.handleMessage(message) }
-    }
-    
-    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        DispatchQueue.main.async { self.handleMessage(applicationContext) }
-    }
-    
-    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
-        DispatchQueue.main.async { self.handleMessage(userInfo) }
-    }
-    
-    func sessionReachabilityDidChange(_ session: WCSession) {
+        guard activationState == .activated else { return }
+        let context = session.receivedApplicationContext
         DispatchQueue.main.async {
-            self.isReachable = session.isReachable
-            if session.isReachable { self.flushOfflineQueue() }
+            if !context.isEmpty { self.apply(context, persist: true) }
+            self.requestSnapshot()
         }
     }
-    
-    private func handleMessage(_ data: [String: Any]) {
-        // The phone's theme, so the watch is the same colour as the app.
-        for (key, stored) in [("accent", "watchAccent"), ("accentFrom", "watchAccentFrom"), ("accentTo", "watchAccentTo")] {
-            if let hex = data[key] as? String { UserDefaults.standard.set(hex, forKey: stored) }
-        }
-        if let habitsData = data["habits"] as? [[String: Any]] {
-            self.habits = habitsData.map { Habit(dictionary: $0) }
-            self.lastSyncDate = .now
-            saveHabitsToCache()
-        }
+
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        DispatchQueue.main.async { self.apply(applicationContext, persist: true) }
     }
-}
 
-// MARK: - Habit Model
-
-struct Habit: Codable, Identifiable, Hashable {
-    var id: String
-    var title: String
-    var emoji: String
-    var icon: String            // SF Symbol fallback
-    var category: HabitCategory
-    var frequency: HabitFrequency
-    var targetCount: Int
-    var unit: String
-    var color: String           // hex string
-    var streakCount: Int
-    var longestStreak: Int
-    var isCompletedToday: Bool
-    var completionCount: Int
-    var isPinned: Bool
-    var supportsCountable: Bool
-    var watchPriority: Int
-    
-    // Computed
-    var progress: Double {
-        targetCount > 0 ? Double(completionCount) / Double(targetCount) : 0
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        DispatchQueue.main.async { self.apply(message, persist: true) }
     }
-    
-    init(dictionary: [String: Any]) {
-        self.id = dictionary["id"] as? String ?? UUID().uuidString
-        self.title = dictionary["title"] as? String ?? "Unknown"
-        self.emoji = dictionary["emoji"] as? String ?? "⭐"
-        self.icon = dictionary["icon"] as? String ?? "star"
-        self.category = HabitCategory(rawValue: dictionary["category"] as? String ?? "custom") ?? .custom
-        self.frequency = HabitFrequency(rawValue: dictionary["frequency"] as? String ?? "daily") ?? .daily
-        self.targetCount = dictionary["targetCount"] as? Int ?? dictionary["target_count"] as? Int ?? 1
-        self.unit = dictionary["unit"] as? String ?? ""
-        self.color = dictionary["color"] as? String ?? "#3B82F6"
-        self.streakCount = dictionary["streakCount"] as? Int ?? dictionary["streak_count"] as? Int ?? 0
-        self.longestStreak = dictionary["longestStreak"] as? Int ?? dictionary["longest_streak"] as? Int ?? 0
-        self.isCompletedToday = dictionary["completed"] as? Bool ?? dictionary["isCompletedToday"] as? Bool ?? false
-        self.completionCount = dictionary["completionCount"] as? Int ?? dictionary["completion_count"] as? Int ?? (self.isCompletedToday ? self.targetCount : 0)
-        self.isPinned = dictionary["isPinned"] as? Bool ?? dictionary["is_pinned"] as? Bool ?? false
-        self.supportsCountable = dictionary["supportsCountable"] as? Bool ?? dictionary["supports_countable"] as? Bool ?? false
-        self.watchPriority = dictionary["watchPriority"] as? Int ?? dictionary["watch_priority"] as? Int ?? 0
+
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        DispatchQueue.main.async { self.apply(userInfo, persist: true) }
     }
-    
-    // Default init for previews/testing
-    init(
-        id: String = UUID().uuidString,
-        title: String,
-        emoji: String = "⭐",
-        icon: String = "star",
-        category: HabitCategory = .custom,
-        frequency: HabitFrequency = .daily,
-        targetCount: Int = 1,
-        unit: String = "",
-        color: String = "#3B82F6",
-        streakCount: Int = 0,
-        longestStreak: Int = 0,
-        isCompletedToday: Bool = false,
-        completionCount: Int = 0,
-        isPinned: Bool = false,
-        supportsCountable: Bool = false,
-        watchPriority: Int = 0
-    ) {
-        self.id = id
-        self.title = title
-        self.emoji = emoji
-        self.icon = icon
-        self.category = category
-        self.frequency = frequency
-        self.targetCount = targetCount
-        self.unit = unit
-        self.color = color
-        self.streakCount = streakCount
-        self.longestStreak = longestStreak
-        self.isCompletedToday = isCompletedToday
-        self.completionCount = completionCount
-        self.isPinned = isPinned
-        self.supportsCountable = supportsCountable
-        self.watchPriority = watchPriority
-    }
-}
 
-enum HabitCategory: String, Codable, CaseIterable {
-    case health = "health"
-    case fitness = "fitness"
-    case mindfulness = "mindfulness"
-    case learning = "learning"
-    case productivity = "productivity"
-    case social = "social"
-    case custom = "custom"
-    
-    var systemImage: String {
-        switch self {
-        case .health: return "heart.fill"
-        case .fitness: return "figure.run"
-        case .mindfulness: return "brain.head.profile"
-        case .learning: return "book.fill"
-        case .productivity: return "checklist"
-        case .social: return "person.2.fill"
-        case .custom: return "star.fill"
-        }
-    }
-}
-
-enum HabitFrequency: String, Codable {
-    case daily = "daily"
-    case weekdays = "weekdays"
-    case weekends = "weekends"
-    case custom = "custom"
-}
-
-// MARK: - UserContext
-
-struct UserContext {
-    let name: String
-    let level: Int
-    
-    init(dictionary: [String: Any]) {
-        self.name = dictionary["name"] as? String ?? "User"
-        self.level = dictionary["level"] as? Int ?? 1
+    func sessionReachabilityDidChange(_ session: WCSession) {
+        if session.isReachable { DispatchQueue.main.async { self.requestSnapshot() } }
     }
 }

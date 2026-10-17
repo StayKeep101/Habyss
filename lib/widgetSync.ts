@@ -143,7 +143,7 @@ async function writeWidgets(): Promise<WidgetPayload | null> {
         await WidgetService.write(payload);
         // The watch shows the same day, from the same numbers.
         const { pushToWatch } = require('./watchSync') as typeof import('./watchSync');
-        pushToWatch({ habits, history, today, streak, accent: payload.accent });
+        pushToWatch({ habits, tasks, history, today, streak, accent: payload.accent });
         // Echo's hourly lines ride along with the day: they are built from the
         // same numbers, so writing them anywhere else would risk the lock
         // screen quoting a streak the widget above it disagrees with.

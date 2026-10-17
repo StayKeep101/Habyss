@@ -2,32 +2,17 @@ import WatchKit
 
 struct HapticService {
     static let device = WKInterfaceDevice.current()
-    
-    /// Play a haptic only if haptics are enabled in user preferences
+
+    /// Plays a haptic unless the user turned them off (on by default).
     static func play(_ type: WKHapticType) {
-        guard UserDefaults.standard.bool(forKey: "watchHapticsEnabled") else { return }
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: "watchHapticsEnabled") == nil || defaults.bool(forKey: "watchHapticsEnabled") else { return }
         device.play(type)
     }
-    
-    /// Celebratory double-tap for streak milestones
-    static func playMilestone() {
+
+    /// The whole day ticked off.
+    static func playAllComplete() {
         play(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { play(.success) }
     }
-    
-    /// Triple click for 100% daily completion
-    static func playAllComplete() {
-        play(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { play(.success) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { play(.success) }
-    }
-    
-    /// Single click for quick log confirmation
-    static func playQuickLog() {
-        play(.click)
-    }
-    
-    /// Breathing cues
-    static func playInhale() { play(.directionUp) }
-    static func playExhale() { play(.directionDown) }
 }

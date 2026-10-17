@@ -13,12 +13,15 @@ import { useSleep } from '@/hooks/useSleep';
 import { formatSleep } from '@/lib/sleepLog';
 import { MARKS } from '@/lib/marks';
 import { localDateKey } from '@/lib/habitSchedule';
+import { startOfWeek } from '@/lib/weekStart';
+import { useWeekStart } from '@/hooks/useWeekStart';
 
 const BAR_HEIGHT = 56;
-const NIGHTS = 7;
 
 /**
- * Last night's sleep, from Apple Health, and the week behind it. A night that
+ * Last night's sleep, from Apple Health, and this week so far: one bar per
+ * night, starting on the day the week starts (Settings), days still to come
+ * left empty. A new week starts with a clean row. A night that
  * reaches your goal earns 5 Marks; a recorded night short of it costs 5. The goal is set
  * in Settings. Only shown when something actually records sleep.
  */
@@ -27,18 +30,22 @@ export function SleepCard() {
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
     const sleep = useSleep();
+    const weekStart = useWeekStart();
 
     // No sleep tracker (no Watch, Garmin, ring…) or Health not connected:
     // no card at all, rather than an empty one or a prompt.
     if (!sleep.connected || Object.keys(sleep.nights).length === 0) return null;
 
-    const today = new Date();
-    const mornings = Array.from({ length: NIGHTS }, (_, index) => {
-        const date = new Date(today);
-        date.setDate(today.getDate() - (NIGHTS - 1 - index));
-        return { key: localDateKey(date), label: date.toLocaleDateString(undefined, { weekday: 'narrow' }) };
+    // Each morning of this week; a night belongs to the morning it ends on.
+    const todayKey = localDateKey(new Date());
+    const first = startOfWeek(new Date(), weekStart);
+    const mornings = Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(first);
+        date.setDate(first.getDate() + index);
+        const key = localDateKey(date);
+        return { key, label: date.toLocaleDateString(undefined, { weekday: 'narrow' }), isToday: key === todayKey, ahead: key > todayKey };
     });
-    const last = sleep.nights[mornings[NIGHTS - 1].key];
+    const last = sleep.nights[todayKey];
     const met = last !== undefined && last >= sleep.target;
     const ceiling = Math.max(sleep.target * 1.25, ...mornings.map(day => sleep.nights[day.key] ?? 0));
 
@@ -65,14 +72,17 @@ export function SleepCard() {
                     {/* The goal is set in Settings. */}
                     <Text style={[styles.goalText, { color: colors.textSecondary }]}>Goal {formatSleep(sleep.target)}</Text>
                 </View>
-                <View style={styles.bars} accessible accessibilityLabel={`Last ${NIGHTS} nights`}>
+                <View style={styles.bars} accessible
+                    accessibilityLabel={`This week: ${mornings.filter(day => !day.ahead).map(day => sleep.nights[day.key] ? formatSleep(sleep.nights[day.key]) : 'no data').join(', ')}`}>
                     {mornings.map((day, index) => {
                         const minutes = sleep.nights[day.key];
                         return (
                             <View key={day.key} style={styles.barCol}>
-                                <Bar share={minutes ? minutes / ceiling : 0} index={index}
-                                    color={minutes === undefined ? colors.surfaceTertiary : minutes >= sleep.target ? colors.success : primary} />
-                                <Text style={[styles.barLabel, { color: colors.textTertiary }]}>{day.label}</Text>
+                                {day.ahead ? <View style={styles.barTrack} /> : (
+                                    <Bar share={minutes ? minutes / ceiling : 0} index={index} replay={weekStart}
+                                        color={minutes === undefined ? colors.surfaceTertiary : minutes >= sleep.target ? colors.success : primary} />
+                                )}
+                                <Text style={[styles.barLabel, { color: day.isToday ? colors.textPrimary : colors.textTertiary }, day.isToday && styles.barLabelToday]}>{day.label}</Text>
                             </View>
                         );
                     })}
@@ -82,8 +92,8 @@ export function SleepCard() {
     );
 }
 
-function Bar({ share, index, color }: { share: number; index: number; color: string }) {
-    const grown = useProgress(Math.max(0.06, Math.min(1, share)), index * 40);
+function Bar({ share, index, color, replay }: { share: number; index: number; color: string; replay?: unknown }) {
+    const grown = useProgress(Math.max(0.06, Math.min(1, share)), index * 40, replay);
     const style = useAnimatedStyle(() => ({ height: grown.get() * BAR_HEIGHT }));
     return (
         <View style={styles.barTrack}>
@@ -109,4 +119,5 @@ const styles = StyleSheet.create({
     barTrack: { width: 10, height: BAR_HEIGHT, justifyContent: 'flex-end' },
     bar: { width: '100%', borderRadius: 5 },
     barLabel: { fontFamily: FontFamily.regular, fontSize: 10 },
+    barLabelToday: { fontFamily: FontFamily.semibold },
 });
