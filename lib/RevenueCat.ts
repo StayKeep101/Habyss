@@ -1,4 +1,4 @@
-import Purchases, { PurchasesOffering, PurchasesPackage, CustomerInfo, LOG_LEVEL } from 'react-native-purchases';
+import Purchases, { PurchasesOffering, PurchasesPackage, PurchasesStoreProduct, CustomerInfo, LOG_LEVEL, PRODUCT_CATEGORY } from 'react-native-purchases';
 import { Platform } from 'react-native';
 import { PAYWALL_ENABLED } from '@/constants/features';
 
@@ -157,6 +157,28 @@ class RevenueCatService {
                 throw e;
             }
             throw new Error('User cancelled');
+        }
+    }
+
+    /** A one-off purchase (the coffee), or null when the store or key is not set up. */
+    async getOneOff(productId: string): Promise<PurchasesStoreProduct | null> {
+        if (!(await this.ensureInitialized())) return null;
+        try {
+            const [product] = await Purchases.getProducts([productId], PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+            return product ?? null;
+        } catch {
+            return null;
+        }
+    }
+
+    /** Buys it. 'cancelled' when the person closes Apple's sheet; that is not an error. */
+    async buyOneOff(product: PurchasesStoreProduct): Promise<'bought' | 'cancelled' | 'failed'> {
+        if (!(await this.ensureInitialized())) return 'failed';
+        try {
+            await Purchases.purchaseStoreProduct(product);
+            return 'bought';
+        } catch (e: any) {
+            return e?.userCancelled ? 'cancelled' : 'failed';
         }
     }
 

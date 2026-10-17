@@ -1,4 +1,4 @@
-import { computeMarks, rankBand, rankFor, RANKS } from '../marks';
+import { computeMarks, penaltiesOf, rankBand, rankFor, RANKS } from '../marks';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 
@@ -103,5 +103,34 @@ describe('sleep', () => {
         const mixed = computeMarks({ habits: [], tasks: [], history: {}, goodNights: ['2026-10-14', '2026-10-15'], shortNights: ['2026-10-16'], today: '2026-10-16' });
         expect(mixed.total).toBe(5);
         expect(mixed.events.filter(event => event.item === 'sleep')).toHaveLength(3);
+    });
+});
+
+describe('deleting is break-even, never a way up', () => {
+    const base = { tasks: [] as Task[], today: TODAY };
+
+    it('takes back everything a finished task earned when it is deleted', () => {
+        const before = computeMarks({ habits: [], history: {}, today: TODAY, tasks: [] }).total;
+        const done = task({ status: 'done', completedAt: '2026-10-02T10:00:00' });
+        expect(computeMarks({ habits: [], history: {}, today: TODAY, tasks: [done] }).total).toBe(before + 12);
+        // Deleted: gone from the list, nothing kept (it was never missed).
+        expect(penaltiesOf({ habits: [], history: {}, today: TODAY, tasks: [done] }, { tasks: ['t'] })).toEqual([]);
+        expect(computeMarks({ habits: [], history: {}, today: TODAY, tasks: [] }).total).toBe(before);
+    });
+
+    it('keeps the misses of a deleted habit, so deleting a neglected one does not raise Marks', () => {
+        // Kept Oct 1 and 2 (+10, +1 for adding), missed Oct 3 and 4 (-4): 7.
+        const input = { ...base, habits: [habit()], history: { '2026-10-01': ['h'], '2026-10-02': ['h'] } };
+        const withHabit = computeMarks(input).total;
+        const kept = penaltiesOf(input, { habits: ['h'] });
+        expect(kept.map(p => [p.date, p.points])).toEqual([['2026-10-04', -2], ['2026-10-03', -2]]);
+        const afterDelete = computeMarks({ ...base, habits: [], history: input.history, kept }).total;
+        expect(afterDelete).toBeLessThanOrEqual(withHabit);
+    });
+
+    it('add then delete straight away changes nothing', () => {
+        const fresh = habit({ startDate: TODAY, createdAt: `${TODAY}T09:00:00` });
+        const kept = penaltiesOf({ ...base, habits: [fresh], history: {} }, { habits: ['h'] });
+        expect(computeMarks({ ...base, habits: [], history: {}, kept }).total).toBe(0);
     });
 });

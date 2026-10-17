@@ -434,6 +434,8 @@ export async function updateHabit(updatedHabit: Partial<Habit> & { id: string })
 export async function removeHabitEverywhere(habitId: string): Promise<void> {
     const uid = await getUserId();
     const now = new Date().toISOString();
+    // What it cost in misses stays on the record (lib/marksLedger.ts).
+    await (require('./marksLedger') as typeof import('./marksLedger')).keepPenaltiesOf({ habits: [habitId] });
 
     // Try SQLite first (offline-capable)
     if (isSQLiteAvailable()) {

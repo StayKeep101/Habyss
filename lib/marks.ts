@@ -15,8 +15,11 @@ import { countedHistory, countedTasks } from './sharedGate';
  * Nothing is stored. Marks are read back from what is already recorded — the
  * habits, tasks and goals, every check-in, every due date — so the number can
  * never drift from the history, a restore brings it back exactly, and undoing
- * a tick takes its marks back with it. Deleting something removes what it
- * earned and what it cost, as if it had never been on the list.
+ * a tick takes its marks back with it. Deleting something takes back
+ * exactly what it earned (adding it, keeping it), so adding and deleting is
+ * always break-even. What it cost stays: the misses are kept when it is
+ * deleted (`kept`, lib/marksLedger.ts), so deleting a neglected habit is never
+ * a way to climb.
  */
 
 export const MARKS = {
@@ -84,8 +87,12 @@ export interface MarksInput {
     goodNights?: string[];
     /** Mornings after a recorded night that fell short of it: −5 each. A night with no data counts for nothing. */
     shortNights?: string[];
+    /** Misses of things since deleted: deleting takes back what was earned, never what was lost. */
+    kept?: KeptPenalty[];
     today: string;
 }
+
+export interface KeptPenalty { date: string; points: number; item: MarkItem; title: string }
 
 export interface MarksResult {
     total: number;
@@ -186,6 +193,11 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         if (night >= floor) record(night, MARKS.miss.sleep, 'miss', 'sleep', 'A short night');
     }
 
+    // ------------------------------------------------- misses of deleted things
+    for (const penalty of input.kept ?? []) {
+        if (penalty.date >= floor && penalty.points < 0) record(penalty.date, penalty.points, 'miss', penalty.item, penalty.title);
+    }
+
     // ---------------------------------------------------------------- series
     const days = [...byDay.keys()].sort();
     const series: { date: string; value: number }[] = [];
@@ -208,4 +220,25 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         series,
         events: events.slice(0, recent),
     };
+}
+
+/**
+ * The misses one habit, goal or task has cost so far: what stays on the
+ * record when it is deleted.
+ */
+export function penaltiesOf(input: MarksInput, ids: { habits?: string[]; tasks?: string[] }): KeptPenalty[] {
+    const habitIds = new Set(ids.habits ?? []);
+    const taskIds = new Set(ids.tasks ?? []);
+    if (!habitIds.size && !taskIds.size) return [];
+    const only: MarksInput = {
+        ...input,
+        habits: input.habits.filter(habit => habitIds.has(habit.id)),
+        tasks: input.tasks.filter(task => taskIds.has(task.id)),
+        goodNights: [], shortNights: [], kept: [],
+    };
+    return computeMarks(only, Number.MAX_SAFE_INTEGER).events
+        // A goal's deadline miss depends on whether it was reached, which only
+        // its insights know; goals are left out rather than charged wrongly.
+        .filter(event => event.kind === 'miss' && event.item !== 'goal')
+        .map(({ date, points, item, title }) => ({ date, points, item, title }));
 }

@@ -270,6 +270,8 @@ async function publishIfShared(taskId: string, done: boolean): Promise<void> {
 export async function deleteTask(id: string): Promise<void> {
     const db = await getDatabase();
     if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
+    // What it cost in misses stays on the record (lib/marksLedger.ts).
+    await (require('./marksLedger') as typeof import('./marksLedger')).keepPenaltiesOf({ tasks: [id] });
     await db.runAsync('UPDATE tasks SET deleted = 1, updated_at = ?, synced = 0 WHERE id = ?', nowISO(), id);
 }
 
@@ -277,6 +279,8 @@ export async function deleteTask(id: string): Promise<void> {
 export async function deleteTasksForGoal(goalId: string): Promise<void> {
     const db = await getDatabase();
     if (!db) throw new Error('Task storage is unavailable. Your changes were not saved.');
+    const ids = ((await db.getAllAsync('SELECT id FROM tasks WHERE goal_id = ? AND deleted = 0', goalId)) ?? []).map((row: { id: string }) => row.id);
+    await (require('./marksLedger') as typeof import('./marksLedger')).keepPenaltiesOf({ tasks: ids });
     await db.runAsync(
         'UPDATE tasks SET deleted = 1, updated_at = ?, synced = 0 WHERE goal_id = ? AND deleted = 0',
         nowISO(), goalId,

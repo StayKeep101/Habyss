@@ -10,7 +10,9 @@ import { FontFamily, Radius, Spacing, elevationFor, surfaceFor } from '@/theme/d
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import { BUY_ME_A_COFFEE_URL } from '@/constants/brand';
+import { BUY_ME_A_COFFEE_URL, COFFEE_PRODUCT_ID } from '@/constants/brand';
+import RevenueCatService from '@/lib/RevenueCat';
+import type { PurchasesStoreProduct } from 'react-native-purchases';
 
 const CLOSE = { duration: 200, easing: Easing.in(Easing.cubic) };
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -28,6 +30,17 @@ export function CoffeePopup({ visible, onClose }: { visible: boolean; onClose: (
     const insets = useSafeAreaInsets();
     const { successFeedback, lightFeedback } = useHaptics();
     const [mounted, setMounted] = useState(visible);
+    // The $5 coffee from the App Store, with its price in the person's currency.
+    const [product, setProduct] = useState<PurchasesStoreProduct | null>(null);
+    const [buying, setBuying] = useState(false);
+    const [thanked, setThanked] = useState(false);
+    useEffect(() => {
+        if (!visible) return;
+        setThanked(false);
+        let alive = true;
+        void RevenueCatService.getOneOff(COFFEE_PRODUCT_ID).then(found => { if (alive) setProduct(found); });
+        return () => { alive = false; };
+    }, [visible]);
     const progress = useSharedValue(0);
     if (visible && !mounted) setMounted(true);
 
@@ -45,10 +58,20 @@ export function CoffeePopup({ visible, onClose }: { visible: boolean; onClose: (
 
     if (!mounted) return null;
     const close = () => { lightFeedback(); onClose(); };
-    const buy = () => {
+    const buy = async () => {
+        if (thanked) { onClose(); return; }
+        if (product) {
+            setBuying(true);
+            const result = await RevenueCatService.buyOneOff(product);
+            setBuying(false);
+            if (result === 'bought') { successFeedback(); setThanked(true); }
+            return;
+        }
         if (BUY_ME_A_COFFEE_URL) void Linking.openURL(BUY_ME_A_COFFEE_URL).catch(() => undefined);
         onClose();
     };
+    const buyLabel = thanked ? 'Thank you, truly' : buying ? 'One moment…'
+        : product ? `Buy me a coffee · ${product.priceString}` : BUY_ME_A_COFFEE_URL ? 'Buy me a coffee' : 'Noted, thanks';
 
     return (
         <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
@@ -61,15 +84,15 @@ export function CoffeePopup({ visible, onClose }: { visible: boolean; onClose: (
                     <Animated.View style={[styles.cupWrap, cup]}>
                         <AppIcon name="cafe" size={84} color={COFFEE} />
                     </Animated.View>
-                    <Text style={[styles.title, { color: colors.textPrimary }]}>Buy me a coffee</Text>
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>{thanked ? 'Coffee received' : 'Buy me a coffee'}</Text>
                     <Text style={[styles.body, { color: colors.textSecondary }]}>
-                        Okay, the real answer: Habyss is free because one person builds it. A coffee keeps it that way.
+                        {thanked ? 'That one goes straight into the next update.' : 'Okay, the real answer: Habyss is free because one person builds it. A coffee keeps it that way.'}
                     </Text>
-                    <Pressable accessibilityRole="button" onPress={buy} style={styles.buttonWrap}>
+                    <Pressable accessibilityRole="button" onPress={() => void buy()} disabled={buying} style={styles.buttonWrap}>
                         <View style={styles.primary}>
                             <LinearGradient colors={buttonColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
                             <AppIcon name="cafe" size={18} color={colors.background} />
-                            <Text style={[styles.primaryText, { color: colors.background }]}>{BUY_ME_A_COFFEE_URL ? 'Buy me a coffee' : 'Noted, thanks'}</Text>
+                            <Text style={[styles.primaryText, { color: colors.background }]}>{buyLabel}</Text>
                         </View>
                     </Pressable>
                     <Pressable accessibilityRole="button" onPress={close} style={styles.buttonWrap}>

@@ -1,4 +1,5 @@
-const mockDb = { runAsync: jest.fn(async () => ({ changes: 1 })) };
+const mockDb = { runAsync: jest.fn(async () => ({ changes: 1 })), getAllAsync: jest.fn(async () => [{ id: 't1' }]) };
+jest.mock('../marksLedger', () => ({ keepPenaltiesOf: jest.fn(async () => undefined) }));
 jest.mock('../database', () => ({
     getDatabase: jest.fn(async () => mockDb),
     isSQLiteAvailable: () => true,

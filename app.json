@@ -4,7 +4,7 @@
     "slug": "Habyss",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Habyss Logo.png",
+    "icon": "./assets/images/app-icon.png",
     "scheme": "habyss",
     "userInterfaceStyle": "automatic",
     "ios": {
