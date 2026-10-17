@@ -134,7 +134,8 @@ struct SimpleEntry: TimelineEntry {
             HabitModel(id: "preview:3", name: "Plan tomorrow", isCompleted: false),
             HabitModel(id: "preview:4", name: "Review the draft", isCompleted: false),
             HabitModel(id: "preview:5", name: "Pick up groceries", isCompleted: false)
-        ], summary: WidgetSummary(total: 7, completed: 2), dayKey: todayKey())
+        ], summary: WidgetSummary(total: 7, completed: 2),
+           accentFrom: DashboardSnapshot.read()?.accent.from, accentTo: DashboardSnapshot.read()?.accent.to, dayKey: todayKey())
     }
 }
 
@@ -164,9 +165,9 @@ struct WidgetEntryView: View {
         case .accessoryInline:
             Text(entry.needsSync ? "Open Habyss to sync" : "\(remaining) tasks remaining")
         default:
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("Today").sectionLabel()
+                    Text("Today").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                     Spacer(minLength: 3)
                     if !entry.needsSync {
                         Text(remaining == 0 && !rows.isEmpty ? "All done" : "\(remaining) left").font(.system(size: 11, weight: .semibold)).foregroundStyle(remaining == 0 && !rows.isEmpty ? Habyss.done : entry.accentSolid)
@@ -176,6 +177,17 @@ struct WidgetEntryView: View {
                         QuickAddLink(kind: "task", label: "Task", accent: entry.accentSolid)
                         QuickAddLink(kind: "habit", label: "Habit", accent: entry.accentSolid)
                     }
+                }
+                // The day's progress, as the app's bars draw it.
+                if !entry.needsSync && (entry.summary?.total ?? 0) > 0 {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.08))
+                            Capsule().fill(remaining == 0 ? Habyss.done : entry.accentSolid)
+                                .frame(width: max(4, geometry.size.width * progress))
+                        }
+                    }
+                    .frame(height: 4)
                 }
                 if entry.needsSync {
                     emptyState("arrow.triangle.2.circlepath", "Let’s bring today in", "Open Habyss to sync")
@@ -209,7 +221,7 @@ struct WidgetEntryView: View {
                     }
                 }
             }
-            .padding(12)
+            .padding(14)
         }
     }
     private func emptyState(_ icon: String, _ title: String, _ subtitle: String) -> some View {
@@ -301,10 +313,15 @@ struct QuickAddView: View {
             }
             .padding(12)
         default:
-            VStack(alignment: .leading, spacing: 6) {
-                Text("ADD").sectionLabel()
+            // The app's + button: a matte disc, the plus in the accent.
+            VStack(alignment: .leading, spacing: 4) {
+                ZStack {
+                    Circle().fill(LinearGradient(colors: [Color.white.opacity(0.14), Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom))
+                    Circle().strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5)
+                    Image(systemName: "plus").font(.system(size: 20, weight: .semibold)).foregroundStyle(entry.accent)
+                }
+                .frame(width: 44, height: 44)
                 Spacer(minLength: 0)
-                Image(systemName: "plus.circle.fill").font(.system(size: 34, weight: .light)).foregroundStyle(entry.accent)
                 Text("New task").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
                 Text("Tap and type").font(.system(size: 11)).foregroundStyle(Habyss.dim)
             }
@@ -324,7 +341,8 @@ struct QuickAddView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 16).fill(Habyss.raised))
+            .background(RoundedRectangle(cornerRadius: 16).fill(LinearGradient(colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom)))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
         }
         .accessibilityLabel("Add a \(kind)")
     }

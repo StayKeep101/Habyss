@@ -20,6 +20,9 @@ struct EchoEntry: TimelineEntry {
     let date: Date
     let line: String
     let accent: Color
+    /// Today's done and total, from the dashboard snapshot, for the foot of the widget.
+    var done: Int = 0
+    var total: Int = 0
 }
 
 /// A widget cannot ask Echo anything — it cannot run the app's code or reach
@@ -30,7 +33,7 @@ struct EchoProvider: TimelineProvider {
     static let fallback = "Small things, often. That is the whole trick."
 
     func placeholder(in context: Context) -> EchoEntry {
-        EchoEntry(date: .now, line: Self.fallback, accent: Habyss.fallbackTo)
+        EchoEntry(date: .now, line: Self.fallback, accent: accent(), done: 3, total: 5)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (EchoEntry) -> Void) {
@@ -52,19 +55,22 @@ struct EchoProvider: TimelineProvider {
 
     private func timeline() -> [EchoEntry] {
         let tint = accent()
+        let today = DashboardSnapshot.read()?.days.first { $0.date == widgetDayKey() }
+        let done = today?.completed ?? 0
+        let total = today?.total ?? 0
         guard let raw = UserDefaults(suiteName: appGroup)?.string(forKey: "echoHours"),
               let data = raw.data(using: .utf8),
               let hours = try? JSONDecoder().decode([EchoHour].self, from: data),
               !hours.isEmpty
-        else { return [EchoEntry(date: .now, line: Self.fallback, accent: tint)] }
+        else { return [EchoEntry(date: .now, line: Self.fallback, accent: tint, done: done, total: total)] }
 
         let now = Date()
         let sorted = hours.sorted { $0.at < $1.at }
         // WidgetKit will not accept a first entry in the future, so whichever
         // line the hour has already reached is shown as of now.
         let current = sorted.last(where: { $0.date <= now }) ?? sorted[0]
-        var entries = [EchoEntry(date: now, line: current.line, accent: tint)]
-        entries += sorted.filter { $0.date > now }.prefix(12).map { EchoEntry(date: $0.date, line: $0.line, accent: tint) }
+        var entries = [EchoEntry(date: now, line: current.line, accent: tint, done: done, total: total)]
+        entries += sorted.filter { $0.date > now }.prefix(12).map { EchoEntry(date: $0.date, line: $0.line, accent: tint, done: done, total: total) }
         return entries
     }
 }
@@ -96,20 +102,36 @@ struct EchoWidgetView: View {
                 HStack(spacing: 5) {
                     Circle().fill(entry.accent).frame(width: 6, height: 6)
                     Text("Echo")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(entry.accent)
                     Spacer()
-                    Text(entry.date, style: .time)
-                        .font(.system(size: 10))
-                        .foregroundStyle(Habyss.faint)
                 }
                 Text(entry.line)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: family == .systemSmall ? 17 : 19, weight: .semibold))
                     .foregroundStyle(.white)
-                    .lineLimit(5)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(family == .systemSmall ? 4 : 3)
+                    .minimumScaleFactor(0.75)
                 Spacer(minLength: 0)
+                // Where the day stands, so the line has something beside it.
+                if entry.total > 0 {
+                    HStack(spacing: 8) {
+                        GeometryReader { geometry in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.white.opacity(0.08))
+                                Capsule().fill(entry.done >= entry.total ? Habyss.done : entry.accent)
+                                    .frame(width: max(4, geometry.size.width * CGFloat(entry.done) / CGFloat(entry.total)))
+                            }
+                        }
+                        .frame(height: 4)
+                        Text("\(entry.done)/\(entry.total)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Habyss.dim)
+                            .monospacedDigit()
+                    }
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(14)
         }
     }
 }
@@ -123,6 +145,7 @@ struct HabyssEchoWidget: Widget {
                 .widgetURL(URL(string: "habyss://home"))
                 .containerBackground(for: .widget) { DashboardBackground(accent: entry.accent) }
         }
+        .contentMarginsDisabled()
         .supportedFamilies([.accessoryRectangular, .accessoryInline, .systemSmall, .systemMedium])
         .configurationDisplayName("Echo")
         .description("A line from Echo, on the hour.")

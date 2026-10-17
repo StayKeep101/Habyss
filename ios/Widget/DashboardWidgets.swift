@@ -52,7 +52,9 @@ struct GoalWidgetConfiguration: WidgetConfigurationIntent {
 struct GoalWidgetProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> DashboardEntry { DashboardEntry(date: .now, snapshot: .preview) }
     func snapshot(for configuration: GoalWidgetConfiguration, in context: Context) async -> DashboardEntry {
-        DashboardEntry(date: .now, snapshot: context.isPreview ? .preview : DashboardSnapshot.read(), goalID: configuration.goal?.id)
+        // The gallery shows the sample goal, whatever goal is chosen.
+        context.isPreview ? DashboardEntry(date: .now, snapshot: .preview)
+            : DashboardEntry(date: .now, snapshot: DashboardSnapshot.read(), goalID: configuration.goal?.id)
     }
     func timeline(for configuration: GoalWidgetConfiguration, in context: Context) async -> Timeline<DashboardEntry> {
         dashboardTimeline(snapshot: DashboardSnapshot.read(), goalID: configuration.goal?.id)
@@ -73,13 +75,12 @@ struct HabitHeatmapView: View {
     @Environment(\.widgetFamily) var family
     var body: some View {
         let today = widgetDayKey(entry.date)
-        let count = family == .systemSmall ? 49 : 91
-        let cells = Array((entry.snapshot?.heatmap ?? []).filter { $0.date <= today }.suffix(count))
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Image(systemName: "flame.fill").font(.system(size: 16)).foregroundStyle(entry.accent)
-                Text(entry.snapshot?.streak.map(String.init) ?? "—").font(.system(size: 27, weight: .semibold)).foregroundStyle(.white)
-                Text("day streak").font(.system(size: 11)).foregroundStyle(Habyss.dim)
+        let cells = Array((entry.snapshot?.heatmap ?? []).filter { $0.date <= today })
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Image(systemName: "flame.fill").font(.system(size: 15)).foregroundStyle(entry.accent)
+                Text(entry.snapshot?.streak.map(String.init) ?? "—").font(.system(size: 26, weight: .bold)).foregroundStyle(.white).monospacedDigit()
+                Text("day streak").font(.system(size: 12, weight: .medium)).foregroundStyle(Habyss.dim)
                 Spacer(minLength: 0)
             }
             if cells.isEmpty {
@@ -88,34 +89,41 @@ struct HabitHeatmapView: View {
                 Text("Open Habyss to sync your habits.").font(.system(size: 11)).foregroundStyle(Habyss.dim)
                 Spacer(minLength: 0)
             } else {
+                // Fills the widget edge to edge: the rows set the square's size
+                // from the height, then as many weeks as fit across are shown,
+                // spread evenly so there is no empty strip on the right.
                 GeometryReader { geometry in
-                    let columns = Int(ceil(Double(cells.count) / 7))
-                    let size = max(2, min((geometry.size.height - 18) / 7, (geometry.size.width - CGFloat(columns - 1) * 3) / CGFloat(columns)))
-                    HStack(alignment: .top, spacing: 3) {
+                    let gap: CGFloat = 3
+                    let fromHeight = (geometry.size.height - gap * 6) / 7
+                    let columns = max(1, min(Int(ceil(Double(cells.count) / 7)), Int((geometry.size.width + gap) / (fromHeight + gap))))
+                    let size = max(2, min(fromHeight, (geometry.size.width - CGFloat(columns - 1) * gap) / CGFloat(columns)))
+                    let shown = Array(cells.suffix(columns * 7))
+                    HStack(alignment: .top, spacing: 0) {
                         ForEach(0..<columns, id: \.self) { column in
-                            VStack(spacing: 3) {
+                            if column > 0 { Spacer(minLength: gap) }
+                            VStack(spacing: gap) {
                                 ForEach(0..<7, id: \.self) { row in
                                     let index = column * 7 + row
-                                    if index < cells.count {
-                                        let cell = cells[index]
+                                    if index < shown.count {
+                                        let cell = shown[index]
                                         let fraction = cell.total > 0 ? min(1, Double(cell.completed) / Double(cell.total)) : 0
-                                        RoundedRectangle(cornerRadius: 2)
+                                        RoundedRectangle(cornerRadius: size * 0.28)
                                             .fill(cell.completed > 0 ? entry.accent.opacity(0.3 + 0.7 * fraction) : Color.white.opacity(0.07))
                                             .frame(width: size, height: size)
-                                            .overlay(RoundedRectangle(cornerRadius: 2).stroke(cell.date == today ? entry.accent : .clear, lineWidth: 1))
+                                            .overlay(RoundedRectangle(cornerRadius: size * 0.28).stroke(cell.date == today ? Color.white.opacity(0.8) : .clear, lineWidth: 1))
                                             .accessibilityLabel("\(cell.date): \(cell.completed) of \(cell.total) habits")
                                     }
                                 }
                             }
                         }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
                 if entry.snapshot?.dayKey != today {
                     Text("Open Habyss to refresh").font(.system(size: 9)).foregroundStyle(Habyss.faint).lineLimit(1)
                 }
             }
         }
-        .padding(12)
+        .padding(14)
         .widgetURL(URL(string: "habyss://progress"))
     }
 }
@@ -136,10 +144,11 @@ struct GoalsProgressView: View {
         VStack(alignment: .leading, spacing: 5) {
             if let goal {
                 let color = Color(habyssHex: goal.color) ?? entry.accent
-                Text(goal.name).font(.system(size: 12, weight: .medium)).foregroundStyle(.white).lineLimit(1)
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text("\(Int(goal.progress.rounded()))").font(.system(size: 28, weight: .semibold)).foregroundStyle(color)
-                    Text("% complete").font(.system(size: 10)).foregroundStyle(Habyss.dim)
+                Text(goal.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                HStack(alignment: .firstTextBaseline, spacing: 1) {
+                    Text("\(Int(goal.progress.rounded()))").font(.system(size: 28, weight: .bold)).foregroundStyle(color).monospacedDigit()
+                    Text("%").font(.system(size: 15, weight: .semibold)).foregroundStyle(color)
+                    Text(" complete").font(.system(size: 11, weight: .medium)).foregroundStyle(Habyss.dim)
                 }
                 let points = goal.points ?? []
                 if points.isEmpty {
@@ -171,7 +180,7 @@ struct GoalsProgressView: View {
             } else {
                 Text("Goals").sectionLabel()
                 Spacer(minLength: 0)
-                Image(systemName: "chart.xyaxis.line").font(.system(size: 25)).foregroundStyle(entry.accent)
+                Image(systemName: "flag.fill").font(.system(size: 20)).foregroundStyle(entry.accent)
                 Text(entry.snapshot == nil ? "Open Habyss to sync" : entry.goalID != nil ? "Choose another goal" : "Start with a goal")
                     .font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
                 Text(entry.goalID != nil ? "Touch and hold, then Edit Widget." : "Add a goal in Habyss to follow it here.")
@@ -179,7 +188,8 @@ struct GoalsProgressView: View {
                 Spacer(minLength: 0)
             }
         }
-        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
         .widgetURL(destination)
     }
 }
@@ -217,9 +227,11 @@ extension DashboardSnapshot {
         let points = (0..<30).map { offset in
             GoalGraphPoint(date: widgetDayKey(Calendar.current.date(byAdding: .day, value: offset - 29, to: .now)!), actual: min(68, Double(offset * 2 + offset / 4)))
         }
+        // The gallery wears the person's own accent, like the widgets they already have.
+        let accent = DashboardSnapshot.read()?.accent ?? .init(from: "#8BADD6", to: "#3A5A8C")
         return DashboardSnapshot(version: 1, generatedAt: today, dayKey: today,
-                                 accent: .init(from: "#8BADD6", to: "#3A5A8C"), days: [], heatmap: heatmap,
-                                 goals: [DashboardGoal(id: "preview", name: "Build something meaningful", progress: 65, color: "#8BADD6", taskWeights: [:], points: points)], streak: 10)
+                                 accent: accent, days: [], heatmap: heatmap,
+                                 goals: [DashboardGoal(id: "preview", name: "Build something meaningful", progress: 65, color: "", taskWeights: [:], points: points)], streak: 10)
     }
 }
 
