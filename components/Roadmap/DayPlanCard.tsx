@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { FadeIn, FadeOut, runOnJS } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { useHaptics } from '@/hooks/useHaptics';
 import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
@@ -11,12 +11,12 @@ import { useTheme } from '@/context/ThemeContext';
 import { blocksAt, clockOf, spanLabel, type DayPlan } from '@/lib/dayPlan';
 
 /**
- * The waking day as a calendar shows it: a thin hour track, a red line where
- * now is, and the things with a time sitting on it.
+ * The waking day as a calendar shows it: a thin hour track, the part already
+ * lived filled in, and the things with a time sitting on it.
  *
- * Drag along it (or tap it) and a marker follows the finger: above it, the
- * time and every habit and task set for then, ticked if done. Let go and the
- * readout stays a moment, then the line goes quiet again.
+ * One accent line is both "now" and the finger: it rests where the day is,
+ * follows a drag (or a tap) to show the time and every habit and task set for
+ * then, and glides back to now when the finger lets go.
  */
 export const DayPlanCard: React.FC<{
     plan: DayPlan;
@@ -32,7 +32,6 @@ export const DayPlanCard: React.FC<{
     const span = Math.max(1, plan.sleep - plan.wake);
     const x = (minutes: number) => ((Math.min(plan.sleep, Math.max(plan.wake, minutes)) - plan.wake) / span) * width;
     const track = light ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.08)';
-    const nowColor = colors.error;
     const { selectionFeedback } = useHaptics();
 
     // The minute under the finger, while reading the day.
@@ -53,6 +52,20 @@ export const DayPlanCard: React.FC<{
         hide.current = setTimeout(() => { setScrub(null); lastHour.current = null; }, 1800);
     };
     useEffect(() => () => { if (hide.current) clearTimeout(hide.current); }, []);
+
+    // The marker: on the finger while reading, otherwise on now (today only).
+    const marker = scrub ?? plan.now;
+    const markerX = useSharedValue(0);
+    const placed = useRef(false);
+    useEffect(() => {
+        if (marker === null || width === 0) return;
+        const target = x(marker) - 1.5;
+        if (scrub !== null || !placed.current) markerX.set(target);
+        else markerX.set(withTiming(target, { duration: 320 }));
+        placed.current = true;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [marker, width, scrub !== null]);
+    const markerStyle = useAnimatedStyle(() => ({ transform: [{ translateX: markerX.get() }] }));
     const pan = Gesture.Pan()
         .activeOffsetX([-6, 6])
         .failOffsetY([-14, 14])
@@ -95,6 +108,9 @@ export const DayPlanCard: React.FC<{
 
             <View style={styles.trackArea} onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}>
                 <View style={[styles.track, { backgroundColor: track }]} />
+                {width > 0 && plan.now !== null ? (
+                    <View style={[styles.lived, { width: x(plan.now), backgroundColor: accent }]} />
+                ) : null}
                 {width > 0 ? ticks.map(minutes => (
                     <View key={minutes} style={[styles.tick, { left: x(minutes), backgroundColor: track }]} />
                 )) : null}
@@ -105,13 +121,8 @@ export const DayPlanCard: React.FC<{
                         opacity: block.done ? 0.35 : 0.85,
                     }]} />
                 )) : null}
-                {width > 0 && scrub !== null ? (
-                    <View pointerEvents="none" style={[styles.cursor, { left: x(scrub) - 1, backgroundColor: accent }]} />
-                ) : null}
-                {width > 0 && plan.now !== null ? (
-                    <View style={[styles.now, { left: x(plan.now) - 1, backgroundColor: nowColor }]}>
-                        <View style={[styles.nowDot, { backgroundColor: nowColor }]} />
-                    </View>
+                {width > 0 && marker !== null ? (
+                    <Animated.View pointerEvents="none" style={[styles.cursor, { backgroundColor: accent }, markerStyle]} />
                 ) : null}
             </View>
 
@@ -154,9 +165,8 @@ const styles = StyleSheet.create({
     track: { position: 'absolute', left: 0, right: 0, height: 4, borderRadius: 2 },
     tick: { position: 'absolute', width: StyleSheet.hairlineWidth * 2, height: 10 },
     block: { position: 'absolute', height: 4, borderRadius: 2 },
-    now: { position: 'absolute', width: 2, height: 14, borderRadius: 1 },
-    nowDot: { position: 'absolute', top: 3, left: -3, width: 8, height: 8, borderRadius: 4 },
-    cursor: { position: 'absolute', width: 2, height: 22, top: -4, borderRadius: 1 },
+    lived: { position: 'absolute', left: 0, height: 4, borderRadius: 2, opacity: 0.3 },
+    cursor: { position: 'absolute', left: 0, width: 3, height: 22, top: -4, borderRadius: 1.5 },
     readout: { marginTop: 10, gap: 6 },
     free: { fontSize: 13, fontFamily: FontFamily.medium },
     item: { flexDirection: 'row', alignItems: 'center', gap: 8 },
