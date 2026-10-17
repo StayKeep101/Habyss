@@ -10,6 +10,9 @@ struct HapticService {
         device.play(type)
     }
 
+    /// A tick, or taking one back.
+    static func playTick(_ done: Bool) { play(done ? .click : .directionDown) }
+
     /// The whole day ticked off.
     static func playAllComplete() {
         play(.success)

@@ -1,13 +1,44 @@
 import { mlc } from '@react-native-ai/mlc';
 import { generateText } from 'ai';
 import { hasCompleteIOSModelFiles } from './localModelFiles';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { downloadIOSModel, LOCAL_MODEL, ModelDownloadCancelled, type ModelTransferProgress } from './localModelDownload';
+
+export type ModelDownloadState = ModelTransferProgress & {
+    phase: 'idle' | 'downloading' | 'loading' | 'ready' | 'cancelled' | 'error';
+    error?: string;
+};
+export const LLAMA_OPT_IN_KEY = 'habyss_llama_opt_in';
+export const INITIAL_MODEL_DOWNLOAD: ModelDownloadState = {
+    phase: 'idle', downloadedBytes: 0, totalBytes: null, percentage: 0,
+};
 
 class LocalLLMService {
-    private modelId = 'Llama-3.2-1B-Instruct'; // Smaller 1B model to prevent overheating
+    private modelId = LOCAL_MODEL.id;
     private isModelReady = false;
     private pendingOperation: Promise<unknown> = Promise.resolve();
     private downloading: Promise<boolean> | null = null;
     private progressListeners = new Set<(progress: number) => void>();
+    private downloadState: ModelDownloadState = INITIAL_MODEL_DOWNLOAD;
+    private stateListeners = new Set<(state: ModelDownloadState) => void>();
+    private downloadController: AbortController | null = null;
+
+    getDownloadState = () => this.downloadState;
+
+    subscribeDownloadState = (listener: (state: ModelDownloadState) => void) => {
+        this.stateListeners.add(listener);
+        listener(this.downloadState);
+        return () => { this.stateListeners.delete(listener); };
+    };
+
+    private updateDownload(state: ModelDownloadState) {
+        this.downloadState = state;
+        this.stateListeners.forEach(listener => listener(state));
+        this.progressListeners.forEach(listener => listener(state.percentage));
+    }
+
+    cancelDownload() { this.downloadController?.abort(); }
 
     // Startup and Settings can both request the model. Never download, load or
     // remove its files concurrently.
@@ -51,8 +82,10 @@ class LocalLLMService {
     async downloadModel(onProgress?: (progress: number) => void) {
         if (onProgress) this.progressListeners.add(onProgress);
         if (!this.downloading) {
+            this.downloadController = new AbortController();
+            this.updateDownload({ ...INITIAL_MODEL_DOWNLOAD, phase: 'downloading' });
             this.downloading = this.enqueue(() => this.downloadAndPrepare())
-                .finally(() => { this.downloading = null; });
+                .finally(() => { this.downloading = null; this.downloadController = null; });
         }
         try {
             return await this.downloading;
@@ -62,23 +95,33 @@ class LocalLLMService {
     }
 
     private async downloadAndPrepare() {
-        if (this.isModelReady) return true;
         try {
-            console.log(`Downloading Local LLM (${this.modelId})...`);
-            const model = mlc.languageModel(this.modelId);
-
-            await model.download((event) => {
-                const progress = event.percentage || 0;
-                console.log(`Download progress: ${progress}%`);
-                this.progressListeners.forEach(listener => listener(progress));
-            });
-
-            console.log("Local LLM Downloaded");
-            // Auto-init after download
+            if (this.downloadController?.signal.aborted) throw new ModelDownloadCancelled();
+            if (!this.isModelReady) {
+                if (Platform.OS === 'ios') {
+                    await downloadIOSModel(this.downloadController!.signal, progress => {
+                        this.updateDownload({ ...progress, phase: 'downloading' });
+                    });
+                } else {
+                    await mlc.languageModel(this.modelId).download(event => {
+                        this.updateDownload({ ...INITIAL_MODEL_DOWNLOAD, phase: 'downloading', percentage: event.percentage || 0 });
+                    });
+                }
+            }
+            if (this.downloadController?.signal.aborted) throw new ModelDownloadCancelled();
+            this.updateDownload({ ...this.downloadState, phase: 'loading', percentage: 100 });
             await this.prepareDownloadedModel();
-            return this.isModelReady;
+            if (!this.isModelReady) throw new Error('The model could not load. Retry, or remove it and download a fresh copy.');
+            await AsyncStorage.setItem(LLAMA_OPT_IN_KEY, '1');
+            this.updateDownload({ ...this.downloadState, phase: 'ready' });
+            return true;
         } catch (e) {
-            console.error("Failed to download Local LLM:", e);
+            if (e instanceof ModelDownloadCancelled) {
+                this.updateDownload({ ...this.downloadState, phase: 'cancelled' });
+                return false;
+            }
+            this.updateDownload({ ...this.downloadState, phase: 'error', error: e instanceof Error ? e.message : 'Download failed. Check your connection and try again.' });
+            console.warn('Failed to download Local LLM:', e);
             return false;
         }
     }
@@ -97,6 +140,8 @@ class LocalLLMService {
                 this.isModelReady = false;
             }
             await model.remove();
+            await AsyncStorage.removeItem(LLAMA_OPT_IN_KEY);
+            this.updateDownload(INITIAL_MODEL_DOWNLOAD);
 
             console.log("Local LLM Deleted");
             this.isModelReady = false;

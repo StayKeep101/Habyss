@@ -1,7 +1,6 @@
 import Foundation
 import WatchConnectivity
 import Combine
-import WatchKit
 
 /// One of today's habits, as the phone sends it.
 struct WatchHabit: Codable, Identifiable, Hashable {
@@ -103,7 +102,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
     private func send(id: String, done: Bool) {
         pending[id] = done
         store.set(pending, forKey: "watchPending")
-        HapticService.play(done ? .click : .directionDown)
+        HapticService.playTick(done)
         if done && doneCount == totalCount { HapticService.playAllComplete() }
 
         let message: [String: Any] = ["action": "TOGGLE", "payload": [

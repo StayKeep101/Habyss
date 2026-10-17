@@ -7,10 +7,8 @@ import type { z } from 'zod';
 /**
  * The on-device model, whichever this phone has.
  *
- * 1. Apple Intelligence (iOS 26+, iPhone 15 Pro and later): built into the
- *    system, already on the phone, nothing to download. Preferred.
- * 2. Llama 3.2 1B through MLC, on every other phone. Downloaded once, on
- *    Wi-Fi, in the background, the first time the app runs.
+ * 1. Apple's system model, when Apple Intelligence and its assets are ready.
+ * 2. Llama 3.2 1B through MLC, downloaded explicitly in Echo settings.
  *
  * Nothing here leaves the phone. Every caller keeps a rule-based answer as the
  * fallback, so the app behaves the same, only less cleverly, when neither
@@ -19,9 +17,6 @@ import type { z } from 'zod';
 
 export type OnDeviceEngine = 'apple' | 'llama' | null;
 
-
-let appleChecked = false;
-let appleAvailable = false;
 
 function appleProvider(): any | null {
     if (Platform.OS !== 'ios' || !hasTurboModule('NativeAppleLLM')) return null;
@@ -33,11 +28,8 @@ function appleProvider(): any | null {
 }
 
 function isAppleReady(): boolean {
-    if (!appleChecked) {
-        appleChecked = true;
-        try { appleAvailable = !!appleProvider()?.isAvailable(); } catch { appleAvailable = false; }
-    }
-    return appleAvailable;
+    // Asset readiness can change while the app is open or after visiting Settings.
+    try { return !!appleProvider()?.isAvailable(); } catch { return false; }
 }
 
 function llama(): typeof import('./LocalLLMService').default | null {
@@ -67,8 +59,8 @@ let preparing: Promise<void> | null = null;
 
 /**
  * Called once at launch. Apple's model needs nothing. Otherwise the Llama model
- * is loaded if it is already on the phone, or downloaded on Wi-Fi so the next
- * launch has it. Never throws and never blocks startup.
+ * is loaded only after the user has opted in and its files are complete.
+ * Never downloads at launch and never blocks startup.
  */
 export function prepareOnDeviceAI(): Promise<void> {
     if (preparing) return preparing;
@@ -97,8 +89,20 @@ function model(): LanguageModel | null {
     return null;
 }
 
-const withTimeout = <T,>(work: Promise<T>, ms: number): Promise<T | null> =>
-    Promise.race([work, new Promise<null>(resolve => setTimeout(() => resolve(null), ms))]);
+let generating = false;
+async function runGeneration<T>(work: () => Promise<T>, timeoutMs: number): Promise<T | null> {
+    // MLC does not cancel a native generation when a JS timeout expires. Keep
+    // ownership until it really ends so a retry cannot start overlapping work.
+    if (generating) return null;
+    generating = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const pending = Promise.resolve().then(work).finally(() => { generating = false; });
+    try {
+        return await Promise.race([pending, new Promise<null>(resolve => {
+            timer = setTimeout(() => resolve(null), timeoutMs);
+        })]);
+    } finally { clearTimeout(timer); }
+}
 
 /**
  * Asks the model for an object matching `schema`. Returns null when no model is
@@ -108,26 +112,17 @@ export async function askForObject<T>(
     schema: z.ZodType<T>,
     system: string,
     prompt: string,
-    timeoutMs = 6000,
+    timeoutMs = currentEngine() === 'llama' ? 30_000 : 6000,
 ): Promise<T | null> {
     const languageModel = model();
     if (!languageModel) return null;
     try {
-        if (currentEngine() === 'apple') {
-            // Apple's model supports guided generation: the output is the schema.
-            const result = await withTimeout(generateObject({ model: languageModel, schema, system, prompt }), timeoutMs);
-            return result ? (result.object as T) : null;
-        }
-        // The small Llama model is asked for JSON and checked afterwards.
-        const result = await withTimeout(generateText({
-            model: languageModel,
-            system: `${system}\nReply with one JSON object and nothing else.`,
-            prompt,
+        // Both providers support a JSON schema. Previously Llama was asked for
+        // "one JSON object" without ever receiving the required field names.
+        const result = await runGeneration(() => generateObject({
+            model: languageModel, schema, system, prompt, maxOutputTokens: 512, maxRetries: 0,
         }), timeoutMs);
-        if (!result) return null;
-        const json = result.text.slice(result.text.indexOf('{'), result.text.lastIndexOf('}') + 1);
-        const parsed = schema.safeParse(JSON.parse(json));
-        return parsed.success ? parsed.data : null;
+        return result ? (result.object as T) : null;
     } catch {
         return null;
     }
@@ -138,7 +133,9 @@ export async function askForLine(system: string, prompt: string, timeoutMs = 600
     const languageModel = model();
     if (!languageModel) return null;
     try {
-        const result = await withTimeout(generateText({ model: languageModel, system, prompt }), timeoutMs);
+        const result = await runGeneration(() => generateText({
+            model: languageModel, system, prompt, maxOutputTokens: 128, maxRetries: 0,
+        }), timeoutMs);
         const line = result?.text.replace(/^["“\s]+|["”\s]+$/g, '').trim();
         return line ? line : null;
     } catch {

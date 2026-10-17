@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
@@ -67,10 +67,6 @@ export default function Help() {
                 <SettingsGroup>
                     <SettingsRow icon="chatbubble" color="#5B8CFF" label="Send feedback"
                         onPress={() => emit('show_feedback', { screen: 'help' })} />
-                    <SettingsRow icon="mail" color="#3DDC97" label="Email support"
-                        onPress={() => void Linking.openURL('mailto:support@habyss.app')} />
-                    <SettingsRow icon="logo-twitter" color="#1D9BF0" label="Habyss on X"
-                        onPress={() => void Linking.openURL('https://twitter.com/habyss')} />
                 </SettingsGroup>
 
                 <SettingsGroup title="Questions">
@@ -89,9 +85,9 @@ export default function Help() {
 
                 <SettingsGroup>
                     <SettingsRow icon="shield-checkmark" color="#8A8A94" label="Privacy policy"
-                        onPress={() => void Linking.openURL('https://habyss.app/privacy')} />
+                        onPress={() => router.push({ pathname: '/(root)/legal' as never, params: { doc: 'privacy' } })} />
                     <SettingsRow icon="document-text" color="#8A8A94" label="Terms"
-                        onPress={() => void Linking.openURL('https://habyss.app/terms')} />
+                        onPress={() => router.push({ pathname: '/(root)/legal' as never, params: { doc: 'terms' } })} />
                 </SettingsGroup>
 
                 <View style={styles.footer}>

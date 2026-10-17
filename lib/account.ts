@@ -275,6 +275,17 @@ export async function deleteAccount(): Promise<Result> {
     const sb = getSupabase();
     if (!sb) return { ok: false, error: 'Accounts are not set up in this build.' };
 
+    // Photos live in file storage, which the database delete does not reach:
+    // remove this person's folder first (best effort; the account goes regardless).
+    try {
+        const { data: session } = await sb.auth.getSession();
+        const me = session.session?.user?.id;
+        if (me) {
+            const { data: files } = await sb.storage.from('avatars').list(me);
+            if (files?.length) await sb.storage.from('avatars').remove(files.map(file => `${me}/${file.name}`));
+        }
+    } catch { /* nothing more to do */ }
+
     const { error } = await sb.rpc('delete_my_account');
     if (error) return { ok: false, error: friendly(error.message) };
 

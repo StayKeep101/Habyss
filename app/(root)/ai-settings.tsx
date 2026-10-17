@@ -1,9 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppButton } from '@/components/ui/AppButton';
 import { SheetScreen } from '@/components/ui/SheetScreen';
-import { FontFamily, UIStyles } from '@/theme/designSystem';
+import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
-import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useAccentGradient } from '@/context/AccentContext';
 import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
@@ -17,7 +16,9 @@ import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings, GreetingStyle } from '@/context/AppSettingsContext';
-import { currentEngine, LLAMA_OPT_IN_KEY } from '@/lib/onDeviceAI';
+import { currentEngine, isOnDeviceAIReady } from '@/lib/onDeviceAI';
+import { LOCAL_MODEL } from '@/lib/localModelDownload';
+import type { ModelDownloadState } from '@/lib/LocalLLMService';
 import { coachHello } from '@/lib/coachMessages';
 import { NotificationService } from '@/lib/notificationService';
 import { PAYWALL_ENABLED } from '@/constants/features';
@@ -28,13 +29,14 @@ import {
 import { hasTurboModule } from '@/lib/nativeModules';
 import { clearWrittenLines } from '@/lib/echoWriter';
 
-/** null in a build without the on-device model's native code. */
-const localModel = () => (hasTurboModule('MLCEngine') ? require('@/lib/LocalLLMService').default : null);
 import { PERSONALITY_MODES, PersonalityModeId } from '@/constants/AIPersonalities';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { useTheme } from '@/context/ThemeContext';
 import { styles } from '@/styles/screens/ai-settings.styles';
 
+/** null in a build without the on-device model's native code. */
+const localModel = (): typeof import('@/lib/LocalLLMService').default | null =>
+    (hasTurboModule('MLCEngine') ? require('@/lib/LocalLLMService').default : null);
 
 // Greeting style options
 const GREETING_STYLES: { id: GreetingStyle; label: string; icon: string; description: string }[] = [
@@ -44,69 +46,62 @@ const GREETING_STYLES: { id: GreetingStyle; label: string; icon: string; descrip
     { id: 'all', label: 'Everything', icon: 'shuffle', description: 'A bit of all of it' },
 ];
 
-// Separate component to handle Local LLM logic
-/**
- * Which on-device model Echo and the natural-language parsing use. Apple's
- * model is built into the phone; the Llama model downloads by itself on Wi-Fi
- * the first time, and can be downloaded now or removed here.
- */
+/** Apple supplies its system model; the optional Llama files come from Hugging Face. */
 const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     const { primary: accentSolid } = useAccentGradient();
+    const Service = localModel();
     const [engine, setEngine] = React.useState(currentEngine());
-    const [isDownloading, setIsDownloading] = React.useState(false);
-    const [progress, setProgress] = React.useState(0);
-    // On disk, whether or not it is loaded right now: the honest answer to
-    // "is it downloaded?". Loaded-in-memory used to stand in for it.
+    const [transfer, setTransfer] = React.useState<ModelDownloadState>(() => Service?.getDownloadState() ?? {
+        phase: 'idle', downloadedBytes: 0, totalBytes: null, percentage: 0,
+    });
     const [downloaded, setDownloaded] = React.useState<boolean | null>(null);
-    const checkDownloaded = React.useCallback(() => {
-        const Service = localModel();
-        if (!Service) { setDownloaded(false); return; }
-        void Service.isDownloaded().then(setDownloaded);
-    }, []);
-    React.useEffect(checkDownloaded, [checkDownloaded]);
+    React.useEffect(() => Service?.subscribeDownloadState(setTransfer), [Service]);
+    React.useEffect(() => {
+        let active = true;
+        const refresh = () => {
+            setEngine(currentEngine());
+            if (!Service) { setDownloaded(false); return; }
+            void Service.isDownloaded().then((found: boolean) => { if (active) setDownloaded(found); });
+        };
+        refresh();
+        const subscription = AppState.addEventListener('change', state => { if (state === 'active') refresh(); });
+        return () => { active = false; subscription.remove(); };
+    }, [Service, transfer.phase]);
 
-    const download = async () => {
-        const Service = localModel();
-        if (!Service) {
-            Alert.alert('Not in this version', 'Update the app to download the on-device model.');
-            return;
-        }
-        setIsDownloading(true);
-        const success = await Service.downloadModel((p: number) => setProgress(p));
-        // Chosen here, so it may load on later launches.
-        if (success) await AsyncStorage.setItem(LLAMA_OPT_IN_KEY, '1').catch(() => undefined);
-        setIsDownloading(false);
-        setEngine(currentEngine());
-        checkDownloaded();
-        if (!success) Alert.alert('Download failed', 'Check your connection and try again.');
-    };
+    const isDownloading = transfer.phase === 'downloading';
+    const busy = isDownloading || transfer.phase === 'loading';
+    const retry = transfer.phase === 'error' || transfer.phase === 'cancelled';
+    const mb = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
 
     const remove = () => {
-        Alert.alert('Remove the on-device model?', 'Frees about 1.2 GB. Habyss keeps working with its built-in rules. You can download it again here any time.', [
+        Alert.alert('Remove the on-device model?', `Removes ${LOCAL_MODEL.sizeLabel} if fully downloaded. Habyss keeps working with its built-in rules.`, [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Remove', style: 'destructive', onPress: async () => {
-                    await localModel()?.deleteModel();
-                    await AsyncStorage.removeItem(LLAMA_OPT_IN_KEY).catch(() => undefined);
-                    setEngine(currentEngine());
-                    checkDownloaded();
+                    if (!await Service?.deleteModel()) Alert.alert('Could not remove model', 'Try again.');
                 },
             },
         ]);
     };
 
-    const canDownload = !!localModel();
+    const canDownload = !!Service;
     const apple = engine === 'apple';
     const onPhone = apple || downloaded === true;
     const title = apple ? 'Apple Intelligence' : 'Llama 3.2 (1B)';
-    const badge = apple ? 'Built in' : isDownloading ? `${Math.round(progress)}%` : downloaded ? 'Downloaded' : downloaded === false ? 'Not downloaded' : '';
+    const badge = apple ? 'Built in' : transfer.phase === 'loading' ? 'Loading…'
+        : isDownloading ? (transfer.totalBytes ? `${Math.floor(transfer.percentage)}%` : 'Connecting…')
+            : engine === 'llama' ? 'Ready' : downloaded ? 'Downloaded' : retry ? 'Incomplete' : 'Optional';
     const status = apple
         ? 'Part of this iPhone. Nothing to download. Private.'
-        : isDownloading
-            ? 'Downloading to this phone…'
+        : !canDownload ? 'Offline AI is not included in this build. Install a newer Habyss build to use it.'
+        : busy
+            ? transfer.phase === 'loading' ? 'Checking and loading the model on this phone…'
+                : `${mb(transfer.downloadedBytes)}${transfer.totalBytes ? ` of ${mb(transfer.totalBytes)}` : ''} downloaded. Keep Habyss open on Wi-Fi.`
+            : transfer.phase === 'error' ? transfer.error
+            : transfer.phase === 'cancelled' ? 'Download stopped. Retry keeps the files already completed.'
             : downloaded
-                ? '1.2 GB on this phone. Runs privately, without the internet.'
-                : 'Not on this phone. 1.2 GB; Wi-Fi recommended. Habyss works without it.';
+                ? 'Runs on this phone. Tap “Use offline AI” when creating a habit, task or goal. Automatic AI stays off to limit heat and battery use.'
+                : `Apple Intelligence is unavailable on this device. Download Llama once (${LOCAL_MODEL.sizeLabel}) to use AI when you tap. Habyss also works without it.`;
 
     return (
         <VoidCard
@@ -126,13 +121,27 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
             </Text>
             {isDownloading ? (
                 <View style={{ height: 4, backgroundColor: colors.surface, borderRadius: 2, overflow: 'hidden' }}>
-                    <AnimatedFill progress={progress / 100} style={{ height: '100%', backgroundColor: accentSolid }} />
+                    <AnimatedFill progress={transfer.percentage / 100} style={{ height: '100%', backgroundColor: accentSolid }} />
                 </View>
             ) : null}
-            {!apple && downloaded === false && !isDownloading && canDownload ? (
-                <AppButton label="Download · 1.2 GB" icon="cloud-download-outline" onPress={() => void download()} />
+            {!apple && canDownload ? (
+                <>
+                    <Text style={{ fontSize: 12, lineHeight: 18, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
+                        Model files come from Hugging Face. AI processing stays on this phone.
+                    </Text>
+                    <AppButton label="View model source" variant="ghost" onPress={() => {
+                        void Linking.openURL(LOCAL_MODEL.source).catch(() => Alert.alert('Could not open model source', LOCAL_MODEL.source));
+                    }} />
+                </>
             ) : null}
-            {!apple && downloaded ? (
+            {!apple && !busy && canDownload && downloaded !== null && engine !== 'llama' ? (
+                <AppButton label={retry ? 'Retry' : downloaded ? 'Load offline AI' : `Download · ${LOCAL_MODEL.sizeLabel}`}
+                    icon="cloud-download-outline" onPress={() => void Service.downloadModel()} />
+            ) : null}
+            {isDownloading && Platform.OS === 'ios' ? (
+                <AppButton label="Cancel download" variant="ghost" onPress={() => Service?.cancelDownload()} />
+            ) : null}
+            {!apple && !busy && (downloaded || retry) ? (
                 <AppButton label="Remove from this phone" variant="danger" onPress={remove} />
             ) : null}
         </VoidCard>
@@ -176,7 +185,7 @@ const AISettings = () => {
     }, []);
 
     // Echo can only write its own reminders where a model is ready.
-    const hasModel = currentEngine() !== null;
+    const hasModel = isOnDeviceAIReady();
 
     /** Saved, then the notifications are rewritten to match. */
     const saveEcho = (next: EchoConfig) => {
@@ -268,7 +277,7 @@ const AISettings = () => {
                     <ToggleRow
                         icon="create-outline"
                         label="Echo writes reminders"
-                        detail={hasModel ? 'In this voice' : 'Needs on-device AI'}
+                        detail={hasModel ? 'In this voice' : 'Requires Apple Intelligence'}
                         value={echo.writeReminders && hasModel}
                         disabled={!hasModel}
                         colors={colors}
