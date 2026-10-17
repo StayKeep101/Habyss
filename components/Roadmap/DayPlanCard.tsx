@@ -15,8 +15,8 @@ import { blocksAt, clockOf, spanLabel, type DayPlan } from '@/lib/dayPlan';
  * lived filled in, and the things with a time sitting on it.
  *
  * One accent line is both "now" and the finger: it rests where the day is,
- * follows a drag (or a tap) to show the time and every habit and task set for
- * then, and glides back to now when the finger lets go.
+ * follows the finger (touch and hold, or drag) to show the time and every habit and task set for
+ * then, and snaps back to now the moment the finger lets go.
  */
 export const DayPlanCard: React.FC<{
     plan: DayPlan;
@@ -36,22 +36,17 @@ export const DayPlanCard: React.FC<{
 
     // The minute under the finger, while reading the day.
     const [scrub, setScrub] = useState<number | null>(null);
-    const hide = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastHour = useRef<number | null>(null);
     const minuteAt = (pageX: number) => Math.round(plan.wake + (Math.max(0, Math.min(width, pageX)) / Math.max(1, width)) * span);
     const read = (localX: number) => {
-        if (hide.current) clearTimeout(hide.current);
         const minute = minuteAt(localX);
         // A light tick each hour passed, so the finger feels the clock.
         const hour = Math.floor(minute / 60);
         if (hour !== lastHour.current) { lastHour.current = hour; selectionFeedback(); }
         setScrub(minute);
     };
-    const release = () => {
-        if (hide.current) clearTimeout(hide.current);
-        hide.current = setTimeout(() => { setScrub(null); lastHour.current = null; }, 1800);
-    };
-    useEffect(() => () => { if (hide.current) clearTimeout(hide.current); }, []);
+    // Let go and it is back on now at once.
+    const release = () => { setScrub(null); lastHour.current = null; };
 
     // The marker: on the finger while reading, otherwise on now (today only).
     const marker = scrub ?? plan.now;
@@ -61,7 +56,7 @@ export const DayPlanCard: React.FC<{
         if (marker === null || width === 0) return;
         const target = x(marker) - 1.5;
         if (scrub !== null || !placed.current) markerX.set(target);
-        else markerX.set(withTiming(target, { duration: 320 }));
+        else markerX.set(withTiming(target, { duration: 160 }));
         placed.current = true;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [marker, width, scrub !== null]);
@@ -72,8 +67,8 @@ export const DayPlanCard: React.FC<{
         .onBegin(event => { runOnJS(read)(event.x); })
         .onUpdate(event => { runOnJS(read)(event.x); })
         .onFinalize(() => { runOnJS(release)(); });
-    const tap = Gesture.Tap().onEnd(event => { runOnJS(read)(event.x); runOnJS(release)(); });
-    const gesture = Gesture.Exclusive(pan, tap);
+    // Touching reads straight away (no wait for movement); lifting lets go.
+    const gesture = pan;
     const atScrub = scrub === null ? [] : blocksAt(plan, scrub);
 
     // An hour mark every three hours, labelled like a calendar's gutter.
