@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
-import { ModalHeader } from '@/components/ui/ModalHeader';
 import { VoidCard } from '@/components/ui/VoidCard';
-import { VoidModal } from '@/components/ui/VoidModal';
+import { VoidSheet } from '@/components/ui/VoidSheet';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Radius, Spacing, Typography } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -120,9 +119,10 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
     };
 
     return (
-        <VoidModal visible={visible} onClose={onClose}>
-            <View style={styles.fill}>
-                <ModalHeader title={scanning ? 'Scan' : 'Add friends'} onBack={scanning ? () => setScanning(false) : onClose} />
+        // A sheet, not a whole page: three quarters of the screen at most, the
+        // community still showing above it.
+        <VoidSheet visible={visible} onClose={onClose} title={scanning ? 'Scan a code' : 'Add friends'} maxShare={0.75}>
+            <View>
 
                 {scanning ? (
                     <View style={styles.scanner}>
@@ -138,7 +138,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                         ) : null}
                     </View>
                 ) : (
-                    <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                    <View>
                         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                             <View style={styles.addRow}>
                                 <MatteInput
@@ -171,16 +171,16 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ visible, onClose
                                 </VoidCard>
                             ) : null}
                         </ScrollView>
-                    </KeyboardAvoidingView>
+                    </View>
                 )}
             </View>
-        </VoidModal>
+        </VoidSheet>
     );
 };
 
 const styles = StyleSheet.create({
     fill: { flex: 1 },
-    content: { paddingHorizontal: Spacing.xxl, paddingTop: Spacing.lg, paddingBottom: Spacing.bottom, gap: Spacing.xxl },
+    content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.sm, paddingBottom: Spacing.lg, gap: Spacing.xl },
     addRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     input: { flex: 1, height: 52 },
     error: { marginTop: -Spacing.lg, marginLeft: Spacing.xs },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     qr: { padding: Spacing.md, borderRadius: Radius.small },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     username: { flexShrink: 1, fontSize: 20, fontFamily: FontFamily.bold, letterSpacing: -0.3 },
-    scanner: { flex: 1, marginHorizontal: Spacing.xl, marginBottom: Spacing.bottom, borderRadius: Radius.card, overflow: 'hidden' },
+    scanner: { height: 320, marginHorizontal: Spacing.xl, marginVertical: Spacing.md, borderRadius: Radius.card, overflow: 'hidden' },
     frameWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
     frame: { width: 200, height: 200, borderWidth: 2, borderRadius: Radius.small },
 });

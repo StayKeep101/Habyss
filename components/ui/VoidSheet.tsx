@@ -47,7 +47,9 @@ export const VoidSheet: React.FC<{
     children: React.ReactNode;
     /** Pinned under the content, outside the scroll: usually one button. */
     footer?: React.ReactNode;
-}> = ({ visible, onClose, title, caption, children, footer }) => {
+    /** The most of the screen it may take (0–1). Two thirds by default. */
+    maxShare?: number;
+}> = ({ visible, onClose, title, caption, children, footer, maxShare = 0.68 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const tone = surfaceFor(theme);
@@ -127,7 +129,7 @@ export const VoidSheet: React.FC<{
                             {
                                 // Never more than two thirds of the screen. Past
                                 // that it is a screen, and should be a page sheet.
-                                maxHeight: height * 0.68,
+                                maxHeight: height * maxShare,
                                 paddingBottom: insets.bottom + vs(8),
                                 borderColor: tone.lip,
                                 backgroundColor: tone.fill,
