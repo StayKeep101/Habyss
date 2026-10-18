@@ -11,6 +11,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
+import { textOn } from '@/theme/tokens';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
@@ -199,6 +200,9 @@ export default function ProgressScreen() {
                         <DayCell
                             key={day.date}
                             index={index}
+                            column={(firstWeekday + index) % 7}
+                            prevPerfect={index > 0 && !days[index - 1].future && dayFill(days[index - 1], dailyTarget) >= 1}
+                            nextPerfect={index < days.length - 1 && !days[index + 1].future && dayFill(days[index + 1], dailyTarget) >= 1}
                             day={day}
                             today={today}
                             accent={accent}
@@ -236,12 +240,16 @@ export default function ProgressScreen() {
  * that closes as much of it as the day was done — half the day's habits and
  * tasks, half a ring; all of them, a closed ring.
  *
- * The ring is drawn on its own square with nothing around it. It used to sit
- * inside a box with a border, which shifted the drawing over by the border's
- * width and clipped one side: the ring looked pushed off centre.
+ * A perfect day (everything asked for done) is a solid disc instead, and
+ * perfect days in a row are joined by a band behind them, along the week, so
+ * a run reads at a glance as one unbroken stretch.
  */
-const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, taskTarget }: {
+const DayCell = React.memo(function DayCell({ day, index, today, accent, colors, onOpen, taskTarget, column, prevPerfect, nextPerfect }: {
     day: DaySummary; index: number; today: string; accent: string; colors: typeof Colors.light;
+    /** 0 (Monday) to 6 (Sunday): the band never wraps onto the next row. */
+    column: number;
+    prevPerfect: boolean;
+    nextPerfect: boolean;
     onOpen: (day: DaySummary, frame: LayoutRectangle) => void;
     taskTarget: number;
 }) {
@@ -257,8 +265,14 @@ const DayCell = React.memo(function DayCell({ day, index, today, accent, colors,
     const shown = useProgress(fill, Math.min(index, 31) * (MOTION.stagger / 2));
     const arc = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - shown.get()) }));
 
+    const bandLeft = closed && prevPerfect && column > 0;
+    const bandRight = closed && nextPerfect && column < 6;
+
     return (
         <View style={styles.cell}>
+            {/* The run's band, from this day's centre to its neighbours'. */}
+            {bandLeft ? <View pointerEvents="none" style={[styles.band, styles.bandLeft, { height: size, backgroundColor: accent }]} /> : null}
+            {bandRight ? <View pointerEvents="none" style={[styles.band, styles.bandRight, { height: size, backgroundColor: accent }]} /> : null}
             <Pressable
                 ref={ref}
                 accessibilityRole="button"
@@ -268,6 +282,10 @@ const DayCell = React.memo(function DayCell({ day, index, today, accent, colors,
                 style={[styles.dayButton, { opacity: day.future ? 0.3 : 1 }]}
             >
                 <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+                    {closed ? (
+                        // A perfect day: filled, not ringed.
+                        <View style={[StyleSheet.absoluteFill, { borderRadius: size / 2, backgroundColor: accent }]} />
+                    ) : (
                     <Svg width={size} height={size} style={styles.ringSvg}>
                         <Circle cx={size / 2} cy={size / 2} r={radius} stroke={accent} strokeOpacity={0.16} strokeWidth={stroke} fill="none" />
                         {fill > 0 ? (
@@ -281,8 +299,9 @@ const DayCell = React.memo(function DayCell({ day, index, today, accent, colors,
                             />
                         ) : null}
                     </Svg>
+                    )}
                     <Text style={[styles.dayNumber, {
-                        color: closed || isToday ? accent : colors.textSecondary,
+                        color: closed ? textOn(accent) : isToday ? accent : colors.textSecondary,
                         fontFamily: closed || isToday ? FontFamily.bold : FontFamily.regular,
                     }]}>
                         {Number(day.date.slice(-2))}
