@@ -126,8 +126,12 @@ export default function OnboardingScreen() {
     const setAIPersonality = useCallback((id: Parameters<typeof saveVoice>[0]) => { if (!preview) return saveVoice(id); }, [preview, saveVoice]);
     const persistDraft = useCallback((next: OnboardingDraft) => { if (!preview) saveDraft(next); }, [preview]);
 
-    // null while hydrating: persisted data decides what the user sees, not a guess.
-    const [draft, setDraftState] = useState<OnboardingDraft | null>(null);
+    // null while hydrating: persisted data decides what the user sees, not a
+    // guess. Test mode starts fresh straight away and never reads the saved one.
+    const [draft, setDraftState] = useState<OnboardingDraft | null>(() => preview
+        ? { step: 0, flow: FLOW_VERSION, startDate: localDateKey(new Date()), recurrence: 'daily' } : null);
+    const [startingSignIn, setStartingSignIn] = useState(false);
+    const [signInError, setSignInError] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     // Auto-advance after a single choice; held so a second tap can cancel it.
     const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -176,7 +180,7 @@ export default function OnboardingScreen() {
     useEffect(() => {
         let cancelled = false;
         const fresh: OnboardingDraft = { step: 0, flow: FLOW_VERSION, startDate: localDateKey(new Date()), recurrence: 'daily' };
-        if (preview) { setDraftState(fresh); return; }
+        if (preview) return;
         loadDraft().then(stored => {
             if (cancelled) return;
             setDraftState(stored ?? fresh);
@@ -248,6 +252,33 @@ export default function OnboardingScreen() {
     const afterEcho = () => {
         if (signedIn) afterAccount();
         else goTo(STEP.account);
+    };
+
+    /**
+     * "Start climbing": sign in at once with the phone's own account (Apple on
+     * an Apple device, Google elsewhere), then carry on. Closing the sign-in
+     * sheet, or a build without either, just carries on into setup: the
+     * account step later offers it again. Test mode never signs in.
+     */
+    const startClimbing = async () => {
+        lightFeedback();
+        if (preview || signedIn) { goTo(STEP.name); return; }
+        setStartingSignIn(true);
+        setSignInError(null);
+        try {
+            const social = require('@/lib/socialSignIn') as typeof import('@/lib/socialSignIn');
+            const useApple = Platform.OS === 'ios' && await social.isAppleSignInAvailable();
+            const useGoogle = !useApple && social.isGoogleSignInAvailable();
+            if (!useApple && !useGoogle) { goTo(STEP.name); return; }
+            const result = useApple ? await social.signInWithApple() : await social.signInWithGoogle();
+            if (result.ok) { await afterWelcomeSignIn(result.value); return; }
+            if (!('cancelled' in result)) setSignInError('Couldn’t sign in just now. You can add an account at the end.');
+            goTo(STEP.name);
+        } catch {
+            goTo(STEP.name);
+        } finally {
+            setStartingSignIn(false);
+        }
     };
 
     /**
@@ -330,15 +361,10 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={styles.welcomeActions}>
-                <PrimaryButton label="Start climbing" onPress={() => goTo(STEP.name)} />
-
-                <View style={styles.welcomeOr}>
-                    <View style={[styles.welcomeRule, { backgroundColor: colors.border }]} />
-                    <Text style={[styles.welcomeOrText, { color: colors.textTertiary }]}>or</Text>
-                    <View style={[styles.welcomeRule, { backgroundColor: colors.border }]} />
-                </View>
-
-                <SignInOptions onSignedIn={afterWelcomeSignIn} />
+                {/* One button. It signs you in straight away (Apple on an Apple
+                    device, Google otherwise), then carries on into setup. */}
+                <PrimaryButton label="Start climbing" busy={startingSignIn} onPress={() => void startClimbing()} />
+                {signInError ? <Text style={[styles.welcomeOrText, { color: colors.textTertiary, textAlign: 'center' }]}>{signInError}</Text> : null}
 
                 <TouchableOpacity
                     accessibilityRole="button"
