@@ -24,8 +24,8 @@ import { countedHistory, countedTasks } from './sharedGate';
 
 export const MARKS = {
     add: { habit: 1, task: 2, goal: 5 },
-    complete: { habit: 5, task: 10, goal: 50, sleep: 5 },
-    miss: { habit: -2, task: -4, goal: -15, sleep: -5 },
+    complete: { habit: 5, task: 10, goal: 50, sleep: 20 },
+    miss: { habit: -2, task: -4, goal: -15, sleep: -20 },
 } as const;
 
 export interface Rank { name: string; min: number }
@@ -83,9 +83,9 @@ export interface MarksInput {
     skips?: Record<string, string[]>;
     /** The day each goal reached 100%, when it has. */
     goalsCompletedOn?: Record<string, string | null | undefined>;
-    /** Mornings after a night that reached the sleep goal: +5 each. */
+    /** Mornings after a night that reached the sleep goal: +20 each (sleep matters that much). */
     goodNights?: string[];
-    /** Mornings after a recorded night that fell short of it: −5 each. A night with no data counts for nothing. */
+    /** Mornings after a recorded night that fell short of it: −20 each. A night with no data counts for nothing. */
     shortNights?: string[];
     /** Misses of things since deleted: deleting takes back what was earned, never what was lost. */
     kept?: KeptPenalty[];

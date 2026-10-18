@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { IconTile } from '@/components/ui/IconTile';
@@ -22,8 +23,9 @@ const BAR_HEIGHT = 56;
  * Last night's sleep, from Apple Health, and this week so far: one bar per
  * night, starting on the day the week starts (Settings), days still to come
  * left empty. A new week starts with a clean row. A night that
- * reaches your goal earns 5 Marks; a recorded night short of it costs 5. The goal is set
- * in Settings. Only shown when something actually records sleep.
+ * reaches your goal earns 20 Marks; a recorded night short of it costs 20. The goal is set
+ * in Settings, and so is whether this card shows at all. With no sleep data
+ * yet, it says how to get some rather than vanishing.
  */
 export function SleepCard() {
     const { theme } = useTheme();
@@ -32,9 +34,28 @@ export function SleepCard() {
     const sleep = useSleep();
     const weekStart = useWeekStart();
 
-    // No sleep tracker (no Watch, Garmin, ring…) or Health not connected:
-    // no card at all, rather than an empty one or a prompt.
-    if (!sleep.connected || Object.keys(sleep.nights).length === 0) return null;
+    if (sleep.showCard === false) return null;
+    // No sleep data yet (Health not connected, or nothing that records sleep):
+    // say how to get it, in the same card.
+    if (!sleep.connected || Object.keys(sleep.nights).length === 0) {
+        return (
+            <VoidCard style={styles.card}>
+                <View style={styles.head}>
+                    <IconTile icon="moon" color={primary} size={32} />
+                    <Text style={[styles.title, styles.flex, { color: colors.textPrimary }]}>Sleep</Text>
+                </View>
+                <Text style={[styles.sub, { color: colors.textSecondary }]}>
+                    {sleep.connected ? 'No sleep recorded yet. Any watch or ring that writes sleep to Apple Health works.' : 'Connect Apple Health to see your nights here. Reaching your sleep goal earns 20 Marks.'}
+                </Text>
+                {!sleep.connected ? (
+                    <Pressable accessibilityRole="button" onPress={() => router.push('/(root)/integrations' as never)} style={styles.connect}>
+                        <Text style={[styles.earnedText, { color: primary }]}>Connect Apple Health</Text>
+                        <AppIcon name="chevron-forward" size={12} color={primary} />
+                    </Pressable>
+                ) : null}
+            </VoidCard>
+        );
+    }
 
     // Each morning of this week; a night belongs to the morning it ends on.
     const todayKey = localDateKey(new Date());
@@ -55,7 +76,7 @@ export function SleepCard() {
                 <IconTile icon="moon" color={primary} size={32} />
                 <Text style={[styles.title, styles.flex, { color: colors.textPrimary }]}>Sleep</Text>
                 {last !== undefined ? (
-                    // What last night did to your Marks: +5 at your goal, −5 short of it.
+                    // What last night did to your Marks: +20 at your goal, −20 short of it.
                     <View style={[styles.earned, { backgroundColor: (met ? colors.success : colors.error) + '22' }]}>{/* ui-allow: tint */}
                         <AppIcon name={met ? 'sparkles' : 'trending-down'} size={12} color={met ? colors.success : colors.error} />
                         <Text style={[styles.earnedText, { color: met ? colors.success : colors.error }]}>
@@ -104,7 +125,7 @@ function Bar({ share, index, color, replay }: { share: number; index: number; co
 
 const styles = StyleSheet.create({
     flex: { flex: 1 },
-    connect: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg },
+    connect: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, alignSelf: 'flex-start' },
     card: { padding: Spacing.lg, gap: Spacing.md },
     head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 2 },
     title: { fontFamily: FontFamily.semibold, fontSize: 16 },

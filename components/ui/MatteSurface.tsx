@@ -14,8 +14,10 @@ import { Elevation, elevationFor, surfaceFor } from '@/theme/designSystem';
  * Cards, the tab bar, icon buttons, text fields and chips all use it, in
  * their own shape: give it a `radius` (half the height for a circle or pill).
  *
- * `level` picks the shadow: `card` for panels on the page, `control` (a
- * tighter shadow) for things you press or type into. The body is the same.
+ * Shadows only on what floats over other things (the tab bar, a sticky bar,
+ * a menu, a pop-up): pass `elevation="floating"`. Cards, chips and fields
+ * sit flat on the page, so the gradient reads cleanly with no dark band
+ * under it. `level` is kept for callers; it no longer adds a shadow.
  * `tint` lays a colour over the body — a chosen chip in the accent.
  *
  * Two layers, because iOS cannot clip and cast a shadow on the same view: the
@@ -23,7 +25,7 @@ import { Elevation, elevationFor, surfaceFor } from '@/theme/designSystem';
  * contents in its own clipped layer.
  */
 export function MatteSurface({
-    children, style, radius, level = 'card', elevation, tint, edge, pointerEvents,
+    children, style, radius, level = 'card', elevation, tint, edge, hairline, pointerEvents,
 }: {
     children?: React.ReactNode;
     style?: StyleProp<ViewStyle>;
@@ -33,11 +35,14 @@ export function MatteSurface({
     tint?: string;
     /** The edge colour, when it has to say something (focus, an error). */
     edge?: string;
+    /** A hairline edge instead of a full point, for an edge that should barely show. */
+    hairline?: boolean;
     pointerEvents?: 'box-none' | 'none' | 'box-only' | 'auto';
 }) {
     const { theme } = useTheme();
     const tone = surfaceFor(theme);
-    const lift = elevation ?? (level === 'card' ? 'card' : 'control');
+    void level;
+    const lift = elevation ?? 'none';
     // One body for everything: the card's own gradient. Buttons, fields, chips
     // and the tab bar are the card's material in another shape, so they match
     // it exactly; only the shadow under them changes with `level`.
@@ -49,7 +54,7 @@ export function MatteSurface({
             style={[
                 // No border at all unless one has something to say: even a transparent
                 // one leaves a ring of the base colour around the gradient.
-                { borderRadius: radius, borderWidth: edge ? 1 : 0, backgroundColor: body, borderColor: edge },
+                { borderRadius: radius, borderWidth: edge ? (hairline ? StyleSheet.hairlineWidth : 1) : 0, backgroundColor: body, borderColor: edge },
                 lift === 'none' ? null : elevationFor(theme, lift),
                 style,
             ]}

@@ -70,6 +70,8 @@ const TabIcon = ({ routeName, focused, colors, isDark, foreground, unread, backg
 
 export const GlassDock = ({ state, descriptors, navigation }: any) => {
     const { theme } = useTheme();
+    // A barely-there edge so the bar lifts off the page; never a white outline.
+    const dockEdge = theme === 'light' ? 'rgba(15,23,42,0.07)' : 'rgba(255,255,255,0.08)';
     const { colors: accentColors, shadowColor, foreground, buttonColors } = useAccentGradient();
     const palette = Colors[theme];
     const { mediumFeedback } = useHaptics();
@@ -148,7 +150,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
             />
 
             {/* The matte card surface as a pill, floating on its shadow. */}
-            <MatteSurface radius={tabBarHeight / 2} elevation="floating" style={[
+            <MatteSurface radius={tabBarHeight / 2} elevation="floating" edge={dockEdge} hairline style={[
                 styles.navPill,
                 {
                     height: tabBarHeight,
@@ -264,7 +266,7 @@ export const GlassDock = ({ state, descriptors, navigation }: any) => {
                     </LinearGradient>
                 </Animated.View>
                 <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, removeLayer]}>
-                    <MatteSurface radius={floatingButtonSize / 2} elevation="floating" style={StyleSheet.absoluteFill}>
+                    <MatteSurface radius={floatingButtonSize / 2} elevation="floating" edge={dockEdge} hairline style={StyleSheet.absoluteFill}>
                         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: palette.error, borderRadius: floatingButtonSize / 2 }, removeFill]} />
                         <View style={styles.orbCenter}>
                             <Ionicons name="remove" size={isCompactWidth ? 28 : 32} color={removeDrag.over ? '#FFFFFF' : palette.error} />

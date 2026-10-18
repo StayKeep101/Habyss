@@ -97,11 +97,11 @@ describe('the league you are in', () => {
 });
 
 describe('sleep', () => {
-    it('earns 5 for a night at the goal and loses 5 for a short one', () => {
+    it('earns 20 for a night at the goal and loses 20 for a short one', () => {
         const good = computeMarks({ habits: [], tasks: [], history: {}, goodNights: ['2026-10-14', '2026-10-15', '2026-10-16'], today: '2026-10-16' });
-        expect(good.total).toBe(15);
+        expect(good.total).toBe(60);
         const mixed = computeMarks({ habits: [], tasks: [], history: {}, goodNights: ['2026-10-14', '2026-10-15'], shortNights: ['2026-10-16'], today: '2026-10-16' });
-        expect(mixed.total).toBe(5);
+        expect(mixed.total).toBe(20);
         expect(mixed.events.filter(event => event.item === 'sleep')).toHaveLength(3);
     });
 });

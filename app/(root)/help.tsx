@@ -19,7 +19,7 @@ const QUESTIONS: { q: string; a: string; typed?: boolean }[] = [
     { q: 'How do I add a habit?', a: 'Tap + at the bottom of the screen.' },
     { q: 'How does my streak work?', a: 'Do one habit or task a day and it keeps going.' },
     { q: 'Does it work offline?', a: 'Yes. Everything saves on your phone first.' },
-    { q: 'What are Marks?', a: 'Points for keeping your habits and tasks. They go down when you miss. Sleep counts too: reach your sleep goal and you get +5, fall short and it’s −5.' },
+    { q: 'What are Marks?', a: 'Points for keeping your habits and tasks. They go down when you miss. Sleep counts too: reach your sleep goal and you get +20, fall short and it’s −20, because sleep matters that much.' },
 ];
 
 /**

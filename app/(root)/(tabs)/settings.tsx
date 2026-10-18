@@ -10,7 +10,7 @@ import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { router } from 'expo-router';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { useSleep } from '@/hooks/useSleep';
-import { setSleepTarget } from '@/lib/sleepLog';
+import { setSleepCardVisible, setSleepTarget } from '@/lib/sleepLog';
 import { DEFAULT_WEEK_START, getWeekStart, setWeekStart, type WeekStart } from '@/lib/weekStart';
 import { syncBrainDumpReview } from '@/lib/brainDumpReview';
 import { DEFAULT_VOICE_DESTINATION, VOICE_DESTINATIONS, getVoiceDestination, setVoiceDestination, type VoiceDestination } from '@/lib/voiceDestination';
@@ -125,6 +125,8 @@ export default function ProfileScreen() {
                         <SettingsRow icon="moon" color="#5E5CE6" label="Sleep goal"
                             choices={SLEEP_GOALS.map(hours => ({ id: String(hours), label: `${hours}h` }))}
                             chosen={String(sleep.target / 60)} onChoose={id => void setSleepTarget(Number(id) * 60)} />
+                        <SettingsRow icon="bed" color="#5E5CE6" label="Sleep card on Home"
+                            toggle={sleep.showCard !== false} onToggle={value => void setSleepCardVisible(value)} />
                         {/* When a week ends: the brain dump is reviewed and cleared then. */}
                         <SettingsRow icon="calendar" color="#64D2FF" label="Week starts"
                             choices={[{ id: 'monday', label: 'Mon' }, { id: 'sunday', label: 'Sun' }]} chosen={weekStart}
