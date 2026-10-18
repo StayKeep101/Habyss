@@ -59,6 +59,7 @@ import { momentum } from '@/lib/momentum';
 import { recovery } from '@/lib/recovery';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
+import { RANKS } from '@/lib/marks';
 
 const Home = () => {
   const router = useRouter();
@@ -250,6 +251,16 @@ const Home = () => {
     });
     return () => { alive = false; };
   }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, sharedData.history, sharedData.tasks, playLevelUp]);
+  // The Developer page can play the moment for any rank, to see it.
+  useEffect(() => {
+    const sub = on('preview_climb', ({ rank }) => {
+      const index = RANKS.findIndex(item => item.name === rank);
+      if (index > 0) { setClimbMoment({ kind: 'rankUp', rank, index }); playLevelUp(); }
+    });
+    const egg = on('preview_egg', ({ egg: which }) => setOpenEgg(which));
+    const ask = on('preview_question', ({ kind }) => setQuestion(kind));
+    return () => { sub.remove(); egg.remove(); ask.remove(); };
+  }, [playLevelUp]);
   const [showMarks, setShowMarks] = useState(false);
 
 

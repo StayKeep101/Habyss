@@ -7,7 +7,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { TimeRow } from '@/components/ui/TimeRow';
 
 import { Colors } from '@/theme/colors';
@@ -119,7 +119,12 @@ export default function OnboardingScreen() {
     const isLight = theme === 'light';
     const { primary: accent } = useAccentGradient();
     const { lightFeedback } = useHaptics();
-    const { setAIPersonality } = useAppSettings();
+    const { setAIPersonality: saveVoice } = useAppSettings();
+    // Developer → "Test onboarding": the whole flow from the start, saving
+    // nothing (no name, hours, voice, draft or "done"), back to Settings at the end.
+    const preview = useLocalSearchParams<{ preview?: string }>().preview === '1';
+    const setAIPersonality = useCallback((id: Parameters<typeof saveVoice>[0]) => { if (!preview) return saveVoice(id); }, [preview, saveVoice]);
+    const persistDraft = useCallback((next: OnboardingDraft) => { if (!preview) saveDraft(next); }, [preview]);
 
     // null while hydrating: persisted data decides what the user sees, not a guess.
     const [draft, setDraftState] = useState<OnboardingDraft | null>(null);
@@ -145,16 +150,17 @@ export default function OnboardingScreen() {
     /** Done is done: someone who skipped setup lands in the app, not back at
      *  the first question on the next launch. */
     const finish = useCallback(async () => {
+        if (preview) { router.replace('/(root)/(tabs)/settings'); return; }
         await setOnboardingComplete();
         await clearDraft();
         router.replace('/(root)/(tabs)/home');
-    }, [router]);
+    }, [router, preview]);
 
     /** Inviting someone answers "nobody notices either way", and nothing else. */
     const afterAccount = useCallback(() => {
         if (draft && shouldOfferFriends(draft)) setDraftState(current => {
             const next = { ...current!, step: STEP.friends };
-            saveDraft(next);
+            persistDraft(next);
             return next;
         });
         else void finish();
@@ -169,22 +175,24 @@ export default function OnboardingScreen() {
 
     useEffect(() => {
         let cancelled = false;
+        const fresh: OnboardingDraft = { step: 0, flow: FLOW_VERSION, startDate: localDateKey(new Date()), recurrence: 'daily' };
+        if (preview) { setDraftState(fresh); return; }
         loadDraft().then(stored => {
             if (cancelled) return;
-            setDraftState(stored ?? { step: 0, flow: FLOW_VERSION, startDate: localDateKey(new Date()), recurrence: 'daily' });
+            setDraftState(stored ?? fresh);
         });
         return () => { cancelled = true; };
-    }, []);
+    }, [preview]);
 
     const update = useCallback((patch: Partial<OnboardingDraft>) => {
         setDraftState(current => {
             if (!current) return current;
             const next = { ...current, ...patch };
             // Persist every change so closing the app mid-flow loses nothing.
-            saveDraft(next);
+            persistDraft(next);
             return next;
         });
-    }, []);
+    }, [persistDraft]);
 
     const cancelAdvance = useCallback(() => {
         if (advanceRef.current) { clearTimeout(advanceRef.current); advanceRef.current = null; }
@@ -248,9 +256,8 @@ export default function OnboardingScreen() {
      */
     const afterWelcomeSignIn = async (report: SyncReport) => {
         if (report.downloaded > 0) {
-            await setOnboardingComplete();
-            await clearDraft();
-            router.replace('/(root)/(tabs)/home');
+            if (!preview) { await setOnboardingComplete(); await clearDraft(); }
+            router.replace(preview ? '/(root)/(tabs)/settings' : '/(root)/(tabs)/home');
             return;
         }
         const known = await getName();
@@ -444,7 +451,7 @@ export default function OnboardingScreen() {
                 <PrimaryButton
                     label="Continue"
                     onPress={() => {
-                        saveDayWindow({ wake, sleep }).catch(() => undefined);
+                        if (!preview) saveDayWindow({ wake, sleep }).catch(() => undefined);
                         update({ wake, sleep });
                         goTo(STEP.timing);
                     }}
@@ -546,7 +553,7 @@ export default function OnboardingScreen() {
         const name = draft.name ?? '';
         const next = () => {
             if (!name.trim()) return;
-            saveName(name).catch(() => undefined);
+            if (!preview) saveName(name).catch(() => undefined);
             goTo(STEP.source);
         };
         return (

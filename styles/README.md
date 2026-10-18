@@ -41,6 +41,7 @@ Home, Paywall, Goal stats and Goal plan have no page-level styles: they are buil
 | `app/(root)/start-now.tsx` | `styles/screens/start-now.styles.ts` |
 | `app/(root)/echo-memory.tsx` | `styles/screens/echo-memory.styles.ts` |
 | `app/(root)/week-review.tsx` | `styles/screens/week-review.styles.ts` |
+| `app/(root)/developer.tsx` | `styles/screens/developer.styles.ts` |
 | `app/(root)/brain-dump.tsx` | `styles/screens/brain-dump.styles.ts` |
 | `app/(root)/friend.tsx` | `styles/screens/friend.styles.ts` |
 | `app/(root)/leaderboard.tsx` | `styles/screens/leaderboard.styles.ts` |

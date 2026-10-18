@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
@@ -30,7 +30,9 @@ export default function LeaderboardScreen() {
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
     const { lightFeedback } = useHaptics();
-    const [scope, setScope] = useState<Scope>('friends');
+    // `?scope=league` opens straight on your league (from the rank-up moment).
+    const params = useLocalSearchParams<{ scope?: string }>();
+    const [scope, setScope] = useState<Scope>(params.scope === 'league' ? 'league' : 'friends');
     const [rows, setRows] = useState<LeaderRow[] | null>(null);
     // Your rank band, from your own Marks: the league is everyone in it.
     const [band, setBand] = useState<ReturnType<typeof rankBand> | null>(null);

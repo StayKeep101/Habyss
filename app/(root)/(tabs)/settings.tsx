@@ -31,6 +31,17 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { styles } from '@/styles/screens/tabs/settings.styles';
 
+/** The Developer page shows outside production: in development, and on preview builds. */
+const showDeveloper = (() => {
+    if (__DEV__) return true;
+    try {
+        const channel = (require('expo-updates') as typeof import('expo-updates')).channel;
+        return !!channel && channel !== 'production';
+    } catch {
+        return false;
+    }
+})();
+
 export default function ProfileScreen() {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -161,9 +172,9 @@ export default function ProfileScreen() {
                     <SettingsGroup title="Help">
                         <SettingsRow icon="book" color="#FFB020" label="How Habyss works" onPress={() => router.push('/(root)/guide')} />
                         <SettingsRow icon="help-buoy" color="#64D2FF" label="Help" onPress={() => router.push('/(root)/help')} />
-                        {/* A developer's tool: only in development builds. */}
-                        {__DEV__ ? (
-                            <SettingsRow icon="grid" color="#8A8A94" label="UI catalogue" onPress={() => router.push('/(root)/ui-catalog')} />
+                        {/* Testing tools: development and preview builds only, never the App Store build. */}
+                        {showDeveloper ? (
+                            <SettingsRow icon="construct" color="#8A8A94" label="Developer" onPress={() => router.push('/(root)/developer' as never)} />
                         ) : null}
                     </SettingsGroup>
 

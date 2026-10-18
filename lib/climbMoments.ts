@@ -28,6 +28,12 @@ const ECHO_LINES: Record<string, string> = {
     Eternal: 'You’re out. Stay out.',
 };
 
+/** Each rank's emblem: what the climb looks like at that height. */
+export const RANK_ICONS: Record<string, string> = {
+    Lost: 'help', Beginner: 'footsteps', Growing: 'leaf', Consistent: 'repeat', Disciplined: 'shield-checkmark',
+    Focused: 'eye', Master: 'star', Unbreakable: 'diamond', Timekeeper: 'hourglass', Eternal: 'infinite',
+};
+
 export const echoLineFor = (moment: ClimbMoment): string =>
     moment.kind === 'foothold' ? 'Just one thing. Today. Done.' : ECHO_LINES[moment.rank] ?? 'Keep climbing.';
 

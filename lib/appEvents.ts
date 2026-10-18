@@ -61,6 +61,11 @@ export interface AppEvents {
     openModal: { modal: string };
     /** Raise the feedback sheet from anywhere. `screen` is collected, not typed. */
     show_feedback: { screen?: string } | undefined;
+    /** Developer page: play the rank-up moment for a rank, without changing anything. */
+    preview_climb: { rank: string };
+    /** Developer page: open an easter egg, or ask a quick question, now. */
+    preview_egg: { egg: 'help_friend' | 'memory' | 'vault' };
+    preview_question: { kind: 'mood' | 'energy' };
 }
 
 export type AppEvent = keyof AppEvents;
