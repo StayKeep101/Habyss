@@ -246,7 +246,9 @@ const Home = () => {
   // The climb, as moments: your first foothold, then each new rank (lib/climbMoments.ts).
   const [climbMoment, setClimbMoment] = useState<ClimbMoment | null>(null);
   useEffect(() => {
-    if (!sharedData.historyLoaded || !sharedData.tasksLoaded) return;
+    // Only once everything Marks are counted from has loaded: a total read
+    // half-loaded looked like a fall and then a climb on every launch.
+    if (!sharedData.historyLoaded || !sharedData.tasksLoaded || !goalsData.loaded) return;
     const hasCompleted = Object.values(sharedData.history).some(ids => ids.length > 0)
       || sharedData.tasks.some(task => task.status === 'done');
     let alive = true;
@@ -260,7 +262,7 @@ const Home = () => {
       }
     });
     return () => { alive = false; };
-  }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, sharedData.history, sharedData.tasks, playLevelUp]);
+  }, [marks.total, sharedData.historyLoaded, sharedData.tasksLoaded, goalsData.loaded, sharedData.history, sharedData.tasks, playLevelUp]);
   // The Developer page can play the moment for any rank, to see it.
   useEffect(() => {
     const sub = on('preview_climb', ({ rank }) => {

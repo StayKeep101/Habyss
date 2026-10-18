@@ -42,9 +42,9 @@ export function nextMoment(previous: ClimbState | null, marks: number, hasComple
     const index = RANKS.indexOf(rankFor(marks).rank);
     if (!previous) return { moment: null, state: { rank: index, foothold: hasCompleted } };
     if (hasCompleted && !previous.foothold) return { moment: { kind: 'foothold' }, state: { ...previous, foothold: true } };
+    // Only a new highest rank is a moment. Dropping below and climbing back
+    // (or a total read before everything has loaded) never replays one.
     if (index > previous.rank) return { moment: { kind: 'rankUp', rank: RANKS[index].name, index }, state: { ...previous, rank: index } };
-    // Falling a rank is remembered quietly, so climbing back is a moment again.
-    if (index < previous.rank) return { moment: null, state: { ...previous, rank: index } };
     return { moment: null, state: previous };
 }
 
