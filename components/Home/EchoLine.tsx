@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
@@ -12,11 +12,17 @@ import { useAccentGradient } from '@/context/AccentContext';
  * Its own component so the typing re-renders only this line. It lived in the
  * Home screen's state, so every letter (every 30 ms) re-rendered all of Home.
  */
-export function EchoLine({ text, style, onPress, secret }: { text: string; style?: object; onPress?: () => void; secret?: boolean }) {
+export function EchoLine({ text, style, onPress, secret, onDone }: {
+    text: string; style?: object; onPress?: () => void; secret?: boolean;
+    /** Called once the line has finished typing out (e.g. to ask a question after it). */
+    onDone?: () => void;
+}) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
     const [shown, setShown] = useState('');
+    const doneRef = useRef(onDone);
+    useEffect(() => { doneRef.current = onDone; }, [onDone]);
 
     useEffect(() => {
         setShown('');
@@ -24,7 +30,7 @@ export function EchoLine({ text, style, onPress, secret }: { text: string; style
         const timer = setInterval(() => {
             index += 1;
             setShown(text.slice(0, index));
-            if (index >= text.length) clearInterval(timer);
+            if (index >= text.length) { clearInterval(timer); doneRef.current?.(); }
         }, 30);
         return () => clearInterval(timer);
     }, [text]);

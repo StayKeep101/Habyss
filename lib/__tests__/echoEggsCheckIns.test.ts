@@ -1,4 +1,4 @@
-import { pickQuestion, todays, type CheckInState } from '../checkIns';
+import { leadInFor, pickQuestion, todays, type CheckInState } from '../checkIns';
 import { dayScores, moodEnergy } from '../moodEnergy';
 import { eggLine, pickEgg, tryWord, VAULT } from '../echoEggs';
 import { streakFrom } from '../dayComplete';
@@ -39,6 +39,13 @@ describe('when Echo asks', () => {
         // At a roll of 0.5: the keen one is asked, the ignored one is not.
         expect(pickQuestion(keen, now, () => 0.5)).not.toBeNull();
         expect(pickQuestion(ignored, now, () => 0.5)).toBeNull();
+    });
+});
+
+describe("Echo's lead-in before a question", () => {
+    it('is plain in the Normal voice and has a joke in the others', () => {
+        expect(leadInFor('mood', 'normal', () => 0)).toBe('Quick one: how are you feeling?');
+        expect(leadInFor('energy', 'bully_mode', () => 0)).toMatch(/Battery check/);
     });
 });
 

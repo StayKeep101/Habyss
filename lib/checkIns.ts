@@ -21,6 +21,27 @@ export const QUESTIONS: Record<CheckInKind, { title: string; options: string[]; 
     energy: { title: 'How’s your energy?', options: ['Drained', 'Low', 'Okay', 'Good', 'High'], icon: 'flash-outline' },
 };
 
+/**
+ * What Echo says on its line just before asking, typed out first, then the
+ * pop-up. Plain in the Normal voice; with a joke in the others.
+ */
+const LEAD_INS: Record<CheckInKind, { plain: string[]; funny: string[] }> = {
+    mood: {
+        plain: ['Quick one: how are you feeling?', 'Before you go on: how’s your mood?'],
+        funny: ['Mood check. No wrong answers. Except lying.', 'Scientists say I should ask how you feel. I am the scientists.', 'Rate your vibe. I won’t tell anyone. Probably.'],
+    },
+    energy: {
+        plain: ['Quick one: how’s your energy?', 'How much fuel is in the tank today?'],
+        funny: ['Battery check. Are we at 100% or one bar and dimming?', 'Energy report, please. Coffee counts as a personality.', 'How charged are you? Be honest, I can see the yawn.'],
+    },
+};
+
+/** Echo's lead-in for a question, in its voice (Normal is plain). */
+export function leadInFor(kind: CheckInKind, voice: string, random: () => number = Math.random): string {
+    const lines = voice === 'normal' ? LEAD_INS[kind].plain : LEAD_INS[kind].funny;
+    return lines[Math.floor(random() * lines.length) % lines.length];
+}
+
 const KEY = 'habyss_check_ins';
 const KEEP_DAYS = 120;
 /** Never the same question twice within this long. */

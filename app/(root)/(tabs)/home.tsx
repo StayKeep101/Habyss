@@ -6,7 +6,7 @@ import { EggPopup } from '@/components/Echo/EggPopup';
 import { CheckInPopup } from '@/components/Echo/CheckInPopup';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
 import { eggLine, loadEggs, markFound, markShown, pickEgg, type EggId } from '@/lib/echoEggs';
-import { answer as answerCheckIn, loadCheckIns, markAsked, pickQuestion, type CheckInKind } from '@/lib/checkIns';
+import { answer as answerCheckIn, leadInFor, loadCheckIns, markAsked, pickQuestion, type CheckInKind } from '@/lib/checkIns';
 import { coverYesterdayIfMissed, loadFreezes } from '@/lib/streakFreeze';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ClimbMomentOverlay } from '@/components/Home/ClimbMomentOverlay';
@@ -99,6 +99,8 @@ const Home = () => {
   const [openEgg, setOpenEgg] = useState<EggId | null>(null);
   // One of Echo's quick questions, asked now and then after a pull down.
   const [question, setQuestion] = useState<CheckInKind | null>(null);
+  /** The question waiting for Echo's line to finish typing. */
+  const pendingQuestion = useRef<CheckInKind | null>(null);
 
   // Echo's line: new on every visit and refresh. Stats are read from a ref so
   // the line always reflects the latest render without re-running the effect.
@@ -130,8 +132,19 @@ const Home = () => {
     // Sync HealthKit Data
     syncHealthKitData().catch(console.error);
 
-    // A new line from Echo on every refresh.
-    showEchoLine();
+    // Sometimes Echo asks something instead (when is learned from when you
+    // answer): it says so on its line first, then the pop-up opens once the
+    // line has finished typing.
+    const kind = pickQuestion(await loadCheckIns(), new Date());
+    if (kind) {
+      void markAsked(kind);
+      setEchoEgg(null);
+      pendingQuestion.current = kind;
+      setMotivationalQuote(leadInFor(kind, normalizeAIPersonality(aiPersonality || 'friendly')));
+    } else {
+      // A new line from Echo on every refresh.
+      showEchoLine();
+    }
     // Reload completions for today
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -140,10 +153,7 @@ const Home = () => {
     // Reload history data for accurate stats (streak, consistency, goal progress)
     reloadHistory();
     setRefreshing(false);
-    // Sometimes, a question (when is learned from when you answer).
-    const kind = pickQuestion(await loadCheckIns(), new Date());
-    if (kind) { void markAsked(kind); setTimeout(() => setQuestion(kind), 350); }
-  }, [showEchoLine, reloadHistory]);
+  }, [showEchoLine, reloadHistory, aiPersonality]);
 
   // Derived data
   const goals = useMemo(() => allHabits.filter(h => h.isGoal), [allHabits]);
@@ -258,9 +268,13 @@ const Home = () => {
       if (index > 0) { setClimbMoment({ kind: 'rankUp', rank, index }); playLevelUp(); }
     });
     const egg = on('preview_egg', ({ egg: which }) => setOpenEgg(which));
-    const ask = on('preview_question', ({ kind }) => setQuestion(kind));
+    const ask = on('preview_question', ({ kind }) => {
+      setEchoEgg(null);
+      pendingQuestion.current = kind;
+      setMotivationalQuote(leadInFor(kind, normalizeAIPersonality(aiPersonality || 'friendly')));
+    });
     return () => { sub.remove(); egg.remove(); ask.remove(); };
-  }, [playLevelUp]);
+  }, [playLevelUp, aiPersonality]);
   const [showMarks, setShowMarks] = useState(false);
 
 
@@ -423,6 +437,7 @@ const Home = () => {
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
           {motivationalQuote ? <EchoLine text={motivationalQuote} secret={!!echoEgg} style={{ marginTop: sectionGap }}
+            onDone={() => { const kind = pendingQuestion.current; if (kind) { pendingQuestion.current = null; setTimeout(() => setQuestion(kind), 400); } }}
             onPress={echoEgg ? () => { lightFeedback(); setOpenEgg(echoEgg); void markFound(echoEgg); } : undefined} /> : null}
 
           {/* Spacer after header */}
