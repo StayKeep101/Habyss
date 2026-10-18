@@ -1,12 +1,11 @@
 import { FontFamily } from '@/theme/designSystem';
-import { formatClock, formatDuration } from '@/lib/habitMeasurement';
+import { formatClock, formatDuration, measurementFor } from '@/lib/habitMeasurement';
 import React, { useRef } from 'react';
 import { View, Text, Animated, StyleSheet, Dimensions } from 'react-native';
 import { textOn } from '@/theme/tokens';
 import { CountUp } from '@/components/ui/Motion';
 import { TouchableOpacity, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SwipeRow } from '@/components/ui/SwipeRow';
-import { BadgeRow, MeasureBadge, ReminderBadge } from '@/components/Common/CardBadges';
 import { CheckPop } from '@/components/ui/CheckPop';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { SharedFaces } from '@/components/Common/SharedFaces';
@@ -99,6 +98,16 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
   const iconBoxSize = isSmall ? 20 : (isBig ? 32 : 26);
   const fontSize = isSmall ? 11 : (isBig ? 14 : 13);
   const checkboxSize = isSmall ? 14 : (isBig ? 20 : 18);
+  // The right edge: when, and how much (never "1 time"; a timed habit says its length once).
+  const sideMain = isSmall ? 11 : (isBig ? 13 : 12);
+  const sideSub = isSmall ? 10 : (isBig ? 12 : 11);
+  const measure = measurementFor(habit);
+  const block = habit.durationMinutes ? formatDuration(habit.durationMinutes * 60, true) : null;
+  const when = habit.startTime ? (measure.kind !== 'timer' && block ? `${habit.startTime} · ${block}` : habit.startTime) : null;
+  const amount = measure.kind === 'timer' ? formatDuration(measure.target * measure.secondsPerUnit, true)
+    : measure.kind === 'counter' ? `${measure.target} ${habit.unit}`
+    : !habit.startTime ? block : null;
+  const remind = (habit.reminders?.length ?? 0) > 0;
 
   // Timer Progress Logic
   // Hours, minutes and seconds — "3:56:07", never "236:07".
@@ -275,39 +284,22 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
               ) : null}
             </View>
 
-            {/* Time / Timer + Target (Compact) */}
-            <View style={{ alignItems: 'flex-end' }}>
+            {/* The right edge, the same on every card: when (with the bell if
+                it reminds you), then how much, only if that says something.
+                Small cards keep to one line. */}
+            <View style={styles.side}>
               {isActive && formattedTime ? (
-                <Text style={{ fontSize: 13,  color: accentColor, fontFamily: FontFamily.bold, fontVariant: ['tabular-nums'] }}>
-                  {formattedTime}
-                </Text>
+                <Text style={[styles.sideMain, { color: accentColor, fontFamily: FontFamily.bold, fontSize: sideMain }]}>{formattedTime}</Text>
               ) : (
                 <>
-                  <View style={{ marginBottom: 2 }}>
-                    <BadgeRow>
-                      {/* Whether it will remind you, and what it asks for —
-                          both drawn the same way as on a task. The bell is a
-                          few pixels; a compact card can carry it. */}
-                      <ReminderBadge on={(habit.reminders?.length ?? 0) > 0} size={isSmall ? 10 : undefined} />
-                      {!isSmall && habit.unit && habit.unit !== 'count' ? (
-                        <MeasureBadge value={habit.goalValue} unit={habit.unit} />
-                      ) : null}
-                    </BadgeRow>
-                  </View>
-                  {/* Nothing at all when there is no time.
-                      It used to draw `--:--`, which is a placeholder shaped
-                      like a clock reading nothing — and plenty of habits have
-                      no time on purpose, because they are done when there is
-                      room. An empty slot says that; four dashes say the card
-                      is missing something. */}
-                  {habit.startTime ? (
-                    <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>
-                      {habit.startTime}{habit.durationMinutes ? ` · ${formatDuration(habit.durationMinutes * 60, true)}` : ''}
-                    </Text>
-                  ) : habit.durationMinutes ? (
-                    <Text style={[styles.timeText, { color: colors.textTertiary, fontSize: isSmall ? 9 : 11 }]}>
-                      {formatDuration(habit.durationMinutes * 60, true)}
-                    </Text>
+                  {when || remind ? (
+                    <View style={styles.sideRow}>
+                      {remind ? <Ionicons name="notifications" size={sideMain - 1} color={colors.textTertiary} /> : null}
+                      {when ? <Text style={[styles.sideMain, { color: colors.textSecondary, fontSize: sideMain }]}>{when}</Text> : null}
+                    </View>
+                  ) : null}
+                  {amount && (!isSmall || !when) ? (
+                    <Text style={[when || remind ? styles.sideSub : styles.sideMain, { color: when || remind ? colors.textTertiary : colors.textSecondary, fontSize: when || remind ? sideSub : sideMain }]}>{amount}</Text>
                   ) : null}
                 </>
               )}
@@ -395,6 +387,10 @@ const styles = StyleSheet.create({
   timeText: {
     fontFamily: FontFamily.regular,
   },
+  side: { alignItems: 'flex-end', justifyContent: 'center', gap: 2, marginLeft: 8 },
+  sideRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sideMain: { fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
+  sideSub: { fontFamily: FontFamily.regular, fontVariant: ['tabular-nums'] },
   leftAction: {
     flex: 1,
     justifyContent: 'center',

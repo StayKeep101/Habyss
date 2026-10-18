@@ -128,7 +128,11 @@ export function ClimbMomentOverlay({ moment, onDone }: { moment: ClimbMoment | n
             { translateY: interpolate(lock.value, [0.2, 1], [0, -10], 'clamp') },
         ],
     }));
-    const glowStyle = useAnimatedStyle(() => ({ opacity: interpolate(lock.value, [0.2, 1], [0, 1], 'clamp') }));
+    // A soft halo that brightens as it opens: never solid, so the lock reads over it.
+    const glowStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(lock.value, [0.2, 1], [0, 0.22], 'clamp'),
+        transform: [{ scale: interpolate(lock.value, [0.2, 1], [0.6, 1.15], 'clamp') }],
+    }));
 
     if (!moment) return null;
     const rankName = isRank ? moment.rank : 'Out of the dark';
@@ -218,7 +222,7 @@ const styles = StyleSheet.create({
     title: { fontFamily: FontFamily.bold, fontSize: 42, lineHeight: 48, letterSpacing: -1, textAlign: 'center' },
     echo: { fontFamily: FontFamily.medium, fontSize: 16, lineHeight: 23, textAlign: 'center', marginTop: Spacing.md, paddingHorizontal: Spacing.md },
     lockBox: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
-    lockGlow: { position: 'absolute', width: 150, height: 150, borderRadius: 75, opacity: 0.25 },
+    lockGlow: { position: 'absolute', width: 170, height: 170, borderRadius: 85 },
     actions: { paddingBottom: Spacing.section + Spacing.lg, gap: Spacing.sm },
     flash: { backgroundColor: '#FFFFFF' },
 });

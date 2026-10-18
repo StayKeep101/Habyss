@@ -42,6 +42,7 @@ import RevenueCatService from '@/lib/RevenueCat';
 // import * as Linking from 'expo-linking';
 import { BiometricGuard } from '@/components/Auth/BiometricGuard';
 import { ErrorBoundary } from '@/components/Common/ErrorBoundary';
+import { CrackIntro } from '@/components/Common/CrackIntro';
 import { QuietLoading } from '@/components/Loading/QuietLoading';
 import { SiriService } from '@/lib/siriService';
 import { emit, on, onAny } from '@/lib/appEvents';
@@ -83,6 +84,9 @@ export default function MobileLayout() {
     SpaceGrotesk_700Bold,
   });
   const [bootReady, setBootReady] = React.useState(false);
+  // The launch animation, once per cold start.
+  const [showIntro, setShowIntro] = React.useState(true);
+  const endIntro = React.useCallback(() => setShowIntro(false), []);
 
   useEffect(() => {
     async function prepare() {
@@ -204,7 +208,8 @@ export default function MobileLayout() {
   }
 
   return (
-    // <SuperwallProvider apiKeys={{ ios: "pk_UMIRgoqWMWWOJ9H2Lp6RG" }}>
+    <>
+    {/* <SuperwallProvider apiKeys={{ ios: "pk_UMIRgoqWMWWOJ9H2Lp6RG" }}> */}
     <ErrorBoundary>
       <ThemeProvider>
         <AppSettingsProvider>
@@ -222,7 +227,9 @@ export default function MobileLayout() {
         </AppSettingsProvider>
       </ThemeProvider>
     </ErrorBoundary>
-    // </SuperwallProvider>
+    {/* Opening the app is going down the crack in the logo. */}
+    {showIntro ? <CrackIntro onDone={endIntro} /> : null}
+    </>
   );
 }
 
