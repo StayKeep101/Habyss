@@ -3,9 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { textOn } from '@/theme/tokens';
 import { ChoicePill } from '@/components/ui/ChoicePill';
-import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
-import { Choices } from '@/components/Create/DetailBar';
+import { Choices, usePanelRoom } from '@/components/Create/DetailBar';
 import { Wheel } from '@/components/ui/Wheel';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { Colors } from '@/theme/colors';
@@ -13,7 +12,7 @@ import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import {
-    DAILY, WEEKDAYS, WEEKDAYS_ONLY, WEEKENDS_ONLY, WEEKDAY_NAME, describe,
+    DAILY, WEEKDAYS, WEEKDAYS_ONLY, WEEKENDS_ONLY, WEEKDAY_NAME,
     type DaySelector, type Ordinal, type Recurrence, type Weekday,
 } from '@/lib/recurrence';
 
@@ -82,9 +81,10 @@ function ruleForPreset(preset: Preset, current: Recurrence): Recurrence {
  * detail — weekly, monthly, yearly — opens exactly the detail it needs and
  * nothing else, so the panel is never a form of mostly-irrelevant controls.
  *
- * Underneath it all is one sentence saying what the rule actually means. That
- * line is the point: a recurrence you cannot read back is one you cannot
- * trust, and it is the same sentence the closed chip shows.
+ * How often ("every 2 weeks") is a wheel, like every number set in the app,
+ * and the grids take their size from the room the panel has, so a monthly
+ * or yearly rule is fully on screen on a small phone too. The closed chip
+ * reads the rule back in words.
  */
 export const RepeatPicker: React.FC<{
     value: Recurrence;
@@ -95,16 +95,19 @@ export const RepeatPicker: React.FC<{
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { lightFeedback } = useHaptics();
+    const room = usePanelRoom();
 
     const preset = presetOf(value);
     const every = 'every' in value ? value.every : 1;
     const unitWord = value.kind === 'hourly' ? 'hours' : value.kind === 'daily' ? 'days'
         : value.kind === 'weekly' ? 'weeks' : value.kind === 'monthly' ? 'months' : 'years';
 
-    const setEvery = (text: string) => {
-        const parsed = Number(text.replace(/[^0-9]/g, ''));
-        onChange({ ...value, every: Math.min(99, Math.max(1, Number.isFinite(parsed) && parsed > 0 ? parsed : 1)) });
-    };
+    // Hourly stops at 23: every 24 hours is daily. Nothing repeats every 0.
+    const maxEvery = value.kind === 'hourly' ? 23 : value.kind === 'daily' ? 30 : value.kind === 'weekly' ? 12 : value.kind === 'monthly' ? 12 : 10;
+    const everyOptions = Array.from({ length: maxEvery }, (_, index) => ({ id: index + 1, label: String(index + 1) }));
+    const setEvery = (next: number) => onChange({ ...value, every: next });
+    // The month grid's rows share what is left of the panel after the controls above it.
+    const cellHeight = Math.max(26, Math.min(38, Math.floor((room - 36 - 96 - 40 - 30) / 5)));
 
     const toggle = <T,>(list: T[], item: T): T[] =>
         list.includes(item) ? list.filter(one => one !== item) : [...list, item];
@@ -127,18 +130,10 @@ export const RepeatPicker: React.FC<{
             {preset !== 'weekdays' && preset !== 'weekends' ? (
                 <Animated.View layout={MORPH} style={styles.everyRow}>
                     <Text style={[styles.label, { color: colors.textSecondary }]}>Every</Text>
-                    <MatteInput
-                        value={String(every)}
-                        onChangeText={setEvery}
-                        keyboardType="number-pad"
-                        maxLength={2}
-                        accessibilityLabel="How often it repeats"
-                        style={[styles.number, {
-                            color: colors.textPrimary, borderColor: colors.border,
-                            backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
-                        }]}
-                    />
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>{unitWord}</Text>
+                    <View style={styles.everyWheel}>
+                        <Wheel testID="repeat-every" options={everyOptions} value={Math.min(every, maxEvery)} onChange={setEvery} rowHeight={32} style={styles.everyDigit} />
+                    </View>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>{every === 1 ? unitWord.replace(/s$/, '') : unitWord}</Text>
                 </Animated.View>
             ) : null}
 
@@ -201,7 +196,7 @@ export const RepeatPicker: React.FC<{
                                         accessibilityState={{ checked: on }}
                                         accessibilityLabel={`Day ${date}`}
                                         onPress={() => { lightFeedback(); onChange({ ...value, dates: toggle(value.dates, date) }); }}
-                                        style={styles.cell}
+                                        style={[styles.cell, { height: cellHeight }]}
                                     >
                                         <MatteSurface radius={10} level="control" elevation="none" tint={on ? accent : undefined} style={styles.cellFill}>
                                             <Text style={{ color: on ? textOn(accent) : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.medium }}>{date}</Text>
@@ -234,7 +229,7 @@ export const RepeatPicker: React.FC<{
                                     accessibilityState={{ checked: on }}
                                     accessibilityLabel={name}
                                     onPress={() => { lightFeedback(); onChange({ ...value, months: toggle(value.months, index) }); }}
-                                    style={styles.month}
+                                    style={[styles.month, { height: cellHeight }]}
                                 >
                                     <MatteSurface radius={10} level="control" elevation="none" tint={on ? accent : undefined} style={styles.cellFill}>
                                         <Text style={{ color: on ? textOn(accent) : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.medium }}>{name}</Text>
@@ -262,10 +257,6 @@ export const RepeatPicker: React.FC<{
                 </Animated.View>
             ) : null}
 
-            {/* What it all means, in one sentence. */}
-            <Animated.Text layout={MORPH} style={[styles.summary, { color: accent }]}>
-                {describe(value)}
-            </Animated.Text>
         </Animated.View>
     );
 };
@@ -300,21 +291,23 @@ const styles = StyleSheet.create({
     onThe: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     onTheWord: { fontSize: 13, fontFamily: FontFamily.regular },
     wrap: { gap: 10 },
-    segmented: { paddingHorizontal: 14 },
-    shortcuts: { flexDirection: 'row', gap: 8, paddingHorizontal: 14 },
+    segmented: {},
+    shortcuts: { flexDirection: 'row', gap: 8 },
     shortcut: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
-    everyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14 },
+    everyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    everyWheel: { width: 64 },
+    everyDigit: { fontSize: 18, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     label: { fontSize: 14, fontFamily: FontFamily.regular },
     number: {
         minWidth: 52, textAlign: 'center', fontSize: 15, fontFamily: FontFamily.medium,
         borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10,
     },
     section: { gap: 10 },
-    days: { flexDirection: 'row', gap: 6, paddingHorizontal: 14 },
+    days: { flexDirection: 'row', gap: 6 },
     day: { flex: 1, aspectRatio: 1, maxHeight: 40, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14 },
-    cell: { width: 36, height: 32 },
-    month: { width: 52, height: 32 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -3 },
+    // Seven across and four across, filling the width: no ragged right edge.
+    cell: { width: '14.2857%', height: 32, padding: 3 },
+    month: { width: '25%', height: 32, padding: 3 },
     cellFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    summary: { fontSize: 13, fontFamily: FontFamily.medium, paddingHorizontal: 14, paddingTop: 2 },
 });

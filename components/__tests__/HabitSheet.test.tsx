@@ -65,42 +65,43 @@ describe('the habit sheet', () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Stretch at 21:00');
         fireEvent.press(screen.getByText('Reminder'));
-        fireEvent.press(screen.getByLabelText('When it starts'));
+        fireEvent.press(screen.getByLabelText('Before'));
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
 
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
         expect((addHabit as jest.Mock).mock.calls[0][0].reminders).toEqual(['21:00']);
     });
 
-    it('leads a reminder by hours and days, not only minutes', async () => {
+    it('leads a reminder by hours and minutes on wheels', async () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Pack the bag at 18:00');
         fireEvent.press(screen.getByText('Reminder'));
-        fireEvent.press(screen.getByLabelText('When it starts'));
-        // A number with − and +, and the unit beside it.
-        fireEvent.changeText(screen.getByLabelText('How long before'), '2');
-        fireEvent.press(screen.getByLabelText('h'));
-        expect(screen.getAllByText('2 hr before').length).toBeGreaterThan(0);
-
-        fireEvent.changeText(screen.getByLabelText('How long before'), '1');
-        fireEvent.press(screen.getByLabelText('day'));
+        fireEvent.press(screen.getByLabelText('Before'));
+        fireEvent.press(within(screen.getByTestId('duration-hours')).getByLabelText('2'));
+        fireEvent.press(within(screen.getByTestId('duration-minutes')).getByLabelText('30'));
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
 
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
-        expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ reminders: ['18:00'], reminderOffset: 1440 });
+        expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ reminders: ['18:00'], reminderOffset: 150 });
     });
 
-    it('reads a saved lead back in the unit it was set in', async () => {
+    it('reads a saved lead back on the wheels', async () => {
         const habit = {
             id: 'h7', name: 'Shop', taskDays: ['sat'], goalValue: 1, unit: 'time', color: '#6B8AF5',
             icon: 'cart-outline', reminders: ['10:00'], reminderOffset: 120, startDate: '2026-01-01', startTime: '10:00',
         } as unknown as Habit;
         const screen = render(<HabitSheet visible habit={habit} />);
         fireEvent.press(screen.getByLabelText(/^Reminder/));
-        // The unit opens on hours, because that is what 120 minutes is.
-        expect(screen.getByLabelText('h').props.accessibilityState).toEqual({ selected: true });
-        expect(screen.getByLabelText('min').props.accessibilityState).toEqual({ selected: false });
-        expect(screen.getAllByText('2 hr before').length).toBeGreaterThan(0);
+        expect(within(screen.getByTestId('duration-hours')).getByLabelText('2').props.accessibilityState).toEqual({ selected: true });
+        expect(screen.getByText(/before it starts/)).toBeTruthy();
+    });
+
+    it('shows nothing more while the reminder is off, and no message field', () => {
+        const screen = render(<HabitSheet visible />);
+        write(screen, 'Stretch at 21:00');
+        fireEvent.press(screen.getByText('Reminder'));
+        expect(screen.queryByTestId('duration-hours')).toBeNull();
+        expect(screen.queryByLabelText('Reminder message')).toBeNull();
     });
 
     it('lets Health count a sleep habit', async () => {
@@ -254,17 +255,18 @@ describe('how often a habit comes round', () => {
         fireEvent.press(screen.getByLabelText(/^Repeat/));
         fireEvent.press(screen.getByText('Monthly'));
         fireEvent.press(screen.getByText('On the'));
-        fireEvent.changeText(screen.getByLabelText('How often it repeats'), '2');
+        fireEvent.press(within(screen.getByTestId('repeat-every')).getByLabelText('2'));
         fireEvent.press(screen.getByText('Third'));
         fireEvent.press(screen.getByText('Sun'));
-        expect(screen.getAllByText('Every 2 months on the third Sunday').length).toBeGreaterThan(0);
+        // The closed chip reads the rule back; the panel no longer repeats it in blue.
+        expect(screen.getAllByText('Every 2 months on the third Sunday')).toHaveLength(1);
     });
 
     it('says the whole rule on the closed row, however long it gets', () => {
         const screen = render(<HabitSheet visible />);
         fireEvent.press(screen.getByLabelText(/^Repeat/));
         fireEvent.press(screen.getByText('Weekly'));
-        fireEvent.changeText(screen.getByLabelText('How often it repeats'), '2');
+        fireEvent.press(within(screen.getByTestId('repeat-every')).getByLabelText('2'));
         expect(screen.getAllByText(/every 2 weeks/).length).toBeGreaterThan(0);
     });
 });

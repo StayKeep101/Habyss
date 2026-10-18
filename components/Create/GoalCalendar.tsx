@@ -11,19 +11,25 @@ import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { localDateKey } from '@/lib/habitSchedule';
+import { usePanelRoom } from '@/components/Create/DetailBar';
 
 /** Timed, never sprung: a sprung height overshoots and the grid bounces. */
 const MORPH = LinearTransition.duration(220).easing(Easing.out(Easing.cubic));
 const monthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
-/** A day's row height: compact, so the shortcuts beside it fit without scrolling. */
+/** A day's row height on a phone with room; smaller phones get a shorter row so six weeks still fit. */
 const CELL = 36;
+const MIN_CELL = 26;
+/** The month title and weekday letters above the grid. */
+const CALENDAR_HEAD = 64;
 
 const firstOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1, 12);
 const shiftMonth = (date: Date, delta: number) => new Date(date.getFullYear(), date.getMonth() + delta, 1, 12);
 const monthRows = (date: Date) => Math.ceil(((date.getDay() + 6) % 7 + new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()) / 7);
 
-export function GoalCalendar({ value, onChange, accent, allowPast = false, showToday = true }: {
+export function GoalCalendar({ value, onChange, accent, allowPast = false, showToday = true, reserve = 0 }: {
     allowPast?: boolean;
+    /** Height other controls take in the same panel, so the grid leaves room for them. */
+    reserve?: number;
     /** Off where the surrounding sheet already has a Today button. */
     showToday?: boolean;
     value?: string; onChange: (date: string) => void; accent: string;
@@ -32,6 +38,10 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
     const colors = Colors[theme];
     const { selectionFeedback } = useHaptics();
     const today = localDateKey(new Date());
+    // Sized to the panel: six rows always fit, without scrolling, on any phone.
+    const room = usePanelRoom();
+    const cell = Math.max(MIN_CELL, Math.min(CELL, Math.floor((room - reserve - CALENDAR_HEAD) / 6)));
+    const disc = Math.min(32, cell - 4);
     const thisMonth = firstOfMonth(new Date());
     const minimumMonth = allowPast ? new Date(1900, 0, 1, 12) : thisMonth;
     const [month, setMonth] = useState(() => firstOfMonth(new Date(`${value ?? today}T12:00:00`)));
@@ -74,16 +84,16 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
         return <View style={styles.grid}>
             {Array.from({ length: monthRows(page) * 7 }, (_, index) => {
                 const day = index - offset + 1;
-                if (day < 1 || day > count) return <View key={index} style={styles.cell} />;
+                if (day < 1 || day > count) return <View key={index} style={[styles.cell, { height: cell }]} />;
                 const date = localDateKey(new Date(page.getFullYear(), page.getMonth(), day, 12));
                 const selected = date === value;
                 const disabled = !allowPast && date < today;
                 return <Pressable key={index} accessibilityRole="button" accessibilityLabel={`Choose ${date}`}
                     accessibilityState={{ selected, disabled }} disabled={disabled}
-                    onPress={() => { selectionFeedback(); onChange(date); }} style={styles.cell}>
+                    onPress={() => { selectionFeedback(); onChange(date); }} style={[styles.cell, { height: cell }]}>
                     {/* The chosen day is a solid disc of the colour; today is just
                         a little bolder, with no ring around it. */}
-                    <View style={[styles.day, { backgroundColor: selected ? accent : 'transparent', borderColor: 'transparent' }]}>
+                    <View style={[styles.day, { width: disc, height: disc, borderRadius: disc * 0.375, backgroundColor: selected ? accent : 'transparent', borderColor: 'transparent' }]}>
                         <Text style={[styles.dayText, { color: selected ? textOn(accent) : disabled ? colors.textTertiary : colors.textPrimary },
                             date === today && !selected && { fontFamily: FontFamily.bold }]}>{day}</Text>
                     </View>
@@ -146,7 +156,7 @@ export function GoalCalendar({ value, onChange, accent, allowPast = false, showT
                     onAccessibilityAction={event => step(event.nativeEvent.actionName === 'increment' ? 1 : -1)}
                     onLayout={event => setWidth(event.nativeEvent.layout.width)}
                     layout={MORPH}
-                    style={{ height: monthRows(month) * CELL, overflow: 'hidden' }}
+                    style={{ height: monthRows(month) * cell, overflow: 'hidden' }}
                 >
                     <Animated.View style={slideStyle}>{days(month)}</Animated.View>
                 </Animated.View>

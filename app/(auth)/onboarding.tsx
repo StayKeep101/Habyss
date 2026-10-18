@@ -8,7 +8,7 @@ import { MatteInput } from '@/components/ui/MatteInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
 import { useFocusEffect, useRouter } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { TimeRow } from '@/components/ui/TimeRow';
 
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -394,13 +394,6 @@ export default function OnboardingScreen() {
         const window = { wake: draft.wake, sleep: draft.sleep, ...(draft.wake && draft.sleep ? {} : dayWindowFor(draft.chronotype)) };
         const wake = draft.wake ?? window.wake!;
         const sleep = draft.sleep ?? window.sleep!;
-        const asDate = (time: string) => {
-            const [hour, minute] = time.split(':').map(Number);
-            const date = new Date();
-            date.setHours(hour, minute, 0, 0);
-            return date;
-        };
-        const asTime = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -424,17 +417,9 @@ export default function OnboardingScreen() {
                 <SectionTitle>And your hours?</SectionTitle>
                 <View style={{ gap: 10 }}>
                     {([['I wake up', 'sunny-outline', wake, 'wake'], ['I go to sleep', 'moon-outline', sleep, 'sleep']] as const).map(([label, icon, value, key]) => (
-                        <View key={key} style={[styles.dayRow, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
-                            <Ionicons name={icon as any} size={18} color={accent} />
-                            <Text style={[styles.choiceTitle, { color: colors.textPrimary, flex: 1 }]}>{label}</Text>
-                            <DateTimePicker
-                                value={asDate(value)}
-                                mode="time"
-                                display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                                themeVariant={isLight ? 'light' : 'dark'}
-                                accentColor={accent}
-                                onChange={(_event, selected) => { if (selected) update({ [key]: asTime(selected) }); }}
-                            />
+                        <View key={key} style={[styles.dayRowWrap, { backgroundColor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' }]}>
+                            {/* The app's own wheel, opened under the row. */}
+                            <TimeRow icon={icon as any} label={label} value={value} accent={accent} onChange={time => update({ [key]: time })} />
                         </View>
                     ))}
                 </View>

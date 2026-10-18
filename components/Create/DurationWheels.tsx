@@ -32,7 +32,12 @@ export function formatDuration(total: number): string {
  * How long, on four wheels — days, hours, minutes, seconds — numbers only,
  * with a single letter over each so it is clear which is which.
  */
-export function DurationWheels({ seconds, onChange }: { seconds: number; onChange: (seconds: number) => void }) {
+export function DurationWheels({ seconds, onChange, parts: shownParts = ['days', 'hours', 'minutes', 'seconds'] }: {
+    seconds: number;
+    onChange: (seconds: number) => void;
+    /** Which wheels to show, e.g. hours and minutes for "how long before". */
+    parts?: ('days' | 'hours' | 'minutes' | 'seconds')[];
+}) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const parts = splitDuration(seconds);
@@ -48,7 +53,7 @@ export function DurationWheels({ seconds, onChange }: { seconds: number; onChang
     ];
     return (
         <View style={styles.row}>
-            {columns.map(column => (
+            {columns.filter(column => shownParts.includes(column.key)).map(column => (
                 <View key={column.key} style={styles.column}>
                     <Text style={[styles.label, { color: colors.textTertiary }]}>{column.label}</Text>
                     <Wheel testID={`duration-${column.key}`} options={column.options} value={parts[column.key]}

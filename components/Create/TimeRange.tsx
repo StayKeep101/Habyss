@@ -15,9 +15,10 @@ const minutesFor = (minute: number) => {
     if (!steps.includes(minute)) steps.push(minute);
     return steps.sort((a, b) => a - b).map(m => ({ id: m, label: pad(m) }));
 };
-/** "No end" sits above midnight on the end's hour wheel. */
+/** "None" sits above midnight on both hour wheels: no time, or no end. */
 const NO_END = -1;
 const END_HOURS = [{ id: NO_END, label: '–' }, ...HOURS];
+const START_HOURS = END_HOURS;
 const split = (time: string) => time.split(':').map(Number) as [number, number];
 
 /** "07:30" as a Date today, for the wheel. */
@@ -56,9 +57,11 @@ export function endTime(start: string, minutes: number): string {
 
 /**
  * When it starts, and when it is over: two wheels side by side, hours and
- * minutes each, the way the Clock app sets a time. The end is optional — turn
- * its hour to "–" for none. Stored as a length, so a habit that moves keeps
- * how long it takes rather than when it used to end.
+ * minutes each, the way the Clock app sets a time. Either can be "–": turn
+ * the start's hour to it for no time at all, the end's for no end. The ×
+ * beside End appears only once an end is set, and takes just the end away.
+ * Stored as a length, so a habit that moves keeps how long it takes rather
+ * than when it used to end.
  */
 export const TimeRange: React.FC<{
     start?: string;
@@ -73,11 +76,15 @@ export const TimeRange: React.FC<{
     const { lightFeedback } = useHaptics();
 
     const from = start ?? asTime(timeValue(start));
-    const [startHour, startMinute] = split(from);
+    const [fromHour, startMinute] = split(from);
+    const startHour = start ? fromHour : NO_END;
     const end = minutes ? endTime(from, minutes) : null;
     const [endHour, endMinute] = end ? split(end) : [NO_END, 0];
 
-    const setStart = (hour: number, minute: number) => onChange({ start: `${pad(hour)}:${pad(minute)}`, minutes });
+    const setStart = (hour: number, minute: number) => {
+        if (hour === NO_END) { onChange({ start: undefined, minutes: undefined }); return; }
+        onChange({ start: `${pad(hour)}:${pad(minute)}`, minutes });
+    };
     const setEnd = (hour: number, minute: number) => {
         if (hour === NO_END) { onChange({ start, minutes: undefined }); return; }
         onChange({ start: from, minutes: lengthBetween(from, `${pad(hour)}:${pad(minute)}`) });
@@ -88,20 +95,22 @@ export const TimeRange: React.FC<{
             <View style={styles.side}>
                 <View style={styles.head}>
                     <Text style={[styles.label, { color: colors.textTertiary }]}>{startLabel}</Text>
-                    {start ? <IconButton icon="close" label="Clear the time" diameter={24} size={12}
-                        onPress={() => { lightFeedback(); onChange({ start: undefined, minutes: undefined }); }} /> : null}
                 </View>
-                <View style={[styles.wheels, !start && styles.unset]}>
-                    <Wheel testID="start-hour" options={HOURS} value={startHour} onChange={hour => setStart(hour, startMinute)} style={styles.digit} />
+                <View style={styles.wheels}>
+                    <Wheel testID="start-hour" options={START_HOURS} value={startHour} onChange={hour => setStart(hour, startMinute)} style={styles.digit} />
                     <Text style={[styles.colon, { color: colors.textTertiary }]}>:</Text>
-                    <Wheel testID="start-minute" options={minutesFor(startMinute)} value={startMinute} onChange={minute => setStart(startHour, minute)} style={styles.digit} />
+                    <View style={[styles.flex, !start && styles.unset]} pointerEvents={start ? 'auto' : 'none'}>
+                        <Wheel testID="start-minute" options={minutesFor(startMinute)} value={startMinute} onChange={minute => setStart(fromHour, minute)} style={styles.digit} />
+                    </View>
                 </View>
             </View>
             <View style={styles.side}>
                 <View style={styles.head}>
                     <Text style={[styles.label, { color: colors.textTertiary }]}>End</Text>
+                    {end ? <IconButton icon="close" label="Clear the end" diameter={24} size={12}
+                        onPress={() => { lightFeedback(); onChange({ start, minutes: undefined }); }} /> : null}
                 </View>
-                <View style={styles.wheels}>
+                <View style={[styles.wheels, !start && styles.unset]} pointerEvents={start ? 'auto' : 'none'}>
                     <Wheel testID="end-hour" options={END_HOURS} value={endHour} onChange={hour => setEnd(hour, endMinute)} style={styles.digit} />
                     <Text style={[styles.colon, { color: colors.textTertiary }]}>:</Text>
                     <View style={[styles.flex, endHour === NO_END && styles.unset]} pointerEvents={endHour === NO_END ? 'none' : 'auto'}>
@@ -116,7 +125,7 @@ export const TimeRange: React.FC<{
 const styles = StyleSheet.create({
     wrap: { flexDirection: 'row', gap: Spacing.lg },
     side: { flex: 1, gap: Spacing.xs },
-    head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 24 },
+    head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 24 },
     label: { fontSize: 12, fontFamily: FontFamily.medium },
     wheels: { flexDirection: 'row', alignItems: 'center' },
     flex: { flex: 1 },

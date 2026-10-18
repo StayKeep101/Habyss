@@ -131,7 +131,8 @@
           "microphonePermission": "Habyss uses the microphone when you choose to speak, such as holding the create button to add a habit, task or goal by voice, or talking to Echo.",
           "speechRecognitionPermission": "Habyss turns what you say into a habit, task or goal when you hold the create button and speak."
         }
-      ]
+      ],
+      "expo-maps"
     ],
     "experiments": {
       "typedRoutes": true

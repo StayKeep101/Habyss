@@ -1,9 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { IconTile } from '@/components/ui/IconTile';
-import { IconButton } from '@/components/ui/IconButton';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { ComposerModal } from '@/components/Create/ComposerModal';
 import { ShareParticipantsSheet } from '@/components/Social/ShareParticipantsSheet';
@@ -18,12 +15,11 @@ import { RepeatPicker } from '@/components/Create/RepeatPicker';
 import { TimeRange, endTime } from '@/components/Create/TimeRange';
 import { DAILY, describe as describeRule, parseRecurrence, serialiseRecurrence, type Recurrence, type Weekday } from '@/lib/recurrence';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
-import { LeadTime } from '@/components/Create/LeadTime';
-import { ChoiceRow } from '@/components/ui/ChoiceRow';
+import { LookButton } from '@/components/Create/LookButton';
+import { ReminderPicker } from '@/components/Create/ReminderPicker';
 import { MeasureField } from '@/components/Create/MeasureField';
 import { habitTextSegments } from '@/lib/creationTextHighlight';
 import { readableAccent } from '@/lib/colorContrast';
-import { goalUnitLabel } from '@/lib/goalUnits';
 import { healthLabel, metricsForUnit, type HealthMetric } from '@/lib/healthMetrics';
 import { shortLead } from '@/lib/leadTime';
 import { Colors } from '@/theme/colors';
@@ -141,7 +137,7 @@ export const HabitSheet: React.FC<{
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: appAccent } = useAccentGradient();
-    const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
+    const { successFeedback } = useHaptics();
 
     const [eventVisible, setEventVisible] = useState(false);
     const [editing, setEditing] = useState<Habit | null>(null);
@@ -151,42 +147,7 @@ export const HabitSheet: React.FC<{
     const [edits, setEdits] = useState<Partial<Draft>>({});
     const [openRow, setOpenRow] = useState<Row>(null);
     const [amountText, setAmountText] = useState<string | null>(null);
-    const [findingPlace, setFindingPlace] = useState(false);
 
-    /**
-     * Adds where you are standing as an arrival reminder.
-     *
-     * A map picker would be the fuller answer, but the place people want to be
-     * reminded at is almost always the one they are in when they think of it —
-     * the gym, the desk, the kitchen — so asking once for permission and
-     * taking the current fix covers it without a screen of its own.
-     */
-    const addHere = async () => {
-        if (findingPlace) return;
-        setFindingPlace(true);
-        try {
-            const Location = require('expo-location') as typeof import('expo-location');
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                setError('Habyss needs location access to remind you somewhere.');
-                return;
-            }
-            const fix = await Location.getCurrentPositionAsync({});
-            const [place] = await Location.reverseGeocodeAsync({
-                latitude: fix.coords.latitude, longitude: fix.coords.longitude,
-            }).catch(() => []);
-            const name = place?.name || place?.street || place?.city || 'Here';
-            const already = draft.places.some(item =>
-                Math.abs(item.latitude - fix.coords.latitude) < 0.0005
-                && Math.abs(item.longitude - fix.coords.longitude) < 0.0005);
-            if (already) return;
-            change({ places: [...draft.places, { name, latitude: fix.coords.latitude, longitude: fix.coords.longitude, radius: 150, trigger: 'arrive' }] });
-        } catch {
-            setError('Could not find where you are. Try again.');
-        } finally {
-            setFindingPlace(false);
-        }
-    };
     const [goals, setGoals] = useState<Habit[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -339,22 +300,10 @@ export const HabitSheet: React.FC<{
         }
     };
 
-    const timeValue = (value?: string) => {
-        const [hour, minute] = (value ?? '08:00').split(':').map(Number);
-        const date = new Date();
-        date.setHours(Number.isFinite(hour) ? hour : 8, Number.isFinite(minute) ? minute : 0, 0, 0);
-        return date;
-    };
-    const asTime = (date: Date) =>
-        `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-
     // 'min' is how the sheet spells minutes; the metrics speak in full words.
     const healthOptions = metricsForUnit(draft.unit === 'min' ? 'minutes' : draft.unit);
     const goalName = goals.find(goal => goal.id === linkedGoal)?.name;
     const canSave = !!text.trim();
-
-    const reminderMode: 'off' | 'start' | 'pick' = !draft.reminder ? 'off'
-        : draft.startTime && draft.reminder === draft.startTime ? 'start' : 'pick';
 
     const items: DetailItem[] = [
         {
@@ -416,97 +365,13 @@ export const HabitSheet: React.FC<{
         {
             id: 'reminder', icon: 'notifications-outline', label: 'Reminder', value: describeReminder(draft),
             content: (
-                <>
-                    {/* One question at a time: off, tied to the start, or a
-                        clock time. The minutes-before only belongs to the
-                        start; a clock time already says exactly when. */}
-                    <ChoiceRow
-                        accessibilityLabel="When to remind you"
-                        options={draft.startTime
-                            ? [{ id: 'off', label: 'Off' }, { id: 'start', label: 'When it starts' }, { id: 'pick', label: 'At a time' }]
-                            : [{ id: 'off', label: 'Off' }, { id: 'pick', label: 'At a time' }]}
-                        value={reminderMode}
-                        onChange={id => {
-                            if (id === 'off') { change({ reminder: undefined, reminderOffset: undefined }); return; }
-                            if (id === 'start') { change({ reminder: draft.startTime }); return; }
-                            change({ reminder: draft.reminder && draft.reminder !== draft.startTime ? draft.reminder : '08:00', reminderOffset: undefined });
-                        }}
-                    />
-
-                    {reminderMode === 'start' ? (
-                        <LeadTime
-                            value={draft.reminderOffset ?? 0}
-                            accent={accent}
-                            onChange={minutes => change({ reminderOffset: minutes || undefined })}
-                        />
-                    ) : null}
-                    {reminderMode === 'pick' ? (
-                        <View style={styles.clockRow}>
-                            <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>Remind me at</Text>
-                            <DateTimePicker
-                                value={timeValue(draft.reminder)}
-                                mode="time"
-                                display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                                themeVariant={isLight ? 'light' : 'dark'}
-                                accessibilityLabel="Reminder time"
-                                onChange={(_event, selected) => { if (selected) change({ reminder: asTime(selected) }); }}
-                            />
-                        </View>
-                    ) : null}
-
-                    {/* A place, not a time: as its own card, so it reads as the
-                        separate kind of reminder it is. */}
-                    <View style={[styles.placeCard, { borderColor: colors.border, backgroundColor: isLight ? 'rgba(15,23,42,0.03)' : 'rgba(255,255,255,0.03)' }]}>
-                        <View style={styles.placeHead}>
-                            <IconTile icon="location" color={accent} size={28} shape="square" />
-                            <Text style={[styles.placeTitle, { color: colors.textPrimary, flex: 1 }]}>At a place</Text>
-                        </View>
-                        {draft.places.map(place => {
-                            const leaving = place.trigger === 'leave';
-                            return (
-                                <View key={`${place.latitude},${place.longitude}`} style={styles.placeRow}>
-                                    <Text numberOfLines={1} style={[styles.placeName, { color: colors.textPrimary }]}>{place.name}</Text>
-                                    <View style={[styles.placeToggle, { backgroundColor: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.07)' }]}>
-                                        {(['arrive', 'leave'] as const).map(trigger => {
-                                            const on = (trigger === 'leave') === leaving;
-                                            return (
-                                                <Pressable key={trigger} accessibilityRole="radio" accessibilityState={{ selected: on }}
-                                                    accessibilityLabel={`${trigger === 'arrive' ? 'When I arrive at' : 'When I leave'} ${place.name}`}
-                                                    onPress={() => { if (!on) { selectionFeedback(); change({ places: draft.places.map(item => item === place ? { ...item, trigger } : item) }); } }}
-                                                    style={[styles.placeOption, on && { backgroundColor: accent }]}>
-                                                    <Text style={{ color: on ? '#FFFFFF' : colors.textSecondary, fontSize: 12, fontFamily: FontFamily.semibold }}>
-                                                        {trigger === 'arrive' ? 'Arrive' : 'Leave'}
-                                                    </Text>
-                                                </Pressable>
-                                            );
-                                        })}
-                                    </View>
-                                    <IconButton icon="close-circle" label={`Remove ${place.name}`} onPress={() => { lightFeedback(); change({ places: draft.places.filter(item => item !== place) }); }} diameter={28} size={18} color={colors.textTertiary} />
-                                </View>
-                            );
-                        })}
-                        <Pressable accessibilityRole="button" onPress={() => void addHere()} disabled={findingPlace}
-                            style={[styles.placeAdd, { borderColor: 'transparent', borderStyle: 'solid', backgroundColor: colors.surfaceTertiary }]}>
-                            <Ionicons name={findingPlace ? 'hourglass-outline' : 'navigate'} size={14} color={colors.textPrimary} />
-                            <Text style={{ color: colors.textPrimary, fontSize: 13, fontFamily: FontFamily.medium }}>
-                                {findingPlace ? 'Finding where you are…' : draft.places.length ? 'Add where I am now' : 'Use where I am now'}
-                            </Text>
-                        </Pressable>
-                    </View>
-
-                    {/* What it says. Left empty, Echo writes it in your voice. */}
-                    <MatteInput
-                        value={draft.reminderMessage ?? ''}
-                        onChangeText={reminderMessage => change({ reminderMessage })}
-                        placeholder="Message"
-                        placeholderTextColor={colors.textTertiary}
-                        accessibilityLabel="Reminder message"
-                        style={[styles.message, {
-                            color: colors.textPrimary, borderColor: colors.border,
-                            backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.06)',
-                        }]}
-                    />
-                </>
+                <ReminderPicker
+                    startTime={draft.startTime}
+                    value={{ reminder: draft.reminder, reminderOffset: draft.reminderOffset, places: draft.places }}
+                    accent={accent}
+                    onError={setError}
+                    onChange={patch => change(patch)}
+                />
             ),
         },
         ...(goals.length > 0 ? [{
@@ -521,7 +386,7 @@ export const HabitSheet: React.FC<{
             ),
         }] : []),
         {
-            id: 'look', icon: draft.icon, color: readableAccent(draft.color, colors.background), label: 'Look',
+            id: 'look', icon: draft.icon, color: readableAccent(draft.color, colors.background), label: 'Look', hidden: true,
             content: <GoalLookPicker subject="Habit" icon={draft.icon} color={draft.color} onChange={change} />,
         },
         {
@@ -571,7 +436,8 @@ export const HabitSheet: React.FC<{
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <DictateField text={text} onText={value => { setText(value); setAmountText(null); }}>
+                    <DictateField text={text} onText={value => { setText(value); setAmountText(null); }}
+                        leading={<LookButton icon={draft.icon} color={draft.color} open={openRow === 'look'} onPress={() => toggleRow(openRow === 'look' ? null : 'look')} />}>
                         <TypingPlaceholder examples={HABIT_EXAMPLES} active={!text}>
                             {placeholder => (
                             <CreationTextInput

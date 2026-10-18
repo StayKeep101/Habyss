@@ -13,7 +13,7 @@ import { VoidModal } from '@/components/ui/VoidModal';
 import { ModalHeader } from '@/components/ui/ModalHeader';
 import { IconButton } from '@/components/ui/IconButton';
 import { AppTextField } from '@/components/ui/AppTextField';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { DateWheels } from '@/components/ui/DateWheels';
 import { SettingsModal } from '@/components/Common/SettingsModal';
 import { getProfile, saveProfile } from '@/lib/profile';
 import { getMyUsername, setMyUsername } from '@/lib/friendsService';
@@ -39,7 +39,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary: accentSolid } = useAccentGradient();
-    const isLight = theme === 'light';
 
     // Form State
     const [nickname, setNickname] = useState(currentUsername);
@@ -325,21 +324,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ visible, onC
                 title="Your birthday"
             >
                 <View style={{ alignItems: 'center' }}>
-                    <DateTimePicker
-                        value={birthday || new Date(2000, 0, 1)}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        maximumDate={new Date()}
-                        minimumDate={new Date(1900, 0, 1)}
-                        themeVariant={isLight ? 'light' : 'dark'}
-                        onChange={(_event, selected) => {
-                            if (Platform.OS !== 'ios') setShowBirthdayPicker(false);
-                            if (selected) setBirthday(selected);
-                        }}
-                    />
-                    {Platform.OS === 'ios' ? (
-                        <AppButton label="Done" onPress={() => setShowBirthdayPicker(false)} />
-                    ) : null}
+                    <DateWheels value={birthday || new Date(2000, 0, 1)} onChange={setBirthday} />
+                    <AppButton label="Done" onPress={() => setShowBirthdayPicker(false)} />
                 </View>
             </SettingsModal>
 

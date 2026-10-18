@@ -16,6 +16,7 @@ import { GoalCalendar } from '@/components/Create/GoalCalendar';
 import { MeasureField } from '@/components/Create/MeasureField';
 import { DurationWheels, formatDuration } from '@/components/Create/DurationWheels';
 import { GoalLookPicker } from '@/components/Create/GoalLookPicker';
+import { LookButton } from '@/components/Create/LookButton';
 import { readableAccent } from '@/lib/colorContrast';
 import { goalTextSegments } from '@/lib/goalTextHighlight';
 import { goalUnitLabel } from '@/lib/goalUnits';
@@ -417,7 +418,7 @@ export const GoalSheet: React.FC<{
             ),
         }] : []),
         {
-            id: 'look', icon: draft.icon, color: readableAccent(draft.color, colors.background), label: 'Look',
+            id: 'look', icon: draft.icon, color: readableAccent(draft.color, colors.background), label: 'Look', hidden: true,
             content: <GoalLookPicker icon={draft.icon} color={draft.color} onChange={change} />,
         },
         {
@@ -467,7 +468,8 @@ export const GoalSheet: React.FC<{
                     // Only rubber-bands when there is really more to see.
                     alwaysBounceVertical={false}
                 >
-                    <DictateField text={text} onText={value => { setText(value); setTargetText(null); }}>
+                    <DictateField text={text} onText={value => { setText(value); setTargetText(null); }}
+                        leading={<LookButton icon={draft.icon} color={draft.color} open={openRow === 'look'} onPress={() => toggleRow(openRow === 'look' ? null : 'look')} />}>
                         <TypingPlaceholder examples={goalExamples} active={!text}>
                             {placeholder => (
                             <MatteInput

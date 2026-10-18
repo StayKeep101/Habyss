@@ -23,6 +23,7 @@ export const styles = StyleSheet.create({
     echoQuote: { fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, fontStyle: 'italic' },
     echoWarning: { fontSize: 11, fontFamily: FontFamily.medium },
     dayRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, minHeight: 58 },
+    dayRowWrap: { borderRadius: 16, overflow: 'hidden' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8 },
     headerSide: { width: 56, height: 44, justifyContent: 'center' },
     addHalf: { flex: 1, justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', backgroundColor: 'transparent' },

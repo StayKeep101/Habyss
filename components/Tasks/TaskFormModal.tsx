@@ -249,9 +249,10 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         ]}
                         value={draft.dueDate ?? ''}
                         accent={accent}
+                        oneLine
                         onChange={id => change({ dueDate: id || undefined })}
                     />
-                    <GoalCalendar allowPast showToday={false} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
+                    <GoalCalendar allowPast showToday={false} reserve={50} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
                 </>
             ),
         },

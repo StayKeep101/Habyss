@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
@@ -10,11 +10,13 @@ import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { hexToHsv, hsvToHex, normalizeHex } from '@/lib/goalColors';
 
-const SIZE = 168, RADIUS = 80, CENTER = SIZE / 2;
+/** The largest the wheel gets; a smaller phone gets a smaller wheel, never a cut-off one. */
+export const WHEEL_MAX = 168;
 /** The thumb, and the travel it costs. */
 const THUMB = 18;
-const WheelArtwork = memo(function WheelArtwork() {
-    return <Svg width={SIZE} height={SIZE}>
+const WheelArtwork = memo(function WheelArtwork({ size }: { size: number }) {
+    const CENTER = size / 2, RADIUS = size / 2 - 4;
+    return <Svg width={size} height={size}>
         <Defs><RadialGradient id="wheel-saturation" cx="50%" cy="50%" r="50%">
             <Stop offset="0" stopColor="white" stopOpacity="1" />
             <Stop offset="1" stopColor="white" stopOpacity="0" />
@@ -28,7 +30,14 @@ const WheelArtwork = memo(function WheelArtwork() {
     </Svg>;
 });
 
-export function GoalColorWheel({ value, onChange, accent }: { value: string; onChange: (color: string) => void; accent: string }) {
+export function GoalColorWheel({ value, onChange, accent, size = WHEEL_MAX, extra }: {
+    value: string; onChange: (color: string) => void; accent: string;
+    /** The wheel's diameter, from the room the panel has. */
+    size?: number;
+    /** Shown beside the wheel, under the preview (e.g. "Save colour"). */
+    extra?: React.ReactNode;
+}) {
+    const SIZE = size, CENTER = size / 2, RADIUS = size / 2 - 4;
     const { theme } = useTheme();
     const colors = Colors[theme];
     const initial = hexToHsv(value);
@@ -96,14 +105,19 @@ export function GoalColorWheel({ value, onChange, accent }: { value: string; onC
     return <View style={styles.content}>
         <View style={styles.top}>
             <GestureDetector gesture={wheel}>
-                <View accessibilityLabel="Color wheel. Drag to choose hue and saturation, or enter a hex color below." style={styles.wheel}>
-                    <WheelArtwork />
-                    <Animated.View pointerEvents="none" style={[styles.shade, shade]} />
-                    <Animated.View pointerEvents="none" style={[styles.marker, marker]} />
+                <View accessibilityLabel="Color wheel. Drag to choose hue and saturation, or enter a hex color beside it." style={{ width: SIZE, height: SIZE }}>
+                    <WheelArtwork size={SIZE} />
+                    <Animated.View pointerEvents="none" style={[styles.shade, { width: RADIUS * 2, height: RADIUS * 2, borderRadius: RADIUS }, shade]} />
+                    <Animated.View pointerEvents="none" style={[styles.marker, { left: CENTER - 9, top: CENTER - 9 }, marker]} />
                 </View>
             </GestureDetector>
+            {/* Beside the wheel: what it is, exactly, and keeping it. */}
             <View style={styles.previewColumn}>
                 <Animated.View style={[styles.preview, preview]} />
+                <MatteInput accessibilityLabel="Exact hex color" value={hex} onChangeText={setHex} autoCapitalize="characters"
+                    autoCorrect={false} maxLength={7} returnKeyType="done" onSubmitEditing={() => { if (valid) onChange(valid); }}
+                    style={[styles.hex, { color: valid ? colors.textPrimary : colors.error, borderColor: colors.border }]} />
+                {extra}
             </View>
         </View>
         <View style={styles.brightness}>
@@ -122,38 +136,24 @@ export function GoalColorWheel({ value, onChange, accent }: { value: string; onC
                 </View>
             </GestureDetector>
         </View>
-        <View style={styles.hexRow}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Hex</Text>
-            <MatteInput accessibilityLabel="Exact hex color" value={hex} onChangeText={setHex} autoCapitalize="characters"
-                autoCorrect={false} maxLength={7} returnKeyType="done" onSubmitEditing={() => { if (valid) onChange(valid); }}
-                style={[styles.hex, { color: colors.textPrimary, borderColor: colors.border }]} />
-            <Pressable accessibilityRole="button" accessibilityLabel="Apply hex color" disabled={!valid}
-                accessibilityState={{ disabled: !valid }} onPress={() => { if (valid) onChange(valid); }} style={styles.apply}>
-                <Text style={[styles.label, { color: valid ? accent : colors.textTertiary }]}>Apply</Text>
-            </Pressable>
-        </View>
-        {!valid ? <Text style={[styles.hint, { color: colors.textSecondary }]}>Not a colour</Text> : null}
     </View>;
 }
 
 const styles = StyleSheet.create({
-    content: { gap: 6 }, top: { flexDirection: 'row', alignItems: 'center', gap: 18 },
-    wheel: { width: SIZE, height: SIZE },
-    shade: { position: 'absolute', left: 4, top: 4, width: RADIUS * 2, height: RADIUS * 2, borderRadius: RADIUS, backgroundColor: '#000000' },
-    marker: { position: 'absolute', left: CENTER - 9, top: CENTER - 9, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#ffffff', shadowColor: '#000000', shadowOpacity: 0.4, shadowRadius: 2 },
-    previewColumn: { flex: 1, alignItems: 'center', gap: 10 },
-    preview: { width: 48, height: 48, borderRadius: 16, borderWidth: 1, borderColor: '#888888' },
+    content: { gap: 4 }, top: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+    shade: { position: 'absolute', left: 4, top: 4, backgroundColor: '#000000' },
+    marker: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#ffffff', shadowColor: '#000000', shadowOpacity: 0.4, shadowRadius: 2 },
+    previewColumn: { flex: 1, alignItems: 'stretch', gap: 8 },
+    preview: { height: 40, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: '#888888' },
     hint: { fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular },
     brightness: { flexDirection: 'row', alignItems: 'center', gap: 20 },
     label: { fontSize: 13, fontFamily: FontFamily.medium },
     // `flex: 1` rather than a fixed width: the track is however much room the
     // row has left after the label, on whatever phone this is.
-    trackTouch: { flex: 1, height: 44, justifyContent: 'center' },
+    trackTouch: { flex: 1, height: 36, justifyContent: 'center' },
     track: { height: 14, borderRadius: 7, overflow: 'hidden' },
     // Travels from the left edge to `width - THUMB`, so it sits fully on the
     // bar at both ends rather than half off it.
-    thumb: { position: 'absolute', left: 0, top: 13, width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#777777' },
-    hexRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    hex: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, fontFamily: FontFamily.medium, fontSize: 14 },
-    apply: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
+    thumb: { position: 'absolute', left: 0, top: 9, width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#777777' },
+    hex: { minHeight: 40, borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, fontFamily: FontFamily.medium, fontSize: 14, textAlign: 'center' },
 });

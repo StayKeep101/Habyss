@@ -159,10 +159,17 @@ describe('the goal sheet', () => {
         await act(async () => {});
     });
 
+    it('opens the look from the icon beside the name, not from a chip', () => {
+        const screen = render(<GoalSheet visible />);
+        expect(screen.queryByLabelText('Look')).toBeNull();
+        fireEvent.press(screen.getByLabelText('Change the look'));
+        expect(screen.getByLabelText('Search goal icons')).toBeTruthy();
+    });
+
     it('takes an emoji as the icon when one is typed', async () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Read 12 books this year');
-        fireEvent.press(screen.getByLabelText('Look'));
+        fireEvent.press(screen.getByLabelText('Change the look'));
         fireEvent.changeText(screen.getByLabelText('Search goal icons'), '🈯');
         fireEvent.press(screen.getByLabelText('Icon 🈯'));
         await act(async () => { fireEvent.press(screen.getByText('Create goal')); });
@@ -172,14 +179,14 @@ describe('the goal sheet', () => {
     it('searches icons and saves an exact custom color', async () => {
         const screen = render(<GoalSheet visible />);
         write(screen, 'Read 12 books this year');
-        fireEvent.press(screen.getByLabelText('Look'));
+        fireEvent.press(screen.getByLabelText('Change the look'));
         fireEvent.changeText(screen.getByLabelText('Search goal icons'), 'travel');
         fireEvent.press(screen.getByLabelText('Icon Airplane'));
         fireEvent.press(screen.getByLabelText('Goal color'));
         fireEvent.press(screen.getByLabelText('Color Pink'));
         fireEvent.press(screen.getByLabelText('Any colour'));
         fireEvent.changeText(screen.getByLabelText('Exact hex color'), '#123456');
-        fireEvent.press(screen.getByLabelText('Apply hex color'));
+        fireEvent(screen.getByLabelText('Exact hex color'), 'submitEditing');
         await act(async () => { fireEvent.press(screen.getByText('Create goal')); });
         expect(saved()).toMatchObject({ icon: 'airplane-outline', color: '#123456' });
     });

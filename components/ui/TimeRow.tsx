@@ -1,6 +1,6 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { TimeWheels } from './TimeWheels';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -30,10 +30,6 @@ export const TimeRow: React.FC<{
     const colors = Colors[theme];
     const [open, setOpen] = React.useState(false);
 
-    const [hour, minute] = value.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hour || 0, minute || 0, 0, 0);
-
     return (
         <Animated.View layout={MORPH}>
             <TouchableOpacity
@@ -55,16 +51,7 @@ export const TimeRow: React.FC<{
                     exiting={FadeOut.duration(120)}
                     style={styles.picker}
                 >
-                    <DateTimePicker
-                        value={date}
-                        mode="time"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(_event, selected) => {
-                            if (Platform.OS !== 'ios') setOpen(false);
-                            if (!selected) return;
-                            onChange(`${String(selected.getHours()).padStart(2, '0')}:${String(selected.getMinutes()).padStart(2, '0')}`);
-                        }}
-                    />
+                    <TimeWheels value={value} onChange={onChange} />
                 </Animated.View>
             ) : null}
         </Animated.View>
@@ -75,5 +62,5 @@ const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center', gap: s(12), paddingHorizontal: s(14), paddingVertical: vs(13) },
     label: { flex: 1, fontSize: ms(15), fontFamily: FontFamily.regular },
     value: { fontSize: ms(15), fontFamily: FontFamily.medium, fontVariant: ['tabular-nums'] },
-    picker: { alignItems: 'center', paddingBottom: vs(8) },
+    picker: { paddingHorizontal: s(40), paddingBottom: vs(8) },
 });

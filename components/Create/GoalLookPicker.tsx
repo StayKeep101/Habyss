@@ -6,7 +6,10 @@ import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { Easing, FadeIn, LinearTransition } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { AppIcon, isGlyphIcon, isPhotoIcon, type IconName } from '@/components/ui/AppIcon';
-import { GoalColorWheel } from './GoalColorWheel';
+import { GoalColorWheel, WHEEL_MAX } from './GoalColorWheel';
+import { usePanelRoom } from './DetailBar';
+import { useCustomColors } from '@/hooks/useCustomColors';
+import { removeCustomColor, saveCustomColor } from '@/lib/customColors';
 import { Colors } from '@/theme/colors';
 import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -165,6 +168,12 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
     const [tab, setTab] = useState<'icons' | 'color'>('icons');
     const [query, setQuery] = useState('');
     const [wheel, setWheel] = useState(false);
+    const saved = useCustomColors();
+    // Sized to the room the panel has: the wheel, brightness and hex all on
+    // screen at once, and the icon grid filling what is left, on any phone.
+    const room = usePanelRoom();
+    const wheelSize = Math.max(110, Math.min(WHEEL_MAX, room - 44 - 42 - 36 - 40));
+    const iconHeight = Math.max(110, room - 44 - 44 - 30);
 
     const typed = query.trim();
     const search = typed.toLowerCase();
@@ -190,7 +199,9 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
             // A picker that would not open is not worth an alert over an icon.
         }
     };
-    const custom = !SWATCHES.some(item => item.color.toUpperCase() === color.toUpperCase());
+    const isPreset = SWATCHES.some(item => item.color.toUpperCase() === color.toUpperCase());
+    const isSaved = saved.some(item => item.toUpperCase() === color.toUpperCase());
+    const custom = !isPreset && !isSaved;
 
     return <Animated.View layout={MORPH} style={styles.content}>
         <View style={styles.tabs}>
@@ -210,7 +221,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                     backgroundColor: isLight ? 'rgba(15,23,42,0.05)' : 'rgba(255,255,255,0.05)' }]} />
             {/* Every icon, on screen. The panel has a ceiling so the sentence
                 you are writing never leaves the screen to make room for them. */}
-            <ScrollView style={styles.iconScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ maxHeight: iconHeight }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <View style={styles.icons}>
                     {/* Your own, first: a picture from the library, or the
                         emoji being typed. Both are ordinary icons once chosen —
@@ -263,6 +274,20 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
                         ? <AppIcon name="checkmark" size={18} color={tickOn(item.color)} /> : null}
                 </Pressable>)}
 
+                {/* Colours you made and kept, after the presets. Hold one to let it go. */}
+                {saved.map(item => {
+                    const on = color.toUpperCase() === item.toUpperCase();
+                    return (
+                        <Pressable key={item} accessibilityRole="radio" accessibilityLabel={`Your colour ${item}`} accessibilityHint="Hold to remove"
+                            accessibilityState={{ selected: on }}
+                            onPress={() => { selectionFeedback(); setWheel(false); onChange({ color: item }); }}
+                            onLongPress={() => { selectionFeedback(); void removeCustomColor(item); }}
+                            style={[styles.swatch, { backgroundColor: item, borderColor: on ? colors.textPrimary : 'transparent' }]}>
+                            {on ? <AppIcon name="checkmark" size={18} color={tickOn(item)} /> : null}
+                        </Pressable>
+                    );
+                })}
+
                 {/* The spectrum, as a swatch. A wheel hidden behind the words
                     "Custom color" looked like nothing in particular; a circle
                     of every colour looks like what it opens. */}
@@ -298,7 +323,15 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
 
             {wheel ? (
                 <Animated.View layout={MORPH} entering={FadeIn.duration(180)}>
-                    <GoalColorWheel value={color} accent={tint} onChange={next => onChange({ color: next })} />
+                    <GoalColorWheel value={color} accent={tint} size={wheelSize} onChange={next => onChange({ color: next })}
+                        extra={custom ? (
+                            <Pressable accessibilityRole="button" onPress={() => { selectionFeedback(); void saveCustomColor(color); }}>
+                                <MatteSurface radius={11} level="control" style={styles.save}>
+                                    <AppIcon name="add" size={14} color={colors.textPrimary} />
+                                    <Text style={[styles.label, { color: colors.textPrimary }]}>Save colour</Text>
+                                </MatteSurface>
+                            </Pressable>
+                        ) : null} />
                 </Animated.View>
             ) : null}
         </>}
@@ -308,7 +341,7 @@ export function GoalLookPicker({ icon, color, onChange, subject = 'Goal' }: {
 const styles = StyleSheet.create({
     content: { gap: 10 },
     tabs: { flexDirection: 'row', gap: 8 }, tab: { minHeight: 44, paddingHorizontal: 20, justifyContent: 'center', borderRadius: 12, borderWidth: 1 },
-    iconScroll: { maxHeight: 188 },
+    save: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 36 },
     swatchRow: { flexDirection: 'row', gap: 10, paddingVertical: 2 },
     spectrumWrap: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     label: { fontSize: 13, fontFamily: FontFamily.medium },

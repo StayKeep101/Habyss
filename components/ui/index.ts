@@ -15,7 +15,7 @@
  *
  * Controls
  *   AppButton, IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
- *   TimeRow, Wheel, ViewSwitcher, SwipeRow, TypingPlaceholder,
+ *   TimeRow, Wheel, TimeWheels (a clock time on wheels), DateWheels (a date on wheels), ViewSwitcher, SwipeRow, TypingPlaceholder,
  *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing)
  *
  * Content
@@ -77,3 +77,5 @@ export { ProgressRing, type ProgressRingProps } from './ProgressRing';
 export { HalfCircleProgress } from './HalfCircleProgress';
 export { CheckPop } from './CheckPop';
 export { MOTION, LIST_LAYOUT, ListItem, CountUp, AnimatedFill, GrowBar, Reveal, PopIn, useProgress, useCountUp, AnimatedRect, AnimatedCircle, AnimatedPath } from './Motion';
+export { TimeWheels } from './TimeWheels';
+export { DateWheels } from './DateWheels';

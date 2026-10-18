@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { Keyboard, Modal, Pressable, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Animated, {
     Easing, ReduceMotion, runOnJS, useAnimatedKeyboard, useAnimatedStyle,
@@ -13,6 +13,14 @@ const OPEN = { duration: 260, easing: Easing.out(Easing.cubic), reduceMotion: Re
 const SHUT = { duration: 210, easing: Easing.in(Easing.cubic), reduceMotion: ReduceMotion.System };
 /** Used until the card has been measured once. */
 const ASSUMED_HEIGHT = 360;
+
+/**
+ * How much room the card has: the tallest it may be on this phone right now,
+ * and how tall it is. An open panel uses this to grow into all the space the
+ * card has (up to the top of the screen) and its contents to shrink to fit,
+ * so nothing is ever cut off and scrolled on a small phone.
+ */
+export const ComposerSpace = createContext<{ ceiling: number; cardHeight: number } | null>(null);
 
 /**
  * The card you write a habit, a goal or a task into.
@@ -111,6 +119,8 @@ export const ComposerModal: React.FC<{
         maxHeight: screen - keyboardUp - insets.top - 12,
     };
 
+    const space = useMemo(() => ({ ceiling: ceiling.maxHeight, cardHeight: height }), [ceiling.maxHeight, height]);
+
     // The dimming comes and goes with the card, so the screen behind is never
     // left dark under a card that has already gone.
     const scrim = useAnimatedStyle(() => ({ opacity: shown.value }));
@@ -132,7 +142,7 @@ export const ComposerModal: React.FC<{
                         onLayout={(event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height)}
                         style={[styles.card, pad, ceiling, { backgroundColor: colors.background, borderColor: colors.border }]}
                     >
-                        {children}
+                        <ComposerSpace.Provider value={space}>{children}</ComposerSpace.Provider>
                     </Animated.View>
                 </Animated.View>
             </GestureHandlerRootView>

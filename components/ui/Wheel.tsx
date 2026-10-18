@@ -30,7 +30,7 @@ export interface WheelOption<T> {
  * Tappable as well as turnable, which is what a UIPickerView does and the only
  * way a screen reader can reach a row.
  */
-export function Wheel<T extends string | number>({ options, value, onChange, visible = 3, style, testID }: {
+export function Wheel<T extends string | number>({ options, value, onChange, visible = 3, style, testID, rowHeight = WHEEL_ROW }: {
     options: WheelOption<T>[];
     value: T;
     onChange: (id: T) => void;
@@ -38,24 +38,26 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
     visible?: 3 | 5;
     style?: TextStyle;
     testID?: string;
+    /** Row height; smaller where a panel is tight. */
+    rowHeight?: number;
 }) {
     const { theme } = useTheme();
     const colors = Colors[theme] ?? Colors.abyss;
     const { selectionFeedback } = useHaptics();
     const ref = useAnimatedRef<Animated.ScrollView>();
     const index = Math.max(0, options.findIndex(option => option.id === value));
-    const height = WHEEL_ROW * visible;
-    const pad = (height - WHEEL_ROW) / 2;
+    const height = rowHeight * visible;
+    const pad = (height - rowHeight) / 2;
 
-    const offset = useSharedValue(index * WHEEL_ROW);
+    const offset = useSharedValue(index * rowHeight);
     const centred = useSharedValue(index);
     /** Where the wheel opens. Read once: handing the scroll view a new offset
      *  on every render can snap it back to the old value mid-turn. */
-    const initial = useRef({ x: 0, y: index * WHEEL_ROW }).current;
+    const initial = useRef({ x: 0, y: index * rowHeight }).current;
     /** The row the wheel last settled on (or was told to show). */
     const settled = useRef(index);
     const touching = useRef(false);
-    const lastY = useRef(index * WHEEL_ROW);
+    const lastY = useRef(index * rowHeight);
     const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
@@ -64,7 +66,7 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
     useEffect(() => {
         if (touching.current || settled.current === index) return;
         settled.current = index;
-        ref.current?.scrollTo({ y: index * WHEEL_ROW, animated: true });
+        ref.current?.scrollTo({ y: index * rowHeight, animated: true });
     }, [index, ref]);
 
     const tick = useCallback(() => selectionFeedback(), [selectionFeedback]);
@@ -74,7 +76,7 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
         onScroll: event => {
             offset.value = event.contentOffset.y;
             runOnJS(track)(event.contentOffset.y);
-            const row = Math.min(options.length - 1, Math.max(0, Math.round(event.contentOffset.y / WHEEL_ROW)));
+            const row = Math.min(options.length - 1, Math.max(0, Math.round(event.contentOffset.y / rowHeight)));
             if (row !== centred.value) {
                 centred.value = row;
                 runOnJS(tick)();
@@ -94,9 +96,9 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
         settleTimer.current = setTimeout(() => {
             settleTimer.current = null;
             touching.current = false;
-            const row = Math.min(options.length - 1, Math.max(0, Math.round(lastY.current / WHEEL_ROW)));
-            if (Math.abs(lastY.current - row * WHEEL_ROW) > 1) {
-                ref.current?.scrollTo({ y: row * WHEEL_ROW, animated: true });
+            const row = Math.min(options.length - 1, Math.max(0, Math.round(lastY.current / rowHeight)));
+            if (Math.abs(lastY.current - row * rowHeight) > 1) {
+                ref.current?.scrollTo({ y: row * rowHeight, animated: true });
             }
             if (row === settled.current) return;
             settled.current = row;
@@ -118,8 +120,8 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
     const choose = useCallback((position: number) => {
         if (settleTimer.current) { clearTimeout(settleTimer.current); settleTimer.current = null; }
         touching.current = false;
-        lastY.current = position * WHEEL_ROW;
-        ref.current?.scrollTo({ y: position * WHEEL_ROW, animated: true });
+        lastY.current = position * rowHeight;
+        ref.current?.scrollTo({ y: position * rowHeight, animated: true });
         if (position === settled.current) return;
         settled.current = position;
         onChange(options[position].id);
@@ -129,12 +131,12 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
         <View style={[styles.frame, { height }]} testID={testID}>
             {/* The window, behind the rows: the matte surface, no outline. */}
             <MatteSurface pointerEvents="none" radius={Radius.small} level="control" elevation="none"
-                style={[styles.window, { top: pad, height: WHEEL_ROW }]} />
+                style={[styles.window, { top: pad, height: rowHeight }]} />
 
             <Animated.ScrollView
                 ref={ref}
                 showsVerticalScrollIndicator={false}
-                snapToInterval={WHEEL_ROW}
+                snapToInterval={rowHeight}
                 decelerationRate="fast"
                 contentOffset={initial}
                 contentContainerStyle={{ paddingVertical: pad }}
@@ -154,6 +156,7 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
                         offset={offset}
                         chosen={position === index}
                         visible={visible}
+                        rowHeight={rowHeight}
                         style={style}
                         color={colors.textPrimary}
                         onPress={() => choose(position)}
@@ -165,13 +168,13 @@ export function Wheel<T extends string | number>({ options, value, onChange, vis
 }
 
 /** One row, shaped every frame by how far it is from the middle. */
-function Row({ label, position, offset, chosen, visible, style, color, onPress }: {
-    label: string; position: number; offset: SharedValue<number>; chosen: boolean; visible: number;
+function Row({ label, position, offset, chosen, visible, style, color, onPress, rowHeight }: {
+    label: string; position: number; offset: SharedValue<number>; chosen: boolean; visible: number; rowHeight: number;
     style?: TextStyle; color: string; onPress: () => void;
 }) {
     const reach = (visible - 1) / 2 + 0.5;
     const shape = useAnimatedStyle(() => {
-        const distance = (position * WHEEL_ROW - offset.value) / WHEEL_ROW;
+        const distance = (position * rowHeight - offset.value) / rowHeight;
         const away = Math.abs(distance);
         return {
             opacity: interpolate(away, [0, 1, reach], [1, 0.42, 0.12], Extrapolation.CLAMP),
@@ -184,7 +187,7 @@ function Row({ label, position, offset, chosen, visible, style, color, onPress }
     });
     return (
         <Pressable accessibilityRole="radio" accessibilityState={{ selected: chosen }} accessibilityLabel={label}
-            onPress={onPress} style={[styles.row, { height: WHEEL_ROW }]}>
+            onPress={onPress} style={[styles.row, { height: rowHeight }]}>
             <Animated.Text numberOfLines={1} style={[styles.label, style, { color }, shape]}>{label}</Animated.Text>
         </Pressable>
     );

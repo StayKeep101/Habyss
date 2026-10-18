@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { ComposerSpace } from '@/components/Create/ComposerModal';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { IconButton } from '@/components/ui/IconButton';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -17,6 +18,14 @@ const PANEL_HEIGHT = 186;
 const OPEN = { duration: 190, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 const CLOSE = { duration: 150, easing: Easing.in(Easing.cubic), reduceMotion: ReduceMotion.System };
 
+/**
+ * The height an open panel's contents may use without scrolling on this
+ * phone. A calendar, a colour wheel or a grid reads it and sizes itself to
+ * fit, so a small phone sees the same thing, just smaller.
+ */
+export const PanelRoom = createContext<number>(380);
+export const usePanelRoom = () => useContext(PanelRoom);
+
 export interface DetailItem {
     id: string;
     icon: IconName;
@@ -25,6 +34,8 @@ export interface DetailItem {
     fixedContent?: boolean;
     /** What the setting is called, shown on the chip when it is not set. */
     label: string;
+    /** A panel with no chip: opened from elsewhere (the look, from the icon beside the name). */
+    hidden?: boolean;
     /** What it is set to, shown on the chip instead of the label. */
     value?: string;
     content: React.ReactNode;
@@ -61,6 +72,10 @@ export const DetailBar: React.FC<{
     const { selectionFeedback } = useHaptics();
     const { height: screenHeight } = useWindowDimensions();
     const stableHeight = Math.round(Math.min(440, Math.max(260, screenHeight * 0.46)));
+    // Inside a composer card: all the room the card has left, measured with
+    // no panel open (the sentence, chips and button), up to the top of the screen.
+    const space = useContext(ComposerSpace);
+    const [baseline, setBaseline] = useState<number | null>(null);
 
     // A setting can stop being offered while its panel is open — a goal drops
     // "Starting from" the moment its target stops being relative to one — so
@@ -90,7 +105,10 @@ export const DetailBar: React.FC<{
     // screen — up to a cap sized to the phone, past which it scrolls. Switching
     // settings glides between heights rather than jumping.
     const [contentHeight, setContentHeight] = useState(0);
-    const fitTarget = shown ? Math.min(stableHeight, PANEL_HEAD + contentHeight) : 0;
+    if (space && !openId && Math.abs((baseline ?? 0) - space.cardHeight) > 2) setBaseline(space.cardHeight);
+    const cap = space ? Math.max(200, space.ceiling - (baseline ?? Math.min(space.cardHeight, 330)) - 4) : stableHeight;
+    const room = Math.round(cap - PANEL_HEAD - 8);
+    const fitTarget = shown ? Math.min(cap, PANEL_HEAD + contentHeight) : 0;
     const fit = useSharedValue(fitTarget);
     useEffect(() => {
         fit.value = withTiming(fitTarget, fitTarget > 0 ? OPEN : CLOSE);
@@ -111,7 +129,7 @@ export const DetailBar: React.FC<{
                             <Text style={[styles.panelTitle, { color: colors.textPrimary }]}>{shown.label}</Text>
                             <IconButton icon="chevron-down" label={`Close ${shown.label}`} onPress={() => { selectionFeedback(); onToggle(null); }} diameter={28} size={18} color={colors.textTertiary} />
                         </View>
-                        {shown.fixedContent && !fitContent ? <View style={styles.panelContent}>{shown.content}</View> : <ScrollView
+                        {shown.fixedContent && !fitContent ? <View style={styles.panelContent}><PanelRoom.Provider value={room}>{shown.content}</PanelRoom.Provider></View> : <ScrollView
                             bounces={false}
                             // Shrinks when space runs out (a keyboard opened from
                             // inside the panel), and scrolls, rather than pushing
@@ -125,7 +143,7 @@ export const DetailBar: React.FC<{
                             keyboardShouldPersistTaps="handled"
                             showsVerticalScrollIndicator={false}
                         >
-                            {shown.content}
+                            <PanelRoom.Provider value={room}>{shown.content}</PanelRoom.Provider>
                         </ScrollView>}
                     </>
                 ) : null}
@@ -140,7 +158,7 @@ export const DetailBar: React.FC<{
                 style={styles.chipRow}
                 contentContainerStyle={styles.chips}
             >
-                {items.map(item => {
+                {items.filter(item => !item.hidden).map(item => {
                     const isOpen = item.id === openId;
                     const isSet = !!item.value || !!item.color;
                     const tint = item.color ?? accent;
@@ -176,7 +194,9 @@ export const DetailBar: React.FC<{
 };
 
 /** The chips a panel opens onto, shared so every setting looks alike. */
-export const Choices = <T,>({ options, value, onChange, accent, multiple }: {
+export const Choices = <T,>({ options, value, onChange, accent, multiple, oneLine }: {
+    /** One row that scrolls sideways rather than wrapping onto a second line. */
+    oneLine?: boolean;
     options: { id: T; label: string }[];
     value: T | T[];
     onChange: (id: T) => void;
@@ -188,8 +208,9 @@ export const Choices = <T,>({ options, value, onChange, accent, multiple }: {
     const { selectionFeedback } = useHaptics();
     const selected = (id: T) => (multiple ? (value as T[]).includes(id) : value === id);
 
+    const Wrap = oneLine ? ScrollView : View;
     return (
-        <View style={styles.choices}>
+        <Wrap {...(oneLine ? { horizontal: true, showsHorizontalScrollIndicator: false, contentContainerStyle: styles.choicesLine, keyboardShouldPersistTaps: 'handled' as const } : { style: styles.choices })}>
             {options.map(option => {
                 const on = selected(option.id);
                 return (
@@ -206,7 +227,7 @@ export const Choices = <T,>({ options, value, onChange, accent, multiple }: {
                     </Pressable>
                 );
             })}
-        </View>
+        </Wrap>
     );
 };
 
@@ -230,6 +251,7 @@ const styles = StyleSheet.create({
     },
     chipText: { fontSize: 13, fontFamily: FontFamily.medium },
     choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    choicesLine: { flexDirection: 'row', gap: 8 },
     choice: { paddingHorizontal: 13, paddingVertical: 9 },
     choiceText: { fontSize: 13, fontFamily: FontFamily.medium },
     choiceTextOn: { fontFamily: FontFamily.semibold },
