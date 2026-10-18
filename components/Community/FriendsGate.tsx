@@ -80,7 +80,6 @@ export const FriendsGate: React.FC<Props> = ({ needsUsername, onReady }) => {
                 // The same buttons as onboarding, so signing in is one tap here too.
                 <SignInOptions
                     onSignedIn={onReady}
-                    onEmail={() => router.push('/(root)/account')}
                     emailLabel="Sign in with email"
                 />
             )}

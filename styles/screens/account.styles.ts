@@ -20,4 +20,5 @@ export const styles = StyleSheet.create({
     secondaryText: { fontSize: 14, fontFamily: FontFamily.medium },
     note: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', padding: 12, borderRadius: 12, borderWidth: 1, marginTop: 8 },
     noteText: { flex: 1, fontSize: 13, lineHeight: 18, fontFamily: FontFamily.regular },
+    leaving: { alignItems: 'center', gap: 12, marginTop: 40 },
 });

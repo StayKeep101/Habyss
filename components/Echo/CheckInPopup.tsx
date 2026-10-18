@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { PopupCard } from '@/components/ui/PopupCard';
 import { MatteSurface } from '@/components/ui/MatteSurface';
@@ -19,13 +19,17 @@ export function CheckInPopup({ kind, onAnswer, onClose }: {
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
     const { selectionFeedback } = useHaptics();
-    const question = kind ? QUESTIONS[kind] : QUESTIONS.mood;
+    // Keeps the question it opened with while it slides away, so the energy
+    // bolt never turns into the mood smiley on the way down.
+    const [shownKind, setShownKind] = useState<CheckInKind>(kind ?? 'mood');
+    if (kind && kind !== shownKind) setShownKind(kind);
+    const question = QUESTIONS[shownKind];
     return (
         <PopupCard visible={!!kind} onClose={onClose} icon={question.icon} iconColor={primary} title={question.title} body="One tap. It helps Echo help you.">
             <View style={styles.row}>
                 {question.options.map((label, index) => (
                     <Pressable key={label} style={styles.flex} accessibilityRole="button" accessibilityLabel={label}
-                        onPress={() => { selectionFeedback(); if (kind) onAnswer(kind, (index + 1) as CheckIn['value']); }}>
+                        onPress={() => { selectionFeedback(); onAnswer(shownKind, (index + 1) as CheckIn['value']); }}>
                         <MatteSurface radius={Radius.small} level="control" style={styles.option}>
                             <View style={[styles.level, { backgroundColor: primary, opacity: 0.25 + index * 0.18 }]} />
                             <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.label, { color: colors.textPrimary }]}>{label}</Text>

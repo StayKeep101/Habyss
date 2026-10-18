@@ -366,13 +366,6 @@ export default function OnboardingScreen() {
                 <PrimaryButton label="Start climbing" busy={startingSignIn} onPress={() => void startClimbing()} />
                 {signInError ? <Text style={[styles.welcomeOrText, { color: colors.textTertiary, textAlign: 'center' }]}>{signInError}</Text> : null}
 
-                <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => { lightFeedback(); router.push('/(root)/account?restore=1'); }}
-                    style={styles.secondaryBtn}
-                >
-                    <Text style={[styles.secondaryBtnText, { color: colors.textSecondary }]}>Sign in with email</Text>
-                </TouchableOpacity>
             </View>
         </View>
     );
@@ -710,7 +703,6 @@ export default function OnboardingScreen() {
             <View style={{ height: 18 }} />
             <SignInOptions
                 onSignedIn={() => afterAccount()}
-                onEmail={() => router.push('/(root)/account')}
             />
 
             <TouchableOpacity accessibilityRole="button" onPress={() => { lightFeedback(); afterAccount(); }} style={styles.secondaryBtn}>

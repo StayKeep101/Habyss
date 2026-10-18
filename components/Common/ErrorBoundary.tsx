@@ -38,8 +38,8 @@ export class ErrorBoundary extends Component<Props, State> {
         // Log error details
         console.error('ErrorBoundary caught an error:', error, errorInfo);
 
-        // You can log to an error reporting service here
-        // Example: Sentry.captureException(error, { extra: errorInfo });
+        // Reported so it can be fixed (lib/crashReport.ts): sent on the next launch.
+        (require('@/lib/crashReport') as typeof import('@/lib/crashReport')).reportCaught(error, `render: ${(errorInfo.componentStack ?? '').split('\n').find(line => line.trim()) ?? ''}`.trim());
 
         this.setState({
             error,

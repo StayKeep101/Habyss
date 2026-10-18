@@ -33,6 +33,10 @@ import { GoalSheet } from '@/components/Create/GoalSheet';
 import { TaskFormModal } from '@/components/Tasks/TaskFormModal';
 import { FeedbackSheet } from '@/components/Common/FeedbackSheet';
 import { flushFeedback } from '@/lib/feedback';
+import { installCrashReporting, sendPendingCrash } from '@/lib/crashReport';
+
+// Before anything else can throw: uncaught errors are written down and sent next launch.
+installCrashReporting();
 import RevenueCatService from '@/lib/RevenueCat';
 // import { SuperwallProvider, SuperwallExpoModule } from 'expo-superwall';
 // import * as Linking from 'expo-linking';
@@ -238,7 +242,7 @@ function InnerLayout() {
 
   // Anything written without signal is sent now rather than waiting for the
   // person to remember they ever wrote it.
-  useEffect(() => { void flushFeedback().catch(() => undefined); }, []);
+  useEffect(() => { void flushFeedback().catch(() => undefined); void sendPendingCrash(); }, []);
 
   // Every account that existed before profiles were shared has a name and a
   // picture on the phone and neither on the server, so friends see a handle and
