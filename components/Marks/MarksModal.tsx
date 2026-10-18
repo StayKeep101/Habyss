@@ -146,10 +146,6 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                                 <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>Sleep goal missed</Text>
                                 <Text style={[styles.ruleCell, { color: colors.error }]}>−{Math.abs(MARKS.miss.sleep)}</Text>
                             </View>
-                            <View style={styles.ruleRow}>
-                                <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>Today’s 3 (or 5) done</Text>
-                                <Text style={[styles.ruleCell, { color: colors.textPrimary }]}>+{MARKS.focus}</Text>
-                            </View>
                         </View>
                         {/* The multiplier: perfect days in a row raise everything you earn. */}
                         <View style={[styles.rules, styles.sleepRules, { backgroundColor: tile }]}>

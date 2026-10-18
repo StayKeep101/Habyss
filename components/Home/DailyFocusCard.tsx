@@ -10,7 +10,6 @@ import { s, vs, ms } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { DailyFocus } from '@/lib/dailyFocus';
-import { MARKS } from '@/lib/marks';
 import type { Task } from '@/lib/tasks';
 
 
@@ -30,10 +29,8 @@ export const DailyFocusCard: React.FC<{
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback, lightFeedback } = useHaptics();
-    // The run of days this target was hit, and what finishing it is worth
-    // today: +10, times the app-wide perfect-day multiplier.
+    // The run of days this target was hit, and the app-wide perfect-day multiplier.
     const streak = focus.streak ?? 0;
-    const bonus = MARKS.focus * multiplier;
 
     return (
         <VoidCard style={styles.container}>
@@ -47,14 +44,14 @@ export const DailyFocusCard: React.FC<{
                 <Text style={[styles.title, { color: colors.textPrimary }]}>Today&apos;s {focus.target}</Text>
                 <ValuePill value={`${focus.done}/${focus.target}`} tone={focus.complete ? colors.success : undefined} />
             </TouchableOpacity>
-            <View style={styles.run} accessible accessibilityLabel={`${streak} days in a row. ${focus.complete ? 'Earned' : 'Worth'} ${bonus} Marks today.`}>
+            <View style={styles.run} accessible accessibilityLabel={`${streak} days in a row. Multiplier times ${multiplier}.`}>
                 <Ionicons name="flame" size={s(13)} color={streak > 0 ? colors.warning : colors.textTertiary} />
                 <Text style={[styles.runText, { color: colors.textSecondary }]}>
                     {streak} day{streak === 1 ? '' : 's'} in a row
                 </Text>
-                <Text style={[styles.runText, { color: colors.textTertiary }]}>
-                    · {focus.complete ? `+${bonus} earned` : `+${bonus} when done`}{multiplier > 1 ? ` (×${multiplier})` : ''}
-                </Text>
+                {multiplier > 1 ? (
+                    <Text style={[styles.runText, { color: colors.textTertiary }]}>· ×{multiplier} on all Marks</Text>
+                ) : null}
             </View>
 
             {focus.rows.length === 0 ? (

@@ -247,7 +247,6 @@ const AISettings = () => {
 
                 {/* Echo's coaching: insights, getting started, the week, memory. */}
                 <SettingsGroup title="Coaching">
-                    <SettingsRow icon="sparkles" color="#5E5CE6" label="Open Echo" onPress={() => router.push('/(root)/echo' as never)} />
                     <SettingsRow icon="calendar" color="#30D158" label="Your week" onPress={() => router.push('/(root)/week-review' as never)} />
                     <SettingsRow icon="bookmark" color="#FF9F0A" label="What Echo remembers" onPress={() => router.push('/(root)/echo-memory' as never)} />
                     <SettingsRow icon="notifications" color="#FF453A" label="Weekly review reminder" toggle={echo.weeklyReview !== false}

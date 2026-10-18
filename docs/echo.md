@@ -21,9 +21,8 @@ memory, so Echo adds no queries, timers or network calls.
 | Insights | `lib/echoInsights.ts` | Never-miss-twice, stuck tasks, heavy days (against what this person usually finishes), slipping habits, goals with no steps, real wins, weekday/weekend patterns. Each carries its evidence; nothing is produced without enough data. |
 | Memory | `lib/echoMemory.ts`, `app/(root)/echo-memory.tsx` | Notes the person told Echo vs patterns Echo noticed (with evidence). All visible, editable, deletable; "Forget everything". On this phone only. |
 | Learning what helps | `lib/echoMemory.ts` (`recordHelp`, `settleHelps`, `helpRanking`) | Each two-minute start, five-minute session or plan is logged, then marked done/not from the record. The help that has worked is offered first. |
-| Can't start? | `app/(root)/start-now.tsx`, `lib/firstStep.ts` | One thing, the smallest first step, an optional "what's in the way" with one concrete tip, a 2/5-minute clock, or an "After X, I will Y" plan. |
 | Weekly review | `lib/weeklyReview.ts`, `app/(root)/week-review.tsx`, `lib/weeklyReviewNotice.ts` | Kept rate vs last week, what held, what got harder, bounce-backs, obstacles, at most two things to try. One optional notification on the week's last evening. |
-| Experiments | `lib/echoExperiments.ts`, `components/Echo/ExperimentCard.tsx` | 7-day tests (earlier time, or a smaller target) for a slipping habit. Applied only after confirmation; baseline = the habit's last 14 days; verdict states its uncertainty; "Go back" restores the habit exactly. |
+| Experiments (logic only, no screen now) | `lib/echoExperiments.ts` | 7-day tests (earlier time, or a smaller target) for a slipping habit. Applied only after confirmation; baseline = the habit's last 14 days; verdict states its uncertainty; "Go back" restores the habit exactly. |
 | Safety | `lib/echoSafety.ts` | Clear statements of crisis in anything typed to Echo replace coaching with a calm message and 988 / emergency numbers. No diagnosis. |
 | Energy | `hooks/useEchoCoach.ts` | Today's energy answer (pull-down question); low energy lowers the bar (heavy-day threshold, smallest-version wording). |
 | Easter eggs | `lib/echoEggs.ts`, `components/Echo/EggPopup.tsx` | About one Home visit in eight (at most daily) Echo's line is a door: help a friend (send a streak freeze), a memory, or the vault (secret words, collected on the Echo page). |
@@ -31,10 +30,12 @@ memory, so Echo adds no queries, timers or network calls.
 | Mood & energy | `lib/moodEnergy.ts` | Daily averages, week vs last week, kept rate on high- vs low-energy days (only with 3+ of each), best time of day. Feeds Echo's energy. |
 | Streak freezes | `lib/streakFreeze.ts`, migration `20261018000100` | Gifted by friends (friends only, once a week each, 5 max, server-enforced); one covers a missed yesterday automatically. |
 
-Entry points: Echo's line on Home (tap opens Echo, or an egg when it shows
-"✦ tap me"), pull down on Home for questions, `app/(root)/echo.tsx`, and
-Settings → Echo → Coaching. The Home insight card was removed; insights live
-on the Echo page.
+Entry points: Echo's line on Home (tappable only when it is an easter egg,
+"✦ tap me"), pull down on Home for questions, Settings → Echo → Coaching
+(What Echo remembers, Your week), and your own profile (streak freezes,
+private). The Echo page (insights, Can't start?, experiments, mood & energy)
+was removed at the user's request; its logic in `lib/` stays, unused by any
+screen.
 
 ## Limits, on purpose
 

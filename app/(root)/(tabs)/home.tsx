@@ -423,7 +423,7 @@ const Home = () => {
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
           {motivationalQuote ? <EchoLine text={motivationalQuote} secret={!!echoEgg} style={{ marginTop: sectionGap }}
-            onPress={() => { lightFeedback(); if (echoEgg) { setOpenEgg(echoEgg); void markFound(echoEgg); } else router.push('/(root)/echo' as never); }} /> : null}
+            onPress={echoEgg ? () => { lightFeedback(); setOpenEgg(echoEgg); void markFound(echoEgg); } : undefined} /> : null}
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />

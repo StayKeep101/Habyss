@@ -16,6 +16,7 @@ import { useMarks } from '@/hooks/useMarks';
 import { ageFrom, initials, saveProfile, type Profile } from '@/lib/profile';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ProfileView } from '@/components/Profile/ProfileView';
+import { FreezeCard } from '@/components/Profile/FreezeCard';
 import { seriesForProfile } from '@/lib/marksSync';
 import { UsernameCard, UsernameInline, UsernamePill } from '@/components/Profile/UsernameCard';
 import { FeedService } from '@/lib/feedService';
@@ -158,7 +159,10 @@ export default function ProfileScreen() {
                             { text: 'Remove', style: 'destructive', onPress: () => removePhoto(which) },
                         ]),
                     }}
-                />
+                >
+                    {/* Yours alone: friends' view of your profile never shows it. */}
+                    <FreezeCard />
+                </ProfileView>
 
             </ScrollView>
             {/* Floats over the backdrop, below the status bar: this is a

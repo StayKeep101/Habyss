@@ -26,8 +26,6 @@ export const MARKS = {
     add: { habit: 1, task: 2, goal: 5 },
     complete: { habit: 5, task: 10, goal: 50, sleep: 20 },
     miss: { habit: -2, task: -4, goal: -15, sleep: -20 },
-    /** Finishing Today's 3 (or 5). */
-    focus: 10,
 } as const;
 
 /** The most the perfect-day multiplier can reach. */
@@ -136,7 +134,7 @@ export interface MarksInput {
     goodNights?: string[];
     /** Mornings after a recorded night that fell short of it: −20 each. A night with no data counts for nothing. */
     shortNights?: string[];
-    /** Today's 3 (or 5): finishing them earns MARKS.focus × the run multiplier. */
+    /** Today's 3 (or 5): part of what makes a day perfect, which builds the multiplier. */
     dailyTarget?: number;
     /** Misses of things since deleted: deleting takes back what was earned, never what was lost. */
     kept?: KeptPenalty[];
@@ -251,13 +249,6 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     }
     for (const night of input.shortNights ?? []) {
         if (night >= floor) record(night, MARKS.miss.sleep, 'miss', 'sleep', 'A short night');
-    }
-
-    // ------------------------------------------------------------ Today's 3
-    if (input.dailyTarget && input.dailyTarget > 0) {
-        for (const day of focusHitDays(input.tasks, input.dailyTarget, today)) {
-            if (day >= floor) record(day, MARKS.focus, 'complete', 'focus', `Today's ${input.dailyTarget}`);
-        }
     }
 
     // ------------------------------------------------- misses of deleted things
