@@ -12,7 +12,7 @@ import { useAccentGradient } from '@/context/AccentContext';
  * Its own component so the typing re-renders only this line. It lived in the
  * Home screen's state, so every letter (every 30 ms) re-rendered all of Home.
  */
-export function EchoLine({ text, style, onPress }: { text: string; style?: object; onPress?: () => void }) {
+export function EchoLine({ text, style, onPress, secret }: { text: string; style?: object; onPress?: () => void; secret?: boolean }) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary } = useAccentGradient();
@@ -31,7 +31,7 @@ export function EchoLine({ text, style, onPress }: { text: string; style?: objec
 
     return (
         <Pressable style={style} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityHint={onPress ? 'Opens Echo' : undefined}>
-            <Text style={[styles.label, { color: colors.textTertiary }]}>Echo</Text>
+            <Text style={[styles.label, { color: secret ? primary : colors.textTertiary }]}>{secret ? 'Echo  ✦  tap me' : 'Echo'}</Text>
             <Text style={[styles.line, { color: colors.text }]}>
                 {shown}
                 {shown.length < text.length ? <Text style={{ color: primary }}>|</Text> : null}

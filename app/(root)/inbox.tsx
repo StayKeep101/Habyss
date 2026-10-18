@@ -36,6 +36,8 @@ const LOOK: Record<InboxItem['kind'], { icon: string; tint: (colors: typeof Colo
     friend_request: { icon: 'person-add', tint: (_colors, accent) => accent },
     friend_accepted: { icon: 'checkmark-circle', tint: colors => colors.success },
     nudge: { icon: 'hand-right', tint: colors => colors.warning },
+    // A friend sent a streak freeze (Echo's "help your friend out").
+    freeze_gift: { icon: 'snow', tint: () => '#64D2FF' },
     // Raised by the app itself — a reminder that fired, a streak, a milestone.
     local: { icon: 'notifications', tint: (_colors, accent) => accent },
     share_offer: { icon: 'share-social', tint: (_colors, accent) => accent },

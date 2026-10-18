@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
+import { useCheckIns } from '@/hooks/useCheckIns';
+import { todays } from '@/lib/checkIns';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { computeInsights } from '@/lib/echoInsights';
 import { energyToday, settleHelps } from '@/lib/echoMemory';
@@ -23,7 +25,10 @@ export function useEchoCoach() {
     const memory = useEchoMemory();
     const { aiPersonality } = useAppSettings();
     const voice = normalizeAIPersonality(aiPersonality);
-    const energy = energyToday(memory, data.today);
+    // Energy as you said it today (the pull-down question), else as set on the old card.
+    const checkIns = useCheckIns();
+    const said = todays(checkIns, 'energy');
+    const energy = said ? (said <= 2 ? 'low' : said >= 4 ? 'high' : 'ok') : energyToday(memory, data.today);
     const historyDays = useMemo(() => toHistoryDays(data.history, data.skips), [data.history, data.skips]);
     const remembered = useMemo(() => memory.notes.map(note => note.key).filter((key): key is string => !!key), [memory.notes]);
 

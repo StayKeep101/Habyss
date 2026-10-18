@@ -27,8 +27,15 @@ memory, so Echo adds no queries, timers or network calls.
 | Safety | `lib/echoSafety.ts` | Clear statements of crisis in anything typed to Echo replace coaching with a calm message and 988 / emergency numbers. No diagnosis. |
 | Energy | `components/Echo/EchoCoachCard.tsx` | "How's your energy today?" once a day; low energy lowers the bar (heavy-day threshold, smallest-version wording). |
 
-Entry points: Home's Echo card (one insight, one action, dismissable) and Echo
-line (tap opens Echo), `app/(root)/echo.tsx`, and Settings → Echo → Coaching.
+| Easter eggs | `lib/echoEggs.ts`, `components/Echo/EggPopup.tsx` | About one Home visit in eight (at most daily) Echo's line is a door: help a friend (send a streak freeze), a memory, or the vault (secret words, collected on the Echo page). |
+| Quick questions | `lib/checkIns.ts`, `components/Echo/CheckInPopup.tsx` | After a pull down on Home, sometimes "How's your mood / energy?". When to ask is learned from answers vs dismissals and the hours answers come. |
+| Mood & energy | `lib/moodEnergy.ts` | Daily averages, week vs last week, kept rate on high- vs low-energy days (only with 3+ of each), best time of day. Feeds Echo's energy. |
+| Streak freezes | `lib/streakFreeze.ts`, migration `20261018000100` | Gifted by friends (friends only, once a week each, 5 max, server-enforced); one covers a missed yesterday automatically. |
+
+Entry points: Echo's line on Home (tap opens Echo, or an egg when it shows
+"✦ tap me"), pull down on Home for questions, `app/(root)/echo.tsx`, and
+Settings → Echo → Coaching. The Home insight card was removed; insights live
+on the Echo page.
 
 ## Limits, on purpose
 

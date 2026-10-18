@@ -12,6 +12,7 @@
  *   SectionTitle   the heading over a section: large, bold, sentence case (the Stats-tab look)
  *   VoidModal      a centred modal window
  *   VoidSheet      a bottom sheet with a grabber
+ *   PopupCard      the streak-popup card: rises from the bottom, big icon on its top edge
  *
  * Controls
  *   AppButton, IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
@@ -79,3 +80,4 @@ export { CheckPop } from './CheckPop';
 export { MOTION, LIST_LAYOUT, ListItem, CountUp, AnimatedFill, GrowBar, Reveal, PopIn, useProgress, useCountUp, AnimatedRect, AnimatedCircle, AnimatedPath } from './Motion';
 export { TimeWheels } from './TimeWheels';
 export { DateWheels } from './DateWheels';
+export { PopupCard } from './PopupCard';

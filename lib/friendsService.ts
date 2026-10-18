@@ -79,7 +79,7 @@ export interface FriendRequest {
 export interface InboxItem {
     id: string;
     kind: 'friend_request' | 'friend_accepted' | 'nudge' | 'local'
-        | 'share_offer' | 'share_accepted' | 'share_declined' | 'shared_done';
+        | 'share_offer' | 'share_accepted' | 'share_declined' | 'shared_done' | 'freeze_gift';
     title: string;
     body: string;
     read: boolean;
@@ -957,7 +957,7 @@ export class FriendsService {
         const rows = notifications.data ?? [];
         const people = await profiles(ctx, rows.map((row: any) => row.from_user_id).filter(Boolean));
         const KINDS: InboxItem['kind'][] = [
-            'friend_request', 'friend_accepted', 'share_offer', 'share_accepted', 'share_declined', 'shared_done',
+            'friend_request', 'friend_accepted', 'share_offer', 'share_accepted', 'share_declined', 'shared_done', 'freeze_gift',
         ];
         const kindOf = (type: string): InboxItem['kind'] =>
             (KINDS.includes(type as InboxItem['kind']) ? type : 'nudge') as InboxItem['kind'];

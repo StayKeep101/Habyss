@@ -11,12 +11,16 @@ import { ListItem } from '@/components/ui/Motion';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { InsightRow } from '@/components/Echo/InsightRow';
 import { ExperimentCard } from '@/components/Echo/ExperimentCard';
+import { MiniBar } from '@/components/Echo/MiniBar';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useEchoCoach } from '@/hooks/useEchoCoach';
 import { useExperiments } from '@/hooks/useEchoMemory';
+import { useCheckIns, useEggs, useFreezes } from '@/hooks/useCheckIns';
+import { moodEnergy } from '@/lib/moodEnergy';
+import { vaultSize } from '@/lib/echoEggs';
 import { baselineFor, evaluate, proposeExperiment, startExperiment } from '@/lib/echoExperiments';
 import { styles } from '@/styles/screens/echo.styles';
 
@@ -35,6 +39,11 @@ export default function EchoScreen() {
     const coach = useEchoCoach();
     const experiments = useExperiments();
     const [proposalClosed, setProposalClosed] = useState(false);
+    const checkIns = useCheckIns();
+    const eggs = useEggs();
+    const freezes = useFreezes();
+    const feel = useMemo(() => moodEnergy(checkIns.entries, coach.today, coach.habits, coach.historyDays), [checkIns.entries, coach.today, coach.habits, coach.historyDays]);
+    const recent = feel.days.slice(-7);
 
     const running = experiments.filter(item => item.status === 'running');
     const proposalHabit = propose && !proposalClosed && !running.some(item => item.habitId === propose)
@@ -106,6 +115,50 @@ export default function EchoScreen() {
                         ))}
                     </>
                 ) : null}
+
+                {/* Mood and energy, from the one-tap questions after a pull down on Home. */}
+                <SectionTitle>Mood & energy</SectionTitle>
+                {recent.length ? (
+                    <VoidCard style={styles.feel}>
+                        <View style={styles.feelRow}>
+                            {(['mood', 'energy'] as const).map(kind => {
+                                const now = feel.week[kind];
+                                const before = feel.lastWeek[kind];
+                                return (
+                                    <View key={kind} style={styles.flex}>
+                                        <Text style={[styles.feelValue, { color: colors.textPrimary }]}>{now === null ? '–' : now.toFixed(1)}</Text>
+                                        <Text style={[styles.startSub, { color: colors.textTertiary }]}>
+                                            {kind === 'mood' ? 'Mood' : 'Energy'} this week{now !== null && before !== null && now !== before ? ` · ${now > before ? '↑' : '↓'} ${Math.abs(now - before).toFixed(1)}` : ''}
+                                        </Text>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                        <View style={styles.bars}>
+                            {recent.map((day, index) => (
+                                <View key={day.date} style={styles.barCol}>
+                                    <MiniBar value={day.mood} color={primary} index={index} />
+                                    <MiniBar value={day.energy} color={colors.warning} index={index} />
+                                </View>
+                            ))}
+                        </View>
+                        {feel.energyEffect ? (
+                            <Text style={[styles.startSub, { color: colors.textSecondary }]}>
+                                On high-energy days you keep {feel.energyEffect.high}% of habits; on low ones, {feel.energyEffect.low}% ({feel.energyEffect.highDays} and {feel.energyEffect.lowDays} days).
+                            </Text>
+                        ) : null}
+                        {feel.bestTime ? (
+                            <Text style={[styles.startSub, { color: colors.textSecondary }]}>Your energy is highest in the {feel.bestTime}.</Text>
+                        ) : null}
+                    </VoidCard>
+                ) : (
+                    <Text style={[styles.quiet, { color: colors.textTertiary }]}>Pull down on Home now and then: Echo will ask how you feel.</Text>
+                )}
+
+                <SettingsGroup>
+                    <SettingsRow icon="snow" color="#64D2FF" label="Streak freezes" value={String(freezes.count)} />
+                    <SettingsRow icon="key" color="#FFD60A" label="Secrets found" value={`${eggs.words.length} of ${vaultSize}`} />
+                </SettingsGroup>
 
                 <SettingsGroup>
                     <SettingsRow icon="calendar" color="#30D158" label="Your week" onPress={() => router.push('/(root)/week-review' as never)} />

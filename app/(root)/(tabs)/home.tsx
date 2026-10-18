@@ -2,10 +2,12 @@ import { FontFamily } from '@/theme/designSystem';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {View, Text, ScrollView, RefreshControl} from 'react-native';
 import { EchoLine } from '@/components/Home/EchoLine';
-import { EchoCoachCard } from '@/components/Echo/EchoCoachCard';
+import { EggPopup } from '@/components/Echo/EggPopup';
+import { CheckInPopup } from '@/components/Echo/CheckInPopup';
 import { useEchoMemory } from '@/hooks/useEchoMemory';
-import { computeInsights } from '@/lib/echoInsights';
-import { energyToday } from '@/lib/echoMemory';
+import { eggLine, loadEggs, markFound, markShown, pickEgg, type EggId } from '@/lib/echoEggs';
+import { answer as answerCheckIn, loadCheckIns, markAsked, pickQuestion, type CheckInKind } from '@/lib/checkIns';
+import { coverYesterdayIfMissed, loadFreezes } from '@/lib/streakFreeze';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { ClimbMomentOverlay } from '@/components/Home/ClimbMomentOverlay';
 import { SleepCard } from '@/components/Home/SleepCard';
@@ -63,7 +65,7 @@ const Home = () => {
   const { theme } = useTheme();
   const colors = Colors[theme];
   const { primary: accentColor } = useAccentGradient();
-  const { lightFeedback, selectionFeedback } = useHaptics();
+  const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
   const { playComplete, playLevelUp } = useSounds();
   const { horizontalPadding, sectionGap, topSpacing, tabBarClearance, isCompactWidth } = useResponsiveLayout();
 
@@ -92,6 +94,10 @@ const Home = () => {
   const { avatar: profileAvatar } = useMyProfile();
   const [refreshing, setRefreshing] = useState(false);
   const [motivationalQuote, setMotivationalQuote] = useState('');
+  const [echoEgg, setEchoEgg] = useState<EggId | null>(null);
+  const [openEgg, setOpenEgg] = useState<EggId | null>(null);
+  // One of Echo's quick questions, asked now and then after a pull down.
+  const [question, setQuestion] = useState<CheckInKind | null>(null);
 
   // Echo's line: new on every visit and refresh. Stats are read from a ref so
   // the line always reflects the latest render without re-running the effect.
@@ -100,6 +106,17 @@ const Home = () => {
     const name = await getName();
     const personality = normalizeAIPersonality(aiPersonality || 'friendly');
     const stats = echoStatsRef.current;
+    // Now and then the line is an easter egg instead: tap it to open it.
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const egg = pickEgg(await loadEggs(), { today: todayKey, hasFriends: true, hasMemory: true });
+    if (egg) {
+      setEchoEgg(egg);
+      setMotivationalQuote(eggLine(egg));
+      void markShown(egg, todayKey);
+      return;
+    }
+    setEchoEgg(null);
     setMotivationalQuote(await nextEchoLine(personality, { ...stats, name }, greetingStyle));
   }, [aiPersonality, greetingStyle]);
 
@@ -122,6 +139,9 @@ const Home = () => {
     // Reload history data for accurate stats (streak, consistency, goal progress)
     reloadHistory();
     setRefreshing(false);
+    // Sometimes, a question (when is learned from when you answer).
+    const kind = pickQuestion(await loadCheckIns(), new Date());
+    if (kind) { void markAsked(kind); setTimeout(() => setQuestion(kind), 350); }
   }, [showEchoLine, reloadHistory]);
 
   // Derived data
@@ -190,14 +210,27 @@ const Home = () => {
   const { overall: avgGoalProgress, tasks: allTasks, skippedToday, today: todayKeyString } = goalsData;
   // Marks, from the same habits, tasks and history already loaded here.
   const marks = useMarks(goalsData);
-  // Echo's one thing worth knowing today, counted from the same data (lib/echoInsights.ts).
+  // What the "memory" easter egg says: something real Echo noticed, or a real number.
   const echoMemory = useEchoMemory();
-  const echoEnergy = energyToday(echoMemory, todayKeyString);
-  const echoInsight = useMemo(() => computeInsights({
-    habits: allHabits, tasks: allTasks, history: historyData, completions, today: todayKeyString,
-    voice: normalizeAIPersonality(aiPersonality || 'friendly'), energy: echoEnergy, dismissed: echoMemory.dismissed,
-    remembered: echoMemory.notes.map(note => note.key).filter((key): key is string => !!key),
-  })[0], [allHabits, allTasks, historyData, completions, todayKeyString, aiPersonality, echoEnergy, echoMemory.dismissed, echoMemory.notes]);
+  const memoryLine = useMemo(() => {
+    const notes = echoMemory.notes.filter(note => note.source === 'echo' || note.kind === 'strategy');
+    // A different one each day, never the same pick twice in a render.
+    if (notes.length) return notes[Number(todayKeyString.replace(/-/g, '')) % notes.length].text;
+    return marks.total > 0 ? `You have earned ${marks.total.toLocaleString()} Marks so far. Every one of them is something you did.` : 'You opened the app today. That is where it starts.';
+  }, [echoMemory.notes, marks.total, todayKeyString]);
+
+  // A streak freeze someone gave you covers yesterday if it was missed.
+  useEffect(() => {
+    if (!sharedData.historyLoaded) return;
+    void loadFreezes().then(() => {
+      const history = sharedData.history;
+      const doneDays = new Set(allTasks.filter(task => task.status === 'done' && task.completedAt).map(task => localDateKey(new Date(task.completedAt!))));
+      const didOn = (day: string) => (history[day] ?? []).length > 0 || doneDays.has(day);
+      const before = new Date(); before.setDate(before.getDate() - 2);
+      const run = streakFrom(allHabits, allTasks, history, sharedData.skips, localDateKey(before)).streak;
+      return coverYesterdayIfMissed(didOn, run);
+    }).catch(() => undefined);
+  }, [sharedData.historyLoaded, sharedData.history, sharedData.skips, allHabits, allTasks]);
 
   // The climb, as moments: your first foothold, then each new rank (lib/climbMoments.ts).
   const [climbMoment, setClimbMoment] = useState<ClimbMoment | null>(null);
@@ -378,12 +411,8 @@ const Home = () => {
 
           {/* Echo, full width below the header, where it reads as a line
               rather than squeezed into a column beside the picture. */}
-          {motivationalQuote ? <EchoLine text={motivationalQuote} style={{ marginTop: sectionGap }} onPress={() => { lightFeedback(); router.push('/(root)/echo' as never); }} /> : null}
-          {echoInsight || !echoEnergy ? (
-            <View style={{ marginTop: sectionGap }}>
-              <EchoCoachCard insight={echoInsight} energy={echoEnergy} today={todayKeyString} />
-            </View>
-          ) : null}
+          {motivationalQuote ? <EchoLine text={motivationalQuote} secret={!!echoEgg} style={{ marginTop: sectionGap }}
+            onPress={() => { lightFeedback(); if (echoEgg) { setOpenEgg(echoEgg); void markFound(echoEgg); } else router.push('/(root)/echo' as never); }} /> : null}
 
           {/* Spacer after header */}
           <View style={{ height: sectionGap }} />
@@ -434,6 +463,11 @@ const Home = () => {
 
         </ScrollView>
 
+
+        {/* Echo's easter eggs and its quick questions. */}
+        <EggPopup egg={openEgg} memory={memoryLine} onClose={() => setOpenEgg(null)} />
+        <CheckInPopup kind={question} onClose={() => setQuestion(null)}
+          onAnswer={(kind, value) => { void answerCheckIn(kind, value); setQuestion(null); successFeedback(); }} />
 
         <MomentumModal
           visible={showMomentumModal}

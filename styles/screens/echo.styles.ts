@@ -14,4 +14,10 @@ export const styles = StyleSheet.create({
     buttons: { flexDirection: 'row', gap: Spacing.sm },
     flex: { flex: 1 },
     quiet: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20 },
+    feel: { padding: Spacing.lg, gap: Spacing.md },
+    feelRow: { flexDirection: 'row', gap: Spacing.lg },
+    feelValue: { fontFamily: FontFamily.bold, fontSize: 28, fontVariant: ['tabular-nums'] },
+    bars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 48 },
+    barCol: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
+    bar: { width: 8, borderRadius: 4 },
 });

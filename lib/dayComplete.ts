@@ -74,6 +74,8 @@ export function streakFrom(
     today: string,
     back?: number,
     _target: DailyTarget = DEFAULT_TARGET,
+    /** Days a streak freeze covered: they keep the run going without adding to it. */
+    frozen: Set<string> = (require('./streakFreeze') as typeof import('./streakFreeze')).frozenDays(),
 ): { streak: number; completedDates: string[] } {
     // A shared habit or task counts only once everybody on it has done it.
     history = countedHistory(history);
@@ -105,7 +107,7 @@ export function streakFrom(
         if (did) {
             completedDates.push(day);
             if (counting) streak++;
-        } else if (offset > 0) {
+        } else if (offset > 0 && !frozen.has(day)) {
             counting = false;
         }
     }
