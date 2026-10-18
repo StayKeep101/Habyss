@@ -402,6 +402,7 @@ const Home = () => {
           <Animated.View style={{ marginTop: sectionGap }}>
             <DailyFocusCard
               focus={focus}
+              multiplier={marks.multiplier}
               onToggle={handleFocusToggle}
               onOpen={() => router.push('/task-stats')}
               onAdd={() => emit('show_task_form')}

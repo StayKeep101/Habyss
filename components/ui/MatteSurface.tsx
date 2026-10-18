@@ -43,6 +43,10 @@ export function MatteSurface({
     const tone = surfaceFor(theme);
     void level;
     const lift = elevation ?? 'none';
+    // One corner for every layer: a card given a sharper corner in its style
+    // must not keep a rounder gradient inside it (two cards in one).
+    const flat = StyleSheet.flatten(style);
+    const corner = typeof flat?.borderRadius === 'number' ? flat.borderRadius : radius;
     // One body for everything: the card's own gradient. Buttons, fields, chips
     // and the tab bar are the card's material in another shape, so they match
     // it exactly; only the shadow under them changes with `level`.
@@ -54,12 +58,12 @@ export function MatteSurface({
             style={[
                 // No border at all unless one has something to say: even a transparent
                 // one leaves a ring of the base colour around the gradient.
-                { borderRadius: radius, borderWidth: edge ? (hairline ? StyleSheet.hairlineWidth : 1) : 0, backgroundColor: body, borderColor: edge },
+                { borderRadius: corner, borderWidth: edge ? (hairline ? StyleSheet.hairlineWidth : 1) : 0, backgroundColor: body, borderColor: edge },
                 lift === 'none' ? null : elevationFor(theme, lift),
                 style,
             ]}
         >
-            <View pointerEvents="none" style={[styles.layer, { borderRadius: Math.max(0, radius - (edge ? 1 : 0)) }]}>
+            <View pointerEvents="none" style={[styles.layer, { borderRadius: Math.max(0, corner - (edge ? (hairline ? StyleSheet.hairlineWidth : 1) : 0)) }]}>
                 <LinearGradient colors={gradient} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
                 {tint ? <View style={[StyleSheet.absoluteFill, { backgroundColor: tint }]} /> : null}
             </View>

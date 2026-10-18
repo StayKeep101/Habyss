@@ -11,7 +11,7 @@ import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing, UIStyles } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
-import { MARKS, RANKS, type MarkEvent } from '@/lib/marks';
+import { MARKS, MAX_MULTIPLIER, RANKS, type MarkEvent } from '@/lib/marks';
 import type { GoalPoint } from '@/lib/goalInsights';
 import type { Marks } from '@/hooks/useMarks';
 
@@ -89,7 +89,7 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                                 <View key={`${event.date}-${index}`} style={[styles.eventRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
                                     <View style={{ flex: 1 }}>
                                         <Text numberOfLines={1} style={[styles.eventTitle, { color: colors.textPrimary }]}>{event.title}</Text>
-                                        <Text style={[styles.eventMeta, { color: colors.textTertiary }]}>{`${event.item === 'sleep' ? (event.kind === 'miss' ? 'Slept short of your goal' : 'Slept your goal') : `${VERB[event.kind]} ${event.item}`} · ${shortDay(event.date)}`}</Text>
+                                        <Text style={[styles.eventMeta, { color: colors.textTertiary }]}>{`${event.item === 'sleep' ? (event.kind === 'miss' ? 'Slept short of your goal' : 'Slept your goal') : event.item === 'focus' ? 'Finished the day’s tasks' : `${VERB[event.kind]} ${event.item}`} · ${shortDay(event.date)}`}</Text>
                                     </View>
                                     <Text style={[styles.points, { color: event.points > 0 ? colors.success : colors.error }]}>
                                         {event.points > 0 ? '+' : '−'}{Math.abs(event.points)}
@@ -145,6 +145,22 @@ export const MarksModal: React.FC<{ visible: boolean; onClose: () => void; marks
                             <View style={styles.ruleRow}>
                                 <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>Sleep goal missed</Text>
                                 <Text style={[styles.ruleCell, { color: colors.error }]}>−{Math.abs(MARKS.miss.sleep)}</Text>
+                            </View>
+                            <View style={styles.ruleRow}>
+                                <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>Today’s 3 (or 5) done</Text>
+                                <Text style={[styles.ruleCell, { color: colors.textPrimary }]}>+{MARKS.focus}</Text>
+                            </View>
+                        </View>
+                        {/* The multiplier: perfect days in a row raise everything you earn. */}
+                        <View style={[styles.rules, styles.sleepRules, { backgroundColor: tile }]}>
+                            <View style={styles.ruleRow}>
+                                <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>
+                                    Perfect days (everything due done) raise what you earn: ×2 after 7 in a row, ×3 after 14, up to ×{MAX_MULTIPLIER}. Miss a day and it is back to ×1. Misses always cost the normal amount.
+                                </Text>
+                            </View>
+                            <View style={styles.ruleRow}>
+                                <Text style={[styles.ruleCell, styles.ruleFirst, { color: colors.textSecondary }]}>Now</Text>
+                                <Text style={[styles.ruleCell, { color: primary }]}>×{marks.multiplier} · {marks.perfectRun} perfect day{marks.perfectRun === 1 ? '' : 's'}</Text>
                             </View>
                         </View>
                 <Text style={[styles.section, { color: colors.textPrimary }]}>Ranks</Text>

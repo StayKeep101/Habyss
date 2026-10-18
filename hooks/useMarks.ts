@@ -4,6 +4,7 @@ import { goodNights, shortNights } from '@/lib/sleepLog';
 import type { GoalsData } from '@/hooks/useGoalInsights';
 import { computeMarks, rankFor, type MarksResult } from '@/lib/marks';
 import { useMarksKept } from '@/hooks/useMarksKept';
+import { useDailyTarget } from '@/hooks/useDailyFocus';
 
 export type Marks = MarksResult & ReturnType<typeof rankFor>;
 
@@ -19,13 +20,15 @@ export function useMarks(data: Pick<GoalsData, 'habits' | 'tasks' | 'history' | 
     const short = shortNights(sleep).sort().join(',');
     // Misses of deleted things still count: deleting is break-even, not a way up.
     const kept = useMarksKept();
+    // Today's 3 (or 5): +10 a day for finishing them, times the run multiplier.
+    const dailyTarget = useDailyTarget();
     return useMemo(() => {
         // The day each goal first reached 100%, read off its own line.
         const goalsCompletedOn: Record<string, string | null> = {};
         for (const [id, insights] of Object.entries(insightsById)) {
             goalsCompletedOn[id] = insights.series.find(point => point.actual >= 100)?.date ?? null;
         }
-        const result = computeMarks({ habits, tasks, history, skips, goalsCompletedOn, goodNights: nights ? nights.split(',') : [], shortNights: short ? short.split(',') : [], kept, today });
+        const result = computeMarks({ habits, tasks, history, skips, goalsCompletedOn, goodNights: nights ? nights.split(',') : [], shortNights: short ? short.split(',') : [], kept, dailyTarget, today });
         return { ...result, ...rankFor(result.total) };
-    }, [habits, tasks, history, skips, insightsById, today, nights, short, kept]);
+    }, [habits, tasks, history, skips, insightsById, today, nights, short, kept, dailyTarget]);
 }

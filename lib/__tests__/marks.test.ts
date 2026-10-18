@@ -1,4 +1,4 @@
-import { computeMarks, penaltiesOf, rankBand, rankFor, RANKS } from '../marks';
+import { computeMarks, multiplierFor, penaltiesOf, rankBand, rankFor, RANKS } from '../marks';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 
@@ -132,5 +132,41 @@ describe('deleting is break-even, never a way up', () => {
         const fresh = habit({ startDate: TODAY, createdAt: `${TODAY}T09:00:00` });
         const kept = penaltiesOf({ ...base, habits: [fresh], history: {} }, { habits: ['h'] });
         expect(computeMarks({ ...base, habits: [], history: {}, kept }).total).toBe(0);
+    });
+});
+
+describe("Today's 3 bonus and the perfect-day multiplier", () => {
+    const day = (offset: number) => { const d = new Date(2026, 9, 1 + offset, 12); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const doneOn = (id: string, on: string) => task({ id, status: 'done', createdAt: `${on}T08:00:00`, completedAt: `${on}T10:00:00`, dueDate: on });
+    const three = (offset: number) => [0, 1, 2].map(n => doneOn(`t${offset}-${n}`, day(offset)));
+
+    it('steps up every seven perfect days, to at most ×10', () => {
+        expect([0, 6, 7, 13, 14, 63, 70, 200].map(multiplierFor)).toEqual([1, 1, 2, 2, 3, 10, 10, 10]);
+    });
+
+    it('earns +10 for finishing Today\'s 3', () => {
+        const result = computeMarks({ habits: [], tasks: three(0), history: {}, today: day(0), dailyTarget: 3 });
+        expect(result.events.find(event => event.item === 'focus')?.points).toBe(10);
+    });
+
+    it('doubles everything completed after seven perfect days in a row, but not a miss', () => {
+        const tasks = [0, 1, 2, 3, 4, 5, 6, 7].map(three).flat();
+        const result = computeMarks({ habits: [], tasks, history: {}, today: day(7), dailyTarget: 3 }, 200);
+        expect(result.multiplier).toBe(2);
+        const today = result.events.filter(event => event.date === day(7) && event.kind === 'complete');
+        expect(today.find(event => event.item === 'focus')?.points).toBe(20);
+        expect(today.filter(event => event.item === 'task').every(event => event.points === 20)).toBe(true);
+    });
+
+    it('goes back to ×1 after a day that was not perfect', () => {
+        // Day 7 had a task due and left undone: the run breaks there.
+        const tasks = [...[0, 1, 2, 3, 4, 5, 6, 8].map(three).flat(), task({ id: 'missed', dueDate: day(7) })];
+        const result = computeMarks({ habits: [], tasks, history: {}, today: day(9), dailyTarget: 3 }, 200);
+        expect(result.multiplier).toBe(1);
+    });
+
+    it('needs the whole target, not part of it', () => {
+        const tasks = [doneOn('a', day(0)), doneOn('b', day(0)), task({ id: 'c', dueDate: day(0) })];
+        expect(computeMarks({ habits: [], tasks, history: {}, today: day(0), dailyTarget: 3 }).events.some(event => event.item === 'focus')).toBe(false);
     });
 });

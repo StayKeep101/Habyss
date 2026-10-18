@@ -10,6 +10,7 @@ import { s, vs, ms } from '@/theme/scale';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { DailyFocus } from '@/lib/dailyFocus';
+import { MARKS } from '@/lib/marks';
 import type { Task } from '@/lib/tasks';
 
 
@@ -20,13 +21,19 @@ import type { Task } from '@/lib/tasks';
  */
 export const DailyFocusCard: React.FC<{
     focus: DailyFocus & { streak?: number };
+    /** The app-wide perfect-day multiplier (×1 to ×10). */
+    multiplier?: number;
     onToggle: (task: Task) => void;
     onOpen: () => void;
     onAdd: () => void;
-}> = ({ focus, onToggle, onOpen, onAdd }) => {
+}> = ({ focus, onToggle, onOpen, onAdd, multiplier = 1 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { selectionFeedback, lightFeedback } = useHaptics();
+    // The run of days this target was hit, and what finishing it is worth
+    // today: +10, times the app-wide perfect-day multiplier.
+    const streak = focus.streak ?? 0;
+    const bonus = MARKS.focus * multiplier;
 
     return (
         <VoidCard style={styles.container}>
@@ -40,6 +47,15 @@ export const DailyFocusCard: React.FC<{
                 <Text style={[styles.title, { color: colors.textPrimary }]}>Today&apos;s {focus.target}</Text>
                 <ValuePill value={`${focus.done}/${focus.target}`} tone={focus.complete ? colors.success : undefined} />
             </TouchableOpacity>
+            <View style={styles.run} accessible accessibilityLabel={`${streak} days in a row. ${focus.complete ? 'Earned' : 'Worth'} ${bonus} Marks today.`}>
+                <Ionicons name="flame" size={s(13)} color={streak > 0 ? colors.warning : colors.textTertiary} />
+                <Text style={[styles.runText, { color: colors.textSecondary }]}>
+                    {streak} day{streak === 1 ? '' : 's'} in a row
+                </Text>
+                <Text style={[styles.runText, { color: colors.textTertiary }]}>
+                    · {focus.complete ? `+${bonus} earned` : `+${bonus} when done`}{multiplier > 1 ? ` (×${multiplier})` : ''}
+                </Text>
+            </View>
 
             {focus.rows.length === 0 ? (
                 <TouchableOpacity accessibilityRole="button" activeOpacity={0.7} onPress={() => { lightFeedback(); onAdd(); }} style={styles.row}>
@@ -85,6 +101,8 @@ const styles = StyleSheet.create({
     container: { paddingHorizontal: s(18), paddingTop: s(16), paddingBottom: s(8) },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: vs(6) },
     title: { fontSize: ms(17), fontFamily: FontFamily.bold },
+    run: { flexDirection: 'row', alignItems: 'center', gap: s(5), marginBottom: vs(6), flexWrap: 'wrap' },
+    runText: { fontSize: ms(12), fontFamily: FontFamily.medium },
     row: { flexDirection: 'row', alignItems: 'center', gap: s(12), paddingVertical: vs(10) },
     box: { width: s(22), height: s(22), borderRadius: s(7), borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
     rowText: { flex: 1, fontSize: ms(15), fontFamily: FontFamily.medium },

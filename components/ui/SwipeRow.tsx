@@ -7,8 +7,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Pressable } from 'react-native-gesture-handler';
 import { AppIcon as Ionicons, type IconName } from '@/components/ui/AppIcon';
-import { Colors } from '@/theme/colors';
-import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 
 export interface SwipeAction {
@@ -58,16 +56,12 @@ const sizeFor = (rowHeight: number) =>
 /**
  * The swipe behind every habit and task row.
  *
- * Each action is a circle that beads out of the row's edge as you pull, the
- * way a drop of water gathers and lets go: it starts as a bump the shape of
- * the row's corner, stretches along the direction of travel, rounds off, and
- * settles with a soft neck trailing back to the row that thins out and breaks.
+ * Each action is a circle that grows out of nothing as you pull: from a
+ * point to its full size, round the whole way, nothing squeezed or stretched.
  * One implementation for habits and tasks, so both feel the same.
  */
 export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8 }) => {
     const { lightFeedback, mediumFeedback } = useHaptics();
-    const { theme } = useTheme();
-    const colors = Colors[theme];
     const row = useRef<SwipeableMethods>(null);
     // The circles are sized from the row itself, so they fit whichever card
     // size the user has chosen instead of overflowing a compact one.
@@ -147,14 +141,13 @@ export const SwipeRow: React.FC<Props> = ({ children, left, right, radius = 8 })
             renderLeftActions={left ? renderLeft : undefined}
             renderRightActions={right?.length ? renderRight : undefined}
         >
-            {/* Opaque behind the row: the cards are glass, so without this the
-                actions could be seen through the card as it slid over them. */}
+            {/* No layer of its own behind the row: the card is opaque, and a
+                second shape behind it showed as a mismatched corner. */}
             <View
                 onLayout={(event: LayoutChangeEvent) => {
                     setHeight(event.nativeEvent.layout.height);
                     setWidth(event.nativeEvent.layout.width);
                 }}
-                style={{ backgroundColor: colors.background, borderRadius: radius, overflow: 'hidden' }}
             >
                 {children}
             </View>
@@ -243,54 +236,22 @@ const Drop: React.FC<{
 
     const dropStyle = useAnimatedStyle(() => {
         const t = Math.min(1, Math.max(0, (progress.value - start) / (1 - start)));
-        // Round by the time it is halfway out, so it reads as a circle for most
-        // of the drag rather than only at the very end.
-        const round = interpolate(t, [0, 0.45], [radius, size / 2], 'clamp');
-        // Stretches along the pull, then settles: the moment a drop separates.
-        const stretch = interpolate(t, [0, 0.5, 0.75, 1], [1.3, 1.1, 0.98, 1]);
-        const squash = interpolate(t, [0, 0.5, 0.75, 1], [0.7, 0.95, 1.02, 1]);
         // Past the line the destructive one swells and the rest withdraw, so
         // the row shows what letting go means before it happens.
         const take = armed ? armed.value : 0;
         const claim = dominant ? take : 0;
         const yield_ = dominant ? 0 : take;
-
+        // From nothing to a full circle, with a breath of overshoot as it lands.
+        const grow = interpolate(t, [0, 0.85, 1], [0, 1.06, 1], 'clamp');
         return {
-            opacity: interpolate(t, [0, 0.15, 0.45], [0, 0.7, 1], 'clamp') * (1 - yield_ * 0.85),
-            borderRadius: round,
-            transform: [
-                { translateX: interpolate(t, [0, 1], [from === 'left' ? -slot * 0.6 : slot * 0.6, 0]) + yield_ * slot * 0.5 },
-                { scaleX: stretch },
-                { scaleY: squash },
-                { scale: interpolate(t, [0, 0.6, 1], [0.78, 1.02, 1]) * (1 + claim * 0.35) * (1 - yield_ * 0.4) },
-            ],
-        };
-    });
-
-    const neckStyle = useAnimatedStyle(() => {
-        const t = Math.min(1, Math.max(0, (progress.value - start) / (1 - start)));
-        return {
-            // Thins out and snaps: gone by the time the circle is free.
-            opacity: interpolate(t, [0, 0.25, 0.75, 1], [0, 0.9, 0.35, 0]),
-            transform: [
-                { scaleY: interpolate(t, [0, 0.5, 1], [0.9, 0.5, 0.15]) },
-                { scaleX: interpolate(t, [0, 1], [1, 0.5]) },
-            ],
+            opacity: interpolate(t, [0, 0.2], [0, 1], 'clamp') * (1 - yield_ * 0.85),
+            transform: [{ scale: grow * (1 + claim * 0.35) * (1 - yield_ * 0.4) }],
         };
     });
 
     return (
         <View style={[styles.slot, { width: size, height: size, marginHorizontal: GAP / 2 }]}>
-            <Animated.View
-                pointerEvents="none"
-                style={[
-                    styles.neck,
-                    { height: size * 0.62, backgroundColor: action.color },
-                    from === 'left' ? { left: -GAP / 2 } : { right: -GAP / 2 },
-                    neckStyle,
-                ]}
-            />
-            <Animated.View style={[styles.drop, { width: size, height: size, backgroundColor: action.color }, dropStyle]}>
+            <Animated.View style={[styles.drop, { width: size, height: size, borderRadius: size / 2, backgroundColor: action.color }, dropStyle]}>
                 <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={action.label}
@@ -310,6 +271,5 @@ const styles = StyleSheet.create({
     side: { flexDirection: 'row', alignItems: 'center' },
     slot: { alignItems: 'center', justifyContent: 'center' },
     drop: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    neck: { position: 'absolute', width: GAP * 2, borderRadius: GAP },
     press: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
 });

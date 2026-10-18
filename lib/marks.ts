@@ -26,7 +26,56 @@ export const MARKS = {
     add: { habit: 1, task: 2, goal: 5 },
     complete: { habit: 5, task: 10, goal: 50, sleep: 20 },
     miss: { habit: -2, task: -4, goal: -15, sleep: -20 },
+    /** Finishing Today's 3 (or 5). */
+    focus: 10,
 } as const;
+
+/** The most the perfect-day multiplier can reach. */
+export const MAX_MULTIPLIER = 10;
+
+/**
+ * The app-wide multiplier, from the run of perfect days (every habit due and
+ * Today's 3 or 5 done) up to yesterday: ×1, then ×2 after seven in a row, ×3
+ * after fourteen, up to ×10. A missed day puts it back to ×1. It multiplies
+ * what you earn by completing things, never what a miss costs.
+ */
+export const multiplierFor = (run: number): number => Math.min(MAX_MULTIPLIER, 1 + Math.floor(Math.max(0, run) / 7));
+
+/** Days the daily task target was hit, oldest first: done-that-day ≥ target. */
+export function focusHitDays(tasks: Task[], target: number, today: string): string[] {
+    const counts = new Map<string, number>();
+    for (const task of tasks) {
+        if (task.status !== 'done' || !task.completedAt) continue;
+        const when = new Date(task.completedAt);
+        const day = Number.isFinite(when.getTime()) ? localDateKey(when) : task.completedAt.slice(0, 10);
+        if (day <= today) counts.set(day, (counts.get(day) ?? 0) + 1);
+    }
+    return [...counts.entries()].filter(([, done]) => done >= target).map(([day]) => day).sort();
+}
+
+/**
+ * Each perfect day's run: how many perfect days in a row end on it. A day
+ * that asked for nothing neither extends nor breaks the run. Counted with the
+ * same tally as the "day complete" celebration, so the two always agree.
+ */
+export function perfectRuns(input: MarksInput, target: number): Map<string, number> {
+    const { tallyDay, isDayComplete } = require('./dayComplete') as typeof import('./dayComplete');
+    const runs = new Map<string, number>();
+    const dates = [...Object.keys(input.history), ...input.tasks.map(task => (task.completedAt ?? '').slice(0, 10)).filter(Boolean)].sort();
+    if (!dates.length) return runs;
+    const floor = addDays(input.today, -HORIZON_DAYS);
+    let day = dates[0] < floor ? floor : dates[0];
+    let run = 0;
+    for (; day <= input.today; day = addDays(day, 1)) {
+        const completions = Object.fromEntries((input.history[day] ?? []).map(id => [id, true]));
+        const skipped = Object.fromEntries((input.skips?.[day] ?? []).map(id => [id, true]));
+        const tally = tallyDay(input.habits, completions, skipped, input.tasks, day, target as 3 | 5);
+        if (tally.total === 0) { if (run) runs.set(day, run); continue; }
+        if (isDayComplete(tally)) { run += 1; runs.set(day, run); }
+        else if (day < input.today) run = 0;
+    }
+    return runs;
+}
 
 export interface Rank { name: string; min: number }
 
@@ -63,7 +112,7 @@ export function rankFor(marks: number): { rank: Rank; next: Rank | null; progres
 }
 
 export type MarkKind = 'add' | 'complete' | 'miss';
-export type MarkItem = 'habit' | 'task' | 'goal' | 'sleep';
+export type MarkItem = 'habit' | 'task' | 'goal' | 'sleep' | 'focus';
 
 export interface MarkEvent {
     date: string;
@@ -87,6 +136,8 @@ export interface MarksInput {
     goodNights?: string[];
     /** Mornings after a recorded night that fell short of it: −20 each. A night with no data counts for nothing. */
     shortNights?: string[];
+    /** Today's 3 (or 5): finishing them earns MARKS.focus × the run multiplier. */
+    dailyTarget?: number;
     /** Misses of things since deleted: deleting takes back what was earned, never what was lost. */
     kept?: KeptPenalty[];
     today: string;
@@ -96,6 +147,10 @@ export interface KeptPenalty { date: string; points: number; item: MarkItem; tit
 
 export interface MarksResult {
     total: number;
+    /** Today's multiplier on everything completed (×1 to ×10). */
+    multiplier: number;
+    /** Perfect days in a row up to yesterday (today joins once it is perfect). */
+    perfectRun: number;
     /** Change so far today. */
     todayChange: number;
     /** Running total by day, oldest first, ending today. */
@@ -121,10 +176,15 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     const floor = addDays(today, -HORIZON_DAYS);
     const byDay = new Map<string, number>();
     const events: MarkEvent[] = [];
+    // The multiplier each day carried, from the perfect days before it.
+    const runs = input.dailyTarget ? perfectRuns(input, input.dailyTarget) : new Map<string, number>();
+    const multiplierOn = (date: string) => multiplierFor(runs.get(addDays(date, -1)) ?? 0);
     const record = (date: string | null, points: number, kind: MarkKind, item: MarkItem, title: string) => {
         if (!date || date > today) return;
-        byDay.set(date, (byDay.get(date) ?? 0) + points);
-        events.push({ date, points, kind, item, title });
+        const times = kind === 'complete' && points > 0 ? multiplierOn(date) : 1;
+        const earned = points * times;
+        byDay.set(date, (byDay.get(date) ?? 0) + earned);
+        events.push({ date, points: earned, kind, item, title: times > 1 ? `${title} · ×${times}` : title });
     };
 
     const habits = input.habits.filter(habit => !habit.isGoal);
@@ -193,6 +253,13 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         if (night >= floor) record(night, MARKS.miss.sleep, 'miss', 'sleep', 'A short night');
     }
 
+    // ------------------------------------------------------------ Today's 3
+    if (input.dailyTarget && input.dailyTarget > 0) {
+        for (const day of focusHitDays(input.tasks, input.dailyTarget, today)) {
+            if (day >= floor) record(day, MARKS.focus, 'complete', 'focus', `Today's ${input.dailyTarget}`);
+        }
+    }
+
     // ------------------------------------------------- misses of deleted things
     for (const penalty of input.kept ?? []) {
         if (penalty.date >= floor && penalty.points < 0) record(penalty.date, penalty.points, 'miss', penalty.item, penalty.title);
@@ -214,8 +281,11 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
     if (!series.length || series[series.length - 1].date !== today) series.push({ date: today, value: total });
 
     events.sort((a, b) => b.date.localeCompare(a.date) || b.points - a.points);
+    const perfectRun = runs.get(addDays(today, -1)) ?? 0;
     return {
         total,
+        multiplier: multiplierOn(today),
+        perfectRun: runs.has(today) ? (runs.get(today) ?? 0) : perfectRun,
         todayChange: total - (series.length > 1 ? yesterday : 0),
         series,
         events: events.slice(0, recent),
