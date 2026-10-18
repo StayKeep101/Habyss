@@ -8,6 +8,7 @@ import { MicButton } from '@/components/ui/MicButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { ThoughtRow } from '@/components/BrainDump/ThoughtRow';
 import { Colors } from '@/theme/colors';
+import { textOn } from '@/theme/tokens';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -179,7 +180,7 @@ export default function BrainDumpScreen() {
                     {draft.trim() && !dictation.listening ? (
                         <Pressable onPress={() => void save()} accessibilityRole="button" accessibilityLabel="Save thought"
                             style={[styles.send, { backgroundColor: primary }]}>
-                            <AppIcon name="arrow-up" size={18} color={colors.background} />
+                            <AppIcon name="arrow-up" size={18} color={textOn(primary)} />
                         </Pressable>
                     ) : dictation.available ? (
                         <MicButton listening={dictation.listening} onPress={talk} />

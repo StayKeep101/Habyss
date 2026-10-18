@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { VoidCard } from '@/components/ui/VoidCard';
-import { IconTile } from '@/components/ui/IconTile';
+import { AppIcon } from '@/components/ui/AppIcon';
 import { CountUp } from '@/components/ui/Motion';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
@@ -20,7 +20,8 @@ export function HomeStatCard({ icon, tint, value, label, note, noteTint, onPress
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={accessibilityLabel} style={styles.touch}>
             <VoidCard style={styles.card}>
-                <IconTile icon={icon} color={tint} size={32} />
+                {/* Just the icon, in its colour: no tile behind it. */}
+                <AppIcon filled name={icon as never} size={24} color={tint} />
                 <View style={styles.readout}>
                     <CountUp style={[styles.value, { color: colors.textPrimary }]} value={value} />
                     <Text numberOfLines={1} style={[styles.label, { color: colors.textTertiary }]}>{label}</Text>

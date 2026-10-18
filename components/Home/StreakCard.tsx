@@ -1,10 +1,8 @@
 import { FontFamily } from '@/theme/designSystem';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { IconTile } from '@/components/ui/IconTile';
 import { CountUp } from '@/components/ui/Motion';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
-import { LinearGradient } from 'expo-linear-gradient';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
@@ -37,18 +35,8 @@ export const StreakCard: React.FC<StreakCardProps> = ({ streak, completionTier, 
         <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.touchable}>
             <VoidCard glass={!isTrueDark} intensity={isLight ? 20 : 80} style={[styles.container]}>
                 <View style={styles.iconContainer}>
-                    {isRainbow ? (
-                        <LinearGradient
-                            colors={flameColors as [string, string, ...string[]]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.flameGradient}
-                        >
-                            <Ionicons name="flame" size={s(20)} color="white" />
-                        </LinearGradient>
-                    ) : (
-                        <IconTile icon="flame" color={flameColors[0]} size={s(36)} />
-                    )}
+                    {/* Just the flame, in its colour: no tile behind it. */}
+                    <Ionicons name="flame" size={s(26)} color={isRainbow ? flameColors[flameColors.length - 1] : flameColors[0]} />
                 </View>
 
                 <View>

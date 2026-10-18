@@ -4,6 +4,7 @@ import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withR
 import { AppIcon } from '@/components/ui/AppIcon';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { Colors } from '@/theme/colors';
+import { textOn } from '@/theme/tokens';
 import { useTheme } from '@/context/ThemeContext';
 import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -32,7 +33,7 @@ export function MicButton({ listening, onPress, size = 36 }: { listening: boolea
                 <View style={styles.center}>
                     <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: size / 2, backgroundColor: primary }, halo]} />
                     <View style={[styles.center, { width: size, height: size, borderRadius: size / 2, backgroundColor: primary }]}>
-                        <AppIcon name="mic" size={size * 0.48} color={colors.background} />
+                        <AppIcon name="mic" size={size * 0.48} color={textOn(primary)} />
                     </View>
                 </View>
             ) : (

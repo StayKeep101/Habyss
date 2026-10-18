@@ -72,7 +72,8 @@ export const RoadmapFilters = (props: Props) => {
     const margin = 12;
     // Only as wide as its pills need, not the width of the screen.
     const width = Math.min(340, screen.width - margin * 2);
-    const left = anchor ? Math.min(screen.width - margin - width, Math.max(margin, anchor.x)) : (screen.width - width) / 2;
+    // Centred under what it drops from, so it always opens in the same place.
+    const left = anchor ? Math.min(screen.width - margin - width, Math.max(margin, anchor.x + anchor.width / 2 - width / 2)) : (screen.width - width) / 2;
 
     const scrim = useAnimatedStyle(() => ({ opacity: progress.value * 0.55 }));
     const panel = useAnimatedStyle(() => ({

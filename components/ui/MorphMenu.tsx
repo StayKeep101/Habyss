@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { Easing, interpolate, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, interpolate, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { AppIcon, type IconName } from '@/components/ui/AppIcon';
 import { Colors } from '@/theme/colors';
@@ -22,7 +22,8 @@ const ROW = 48;
 const HEAD = 52;
 /** Room kept between the menu and the edges of the screen. */
 const MARGIN = 12;
-const OPEN = { damping: 20, stiffness: 240, mass: 0.8, reduceMotion: ReduceMotion.System };
+// Timed, not sprung: a spring overshoots, which read as the button jumping before it opened.
+const OPEN = { duration: 240, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 const CLOSE = { duration: 170, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
 
 /**
@@ -40,7 +41,14 @@ const CLOSE = { duration: 170, easing: Easing.out(Easing.cubic), reduceMotion: R
  * from a button on the right and rightwards from one on the left, and never
  * taller than the room above the home indicator (it scrolls if it must).
  */
-export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', label = 'More options', diameter = Control.hitTarget, style }: {
+export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', label = 'More options', diameter = Control.hitTarget, style, pageHeight }: {
+    /**
+     * The height of the page the button is on, when that page is presented as
+     * a sheet. A sheet sits lower than the screen, and the button's measured
+     * position does not include that, so the menu appeared above the button
+     * and then moved. With it, the menu opens exactly where the button is.
+     */
+    pageHeight?: number;
     items: MorphMenuItem[];
     title?: string;
     titleIcon?: IconName;
@@ -73,7 +81,7 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
     const measureLayer = () => {
         layerRef.current?.measureInWindow((x, y, width, height) => {
             setLayer({ x, y, width, height });
-            progress.value = withSpring(1, OPEN);
+            progress.value = withTiming(1, OPEN);
         });
     };
 
@@ -90,7 +98,9 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
 
     // The button's place inside the layer, then which way the menu can open.
     const place = anchor && layer ? (() => {
-        const top = anchor.y - layer.y;
+        // A sheet's own offset from the top of the screen (it is flush with the bottom).
+        const sheetTop = pageHeight && pageHeight < layer.height ? layer.height - pageHeight : 0;
+        const top = anchor.y + sheetTop - layer.y;
         const left = anchor.x - layer.x;
         const rightEdge = left + anchor.width;
         const width = Math.min(WIDTH, layer.width - MARGIN * 2);
@@ -125,7 +135,8 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
     return (
         <>
             <Pressable ref={trigger} onPress={open} accessibilityRole="button" accessibilityLabel={label} hitSlop={6} style={style}>
-                <MatteSurface radius={diameter / 2} level="control" style={[styles.disc, { width: diameter, height: diameter, opacity: anchor ? 0 : 1 }]}>
+                {/* Stays visible until the window is drawn over it, so the button never blinks out first. */}
+                <MatteSurface radius={diameter / 2} level="control" style={[styles.disc, { width: diameter, height: diameter, opacity: anchor && layer ? 0 : 1 }]}>
                     <AppIcon name="ellipsis-horizontal" size={Control.icon} color={colors.textPrimary} />
                 </MatteSurface>
             </Pressable>

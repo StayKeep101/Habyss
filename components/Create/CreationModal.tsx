@@ -112,7 +112,7 @@ export const CreationModal = () => {
         { id: 'goal', label: 'Goal', icon: 'flag-outline', color: primary, hint: 'Where you are heading' },
         { id: 'habit', label: 'Habit', icon: 'repeat', color: '#10B981', hint: 'Something you repeat' },
         { id: 'task', label: 'Task', icon: 'checkmark-circle-outline', color: '#F59E0B', hint: 'Done once, by a date' },
-        { id: 'thought', label: 'Thought', icon: 'bulb-outline', color: colors.secondary, hint: 'Get it out of your head' },
+        { id: 'thought', label: 'Thought', icon: 'bulb-outline', color: '#FFD60A', hint: 'Get it out of your head' },
     ] as const;
 
     return (

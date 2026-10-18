@@ -242,12 +242,15 @@ const CalendarScreen = () => {
     const filterButtonRef = useRef<any>(null);
     const [filterAnchor, setFilterAnchor] = useState<FilterAnchor | null>(null);
     const openFilterModal = useCallback(() => {
-        filterButtonRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
-            setFilterAnchor({ x, y, width, height });
+        // Always from the same place: just under the calendar strip, whether
+        // it was opened by pulling down or from the filter pill (which moves
+        // with the list, and so made the menu open somewhere different each time).
+        const area = listAreaRef.current;
+        if (!area) { setShowFilter(true); return; }
+        area.measureInWindow((x: number, y: number, width: number) => {
+            setFilterAnchor({ x, y: y - 4, width, height: 0 });
             setShowFilter(true);
         });
-        // Opened from a gesture with nothing to measure: still open, centred.
-        if (!filterButtonRef.current) setShowFilter(true);
     }, []);
 
     /**

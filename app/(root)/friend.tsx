@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VoidShell } from '@/components/ui/VoidShell';
@@ -74,6 +74,7 @@ export default function FriendScreen() {
     }, [load, id]);
 
     const isFriend = relation?.kind === 'friend';
+    const [pageHeight, setPageHeight] = useState<number | undefined>(undefined);
     const name = friend?.displayName || status?.name || stranger?.name || 'Friend';
     const username = friend?.username || status?.username || stranger?.username;
     const now = useMemo(() => (status ? statusOf(status, clock) : 'away'), [status, clock]);
@@ -179,8 +180,10 @@ export default function FriendScreen() {
                 <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} diameter={40} size={24} />
             </View>
             <View style={[styles.more, { top: insets.top + 8 }]}>
-                <MorphMenu items={menu} title={name} titleIcon="person" label="Manage friendship" diameter={40} />
+                <MorphMenu items={menu} title={name} titleIcon="person" label="Manage friendship" diameter={40} pageHeight={pageHeight} />
             </View>
+            {/* Measures the sheet, so the ⋯ menu opens exactly on its button. */}
+            <View pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={event => setPageHeight(event.nativeEvent.layout.height)} />
         </VoidShell>
     );
 }

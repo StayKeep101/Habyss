@@ -194,6 +194,8 @@ const GoalDetail = () => {
   });
 
   const [editingGoal, setEditingGoal] = useState(false);
+  /** This sheet's height, so the ⋯ menu opens exactly on its button. */
+  const [pageHeight, setPageHeight] = useState<number | undefined>(undefined);
 
   /**
    * Opens the same sheet the goal was created in, mounted *here*.
@@ -363,7 +365,7 @@ const GoalDetail = () => {
   // Header Animation moved to top
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }} onLayout={event => setPageHeight(event.nativeEvent.layout.height)}>
       <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
 
       {/* The goal's picture, shown whole and unshaded. The only shadow on it
@@ -392,7 +394,7 @@ const GoalDetail = () => {
           afterwards, so the buttons sat low the first time only. */}
       <View style={[styles.navHeader, Platform.OS === 'android' && { paddingTop: insets.top + 8 }]}>
         <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} diameter={40} size={24} />
-        <MorphMenu items={goalMenu} title={goal?.name} titleIcon="flag" label="Goal options" diameter={40} />
+        <MorphMenu items={goalMenu} title={goal?.name} titleIcon="flag" label="Goal options" diameter={40} pageHeight={pageHeight} />
       </View>
 
       <Animated.ScrollView
