@@ -25,8 +25,7 @@ memory, so Echo adds no queries, timers or network calls.
 | Weekly review | `lib/weeklyReview.ts`, `app/(root)/week-review.tsx`, `lib/weeklyReviewNotice.ts` | Kept rate vs last week, what held, what got harder, bounce-backs, obstacles, at most two things to try. One optional notification on the week's last evening. |
 | Experiments | `lib/echoExperiments.ts`, `components/Echo/ExperimentCard.tsx` | 7-day tests (earlier time, or a smaller target) for a slipping habit. Applied only after confirmation; baseline = the habit's last 14 days; verdict states its uncertainty; "Go back" restores the habit exactly. |
 | Safety | `lib/echoSafety.ts` | Clear statements of crisis in anything typed to Echo replace coaching with a calm message and 988 / emergency numbers. No diagnosis. |
-| Energy | `components/Echo/EchoCoachCard.tsx` | "How's your energy today?" once a day; low energy lowers the bar (heavy-day threshold, smallest-version wording). |
-
+| Energy | `hooks/useEchoCoach.ts` | Today's energy answer (pull-down question); low energy lowers the bar (heavy-day threshold, smallest-version wording). |
 | Easter eggs | `lib/echoEggs.ts`, `components/Echo/EggPopup.tsx` | About one Home visit in eight (at most daily) Echo's line is a door: help a friend (send a streak freeze), a memory, or the vault (secret words, collected on the Echo page). |
 | Quick questions | `lib/checkIns.ts`, `components/Echo/CheckInPopup.tsx` | After a pull down on Home, sometimes "How's your mood / energy?". When to ask is learned from answers vs dismissals and the hours answers come. |
 | Mood & energy | `lib/moodEnergy.ts` | Daily averages, week vs last week, kept rate on high- vs low-energy days (only with 3+ of each), best time of day. Feeds Echo's energy. |
