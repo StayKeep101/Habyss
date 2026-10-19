@@ -61,39 +61,36 @@ describe('the habit sheet', () => {
         });
     });
 
-    it('turns a reminder on at the habit\'s own start time', async () => {
+    it('reminds at the habit\'s own start time by default', async () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Stretch at 21:00');
         fireEvent.press(screen.getByText('Reminder'));
-        fireEvent.press(screen.getByLabelText('Before'));
+        fireEvent.press(screen.getByLabelText('At a time'));
         await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
 
         await waitFor(() => expect(addHabit).toHaveBeenCalled());
         expect((addHabit as jest.Mock).mock.calls[0][0].reminders).toEqual(['21:00']);
     });
 
-    it('leads a reminder by hours and minutes on wheels', async () => {
+    it('always offers the same three choices, start time or not', () => {
         const screen = render(<HabitSheet visible />);
         write(screen, 'Pack the bag at 18:00');
         fireEvent.press(screen.getByText('Reminder'));
-        fireEvent.press(screen.getByLabelText('Before'));
-        fireEvent.press(within(screen.getByTestId('duration-hours')).getByLabelText('2'));
-        fireEvent.press(within(screen.getByTestId('duration-minutes')).getByLabelText('30'));
-        await act(async () => { fireEvent.press(screen.getByText('Add habit')); });
-
-        await waitFor(() => expect(addHabit).toHaveBeenCalled());
-        expect((addHabit as jest.Mock).mock.calls[0][0]).toMatchObject({ reminders: ['18:00'], reminderOffset: 150 });
+        expect(screen.getByLabelText('Off')).toBeTruthy();
+        expect(screen.getByLabelText('At a time')).toBeTruthy();
+        expect(screen.getByLabelText('At a place')).toBeTruthy();
+        expect(screen.queryByLabelText('Before')).toBeNull();
     });
 
-    it('reads a saved lead back on the wheels', async () => {
+    it('shows a reminder saved with a lead as its clock time', () => {
         const habit = {
             id: 'h7', name: 'Shop', taskDays: ['sat'], goalValue: 1, unit: 'time', color: '#6B8AF5',
             icon: 'cart-outline', reminders: ['10:00'], reminderOffset: 120, startDate: '2026-01-01', startTime: '10:00',
         } as unknown as Habit;
         const screen = render(<HabitSheet visible habit={habit} />);
         fireEvent.press(screen.getByLabelText(/^Reminder/));
-        expect(within(screen.getByTestId('duration-hours')).getByLabelText('2').props.accessibilityState).toEqual({ selected: true });
-        expect(screen.getByText(/before it starts/)).toBeTruthy();
+        expect(screen.getByLabelText('At a time').props.accessibilityState).toMatchObject({ selected: true });
+        expect(screen.queryByLabelText('Before')).toBeNull();
     });
 
     it('shows nothing more while the reminder is off, and no message field', () => {

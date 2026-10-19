@@ -5,7 +5,6 @@ import { IconButton } from '@/components/ui/IconButton';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { TimeWheels } from '@/components/ui/TimeWheels';
-import { DurationWheels } from '@/components/Create/DurationWheels';
 import { PlaceMap, hasPlaceMap } from '@/components/Create/PlaceMap';
 import { usePanelRoom } from '@/components/Create/DetailBar';
 import { Colors } from '@/theme/colors';
@@ -15,7 +14,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { LocationReminder } from '@/lib/habitsSQLite';
 
-type Mode = 'off' | 'start' | 'time' | 'place';
+type Mode = 'off' | 'time' | 'place';
 
 export interface ReminderValue {
     /** "HH:MM" the reminder fires at (the start time when tied to it). */
@@ -26,10 +25,9 @@ export interface ReminderValue {
 }
 
 /**
- * When to be reminded, one way at a time:
+ * When to be reminded, one way at a time — always the same three choices:
  * - Off: nothing else on screen.
- * - Before it starts: hours and minutes ahead of the habit's start, on wheels.
- * - At a time: a clock time on the same wheels.
+ * - At a time: a clock time on wheels.
  * - At a place: a small map (tap to choose), then whether arriving or leaving.
  * No message: Echo writes it in your voice.
  */
@@ -44,7 +42,8 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     const colors = Colors[theme];
     const { selectionFeedback, lightFeedback } = useHaptics();
     const room = usePanelRoom();
-    const derived: Mode = value.reminder ? (startTime && value.reminder === startTime ? 'start' : 'time') : value.places.length ? 'place' : 'off';
+    // A reminder once tied to the start time shows as the clock time it fires at.
+    const derived: Mode = value.reminder ? 'time' : value.places.length ? 'place' : 'off';
     const [chosen, setChosen] = useState<Mode | null>(null);
     const mode = chosen === 'place' || (chosen === 'off' && derived === 'off') ? chosen : derived;
     const [here, setHere] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -53,8 +52,7 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
     const pick = (next: Mode) => {
         setChosen(next);
         if (next === 'off') onChange({ reminder: undefined, reminderOffset: undefined, places: [] });
-        if (next === 'start') onChange({ reminder: startTime, places: [] });
-        if (next === 'time') onChange({ reminder: value.reminder && value.reminder !== startTime ? value.reminder : '08:00', reminderOffset: undefined, places: [] });
+        if (next === 'time') onChange({ reminder: value.reminder ?? startTime ?? '08:00', reminderOffset: undefined, places: [] });
         if (next === 'place') { onChange({ reminder: undefined, reminderOffset: undefined }); void locate(false); }
     };
 
@@ -93,7 +91,6 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
 
     const options = [
         { id: 'off' as Mode, label: 'Off' },
-        ...(startTime ? [{ id: 'start' as Mode, label: 'Before' }] : []),
         { id: 'time' as Mode, label: 'At a time' },
         { id: 'place' as Mode, label: 'At a place' },
     ];
@@ -104,19 +101,9 @@ export function ReminderPicker({ startTime, value, onChange, accent, onError }: 
         <View style={styles.wrap}>
             <ChoiceRow accessibilityLabel="When to remind you" options={options} value={mode} onChange={pick} />
 
-            {mode === 'start' ? (
-                <View style={styles.block}>
-                    <DurationWheels parts={['hours', 'minutes']} seconds={(value.reminderOffset ?? 0) * 60}
-                        onChange={seconds => onChange({ reminderOffset: Math.round(seconds / 60) || undefined })} />
-                    <Text style={[styles.caption, { color: colors.textTertiary }]}>
-                        {value.reminderOffset ? 'before it starts' : 'when it starts'} at {startTime}
-                    </Text>
-                </View>
-            ) : null}
-
             {mode === 'time' ? (
                 <View style={styles.block}>
-                    <TimeWheels value={value.reminder ?? '08:00'} onChange={reminder => onChange({ reminder })} />
+                    <TimeWheels value={value.reminder ?? '08:00'} onChange={reminder => onChange({ reminder, reminderOffset: undefined })} />
                 </View>
             ) : null}
 
