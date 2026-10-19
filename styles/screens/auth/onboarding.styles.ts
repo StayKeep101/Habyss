@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
     skipBtn: { paddingHorizontal: 8, paddingVertical: 10 },
     skipText: { fontSize: 14, fontFamily: FontFamily.medium },
     backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontFamily: FontFamily.bold },
+    flex: { flex: 1 },
     progressRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingBottom: 10 },
     progressDot: { height: 8, borderRadius: 4 },
     content: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 6 },

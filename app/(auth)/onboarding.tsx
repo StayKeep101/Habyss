@@ -1,6 +1,6 @@
-import { FontFamily } from '@/theme/designSystem';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { MatteSurface } from '@/components/ui/MatteSurface';
 import { textOn } from '@/theme/tokens';
 import { IconButton } from '@/components/ui/IconButton';
@@ -27,14 +27,14 @@ import {
     dayWindowFor, shouldOfferFriends, suggestEcho,
     type BlockerId, type HopeId,
 } from '@/lib/onboardingProfile';
-import { contrastRatio } from '@/lib/colorContrast';
 import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
-import { coachHello } from '@/lib/coachMessages';
-import { ECHO_NAME, hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
+import { ECHO_NAME, getName, hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
 import { currentAccount, onAccountChange } from '@/lib/account';
-import { getName } from '@/lib/echo';
 import { SignInOptions } from '@/components/Auth/SignInOptions';
 import { ClimbIntro } from '@/components/Onboarding/ClimbIntro';
+import { ClimbRoad } from '@/components/Onboarding/ClimbRoad';
+import { EchoArrival } from '@/components/Onboarding/EchoArrival';
+import { EchoVoicePicker } from '@/components/Onboarding/EchoVoicePicker';
 import type { SyncReport } from '@/lib/cloudSync';
 import { styles } from '@/styles/screens/auth/onboarding.styles';
 
@@ -48,13 +48,17 @@ const SELECT_ADVANCE_MS = 180;
  * that would cost, before it knew the person's name. These questions are
  * gentler and more useful: they are answerable honestly on a bad day, and each
  * one changes something the app actually does.
+ *
+ * It is one climb, not a stack of pages: the light at the bottom is you, and
+ * each answer is a step up the road (components/Onboarding/ClimbRoad).
+ * Choosing Echo's voice ends setup; the rest is backup and friends.
  */
-const STEPS = [
-    'welcome', 'name', 'source', 'hope', 'sleep', 'timing', 'blockers',
-    'meetEcho', 'echo', 'friends', 'account',
-] as const;
-/** Choosing Echo's voice ends setup; the rest is backup and friends. */
 const LAST_SETUP_STEP = 8;
+
+/** One stop on the road per setup step, and one at the top for the rest. */
+const ROAD_STOPS = LAST_SETUP_STEP + 2;
+/** How long the name tag shows before the next question. */
+const NAME_TAG_MS = 900;
 
 const STEP = {
     welcome: 0, name: 1, source: 2, hope: 3, sleep: 4, timing: 5, blockers: 6,
@@ -68,7 +72,7 @@ const STEP = {
  * is a new type on every render, which threw the header away and rebuilt it
  * each time an answer changed.
  */
-const Header = ({ onBack, title, onSkip }: { onBack?: () => void; title?: string; onSkip?: () => void }) => {
+const Header = ({ onBack, onSkip }: { onBack?: () => void; onSkip?: () => void }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { lightFeedback } = useHaptics();
@@ -79,7 +83,7 @@ const Header = ({ onBack, title, onSkip }: { onBack?: () => void; title?: string
                     <IconButton icon="chevron-back" label="Back" onPress={() => { lightFeedback(); onBack(); }} diameter={40} size={26} color={colors.textPrimary} />
                 ) : null}
             </View>
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]} numberOfLines={1}>{title ?? ''}</Text>
+            <View style={styles.flex} />
             <View style={[styles.headerSide, { alignItems: 'flex-end' }]}>
                 {/* Every question can be passed over; nothing here is required. */}
                 {onSkip ? (
@@ -92,25 +96,23 @@ const Header = ({ onBack, title, onSkip }: { onBack?: () => void; title?: string
     );
 };
 
-/** How far through setup this is, as a row of dots. */
-const Progress = ({ index, total }: { index: number; total: number }) => {
-    const { theme } = useTheme();
-    const isLight = theme === 'light';
-    const { primary: accent } = useAccentGradient();
-    return (
-        <View style={styles.progressRow} accessibilityLabel={`Step ${index} of ${total}`}>
-            {Array.from({ length: total }, (_, dot) => (
-                <View
-                    key={dot}
-                    style={[styles.progressDot, {
-                        backgroundColor: dot < index ? accent : (isLight ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.14)'),
-                        width: dot === index - 1 ? 22 : 8,
-                    }]}
-                />
-            ))}
-        </View>
-    );
-};
+/** The word each passed stop on the road keeps: what you answered there. */
+function marksFor(draft: OnboardingDraft): (string | null)[] {
+    const label = <T extends { id: string; label: string }>(list: T[], id?: string) => list.find(item => item.id === id)?.label ?? null;
+    const many = <T extends { id: string; label: string }>(list: T[], ids?: string[]) =>
+        !ids?.length ? null : ids.length === 1 ? label(list, ids[0]) : `${label(list, ids[0])} +${ids.length - 1}`;
+    const voice = PERSONALITY_MODES.find(mode => mode.id === draft.echo)?.name ?? null;
+    return [
+        null, null,
+        label(SOURCES, draft.source),
+        many(HOPES, draft.hope),
+        label(CHRONOTYPES, draft.chronotype),
+        label(TIMINGS, draft.timing),
+        many(BLOCKERS, draft.blockers),
+        `Met ${ECHO_NAME}`,
+        voice,
+    ];
+}
 
 export default function OnboardingScreen() {
     const router = useRouter();
@@ -136,6 +138,8 @@ export default function OnboardingScreen() {
     // Auto-advance after a single choice; held so a second tap can cancel it.
     const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [signedIn, setSignedIn] = useState(false);
+    // The name on its tag above the light, the moment it is given.
+    const [nameTag, setNameTag] = useState<string | null>(null);
 
     // Whether this phone already has an account decides if the backup step shows.
     useEffect(() => {
@@ -230,8 +234,6 @@ export default function OnboardingScreen() {
     useEffect(() => cancelAdvance, [cancelAdvance]);
 
     if (!draft) return <QuietLoading />;
-
-    const stepIndex = Math.min(draft.step, STEPS.length - 1);
 
     /* ---------------------------------------------------------------- saving */
 
@@ -526,54 +528,25 @@ export default function OnboardingScreen() {
     };
 
     /**
-     * What the name means, and who Echo is.
-     *
-     * The one page in the flow that asks nothing. It is here because a voice
-     * that turns up in your notifications for the next year should be
-     * introduced properly, and because the name of the app is a promise worth
-     * explaining: the abyss is the long dark stretch between who you are and
-     * who you said you would be, and an echo is the only thing that comes back
-     * out of one.
+     * Who Echo is, shown rather than told: its light comes down to meet
+     * yours, its rings go out, and a few words. Then you choose its voice.
      */
     const renderMeetEcho = () => (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.meetMark}>
-                <View style={[styles.meetGlow, { backgroundColor: accent + '1a', shadowColor: accent }]}> {/* ui-allow: decorative */}
-                    <Ionicons name="sparkles" size={26} color={accent} />
-                </View>
-            </View>
-
-            <Text style={[styles.meetTitle, { color: colors.textPrimary }]}>
-                Every habit has an abyss.
-            </Text>
-
-            <Text style={[styles.meetBody, { color: colors.textSecondary }]}>
-                It is the stretch between the person you are and the person you said you would be. The first week is
-                loud. After that it goes quiet, and the quiet is where most of it is lost.
-            </Text>
-            <Text style={[styles.meetBody, { color: colors.textSecondary }]}>
-                {ECHO_NAME} is what comes back.
-            </Text>
-            <Text style={[styles.meetBody, { color: colors.textSecondary }]}>
-                A voice in the morning when starting would be easy to skip. A word in the evening when one small thing
-                is still undone. Something on the days nobody is watching and nobody claps — which, in the end, is most
-                of them.
-            </Text>
-            <Text style={[styles.meetBody, styles.meetLast, { color: colors.textPrimary }]}>
-                It knows your name{draft.name?.trim() ? `, ${draft.name.trim()}` : ''}. Now choose how it should sound.
-            </Text>
-
-            <View style={{ height: 22 }} />
-            <PrimaryButton label={`Meet ${ECHO_NAME}`} onPress={() => goTo(STEP.echo)} />
-        </ScrollView>
+        <EchoArrival name={draft.name?.trim() || undefined}>
+            <PrimaryButton label="Choose its voice" onPress={() => goTo(STEP.echo)} />
+        </EchoArrival>
     );
 
     const renderName = () => {
         const name = draft.name ?? '';
+        // The name goes up on its tag above the light first; then the climb.
         const next = () => {
-            if (!name.trim()) return;
+            if (!name.trim() || nameTag) return;
             if (!preview) saveName(name).catch(() => undefined);
-            goTo(STEP.source);
+            lightFeedback();
+            setNameTag(name.trim());
+            cancelAdvance();
+            advanceRef.current = setTimeout(() => { advanceRef.current = null; goTo(STEP.source); }, NAME_TAG_MS);
         };
         return (
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -597,64 +570,19 @@ export default function OnboardingScreen() {
                     }]}
                 />
                 <View style={{ height: 18 }} />
-                <PrimaryButton label="Continue" onPress={next} disabled={!name.trim()} />
+                <PrimaryButton label="Continue" onPress={next} disabled={!name.trim() || !!nameTag} />
             </ScrollView>
         );
     };
 
     const renderEcho = () => {
-        // What they told us, turned into a starting voice and a sentence
-        // saying why. The suggestion is only a default; every voice is here.
+        // What they told us, turned into a starting voice. The suggestion is
+        // only a default; every voice is there, and each one speaks for itself.
         const suggestion = suggestEcho(draft);
         const chosen = draft.echo ?? suggestion.id;
-
         return (
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <Text style={[styles.echoTitle, { color: colors.textPrimary }]}>How should {ECHO_NAME} sound?</Text>
-                <Text style={[styles.echoIntro, { color: colors.textSecondary }]}>{suggestion.reason}</Text>
-
-                <View style={{ gap: 10 }}>
-                    {PERSONALITY_MODES.map(mode => {
-                        const selected = chosen === mode.id;
-                        const suggested = mode.id === suggestion.id;
-                        return (
-                            <TouchableOpacity
-                                key={mode.id}
-                                accessibilityRole="radio"
-                                accessibilityState={{ selected }}
-                                accessibilityLabel={`${mode.name}${suggested ? ', suggested for you' : ''}. ${coachHello(mode.id, draft.name)}`}
-                                activeOpacity={0.85}
-                                onPress={() => { lightFeedback(); update({ echo: mode.id }); }}
-                                style={[styles.echoCard, {
-                                    backgroundColor: selected ? colors.surfaceTertiary : (isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.04)'),
-                                    borderColor: 'transparent',
-                                }]}
-                            >
-                                <View style={styles.echoHead}>
-                                    <Ionicons name={mode.icon as any} size={18} color={selected ? colors.textPrimary : colors.textSecondary} />
-                                    <Text style={[styles.choiceTitle, { color: colors.textPrimary, flex: 1 }]}>{mode.name}</Text>
-                                    {suggested ? (
-                                        <View style={[styles.suggestedTag, { backgroundColor: colors.surfaceTertiary, borderColor: 'transparent' }]}>
-                                            <Text style={[styles.suggestedText, { color: colors.textSecondary }]}>For you</Text>
-                                        </View>
-                                    ) : null}
-                                    <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={selected ? colors.textPrimary : colors.textTertiary} />
-                                </View>
-                                {/* What Echo would actually say, so the choice is felt, not described. */}
-                                <Text style={[styles.echoQuote, { color: colors.textSecondary }]}>“{coachHello(mode.id, draft.name)}”</Text>
-                                {mode.warning ? (
-                                    <Text style={[styles.echoWarning, { color: colors.textTertiary }]}>Harsh language.</Text>
-                                ) : null}
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-
-                <Text style={[styles.hint, { color: colors.textTertiary, textAlign: 'center', marginTop: 14 }]}>
-                    You can change this any time in Settings.
-                </Text>
-
-                <View style={{ height: 16 }} />
+            <EchoVoicePicker chosen={chosen} suggested={suggestion.id} name={draft.name?.trim() || undefined}
+                onChoose={id => { lightFeedback(); update({ echo: id }); }}>
                 <PrimaryButton
                     label="This one"
                     onPress={() => {
@@ -663,7 +591,7 @@ export default function OnboardingScreen() {
                         afterEcho();
                     }}
                 />
-            </ScrollView>
+            </EchoVoicePicker>
         );
     };
 
@@ -739,31 +667,22 @@ export default function OnboardingScreen() {
     const backFor = (step: number): (() => void) | undefined => {
         // Nothing behind welcome; backup and friends come after setup is done.
         if (step === STEP.welcome || step === STEP.friends || step === STEP.account) return undefined;
-        return () => goTo(step - 1);
-    };
-
-    const titles: Record<number, string> = {
-        [STEP.name]: 'You',
-        [STEP.source]: 'Hello',
-        [STEP.hope]: 'What you want',
-        [STEP.sleep]: 'Your day',
-        [STEP.timing]: 'How you work',
-        [STEP.blockers]: 'What gets in the way',
-        [STEP.meetEcho]: '',
-        [STEP.echo]: '',
-        [STEP.friends]: 'Friends',
-        [STEP.account]: 'Backup',
+        // Back to the name: its tag comes down until it is given again.
+        return () => { if (step - 1 === STEP.name) setNameTag(null); goTo(step - 1); };
     };
 
     return (
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                    <Header onBack={backFor(draft.step)} title={titles[draft.step]} onSkip={skipFor(draft.step)} />
-                    {draft.step > 0 && draft.step <= LAST_SETUP_STEP ? <Progress index={stepIndex} total={LAST_SETUP_STEP} /> : null}
-                    <View key={draft.step} style={{ flex: 1 }}>
+                    {draft.step > STEP.welcome ? <Header onBack={backFor(draft.step)} onSkip={skipFor(draft.step)} /> : null}
+                    {/* Each question arrives from above as the light climbs to it. */}
+                    <Animated.View key={draft.step} entering={FadeInUp.delay(220).duration(450)} style={styles.flex}>
                         {(screens[draft.step] ?? renderWelcome)()}
-                    </View>
+                    </Animated.View>
+                    {/* The light is you. It never leaves the screen: every answer is a step up the road. */}
+                    <ClimbRoad climb={Math.min(draft.step, ROAD_STOPS - 1)} stops={ROAD_STOPS} showRoad={draft.step > STEP.welcome}
+                        name={draft.step > STEP.name ? draft.name?.trim() || null : nameTag} marks={marksFor(draft)} />
                 </KeyboardAvoidingView>
             </SafeAreaView>
         </VoidShell>
