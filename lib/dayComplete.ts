@@ -5,7 +5,7 @@ import { isHabitScheduledForDate, localDateKey } from './habitSchedule';
 import { DEFAULT_TARGET, doneOnDay, type DailyTarget } from './dailyFocus';
 import { tasksForDay } from './tasks';
 import { emit } from './appEvents';
-import { countedHistory, countedTasks } from './sharedGate';
+import { counts, countedHistory, countedTasks } from './sharedGate';
 
 /**
  * Whether everything the day asked for is done.
@@ -32,8 +32,11 @@ export function tallyDay(
     // five — not every task that happens to carry today's date. Those were two
     // different definitions of a finished day, and they disagreed: the card
     // could say the day was won while the streak said it was lost.
-    const finished = tasks.filter(task => doneOnDay(task, today)).length;
-    const open = tasksForDay(tasks, today, today).filter(task => task.status === 'open').length;
+    // A shared habit or task you have done counts only once everybody on it
+    // has (lib/sharedGate.ts): until then the day's circle does not move for it.
+    const counted = countedTasks(tasks);
+    const finished = counted.filter(task => doneOnDay(task, today)).length;
+    const open = tasksForDay(counted, today, today).filter(task => task.status === 'open').length;
     // Nobody can be asked for work that does not exist, so a day with only one
     // task on it asks for one, and finishing it keeps the day.
     const asked = Math.min(target, finished + open);
@@ -42,7 +45,7 @@ export function tallyDay(
         habits: due.length,
         tasks: asked,
         total: due.length + asked,
-        done: due.filter(habit => completions[habit.id]).length + Math.min(finished, asked),
+        done: due.filter(habit => completions[habit.id] && counts(habit.id, today)).length + Math.min(finished, asked),
     };
 }
 

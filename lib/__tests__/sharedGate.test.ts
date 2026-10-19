@@ -1,5 +1,5 @@
 import { counts, countedHistory, countedTasks, setGate } from '../sharedGate';
-import { streakFrom } from '../dayComplete';
+import { streakFrom, tallyDay } from '../dayComplete';
 import type { Habit } from '../habitsSQLite';
 import type { Task } from '../tasks';
 
@@ -18,6 +18,14 @@ describe('a shared item counts once everybody has done it', () => {
         expect(counts('read', '2026-10-15')).toBe(false);
         expect(counts('read', '2026-10-05')).toBe(true);
         expect(counts('solo', '2026-10-15')).toBe(true);
+    });
+
+    it('does not move the day\'s circle for a shared habit until the others are done', () => {
+        const habits = [habit('read'), habit('solo')];
+        // Both ticked on the 15th, but Sam has not read yet: only the solo one counts.
+        expect(tallyDay(habits, { read: true, solo: true }, {}, [], '2026-10-15')).toMatchObject({ done: 1, total: 2 });
+        // On the 14th Sam had done it too: both count.
+        expect(tallyDay(habits, { read: true, solo: true }, {}, [], '2026-10-14')).toMatchObject({ done: 2, total: 2 });
     });
 
     it('leaves held-back ticks out of the history the stats read', () => {

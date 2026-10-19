@@ -9,6 +9,8 @@ import { AppIcon } from '@/components/ui/AppIcon';
 import { useTokens } from '@/hooks/useTokens';
 import { useHaptics } from '@/hooks/useHaptics';
 import { on } from '@/lib/appEvents';
+import { counts } from '@/lib/sharedGate';
+import { localDateKey } from '@/lib/habitSchedule';
 import {
     burstMarks, goalDone, habitDone, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskDone, type Burst, type Point,
 } from '@/lib/marksOrbs';
@@ -41,9 +43,12 @@ export function MarksOrbs() {
         const subs = [
             on('habit_completion_updated', event => {
                 if (!event?.habitId || !event.date || event.skipped || event.completed === undefined) return;
-                burstMarks(habitDone(event.habitId, event.date, event.completed));
+                // A shared habit earns nothing until everybody on it is done:
+                // orbs only for whoever finishes it last.
+                const earned = habitDone(event.habitId, event.date, event.completed);
+                if (earned && counts(event.habitId, event.date)) burstMarks(earned);
             }),
-            on('task_completed', () => { burstMarks(taskDone()); }),
+            on('task_completed', event => { if (counts(event.taskId, localDateKey(new Date()))) burstMarks(taskDone()); }),
             on('goal_complete', () => { burstMarks(goalDone()); }),
         ];
         return () => subs.forEach(sub => sub.remove());
