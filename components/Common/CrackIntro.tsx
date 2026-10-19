@@ -40,7 +40,9 @@ export function CrackIntro({ onDone }: { onDone: () => void }) {
 
     const ground = useAnimatedStyle(() => ({ opacity: interpolate(fall.value, [0, 0.82, 1], [1, 1, 0], 'clamp') }));
     // The camera, pushing into the crack: gently, then all the way to the edges.
-    const camera = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(fall.value, [0, 0.45, 1], [1, 1.5, fill]) }] }));
+    // The zoom runs ahead of the parting: it reaches the edges at 70% of the
+    // way, while the crack keeps opening at its own pace to the end.
+    const camera = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(fall.value, [0, 0.3, 0.7], [1, 1.6, fill], 'clamp') }] }));
     const piece = (side: -1 | 1) => () => {
         'worklet';
         // The crack opens as you go in; the sides stay at the screen's edges.
