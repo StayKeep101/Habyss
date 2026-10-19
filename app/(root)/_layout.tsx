@@ -34,6 +34,8 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="ai-config" options={{ presentation: 'modal' }} />
         <Stack.Screen name="guide" options={{ headerShown: false, presentation: 'modal' }} />
+        {/* Focus mode: the whole screen, no swipe away (leaving is the × , which pauses). */}
+        <Stack.Screen name="focus" options={{ headerShown: false, presentation: 'fullScreenModal', gestureEnabled: false }} />
         <Stack.Screen name="goals-overview" options={{ presentation: 'modal' }} />
         <Stack.Screen
           name="notifications"

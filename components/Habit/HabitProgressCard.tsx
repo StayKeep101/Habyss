@@ -150,8 +150,14 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
             return;
         }
         mediumFeedback();
-        const duration = Math.max(1, Math.ceil((target - value) * secondsPerUnit));
-        focus.startTimer(habit.id, habit.name, duration, 'pomodoro');
+        // A timed habit is done in focus mode: full screen, set to what is left.
+        const duration = Math.max(60, Math.ceil((target - value) * secondsPerUnit));
+        require('expo-router').router.push({ pathname: '/(root)/focus', params: { kind: 'habit', id: habit.id, title: habit.name, seconds: String(duration) } });
+    };
+    /** Any habit can be focused on, with a timer or a stopwatch. */
+    const openFocus = () => {
+        selectionFeedback();
+        require('expo-router').router.push({ pathname: '/(root)/focus', params: { kind: 'habit', id: habit.id, title: habit.name } });
     };
     const finishSession = () => {
         selectionFeedback();
@@ -256,6 +262,8 @@ export function HabitProgressCard({ habit, date, value, saving, ready, error, ca
                                 way to type time into a timed habit. */}
                             {live ? <Pressable onPress={finishSession} accessibilityRole="button" accessibilityHint="Saves the time you have run so far" style={styles.textButton}><AppIcon name="stop-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>End session</Text></Pressable>
                                 : kind === 'counter' ? <Pressable disabled={!editable} onPress={beginEditing} accessibilityRole="button" style={styles.textButton}><AppIcon name="create-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Set exact total</Text></Pressable> : null}
+                            {/* Focus mode for any habit without its own timer. */}
+                            {!live && kind !== 'timer' && isToday ? <Pressable onPress={openFocus} accessibilityRole="button" style={styles.textButton}><AppIcon name="timer-outline" size={16} color={colors.textSecondary} /><Text style={[Typography.bodySmall, { color: colors.textSecondary }]}>Focus</Text></Pressable> : null}
                             {health && !live ? (
                                 <Pressable disabled={asking} onPress={() => void askHealth(true)} accessibilityRole="button"
                                     accessibilityLabel={`Read ${healthLabel(health)} from Apple Health`} style={styles.textButton}>

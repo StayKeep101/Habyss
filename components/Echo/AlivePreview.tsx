@@ -31,8 +31,9 @@ export function AlivePreview({ lines, accent, focus }: {
 
     useEffect(() => {
         const ease = { easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
-        shown.set(withSequence(withTiming(1, { duration: 380, ...ease }), withDelay(2200, withTiming(0, { duration: 300, ...ease }))));
-        const next = setTimeout(() => setIndex(value => (value + 1) % lines.length), 3100);
+        // In, held, out, and the next one straight after: never a blank gap.
+        shown.set(withSequence(withTiming(1, { duration: 320, ...ease }), withDelay(2400, withTiming(0, { duration: 220, ...ease }))));
+        const next = setTimeout(() => setIndex(value => (value + 1) % Math.max(1, lines.length)), 2950);
         return () => clearTimeout(next);
     }, [index, lines.length, shown, lastFocus]);
 

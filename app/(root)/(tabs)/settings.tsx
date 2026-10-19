@@ -11,6 +11,8 @@ import { router } from 'expo-router';
 import { useMyProfile } from '@/hooks/useMyProfile';
 import { useSleep } from '@/hooks/useSleep';
 import { setSleepCardVisible, setSleepTarget } from '@/lib/sleepLog';
+import { CLOCK_STYLES, setClockStyle, type ClockStyle } from '@/lib/focusClock';
+import { useClockStyle } from '@/hooks/useClockStyle';
 import { DEFAULT_WEEK_START, getWeekStart, setWeekStart, type WeekStart } from '@/lib/weekStart';
 import { syncBrainDumpReview } from '@/lib/brainDumpReview';
 import { DEFAULT_VOICE_DESTINATION, VOICE_DESTINATIONS, getVoiceDestination, setVoiceDestination, type VoiceDestination } from '@/lib/voiceDestination';
@@ -53,6 +55,7 @@ export default function ProfileScreen() {
     // You, from the one profile store (lib/profile.ts).
     const me = useMyProfile();
     const sleep = useSleep();
+    const clockStyle = useClockStyle();
     const [voiceDestination, setVoiceDestinationState] = useState<VoiceDestination>(DEFAULT_VOICE_DESTINATION);
     const [weekStart, setWeekStartState] = useState<WeekStart>(DEFAULT_WEEK_START);
     useEffect(() => { void getWeekStart().then(setWeekStartState); }, []);
@@ -138,6 +141,9 @@ export default function ProfileScreen() {
                             chosen={String(sleep.target / 60)} onChoose={id => void setSleepTarget(Number(id) * 60)} />
                         <SettingsRow icon="bed" color="#5E5CE6" label="Sleep card on Home"
                             toggle={sleep.showCard !== false} onToggle={value => void setSleepCardVisible(value)} />
+                        {/* How the focus mode clock looks, on its side especially. */}
+                        <SettingsRow icon="timer" color="#FF375F" label="Focus clock"
+                            choices={CLOCK_STYLES} chosen={clockStyle} onChoose={id => void setClockStyle(id as ClockStyle)} />
                         {/* When a week ends: the brain dump is reviewed and cleared then. */}
                         <SettingsRow icon="calendar" color="#64D2FF" label="Week starts"
                             choices={[{ id: 'monday', label: 'Mon' }, { id: 'sunday', label: 'Sun' }]} chosen={weekStart}

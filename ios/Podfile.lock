@@ -290,6 +290,29 @@ PODS:
   - ExpoRouter (57.0.23):
     - ExpoModulesCore
     - RNScreens
+  - ExpoScreenOrientation (57.0.3):
+    - ExpoModulesCore
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - ExpoSecureStore (57.0.4):
     - ExpoModulesCore
   - ExpoSpeechRecognition (58.0.0):
@@ -2692,6 +2715,7 @@ DEPENDENCIES:
   - ExpoNetwork (from `../node_modules/expo-network/ios`)
   - ExpoNotifications (from `../node_modules/expo-notifications/ios`)
   - ExpoRouter (from `../node_modules/expo-router/ios`)
+  - ExpoScreenOrientation (from `../node_modules/expo-screen-orientation/ios`)
   - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
   - ExpoSpeechRecognition (from `../node_modules/expo-speech-recognition/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
@@ -2886,6 +2910,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-notifications/ios"
   ExpoRouter:
     :path: "../node_modules/expo-router/ios"
+  ExpoScreenOrientation:
+    :path: "../node_modules/expo-screen-orientation/ios"
   ExpoSecureStore:
     :path: "../node_modules/expo-secure-store/ios"
   ExpoSpeechRecognition:
@@ -3135,6 +3161,7 @@ SPEC CHECKSUMS:
   ExpoNetwork: 7a7a7e0123d1ac5efc742b7b29e43102be5634bf
   ExpoNotifications: d432d5b2904f700a6a2dc29eca52e531c4cc1611
   ExpoRouter: e94e22e9806d0a731d8636bddd882ac2039e4f74
+  ExpoScreenOrientation: 6f70137210f27e456cc5979aba74598db6e9dd66
   ExpoSecureStore: ff1fd5e073957417ba8f9dec0bebcbd55a60e747
   ExpoSpeechRecognition: c4191ef9dabf4aa1fd02a0316c1d69ed5c16fb33
   ExpoSplashScreen: e771da4f26d550ea4fd067d8fb942657e47bb846

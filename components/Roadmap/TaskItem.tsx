@@ -170,6 +170,7 @@ const TaskItemComponent: React.FC<Props> = ({
                     { icon: 'play-forward', label: 'Next week', color: TASK_COLOR, onPress: () => { selectionFeedback(); onMove?.(task, 7); } },
                 ]
                 : [
+                    { icon: 'timer', label: 'Focus', color: TASK_COLOR, onPress: () => { selectionFeedback(); require('expo-router').router.push({ pathname: '/(root)/focus', params: { kind: 'task', id: task.id, title: task.title } }); } },
                     { icon: 'pencil', label: 'Edit', color: TASK_COLOR, onPress: () => { selectionFeedback(); onEdit(task); } },
                     { icon: 'trash', label: 'Delete', color: '#EF4444', destructive: true, onPress: () => { mediumFeedback(); onDelete(task); } },
                 ]}

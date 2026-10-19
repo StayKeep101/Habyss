@@ -18,7 +18,7 @@ import { useAppSettings, GreetingStyle } from '@/context/AppSettingsContext';
 import { currentEngine, isOnDeviceAIReady } from '@/lib/onDeviceAI';
 import { LOCAL_MODEL } from '@/lib/localModelDownload';
 import type { ModelDownloadState } from '@/lib/LocalLLMService';
-import { coachHello } from '@/lib/coachMessages';
+import { coachHello, coachReminder } from '@/lib/coachMessages';
 import { NotificationService } from '@/lib/notificationService';
 import { PAYWALL_ENABLED } from '@/constants/features';
 import {
@@ -208,6 +208,10 @@ const AISettings = () => {
     const who = echo.useName ? name : undefined;
     const previewLines = [
         { key: 'voice', title: 'Echo', body: coachHello(aiPersonality, who), when: 'now' },
+        // A few everyday reminders in this voice, so there is always something to read.
+        ...['Read 20 pages', 'Drink water', 'Stretch for 5 minutes'].map((habitName, index) => ({
+            key: `reminder-${index}`, title: 'Echo', body: coachReminder(aiPersonality, { habitName, name: who }), when: ['8:00', '12:30', '18:15'][index],
+        })),
         ...(echo.morning ? [{ key: 'morning', title: 'Echo', body: morningCheckIn(day), when: day.wake }] : []),
         ...(echo.alive ? [{ key: 'alive', ...aliveLine(sample, 'before', aiPersonality, who), when: '7:50' }] : []),
         ...(echo.alive && echo.aliveFollowUp !== false ? [{ key: 'follow', ...aliveLine(sample, 'follow-up', aiPersonality, who), when: '8:45' }] : []),

@@ -338,6 +338,14 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 if (measurement.kind === 'timer' && session.actualDuration > 0) {
                     await saveHabitMeasurement(habit.id, session.actualDuration / measurement.secondsPerUnit, localHabitDate(session.startedAt), true, true);
                 }
+            } else if (session.actualDuration >= 60) {
+                // Focus on a task: a task measured in time gets the minutes added.
+                const { getTasks, setTaskAmount } = require('@/lib/tasks') as typeof import('@/lib/tasks');
+                const task = (await getTasks({ includeDone: true })).find(item => item.id === session.habitId);
+                if (task?.measure === 'time') {
+                    await setTaskAmount(task, (task.amount ?? 0) + Math.round(session.actualDuration / 60));
+                    require('@/lib/appEvents').emit('tasks_changed');
+                }
             }
         } catch (e) {
             console.log('Failed to save focus session locally:', e);
