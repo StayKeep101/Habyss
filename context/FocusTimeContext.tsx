@@ -6,7 +6,7 @@ import { NotificationService } from '@/lib/notificationService';
 import { IntegrationService } from '@/lib/integrationService';
 import { getLocalUserId } from '@/lib/localUser';
 import { ScreenTimeService } from '@/lib/ScreenTimeService';
-import { getHabits, saveHabitMeasurement } from '@/lib/habitsSQLite';
+import { getCompletions, getHabits, saveHabitMeasurement, toggleCompletion } from '@/lib/habitsSQLite';
 import { localHabitDate, measurementFor } from '@/lib/habitMeasurement';
 
 // ============================================
@@ -63,6 +63,10 @@ interface FocusTimeContextType {
     pauseTimer: () => void;
     resumeTimer: () => void;
     stopTimer: () => void;
+    /** Ends the session without saving any of it (focus mode's Exit). */
+    discardTimer: () => void;
+    /** Ends the session, saves it and marks the habit or task done (focus mode's Finished). */
+    finishTimer: () => void;
     addFocusTime: (seconds: number) => void;
     refreshStats: () => Promise<void>;
 
@@ -195,6 +199,8 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const activityIdRef = useRef<string | null>(null);
     const todaySessionRecordedRef = useRef(false); // Track if we recorded a session for today's active days
     const hasShownBlockingSetupPromptRef = useRef(false);
+    const discardingRef = useRef(false); // set by discardTimer: stop without saving
+    const finishingRef = useRef(false); // set by finishTimer: stop, save, mark done
 
     const persistActive = useCallback((snapshot: ActiveSnapshot | null) => {
         (snapshot
@@ -331,21 +337,35 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 date: getTodayString(),
                 mode: session.mode,
             }));
+            void (require('@/lib/focusStats') as typeof import('@/lib/focusStats')).loadFocusRecords();
             // Save to the habit even if its detail sheet has been dismissed.
             const habit = (await getHabits()).find(item => item.id === session.habitId);
             if (habit) {
                 const measurement = measurementFor(habit);
+                const day = localHabitDate(session.startedAt);
+                let total = 0;
                 if (measurement.kind === 'timer' && session.actualDuration > 0) {
-                    await saveHabitMeasurement(habit.id, session.actualDuration / measurement.secondsPerUnit, localHabitDate(session.startedAt), true, true);
+                    total = await saveHabitMeasurement(habit.id, session.actualDuration / measurement.secondsPerUnit, day, true, true);
                 }
-            } else if (session.actualDuration >= 60) {
-                // Focus on a task: a task measured in time gets the minutes added.
-                const { getTasks, setTaskAmount } = require('@/lib/tasks') as typeof import('@/lib/tasks');
+                // A finished session counts the habit as done for the day.
+                if (session.completed) {
+                    if (measurement.kind === 'boolean') {
+                        if (!(await getCompletions(day))[habit.id]) await toggleCompletion(habit.id, day);
+                    } else {
+                        if (measurement.kind === 'counter') total = await saveHabitMeasurement(habit.id, 0, day, true);
+                        if (total < measurement.target) await saveHabitMeasurement(habit.id, measurement.target, day, false, measurement.kind === 'timer');
+                    }
+                }
+            } else {
+                // Focus on a task: a task measured in time gets the minutes added,
+                // and a finished session marks it done.
+                const { getTasks, setTaskAmount, setTaskStatus } = require('@/lib/tasks') as typeof import('@/lib/tasks');
                 const task = (await getTasks({ includeDone: true })).find(item => item.id === session.habitId);
-                if (task?.measure === 'time') {
+                if (task?.measure === 'time' && session.actualDuration >= 60) {
                     await setTaskAmount(task, (task.amount ?? 0) + Math.round(session.actualDuration / 60));
-                    require('@/lib/appEvents').emit('tasks_changed');
                 }
+                if (task && session.completed && task.status !== 'done') await setTaskStatus(task.id, 'done');
+                if (task) require('@/lib/appEvents').emit('tasks_changed');
             }
         } catch (e) {
             console.log('Failed to save focus session locally:', e);
@@ -736,16 +756,18 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             focusStartRef.current = null;
         }
 
-        // Only record if we actually focused for some time
-        if (actualDuration > 0) {
-            // Update stats with COMPLETED = false (stopped early)
-            updateStats(actualDuration, false);
+        // Only record if we actually focused for some time (and it is not
+        // being thrown away: focus mode's Exit leaves without saving).
+        const finishing = finishingRef.current;
+        if ((actualDuration > 0 || finishing) && !discardingRef.current) {
+            // Stopped early, unless it was ended as Finished.
+            if (actualDuration > 0) updateStats(actualDuration, finishing);
 
             // Save session to DB
             if (session) {
                 session.endedAt = new Date();
                 session.actualDuration = actualDuration;
-                session.completed = false;
+                session.completed = finishing;
                 saveFocusSession(session);
             }
         }
@@ -768,8 +790,20 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         currentSessionRef.current = null;
         hasShownBlockingSetupPromptRef.current = false;
         persistActive(null);
+        discardingRef.current = false;
+        finishingRef.current = false;
 
     }, [updateStats, saveFocusSession, persistActive]);
+
+    const discardTimer = useCallback(() => {
+        discardingRef.current = true;
+        stopTimer();
+    }, [stopTimer]);
+
+    const finishTimer = useCallback(() => {
+        finishingRef.current = true;
+        stopTimer();
+    }, [stopTimer]);
 
     // ============================================
     // Manual focus time add
@@ -817,6 +851,8 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 pauseTimer,
                 resumeTimer,
                 stopTimer,
+                discardTimer,
+                finishTimer,
                 addFocusTime,
                 refreshStats,
                 // Phase & Session Tracking

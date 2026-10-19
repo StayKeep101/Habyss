@@ -115,6 +115,10 @@ export default function RootLayout() {
           options={{ headerShown: false, presentation: 'modal' }}
         />
         <Stack.Screen
+          name="focus-stats"
+          options={{ headerShown: false, presentation: 'modal' }}
+        />
+        <Stack.Screen
           name="goal-plan"
           options={{ headerShown: false, presentation: 'modal' }}
         />

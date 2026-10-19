@@ -15,8 +15,6 @@ import { useClockStyle } from '@/hooks/useClockStyle';
 import { useTasks } from '@/hooks/useTasks';
 import { getHabits, type Habit } from '@/lib/habitsSQLite';
 import { measurementFor } from '@/lib/habitMeasurement';
-import { setTaskStatus } from '@/lib/tasks';
-import { emit } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/focus.styles';
 
 type Mode = 'timer' | 'stopwatch';
@@ -40,8 +38,12 @@ function orientation(): typeof import('expo-screen-orientation') | null {
  * left. Anything else can be focused on too, with a timer you set or a
  * stopwatch that runs until you are finished. Full screen and pure black,
  * awake while it runs, on its side if you turn the phone, with app blocking
- * on (where Screen Time is set up). Leaving pauses it. At the end, a habit's
- * time is saved to it, and a task asks whether it is done.
+ * on (where Screen Time is set up).
+ *
+ * While it runs there is nothing on screen but the clock and a faint ×. Tap
+ * anywhere to pause or carry on, like a video. A long press (or the ×) asks:
+ * Exit leaves without saving anything; Finished saves the time and counts the
+ * habit or task as done. A timer that runs out counts as Finished too.
  */
 export default function FocusScreen() {
     const { kind, id, title, seconds: given } = useLocalSearchParams<{ kind?: string; id?: string; title?: string; seconds?: string }>();
@@ -70,12 +72,22 @@ export default function FocusScreen() {
 
     const mine = focus.activeHabitId === id;
     const active = mine && (focus.isRunning || focus.isPaused);
+    // A countdown that runs out is Finished: saved, done, and a moment to see it.
     const [finished, setFinished] = useState(false);
+    const leaving = useRef(false);
     const wasActive = useRef(false);
     useEffect(() => {
-        if (wasActive.current && !active && !focus.isRunning && !focus.isPaused) { setFinished(true); successFeedback(); }
+        if (wasActive.current && !active && !focus.isRunning && !focus.isPaused && !leaving.current) {
+            setFinished(true);
+            successFeedback();
+        }
         wasActive.current = active;
     }, [active, focus.isRunning, focus.isPaused, successFeedback]);
+    useEffect(() => {
+        if (!finished) return;
+        const close = setTimeout(() => router.back(), 1800);
+        return () => clearTimeout(close);
+    }, [finished]);
 
     // Awake while it runs; upright again when leaving.
     useEffect(() => {
@@ -90,7 +102,7 @@ export default function FocusScreen() {
         return () => { void rotate?.lockAsync(rotate.OrientationLock.PORTRAIT_UP).catch(() => undefined); };
     }, []);
 
-    // The controls step back after a few seconds; a tap brings them back.
+    // The × steps back after a few seconds; a tap brings it back.
     const chrome = useSharedValue(1);
     const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
     const wake = () => {
@@ -110,10 +122,25 @@ export default function FocusScreen() {
         mediumFeedback();
         focus.startTimer(id, title ?? habit?.name ?? task?.title ?? 'Focus', mode === 'stopwatch' ? 3600 * 12 : planned, mode === 'stopwatch' ? 'flow' : 'deep_focus');
     };
-    // Leaving pauses whatever was running.
-    const leave = () => {
-        if (mine && focus.isRunning) focus.pauseTimer();
-        router.back();
+    const close = () => router.back();
+    // Tap: pause or carry on.
+    const toggle = () => {
+        wake();
+        if (!active) return;
+        selectionFeedback();
+        if (focus.isPaused) focus.resumeTimer();
+        else focus.pauseTimer();
+    };
+    // Long press or ×: Exit throws the session away, Finished keeps it and
+    // counts the habit or task done.
+    const askEnd = () => {
+        if (!active) { close(); return; }
+        mediumFeedback();
+        Alert.alert('End focus?', undefined, [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Exit', style: 'destructive', onPress: () => { leaving.current = true; focus.discardTimer(); close(); } },
+            { text: 'Finished', onPress: () => { leaving.current = true; successFeedback(); focus.finishTimer(); close(); } },
+        ]);
     };
 
     const name = title ?? habit?.name ?? task?.title ?? 'Focus';
@@ -121,37 +148,24 @@ export default function FocusScreen() {
     const progress = stopwatch || !focus.totalDuration ? null : 1 - focus.timeLeft / focus.totalDuration;
 
     return (
-        <Pressable style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]} onPress={wake} accessible={false}>
+        <Pressable style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]}
+            onPress={toggle} onLongPress={active ? askEnd : undefined} delayLongPress={600} accessible={false}>
             <Animated.View style={[styles.top, chromeStyle]}>
-                <IconButton icon="close" label={active ? 'Pause and leave' : 'Close'} onPress={leave} diameter={40} size={18} color="#FFFFFF" />
+                <IconButton icon="close" label={active ? 'End focus' : 'Close'} onPress={askEnd} diameter={40} size={18} color="#FFFFFF" />
                 <Text numberOfLines={1} style={styles.title}>{name}</Text>
                 <View style={{ width: 40 }} />
             </Animated.View>
 
             {finished ? (
                 <View style={styles.center}>
-                    <Text style={styles.doneTitle}>Session done</Text>
-                    <Text style={styles.doneSub}>{isTask ? 'Is the task finished?' : 'Your time is saved to the habit.'}</Text>
-                    <View style={styles.doneActions}>
-                        {isTask && task && task.status !== 'done' ? (
-                            <AppButton label="Mark it done" onPress={() => { void setTaskStatus(task.id, 'done').then(() => emit('tasks_changed')); successFeedback(); router.back(); }} />
-                        ) : null}
-                        <AppButton label={isTask ? 'Not yet' : 'Close'} variant="ghost" onPress={() => router.back()} />
-                    </View>
+                    <Text style={styles.doneTitle}>Done</Text>
+                    <Text style={styles.doneSub}>Saved, and counted as done.</Text>
                 </View>
             ) : active ? (
-                <>
-                    <View style={styles.center}>
-                        <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary}
-                            label={focus.isPaused ? 'Paused' : stopwatch ? 'Stopwatch' : undefined} />
-                    </View>
-                    <Animated.View style={[styles.controls, chromeStyle]}>
-                        <AppButton label={focus.isPaused ? 'Resume' : 'Pause'} style={styles.flex}
-                            onPress={() => { selectionFeedback(); wake(); if (focus.isPaused) focus.resumeTimer(); else focus.pauseTimer(); }} />
-                        <AppButton label={stopwatch ? 'Finish' : 'End'} variant="ghost" style={styles.flex}
-                            onPress={() => { mediumFeedback(); focus.stopTimer(); }} />
-                    </Animated.View>
-                </>
+                <View style={styles.center}>
+                    <FocusClock seconds={focus.timeLeft} progress={progress} style={clock} accent={primary}
+                        label={focus.isPaused ? 'Paused · tap to carry on' : undefined} />
+                </View>
             ) : (
                 <View style={styles.setup}>
                     <Text style={styles.setupTitle}>{name}</Text>
@@ -163,7 +177,8 @@ export default function FocusScreen() {
                         <Text style={styles.hint}>Runs until you finish, and saves how long it took.</Text>
                     )}
                     <AppButton label="Start focus" onPress={start} />
-                    <Text style={styles.hint}>Leaving pauses it. Turn your phone on its side for a bigger clock.</Text>
+                    <Text style={styles.hint}>Tap to pause. Hold to finish or exit.</Text>
+                    <AppButton label="Your focus time" variant="ghost" onPress={() => router.push('/(root)/focus-stats')} />
                 </View>
             )}
         </Pressable>

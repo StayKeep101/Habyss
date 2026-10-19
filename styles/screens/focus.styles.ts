@@ -13,9 +13,6 @@ export const styles = StyleSheet.create({
     setup: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.lg },
     setupTitle: { fontFamily: FontFamily.bold, fontSize: 28, color: '#FFFFFF', textAlign: 'center' },
     hint: { fontFamily: FontFamily.regular, fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center' },
-    controls: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.xl },
-    flex: { flex: 1 },
     doneTitle: { fontFamily: FontFamily.bold, fontSize: 30, color: '#FFFFFF', textAlign: 'center' },
     doneSub: { fontFamily: FontFamily.medium, fontSize: 16, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: Spacing.sm },
-    doneActions: { gap: Spacing.sm, marginTop: Spacing.xl, alignSelf: 'stretch' },
 });
