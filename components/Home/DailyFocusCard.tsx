@@ -41,18 +41,17 @@ export const DailyFocusCard: React.FC<{
                 onPress={() => { lightFeedback(); onOpen(); }}
                 style={styles.header}
             >
-                <Text style={[styles.title, { color: colors.textPrimary }]}>Today&apos;s {focus.target}</Text>
+                <View style={styles.titleRow}>
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>Today&apos;s {focus.target}</Text>
+                    {/* The run of days, beside the title: the flame and the number. */}
+                    <View style={styles.streak} accessible accessibilityLabel={`${streak} days in a row${multiplier > 1 ? `, times ${multiplier}` : ''}`}>
+                        <Ionicons name="flame" size={s(14)} color={streak > 0 ? colors.warning : colors.textTertiary} />
+                        <Text style={[styles.streakText, { color: streak > 0 ? colors.textPrimary : colors.textTertiary }]}>{streak}</Text>
+                        {multiplier > 1 ? <Text style={[styles.streakText, { color: colors.textTertiary }]}>×{multiplier}</Text> : null}
+                    </View>
+                </View>
                 <ValuePill value={`${focus.done}/${focus.target}`} tone={focus.complete ? colors.success : undefined} />
             </TouchableOpacity>
-            <View style={styles.run} accessible accessibilityLabel={`${streak} days in a row. Multiplier times ${multiplier}.`}>
-                <Ionicons name="flame" size={s(13)} color={streak > 0 ? colors.warning : colors.textTertiary} />
-                <Text style={[styles.runText, { color: colors.textSecondary }]}>
-                    {streak} day{streak === 1 ? '' : 's'} in a row
-                </Text>
-                {multiplier > 1 ? (
-                    <Text style={[styles.runText, { color: colors.textTertiary }]}>· ×{multiplier} on all Marks</Text>
-                ) : null}
-            </View>
 
             {focus.rows.length === 0 ? (
                 <TouchableOpacity accessibilityRole="button" activeOpacity={0.7} onPress={() => { lightFeedback(); onAdd(); }} style={styles.row}>
@@ -98,8 +97,9 @@ const styles = StyleSheet.create({
     container: { paddingHorizontal: s(18), paddingTop: s(16), paddingBottom: s(8) },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: vs(6) },
     title: { fontSize: ms(17), fontFamily: FontFamily.bold },
-    run: { flexDirection: 'row', alignItems: 'center', gap: s(5), marginBottom: vs(6), flexWrap: 'wrap' },
-    runText: { fontSize: ms(12), fontFamily: FontFamily.medium },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: s(10) },
+    streak: { flexDirection: 'row', alignItems: 'center', gap: s(3) },
+    streakText: { fontSize: ms(14), fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     row: { flexDirection: 'row', alignItems: 'center', gap: s(12), paddingVertical: vs(10) },
     box: { width: s(22), height: s(22), borderRadius: s(7), borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
     rowText: { flex: 1, fontSize: ms(15), fontFamily: FontFamily.medium },
