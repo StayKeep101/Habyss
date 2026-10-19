@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { MicButton } from '@/components/ui/MicButton';
 import { AppIcon } from '@/components/ui/AppIcon';
@@ -103,8 +103,17 @@ export default function BrainDumpScreen() {
     // field for a new one steps aside.
     const [editingId, setEditingId] = useState<string | null>(null);
     // The keyboard comes up when the page opens, not again after each edit.
-    const opening = useRef(true);
-    useEffect(() => { opening.current = false; }, []);
+    // (autoFocus is lost while the modal is still sliding up and the + menu
+    // folding away), so the field is focused once the page has arrived, with
+    // a timer in case that moment is never announced.
+    const navigation = useNavigation();
+    useEffect(() => {
+        let done = false;
+        const ready = () => { if (!done) { done = true; input.current?.focus(); } };
+        const arrived = navigation.addListener('transitionEnd' as never, (event: { data?: { closing?: boolean } }) => { if (!event.data?.closing) ready(); });
+        const fallback = setTimeout(ready, 600);
+        return () => { arrived(); clearTimeout(fallback); };
+    }, [navigation]);
     const heights = useRef<Record<string, number>>({});
     const measure = (id: string) => (event: LayoutChangeEvent) => { heights.current[id] = event.nativeEvent.layout.height; };
     const dropAt = (from: number, dy: number): number => {
@@ -164,7 +173,6 @@ export default function BrainDumpScreen() {
                     <MatteInput
                         bare
                         ref={input}
-                        autoFocus={opening.current}
                         multiline
                         value={draft}
                         onChangeText={setDraft}
