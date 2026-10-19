@@ -41,7 +41,10 @@ import { emit, on } from '@/lib/appEvents';
 import { DayPlanCard } from '@/components/Roadmap/DayPlanCard';
 import { NowCard } from '@/components/Roadmap/NowCard';
 import { pickNow } from '@/lib/nowItem';
-import { DEFAULT_ROADMAP_FILTER, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type ShownKind } from '@/lib/roadmapFilter';
+import { flowDay, flowInputs, type FlowInput } from '@/lib/dayFlow';
+import { DayTimeline } from '@/components/Roadmap/DayTimeline';
+import { ChoiceRow } from '@/components/ui/ChoiceRow';
+import { DEFAULT_ROADMAP_FILTER, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { buildDayPlan } from '@/lib/dayPlan';
@@ -79,7 +82,7 @@ const CalendarScreen = () => {
     const colors = Colors[theme];
     const isLight = theme === 'light';
     const { primary: accentColor } = useAccentGradient();
-    const { lightFeedback, selectionFeedback, successFeedback } = useHaptics();
+    const { lightFeedback, selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
     const { activeHabitId, activeHabitName, isRunning: isFocusRunning, isPaused: isFocusPaused, startTimer, timeLeft, totalDuration } = useFocusTime();
     // Check-ins and skips come from the one shared copy (lib/dataStore.ts), the
@@ -170,17 +173,19 @@ const CalendarScreen = () => {
     const [activeSort, setActiveSort] = useState<SortType>('default');
     const [sortDirection, setSortDirection] = useState<1 | -1>(-1);
     const [activeTimeFilter, setActiveTimeFilter] = useState<TimeFilter>('all');
+    // Timeline (the day in time order, as one flow) or the lists; remembered.
+    const [roadmapView, setRoadmapView] = useState<RoadmapView>(DEFAULT_ROADMAP_FILTER.view);
     const filterLoaded = useRef(false);
     useEffect(() => {
         void loadRoadmapFilter().then(saved => {
             setShown(saved.shown); setSharedOnly(saved.sharedOnly); setActiveSort(saved.sort);
-            setSortDirection(saved.direction); setActiveTimeFilter(saved.time);
+            setSortDirection(saved.direction); setActiveTimeFilter(saved.time); setRoadmapView(saved.view);
             filterLoaded.current = true;
         });
     }, []);
     useEffect(() => {
-        if (filterLoaded.current) void saveRoadmapFilter({ shown, sharedOnly, sort: activeSort, direction: sortDirection, time: activeTimeFilter });
-    }, [shown, sharedOnly, activeSort, sortDirection, activeTimeFilter]);
+        if (filterLoaded.current) void saveRoadmapFilter({ shown, sharedOnly, sort: activeSort, direction: sortDirection, time: activeTimeFilter, view: roadmapView });
+    }, [shown, sharedOnly, activeSort, sortDirection, activeTimeFilter, roadmapView]);
     const toggleKind = useCallback((kind: ShownKind) => setShown(current => toggleShown(current, kind)), []);
     // Dragging along the day strip: only what is set for that moment is listed,
     // as its real card; nothing set there leaves the list empty.
@@ -874,6 +879,31 @@ const CalendarScreen = () => {
     const scrubbing = scrubIds !== null;
     // The one thing for right now (lib/nowItem.ts), re-read each minute with the clock.
     const nowItem = useMemo(() => pickNow({ habits: habitsStore, tasks, done: completions, today: todayKey(), now: clock }), [habitsStore, tasks, completions, clock]);
+    // The day as one flow (lib/dayFlow.ts): everything with a time in order,
+    // the one you are on first, the rest moved up or back as the day goes.
+    const flow = useMemo(() => {
+        const day = localDateKey(selectedDate);
+        const isToday = day === todayKey(clock);
+        const habits = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
+        return flowDay(flowInputs({ habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions }),
+            isToday ? clock.getHours() * 60 + clock.getMinutes() : null);
+    }, [habitsStore, tasks, completions, selectedDate, clock]);
+    const flowNow = dayPlan.isToday ? clock.getHours() * 60 + clock.getMinutes() : null;
+    const toggleFlowItem = useCallback((item: FlowInput) => {
+        if (item.kind === 'habit') { const habit = habitsStore.find(h => h.id === item.id); if (habit) void handleHabitPress(habit as Habit); }
+        else { const task = tasks.find(t => t.id === item.id); if (task) void handleTaskToggle(task); }
+    }, [habitsStore, tasks, handleHabitPress, handleTaskToggle]);
+    const openFlowItem = useCallback((item: FlowInput) => {
+        lightFeedback();
+        if (item.kind === 'habit') router.push({ pathname: '/habit-detail', params: { habitId: item.id } });
+        else { const task = tasks.find(t => t.id === item.id); if (task) openTask(task); }
+    }, [tasks, openTask, lightFeedback, router]);
+    const focusFlowItem = useCallback((item: FlowInput) => {
+        mediumFeedback();
+        router.push({ pathname: '/(root)/focus', params: { kind: item.kind, id: item.id, title: item.title } });
+    }, [mediumFeedback, router]);
+    const timelineView = roadmapView === 'timeline' && !scrubbing;
+
     const showGoals = shown.goals && !scrubbing;
     const showHabits = shown.habits || scrubbing;
     const showTasks = shown.tasks || scrubbing;
@@ -883,7 +913,7 @@ const CalendarScreen = () => {
         : dayTasks.filter(task => !looseOnly || !task.goalId);
     const listedHabits = scrubbing ? allHabits.filter(habit => scrubIds.has(`habit:${habit.id}`))
         : looseOnly ? looseHabits : allHabits;
-    const filtered = isFiltered({ shown, sharedOnly, sort: activeSort, direction: sortDirection, time: activeTimeFilter });
+    const filtered = isFiltered({ shown, sharedOnly, sort: activeSort, direction: sortDirection, time: activeTimeFilter, view: roadmapView });
     const hasActiveFilters = selectedGoalFilter !== null || selectedCategoryFilter !== null || sharedOnly;
 
     const activeGoalName = selectedGoalFilter ? goals.find(g => g.id === selectedGoalFilter)?.name : null;
@@ -976,8 +1006,17 @@ const CalendarScreen = () => {
                                 onScrub={setScrubIds}
                             />
 
-                            {/* What is on right now, pinned above everything, wherever it is filed. */}
-                            {dayPlan.isToday && !scrubbing ? <NowCard item={nowItem} accent={accentColor} now={clock} /> : null}
+                            {/* The day as a timeline, or as lists: one tap, remembered. */}
+                            {!scrubbing ? (
+                                <View style={styles.viewSwitch}>
+                                    <ChoiceRow accessibilityLabel="How to show the day" value={roadmapView}
+                                        onChange={next => { selectionFeedback(); setRoadmapView(next); }}
+                                        options={[{ id: 'timeline' as RoadmapView, label: 'Timeline' }, { id: 'list' as RoadmapView, label: 'List' }]} />
+                                </View>
+                            ) : null}
+
+                            {/* What is on right now, pinned above the lists, wherever it is filed (the timeline shows it in place). */}
+                            {dayPlan.isToday && !scrubbing && !timelineView ? <NowCard item={nowItem} accent={accentColor} now={clock} /> : null}
 
                             {/* Filter Indicator - Subtle compact pill */}
                             {!scrubbing && (filtered || hasActiveFilters) && (
@@ -1033,6 +1072,9 @@ const CalendarScreen = () => {
                                 else is on it — which is where somebody looks
                                 for their own habits anyway. */}
 
+                            {timelineView ? (
+                                <DayTimeline flow={flow} now={flowNow} onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem} />
+                            ) : (<>
                             {/* GOALS SECTION */}
                             {showGoals && (
                                 <View style={{ marginTop: 0, marginBottom: 16 }}>
@@ -1226,6 +1268,8 @@ const CalendarScreen = () => {
                                     }
                                 </View>
                             )}
+
+                            </>)}
 
                             {/* Habits section removed - all habits must be linked to goals */}
 

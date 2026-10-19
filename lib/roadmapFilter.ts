@@ -10,6 +10,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type ShownKind = 'goals' | 'habits' | 'tasks';
 export type TimeOfDay = 'all' | 'morning' | 'afternoon' | 'evening';
 export type RoadmapSort = 'default' | 'name' | 'progress';
+/** The day as a timeline in time order, or the goals, habits and tasks as lists. */
+export type RoadmapView = 'timeline' | 'list';
 
 export interface RoadmapFilterState {
     shown: Record<ShownKind, boolean>;
@@ -17,6 +19,7 @@ export interface RoadmapFilterState {
     sharedOnly: boolean;
     sort: RoadmapSort;
     direction: 1 | -1;
+    view: RoadmapView;
 }
 
 export const DEFAULT_ROADMAP_FILTER: RoadmapFilterState = {
@@ -25,6 +28,7 @@ export const DEFAULT_ROADMAP_FILTER: RoadmapFilterState = {
     sharedOnly: false,
     sort: 'default',
     direction: -1,
+    view: 'timeline',
 };
 
 const KEY = 'habyss_roadmap_filter';
@@ -45,6 +49,7 @@ export function normalizeRoadmapFilter(raw: unknown): RoadmapFilterState {
         sharedOnly: value.sharedOnly === true,
         sort: SORTS.includes(value.sort as RoadmapSort) ? value.sort as RoadmapSort : 'default',
         direction: value.direction === 1 ? 1 : -1,
+        view: value.view === 'list' ? 'list' : 'timeline',
     };
 }
 

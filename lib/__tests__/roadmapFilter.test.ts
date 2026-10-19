@@ -16,7 +16,10 @@ describe('the roadmap filter', () => {
 
     it('reads back what was stored and repairs what is not valid', () => {
         expect(normalizeRoadmapFilter({ shown: { goals: false }, time: 'evening', sort: 'name', direction: 1, sharedOnly: true }))
-            .toEqual({ shown: { goals: false, habits: true, tasks: true }, time: 'evening', sort: 'name', direction: 1, sharedOnly: true });
+            .toEqual({ shown: { goals: false, habits: true, tasks: true }, time: 'evening', sort: 'name', direction: 1, sharedOnly: true, view: 'timeline' });
+        // The view is remembered too: the lists, or the day as a timeline (the default).
+        expect(normalizeRoadmapFilter({ view: 'list' }).view).toBe('list');
+        expect(normalizeRoadmapFilter({ view: 'grid' }).view).toBe('timeline');
         expect(normalizeRoadmapFilter({ shown: { goals: false, habits: false, tasks: false }, time: 'noon' })).toEqual(DEFAULT_ROADMAP_FILTER);
         expect(normalizeRoadmapFilter('junk')).toEqual(DEFAULT_ROADMAP_FILTER);
     });
