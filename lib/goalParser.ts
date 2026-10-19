@@ -13,8 +13,9 @@
  * for the free-text cases without changing any caller.
  */
 
-export type GoalType = 'frequency' | 'volume' | 'limit' | 'target_value' | 'consistency';
-export type Aggregation = 'count_days' | 'sum' | 'latest' | 'completion_rate';
+export type GoalType = 'frequency' | 'volume' | 'limit' | 'target_value' | 'consistency' | 'peak';
+/** `max`: the best single day, for goals reached in one go (lib/peakPlan.ts). */
+export type Aggregation = 'count_days' | 'sum' | 'latest' | 'completion_rate' | 'max';
 export type Direction = 'at_least' | 'at_most' | 'reach';
 
 export type GoalWindow =
@@ -31,6 +32,8 @@ export type GoalWindow =
  *   tasks done out of all its tasks.
  * - time: put in hours ("100 hours of piano"). A number goal counted in minutes.
  */
+import { isPeakGoal, raceDistance } from './peakPlan';
+
 export type GoalKind = 'number' | 'complete' | 'time';
 
 export interface GoalSpec {
@@ -310,7 +313,12 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
     const amountMatch = body.match(/\b(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|pages?|kilometers?|kilometres?|kms?|km|miles?|mi|steps?|kilos?|kilograms?|kgs?|kg|pounds?|lbs?|lb|glasses|glass|liters?|litres?|dollars?|words?|reps?)\b/i);
 
     let target: number | null = null;
-    if (percentMatch) {
+    // "a half marathon" is 21.1 km.
+    const race = raceDistance(text);
+    if (race !== null && !amountMatch) { unit = 'km'; unitFactor = 1; }
+    if (race !== null && !amountMatch) {
+        target = race;
+    } else if (percentMatch) {
         target = Number(percentMatch[1] ?? percentMatch[2]) / 100;
     } else if (amountMatch) {
         target = Number(amountMatch[1]) * unitFactor;
@@ -333,6 +341,12 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
         spec.type = 'limit';
         spec.aggregation = 'sum';
         spec.direction = 'at_most';
+    } else if (target !== null && isPeakGoal(text, unit, window?.kind === 'recurring')) {
+        // Reached in one go: the best single effort counts, not the sum, and
+        // the app plans the build-up from where you are now.
+        spec.type = 'peak';
+        spec.aggregation = 'max';
+        spec.direction = 'reach';
     } else if (isTargetValue && unit && MEASUREMENT_UNITS.includes(unit)) {
         spec.type = 'target_value';
         spec.aggregation = 'latest';

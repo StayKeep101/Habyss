@@ -55,6 +55,8 @@ export interface GoalMeasure {
     /** Done so far today, and what today still needs to stay on that pace. */
     today: number;
     leftToday: number | null;
+    /** Goals reached in one go: the best single effort counts, and this week's planned step. */
+    peak?: { thisWeek: number; nextWeek: number } | null;
 }
 
 export interface HabitSummary {
@@ -248,7 +250,7 @@ const taskDay = (task: Task): string | null => {
  * cannot disagree.
  */
 function measureByDay(input: GoalInsightInput): {
-    kind: GoalKind; unit: string; total: number; byDay: Map<string, number>;
+    kind: GoalKind; unit: string; total: number; byDay: Map<string, number>; peak?: boolean;
 } {
     const { goal, today } = input;
     const habits = linkedHabits(goal, input.habits);
@@ -262,6 +264,13 @@ function measureByDay(input: GoalInsightInput): {
     };
     let kind = goalKind(goal);
     const target = goalTarget(goal);
+    // Reached in one go ("run 21 km"): each day's best effort, never a sum.
+    const peak = readSpec(goal).aggregation === 'max';
+    const best = (day: string | null, amount: number) => {
+        if (!day || !amount) return;
+        byDay.set(day, Math.max(byDay.get(day) ?? 0, amount));
+    };
+    const { targetOn } = require('./peakPlan') as typeof import('./peakPlan');
 
     if (kind !== 'complete' && target) {
         const unit = kind === 'time' ? 'minutes' : target.unit;
@@ -276,11 +285,14 @@ function measureByDay(input: GoalInsightInput): {
         for (let day = start; day <= last; day = addDays(day, 1)) {
             const doneIds = new Set(input.history[day]);
             for (const habit of counted) {
-                if (doneIds.has(habit.id)) add(day, kind === 'time' ? minutesPerCheckIn(habit) : contribution(habit));
+                if (!doneIds.has(habit.id)) continue;
+                // A one-go goal counts the run at the distance it was that day.
+                if (peak) best(day, targetOn(habit.id, day, contribution(habit)));
+                else add(day, kind === 'time' ? minutesPerCheckIn(habit) : contribution(habit));
             }
         }
-        for (const task of tasks) add(taskDay(task), taskAmount(task, kind, unit));
-        return { kind, unit, total, byDay };
+        for (const task of tasks) (peak ? best : add)(taskDay(task), taskAmount(task, kind, unit));
+        return { kind, unit, total, byDay, peak };
     }
 
     // A complete goal, or one with no number: tasks done out of all of them.
@@ -316,8 +328,22 @@ export function goalMeasure(input: GoalInsightInput, measured = measureByDay(inp
     for (const [day, amount] of byDay) {
         // Finished before the goal started still counts, as day one.
         if (day > input.today) continue;
-        done += amount;
-        if (day < input.today) beforeToday += amount;
+        // One go: the best effort so far. Otherwise the running total.
+        done = measured.peak ? Math.max(done, amount) : done + amount;
+        if (day < input.today) beforeToday = measured.peak ? Math.max(beforeToday, amount) : beforeToday + amount;
+    }
+    if (measured.peak) {
+        const spec = readSpec(input.goal);
+        const { plannedFor, defaultBaseline, stepFor } = require('./peakPlan') as typeof import('./peakPlan');
+        const baseline = Number(spec.baseline) || defaultBaseline(total);
+        const plan = (day: string) => plannedFor(day, start, end, baseline, total, stepFor(unit));
+        return {
+            kind, done: round1(done), total: round1(total), unit,
+            remaining: round1(Math.max(0, total - done)),
+            daysLeft: input.goal.targetDate ? Math.max(0, daysBetween(input.today < start ? start : input.today, end) + 1) : null,
+            perDay: null, perWeek: null, today: round1(done - beforeToday), leftToday: null,
+            peak: input.goal.targetDate ? { thisWeek: plan(input.today), nextWeek: plan(addDays(input.today, 7)) } : null,
+        };
     }
     const remaining = Math.max(0, total - done);
     const dated = !!input.goal.targetDate;
@@ -372,9 +398,11 @@ export function buildGoalInsights(input: GoalInsightInput): GoalInsights {
     const span = Math.max(1, daysBetween(start, end) + 1);
     const total = measure.total;
     let soFar = 0;
-    for (const [day, amount] of byDay) if (day < start) soFar += amount;
+    // One-go goals chart the best so far; others the running total.
+    const step = (from: number, amount: number) => measured.peak ? Math.max(from, amount) : from + amount;
+    for (const [day, amount] of byDay) if (day < start) soFar = step(soFar, amount);
     for (let day = start, index = 1; day <= lastDay; day = addDays(day, 1), index++) {
-        soFar += byDay.get(day) ?? 0;
+        soFar = step(soFar, byDay.get(day) ?? 0);
         series.push({
             date: day,
             actual: total ? Math.round(Math.min(1, soFar / total) * 1000) / 10 : 0,

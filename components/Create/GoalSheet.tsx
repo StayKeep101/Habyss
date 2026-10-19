@@ -315,6 +315,21 @@ export const GoalSheet: React.FC<{
                 const made = await addHabit(fields);
                 if (!made?.id) throw new Error('not saved');
                 await share.applyTo(made.id);
+                // Reached in one go ("run 21 km by January"): the app makes the
+                // training habit itself, three times a week, starting at this
+                // week's step of the plan. It steps up on its own every week.
+                if (spec.aggregation === 'max' && spec.target && fields.targetDate && draft.linked.length === 0) {
+                    const { plannedFor, defaultBaseline, stepFor } = require('@/lib/peakPlan') as typeof import('@/lib/peakPlan');
+                    const unit = spec.metric_unit ?? '';
+                    const first = plannedFor(localDateKey(new Date()), fields.startDate ?? localDateKey(new Date()), fields.targetDate,
+                        spec.baseline ?? defaultBaseline(spec.target), spec.target, stepFor(unit));
+                    await addHabit({
+                        name: spec.suggested_habit?.name || 'Training',
+                        goalId: made.id, unit, goalValue: first,
+                        taskDays: ['tue', 'thu', 'sat'], icon: draft.icon, color: draft.color,
+                        type: 'build', category: 'health', startDate: localDateKey(new Date()),
+                    } as Partial<Habit>);
+                }
             }
 
             successFeedback();

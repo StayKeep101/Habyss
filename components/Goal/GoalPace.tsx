@@ -25,6 +25,8 @@ export function goalFraction(measure: GoalMeasure): { done: string; total: strin
 /** What every remaining day now asks, in words. */
 export function paceLine(measure: GoalMeasure): string | null {
     if (measure.remaining <= 0) return 'Target reached';
+    // One go: your best so far is the number; this is the week's planned step.
+    if (measure.peak) return `This week: ${measure.peak.thisWeek} ${measure.unit} · next week ${measure.peak.nextWeek}`;
     if (measure.perDay === null || !measure.daysLeft) return measure.daysLeft === 0 ? 'The deadline has passed' : null;
     const unit = measure.kind === 'time' ? '' : measure.unit === 'sessions' ? '' : ` ${measure.unit}`;
     const perDay = measure.kind === 'time' ? goalAmount(measure, measure.perDay) : `${Math.ceil(measure.perDay)}${unit}`;

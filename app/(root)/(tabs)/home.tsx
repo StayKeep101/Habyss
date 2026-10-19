@@ -230,6 +230,15 @@ const Home = () => {
     return marks.total > 0 ? `You have earned ${marks.total.toLocaleString()} Marks so far. Every one of them is something you did.` : 'You opened the app today. That is where it starts.';
   }, [echoMemory.notes, marks.total, todayKeyString]);
 
+  // One-go goals ("run 21 km"): their training habit steps up each week (lib/peakPlan.ts).
+  useEffect(() => {
+    if (!goalsData.loaded) return;
+    void (require('@/lib/peakPlan') as typeof import('@/lib/peakPlan')).syncPeakPlans(
+      allHabits.filter(habit => habit.isGoal), allHabits, todayKeyString,
+      patch => (require('@/lib/habitsSQLite') as typeof import('@/lib/habitsSQLite')).updateHabit(patch),
+    ).catch(() => undefined);
+  }, [goalsData.loaded, allHabits, todayKeyString]);
+
   // A streak freeze someone gave you covers yesterday if it was missed.
   useEffect(() => {
     if (!sharedData.historyLoaded) return;
