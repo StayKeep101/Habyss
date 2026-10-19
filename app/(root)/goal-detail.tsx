@@ -23,7 +23,8 @@ import { cachedCover, resolveCover, setGoalCover } from '@/lib/goalCover';
 import { DeviceEventEmitter } from 'react-native';
 import { ShareGoalModal } from '@/components/Social/ShareGoalModal';
 import { useGoalInsights } from '@/hooks/useGoalInsights';
-import { GoalHabitRow, SectionLabel } from '@/components/Goal/GoalRows';
+import { GoalHabitRow, SectionLabel, ValuePill } from '@/components/Goal/GoalRows';
+import { SectionTitle } from '@/components/ui/SectionTitle';
 import { GoalStatsView } from '@/components/Goal/GoalStatsView';
 import { GoalPlanView } from '@/components/Goal/GoalPlanView';
 import { GoalPace } from '@/components/Goal/GoalPace';
@@ -135,6 +136,8 @@ const GoalDetail = () => {
   const heroBox = useMemo(() => heroFrame(aspect, width), [aspect]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  // A new habit made from this page belongs to this goal.
+  const [addingHabit, setAddingHabit] = useState(false);
   const [view, setView] = useState<'today' | 'stats' | 'plan'>('today');
   // Shared goals are not available yet; kept so the owner-only actions stay gated.
   const [isSharedGoal] = useState(false);
@@ -247,6 +250,11 @@ const GoalDetail = () => {
    */
   /** The goal's options, in the menu the ⋯ button grows into. */
   const goalMenu: MorphMenuItem[] = [
+    // Anything added from here is filed under this goal straight away.
+    ...(!isSharedGoal ? [
+      { label: 'Add habit', icon: 'repeat-outline' as const, onPress: () => { lightFeedback(); setAddingHabit(true); } },
+      { label: 'Add task', icon: 'checkbox-outline' as const, onPress: () => openTask() },
+    ] : []),
     { label: 'Change cover photo', icon: 'image-outline', onPress: () => handleChangeBackground() },
     ...(!isSharedGoal ? [
       { label: 'Share with a friend', icon: 'person-add-outline' as const, onPress: () => setShowShareModal(true) },
@@ -434,12 +442,14 @@ const GoalDetail = () => {
           <View style={{ marginTop: 24, paddingHorizontal: 20 }}>
             <View style={{ gap: 14 }}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.dashboardLabel, { color: colors.textTertiary }]}>Goal</Text>
                 <Text style={[styles.goalTitle, { color: colors.text }]}>{goal.name}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} style={{ marginRight: 4 }} />
-                  <Text style={[styles.goalTarget, { color: colors.textTertiary }]}>Target: {insights && goal.targetDate ? dateAt(insights.endDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : 'Ongoing'}</Text>
-                  {daysLeft > 0 && <View style={[styles.daysTag, { backgroundColor: (goal.color || accentColor) + '20' }]}><CountUp style={[styles.daysTagText, { color: goal.color || accentColor }]} value={`${daysLeft} days left`} /></View>}
+                {/* The date, quietly: it is context, not the headline. */}
+                <View style={styles.targetRow}>
+                  <Ionicons name="calendar-outline" size={12} color={colors.textTertiary} />
+                  <Text style={[styles.goalTarget, { color: colors.textTertiary }]}>
+                    {insights && goal.targetDate ? dateAt(insights.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Ongoing'}
+                  </Text>
+                  {daysLeft > 0 ? <CountUp style={[styles.goalTarget, { color: colors.textTertiary }]} value={`· ${daysLeft} days left`} /> : null}
                 </View>
               </View>
               {/* Everything a goal can do lives behind the ⋯ in the header. */}
@@ -456,8 +466,11 @@ const GoalDetail = () => {
             )}
           </View>
 
+          {/* Today, Stats and Roadmap all start the same distance under the
+              description, each with the same heading, so switching between
+              them moves nothing but the content. */}
           {view !== 'today' ? (
-            <Animated.View key={view} entering={FadeIn.duration(220)} style={styles.swapped}>
+            <Animated.View key={view} entering={FadeIn.duration(220)} style={[styles.tabBody, styles.swapped]}>
               {view === 'stats'
                 ? <GoalStatsView goalId={goal.id} embedded />
                 : <GoalPlanView goalId={goal.id} embedded />}
@@ -466,30 +479,18 @@ const GoalDetail = () => {
           /* Today: only what this goal asks of the user today. The numbers and
              the whole plan replace it in place, from the tabs above. Building
              the plan happens on the roadmap, not here. */
-          <Animated.View key="today" entering={FadeIn.duration(220)}>
+          <Animated.View key="today" entering={FadeIn.duration(220)} style={[styles.tabBody, styles.todayBody]}>
+          <SectionTitle first right={todayTotal > 0 ? <ValuePill value={`${todayDone}/${todayTotal}`} /> : undefined}>Today</SectionTitle>
           {insights && insights.measure.total > 0 ? (
-            <View style={{ marginHorizontal: 20, marginTop: 18 }}>
+            <View style={styles.paceGap}>
               <GoalPace measure={insights.measure} color={goal.color || accentColor} />
             </View>
           ) : null}
           <VoidCard glass style={[styles.mainPanel]}>
-            <View style={styles.todayHeader}>
-              <View>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Today</Text>
-                <Text style={[styles.todayDate, { color: colors.textTertiary }]}>
-                  {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
-                </Text>
-              </View>
-              {todayTotal > 0 ? (
-                <View style={[styles.todayCount, { backgroundColor: (goal.color || accentColor) + '1F' }]}>
-                  <CountUp style={[styles.todayCountText, { color: goal.color || accentColor }]} value={`${todayDone}/${todayTotal} done`} />
-                </View>
-              ) : null}
-            </View>
 
             {overdueTasks.length > 0 ? (
               <>
-                <SectionLabel tone={colors.error}>Overdue</SectionLabel>
+                <SectionLabel first tone={colors.error}>Overdue</SectionLabel>
                 {overdueTasks.map(task => (
                   <ListItem key={task.id}><TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} /></ListItem>
                 ))}
@@ -498,7 +499,7 @@ const GoalDetail = () => {
 
             {todayHabits.length > 0 ? (
               <>
-                <SectionLabel>Habits</SectionLabel>
+                <SectionLabel first={overdueTasks.length === 0}>Habits</SectionLabel>
                 {todayHabits.map(summary => (
                   <GoalHabitRow
                     key={summary.habit.id}
@@ -515,7 +516,7 @@ const GoalDetail = () => {
 
             {todayTasks.length > 0 ? (
               <>
-                <SectionLabel>Tasks</SectionLabel>
+                <SectionLabel first={overdueTasks.length === 0 && todayHabits.length === 0}>Tasks</SectionLabel>
                 {todayTasks.map(task => (
                   <ListItem key={task.id}><TaskItem key={task.id} task={task} today={today} onToggle={toggleTask} onPress={() => openTask(task)} onEdit={() => openTask(task)} onDelete={removeTask} /></ListItem>
                 ))}
@@ -561,6 +562,7 @@ const GoalDetail = () => {
 
 
       {editingHabit && <HabitSheet visible habit={editingHabit} goalId={editingHabit.goalId} onClose={() => setEditingHabit(null)} />}
+      {addingHabit && <HabitSheet visible goalId={goal.id} onClose={() => setAddingHabit(false)} onSaved={() => setAddingHabit(false)} />}
       {editingGoal && goal && (
         <GoalSheet visible goal={goal} onClose={() => setEditingGoal(false)} onSaved={() => setEditingGoal(false)} />
       )}

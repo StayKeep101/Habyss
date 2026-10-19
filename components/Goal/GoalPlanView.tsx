@@ -136,7 +136,7 @@ export const GoalPlanView: React.FC<{ goalId?: string; embedded?: boolean }> = (
                     left; this tab is only the plan. */}
 
                     <>
-                        <SectionLabel right={tasks.total ? <ValuePill value={`${tasks.done}/${tasks.total}`} /> : undefined}>Tasks</SectionLabel>
+                        <SectionLabel first right={tasks.total ? <ValuePill value={`${tasks.done}/${tasks.total}`} /> : undefined}>Tasks</SectionLabel>
                         {/* One list, most urgent first: each row already says when it is due. */}
                         {[...tasks.overdue, ...tasks.upcoming, ...tasks.undated].map(renderTask)}
 

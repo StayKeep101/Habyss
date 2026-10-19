@@ -1,0 +1,170 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, useWindowDimensions } from 'react-native';
+import Animated, {
+    Easing, FadeIn, FadeOut, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MatteSurface } from '@/components/ui/MatteSurface';
+import { AppIcon } from '@/components/ui/AppIcon';
+import { useTokens } from '@/hooks/useTokens';
+import { useHaptics } from '@/hooks/useHaptics';
+import { on } from '@/lib/appEvents';
+import {
+    burstMarks, goalDone, habitDone, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskDone, type Burst, type Point,
+} from '@/lib/marksOrbs';
+import { s, vs } from '@/theme/scale';
+
+const ORB = s(10);
+/** How long one orb takes to fly, and the gap between orbs leaving. */
+const FLIGHT = 750;
+const STAGGER = 45;
+const PILL_HEIGHT = vs(34);
+
+interface Flight extends Burst { to: Point; pill: boolean }
+
+/**
+ * Orbs of light flying to your Marks.
+ *
+ * Mounted once over the whole app. Finishing a habit sends five, a task ten,
+ * a goal a swarm (one per Mark, capped): they burst out of where you tapped,
+ * scatter, then curve into the Marks counter one after another, each landing
+ * with a tick. Where no counter is on screen (Roadmap), a small Marks pill
+ * drops in at the top to catch them and counts them in, then leaves.
+ */
+export function MarksOrbs() {
+    const { width, height } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
+    const [flights, setFlights] = useState<Flight[]>([]);
+
+    // What earns Marks, from the events the app already sends.
+    useEffect(() => {
+        const subs = [
+            on('habit_completion_updated', event => {
+                if (!event?.habitId || !event.date || event.skipped || event.completed === undefined) return;
+                burstMarks(habitDone(event.habitId, event.date, event.completed));
+            }),
+            on('task_completed', () => { burstMarks(taskDone()); }),
+            on('goal_complete', () => { burstMarks(goalDone()); }),
+        ];
+        return () => subs.forEach(sub => sub.remove());
+    }, []);
+
+    useEffect(() => onMarksBurst(burst => {
+        measureMarksTarget(found => {
+            // A counter scrolled out of sight is no place to land.
+            const point = found && found.y > insets.top && found.y < height ? found : null;
+            const pill = !point;
+            const to = point ?? { x: width / 2, y: insets.top + PILL_HEIGHT / 2 + vs(6) };
+            setFlights(current => [...current, { ...burst, to, pill }]);
+        });
+    }), [width, height, insets.top]);
+
+    const finish = useCallback((id: number) => setFlights(current => current.filter(flight => flight.id !== id)), []);
+    const pill = flights.find(flight => flight.pill);
+
+    return (
+        <>
+            {flights.map(flight => <Swarm key={flight.id} flight={flight} onDone={finish} />)}
+            {pill ? <CatchPill key={pill.id} marks={pill.marks} count={pill.count} top={insets.top + vs(6)} /> : null}
+        </>
+    );
+}
+
+function Swarm({ flight, onDone }: { flight: Flight; onDone: (id: number) => void }) {
+    const done = useRef(onDone);
+    useEffect(() => { done.current = onDone; }, [onDone]);
+    useEffect(() => {
+        const timer = setTimeout(() => done.current(flight.id), FLIGHT + flight.count * STAGGER + 400);
+        return () => clearTimeout(timer);
+    }, [flight.id, flight.count]);
+    return (
+        <>
+            {Array.from({ length: flight.count }, (_, index) => (
+                <Orb key={index} index={index} count={flight.count} from={flight.from} to={flight.to} />
+            ))}
+        </>
+    );
+}
+
+/**
+ * One orb: out of the tap in its own direction, a beat, then a curve into
+ * the counter, shrinking a little as it arrives.
+ */
+function Orb({ index, count, from, to }: { index: number; count: number; from: Point; to: Point }) {
+    const t = useTokens();
+    const { selectionFeedback } = useHaptics();
+    const flight = useSharedValue(0);
+    const pop = useSharedValue(0);
+    // Each orb leaves at its own angle and distance, the same every time for the same index.
+    const angle = (index / count) * Math.PI * 2 + (index % 3) * 0.4;
+    const reach = s(26) + (index % 4) * s(9);
+    const scatter = { x: from.x + Math.cos(angle) * reach, y: from.y + Math.sin(angle) * reach };
+    // The curve bends out to one side, so the swarm sweeps rather than marches.
+    const bend = { x: (scatter.x + to.x) / 2 + (index % 2 ? 1 : -1) * s(60), y: Math.min(scatter.y, to.y) - vs(30) };
+
+    useEffect(() => {
+        const ease = { easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
+        pop.value = withTiming(1, { duration: 220, ...ease });
+        flight.value = withDelay(180 + index * STAGGER, withTiming(1, { duration: FLIGHT, easing: Easing.inOut(Easing.cubic), reduceMotion: ReduceMotion.System }, finished => {
+            if (finished) runOnJS(landed)();
+        }));
+        function landed() { orbLanded(); if (index % 2 === 0) selectionFeedback(); }
+    }, [flight, pop, index, selectionFeedback]);
+
+    const style = useAnimatedStyle(() => {
+        const p = flight.value;
+        const out = pop.value;
+        // Out to the scatter point first, then along a curve to the target.
+        const sx = from.x + (scatter.x - from.x) * out;
+        const sy = from.y + (scatter.y - from.y) * out;
+        const q = 1 - p;
+        const x = q * q * sx + 2 * q * p * bend.x + p * p * to.x;
+        const y = q * q * sy + 2 * q * p * bend.y + p * p * to.y;
+        return {
+            opacity: p >= 1 ? 0 : 1,
+            transform: [{ translateX: x - ORB / 2 }, { translateY: y - ORB / 2 }, { scale: (0.4 + out * 0.8) * (1 - p * 0.45) }],
+        };
+    });
+    return (
+        <Animated.View pointerEvents="none" style={[styles.orb, { backgroundColor: t.color.accent, shadowColor: t.color.accent }, style]}>
+            <Animated.View style={[styles.core, { backgroundColor: t.color.onAccent }]} />
+        </Animated.View>
+    );
+}
+
+/** Where no Marks counter is on screen: a pill drops in, counts the orbs in, and leaves. */
+function CatchPill({ marks, count, top }: { marks: number; count: number; top: number }) {
+    const t = useTokens();
+    const [caught, setCaught] = useState(0);
+    const bump = useSharedValue(1);
+    useEffect(() => {
+        return onOrbLanded(() => {
+            setCaught(current => Math.min(count, current + 1));
+            bump.value = withSequence(withTiming(1.12, { duration: 70 }), withTiming(1, { duration: 140 }));
+        });
+    }, [count, bump]);
+    const style = useAnimatedStyle(() => ({ transform: [{ scale: bump.value }] }));
+    // The orbs are capped; the number shown is the Marks actually earned.
+    const shown = caught >= count ? marks : Math.round((caught / count) * marks);
+    return (
+        <Animated.View pointerEvents="none" entering={FadeIn.duration(200)} exiting={FadeOut.duration(300)} style={[styles.pillWrap, { top }]}>
+            <Animated.View style={style}>
+                <MatteSurface radius={t.radius.full} level="control" elevation="floating" style={styles.pill}>
+                    <AppIcon name="diamond" filled size={14} color={t.color.accent} />
+                    <Text style={[t.type.heading, { color: t.color.textPrimary }]}>+{shown}</Text>
+                </MatteSurface>
+            </Animated.View>
+        </Animated.View>
+    );
+}
+
+const styles = StyleSheet.create({
+    orb: {
+        position: 'absolute', left: 0, top: 0, width: ORB, height: ORB, borderRadius: ORB / 2,
+        alignItems: 'center', justifyContent: 'center',
+        shadowOpacity: 0.9, shadowRadius: ORB, shadowOffset: { width: 0, height: 0 },
+    },
+    core: { width: ORB / 3, height: ORB / 3, borderRadius: ORB / 6, opacity: 0.8 },
+    pillWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+    pill: { flexDirection: 'row', alignItems: 'center', gap: s(6), height: PILL_HEIGHT, paddingHorizontal: s(14) },
+});

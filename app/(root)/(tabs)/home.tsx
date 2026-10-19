@@ -168,6 +168,16 @@ const Home = () => {
   );
 
 
+  // Straight after onboarding: How Habyss works, once.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const { takeTutorialDue } = require('@/lib/tutorial') as typeof import('@/lib/tutorial');
+    void takeTutorialDue().then(due => {
+      if (due) timer = setTimeout(() => router.push({ pathname: '/(root)/guide', params: { intro: '1' } }), 900);
+    });
+    return () => { if (timer) clearTimeout(timer); };
+  }, [router]);
+
   // Subscribe to habits
   useEffect(() => {
     const unsubPromise = subscribeToHabits(setAllHabits);

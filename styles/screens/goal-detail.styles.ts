@@ -1,5 +1,5 @@
 import { Dimensions, StyleSheet } from 'react-native';
-import { FontFamily } from '@/theme/designSystem';
+import { FontFamily, Spacing, Typography } from '@/theme/designSystem';
 
 const { height, width } = Dimensions.get('window');
 
@@ -114,10 +114,12 @@ export const styles = StyleSheet.create({
     marginBottom: 8,
     fontFamily: FontFamily.medium,
   },
-  goalTarget: {
-    fontSize: 13,
-    fontFamily: FontFamily.regular,
-  },
+  targetRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.xs, opacity: 0.85 },
+  goalTarget: Typography.caption,
+  /** Where every tab (Today, Stats, Roadmap) starts under the description. */
+  tabBody: { marginTop: Spacing.xl },
+  todayBody: { paddingHorizontal: Spacing.xl },
+  paceGap: { marginBottom: Spacing.md },
   daysTag: {
     marginLeft: 8,
     paddingHorizontal: 8,
@@ -201,9 +203,7 @@ export const styles = StyleSheet.create({
   },
   swapped: { paddingBottom: 8 },
   mainPanel: {
-    margin: 20,
-    marginTop: 18,
-    padding: 20,
+    padding: Spacing.xl,
     borderRadius: 26,
   },
   addBtn: {

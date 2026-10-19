@@ -69,6 +69,8 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
                 ? { style: styles.content }
                 : { contentContainerStyle: styles.content, showsVerticalScrollIndicator: false, scrollEnabled: !scrub })}>
 
+                {/* The same heading every tab of the goal page starts with. */}
+                <SectionLabel first>Progress</SectionLabel>
                 {/* One number, and one line saying whether it is enough. */}
                 <View style={styles.headline}>
                     <CountUp style={[styles.bigNumber, { color: colors.textPrimary }]} value={`${Math.round(shown)}%`} />
@@ -130,7 +132,7 @@ export const GoalStatsView: React.FC<{ goalId?: string; embedded?: boolean }> = 
 const styles = StyleSheet.create({
     content: { paddingHorizontal: 20, paddingBottom: 40 },
     empty: { textAlign: 'center', marginTop: 40, fontFamily: FontFamily.regular },
-    headline: { flexDirection: 'row', alignItems: 'baseline', gap: 12, marginTop: 4 },
+    headline: { flexDirection: 'row', alignItems: 'baseline', gap: 12 },
     bigNumber: { fontSize: 48, fontFamily: FontFamily.bold, letterSpacing: -1.5, fontVariant: ['tabular-nums'] },
     change: { fontSize: 14, fontFamily: FontFamily.semibold, fontVariant: ['tabular-nums'] },
     statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },

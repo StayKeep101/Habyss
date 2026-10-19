@@ -20,6 +20,7 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { QuietLoading } from '@/components/Loading/QuietLoading';
 import { APP_SLOGAN } from '@/constants/brand';
 import { setOnboardingComplete } from '@/lib/localUser';
+import { markTutorialDue } from '@/lib/tutorial';
 import { localDateKey } from '@/lib/habitSchedule';
 import { FLOW_VERSION, clearDraft, loadDraft, saveDraft, type OnboardingDraft } from '@/lib/onboarding';
 import {
@@ -161,6 +162,8 @@ export default function OnboardingScreen() {
         if (preview) { router.replace('/(root)/(tabs)/settings'); return; }
         await setOnboardingComplete();
         await clearDraft();
+        // How Habyss works, once, as the app opens for the first time.
+        await markTutorialDue();
         router.replace('/(root)/(tabs)/home');
     }, [router, preview]);
 

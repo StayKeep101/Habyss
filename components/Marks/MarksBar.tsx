@@ -1,4 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import { useFocusEffect } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AnimatedFill, CountUp } from '@/components/ui/Motion';
 import { GoalProgressChart } from '@/components/Goal/GoalProgressChart';
@@ -10,6 +12,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import type { Marks } from '@/hooks/useMarks';
 import type { GoalPoint } from '@/lib/goalInsights';
+import { onOrbLanded, registerMarksTarget } from '@/lib/marksOrbs';
 
 /**
  * Your Marks and rank, beside your picture, said plainly.
@@ -26,6 +29,19 @@ export const MarksBar: React.FC<{ marks: Marks; onPress: () => void }> = ({ mark
     const { primary, foreground } = useAccentGradient();
     const { lightFeedback } = useHaptics();
     const change = marks.todayChange;
+
+    // Where the Marks orbs land, while this screen is in front; each one gives the number a bump.
+    const totalRef = useRef<View>(null);
+    useFocusEffect(useCallback(() => registerMarksTarget('marks-bar', done => {
+        const node = totalRef.current;
+        if (!node) { done(null); return; }
+        node.measureInWindow((x, y, width, height) => done(width ? { x: x + width / 2, y: y + height / 2 } : null));
+    }), []));
+    const bump = useSharedValue(1);
+    useEffect(() => onOrbLanded(() => {
+        bump.value = withSequence(withTiming(1.08, { duration: 60 }), withTiming(1, { duration: 140 }));
+    }), [bump]);
+    const bumpStyle = useAnimatedStyle(() => ({ transform: [{ scale: bump.value }] }));
 
     // The all-time line, as a miniature of the chart in the Marks window.
     const series = useMemo<GoalPoint[]>(
@@ -46,7 +62,9 @@ export const MarksBar: React.FC<{ marks: Marks; onPress: () => void }> = ({ mark
                 <View>
                     <Text style={[styles.caption, { color: colors.textTertiary }]}>Marks</Text>
                     <View style={styles.totalRow}>
-                        <CountUp style={[styles.total, { color: colors.textPrimary }]} value={marks.total.toLocaleString()} />
+                        <Animated.View ref={totalRef} collapsable={false} style={bumpStyle}>
+                            <CountUp style={[styles.total, { color: colors.textPrimary }]} value={marks.total.toLocaleString()} />
+                        </Animated.View>
                         {/* The perfect-day multiplier, once it is earning more than ×1. */}
                         {marks.multiplier > 1 ? (
                             <Text style={[styles.change, { color: primary }]}>×{marks.multiplier}</Text>

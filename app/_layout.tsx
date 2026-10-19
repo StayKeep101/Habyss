@@ -1,3 +1,5 @@
+import { MarksOrbs } from '@/components/Marks/MarksOrbs';
+import { noteTouch } from '@/lib/marksOrbs';
 import '@/lib/polyfills'; // Must be first
 import { getLocalUserId } from '@/lib/localUser';
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -391,7 +393,8 @@ function InnerLayout() {
 
   return (
     <NavigationThemeProvider value={navigationTheme}>
-    <View style={{ flex: 1 }} className={theme}>
+    {/* Every touch is noted (it does not stop it): Marks orbs fly out of where you tapped. */}
+    <View style={{ flex: 1 }} className={theme} onTouchStart={event => noteTouch(event.nativeEvent.pageX, event.nativeEvent.pageY)}>
       <VoidShell>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
           {/* Reached by the launch redirect, not by a tap: they appear in
@@ -413,6 +416,8 @@ function InnerLayout() {
         {/* Mounted once, raised from anywhere with `show_feedback`. Telling us
             something should never depend on being on the right screen. */}
         <FeedbackSheet />
+        {/* Orbs flying to your Marks whenever something earns them. Last, so they fly over everything. */}
+        <MarksOrbs />
         <StatusBar style={isDark ? "light" : "dark"} />
       </VoidShell>
     </View>
