@@ -39,6 +39,8 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 import { DayPlanCard } from '@/components/Roadmap/DayPlanCard';
+import { NowCard } from '@/components/Roadmap/NowCard';
+import { pickNow } from '@/lib/nowItem';
 import { DEFAULT_ROADMAP_FILTER, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
@@ -870,6 +872,8 @@ const CalendarScreen = () => {
     // fourth value existed, which is how a filter starts showing the wrong
     // things.
     const scrubbing = scrubIds !== null;
+    // The one thing for right now (lib/nowItem.ts), re-read each minute with the clock.
+    const nowItem = useMemo(() => pickNow({ habits: habitsStore, tasks, done: completions, today: todayKey(), now: clock }), [habitsStore, tasks, completions, clock]);
     const showGoals = shown.goals && !scrubbing;
     const showHabits = shown.habits || scrubbing;
     const showTasks = shown.tasks || scrubbing;
@@ -971,6 +975,9 @@ const CalendarScreen = () => {
                                 accent={accentColor}
                                 onScrub={setScrubIds}
                             />
+
+                            {/* What is on right now, pinned above everything, wherever it is filed. */}
+                            {dayPlan.isToday && !scrubbing ? <NowCard item={nowItem} accent={accentColor} now={clock} /> : null}
 
                             {/* Filter Indicator - Subtle compact pill */}
                             {!scrubbing && (filtered || hasActiveFilters) && (
