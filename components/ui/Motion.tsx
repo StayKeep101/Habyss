@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Text, type StyleProp, type TextProps, type ViewStyle } from 'react-native';
+import { isIntroDone, subscribeIntro } from '@/lib/introGate';
 import Animated, {
     Easing, FadeIn, FadeOut, LinearTransition, ReduceMotion, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue,
     withDelay, withTiming, type SharedValue,
@@ -37,11 +38,19 @@ export const AnimatedPath = Animated.createAnimatedComponent(Path);
  * "All", the tab) and the intro plays again from zero each time it changes, so
  * new data arrives the way the page did.
  */
+/** Whether the launch animation has lifted (lib/introGate.ts). */
+function useIntroDone(): boolean {
+    return useSyncExternalStore(subscribeIntro, isIntroDone, isIntroDone);
+}
+
 export function useProgress(target: number, delay = 0, replay?: unknown): SharedValue<number> {
     const value = useSharedValue(0);
     const first = useRef(true);
     const lastReplay = useRef(replay);
+    const ready = useIntroDone();
     useEffect(() => {
+        // Waits at zero under the launch animation, then plays as the app appears.
+        if (!ready) return;
         const again = lastReplay.current !== replay;
         lastReplay.current = replay;
         const intro = first.current || again;
@@ -49,7 +58,7 @@ export function useProgress(target: number, delay = 0, replay?: unknown): Shared
         if (again) value.set(0);
         const duration = intro ? MOTION.intro : MOTION.duration;
         value.set(withDelay(intro ? delay : 0, withTiming(target, { duration, easing: MOTION.easing, reduceMotion: ReduceMotion.System })));
-    }, [target, delay, replay, value]);
+    }, [target, delay, replay, value, ready]);
     return value;
 }
 
@@ -71,9 +80,10 @@ export function useCountUp(value: string | number, replay?: unknown): string {
     const current = useRef<number[]>(reduced ? targets : targets.map(() => 0));
     const first = useRef(true);
     const lastReplay = useRef(replay);
+    const ready = useIntroDone();
 
     useEffect(() => {
-        if (targets.length === 0) return;
+        if (targets.length === 0 || !ready) return;
         const again = lastReplay.current !== replay;
         lastReplay.current = replay;
         const duration = first.current || again ? MOTION.intro : MOTION.duration;
@@ -96,7 +106,7 @@ export function useCountUp(value: string | number, replay?: unknown): string {
         return () => cancelAnimationFrame(frame);
         // `key` stands for `targets`, which is a new array every render.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [key, replay, reduced]);
+    }, [key, replay, reduced, ready]);
 
     if (parts.length === 0) return text;
     let index = 0;

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Image, StyleSheet, useWindowDimensions } from 'react-native';
+import { releaseIntro } from '@/lib/introGate';
 import Animated, { Easing, ReduceMotion, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 
 /** The logo as the native launch screen draws it: 200pt image, the mark 41% of it. */
@@ -14,36 +15,41 @@ const RIGHT = require('@/assets/images/crack-right.png');
  * The logo is two pieces with a crack between them: the abyss. This starts on
  * exactly the launch screen's frame (black, the mark in the middle, the same
  * size), so the handover cannot be seen; then the camera pushes slowly into
- * the crack as it opens, and dives through it as the two pieces fly past the
- * edges, while the black falls away and the app is there. Once per launch,
- * about two seconds, and it never blocks a tap.
+ * the crack as it opens, and dives until the two sides meet the edges of the
+ * screen, while the black falls away and the app is there, its numbers and
+ * charts starting as it appears. Once per launch, about three seconds, and it
+ * never blocks a tap.
  */
 export function CrackIntro({ onDone }: { onDone: () => void }) {
     const { width, height } = useWindowDimensions();
     const fall = useSharedValue(0);
+    // How far to zoom so the logo's outer edges reach the screen's edges.
+    const fill = width / LOGO_WIDTH;
 
     useEffect(() => {
-        // About two seconds: a slow push in while the crack opens, then the dive.
-        fall.value = withDelay(250, withTiming(1, { duration: 1750, easing: Easing.inOut(Easing.cubic), reduceMotion: ReduceMotion.System }, done => {
+        // A slow push in while the crack opens, then the dive, until the two
+        // sides meet the edges of the screen; the app shows through as it ends.
+        const DURATION = 2600;
+        fall.value = withDelay(300, withTiming(1, { duration: DURATION, easing: Easing.inOut(Easing.cubic), reduceMotion: ReduceMotion.System }, done => {
             if (done) runOnJS(onDone)();
         }));
+        // Numbers, bars and rings start as the app comes into view, not under the black.
+        const release = setTimeout(releaseIntro, 300 + DURATION * 0.8);
+        return () => clearTimeout(release);
     }, [fall, onDone]);
 
-    // The black stays until you are deep in the crack, then falls away.
-    const ground = useAnimatedStyle(() => ({ opacity: interpolate(fall.value, [0, 0.7, 1], [1, 1, 0], 'clamp') }));
-    // The camera: pushes into the crack, gently then all at once.
-    const camera = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(fall.value, [0, 0.4, 1], [1, 1.6, 4.5]) }] }));
+    const ground = useAnimatedStyle(() => ({ opacity: interpolate(fall.value, [0, 0.82, 1], [1, 1, 0], 'clamp') }));
+    // The camera, pushing into the crack: gently, then all the way to the edges.
+    const camera = useAnimatedStyle(() => ({ transform: [{ scale: interpolate(fall.value, [0, 0.45, 1], [1, 1.5, fill]) }] }));
     const piece = (side: -1 | 1) => () => {
         'worklet';
-        // The crack opens a little while the camera pushes in, then the two
-        // sides fly past the edges as you go through.
-        const part = interpolate(fall.value, [0, 0.4, 1], [0, 0.06, 0.75]);
+        // The crack opens as you go in; the sides stay at the screen's edges.
+        const part = interpolate(fall.value, [0, 0.45, 1], [0, 0.015, 0.035]);
         return {
-            opacity: interpolate(fall.value, [0, 0.8, 1], [1, 1, 0], 'clamp'),
+            opacity: interpolate(fall.value, [0, 0.85, 1], [1, 1, 0], 'clamp'),
             transform: [
                 { translateX: side * part * width },
-                { translateY: -side * part * height * 0.45 },
-                { scale: interpolate(fall.value, [0, 0.4, 1], [1, 1.05, 2]) },
+                { translateY: -side * part * height * 0.35 },
             ],
         };
     };

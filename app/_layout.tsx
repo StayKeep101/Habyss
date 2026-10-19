@@ -37,6 +37,8 @@ import { installCrashReporting, sendPendingCrash } from '@/lib/crashReport';
 
 // Before anything else can throw: uncaught errors are written down and sent next launch.
 installCrashReporting();
+// The launch animation plays: hold the app's own animations until it lifts.
+(require('@/lib/introGate') as typeof import('@/lib/introGate')).holdForIntro();
 import RevenueCatService from '@/lib/RevenueCat';
 // import { SuperwallProvider, SuperwallExpoModule } from 'expo-superwall';
 // import * as Linking from 'expo-linking';
@@ -86,7 +88,7 @@ export default function MobileLayout() {
   const [bootReady, setBootReady] = React.useState(false);
   // The launch animation, once per cold start.
   const [showIntro, setShowIntro] = React.useState(true);
-  const endIntro = React.useCallback(() => setShowIntro(false), []);
+  const endIntro = React.useCallback(() => { setShowIntro(false); (require('@/lib/introGate') as typeof import('@/lib/introGate')).releaseIntro(); }, []);
 
   useEffect(() => {
     async function prepare() {
