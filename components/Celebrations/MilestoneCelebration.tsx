@@ -141,11 +141,14 @@ export const MilestoneCelebration: React.FC = () => {
 /** One spoke of the burst, thrown out and fading as it goes. */
 const Ray: React.FC<{ index: number; burst: SharedValue<number>; tint: string }> = ({ index, burst, tint }) => {
     const angle = (index / RAYS) * 360;
+    // Worked out here: a worklet cannot call s() (a plain function) on the UI thread.
+    const near = -s(52);
+    const far = -s(104);
     const style = useAnimatedStyle(() => ({
         opacity: interpolate(burst.value, [0, 0.25, 0.7, 1], [0, 0.9, 0.5, 0], 'clamp'),
         transform: [
             { rotate: `${angle}deg` },
-            { translateY: interpolate(burst.value, [0, 1], [-s(52), -s(104)]) },
+            { translateY: interpolate(burst.value, [0, 1], [near, far]) },
             { scaleY: interpolate(burst.value, [0, 0.5, 1], [0.4, 1, 0.6]) },
         ],
     }));

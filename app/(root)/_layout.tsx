@@ -1,4 +1,3 @@
-import { Radius } from '@/theme/designSystem';
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 
@@ -66,12 +65,7 @@ export default function RootLayout() {
           name="goal-detail"
           options={{
             headerShown: false,
-            // Opens at three quarters of the screen; drag up for all of it.
-            presentation: 'formSheet',
-            sheetAllowedDetents: [0.75, 1],
-            sheetInitialDetentIndex: 0,
-            sheetGrabberVisible: true,
-            sheetCornerRadius: Radius.sheet,
+            presentation: 'modal',
           }}
         />
         <Stack.Screen

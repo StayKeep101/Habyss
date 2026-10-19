@@ -15,6 +15,8 @@ const HALO = LIGHT * 4;
 const DOT = s(7);
 const TOP = vs(28);
 const BOTTOM = vs(36);
+/** How far above the light its name tag sits. Worked out here: worklets cannot call vs(). */
+const TAG_LIFT = vs(22);
 /** On the welcome screen the light rests here, above the words, centred. */
 const WELCOME_Y = 0.24;
 const EASE = { easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
@@ -87,7 +89,7 @@ export function ClimbRail({ step, pages, name }: {
     }));
     const railStyle = useAnimatedStyle(() => ({ opacity: rail.value }));
     // The tag sits on the light; it is drawn in the light's own frame, just above.
-    const tag = useAnimatedStyle(() => ({ transform: [{ translateX: x.value - RAIL_WIDTH / 2 }, { translateY: y.value - HALO / 2 - vs(22) }] }));
+    const tag = useAnimatedStyle(() => ({ transform: [{ translateX: x.value - RAIL_WIDTH / 2 }, { translateY: y.value - HALO / 2 - TAG_LIFT }] }));
 
     return (
         <View style={StyleSheet.absoluteFill} pointerEvents="none" onLayout={event => setSize(event.nativeEvent.layout)}

@@ -83,9 +83,9 @@ const ASSUMED_ASPECT = 3 / 4;
  * strip is behind the panel, which is opaque and the same colour as what is
  * behind the picture, so covering it would buy nothing and cost a crop.
  */
-function heroFrame(aspect: number, screenWidth: number) {
+function heroFrame(aspect: number, screenWidth: number, window = HERO_WINDOW) {
     const height = Math.round(screenWidth / Math.max(0.2, aspect));
-    return { height, top: Math.round(HERO_WINDOW / 2 - height / 2) };
+    return { height, top: Math.round(window / 2 - height / 2) };
 }
 /**
  * A subtle two-tone gradient picked from the goal's id: different for each
@@ -101,6 +101,11 @@ function coverGradient(id: string, light: boolean): [string, string, string] {
         ? [`hsl(${hue}, 45%, 86%)`, `hsl(${(hue + shift) % 360}, 40%, 80%)`, `hsl(${(hue + shift) % 360}, 30%, 94%)`]
         : [`hsl(${hue}, 42%, 26%)`, `hsl(${(hue + shift) % 360}, 38%, 14%)`, `hsl(${(hue + shift) % 360}, 30%, 7%)`];
 }
+
+/** The panel with the progress arc covers this much of the page when it opens; the cover shows above it. */
+const PANEL_SHARE = 0.75;
+/** The panel's own gap above its dome (styles.panelWrap.marginTop). */
+const PANEL_GAP = 20;
 
 /** HalfCircleProgress leaves this much box below its arc's baseline. */
 const ARC_BASELINE = 5;
@@ -133,7 +138,12 @@ const GoalDetail = () => {
     return () => { alive = false; };
   }, [bgImage]);
 
-  const heroBox = useMemo(() => heroFrame(aspect, width), [aspect]);
+  /** This sheet's height, so the ⋯ menu opens exactly on its button. */
+  const [pageHeight, setPageHeight] = useState<number | undefined>(undefined);
+  // The panel's dome starts a quarter of the way down, so the panel fills the
+  // bottom three quarters; the cover is framed in the strip left above it.
+  const panelTop = Math.round((pageHeight ?? height) * (1 - PANEL_SHARE));
+  const heroBox = useMemo(() => heroFrame(aspect, width, panelTop + BUMP / 2), [aspect, panelTop]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   // A new habit made from this page belongs to this goal.
@@ -197,8 +207,6 @@ const GoalDetail = () => {
   });
 
   const [editingGoal, setEditingGoal] = useState(false);
-  /** This sheet's height, so the ⋯ menu opens exactly on its button. */
-  const [pageHeight, setPageHeight] = useState<number | undefined>(undefined);
 
   /**
    * Opens the same sheet the goal was created in, mounted *here*.
@@ -410,7 +418,7 @@ const GoalDetail = () => {
         scrollEventThrottle={16}
         // The dome takes the space the arc used to overlap into, sitting a
         // little lower than the old floating arc did.
-        contentContainerStyle={{ paddingTop: HEADER_HEIGHT - 46 - BUMP, paddingBottom: 140 }}
+        contentContainerStyle={{ paddingTop: Math.max(0, panelTop - PANEL_GAP), paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Main Content Area. The panel's top edge domes up around the progress
