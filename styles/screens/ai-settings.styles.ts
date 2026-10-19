@@ -3,9 +3,9 @@ import { FontFamily, UIStyles } from '@/theme/designSystem';
 
 /** The look of app/(root)/ai-settings.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
-    sample: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, marginTop: 6 },
+    // The pinned preview: the page's own background so rows scroll under it.
+    stickyPreview: { paddingTop: 2, paddingBottom: 4 },
     sampleMark: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    sampleText: { flex: 1, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, fontStyle: 'italic' },
     group: { marginTop: 22 },
     gridTitle: { marginTop: 22, marginBottom: 8 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

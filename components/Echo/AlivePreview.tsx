@@ -8,28 +8,39 @@ import { FontFamily } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
 
 /**
- * Echo Alive, shown rather than explained: a notification slides in with the
- * nudge before a session, then the check-in after it, and repeats — a few
- * seconds of what will actually reach the phone instead of a paragraph.
+ * What Echo will send, shown rather than explained: each notification your
+ * settings would produce slides in, in turn. `focus` jumps straight to one
+ * (the one a setting just changed), so a change can be seen at once.
  */
-export function AlivePreview({ lines, accent }: { lines: { title: string; body: string; when: string }[]; accent: string }) {
+export function AlivePreview({ lines, accent, focus }: {
+    lines: { key?: string; title: string; body: string; when: string }[];
+    accent: string;
+    /** Show this line now; `n` changes each time, so the same key can be shown again. */
+    focus?: { key: string; n: number };
+}) {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const [index, setIndex] = useState(0);
     const shown = useSharedValue(0);
+    const [lastFocus, setLastFocus] = useState(focus?.n);
+    if (focus && focus.n !== lastFocus) {
+        setLastFocus(focus.n);
+        const at = lines.findIndex(line => line.key === focus.key);
+        if (at >= 0 && at !== index) setIndex(at);
+    }
 
     useEffect(() => {
         const ease = { easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System };
         shown.set(withSequence(withTiming(1, { duration: 380, ...ease }), withDelay(2200, withTiming(0, { duration: 300, ...ease }))));
         const next = setTimeout(() => setIndex(value => (value + 1) % lines.length), 3100);
         return () => clearTimeout(next);
-    }, [index, lines.length, shown]);
+    }, [index, lines.length, shown, lastFocus]);
 
     const style = useAnimatedStyle(() => ({
         opacity: shown.get(),
         transform: [{ translateY: (1 - shown.get()) * -16 }, { scale: 0.96 + shown.get() * 0.04 }],
     }));
-    const line = lines[index] ?? lines[0];
+    const line = lines[Math.min(index, lines.length - 1)] ?? lines[0];
 
     return (
         <View style={styles.stage} accessibilityLabel={`Example: ${line.body}`}>

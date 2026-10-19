@@ -6,7 +6,6 @@ import { Alert, AppState, Linking, Platform, ScrollView, Text, TouchableOpacity,
 import { useAccentGradient } from '@/context/AccentContext';
 import { textOn } from '@/theme/tokens';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { IconTile } from '@/components/ui/IconTile';
 import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { AlivePreview } from '@/components/Echo/AlivePreview';
 import { aliveLine } from '@/lib/echoAlive';
@@ -91,17 +90,18 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     const badge = apple ? 'Built in' : transfer.phase === 'loading' ? 'Loading…'
         : isDownloading ? (transfer.totalBytes ? `${Math.floor(transfer.percentage)}%` : 'Connecting…')
             : engine === 'llama' ? 'Ready' : downloaded ? 'Downloaded' : retry ? 'Incomplete' : 'Optional';
+    // Short on purpose: what it is, and whether to get it.
     const status = apple
-        ? 'Part of this iPhone. Nothing to download. Private.'
-        : !canDownload ? 'Offline AI is not included in this build. Install a newer Habyss build to use it.'
+        ? 'Built into this iPhone. Private.'
+        : !canDownload ? 'Not in this build yet.'
         : busy
-            ? transfer.phase === 'loading' ? 'Checking and loading the model on this phone…'
-                : `${mb(transfer.downloadedBytes)}${transfer.totalBytes ? ` of ${mb(transfer.totalBytes)}` : ''} downloaded. Keep Habyss open on Wi-Fi.`
+            ? transfer.phase === 'loading' ? 'Loading…'
+                : `${mb(transfer.downloadedBytes)}${transfer.totalBytes ? ` of ${mb(transfer.totalBytes)}` : ''} · keep Habyss open on Wi-Fi`
             : transfer.phase === 'error' ? transfer.error
-            : transfer.phase === 'cancelled' ? 'Download stopped. Retry keeps the files already completed.'
+            : transfer.phase === 'cancelled' ? 'Stopped. Retry picks up where it left off.'
             : downloaded
-                ? 'Runs on this phone. Tap “Use offline AI” when creating a habit, task or goal. Automatic AI stays off to limit heat and battery use.'
-                : `Apple Intelligence is unavailable on this device. Download Llama once (${LOCAL_MODEL.sizeLabel}) to use AI when you tap. Habyss also works without it.`;
+                ? 'On this phone. Private.'
+                : 'Recommended for the full Echo experience. Runs privately on your phone.';
 
     return (
         <VoidCard
@@ -123,16 +123,6 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
                 <View style={{ height: 4, backgroundColor: colors.surface, borderRadius: 2, overflow: 'hidden' }}>
                     <AnimatedFill progress={transfer.percentage / 100} style={{ height: '100%', backgroundColor: accentSolid }} />
                 </View>
-            ) : null}
-            {!apple && canDownload ? (
-                <>
-                    <Text style={{ fontSize: 12, lineHeight: 18, color: colors.textTertiary, fontFamily: FontFamily.regular }}>
-                        Model files come from Hugging Face. AI processing stays on this phone.
-                    </Text>
-                    <AppButton label="View model source" variant="ghost" onPress={() => {
-                        void Linking.openURL(LOCAL_MODEL.source).catch(() => Alert.alert('Could not open model source', LOCAL_MODEL.source));
-                    }} />
-                </>
             ) : null}
             {!apple && !busy && canDownload && downloaded !== null && engine !== 'llama' ? (
                 <AppButton label={retry ? 'Retry' : downloaded ? 'Load offline AI' : `Download · ${LOCAL_MODEL.sizeLabel}`}
@@ -166,10 +156,11 @@ const AISettings = () => {
         if (mode?.warning) {
             Alert.alert('⚠️ Warning', mode.warning, [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'I understand', onPress: () => setAIPersonality(id) }
+                { text: 'I understand', onPress: () => { setAIPersonality(id); show('voice'); } }
             ]);
         } else {
             setAIPersonality(id);
+            show('voice');
         }
     };
 
@@ -191,6 +182,11 @@ const AISettings = () => {
     const saveEcho = (next: EchoConfig) => {
         selectionFeedback();
         setEcho(next);
+        // Show, in the pinned preview, the notification this change affects.
+        const changed = next.morning !== echo.morning ? 'morning' : next.evening !== echo.evening ? 'evening'
+            : next.alive !== echo.alive ? 'alive' : next.aliveFollowUp !== echo.aliveFollowUp ? 'follow'
+            : next.useName !== echo.useName ? 'voice' : null;
+        if (changed) setTimeout(() => show(changed), 0);
         saveEchoConfig(next)
             .then(() => NotificationService.refreshReminders())
             .catch(() => undefined);
@@ -208,10 +204,18 @@ const AISettings = () => {
         saveEcho({ ...echo, alive });
     };
     const sample = { key: 'habit:run:preview', kind: 'habit' as const, id: 'run', title: 'Run 5 km', day: '', start: new Date(), end: new Date(), url: '' };
-    const aliveLines = [
-        { ...aliveLine(sample, 'before', aiPersonality), when: '7:50' },
-        { ...aliveLine(sample, 'follow-up', aiPersonality), when: '8:45' },
+    // Every notification these settings would send, in Echo's current voice.
+    const who = echo.useName ? name : undefined;
+    const previewLines = [
+        { key: 'voice', title: 'Echo', body: coachHello(aiPersonality, who), when: 'now' },
+        ...(echo.morning ? [{ key: 'morning', title: 'Echo', body: morningCheckIn(day), when: day.wake }] : []),
+        ...(echo.alive ? [{ key: 'alive', ...aliveLine(sample, 'before', aiPersonality, who), when: '7:50' }] : []),
+        ...(echo.alive && echo.aliveFollowUp !== false ? [{ key: 'follow', ...aliveLine(sample, 'follow-up', aiPersonality, who), when: '8:45' }] : []),
+        ...(echo.evening ? [{ key: 'evening', title: 'Echo', body: eveningCheckIn(day), when: day.sleep }] : []),
     ];
+    // The line a setting just changed, shown at once.
+    const [focus, setFocus] = React.useState<{ key: string; n: number } | undefined>(undefined);
+    const show = (key: string) => setFocus(current => ({ key, n: (current?.n ?? 0) + 1 }));
 
     const handleSelectGreeting = (style: GreetingStyle) => {
         selectionFeedback();
@@ -220,14 +224,11 @@ const AISettings = () => {
 
     return (
         <SheetScreen title="Echo" onBack={() => router.back()}>
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* What Echo sounds like, heard rather than described. */}
-                <MatteSurface radius={16} style={styles.sample}>
-                    <IconTile icon="sparkles" color="#5E5CE6" size={32} />
-                    <Text style={[styles.sampleText, { color: colors.textSecondary }]}>
-                        “{coachHello(aiPersonality, name)}”
-                    </Text>
-                </MatteSurface>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} stickyHeaderIndices={[0]}>
+                {/* Pinned while you scroll: what Echo will send, changing as you change it. */}
+                <View style={[styles.stickyPreview, { backgroundColor: colors.background }]}>
+                    <AlivePreview lines={previewLines} accent={accentSolid} focus={focus} />
+                </View>
 
                 {/* Every option visible at once, as a grid; the one in use
                     says what it is in a word or two underneath. */}
@@ -301,7 +302,6 @@ const AISettings = () => {
 
                 {/* Echo's nudges around a planned session, shown not explained. */}
                 <Group title="Echo Alive">
-                    <AlivePreview lines={aliveLines} accent={accentSolid} />
                     <ToggleRow
                         icon="sparkles-outline"
                         label="Echo Alive"
