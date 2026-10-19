@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { textOn } from '@/theme/tokens';
+import { space, textOn } from '@/theme/tokens';
 import { IconButton } from '@/components/ui/IconButton';
 import { MatteInput } from '@/components/ui/MatteInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,12 +28,11 @@ import {
     dayWindowFor, shouldOfferFriends, suggestEcho,
     type BlockerId, type HopeId,
 } from '@/lib/onboardingProfile';
-import { PERSONALITY_MODES } from '@/constants/AIPersonalities';
-import { ECHO_NAME, getName, hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
+import { getName, hoursAwake, saveDayWindow, saveName } from '@/lib/echo';
 import { currentAccount, onAccountChange } from '@/lib/account';
 import { SignInOptions } from '@/components/Auth/SignInOptions';
 import { ClimbIntro } from '@/components/Onboarding/ClimbIntro';
-import { ClimbRoad } from '@/components/Onboarding/ClimbRoad';
+import { ClimbRail, RAIL_WIDTH } from '@/components/Onboarding/ClimbRail';
 import { EchoArrival } from '@/components/Onboarding/EchoArrival';
 import { EchoVoicePicker } from '@/components/Onboarding/EchoVoicePicker';
 import type { SyncReport } from '@/lib/cloudSync';
@@ -50,14 +49,14 @@ const SELECT_ADVANCE_MS = 180;
  * gentler and more useful: they are answerable honestly on a bad day, and each
  * one changes something the app actually does.
  *
- * It is one climb, not a stack of pages: the light at the bottom is you, and
- * each answer is a step up the road (components/Onboarding/ClimbRoad).
+ * It is one climb, not a stack of pages: the light is you, and each page is
+ * a dot up the rail on the left (components/Onboarding/ClimbRail).
  * Choosing Echo's voice ends setup; the rest is backup and friends.
  */
 const LAST_SETUP_STEP = 8;
 
-/** One stop on the road per setup step, and one at the top for the rest. */
-const ROAD_STOPS = LAST_SETUP_STEP + 2;
+/** One dot on the rail per page after welcome: setup, then one for backup and friends. */
+const RAIL_PAGES = LAST_SETUP_STEP + 1;
 /** How long the name tag shows before the next question. */
 const NAME_TAG_MS = 900;
 
@@ -96,24 +95,6 @@ const Header = ({ onBack, onSkip }: { onBack?: () => void; onSkip?: () => void }
         </View>
     );
 };
-
-/** The word each passed stop on the road keeps: what you answered there. */
-function marksFor(draft: OnboardingDraft): (string | null)[] {
-    const label = <T extends { id: string; label: string }>(list: T[], id?: string) => list.find(item => item.id === id)?.label ?? null;
-    const many = <T extends { id: string; label: string }>(list: T[], ids?: string[]) =>
-        !ids?.length ? null : ids.length === 1 ? label(list, ids[0]) : `${label(list, ids[0])} +${ids.length - 1}`;
-    const voice = PERSONALITY_MODES.find(mode => mode.id === draft.echo)?.name ?? null;
-    return [
-        null, null,
-        label(SOURCES, draft.source),
-        many(HOPES, draft.hope),
-        label(CHRONOTYPES, draft.chronotype),
-        label(TIMINGS, draft.timing),
-        many(BLOCKERS, draft.blockers),
-        `Met ${ECHO_NAME}`,
-        voice,
-    ];
-}
 
 export default function OnboardingScreen() {
     const router = useRouter();
@@ -678,14 +659,18 @@ export default function OnboardingScreen() {
         <VoidShell>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                    {draft.step > STEP.welcome ? <Header onBack={backFor(draft.step)} onSkip={skipFor(draft.step)} /> : null}
-                    {/* Each question arrives from above as the light climbs to it. */}
-                    <Animated.View key={draft.step} entering={FadeInUp.delay(220).duration(450)} style={styles.flex}>
-                        {(screens[draft.step] ?? renderWelcome)()}
-                    </Animated.View>
-                    {/* The light is you. It never leaves the screen: every answer is a step up the road. */}
-                    <ClimbRoad climb={Math.min(draft.step, ROAD_STOPS - 1)} stops={ROAD_STOPS} showRoad={draft.step > STEP.welcome}
-                        name={draft.step > STEP.name ? draft.name?.trim() || null : nameTag} marks={marksFor(draft)} />
+                    {/* Always there (empty on welcome), so nothing below shifts when the climb starts. */}
+                    <Header onBack={backFor(draft.step)} onSkip={skipFor(draft.step)} />
+                    <View style={styles.flex}>
+                        {/* Each question arrives from above as the light climbs to it, beside the rail. */}
+                        <Animated.View key={draft.step} entering={FadeInUp.delay(draft.step === STEP.name ? 700 : 220).duration(450)}
+                            style={[styles.flex, draft.step > STEP.welcome && { paddingLeft: RAIL_WIDTH - space.md }]}>
+                            {(screens[draft.step] ?? renderWelcome)()}
+                        </Animated.View>
+                        {/* The light is you. It never leaves the screen: every page is a dot up the rail. */}
+                        <ClimbRail step={Math.min(draft.step, RAIL_PAGES)} pages={RAIL_PAGES}
+                            name={draft.step > STEP.name ? draft.name?.trim() || null : nameTag} />
+                    </View>
                 </KeyboardAvoidingView>
             </SafeAreaView>
         </VoidShell>

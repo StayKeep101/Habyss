@@ -66,7 +66,7 @@ function GoalScene() {
     return (
         <View style={styles.centerAll}>
             <Animated.View style={[styles.ring, { borderColor: t.color.accent }, ring]} />
-            <Animated.View entering={ZoomIn.springify().damping(11)} style={[styles.flag, { backgroundColor: t.color.accent }]}>
+            <Animated.View entering={ZoomIn.duration(380)} style={[styles.flag, { backgroundColor: t.color.accent }]}>
                 <AppIcon name="flag" filled size={s(26)} color={t.color.onAccent} />
             </Animated.View>
         </View>
@@ -121,7 +121,7 @@ function TodayScene() {
             {Array.from({ length: 5 }, (_, index) => (
                 <View key={index} style={[styles.circle, { borderColor: index < 3 ? t.color.accent : t.color.border, opacity: index < 3 ? 1 : 0.5 }]}>
                     {index < 3 ? (
-                        <Animated.View entering={ZoomIn.delay(500 + index * 550).springify().damping(10)} style={[styles.fill, { backgroundColor: t.color.accent }]}>
+                        <Animated.View entering={ZoomIn.delay(500 + index * 550).duration(380)} style={[styles.fill, { backgroundColor: t.color.accent }]}>
                             <AppIcon name="checkmark" size={s(18)} color={t.color.onAccent} />
                         </Animated.View>
                     ) : null}
@@ -142,7 +142,7 @@ function MarksScene() {
     }, []);
     return (
         <View style={[styles.row, styles.centerAll, styles.marks]}>
-            <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.circle, styles.fill, { backgroundColor: t.color.accent }]}>
+            <Animated.View entering={ZoomIn.duration(380)} style={[styles.circle, styles.fill, { backgroundColor: t.color.accent }]}>
                 <AppIcon name="checkmark" size={s(18)} color={t.color.onAccent} />
             </Animated.View>
             {Array.from({ length: MARKS.complete.habit }, (_, index) => <StoryOrb key={index} index={index} />)}
