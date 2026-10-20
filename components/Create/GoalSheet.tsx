@@ -237,7 +237,11 @@ export const GoalSheet: React.FC<{
     // Deciding to do this with somebody happens while writing it, not after —
     // so the choice is held here and sent the moment the goal has an id.
     const share = useShareDraft('goal', current?.id);
-    const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
+    const close = () => {
+        setEventVisible(false); setEditing(null); share.close(); onClose?.();
+        // Several goals asked for at once (the brain dump): the next one opens.
+        if (listenToGlobalEvents) (require('@/lib/goalQueue') as typeof import('@/lib/goalQueue')).openNextGoal();
+    };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));
 
     // A goal needs a starting point only when the target is relative to it.

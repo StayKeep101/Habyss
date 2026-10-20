@@ -19,6 +19,11 @@ import { tidySpeech } from '@/lib/voiceClean';
 import { getWeekStart, reviewTime } from '@/lib/weekStart';
 import { emit } from '@/lib/appEvents';
 import { createTask } from '@/lib/tasks';
+import { addHabit } from '@/lib/habitsSQLite';
+import { parseHabitText, parsedToHabit } from '@/lib/habitParser';
+import { queueGoals } from '@/lib/goalQueue';
+import { copyText } from '@/lib/copyText';
+import { localDateKey } from '@/lib/habitSchedule';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
 import { addThought, getThoughts, moveItem, removeThought, reorderThoughts, restoreThought, updateThought, type Thought } from '@/lib/brainDump';
 import { styles } from '@/styles/screens/brain-dump.styles';
@@ -32,9 +37,10 @@ const UNDO_MS = 4000;
  * arrow), and the cursor waits for the next one. With nothing typed, the mic
  * is there instead — tap it and say it. Below, just the words. Swipe left to delete
  * (with a moment to undo), tap to reword, hold and drag to move. Holding a
- * thought and letting go is the one way to turn it into a task, habit or goal,
- * or file it under a goal. Select (top right) picks several, or all, to turn
- * into tasks or delete together. Private: it stays on this phone.
+ * thought and letting go opens everything that can be done to it: copy, turn
+ * it into a task, habit or goal, file it under a goal, delete. Select (top
+ * right) picks several, or all, and every one of those works on them together.
+ * Private: it stays on this phone.
  */
 export default function BrainDumpScreen() {
     const router = useRouter();
@@ -129,6 +135,41 @@ export default function BrainDumpScreen() {
         stopSelecting();
     };
 
+    /** Each thought a habit of its own, read the way a typed habit is ("run 3 times a week"). */
+    const intoHabits = async (list: Thought[]) => {
+        const today = localDateKey(new Date());
+        const made: Thought[] = [];
+        for (const item of list) {
+            try { if (await addHabit(parsedToHabit(parseHabitText(item.text), today))) made.push(item); } catch { /* the rest still go */ }
+        }
+        if (!made.length) return;
+        emit('habit_updated', {});
+        lightFeedback();
+        await removeMany(made);
+        stopSelecting();
+    };
+
+    /** Goals need a target and dates, so each opens the goal sheet in turn. */
+    const intoGoals = (list: Thought[]) => {
+        void removeMany(list);
+        stopSelecting();
+        router.back();
+        queueGoals(list.map(item => item.text));
+    };
+
+    /** On the clipboard, one thought per line. */
+    const copy = async (list: Thought[]) => {
+        const copied = await copyText(list.map(item => item.text).join('\n'));
+        if (copied) { lightFeedback(); setNotice(list.length === 1 ? 'Copied' : `Copied ${list.length}`); }
+        stopSelecting();
+    };
+    const [notice, setNotice] = useState<string | null>(null);
+    useEffect(() => {
+        if (!notice) return;
+        const hide = setTimeout(() => setNotice(null), 1600);
+        return () => clearTimeout(hide);
+    }, [notice]);
+
     const goals = useGoalsInsights().habits.filter(habit => habit.isGoal && !habit.isArchived);
 
     /** A short native menu: iOS's action sheet, or a plain alert elsewhere. */
@@ -154,29 +195,33 @@ export default function BrainDumpScreen() {
     };
 
     /**
-     * Held and let go: what this thought (or, while selecting, every ticked
-     * one with it) becomes. The only way a thought turns into anything.
+     * Everything that can be done to a thought, for one or for several: the
+     * same menu from holding a thought or from the selection bar.
      */
+    const actOn = (list: Thought[]) => {
+        if (!list.length) return;
+        const one = list.length === 1 ? list[0] : null;
+        const n = list.length;
+        ask(one ? (one.text.length > 60 ? `${one.text.slice(0, 60)}…` : one.text) : `${n} thoughts`, [
+            { label: one ? 'Copy' : `Copy ${n}`, run: () => void copy(list) },
+            { label: one ? 'Make it a task' : `Make ${n} tasks`, run: () => one ? turnInto(one, 'task') : void intoTasks(list) },
+            { label: one ? 'Make it a habit' : `Make ${n} habits`, run: () => one ? turnInto(one, 'habit') : void intoHabits(list) },
+            { label: one ? 'Make it a goal' : `Make ${n} goals`, run: () => one ? turnInto(one, 'goal') : intoGoals(list) },
+            { label: 'Add to a goal', run: () => chooseGoal(list) },
+            { label: one ? 'Delete' : `Delete ${n}`, destructive: true, run: () => {
+                if (one && !selecting) { void remove(one); return; }
+                void removeMany(list); stopSelecting();
+            } },
+        ]);
+    };
+
+    /** Held and let go: that thought, or while selecting, every ticked one with it. */
     const held = (thought: Thought) => {
         const list = selecting
             ? thoughts.filter(item => picked.has(item.id) || item.id === thought.id)
             : [thought];
         if (selecting) setPicked(new Set(list.map(item => item.id)));
-        if (list.length === 1) {
-            const [one] = list;
-            ask(one.text.length > 60 ? `${one.text.slice(0, 60)}…` : one.text, [
-                { label: 'Make it a task', run: () => turnInto(one, 'task') },
-                { label: 'Make it a habit', run: () => turnInto(one, 'habit') },
-                { label: 'Make it a goal', run: () => turnInto(one, 'goal') },
-                { label: 'Add to a goal', run: () => chooseGoal(list) },
-            ]);
-            return;
-        }
-        ask(`${list.length} thoughts`, [
-            { label: `Make ${list.length} tasks`, run: () => void intoTasks(list) },
-            { label: 'Add to a goal', run: () => chooseGoal(list) },
-            { label: `Delete ${list.length}`, destructive: true, run: () => { void removeMany(list); stopSelecting(); } },
-        ]);
+        actOn(list);
     };
 
     const deletePicked = () => {
@@ -258,7 +303,7 @@ export default function BrainDumpScreen() {
                     {selecting ? (
                         <View style={styles.selectBar}>
                             <Text style={[styles.clears, styles.flex, { color: colors.textTertiary }]}>
-                                {picked.size ? `${picked.size} selected · hold one to turn them into something` : 'Tap to select · hold to turn into something'}
+                                {picked.size ? `${picked.size} selected` : 'Tap thoughts to select them'}
                             </Text>
                             <Text onPress={() => { lightFeedback(); setPicked(allPicked ? new Set() : new Set(thoughts.map(item => item.id))); }}
                                 style={[styles.selectAll, { color: primary }]} accessibilityRole="button">{allPicked ? 'Deselect all' : 'Select all'}</Text>
@@ -293,7 +338,11 @@ export default function BrainDumpScreen() {
                     with nothing written, the mic is there instead. */}
                 {selecting ? (
                     <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-                        <AppButton label={picked.size ? `Delete ${picked.size}` : 'Delete'} icon="trash" variant="danger" disabled={!picked.size}
+                        <AppButton label="Copy" icon="copy" disabled={!picked.size}
+                            onPress={() => void copy(thoughts.filter(item => picked.has(item.id)))} style={styles.flex} />
+                        <AppButton label="Actions" icon="ellipsis-horizontal" disabled={!picked.size}
+                            onPress={() => actOn(thoughts.filter(item => picked.has(item.id)))} style={styles.flex} />
+                        <AppButton label="Delete" icon="trash" variant="danger" disabled={!picked.size}
                             onPress={deletePicked} style={styles.flex} />
                     </View>
                 ) : editingId === null ? (
@@ -322,6 +371,11 @@ export default function BrainDumpScreen() {
                         <MicButton listening={dictation.listening} onPress={talk} />
                     ) : null}
                 </View>
+                ) : null}
+                {notice ? (
+                    <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={[styles.undo, { backgroundColor: colors.surfaceTertiary }]}>
+                        <Text numberOfLines={1} style={[styles.undoText, { color: colors.textSecondary }]}>{notice}</Text>
+                    </Animated.View>
                 ) : null}
                 {undo ? (
                     <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={[styles.undo, { backgroundColor: colors.surfaceTertiary }]}>
