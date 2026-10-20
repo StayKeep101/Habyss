@@ -2,6 +2,9 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { TimeRange } from '../Create/TimeRange';
 
+jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'dark' }) }));
+jest.mock('@/context/AccentContext', () => ({ useAccentGradient: () => ({ primary: '#00b9e8' }) }));
+
 describe('the time picker', () => {
     it('sets a usual length in one tap, moving the end and never the start', () => {
         const onChange = jest.fn();
