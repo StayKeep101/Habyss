@@ -75,3 +75,28 @@ describe('what comes next after a focus', () => {
         expect(upNext(flowDay([items[0]], 600), 'report')).toBeNull();
     });
 });
+
+describe('meals in the flow', () => {
+    const lunch = { id: 'meal:lunch', kind: 'meal' as const, title: 'Lunch', start: 750, minutes: 45, done: false, fixed: true };
+    it('never moves a meal, and pushes what would land on it past its end', () => {
+        // A task running late at 12:20 for 30 minutes would hit lunch at 12:30.
+        const items = [
+            { id: 'report', kind: 'task' as const, title: 'Report', start: 690, minutes: 60, done: false },
+            { id: 'email', kind: 'task' as const, title: 'Email', start: 740, minutes: 20, done: false },
+            lunch,
+        ];
+        const flow = flowDay(items, 700);
+        const meal = flow.timeline.find(item => item.id === 'meal:lunch')!;
+        expect([meal.start, meal.end, meal.shift]).toEqual([750, 795, 0]);
+        const email = flow.timeline.find(item => item.id === 'email')!;
+        expect(email.start).toBe(795);
+        // Shown in time order: the email after lunch now.
+        expect(flow.timeline.map(item => item.id)).toEqual(['report', 'meal:lunch', 'email']);
+        // A meal is never what comes next to focus on.
+        expect(upNext(flowDay([lunch, items[1]], 700), 'report')?.id).toBe('email');
+    });
+    it('is over once its time has passed, and on while it lasts', () => {
+        expect(flowDay([lunch], 760).timeline[0].state).toBe('now');
+        expect(flowDay([lunch], 800).timeline[0].state).toBe('done');
+    });
+});

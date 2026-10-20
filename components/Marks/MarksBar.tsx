@@ -67,10 +67,6 @@ export const MarksBar: React.FC<{ marks: Marks; onPress: () => void }> = ({ mark
                         <Animated.View ref={totalRef} collapsable={false} style={bumpStyle}>
                             <CountUp style={[styles.total, { color: colors.textPrimary }]} value={marks.total.toLocaleString()} />
                         </Animated.View>
-                        {/* The perfect-day multiplier, once it is earning more than ×1. */}
-                        {marks.multiplier > 1 ? (
-                            <Text style={[styles.change, { color: primary }]}>×{marks.multiplier}</Text>
-                        ) : null}
                         {change !== 0 ? (
                             <Text style={[styles.change, { color: change > 0 ? colors.success : colors.error }]}>
                                 {change > 0 ? '+' : '−'}{Math.abs(change)} today

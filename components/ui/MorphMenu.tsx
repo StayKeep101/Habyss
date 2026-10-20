@@ -35,7 +35,8 @@ const CLOSE = { duration: 170, easing: Easing.out(Easing.cubic), reduceMotion: R
  * menus look like the rest of the app. An option runs after the menu has
  * closed, so an alert it raises is never hidden behind it.
  *
- * It always drops down from the button, wherever the button is and on any
+ * It drops down from the button (or grows up from it, when the button sits
+ * at the bottom of the screen), wherever the button is and on any
  * screen: positioned against the layer it is drawn in (measured, not assumed —
  * a page presented as a sheet sits lower than the screen), opening leftwards
  * from a button on the right and rightwards from one on the left, and never
@@ -106,10 +107,16 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
         const width = Math.min(WIDTH, layer.width - MARGIN * 2);
         const fromRight = rightEdge - width >= MARGIN;
         const room = layer.height - top - Math.max(insets.bottom, MARGIN);
+        // Near the bottom of the screen (a bar above the home indicator) it
+        // grows upwards instead, from the button's bottom edge.
+        const above = top + diameter - Math.max(insets.top, MARGIN);
+        const up = room < fullHeight && above > room;
+        const height = Math.min(fullHeight, Math.max(diameter, up ? above : room));
         return {
-            top,
+            top: up ? top + diameter - height : top,
+            up,
             width,
-            height: Math.min(fullHeight, Math.max(diameter, room)),
+            height,
             side: fromRight
                 ? { right: layer.width - rightEdge }
                 : { left: Math.max(MARGIN, Math.min(left, layer.width - width - MARGIN)) },
@@ -149,7 +156,7 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
                     {place ? (
                         <Animated.View style={[styles.window, { top: place.top }, place.side, windowStyle]} accessibilityViewIsModal>
                             <MatteSurface radius={Radius.card} elevation="floating" style={StyleSheet.absoluteFill}>
-                                <Animated.View style={[styles.dots, place.fromRight ? styles.dotsRight : styles.dotsLeft, { width: diameter, height: diameter }, dotsStyle]} pointerEvents="none">
+                                <Animated.View style={[styles.dots, place.up ? styles.dotsUp : null, place.fromRight ? styles.dotsRight : styles.dotsLeft, { width: diameter, height: diameter }, dotsStyle]} pointerEvents="none">
                                     <AppIcon name="ellipsis-horizontal" size={Control.icon} color={colors.textPrimary} />
                                 </Animated.View>
                                 <Animated.View style={[styles.content, { width }, contentStyle]}>
@@ -190,6 +197,7 @@ const styles = StyleSheet.create({
     disc: { alignItems: 'center', justifyContent: 'center' },
     window: { position: 'absolute', overflow: 'hidden' },
     dots: { position: 'absolute', top: 0, alignItems: 'center', justifyContent: 'center' },
+    dotsUp: { top: undefined, bottom: 0 },
     dotsRight: { right: 0 },
     dotsLeft: { left: 0 },
     content: { flex: 1 },

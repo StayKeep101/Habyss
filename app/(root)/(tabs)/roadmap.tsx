@@ -43,6 +43,8 @@ import { NowCard } from '@/components/Roadmap/NowCard';
 import { pickNow } from '@/lib/nowItem';
 import { flowDay, flowInputs, type FlowInput } from '@/lib/dayFlow';
 import { DayTimeline } from '@/components/Roadmap/DayTimeline';
+import { useMeals } from '@/hooks/useMeals';
+import { mealSlots } from '@/lib/meals';
 import { DEFAULT_ROADMAP_FILTER, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
@@ -880,13 +882,14 @@ const CalendarScreen = () => {
     const nowItem = useMemo(() => pickNow({ habits: habitsStore, tasks, done: completions, today: todayKey(), now: clock }), [habitsStore, tasks, completions, clock]);
     // The day as one flow (lib/dayFlow.ts): everything with a time in order,
     // the one you are on first, the rest moved up or back as the day goes.
+    const meals = useMeals();
     const flow = useMemo(() => {
         const day = localDateKey(selectedDate);
         const isToday = day === todayKey(clock);
         const habits = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
-        return flowDay(flowInputs({ habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions }),
+        return flowDay(flowInputs({ habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, meals: mealSlots(meals) }),
             isToday ? clock.getHours() * 60 + clock.getMinutes() : null);
-    }, [habitsStore, tasks, completions, selectedDate, clock]);
+    }, [habitsStore, tasks, completions, selectedDate, clock, meals]);
     const flowNow = dayPlan.isToday ? clock.getHours() * 60 + clock.getMinutes() : null;
     const toggleFlowItem = useCallback((item: FlowInput) => {
         if (item.kind === 'habit') { const habit = habitsStore.find(h => h.id === item.id); if (habit) void handleHabitPress(habit as Habit); }
@@ -894,7 +897,8 @@ const CalendarScreen = () => {
     }, [habitsStore, tasks, handleHabitPress, handleTaskToggle]);
     const openFlowItem = useCallback((item: FlowInput) => {
         lightFeedback();
-        if (item.kind === 'habit') router.push({ pathname: '/habit-detail', params: { habitId: item.id } });
+        if (item.kind === 'meal') router.push('/(root)/meals' as never);
+        else if (item.kind === 'habit') router.push({ pathname: '/habit-detail', params: { habitId: item.id } });
         else { const task = tasks.find(t => t.id === item.id); if (task) openTask(task); }
     }, [tasks, openTask, lightFeedback, router]);
     const focusFlowItem = useCallback((item: FlowInput) => {

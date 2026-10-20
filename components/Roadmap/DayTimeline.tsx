@@ -42,7 +42,7 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now }: {
 }) {
     const t = useTokens();
     const size = SIZES[useAppSettings().cardSize] ?? SIZES.standard;
-    const colorOf = (item: FlowInput) => item.color || (item.kind === 'task' ? t.color.warning : t.color.accent);
+    const colorOf = (item: FlowInput) => item.color || (item.kind === 'meal' ? t.color.textMuted : item.kind === 'task' ? t.color.warning : t.color.accent);
     return (
         <View>
             {flow.timeline.length ? flow.timeline.map((item, index) => (
@@ -86,6 +86,7 @@ function Row({ size, item, color, nextColor, last, now, onToggle, onOpen, onFocu
 }) {
     const t = useTokens();
     const height = pillHeight(size, item.end - item.start);
+    const meal = !!item.fixed;
     const live = item.state === 'now';
     const done = item.state === 'done';
     const left = live && now !== null ? Math.max(0, item.end - now) : null;
@@ -108,6 +109,7 @@ function Row({ size, item, color, nextColor, last, now, onToggle, onOpen, onFocu
                 accessibilityLabel={`${item.title}, ${rangeLabel(item.start, item.end)}${live ? ', now' : ''}`}>
                 <View style={styles.text}>
                     <View style={[styles.meta, { gap: t.space.xs }]}>
+                        {meal ? <AppIcon name="lock-closed" size={s(11)} color={t.color.textSubtle} /> : null}
                         {live ? <Text style={[t.type.caption, styles.nowTag, { color: t.color.accentText }]}>Now</Text> : item.state === 'next' ? (
                             <Text style={[t.type.caption, styles.nowTag, { color: t.color.textMuted }]}>Up next</Text>
                         ) : null}
@@ -116,9 +118,9 @@ function Row({ size, item, color, nextColor, last, now, onToggle, onOpen, onFocu
                         </Text>
                         {item.repeats ? <AppIcon name="repeat" size={s(12)} color={t.color.textSubtle} /> : null}
                     </View>
-                    <Text numberOfLines={2} style={[t.type[size.titleType], styles.name, { color: done ? t.color.textSubtle : t.color.textPrimary }, done && styles.struck]}>{item.title}</Text>
+                    <Text numberOfLines={2} style={[t.type[size.titleType], styles.name, { color: done ? t.color.textSubtle : t.color.textPrimary }, done && !meal && styles.struck]}>{item.title}</Text>
                     {moved ? <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{moved}</Text> : null}
-                    {live ? (
+                    {live && !meal ? (
                         <View style={[styles.liveRow, { gap: t.space.sm }]}>
                             <Pressable onPress={() => onFocus(item)} accessibilityRole="button" accessibilityLabel={`Focus on ${item.title}`}>
                                 <MatteSurface radius={t.radius.full} level="control" tint={color} style={styles.focus}>
@@ -130,7 +132,7 @@ function Row({ size, item, color, nextColor, last, now, onToggle, onOpen, onFocu
                         </View>
                     ) : null}
                 </View>
-                <Check size={size} done={done} color={color} onPress={() => onToggle(item)} label={item.title} />
+                {meal ? null : <Check size={size} done={done} color={color} onPress={() => onToggle(item)} label={item.title} />}
             </Pressable>
         </View>
     );

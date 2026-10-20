@@ -458,6 +458,7 @@ const Home = () => {
               uri={profileAvatar}
               done={dayTally.done}
               total={dayTally.total}
+              multiplier={marks.multiplier}
               onPress={() => router.push('/(root)/profile')}
             />
             <MarksBar marks={marks} onPress={() => setShowMarks(true)} />

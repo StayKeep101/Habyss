@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionSheetIOS, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useNavigation, useRouter } from 'expo-router';
@@ -9,6 +9,8 @@ import { AppIcon } from '@/components/ui/AppIcon';
 import { AppButton } from '@/components/ui/AppButton';
 import { IconButton } from '@/components/ui/IconButton';
 import { ThoughtRow } from '@/components/BrainDump/ThoughtRow';
+import { ThoughtActions, type ThoughtAction } from '@/components/BrainDump/ThoughtActions';
+import { MorphMenu } from '@/components/ui/MorphMenu';
 import { Colors } from '@/theme/colors';
 import { textOn } from '@/theme/tokens';
 import { useTheme } from '@/context/ThemeContext';
@@ -50,7 +52,7 @@ export default function BrainDumpScreen() {
     const { lightFeedback } = useHaptics();
     const [thoughts, setThoughts] = useState<Thought[]>([]);
     const [draft, setDraft] = useState('');
-    const [undo, setUndo] = useState<{ thought: Thought; index: number } | null>(null);
+    const [undo, setUndo] = useState<{ thought: Thought; index: number; said: string } | null>(null);
     const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const input = useRef<React.ElementRef<typeof MatteInput>>(null);
 
@@ -79,11 +81,11 @@ export default function BrainDumpScreen() {
         Keyboard.dismiss();
     };
 
-    const remove = useCallback(async (thought: Thought) => {
+    const remove = useCallback(async (thought: Thought, said = 'Deleted') => {
         const index = thoughts.findIndex(item => item.id === thought.id);
         setThoughts(prev => prev.filter(item => item.id !== thought.id));
         await removeThought(thought.id);
-        setUndo({ thought, index });
+        setUndo({ thought, index, said });
         if (undoTimer.current) clearTimeout(undoTimer.current);
         undoTimer.current = setTimeout(() => setUndo(null), UNDO_MS);
     }, [thoughts]);
@@ -160,8 +162,8 @@ export default function BrainDumpScreen() {
     /** On the clipboard, one thought per line. */
     const copy = async (list: Thought[]) => {
         const copied = await copyText(list.map(item => item.text).join('\n'));
-        if (copied) { lightFeedback(); setNotice(list.length === 1 ? 'Copied' : `Copied ${list.length}`); }
-        stopSelecting();
+        if (copied) { lightFeedback(); setNotice(list.length === 1 ? 'Copied' : `Copied ${list.length}`); stopSelecting(); }
+        else setNotice('Copying needs the latest app build');
     };
     const [notice, setNotice] = useState<string | null>(null);
     useEffect(() => {
@@ -172,47 +174,18 @@ export default function BrainDumpScreen() {
 
     const goals = useGoalsInsights().habits.filter(habit => habit.isGoal && !habit.isArchived);
 
-    /** A short native menu: iOS's action sheet, or a plain alert elsewhere. */
-    const ask = (title: string, options: { label: string; run: () => void; destructive?: boolean }[]) => {
-        if (Platform.OS === 'ios') {
-            ActionSheetIOS.showActionSheetWithOptions({
-                title,
-                options: [...options.map(option => option.label), 'Cancel'],
-                cancelButtonIndex: options.length,
-                destructiveButtonIndex: options.findIndex(option => option.destructive),
-            }, index => { if (index < options.length) options[index].run(); });
-            return;
-        }
-        Alert.alert(title, undefined, [...options.map(option => ({ text: option.label, onPress: option.run, style: option.destructive ? 'destructive' as const : 'default' as const })), { text: 'Cancel', style: 'cancel' as const }]);
-    };
+    // The sheet a held thought opens (or the selection's "Add to a goal").
+    const [acting, setActing] = useState<{ list: Thought[]; goals: boolean } | null>(null);
 
-    const chooseGoal = (list: Thought[]) => {
-        if (!goals.length) {
-            Alert.alert('No goals yet', 'Make a goal first, then file thoughts under it.');
-            return;
-        }
-        ask('Add to which goal?', goals.map(goal => ({ label: goal.name, run: () => void intoTasks(list, goal.id) })));
-    };
-
-    /**
-     * Everything that can be done to a thought, for one or for several: the
-     * same menu from holding a thought or from the selection bar.
-     */
-    const actOn = (list: Thought[]) => {
-        if (!list.length) return;
+    /** One of the sheet's tiles, for one thought or for every selected one. */
+    const act = (list: Thought[], action: ThoughtAction) => {
+        setActing(null);
         const one = list.length === 1 ? list[0] : null;
-        const n = list.length;
-        ask(one ? (one.text.length > 60 ? `${one.text.slice(0, 60)}…` : one.text) : `${n} thoughts`, [
-            { label: one ? 'Copy' : `Copy ${n}`, run: () => void copy(list) },
-            { label: one ? 'Make it a task' : `Make ${n} tasks`, run: () => one ? turnInto(one, 'task') : void intoTasks(list) },
-            { label: one ? 'Make it a habit' : `Make ${n} habits`, run: () => one ? turnInto(one, 'habit') : void intoHabits(list) },
-            { label: one ? 'Make it a goal' : `Make ${n} goals`, run: () => one ? turnInto(one, 'goal') : intoGoals(list) },
-            { label: 'Add to a goal', run: () => chooseGoal(list) },
-            { label: one ? 'Delete' : `Delete ${n}`, destructive: true, run: () => {
-                if (one && !selecting) { void remove(one); return; }
-                void removeMany(list); stopSelecting();
-            } },
-        ]);
+        if (action === 'copy') { void copy(list); return; }
+        if (one && !selecting) { setTimeout(() => turnInto(one, action), 250); return; }
+        if (action === 'task') void intoTasks(list);
+        else if (action === 'habit') void intoHabits(list);
+        else intoGoals(list);
     };
 
     /** Held and let go: that thought, or while selecting, every ticked one with it. */
@@ -221,8 +194,9 @@ export default function BrainDumpScreen() {
             ? thoughts.filter(item => picked.has(item.id) || item.id === thought.id)
             : [thought];
         if (selecting) setPicked(new Set(list.map(item => item.id)));
-        actOn(list);
+        setActing({ list, goals: false });
     };
+    const pickedList = thoughts.filter(item => picked.has(item.id));
 
     const deletePicked = () => {
         const list = thoughts.filter(item => picked.has(item.id));
@@ -322,6 +296,7 @@ export default function BrainDumpScreen() {
                                 selected={picked.has(thought.id)}
                                 onToggle={() => togglePicked(thought.id)}
                                 onHold={() => held(thought)}
+                                onDone={() => void remove(thought, 'Done')}
                                 onDelete={() => void remove(thought)}
                                 onEdit={text => void edit(thought, text)}
                                 onEditingChange={editing => setEditingId(current => editing ? thought.id : current === thought.id ? null : current)}
@@ -339,11 +314,18 @@ export default function BrainDumpScreen() {
                 {selecting ? (
                     <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
                         <AppButton label="Copy" icon="copy" disabled={!picked.size}
-                            onPress={() => void copy(thoughts.filter(item => picked.has(item.id)))} style={styles.flex} />
-                        <AppButton label="Actions" icon="ellipsis-horizontal" disabled={!picked.size}
-                            onPress={() => actOn(thoughts.filter(item => picked.has(item.id)))} style={styles.flex} />
+                            onPress={() => void copy(pickedList)} style={styles.flex} />
                         <AppButton label="Delete" icon="trash" variant="danger" disabled={!picked.size}
                             onPress={deletePicked} style={styles.flex} />
+                        {/* Everything else, in the app's own menu that grows out of the button. */}
+                        {picked.size ? (
+                            <MorphMenu label="More actions" title={`${picked.size} selected`} titleIcon="checkmark" diameter={54} items={[
+                                { label: picked.size === 1 ? 'Make a task' : `Make ${picked.size} tasks`, icon: 'checkbox-outline', onPress: () => act(pickedList, 'task') },
+                                { label: picked.size === 1 ? 'Make a habit' : `Make ${picked.size} habits`, icon: 'repeat', onPress: () => act(pickedList, 'habit') },
+                                { label: picked.size === 1 ? 'Make a goal' : `Make ${picked.size} goals`, icon: 'flag-outline', onPress: () => act(pickedList, 'goal') },
+                                { label: 'Add to a goal', icon: 'flag', onPress: () => setActing({ list: pickedList, goals: true }) },
+                            ]} />
+                        ) : null}
                     </View>
                 ) : editingId === null ? (
                 <View style={[styles.composer, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
@@ -372,6 +354,12 @@ export default function BrainDumpScreen() {
                     ) : null}
                 </View>
                 ) : null}
+                <ThoughtActions visible={!!acting} count={acting?.list.length ?? 0}
+                    caption={acting?.list.length === 1 ? acting.list[0].text : undefined}
+                    goals={goals} startWithGoals={acting?.goals}
+                    onClose={() => setActing(null)}
+                    onAction={action => acting && act(acting.list, action)}
+                    onAddToGoal={goalId => { const list = acting?.list ?? []; setActing(null); void intoTasks(list, goalId); }} />
                 {notice ? (
                     <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={[styles.undo, { backgroundColor: colors.surfaceTertiary }]}>
                         <Text numberOfLines={1} style={[styles.undoText, { color: colors.textSecondary }]}>{notice}</Text>
@@ -379,7 +367,7 @@ export default function BrainDumpScreen() {
                 ) : null}
                 {undo ? (
                     <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)} style={[styles.undo, { backgroundColor: colors.surfaceTertiary }]}>
-                        <Text numberOfLines={1} style={[styles.undoText, { color: colors.textSecondary }]}>Deleted</Text>
+                        <Text numberOfLines={1} style={[styles.undoText, { color: colors.textSecondary }]}>{undo.said}</Text>
                         <Text onPress={() => void bringBack()} style={[styles.undoAction, { color: primary }]} accessibilityRole="button">Undo</Text>
                     </Animated.View>
                 ) : null}

@@ -14,11 +14,14 @@ import { habitMinutes, toMinutes } from './dayPlan';
  * drags the evening run to 10am.
  *
  * Things with no time sit under the timeline, as "Anytime".
+ *
+ * Meals (Settings → Meals) are fixed: they never move, and nothing is moved
+ * into them. Whatever would land on one is pushed past its end instead.
  */
 
 export interface FlowInput {
     id: string;
-    kind: 'habit' | 'task';
+    kind: 'habit' | 'task' | 'meal';
     title: string;
     /** Minutes from midnight it was planned for; null when it has no time. */
     start: number | null;
@@ -28,6 +31,8 @@ export interface FlowInput {
     color?: string;
     /** Repeats (a habit), for the little repeat mark. */
     repeats?: boolean;
+    /** Never moves, and nothing moves into it (a meal). */
+    fixed?: boolean;
 }
 
 export interface FlowItem extends FlowInput {
@@ -74,8 +79,30 @@ export function flowDay(items: FlowInput[], now: number | null): DayFlow {
     /** The previous item's planned start and end, to tell a chain from a gap. */
     let previous: { start: number; end: number; done: boolean } | null = null;
 
+    // Meals and anything else fixed: nothing placed may overlap one.
+    const fixed = timed.filter(item => item.fixed).map(item => ({ start: item.plannedStart, end: item.plannedStart + item.minutes }));
+    const clear = (start: number, minutes: number) => {
+        let at = start;
+        for (let moved = true; moved;) {
+            moved = false;
+            for (const slot of fixed) {
+                if (at < slot.end && at + minutes > slot.start) { at = slot.end; moved = true; }
+            }
+        }
+        return at;
+    };
+
     for (const item of timed) {
         const plannedEnd = item.plannedStart + item.minutes;
+        if (item.fixed) {
+            // In the past once it is over, "now" while it lasts; never shifted.
+            const state: FlowItem['state'] = now !== null && now >= plannedEnd ? 'done' : now !== null && now >= item.plannedStart ? 'now' : 'later';
+            timeline.push({ ...item, start: item.plannedStart, end: plannedEnd, shift: 0, state });
+            // What follows waits for the meal to end.
+            if (cursor !== null) cursor = Math.max(cursor, plannedEnd);
+            previous = { start: item.plannedStart, end: plannedEnd, done: state === 'done' };
+            continue;
+        }
         if (item.done) {
             timeline.push({ ...item, start: item.plannedStart, end: plannedEnd, shift: 0, state: 'done' });
             previous = { start: item.plannedStart, end: plannedEnd, done: true };
@@ -106,17 +133,26 @@ export function flowDay(items: FlowInput[], now: number | null): DayFlow {
             if (cursor > item.plannedStart || chained) start = cursor;
             state = timeline.some(placed => placed.state === 'next') ? 'later' : 'next';
         }
+        if (now !== null) start = clear(start, item.minutes);
         const end = start + item.minutes;
         timeline.push({ ...item, start, end, shift: start - item.plannedStart, state });
         if (cursor !== null) cursor = end;
         previous = { start: item.plannedStart, end: plannedEnd, done: false };
     }
+    // In time order, now that some have been pushed past a meal.
+    timeline.sort((a, b) => a.start - b.start);
     return { timeline, anytime, current };
 }
 
-/** Today's habits and tasks as flow input. */
-export function flowInputs(input: { habits: Habit[]; tasks: Task[]; done: Record<string, boolean> }): FlowInput[] {
-    const items: FlowInput[] = [];
+/** Today's habits, tasks and meals as flow input. */
+export function flowInputs(input: {
+    habits: Habit[]; tasks: Task[]; done: Record<string, boolean>;
+    meals?: { id: string; name: string; start: number; minutes: number }[];
+}): FlowInput[] {
+    const items: FlowInput[] = (input.meals ?? []).map(meal => ({
+        id: `meal:${meal.id}`, kind: 'meal' as const, title: meal.name, start: meal.start, minutes: meal.minutes,
+        done: false, icon: 'restaurant', fixed: true,
+    }));
     for (const habit of input.habits) {
         items.push({
             id: habit.id, kind: 'habit', title: habit.name, start: toMinutes(habit.startTime),
@@ -154,6 +190,6 @@ export function lengthLabel(minutes: number): string {
  * even if the record has not caught up with it yet.
  */
 export function upNext(flow: DayFlow, finishedId: string): FlowInput | null {
-    const open = (item: FlowInput) => !item.done && item.id !== finishedId;
+    const open = (item: FlowInput) => !item.done && !item.fixed && item.id !== finishedId;
     return flow.timeline.find(open) ?? flow.anytime.find(open) ?? null;
 }

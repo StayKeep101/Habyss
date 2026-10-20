@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { MatteInput } from '@/components/ui/MatteInput';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+// The gesture handler's Pressable, so a swipe that starts on the words
+// cancels the tap instead of also opening the thought for editing.
+import { Gesture, GestureDetector, Pressable } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut, LinearTransition, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { SwipeRow } from '@/components/ui/SwipeRow';
 import { AppIcon } from '@/components/ui/AppIcon';
+import { CheckPop } from '@/components/ui/CheckPop';
 import { Colors } from '@/theme/colors';
 import { FontFamily, Spacing } from '@/theme/designSystem';
 import { useTheme } from '@/context/ThemeContext';
@@ -21,15 +24,17 @@ const timeOf = (iso: string) => {
         : date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
 
-/** Moved less than this after the hold, letting go opens the menu instead of moving it. */
-const STILL = 10;
+/** A hold is a finger kept still: any more movement than this is a swipe or a drag. */
+const STILL = 6;
+/** Long enough that a slow swipe never counts as a hold. */
+const HOLD_MS = 420;
 
 /**
  * One thought: just its words. Swipe left to delete it, tap to reword it.
  * Hold it and let go to turn it into a task, habit or goal (the only way
  * to); hold and drag to move it. While selecting, a tap ticks it instead.
  */
-export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onDelete, onEdit, onEditingChange, onLayout, onDragStart, onDragMove, onDragEnd }: {
+export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onDone, onDelete, onEdit, onEditingChange, onLayout, onDragStart, onDragMove, onDragEnd }: {
     thought: Thought;
     /** Choosing several thoughts: a tap ticks this one. */
     selecting: boolean;
@@ -37,6 +42,8 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
     onToggle: () => void;
     /** Held and let go without moving: the menu for turning it into something. */
     onHold: () => void;
+    /** The circle beside it, tapped: dealt with, so it goes. */
+    onDone: () => void;
     onDelete: () => void;
     onEdit: (text: string) => void;
     /** Rewording in place starts or ends, so the page can hide its own field. */
@@ -59,13 +66,13 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
     // Whether this hold turned into a drag; if not, letting go opens the menu.
     const moved = useSharedValue(false);
     const drag = Gesture.Pan()
-        .activateAfterLongPress(280)
+        .activateAfterLongPress(HOLD_MS)
         .onStart(() => { moved.value = true; lift.value = withSpring(1); runOnJS(onDragStart)(); })
         .onUpdate(event => { dragY.value = event.translationY; runOnJS(onDragMove)(event.translationY); })
         .onEnd(event => { runOnJS(onDragEnd)(event.translationY); })
         .onFinalize(() => { dragY.value = 0; lift.value = withSpring(0); });
     const hold = Gesture.LongPress()
-        .minDuration(280)
+        .minDuration(HOLD_MS)
         .maxDistance(STILL)
         .onBegin(() => { moved.value = false; })
         .onStart(() => { runOnJS(mediumFeedback)(); })
@@ -77,6 +84,17 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
         shadowOpacity: lift.value * 0.25,
     }));
 
+    // Tapped circle: it fills, a beat, then the thought fades out and the
+    // ones under it slide up into its place.
+    const [ticked, setTicked] = useState(false);
+    const tick = () => {
+        if (ticked) return;
+        selectionFeedback();
+        setTicked(true);
+        setTimeout(onDone, 380);
+    };
+    const on = selecting ? selected : ticked;
+
     const finish = () => {
         setEditing(false);
         onEditingChange?.(false);
@@ -84,19 +102,23 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
     };
 
     return (
-        <Animated.View layout={LinearTransition.duration(200)} entering={FadeIn.duration(180)} exiting={FadeOut.duration(150)}
+        <Animated.View layout={LinearTransition.duration(240)} entering={FadeIn.duration(180)} exiting={FadeOut.duration(260)}
             onLayout={onLayout} style={[styles.shadow, lifted]}>
             <GestureDetector gesture={gesture}>
                 <View>
                     <SwipeRow right={selecting ? undefined : [{ icon: 'trash', label: 'Delete', color: colors.error, onPress: onDelete, destructive: true }]}>
                         <View style={[styles.row, { backgroundColor: colors.background }]}>
-                            {selecting ? (
-                                <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(120)}>
-                                    <View style={[styles.tick, { borderColor: selected ? primary : colors.textTertiary, backgroundColor: selected ? primary : undefined }]}>
-                                        {selected ? <AppIcon name="checkmark" size={14} color={textOn(primary)} /> : null}
+                            {/* The circle: tap it and the thought is done and goes; while
+                                selecting, it is the tick that picks it. */}
+                            <Pressable onPress={selecting ? () => { selectionFeedback(); onToggle(); } : tick} hitSlop={10}
+                                accessibilityRole="checkbox" accessibilityState={{ checked: on }}
+                                accessibilityLabel={selecting ? 'Select thought' : 'Done, remove thought'}>
+                                <CheckPop active={on} color={primary} size={22}>
+                                    <View style={[styles.tick, { borderColor: on ? primary : colors.textTertiary, backgroundColor: on ? primary : undefined }]}>
+                                        {on ? <AppIcon name="checkmark" size={14} color={textOn(primary)} /> : null}
                                     </View>
-                                </Animated.View>
-                            ) : null}
+                                </CheckPop>
+                            </Pressable>
                             {editing ? (
                                 <MatteInput
                                     bare
@@ -119,12 +141,12 @@ export function ThoughtRow({ thought, selecting, selected, onToggle, onHold, onD
                                     }}
                                     // Held, the menu opens instead: never a reword as well.
                                     onLongPress={() => undefined}
-                                    delayLongPress={280}
+                                    delayLongPress={HOLD_MS}
                                     style={styles.flex}
                                     accessibilityRole={selecting ? 'checkbox' : undefined}
                                     accessibilityState={selecting ? { checked: selected } : undefined}
                                     accessibilityHint={selecting ? 'Tap to select. Hold to turn the selected thoughts into something' : 'Hold to turn it into a task, habit or goal, or hold and drag to move. Swipe left to delete'}>
-                                    <Text style={[styles.text, { color: colors.textPrimary }]}>{thought.text}</Text>
+                                    <Text style={[styles.text, { color: ticked ? colors.textTertiary : colors.textPrimary }, ticked && styles.struck]}>{thought.text}</Text>
                                 </Pressable>
                             )}
                             <Text style={[styles.time, { color: colors.textTertiary }]}>{timeOf(thought.createdAt)}</Text>
@@ -143,5 +165,6 @@ const styles = StyleSheet.create({
     text: { flex: 1, fontFamily: FontFamily.regular, fontSize: 17, lineHeight: 24 },
     input: { padding: 0 },
     time: { fontFamily: FontFamily.regular, fontSize: 11, paddingTop: 4 },
+    struck: { textDecorationLine: 'line-through' },
     tick: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
 });
