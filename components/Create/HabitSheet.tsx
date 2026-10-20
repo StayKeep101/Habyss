@@ -8,6 +8,7 @@ import { useShareDraft } from '@/hooks/useShareDraft';
 import { ModalHeader } from '@/components/ui/ModalHeader';
 import { AIBadge } from '@/components/Common/AIBadge';
 import { Choices, DetailBar, type DetailItem } from '@/components/Create/DetailBar';
+import { DIFFICULTIES, difficultyLabel, type Difficulty } from '@/lib/difficulty';
 import { CreationTextInput } from '@/components/Create/CreationTextInput';
 import { DictateField } from '@/components/Create/DictateField';
 import { TypingPlaceholder } from '@/components/ui/TypingPlaceholder';
@@ -44,7 +45,7 @@ const DAYS: { id: string; label: string }[] = [
     { id: 'thu', label: 'T' }, { id: 'fri', label: 'F' }, { id: 'sat', label: 'S' }, { id: 'sun', label: 'S' },
 ];
 const EVERY_DAY = DAYS.map(day => day.id);
-type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'priority' | 'goal' | 'look' | 'notes' | null;
+type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'priority' | 'difficulty' | 'goal' | 'look' | 'notes' | null;
 
 interface Draft {
     name: string;
@@ -70,6 +71,8 @@ interface Draft {
     rule: Recurrence;
     /** 1 high, 2 normal, 3 low: where the timeline fits it when it has no time. */
     priority?: 1 | 2 | 3;
+    /** How hard it is: hard ones get your best hours. */
+    difficulty?: Difficulty;
 }
 
 const PRIORITIES: { id: 1 | 2 | 3; label: string }[] = [
@@ -83,6 +86,7 @@ const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline'
 const fromHabit = (from: Habit): Draft => ({
     name: from.name,
     priority: from.priority,
+    difficulty: from.difficulty,
     days: from.taskDays?.length ? from.taskDays : EVERY_DAY,
     startTime: from.startTime,
     durationMinutes: from.durationMinutes,
@@ -278,6 +282,7 @@ export const HabitSheet: React.FC<{
                 reminderOffset: draft.reminderOffset,
                 reminderMessage: draft.reminderMessage?.trim() || undefined,
                 priority: draft.priority ?? 2,
+                difficulty: draft.difficulty,
                 locationReminders: draft.places,
                 // Dropped when the unit no longer measures what Health does, so
                 // an edit cannot leave a step count answering for pages.
@@ -389,6 +394,10 @@ export const HabitSheet: React.FC<{
             id: 'priority', icon: 'flame-outline', label: 'Priority',
             value: !draft.priority || draft.priority === 2 ? undefined : PRIORITIES.find(item => item.id === draft.priority)?.label,
             content: <Choices options={PRIORITIES} value={draft.priority ?? 2} accent={accent} onChange={priority => change({ priority })} />,
+        },
+        {
+            id: 'difficulty', icon: 'barbell-outline', label: 'Difficulty', value: difficultyLabel(draft.difficulty),
+            content: <Choices options={DIFFICULTIES} value={draft.difficulty ?? 2} accent={accent} onChange={difficulty => change({ difficulty })} />,
         },
         ...(goals.length > 0 ? [{
             id: 'goal', icon: 'flag-outline' as const, label: 'Goal', value: goalName,

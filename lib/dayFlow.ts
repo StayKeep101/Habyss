@@ -35,6 +35,8 @@ export interface FlowInput {
     fixed?: boolean;
     /** For things with no time: lower goes first when the day is filled in. */
     urgency?: number;
+    /** 1 easy, 2 medium, 3 hard: hard ones get your best hours. */
+    difficulty?: 1 | 2 | 3;
 }
 
 export interface FlowItem extends FlowInput {
@@ -78,7 +80,18 @@ const BUFFER = 5;
  * calendar events are placed, each is given the first free gap that fits it,
  * most urgent first, between waking and bedtime (and not before now).
  */
-export function flowDay(items: FlowInput[], now: number | null, window: { wake: number; sleep: number } = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
+export interface DayWindowMinutes {
+    wake: number;
+    sleep: number;
+    /**
+     * Your best hours, from what Echo found (energy peaks, when focus holds,
+     * when tasks get finished). Hard things are put here; without it they go
+     * first, while the day is fresh.
+     */
+    peak?: { start: number; end: number } | null;
+}
+
+export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
     const placed = flowTimed(items.filter(item => item.start !== null), now);
     const untimed = items.filter(item => item.start === null);
     if (!untimed.length) return placed;
@@ -86,7 +99,7 @@ export function flowDay(items: FlowInput[], now: number | null, window: { wake: 
 }
 
 /** Gives every untimed item a slot, then settles which one is now and next. */
-function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window: { wake: number; sleep: number }): DayFlow {
+function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window: DayWindowMinutes): DayFlow {
     const sleep = window.sleep > window.wake ? window.sleep : window.sleep + 1440;
     // Busy: everything still to happen, plus anything done that sits ahead of now.
     const busy = flow.timeline.map(item => ({ start: item.start, end: item.end })).sort((a, b) => a.start - b.start);
@@ -98,7 +111,12 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
         return null;
     };
     const roundUp = (minutes: number) => Math.ceil(minutes / 5) * 5;
-    const order = (a: FlowInput, b: FlowInput) => (a.urgency ?? 50) - (b.urgency ?? 50) || b.minutes - a.minutes || a.title.localeCompare(b.title);
+    // Priority first; within it the hardest first, so the hard part is done
+    // while there is the most in the tank and the easy things close the day.
+    const level = (item: FlowInput) => Math.floor(((item.urgency ?? 30) + 10) / 20);
+    const order = (a: FlowInput, b: FlowInput) => level(a) - level(b) || (b.difficulty ?? 2) - (a.difficulty ?? 2)
+        || (a.urgency ?? 50) - (b.urgency ?? 50) || b.minutes - a.minutes || a.title.localeCompare(b.title);
+    const peak = window.peak ?? null;
     const timeline = [...flow.timeline];
     let late = Math.max(sleep, ...busy.map(slot => slot.end));
 
@@ -106,7 +124,9 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
     const place = (list: FlowInput[], from: number) => {
         for (const item of [...list].sort(order)) {
             const minutes = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
-            const at = slotFor(from, minutes);
+            // Hard: into your best hours when they are known and still ahead.
+            const inPeak = item.difficulty === 3 && peak && peak.end > from ? slotFor(Math.max(from, peak.start), minutes) : null;
+            const at = inPeak !== null && peak && inPeak < peak.end ? inPeak : slotFor(from, minutes);
             const start = at ?? late;
             if (at === null) late = start + minutes + BUFFER;
             const placedItem: FlowItem = { ...item, start, end: start + minutes, plannedStart: start, shift: 0, state: item.done ? 'done' : 'later', auto: true, overflow: at === null };
@@ -249,14 +269,14 @@ export function flowInputs(input: {
         items.push({
             id: habit.id, kind: 'habit', title: habit.name, start: toMinutes(habit.startTime),
             minutes: habitMinutes(habit), done: !!input.done[habit.id], icon: habit.icon, color: habit.color, repeats: true,
-            urgency: urgencyOf(habit.priority, undefined, input.today),
+            urgency: urgencyOf(habit.priority, undefined, input.today), difficulty: habit.difficulty,
         });
     }
     for (const task of input.tasks) {
         if (task.status === 'cancelled') continue;
         const minutes = task.measure === 'time' && task.target ? task.target : Number(task.estimatedMinutes) || 0;
         items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done',
-            urgency: urgencyOf(task.priority, task.dueDate, input.today) });
+            urgency: urgencyOf(task.priority, task.dueDate, input.today), difficulty: task.difficulty });
     }
     return items;
 }

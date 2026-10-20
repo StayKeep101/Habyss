@@ -141,3 +141,19 @@ describe('filling the day', () => {
         expect(urgencyOf(3, '2026-10-01', '2026-10-20')).toBeGreaterThan(urgencyOf(1, undefined, '2026-10-20'));
     });
 });
+
+describe('hard things first, or in your best hours', () => {
+    const job = (id: string, difficulty: 1 | 2 | 3) => ({ id, kind: 'task' as const, title: id, start: null, minutes: 60, done: false, urgency: 10, difficulty });
+    const day = { wake: 480, sleep: 1380 };
+    it('puts the hardest first and the easiest last, by default', () => {
+        const flow = flowDay([job('easy', 1), job('hard', 3), job('medium', 2)], null, day);
+        expect(flow.timeline.map(row => row.id)).toEqual(['hard', 'medium', 'easy']);
+    });
+    it('gives a night owl the hard one in the evening, and fills the morning with the rest', () => {
+        const flow = flowDay([job('easy', 1), job('hard', 3), job('medium', 2)], null, { ...day, peak: { start: 1080, end: 1320 } });
+        const at = (id: string) => flow.timeline.find(row => row.id === id)!.start;
+        expect(at('hard')).toBe(1080);
+        expect(at('medium')).toBe(480);
+        expect(flow.timeline.map(row => row.id)).toEqual(['medium', 'easy', 'hard']);
+    });
+});

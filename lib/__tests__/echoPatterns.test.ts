@@ -1,4 +1,4 @@
-import { findPatterns, nextPatternLine, patternDigest, sleepLabel, type PatternInput } from '../echoPatterns';
+import { findPatterns, nextPatternLine, patternDigest, peakWindow, sleepLabel, type PatternInput } from '../echoPatterns';
 import { shiftDay, type HistoryDay } from '../habitDays';
 import type { CheckIn } from '../checkIns';
 import type { Habit } from '../habitsSQLite';
@@ -87,5 +87,14 @@ describe("Echo's patterns", () => {
         const said = [nextPatternLine(patterns, () => 0), nextPatternLine(patterns, () => 0)];
         expect(new Set(said)).toEqual(new Set(['one', 'two']));
         expect(nextPatternLine([], () => 0)).toBeNull();
+    });
+});
+
+describe('your best hours', () => {
+    const p = (id: string, kind: string) => ({ id, kind, text: '', evidence: '', strength: 1, short: '' }) as never;
+    it('comes from when energy peaks, else when focus holds or tasks get done', () => {
+        expect(peakWindow([p('task_hour:14', 'task_hour'), p('energy_time:evening', 'energy_time')])).toEqual({ start: 1080, end: 1320 });
+        expect(peakWindow([p('focus_hour:21', 'focus_hour')])).toEqual({ start: 1260, end: 1440 });
+        expect(peakWindow([])).toBeNull();
     });
 });

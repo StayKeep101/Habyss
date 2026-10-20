@@ -45,6 +45,8 @@ import { flowDay, flowInputs, type FlowInput } from '@/lib/dayFlow';
 import { DayTimeline } from '@/components/Roadmap/DayTimeline';
 import { useMeals } from '@/hooks/useMeals';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useEchoPatterns } from '@/hooks/useEchoPatterns';
+import { peakWindow } from '@/lib/echoPatterns';
 import { mealSlots } from '@/lib/meals';
 import { DEFAULT_ROADMAP_FILTER, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
@@ -885,6 +887,9 @@ const CalendarScreen = () => {
     // the one you are on first, the rest moved up or back as the day goes.
     const meals = useMeals();
     const calendarEvents = useCalendarEvents(localDateKey(selectedDate));
+    // Your best hours, from Echo's patterns: hard things are fitted in there.
+    const patterns = useEchoPatterns();
+    const peak = useMemo(() => peakWindow(patterns), [patterns]);
     const flow = useMemo(() => {
         const day = localDateKey(selectedDate);
         const isToday = day === todayKey(clock);
@@ -894,9 +899,9 @@ const CalendarScreen = () => {
         return flowDay(
             flowInputs({ habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, meals: mealSlots(meals), events: calendarEvents, today: todayKey(clock) }),
             isToday ? clock.getHours() * 60 + clock.getMinutes() : null,
-            { wake: minutesOf(dayWindow.wake), sleep: minutesOf(dayWindow.sleep) },
+            { wake: minutesOf(dayWindow.wake), sleep: minutesOf(dayWindow.sleep), peak },
         );
-    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, dayWindow]);
+    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, dayWindow, peak]);
     const flowNow = dayPlan.isToday ? clock.getHours() * 60 + clock.getMinutes() : null;
     const toggleFlowItem = useCallback((item: FlowInput) => {
         if (item.kind === 'habit') { const habit = habitsStore.find(h => h.id === item.id); if (habit) void handleHabitPress(habit as Habit); }

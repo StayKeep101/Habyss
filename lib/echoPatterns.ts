@@ -363,3 +363,20 @@ export async function loadPatternLines(): Promise<string[]> {
         return [];
     }
 }
+
+/**
+ * Your best hours, read off the patterns: when energy peaks, else when focus
+ * sessions hold, else when tasks get finished. Null until one is clear. The
+ * timeline puts hard things here, so a night owl's hard work goes at night.
+ */
+export function peakWindow(patterns: Pattern[]): { start: number; end: number } | null {
+    const parts: Record<string, { start: number; end: number }> = {
+        morning: { start: 8 * 60, end: 12 * 60 }, afternoon: { start: 13 * 60, end: 17 * 60 }, evening: { start: 18 * 60, end: 22 * 60 },
+    };
+    const energy = patterns.find(pattern => pattern.kind === 'energy_time');
+    if (energy) return parts[energy.id.split(':')[1]] ?? null;
+    const hours = patterns.find(pattern => pattern.kind === 'focus_hour') ?? patterns.find(pattern => pattern.kind === 'task_hour');
+    if (!hours) return null;
+    const hour = Number(hours.id.split(':')[1]);
+    return Number.isFinite(hour) ? { start: hour * 60, end: hour * 60 + 180 } : null;
+}

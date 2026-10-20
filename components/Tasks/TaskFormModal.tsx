@@ -23,6 +23,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useSmartParse } from '@/hooks/useSmartParse';
 import { smartParseTask } from '@/lib/smartParse';
 import { describeParsedTask, parseTaskText } from '@/lib/taskParser';
+import { DIFFICULTIES, difficultyLabel, type Difficulty } from '@/lib/difficulty';
 import { createTask, updateTask, type Task, type TaskMeasure, type TaskPriority } from '@/lib/tasks';
 import { localDateKey } from '@/lib/habitSchedule';
 import { getGoals, type Habit } from '@/lib/habitsSQLite';
@@ -54,6 +55,8 @@ interface Draft {
     dueTime?: string;
     estimate?: number;
     priority: TaskPriority;
+    /** How hard it is: the timeline puts hard things in your best hours. */
+    difficulty?: Difficulty;
     goalId?: string;
     measure: TaskMeasure;
     /** A count, or minutes for time. */
@@ -69,6 +72,7 @@ const fromTask = (task: Task): Draft => ({
     dueTime: task.dueTime,
     estimate: task.estimatedMinutes,
     priority: task.priority,
+    difficulty: task.difficulty,
     goalId: task.goalId,
     measure: task.measure ?? 'done',
     target: task.target,
@@ -202,6 +206,7 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 dueTime: draft.dueTime,
                 estimatedMinutes: draft.estimate,
                 priority: draft.priority,
+                difficulty: draft.difficulty,
                 goalId: draft.goalId,
             };
             if (current) await updateTask(current.id, input);
@@ -277,6 +282,10 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
             content: (
                 <Choices options={PRIORITIES} value={draft.priority} accent={accent} onChange={priority => change({ priority })} />
             ),
+        },
+        {
+            id: 'difficulty', icon: 'barbell-outline', label: 'Difficulty', value: difficultyLabel(draft.difficulty),
+            content: <Choices options={DIFFICULTIES} value={draft.difficulty ?? 2} accent={accent} onChange={difficulty => change({ difficulty })} />,
         },
         ...(goals.length > 0 ? [{
             id: 'goal', icon: 'trophy-outline' as const, label: 'Goal', value: goalName,

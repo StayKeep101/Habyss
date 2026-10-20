@@ -156,6 +156,10 @@ async function runMigrations(db: any): Promise<void> {
  */
 async function migrateToV15(db: any): Promise<void> {
     await addColumnIfMissing(db, 'habits', 'priority', 'INTEGER');
+    // How hard each one is (1 easy … 3 hard), so the timeline can put the
+    // hardest in your best hours. Also on this phone only.
+    await addColumnIfMissing(db, 'habits', 'difficulty', 'INTEGER');
+    await addColumnIfMissing(db, 'tasks', 'difficulty', 'INTEGER');
     console.log('[Database] Migrated to schema v15');
 }
 
