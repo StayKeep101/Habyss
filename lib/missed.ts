@@ -1,106 +1,96 @@
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
-import { habitDays, shiftDay, type HistoryDay } from './habitDays';
+import { habitDays, type HistoryDay } from './habitDays';
 import { localDateKey } from './habitSchedule';
 
 /**
- * Everything you did not get to, day by day: each habit that was due and not
- * kept, each task that was due and not done, and what became of it — done the
- * next time, missed again, moved to the next day automatically, still waiting.
+ * What is missed right now, and nothing else.
  *
- * Read from what is already recorded: habit history, task due dates and when
- * they were finished, and the log of tasks the timeline carried to the next
- * day because there was no room before bedtime (lib/movedTasks.ts). Today is
- * not counted (it is not over), and a habit skipped on purpose is not a miss.
+ * A habit is listed while its last due day (or days) went undone, with how
+ * many times in a row: once is a slip — fine, as long as it stays once — and
+ * twice or more is how a habit is lost, so those come first. Doing it makes
+ * it leave the list; it comes back only if it is missed again.
+ *
+ * A task is listed while it is past its day and still open, and a task the
+ * timeline carried over to today (no room before bedtime) says so until done.
+ * A day skipped on purpose is not a miss; today is not over, so it never is.
  */
-export type MissTone = 'recovered' | 'again' | 'pending' | 'moved' | 'late';
+export type MissLevel = 'twice' | 'once' | 'late' | 'moved';
 export interface Miss {
     key: string;
     id: string;
     kind: 'habit' | 'task';
     title: string;
     color?: string;
-    /** The day it was missed. */
-    day: string;
-    /** What became of it, in a few words. */
-    outcome: string;
-    tone: MissTone;
+    level: MissLevel;
+    /** Times in a row for a habit; days late for a task. */
+    count: number;
+    /** The first day of this run of misses. */
+    since: string;
+    /** A habit due again today, still to do: the chance to make it a one-off. */
+    dueToday?: boolean;
+    /** What it is, in a few words. */
+    line: string;
 }
-export interface MissedDay { day: string; items: Miss[] }
 export interface Missed {
-    /** Most recent first; only days something was missed. */
-    days: MissedDay[];
-    /** Missed in the last 7 days, and in the 7 before. */
-    thisWeek: number;
-    lastWeek: number;
-    /** Missed and still not caught up: open tasks, habits missed again. */
-    behind: number;
+    /** Missed twice or more first (most in a row first), then once, then tasks. */
+    items: Miss[];
+    /** Habits missed twice or more in a row. */
+    twice: number;
 }
 export interface TaskMove { id: string; title: string; from: string; to: string }
 
 const weekday = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long' });
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T12:00:00`) - Date.parse(`${from}T12:00:00`)) / 86400000);
+const RANK: Record<MissLevel, number> = { twice: 0, once: 1, late: 2, moved: 3 };
 
 export function missed(input: {
     habits: Habit[]; history: HistoryDay[]; completions: Record<string, boolean>;
-    tasks: Task[]; moves?: TaskMove[]; today?: string; days?: number;
+    tasks: Task[]; moves?: TaskMove[]; today?: string;
 }): Missed {
     const today = input.today ?? localDateKey(new Date());
-    const span = input.days ?? 14;
-    const first = shiftDay(today, -span);
     const items: Miss[] = [];
 
-    // Habits: every due day not kept, and whether the next time answered it.
-    const window = habitDays(input.habits, input.history, input.completions, span + 30, today, today);
+    // Habits: the run of undone due days ending at the last one before today.
+    const window = habitDays(input.habits, input.history, input.completions, 60, today, today);
     for (const habit of input.habits.filter(habit => !habit.isGoal && !habit.isArchived)) {
-        const due = window.filter(day => day.scheduled.includes(habit.id) && !day.skipped.includes(habit.id))
-            .map(day => ({ date: day.date, done: day.done.includes(habit.id) }));
-        due.forEach((here, index) => {
-            if (here.done || here.date >= today || here.date < first) return;
-            const next = due[index + 1];
-            const outcome: [string, MissTone] = !next ? ['Not due again yet', 'pending']
-                : next.done ? [next.date === today ? 'Done today' : `Done ${weekday(next.date)}`, 'recovered']
-                : next.date === today ? ['Due again today', 'pending']
-                : [`Missed again ${weekday(next.date)}`, 'again'];
-            items.push({ key: `habit:${habit.id}:${here.date}`, id: habit.id, kind: 'habit', title: habit.name, color: habit.color, day: here.date, outcome: outcome[0], tone: outcome[1] });
-        });
+        const due = window.filter(day => day.scheduled.includes(habit.id) && !day.skipped.includes(habit.id));
+        const todayDue = due.find(day => day.date === today);
+        if (todayDue?.done.includes(habit.id)) continue;
+        const past = due.filter(day => day.date < today);
+        let count = 0;
+        let since = '';
+        for (let index = past.length - 1; index >= 0 && !past[index].done.includes(habit.id); index--) { count++; since = past[index].date; }
+        if (!count) continue;
+        const dueToday = !!todayDue;
+        const level: MissLevel = count >= 2 ? 'twice' : 'once';
+        const line = level === 'twice'
+            ? `Missed ${count} times in a row, since ${weekday(since)}`
+            : `Missed ${weekday(since)}. Once is fine, don't make it twice.`;
+        items.push({ key: `habit:${habit.id}`, id: habit.id, kind: 'habit', title: habit.name, color: habit.color, level, count, since, dueToday,
+            line: dueToday ? `${line}${level === 'twice' ? '.' : ''} Due today.` : line });
     }
 
-    // Tasks the timeline moved to the next day: missed on the day they left.
-    const moved = new Set<string>();
-    for (const move of input.moves ?? []) {
-        if (move.from < first || move.from >= today) continue;
-        moved.add(`${move.id}:${move.from}`);
-        items.push({ key: `move:${move.id}:${move.from}`, id: move.id, kind: 'task', title: move.title, day: move.from,
-            outcome: `No room before bedtime, moved to ${move.to === today ? 'today' : weekday(move.to)} automatically`, tone: 'moved' });
-    }
-    // Tasks still open past their day, or done after it.
+    // Tasks past their day and still open.
+    const listed = new Set<string>();
     for (const task of input.tasks) {
-        if (task.status === 'cancelled' || !task.dueDate || task.dueDate >= today || task.dueDate < first || moved.has(`${task.id}:${task.dueDate}`)) continue;
-        const doneOn = task.status === 'done' && task.completedAt ? localDateKey(new Date(task.completedAt)) : null;
-        if (doneOn && doneOn <= task.dueDate) continue;
-        const late = daysBetween(task.dueDate, doneOn ?? today);
-        const outcome: [string, MissTone] = doneOn ? [`Done ${late === 1 ? 'a day' : `${late} days`} late`, 'late'] : [`Still to do, ${late === 1 ? 'a day' : `${late} days`} late`, 'pending'];
-        items.push({ key: `task:${task.id}:${task.dueDate}`, id: task.id, kind: 'task', title: task.title, day: task.dueDate, outcome: outcome[0], tone: outcome[1] });
+        if (task.status !== 'open' || !task.dueDate || task.dueDate >= today) continue;
+        const late = daysBetween(task.dueDate, today);
+        listed.add(task.id);
+        items.push({ key: `task:${task.id}`, id: task.id, kind: 'task', title: task.title, level: 'late', count: late, since: task.dueDate,
+            line: `${late === 1 ? 'A day' : `${late} days`} late, due ${weekday(task.dueDate)}` });
+    }
+    // Carried over to today by the timeline, still open.
+    for (const move of input.moves ?? []) {
+        const task = input.tasks.find(item => item.id === move.id);
+        if (!task || task.status !== 'open' || task.dueDate !== today || move.to !== today || listed.has(task.id)) continue;
+        listed.add(task.id);
+        items.push({ key: `move:${task.id}`, id: task.id, kind: 'task', title: task.title, level: 'moved', count: 1, since: move.from,
+            line: `No room ${move.from === shiftDayBack(today) ? 'yesterday' : weekday(move.from)}, moved to today automatically` });
     }
 
-    const byDay = new Map<string, Miss[]>();
-    for (const item of items) byDay.set(item.day, [...(byDay.get(item.day) ?? []), item]);
-    const days = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]))
-        .map(([day, list]) => ({ day, items: list.sort((a, b) => a.kind.localeCompare(b.kind) || a.title.localeCompare(b.title)) }));
-    const weekStart = shiftDay(today, -7);
-    const thisWeek = items.filter(item => item.day >= weekStart).length;
-    const lastWeek = items.filter(item => item.day < weekStart && item.day >= shiftDay(today, -14)).length;
-    // Still behind: a task not done yet, or a habit missed again.
-    const openTasks = new Set(items.filter(item => item.kind === 'task' && item.tone === 'pending').map(item => item.id));
-    const behind = openTasks.size + items.filter(item => item.kind === 'habit' && item.tone === 'again').length;
-    return { days, thisWeek, lastWeek, behind };
+    items.sort((a, b) => RANK[a.level] - RANK[b.level] || b.count - a.count || a.title.localeCompare(b.title));
+    return { items, twice: items.filter(item => item.level === 'twice').length };
 }
 
-/** "Monday", "Yesterday", "Mon 12 Oct" for the day headings. */
-export function missedDayLabel(day: string, today: string): string {
-    const back = daysBetween(day, today);
-    if (back === 1) return 'Yesterday';
-    if (back < 7) return weekday(day);
-    return new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-}
+const shiftDayBack = (day: string) => localDateKey(new Date(Date.parse(`${day}T12:00:00`) - 86400000));

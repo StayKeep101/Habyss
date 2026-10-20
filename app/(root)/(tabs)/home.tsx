@@ -539,7 +539,7 @@ const Home = () => {
           visible={showMissed}
           onClose={() => setShowMissed(false)}
           missed={missed}
-          today={todayKeyString}
+          habits={habits}
         />
         <MarksModal visible={showMarks} onClose={() => setShowMarks(false)} marks={marks} />
         <ClimbMomentOverlay moment={climbMoment} onDone={() => setClimbMoment(null)} />
