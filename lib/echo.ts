@@ -24,17 +24,27 @@ export interface DayWindow {
 export const DEFAULT_DAY: DayWindow = { wake: '07:00', sleep: '23:00' };
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+/**
+ * One copy, read once and kept: every screen that shows your day starts from
+ * what you saved, never from the default for a moment (which used to flash
+ * 07:00–23:00, and a tap in that moment saved the default over your times).
+ */
+let dayCache: DayWindow | null = null;
+export const cachedDayWindow = (): DayWindow | null => dayCache;
+
 export async function getDayWindow(): Promise<DayWindow> {
+    if (dayCache) return dayCache;
     try {
         const stored = JSON.parse((await AsyncStorage.getItem(DAY_KEY)) ?? 'null');
-        if (stored && TIME.test(stored.wake) && TIME.test(stored.sleep)) return stored;
+        if (stored && TIME.test(stored.wake) && TIME.test(stored.sleep)) { const day: DayWindow = { wake: stored.wake, sleep: stored.sleep }; dayCache = day; return day; }
     } catch { /* fall through to the default */ }
     return DEFAULT_DAY;
 }
 
 export async function saveDayWindow(day: DayWindow): Promise<void> {
     if (!TIME.test(day.wake) || !TIME.test(day.sleep)) return;
-    await AsyncStorage.setItem(DAY_KEY, JSON.stringify(day));
+    dayCache = { wake: day.wake, sleep: day.sleep };
+    await AsyncStorage.setItem(DAY_KEY, JSON.stringify(dayCache));
 }
 
 export const minutesOf = (time: string): number => {
@@ -115,17 +125,36 @@ export const DEFAULT_ECHO: EchoConfig = { morning: false, evening: false, useNam
 
 const ECHO_KEY = 'habyss_echo_config';
 
+/** Echo's settings, one copy kept once read (see the day window above). */
+let echoCache: EchoConfig | null = null;
+export const cachedEchoConfig = (): EchoConfig | null => echoCache;
+
 export async function getEchoConfig(): Promise<EchoConfig> {
+    if (echoCache) return echoCache;
     try {
         const stored = JSON.parse((await AsyncStorage.getItem(ECHO_KEY)) ?? 'null');
-        if (stored && typeof stored === 'object') return { ...DEFAULT_ECHO, ...stored };
+        if (stored && typeof stored === 'object') { const config: EchoConfig = { ...DEFAULT_ECHO, ...stored }; echoCache = config; return config; }
     } catch { /* fall through to the defaults */ }
     return DEFAULT_ECHO;
 }
 
 export async function saveEchoConfig(config: EchoConfig): Promise<void> {
+    echoCache = config;
     await AsyncStorage.setItem(ECHO_KEY, JSON.stringify(config));
     emit('engagement_settings_changed');
+}
+
+/** Changes only the settings named, on top of what is stored, never on top of defaults. */
+export async function updateEchoConfig(patch: Partial<EchoConfig>): Promise<EchoConfig> {
+    const next = { ...(await getEchoConfig()), ...patch };
+    await saveEchoConfig(next);
+    return next;
+}
+
+/** Read at launch, so the settings screens open on your values straight away. */
+export function warmEchoSettings(): void {
+    void getDayWindow();
+    void getEchoConfig();
 }
 
 /** When the morning check-in lands: shortly after they said they wake. */

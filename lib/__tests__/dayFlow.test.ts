@@ -67,6 +67,15 @@ describe('the day as a flow', () => {
         expect(flow.timeline.find(row => row.id === 'email')).toMatchObject({ start: at(10, 20), state: 'now' });
     });
 
+    it('just ticked, it ends now in one move: early, or placed where it was really done', () => {
+        const window = { wake: at(7), sleep: at(23) };
+        const early = flowDay([{ ...item('report', null, 60, true), kept: { start: at(10), end: at(11) } }], at(10, 20), window);
+        expect(early.timeline[0]).toMatchObject({ start: at(10), end: at(10, 20) });
+        // Planned for 22:30, done at 17:15: shown as done just now, its 30 minutes ending at 17:15.
+        const ahead = flowDay([{ ...item('workout', null, 30, true), kept: { start: at(22, 30), end: at(23) } }], at(17, 15), window);
+        expect(ahead.timeline[0]).toMatchObject({ start: at(16, 45), end: at(17, 15) });
+    });
+
     it('holds the slot of something under way, and moves it once it runs out', () => {
         const kept = { start: at(9), end: at(10) };
         const items = [{ ...item('essay', null, 60), kept }];

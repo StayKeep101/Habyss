@@ -11,7 +11,7 @@ import { on } from '@/lib/appEvents';
 import { counts } from '@/lib/sharedGate';
 import { localDateKey } from '@/lib/habitSchedule';
 import {
-    burstMarks, goalDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskDone, type Burst, type Point,
+    burstMarks, goalDone, habitDone, marksRange, measureMarksTarget, onMarksBurst, onOrbLanded, orbLanded, taskEarned, type Burst, type Point,
 } from '@/lib/marksOrbs';
 import { s, vs } from '@/theme/scale';
 
@@ -49,7 +49,11 @@ export function MarksOrbs() {
                 const earned = habitDone(event.habitId, event.date, event.completed);
                 if (earned && counts(event.habitId, event.date)) burstMarks(earned);
             }),
-            on('task_completed', event => { if (counts(event.taskId, localDateKey(new Date()))) burstMarks(taskDone()); }),
+            on('task_completed', event => {
+                const earned = taskEarned(event.taskId, localDateKey(new Date()), true);
+                if (earned && counts(event.taskId, localDateKey(new Date()))) burstMarks(earned);
+            }),
+            on('task_reopened', event => { taskEarned(event.taskId, localDateKey(new Date()), false); }),
             on('goal_complete', () => { burstMarks(goalDone()); }),
         ];
         return () => subs.forEach(sub => sub.remove());

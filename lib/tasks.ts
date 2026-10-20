@@ -236,10 +236,9 @@ export async function setTaskStatus(id: string, status: TaskStatus, completedAt?
     // Not awaited: the task is already saved, and somebody else's view of it is
     // not worth holding a tick behind a network call.
     void publishIfShared(id, status === 'done');
-    if (status === 'done') {
-        const { emit } = require('./appEvents') as typeof import('./appEvents');
-        emit('task_completed', { taskId: id });
-    }
+    const { emit } = require('./appEvents') as typeof import('./appEvents');
+    if (status === 'done') emit('task_completed', { taskId: id });
+    else emit('task_reopened', { taskId: id });
 }
 
 /**

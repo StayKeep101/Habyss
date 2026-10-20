@@ -46,6 +46,8 @@ import { useDayMemory } from '@/hooks/useDayMemory';
 import { carryOver, currentMemory, markSeen, memoryReady, rememberFlow } from '@/lib/dayMemory';
 import { planAlert, schedulePlanAlert } from '@/lib/planAlerts';
 import { logMoves } from '@/lib/movedTasks';
+import { burstMarks, habitDone, taskEarned } from '@/lib/marksOrbs';
+import { counts as countsShared } from '@/lib/sharedGate';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 import { peakWindow } from '@/lib/echoPatterns';
@@ -387,8 +389,11 @@ const CalendarScreen = () => {
         const isCompleted = !completions[habit.id];
         markDone(habit.id, isCompleted, dateStr);
 
-        // 2. Feedback
+        // 2. Feedback. The Marks orbs leave from your finger now, not once
+        // the save comes back (by then the row has often moved on).
         if (isCompleted) {
+            const earned = habitDone(habit.id, dateStr, true);
+            if (earned && countsShared(habit.id, dateStr)) burstMarks(earned);
             playComplete();
             selectionFeedback(); // Stronger feedback for complete
         } else {
@@ -420,6 +425,11 @@ const CalendarScreen = () => {
     }, [skipped, selectedDate, selectionFeedback, markSkipped]);
 
     const handleTaskToggle = useCallback(async (task: Task) => {
+        if (task.status !== 'done') {
+            const day = todayKey();
+            const earned = taskEarned(task.id, day, true);
+            if (earned && countsShared(task.id, day)) burstMarks(earned);
+        }
         try {
             await setTaskStatus(task.id, task.status === 'done' ? 'open' : 'done');
             successFeedback();

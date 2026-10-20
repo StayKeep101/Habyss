@@ -110,6 +110,8 @@ export default function MobileLayout() {
             // Home waits for them.
             void RevenueCatService.init().catch(error => console.warn('Purchases unavailable', error));
             void SiriService.syncTodayProgress().catch(() => undefined);
+            // Your day and Echo's settings, read once so every screen opens on them.
+            (require('@/lib/echo') as typeof import('@/lib/echo')).warmEchoSettings();
             // One-go goals count past efforts at what they were (lib/peakPlan.ts).
             await (require('@/lib/peakPlan') as typeof import('@/lib/peakPlan')).loadTargetLog().catch(() => undefined);
             await Promise.race([data, new Promise(resolve => setTimeout(resolve, 1500))]);

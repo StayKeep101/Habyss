@@ -23,7 +23,7 @@ import { NotificationService } from '@/lib/notificationService';
 import { PAYWALL_ENABLED } from '@/constants/features';
 import {
     DEFAULT_DAY, DEFAULT_ECHO, eveningCheckIn, getDayWindow, getEchoConfig, getName,
-    morningCheckIn, saveEchoConfig, type DayWindow, type EchoConfig,
+    morningCheckIn, updateEchoConfig, cachedDayWindow, cachedEchoConfig, type DayWindow, type EchoConfig,
 } from '@/lib/echo';
 import { hasTurboModule } from '@/lib/nativeModules';
 import { clearWrittenLines } from '@/lib/echoWriter';
@@ -166,8 +166,9 @@ const AISettings = () => {
 
     // What Echo knows about the user, and what it is allowed to do.
     const [name, setName] = React.useState<string | undefined>(undefined);
-    const [day, setDay] = React.useState<DayWindow>(DEFAULT_DAY);
-    const [echo, setEcho] = React.useState<EchoConfig>(DEFAULT_ECHO);
+    // What you saved, from the first frame (lib/echo.ts keeps one copy).
+    const [day, setDay] = React.useState<DayWindow>(() => cachedDayWindow() ?? DEFAULT_DAY);
+    const [echo, setEcho] = React.useState<EchoConfig>(() => cachedEchoConfig() ?? DEFAULT_ECHO);
 
     React.useEffect(() => {
         getName().then(setName).catch(() => undefined);
@@ -187,8 +188,11 @@ const AISettings = () => {
             : next.alive !== echo.alive ? 'alive' : next.aliveFollowUp !== echo.aliveFollowUp ? 'follow'
             : next.useName !== echo.useName ? 'voice' : null;
         if (changed) setTimeout(() => show(changed), 0);
-        saveEchoConfig(next)
-            .then(() => NotificationService.refreshReminders())
+        // Only what changed is written, on top of what is stored, so a tap
+        // before the page has read your settings can never reset the others.
+        const patch = Object.fromEntries(Object.entries(next).filter(([key, value]) => echo[key as keyof EchoConfig] !== value)) as Partial<EchoConfig>;
+        updateEchoConfig(patch)
+            .then(stored => { setEcho(stored); return NotificationService.refreshReminders(); })
             .catch(() => undefined);
     };
 

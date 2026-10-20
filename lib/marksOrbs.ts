@@ -75,6 +75,15 @@ export function habitDone(habitId: string, date: string, completed: boolean): nu
     return MARKS.complete.habit;
 }
 export const taskDone = () => MARKS.complete.task;
+/** The same for a task: one burst per finish, again after it is reopened. */
+const tasksBurst = new Set<string>();
+export function taskEarned(taskId: string, date: string, completed: boolean): number {
+    const key = `${taskId}:${date}`;
+    if (!completed) { tasksBurst.delete(key); return 0; }
+    if (tasksBurst.has(key)) return 0;
+    tasksBurst.add(key);
+    return MARKS.complete.task;
+}
 export const goalDone = () => MARKS.complete.goal;
 
 /**
@@ -115,6 +124,6 @@ export function marksRange(marks: number, at = Date.now()): { from: number; to: 
 
 /** For tests. */
 export const resetMarksOrbs = () => {
-    burst.clear(); lastTouch = null; target = null;
+    burst.clear(); tasksBurst.clear(); lastTouch = null; target = null;
     total = null; before = null; changedAt = 0; claimed = true;
 };

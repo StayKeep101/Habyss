@@ -55,7 +55,9 @@ export function remember(prev: DayMemory, day: string, flow: DayFlow, now: numbe
             continue;
         }
         slots[item.id] = { start: item.start, end: item.end };
-        if (before && !base.done[item.id] && item.state !== 'now' && Math.abs(before.start - item.start) >= MOVE_MINUTES) moved[item.id] = true;
+        // Pushed later (its time passed, or something before it ran over): a dot.
+        // Moving up because you finished early is just the plan working: no dot.
+        if (before && !base.done[item.id] && item.state !== 'now' && item.start - before.start >= MOVE_MINUTES) moved[item.id] = true;
     }
     // No longer fits today: that is a change too.
     for (const item of flow.unfit) if (base.slots[item.id]) moved[item.id] = true;

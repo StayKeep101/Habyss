@@ -16,7 +16,7 @@ import { useAccentGradient } from '@/context/AccentContext';
 import * as Notifs from 'expo-notifications';
 import { NotificationService } from '@/lib/notificationService';
 import { TimeRow } from '@/components/ui/TimeRow';
-import { DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
+import { cachedDayWindow, DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
 import { scheduledActivitiesEnabled, setScheduledActivitiesEnabled, scheduledActivitiesCapability } from '@/lib/scheduledActivities';
 import { styles } from '@/styles/screens/notifications.styles';
 
@@ -37,7 +37,8 @@ const Notifications = () => {
       .then(() => NotificationService.refreshReminders())
       .catch(() => undefined);
   };
-  const [day, setDay] = useState(DEFAULT_DAY);
+  // Your saved day from the start, never the default first (lib/echo.ts).
+  const [day, setDay] = useState(() => cachedDayWindow() ?? DEFAULT_DAY);
   const [activities, setActivities] = useState(true);
   const [ready, setReady] = useState(false);
   const capability = scheduledActivitiesCapability();

@@ -58,25 +58,45 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
     const [isLoaded, setIsLoaded] = useState(false);
     const [appLockVerifiedAt, setAppLockVerifiedAt] = useState(0);
     const lockChangePending = useRef(false);
+    // The newest settings, and any change made before the stored copy was read.
+    // Each change is laid on top of what is stored, so changing one setting
+    // early (or two quickly) can never put the others back to their defaults.
+    const latest = useRef<AppSettings>(defaultSettings);
+    const loadedRef = useRef(false);
+    const early = useRef<Partial<AppSettings>>({});
 
     // Load settings on mount
     useEffect(() => {
         const loadSettings = async () => {
             try {
                 const stored = await AsyncStorage.getItem(STORAGE_KEY);
-                if (stored) {
-                    const parsed = JSON.parse(stored);
-                    setSettings({ ...defaultSettings, ...parsed });
-                }
+                const parsed = stored ? JSON.parse(stored) : {};
+                latest.current = { ...defaultSettings, ...parsed, ...early.current };
+                setSettings(latest.current);
+                if (Object.keys(early.current).length) void saveSettings(latest.current);
             } catch (e) {
                 console.error('Failed to load settings:', e);
                 // Unknown settings are not proof that App Lock is off.
-                setSettings(previous => ({ ...previous, isAppLockEnabled: true }));
+                latest.current = { ...latest.current, isAppLockEnabled: true };
+                setSettings(latest.current);
             }
+            loadedRef.current = true;
             setIsLoaded(true);
         };
         loadSettings();
     }, []);
+
+    /** One change, on top of the newest settings; stored once the saved copy has been read. */
+    const change = (patch: Partial<AppSettings>): AppSettings => {
+        latest.current = { ...latest.current, ...patch };
+        setSettings(latest.current);
+        if (!loadedRef.current) early.current = { ...early.current, ...patch };
+        return latest.current;
+    };
+    const commit = (patch: Partial<AppSettings>): Promise<void> => {
+        const next = change(patch);
+        return loadedRef.current ? saveSettings(next) : Promise.resolve();
+    };
 
     // Save settings whenever they change
     const saveSettings = async (newSettings: AppSettings) => {
@@ -88,51 +108,37 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
     const setHapticsEnabled = (enabled: boolean) => {
-        const newSettings = { ...settings, hapticsEnabled: enabled };
-        setSettings(newSettings);
-        saveSettings(newSettings);
+        void commit({ hapticsEnabled: enabled });
     };
 
     const setSoundsEnabled = (enabled: boolean) => {
-        const newSettings = { ...settings, soundsEnabled: enabled };
-        setSettings(newSettings);
-        saveSettings(newSettings);
+        void commit({ soundsEnabled: enabled });
     };
 
     const setNotificationsEnabled = async (enabled: boolean) => {
-        const newSettings = { ...settings, notificationsEnabled: enabled };
-        setSettings(newSettings);
-        await saveSettings(newSettings)
+        await commit({ notificationsEnabled: enabled })
             .then(() => require('@/lib/notificationService').NotificationService.refreshReminders())
             .catch(() => undefined);
     };
 
     const setAIPersonality = (personality: PersonalityModeId) => {
-        const newSettings = { ...settings, aiPersonality: personality };
-        setSettings(newSettings);
         // Reminders already scheduled were written in the old voice; rewrite
         // them once the new one is stored, since that is where they read it.
-        saveSettings(newSettings)
+        commit({ aiPersonality: personality })
             .then(() => require('@/lib/notificationService').NotificationService.refreshHabitReminders())
             .catch(() => undefined);
     };
 
     const setCardSize = (size: RoadMapCardSize) => {
-        const newSettings = { ...settings, cardSize: size };
-        setSettings(newSettings);
-        saveSettings(newSettings);
+        void commit({ cardSize: size });
     };
 
     const setGreetingStyle = (style: GreetingStyle) => {
-        const newSettings = { ...settings, greetingStyle: style };
-        setSettings(newSettings);
-        saveSettings(newSettings);
+        void commit({ greetingStyle: style });
     };
 
     const setUseLocalAI = (enabled: boolean) => {
-        const newSettings = { ...settings, useLocalAI: enabled };
-        setSettings(newSettings);
-        saveSettings(newSettings);
+        void commit({ useLocalAI: enabled });
     };
 
     const setIsAppLockEnabled = async (enabled: boolean): Promise<boolean> => {
@@ -140,10 +146,11 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
         lockChangePending.current = true;
         try {
             if (!(await verifyAppLockChange(enabled))) return false;
-            const newSettings = { ...settings, isAppLockEnabled: enabled };
+            const newSettings = { ...latest.current, isAppLockEnabled: enabled };
             // Show the switch as on only after its preference is durable.
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
             setAppLockVerifiedAt(Date.now());
+            latest.current = newSettings;
             setSettings(newSettings);
             return true;
         } finally {
@@ -152,15 +159,11 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
     const setMotivationStyle = (style: 'gentle' | 'tough_love') => {
-        const newSettings = { ...settings, motivationStyle: style };
-        setSettings(newSettings);
-        saveSettings(newSettings);
+        void commit({ motivationStyle: style });
     };
 
     const setCommunicationStyle = (style: 'empathetic' | 'direct' | 'philosophical') => {
-        const newSettings = { ...settings, communicationStyle: style };
-        setSettings(newSettings);
-        saveSettings(newSettings);
+        void commit({ communicationStyle: style });
     };
 
     return (

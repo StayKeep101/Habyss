@@ -10,7 +10,7 @@ import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useCalendarOn } from '@/hooks/useCalendarEvents';
 import { MEAL_NAMES, saveMeal, setMealsFlexible, type MealId } from '@/lib/meals';
 import { MealRow } from '@/components/Roadmap/MealRow';
-import { DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
+import { cachedDayWindow, DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
 import { calendarAvailable, setCalendarOn } from '@/lib/calendarEvents';
 import { NotificationService } from '@/lib/notificationService';
 import { styles } from '@/styles/screens/meals.styles';
@@ -27,7 +27,8 @@ export default function TimelineSettingsScreen() {
     const flexible = useMealsFlexible();
     const anyMeal = Object.values(meals).some(meal => meal.on);
     const calendar = useCalendarOn();
-    const [day, setDay] = useState<DayWindow>(DEFAULT_DAY);
+    // The same saved day as Notifications: one copy (lib/echo.ts), never the default first.
+    const [day, setDay] = useState<DayWindow>(() => cachedDayWindow() ?? DEFAULT_DAY);
     useEffect(() => { void getDayWindow().then(setDay); }, []);
     // Quiet hours follow the same day, so reminders are rescheduled with it.
     const saveDay = (next: DayWindow) => { setDay(next); void saveDayWindow(next).then(() => NotificationService.refreshReminders()).catch(() => undefined); };

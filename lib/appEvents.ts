@@ -30,6 +30,8 @@ export interface AppEvents {
     goal_deleted: { goalId: string };
     tasks_changed: void;
     task_completed: { taskId: string };
+    /** A done task opened again: it can earn again. */
+    task_reopened: { taskId: string };
     engagement_settings_changed: void;
     /** Every task and habit for the day is done. */
     day_complete: { tally: DayTally; streak: number; completedDates: string[] };

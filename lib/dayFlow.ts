@@ -161,8 +161,14 @@ function layOutOnce(items: FlowInput[], now: number | null, window: DayWindowMin
         const kept = item.kept && item.kept.end > item.kept.start ? item.kept : null;
         if (item.fixed) { timed.push(item); continue; }
         if (item.done) {
-            // Done: it stays where it was done.
-            if (kept) timed.push({ ...item, start: kept.start, minutes: kept.end - kept.start, auto: item.auto || item.start === null || kept.start !== item.start });
+            // Done: it stays where it was done. Just ticked, it ends now — cut
+            // short if early, or placed where it was really done if its slot
+            // had not come yet — in one move, not two (lib/dayMemory.ts agrees).
+            let slot = kept;
+            if (slot && now !== null && now < slot.end) {
+                slot = slot.start <= now ? { start: slot.start, end: Math.max(slot.start + 5, now) } : { start: Math.max(0, now - (slot.end - slot.start)), end: now };
+            }
+            if (slot) timed.push({ ...item, start: slot.start, minutes: slot.end - slot.start, auto: item.auto || item.start === null || slot.start !== item.start });
             else if (item.start !== null) timed.push(item);
             else untimed.push(item);
             continue;
