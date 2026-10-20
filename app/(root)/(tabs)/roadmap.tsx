@@ -92,7 +92,7 @@ const CalendarScreen = () => {
     const { primary: accentColor } = useAccentGradient();
     const { lightFeedback, selectionFeedback, successFeedback, mediumFeedback } = useHaptics();
     const { cardSize } = useAppSettings();
-    const { activeHabitId, activeHabitName, isRunning: isFocusRunning, isPaused: isFocusPaused, startTimer, timeLeft, totalDuration } = useFocusTime();
+    const { activeHabitId, activeHabitName, isRunning: isFocusRunning, isPaused: isFocusPaused, timeLeft, totalDuration } = useFocusTime();
     // Check-ins and skips come from the one shared copy (lib/dataStore.ts), the
     // same one the habit's page and every stat read. This screen used to keep
     // its own, loaded once and patched by events, and it could drift from it.
@@ -501,12 +501,9 @@ const CalendarScreen = () => {
         focusWindowOpen: isHabitFocusableNow(habit),
     }), [completions, skipped, activeHabitId, isFocusRunning, isFocusPaused, isHabitFocusableNow]);
 
+    // Focus opens the focus page, as it does everywhere else; a session already
+    // running on another habit is finished first.
     const handleFocusHabit = useCallback((habit: Habit) => {
-        if (activeHabitId === habit.id) {
-            router.push({ pathname: '/habit-detail', params: { habitId: habit.id } });
-            return;
-        }
-
         if (isFocusRunning && activeHabitId && activeHabitId !== habit.id) {
             Alert.alert(
                 'Focus Session Active',
@@ -514,16 +511,9 @@ const CalendarScreen = () => {
             );
             return;
         }
-
-        const durationSeconds = Math.max((habit.durationMinutes || 25) * 60, 300);
-        const started = startTimer(habit.id, habit.name, durationSeconds);
-        if (!started) {
-            Alert.alert('Unable to Start Focus', 'A focus session is already active for another habit.');
-            return;
-        }
-
-        lightFeedback();
-    }, [activeHabitId, activeHabitName, isFocusRunning, lightFeedback, router, startTimer]);
+        mediumFeedback();
+        router.push({ pathname: '/(root)/focus', params: { kind: 'habit', id: habit.id, title: habit.name } });
+    }, [activeHabitId, activeHabitName, isFocusRunning, mediumFeedback, router]);
 
     const measureGoalDropTargets = useCallback(async (goalList: Habit[]) => {
         const entries = await Promise.all(

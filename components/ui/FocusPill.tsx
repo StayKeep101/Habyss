@@ -1,5 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+// The gesture handler's Pressable: on a card that is itself a gesture-handler
+// touchable (the list rows), a plain Pressable lost the tap to the card, so
+// Focus opened the card's edit sheet instead.
+import { Pressable } from 'react-native-gesture-handler';
 import { MatteSurface } from './MatteSurface';
 import { AppIcon } from './AppIcon';
 import { useTokens } from '@/hooks/useTokens';
