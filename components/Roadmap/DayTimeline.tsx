@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
-import { ListItem } from '@/components/ui/Motion';
+import { ListItem, useProgress } from '@/components/ui/Motion';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -83,6 +83,9 @@ function Row({ size, item, color, nextColor, last, now, updated, onToggle, onOpe
     const done = item.state === 'done';
     const left = live && now !== null ? Math.max(0, item.end - now) : null;
     const moved = item.shift !== 0 && !done && !item.auto ? `${Math.abs(item.shift)} min ${item.shift < 0 ? 'earlier' : 'later'} than planned` : null;
+    // How much of its time has gone: full once over (or done), a part while on, empty ahead.
+    const elapsed = done || (now !== null && now >= item.end) ? 1
+        : now !== null && now > item.start ? (now - item.start) / Math.max(1, item.end - item.start) : 0;
     // A habit's pill is round; a task's has squarer corners.
     const corner = item.kind === 'task' ? t.radius.sm : size.pill / 2;
     return (
@@ -90,8 +93,11 @@ function Row({ size, item, color, nextColor, last, now, updated, onToggle, onOpe
             <View style={[styles.rail, { width: size.pill }]}>
                 <Pressable onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={`Open ${item.title}`}>
                     {live ? <Glow color={color} height={height} width={size.pill} radius={corner} /> : null}
-                    <View style={[styles.pill, { width: size.pill, borderRadius: corner, height, backgroundColor: color, opacity: done ? 0.45 : 1 }]}>
-                        <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={t.color.onAccent} />
+                    <View style={[styles.pill, { width: size.pill, borderRadius: corner, height, opacity: done ? 0.45 : 1 }]}>
+                        {/* A faint tint of its colour, filled from the top as its time passes. */}
+                        <View style={[StyleSheet.absoluteFill, styles.tint, { backgroundColor: color }]} />
+                        <Fill color={color} height={height} progress={elapsed} />
+                        <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
                     </View>
                 </Pressable>
                 {!last ? <View style={[styles.link, { backgroundColor: nextColor ?? color }]} /> : null}
@@ -142,6 +148,13 @@ function Check({ size, done, color, onPress, label }: { size: Size; done: boolea
     );
 }
 
+/** The solid part of a pill: as tall as the share of its time already gone, gliding as the clock moves. */
+function Fill({ color, height, progress }: { color: string; height: number; progress: number }) {
+    const shown = useProgress(Math.max(0, Math.min(1, progress)));
+    const style = useAnimatedStyle(() => ({ height: shown.get() * height }));
+    return <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: color }, style]} />;
+}
+
 /** A soft breathing glow behind the pill you are on. */
 function Glow({ color, height, width, radius }: { color: string; height: number; width: number; radius: number }) {
     const breath = useSharedValue(0);
@@ -157,7 +170,9 @@ function Glow({ color, height, width, radius }: { color: string; height: number;
 const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'stretch' },
     rail: { alignItems: 'center' },
-    pill: { alignItems: 'center', justifyContent: 'center' },
+    pill: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    tint: { opacity: 0.2 },
+    fill: { position: 'absolute', top: 0, left: 0, right: 0 },
     glow: { position: 'absolute' },
     link: { width: s(3), flex: 1, minHeight: vs(10), opacity: 0.6 },
     body: { flex: 1, flexDirection: 'row', alignItems: 'center' },
