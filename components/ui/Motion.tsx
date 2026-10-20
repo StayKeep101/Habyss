@@ -43,7 +43,8 @@ function useIntroDone(): boolean {
     return useSyncExternalStore(subscribeIntro, isIntroDone, isIntroDone);
 }
 
-export function useProgress(target: number, delay = 0, replay?: unknown): SharedValue<number> {
+/** `introDuration`: how long the first growth takes, when a sequence needs it shorter or longer than usual. */
+export function useProgress(target: number, delay = 0, replay?: unknown, introDuration: number = MOTION.intro): SharedValue<number> {
     const value = useSharedValue(0);
     const first = useRef(true);
     const lastReplay = useRef(replay);
@@ -56,9 +57,9 @@ export function useProgress(target: number, delay = 0, replay?: unknown): Shared
         const intro = first.current || again;
         first.current = false;
         if (again) value.set(0);
-        const duration = intro ? MOTION.intro : MOTION.duration;
+        const duration = intro ? introDuration : MOTION.duration;
         value.set(withDelay(intro ? delay : 0, withTiming(target, { duration, easing: MOTION.easing, reduceMotion: ReduceMotion.System })));
-    }, [target, delay, replay, value, ready]);
+    }, [target, delay, replay, value, ready, introDuration]);
     return value;
 }
 

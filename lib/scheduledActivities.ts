@@ -50,11 +50,20 @@ export function activityPlan(slots: FlowSlot[], now: Date, supportsScheduling: b
 
 /** The Roadmap's own timeline, the freshest truth, while it is from today. */
 let latest: { day: string; slots: FlowSlot[] } | null = null;
+let reminderTimer: ReturnType<typeof setTimeout> | null = null;
 export function setTodayFlow(day: string, flow: DayFlow) {
+    (require('./todayFlow') as typeof import('./todayFlow')).rememberTodayFlow(day, flow);
     const slots = slotsFromFlow(flow, day);
     if (latest?.day === day && JSON.stringify(latest.slots) === JSON.stringify(slots)) return;
     latest = { day, slots };
     void refreshScheduledActivities();
+    // Reminders follow the timeline too: re-timed shortly after it settles.
+    if (reminderTimer) clearTimeout(reminderTimer);
+    reminderTimer = setTimeout(() => {
+        reminderTimer = null;
+        const { NotificationService } = require('./notificationService') as typeof import('./notificationService');
+        void NotificationService.refreshReminders().catch(() => undefined);
+    }, 3000);
 }
 
 let queue: Promise<unknown> = Promise.resolve();

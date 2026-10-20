@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
-import { ListItem, MOTION, useProgress } from '@/components/ui/Motion';
+import { ListItem, useProgress } from '@/components/ui/Motion';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
@@ -21,6 +21,13 @@ const SIZES = {
     big: { pill: s(54), min: vs(58), max: vs(140), per: 0.75, icon: s(21), ring: s(28), check: s(16), gap: s(14), pad: vs(10), titleType: 'heading' as const },
 };
 type Size = (typeof SIZES)[keyof typeof SIZES];
+/** How long one pill takes to fill in the intro's domino run. */
+const FILL_MS = 260;
+
+/** How much of its time has gone: full once over (or done), a part while on, empty ahead. */
+const elapsedOf = (item: FlowItem, now: number | null) => item.state === 'done' || item.done || (now !== null && now >= item.end) ? 1
+    : now !== null && now > item.start ? (now - item.start) / Math.max(1, item.end - item.start) : 0;
+
 /** Taller for longer things, within reason, so the day reads at a glance. */
 const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(size.max, size.min + (minutes - 30) * size.per));
 
@@ -52,12 +59,24 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
 }) {
     const t = useTokens();
     const size = SIZES[useAppSettings().cardSize] ?? SIZES.standard;
+    // The intro fills the pills like dominoes: each one fills completely
+    // before the next begins, top to bottom, a partly gone one only as far as
+    // the clock says. Each knows when its turn comes and how long it takes.
+    const turns = React.useMemo(() => {
+        let at = 0;
+        return flow.timeline.map(item => {
+            const share = elapsedOf(item, now);
+            const turn = { delay: at, duration: Math.max(1, Math.round(FILL_MS * share)) };
+            at += turn.duration;
+            return turn;
+        });
+    }, [flow.timeline, now]);
     const colorOf = (item: FlowInput) => item.color || (item.kind === 'meal' ? t.color.textMuted : item.kind === 'task' ? t.color.warning : t.color.accent);
     return (
         <View key={day}>
             {flow.timeline.length ? flow.timeline.map((item, index) => (
                 <ListItem key={`${item.kind}-${item.id}`} index={index} rise>
-                    <Row size={size} item={item} index={index} color={colorOf(item)} last={index === flow.timeline.length - 1}
+                    <Row size={size} item={item} turn={turns[index]} color={colorOf(item)} last={index === flow.timeline.length - 1}
                         nextColor={flow.timeline[index + 1] ? colorOf(flow.timeline[index + 1]) : undefined}
                         now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
                 </ListItem>
@@ -77,8 +96,8 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrub
     );
 }
 
-function Row({ size, item, index, color, nextColor, last, now, updated, onToggle, onOpen, onFocus }: {
-    size: Size; item: FlowItem; index: number; color: string; nextColor?: string; last: boolean; now: number | null; updated: boolean;
+function Row({ size, item, turn, color, nextColor, last, now, updated, onToggle, onOpen, onFocus }: {
+    size: Size; item: FlowItem; turn: { delay: number; duration: number }; color: string; nextColor?: string; last: boolean; now: number | null; updated: boolean;
     onToggle: (item: FlowInput) => void; onOpen: (item: FlowInput) => void; onFocus: (item: FlowInput) => void;
 }) {
     const t = useTokens();
@@ -94,8 +113,7 @@ function Row({ size, item, index, color, nextColor, last, now, updated, onToggle
         : item.shift < 0 && !item.auto ? `${-item.shift} min earlier: the one before finished early`
         : null;
     // How much of its time has gone: full once over (or done), a part while on, empty ahead.
-    const elapsed = done || (now !== null && now >= item.end) ? 1
-        : now !== null && now > item.start ? (now - item.start) / Math.max(1, item.end - item.start) : 0;
+    const elapsed = elapsedOf(item, now);
     // A habit's pill is round; a task's has squarer corners.
     const corner = item.kind === 'task' ? t.radius.sm : size.pill / 2;
     return (
@@ -106,7 +124,7 @@ function Row({ size, item, index, color, nextColor, last, now, updated, onToggle
                         {/* A faint tint of its colour, filled from the top as its time passes.
                             Done keeps its full colour: only the name is struck through. */}
                         <View style={[StyleSheet.absoluteFill, styles.tint, { backgroundColor: color }]} />
-                        <Fill color={color} height={height} progress={elapsed} index={index} />
+                        <Fill color={color} height={height} progress={elapsed} turn={turn} />
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={elapsed >= 0.5 ? t.color.onAccent : color} />
                     </View>
                 </Pressable>
@@ -159,11 +177,10 @@ function Check({ size, done, color, onPress, label }: { size: Size; done: boolea
 }
 
 /** The solid part of a pill: as tall as the share of its time already gone, gliding as the clock moves. */
-function Fill({ color, height, progress, index }: { color: string; height: number; progress: number; index: number }) {
-    // Arriving (a page opened, a day switched), each pill fills after the one
-    // above it, so the colour pours down the day from top to bottom; after
-    // that it glides with the clock.
-    const shown = useProgress(Math.max(0, Math.min(1, progress)), Math.min(index, 14) * MOTION.stagger * 3);
+function Fill({ color, height, progress, turn }: { color: string; height: number; progress: number; turn: { delay: number; duration: number } }) {
+    // Arriving (a page opened, a day switched), it waits for the pill above to
+    // be full, then fills; after that it glides with the clock.
+    const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay, undefined, turn.duration);
     const style = useAnimatedStyle(() => ({ height: shown.get() * height }));
     return <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: color }, style]} />;
 }

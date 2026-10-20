@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FriendsService } from '@/lib/friendsService';
 import { sharedState, type SharedState } from '@/lib/shared';
 import { on } from '@/lib/appEvents';
@@ -15,6 +16,36 @@ interface SharedRow {
     /** Invited and not yet answered. */
     pending?: boolean;
 }
+
+/**
+ * The last answer for every shared item, kept between screens and launches,
+ * so the faces are drawn at once and only refreshed behind them. Each screen
+ * used to start empty and wait for the server, then for every photo, so the
+ * faces arrived late on every card, every time.
+ */
+const CACHE_KEY = 'habyss_shared_people';
+let cache: Record<string, SharedRow[]> = {};
+let cacheLoaded: Promise<void> | null = null;
+const loadCache = () => cacheLoaded ??= AsyncStorage.getItem(CACHE_KEY)
+    .then(raw => { const parsed = raw ? JSON.parse(raw) : null; if (parsed && typeof parsed === 'object') cache = { ...parsed, ...cache }; })
+    .catch(() => undefined);
+let saving: ReturnType<typeof setTimeout> | null = null;
+const saveCache = () => {
+    if (saving) clearTimeout(saving);
+    saving = setTimeout(() => { saving = null; void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(cache)).catch(() => undefined); }, 500);
+};
+const cacheKey = (kind: string, id: string) => `${kind}:${id}`;
+const fromCache = (kind: string, ids: string[]) =>
+    Object.fromEntries(ids.map(id => [id, cache[cacheKey(kind, id)]]).filter(([, rows]) => rows && rows.length > 1)) as Record<string, SharedRow[]>;
+/** Photos fetched ahead, so a face appears with its picture rather than after it. */
+const fetched = new Set<string>();
+const prefetch = (rows: SharedRow[]) => {
+    for (const row of rows) {
+        if (!row.avatarUrl || fetched.has(row.avatarUrl) || !/^https?:/.test(row.avatarUrl)) continue;
+        fetched.add(row.avatarUrl);
+        void Image.prefetch(row.avatarUrl).catch(() => fetched.delete(row.avatarUrl!));
+    }
+};
 
 /**
  * Who else is on each of the habits and tasks on screen.
@@ -41,9 +72,10 @@ export function useSharedItems(
      */
     kind: 'habit' | 'task' | 'goal' = 'habit',
 ) {
-    const [people, setPeople] = useState<Record<string, SharedRow[]>>({});
-    const myProfile = useMyProfile();
     const key = ids.slice().sort().join(',');
+    // What was known last time, straight away.
+    const [people, setPeople] = useState<Record<string, SharedRow[]>>(() => fromCache(kind, ids));
+    const myProfile = useMyProfile();
 
     /** Everything the rows need, in one pass, off the render path. */
     const fetch = useCallback(async (): Promise<Record<string, SharedRow[]>> => {
@@ -59,6 +91,9 @@ export function useSharedItems(
         // One person on it is not a shared item; it is an ordinary one. An
         // invitation out counts as more than one — the card should say so from
         // the moment it is sent, not only once somebody accepts.
+        for (const id of key.split(',')) delete cache[cacheKey(kind, id)];
+        for (const [id, rows] of found) { cache[cacheKey(kind, id)] = rows; prefetch(rows); }
+        saveCache();
         return Object.fromEntries(found.filter(([, rows]) => rows.length > 1));
     }, [key, kind]);
 
@@ -66,9 +101,16 @@ export function useSharedItems(
 
     useEffect(() => {
         let alive = true;
+        // The stored answer first (after a launch), then the fresh one.
+        void loadCache().then(() => {
+            if (!alive || !key) return;
+            const known = fromCache(kind, key.split(','));
+            Object.values(known).forEach(prefetch);
+            setPeople(current => Object.keys(current).length ? current : known);
+        });
         fetch().then(found => { if (alive) setPeople(found); }).catch(() => undefined);
         return () => { alive = false; };
-    }, [fetch]);
+    }, [fetch, key, kind]);
     useEffect(() => {
         // Somebody else finishing their half changes what these rows say.
         const stop = on('social_state_updated', () => { void load(); });

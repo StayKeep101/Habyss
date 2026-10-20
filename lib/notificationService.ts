@@ -228,9 +228,13 @@ export class NotificationService {
         }
         const aliveHabits = config.alive && habitsAllowed ? habits.filter(habit => habit.startTime) : [];
         const aliveTasks = config.alive ? tasks.filter(task => task.dueTime) : [];
-        const moments = scheduledMoments(aliveHabits, aliveTasks, now, today, skipped);
-        const taskPlan = allowed ? buildTaskReminderPlan(tasks.filter(task => !config.alive || !task.dueTime), now, echo.suggestedReminder(dayWindow)) : [];
-        const plan = allowed && habitsAllowed ? buildHabitReminderPlan(habits.filter(habit => !config.alive || !habit.startTime), now, { ...today, ...skipped }) : [];
+        // Today is timed from the timeline: each reminder and nudge follows where
+        // the auto-schedule put the habit or task, not the time it was first given.
+        const { todayTimes }: typeof import('./todayFlow') = require('./todayFlow');
+        const placed = allowed ? await todayTimes(now).catch(() => ({})) : {};
+        const moments = scheduledMoments(aliveHabits, aliveTasks, now, today, skipped, 7, placed);
+        const taskPlan = allowed ? buildTaskReminderPlan(tasks.filter(task => !config.alive || !task.dueTime), now, echo.suggestedReminder(dayWindow), 16, placed) : [];
+        const plan = allowed && habitsAllowed ? buildHabitReminderPlan(habits.filter(habit => !config.alive || !habit.startTime), now, { ...today, ...skipped }, 48, placed) : [];
         const dayOf = (date: Date) => Math.floor(date.getTime() / 86400000);
         for (const { task, date } of taskPlan) candidates.push({
           identifier: `task:${task.id}:${date.getTime()}`, date,
