@@ -92,7 +92,7 @@
       [
         "expo-calendar",
         {
-          "calendarPermission": "The app needs to access your calendar to sync habits.",
+          "calendarPermission": "Habyss shows your calendar events on your timeline, so habits and tasks are planned around them.",
           "remindersPermission": "The app needs to access your reminders to sync habits."
         }
       ],

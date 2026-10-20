@@ -58,9 +58,9 @@
 	<key>NSAppleMusicUsageDescription</key>
 	<string>Habyss can play your music during focus sessions.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>The app needs to access your calendar to sync habits.</string>
+	<string>Habyss shows your calendar events on your timeline, so habits and tasks are planned around them.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>The app needs to access your calendar to sync habits.</string>
+	<string>Habyss shows your calendar events on your timeline, so habits and tasks are planned around them.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>The app accesses your camera to let you take profile pictures and goal backgrounds.</string>
 	<key>NSFaceIDUsageDescription</key>
