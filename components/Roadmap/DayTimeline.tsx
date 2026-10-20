@@ -4,7 +4,7 @@ import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withR
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
 import { ListItem } from '@/components/ui/Motion';
-import { MatteSurface } from '@/components/ui/MatteSurface';
+import { FocusPill } from '@/components/ui/FocusPill';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { lengthLabel, rangeLabel, type DayFlow, type FlowInput, type FlowItem } from '@/lib/dayFlow';
@@ -29,11 +29,16 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(
  * pill of its own colour (taller the longer it takes) joined to the next by a
  * line. The one you are on glows and offers Focus; finish it and the next is
  * yours straight away, with the rest of the chain moved up (lib/dayFlow.ts).
- * Things with no time are fitted into the free gaps by urgency, and say so;
- * meals and calendar events sit as fixed blocks with a lock.
+ * Things with no time are fitted into the free gaps by urgency; a green dot
+ * marks one that moved since you last opened it. Meals and calendar events
+ * sit as fixed blocks with a lock. A habit's pill is round, a task's squarer.
  */
-export function DayTimeline({ flow, onToggle, onOpen, onFocus, now }: {
+export function DayTimeline({ flow, onToggle, onOpen, onFocus, now, moved, scrubbing }: {
     flow: DayFlow;
+    /** Moved since last opened (lib/dayMemory.ts): the green dot. */
+    moved?: Record<string, true>;
+    /** Showing only what is on at the time under the finger. */
+    scrubbing?: boolean;
     onToggle: (item: FlowInput) => void;
     onOpen: (item: FlowInput) => void;
     onFocus: (item: FlowInput) => void;
@@ -49,20 +54,26 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now }: {
                 <ListItem key={`${item.kind}-${item.id}`} index={index}>
                     <Row size={size} item={item} color={colorOf(item)} last={index === flow.timeline.length - 1}
                         nextColor={flow.timeline[index + 1] ? colorOf(flow.timeline[index + 1]) : undefined}
-                        now={now} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
+                        now={now} updated={!!moved?.[item.id]} onToggle={onToggle} onOpen={onOpen} onFocus={onFocus} />
                 </ListItem>
             )) : (
                 <Text style={[t.type.bodySmall, styles.empty, { color: t.color.textSubtle }]}>
-                    Nothing planned for this day yet.
+                    {scrubbing ? 'Nothing on at this time.' : 'Nothing planned for this day yet.'}
                 </Text>
             )}
+            {/* Bedtime never gives: whatever has no room is named, not squeezed in. */}
+            {flow.unfit.length && !scrubbing ? (
+                <Text style={[t.type.caption, styles.unfit, { color: t.color.textSubtle }]}>
+                    {`No room before bedtime for ${flow.unfit.map(item => item.title).join(', ')}.`}
+                </Text>
+            ) : null}
 
         </View>
     );
 }
 
-function Row({ size, item, color, nextColor, last, now, onToggle, onOpen, onFocus }: {
-    size: Size; item: FlowItem; color: string; nextColor?: string; last: boolean; now: number | null;
+function Row({ size, item, color, nextColor, last, now, updated, onToggle, onOpen, onFocus }: {
+    size: Size; item: FlowItem; color: string; nextColor?: string; last: boolean; now: number | null; updated: boolean;
     onToggle: (item: FlowInput) => void; onOpen: (item: FlowInput) => void; onFocus: (item: FlowInput) => void;
 }) {
     const t = useTokens();
@@ -71,16 +82,15 @@ function Row({ size, item, color, nextColor, last, now, onToggle, onOpen, onFocu
     const live = item.state === 'now';
     const done = item.state === 'done';
     const left = live && now !== null ? Math.max(0, item.end - now) : null;
-    const moved = item.overflow ? 'No room before bedtime'
-        : item.auto && !done ? 'Fitted in by priority'
-        : item.shift !== 0 && !done ? `${Math.abs(item.shift)} min ${item.shift < 0 ? 'earlier' : 'later'} than planned`
-        : null;
+    const moved = item.shift !== 0 && !done && !item.auto ? `${Math.abs(item.shift)} min ${item.shift < 0 ? 'earlier' : 'later'} than planned` : null;
+    // A habit's pill is round; a task's has squarer corners.
+    const corner = item.kind === 'task' ? t.radius.sm : size.pill / 2;
     return (
         <View style={styles.row}>
             <View style={[styles.rail, { width: size.pill }]}>
                 <Pressable onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={`Open ${item.title}`}>
-                    {live ? <Glow color={color} height={height} width={size.pill} /> : null}
-                    <View style={[styles.pill, { width: size.pill, borderRadius: size.pill / 2, height, backgroundColor: color, opacity: done ? 0.45 : 1 }]}>
+                    {live ? <Glow color={color} height={height} width={size.pill} radius={corner} /> : null}
+                    <View style={[styles.pill, { width: size.pill, borderRadius: corner, height, backgroundColor: color, opacity: done ? 0.45 : 1 }]}>
                         <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon} color={t.color.onAccent} />
                     </View>
                 </Pressable>
@@ -99,17 +109,14 @@ function Row({ size, item, color, nextColor, last, now, onToggle, onOpen, onFocu
                             {rangeLabel(item.start, item.end)} ({lengthLabel(item.end - item.start)})
                         </Text>
                         {item.repeats ? <AppIcon name="repeat" size={s(12)} color={t.color.textSubtle} /> : null}
+                        {/* Moved since you last opened it. */}
+                        {updated && !done ? <View accessibilityLabel="Rescheduled" style={[styles.dot, { backgroundColor: t.color.success }]} /> : null}
                     </View>
                     <Text numberOfLines={2} style={[t.type[size.titleType], styles.name, { color: done ? t.color.textSubtle : t.color.textPrimary }, done && !meal && styles.struck]}>{item.title}</Text>
                     {moved ? <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{moved}</Text> : null}
                     {live && !meal ? (
                         <View style={[styles.liveRow, { gap: t.space.sm }]}>
-                            <Pressable onPress={() => onFocus(item)} accessibilityRole="button" accessibilityLabel={`Focus on ${item.title}`}>
-                                <MatteSurface radius={t.radius.full} level="control" tint={color} style={styles.focus}>
-                                    <AppIcon name="timer" filled size={s(14)} color={t.color.onAccent} />
-                                    <Text style={[t.type.caption, styles.focusText, { color: t.color.onAccent }]}>Focus</Text>
-                                </MatteSurface>
-                            </Pressable>
+                            <FocusPill color={color} label={item.title} onPress={() => onFocus(item)} />
                             {left !== null ? <Text style={[t.type.caption, { color: t.color.textMuted }]}>{left ? `${lengthLabel(left)} left` : 'Over time'}</Text> : null}
                         </View>
                     ) : null}
@@ -136,7 +143,7 @@ function Check({ size, done, color, onPress, label }: { size: Size; done: boolea
 }
 
 /** A soft breathing glow behind the pill you are on. */
-function Glow({ color, height, width }: { color: string; height: number; width: number }) {
+function Glow({ color, height, width, radius }: { color: string; height: number; width: number; radius: number }) {
     const breath = useSharedValue(0);
     useEffect(() => {
         breath.value = withRepeat(withSequence(
@@ -144,7 +151,7 @@ function Glow({ color, height, width }: { color: string; height: number; width: 
             withTiming(0, { duration: 1400, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.System })), -1, false);
     }, [breath]);
     const style = useAnimatedStyle(() => ({ opacity: 0.2 + breath.value * 0.25, transform: [{ scale: 1.06 + breath.value * 0.06 }] }));
-    return <Animated.View pointerEvents="none" style={[styles.glow, { height, width, borderRadius: width / 2, backgroundColor: color }, style]} />;
+    return <Animated.View pointerEvents="none" style={[styles.glow, { height, width, borderRadius: radius, backgroundColor: color }, style]} />;
 }
 
 const styles = StyleSheet.create({
@@ -160,8 +167,8 @@ const styles = StyleSheet.create({
     nowTag: { fontFamily: FontFamily.semibold },
     struck: { textDecorationLine: 'line-through' },
     liveRow: { flexDirection: 'row', alignItems: 'center', marginTop: vs(6) },
-    focus: { flexDirection: 'row', alignItems: 'center', gap: s(4), paddingHorizontal: s(12), paddingVertical: vs(6) },
-    focusText: { fontFamily: FontFamily.semibold },
+    dot: { width: s(7), height: s(7), borderRadius: s(3.5) },
+    unfit: { paddingTop: vs(8) },
     check: { borderWidth: s(2), alignItems: 'center', justifyContent: 'center' },
     empty: { textAlign: 'center', paddingVertical: vs(24) },
 });

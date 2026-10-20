@@ -17,6 +17,8 @@ import { Habit } from '@/lib/habitsSQLite';
 import { useRouter } from 'expo-router';
 import { RoadMapCardSize } from '@/context/AppSettingsContext';
 import { VoidCard } from '@/components/ui/VoidCard';
+import { FocusPill } from '@/components/ui/FocusPill';
+import { Radius } from '@/theme/designSystem';
 import { useHaptics } from '@/hooks/useHaptics';
 import Svg, { Rect, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { runOnJS } from 'react-native-reanimated';
@@ -122,7 +124,8 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
 
   // SVG Calculations
   const strokeWidth = 3;
-  const radius = 10;
+  // Habits are round-ended, where a task is squarer: the kind at a glance.
+  const radius = layout.height / 2;
   // Perimeter of rect with rx/ry: 2*(w+h) - 8r + 2PI*r
   const perimeter = 2 * (layout.width + layout.height) - 8 * radius + (2 * Math.PI * radius);
   const strokeDashoffset = perimeter * (1 - progress);
@@ -210,6 +213,7 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
         <View>
           {/* Main Card Content */}
           <VoidCard
+            radius={Radius.pill}
             intensity={40} // Lighter glass for items
             style={[
               styles.card,
@@ -273,14 +277,6 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                 <Text style={{ fontSize: 10, color: colors.textTertiary, fontFamily: FontFamily.regular, marginTop: 2 }} numberOfLines={1}>{goalName}</Text>
               ) : ((habit.streak ?? 0) > 0 && !isSmall) ? (
                 <Text style={[styles.streakText, { color: '#F59E0B' }]}><Ionicons name="flame-outline" size={12} color="#F59E0B" /> <CountUp value={habit.streak ?? 0} /></Text>
-              ) : canFocusNow && onFocusPress && !isSmall ? (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => onFocusPress(habit)}
-                  style={[styles.metaBadge, styles.metaBadgeCompact, { backgroundColor: colors.surfaceTertiary, borderColor: 'transparent' }]}
-                >
-                  <Text style={[styles.metaBadgeText, { color: colors.textPrimary }]}>Focus now</Text>
-                </TouchableOpacity>
               ) : null}
             </View>
 
@@ -288,7 +284,10 @@ const SwipeableHabitItemComponent: React.FC<SwipeableHabitItemProps> = ({
                 it reminds you), then how much, only if that says something.
                 Small cards keep to one line. */}
             <View style={styles.side}>
-              {isActive && formattedTime ? (
+              {/* What you should be on right now: Focus, on the card itself. */}
+              {canFocusNow && onFocusPress && !isActive && !isCompleted ? (
+                <FocusPill color={habit.color || accentColor} label={habit.name} compact={isSmall} onPress={() => onFocusPress(habit)} />
+              ) : isActive && formattedTime ? (
                 <Text style={[styles.sideMain, { color: accentColor, fontFamily: FontFamily.bold, fontSize: sideMain }]}>{formattedTime}</Text>
               ) : (
                 <>
@@ -368,21 +367,6 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 4,
     flexWrap: 'wrap',
-  },
-  metaBadge: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  metaBadgeCompact: {
-    marginTop: 3,
-    alignSelf: 'flex-start',
-  },
-  metaBadgeText: {
-    fontSize: 9,
-    fontFamily: FontFamily.regular,
-    color: '#A1A1AA',
   },
   timeText: {
     fontFamily: FontFamily.regular,

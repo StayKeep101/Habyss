@@ -6,9 +6,9 @@ import { SettingsGroup, SettingsRow } from '@/components/ui/SettingsList';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { TimeRow } from '@/components/ui/TimeRow';
 import { useTokens } from '@/hooks/useTokens';
-import { useMeals } from '@/hooks/useMeals';
+import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useCalendarOn } from '@/hooks/useCalendarEvents';
-import { MEAL_LENGTHS, MEAL_NAMES, saveMeal, type MealId } from '@/lib/meals';
+import { MEAL_LENGTHS, MEAL_NAMES, saveMeal, setMealsFlexible, type MealId } from '@/lib/meals';
 import { DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
 import { calendarAvailable, setCalendarOn } from '@/lib/calendarEvents';
 import { NotificationService } from '@/lib/notificationService';
@@ -24,6 +24,8 @@ const ICONS: Record<MealId, 'cafe' | 'restaurant' | 'fast-food'> = { breakfast: 
 export default function TimelineSettingsScreen() {
     const t = useTokens();
     const meals = useMeals();
+    const flexible = useMealsFlexible();
+    const anyMeal = Object.values(meals).some(meal => meal.on);
     const calendar = useCalendarOn();
     const [day, setDay] = useState<DayWindow>(DEFAULT_DAY);
     useEffect(() => { void getDayWindow().then(setDay); }, []);
@@ -41,7 +43,7 @@ export default function TimelineSettingsScreen() {
         <SheetScreen title="Timeline" onBack={() => router.back()}>
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <Text style={[t.type.bodySmall, { color: t.color.textMuted }]}>
-                    Habits and tasks without a set time are fitted into your day, most urgent first, between waking and bedtime. Meals and calendar events never move, and nothing is pushed into them.
+                    Habits and tasks are fitted into your day, most urgent first, between waking and bedtime, and moved along when something is not done in time. Waking and bedtime never move; calendar events never move; meals only move if you let them.
                 </Text>
 
                 <SectionTitle>Your day</SectionTitle>
@@ -57,6 +59,18 @@ export default function TimelineSettingsScreen() {
                 <Text style={[t.type.caption, { color: t.color.textSubtle }]}>
                     Events from Apple Calendar, and any Google or Outlook account on this iPhone, show in your timeline. All-day and “free” events do not block time. Read on this phone only.
                 </Text>
+
+                {anyMeal ? (
+                    <>
+                        <SettingsGroup title="Meals">
+                            <SettingsRow icon="swap-vertical" color={t.color.success} label="Flexible meals"
+                                toggle={flexible} onToggle={value => void setMealsFlexible(value)} />
+                        </SettingsGroup>
+                        <Text style={[t.type.caption, { color: t.color.textSubtle }]}>
+                            On a full day a meal can wait up to two hours so more fits in. You still get every meal. Off, meals stay exactly where they are.
+                        </Text>
+                    </>
+                ) : null}
 
                 {(Object.keys(MEAL_NAMES) as MealId[]).map(id => {
                     const meal = meals[id];

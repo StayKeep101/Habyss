@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { markSeen } from '@/lib/dayMemory';
 import { ActivityIndicator, Alert, AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -47,6 +48,8 @@ export default function HabitDetailScreen() {
     const params = useLocalSearchParams<{ habitId?: string; date?: string }>();
     const habitId = param(params.habitId);
     const requestedDate = param(params.date);
+    // Opened: the timeline's "moved" dot on it goes until it moves again.
+    useEffect(() => { if (habitId) markSeen(habitId); }, [habitId]);
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { primary: accentSolid } = useAccentGradient();

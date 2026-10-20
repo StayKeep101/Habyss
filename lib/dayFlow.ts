@@ -13,10 +13,16 @@ import { habitMinutes, toMinutes } from './dayPlan';
  * stays where it is and absorbs the shift, so finishing breakfast early never
  * drags the evening run to 10am.
  *
- * Things with no time sit under the timeline, as "Anytime".
+ * Things with no time are given a free slot (see fillDay). Something whose
+ * time passes without it being done is not left behind: it is fitted in again
+ * from now, and says it moved. Something done keeps the slot it was done in,
+ * cut short if it was finished early, so the rest of the day moves up.
  *
- * Meals (Settings → Meals) are fixed: they never move, and nothing is moved
- * into them. Whatever would land on one is pushed past its end instead.
+ * Meals (Settings → Timeline) and calendar events are fixed: they never move,
+ * and nothing is moved into them. Whatever would land on one is pushed past
+ * its end instead. With flexible meals on, a meal may wait up to two hours
+ * when the day is too full for everything otherwise. Waking and bedtime never
+ * give: what does not fit between them is listed as not fitting today.
  */
 
 export interface FlowInput {
@@ -37,6 +43,17 @@ export interface FlowInput {
     urgency?: number;
     /** 1 easy, 2 medium, 3 hard: hard ones get your best hours. */
     difficulty?: 1 | 2 | 3;
+    /**
+     * Where it was last placed (lib/dayMemory.ts). Something done stays
+     * there; something under way holds it until it runs out.
+     */
+    kept?: { start: number; end: number };
+    /** A meal that may wait when the day is full (Settings → Timeline); otherwise as fixed as any. */
+    flex?: boolean;
+    /** Habyss found it a slot (it had no time, or its time passed). */
+    auto?: boolean;
+    /** Its time passed without it being done, so it was fitted in again. */
+    moved?: boolean;
 }
 
 export interface FlowItem extends FlowInput {
@@ -48,16 +65,14 @@ export interface FlowItem extends FlowInput {
     /** Minutes it moved from the plan: negative is earlier. */
     shift: number;
     state: 'done' | 'now' | 'next' | 'later';
-    /** It had no time: Habyss found it a slot, by urgency. */
-    auto?: boolean;
-    /** Placed after bedtime, because the day had no room left for it. */
-    overflow?: boolean;
 }
 
 export interface DayFlow {
     timeline: FlowItem[];
     /** Always empty now: everything without a time is given a slot. Kept for older callers. */
     anytime: FlowInput[];
+    /** Open things there is no room for between now and bedtime. */
+    unfit: FlowInput[];
     /** The item you are on, if any. */
     current: FlowItem | null;
 }
@@ -71,6 +86,10 @@ const EARLY = 10;
 
 /** A breath between two things the scheduler places back to back. */
 const BUFFER = 5;
+/** How long past its end something can run before it counts as missed and moves. */
+export const GRACE = 10;
+/** The longest a flexible meal waits for a full day. */
+export const MEAL_DELAY = 120;
 
 /**
  * Lays the day out as a flow. `now` is minutes from midnight on the day shown,
@@ -89,11 +108,59 @@ export interface DayWindowMinutes {
      * first, while the day is fresh.
      */
     peak?: { start: number; end: number } | null;
+    /** Being focused on right now: it never counts as missed. */
+    active?: string | null;
 }
 
 export function flowDay(items: FlowInput[], now: number | null, window: DayWindowMinutes = { wake: 7 * 60, sleep: 23 * 60 }): DayFlow {
-    const placed = flowTimed(items.filter(item => item.start !== null), now);
-    const untimed = items.filter(item => item.start === null);
+    const first = layOut(items, now, window);
+    // Flexible meals: when something does not fit, try letting a meal wait,
+    // a quarter of an hour at a time, and keep whatever fits the most in.
+    const meals = items.filter(item => item.kind === 'meal' && item.flex && item.start !== null && (now === null || (item.start as number) > now));
+    if (!first.unfit.length || !meals.length) return first;
+    let best = first;
+    let bestItems = items;
+    const delays: Record<string, number> = {};
+    for (const meal of meals) {
+        for (let delay = 15; delay <= MEAL_DELAY && best.unfit.length; delay += 15) {
+            const trial = bestItems.map(item => item.id === meal.id ? { ...item, start: (meal.start as number) + delay } : item);
+            const flow = layOut(trial, now, window);
+            if (flow.unfit.length < best.unfit.length) { best = flow; bestItems = trial; delays[meal.id] = delay; }
+        }
+    }
+    // A meal that waited says so, like anything else that moved.
+    const timeline = best.timeline.map(item => delays[item.id] ? { ...item, plannedStart: item.start - delays[item.id], shift: delays[item.id] } : item);
+    return { ...best, timeline };
+}
+
+/** One layout of the day: what is done or under way holds, the rest is fitted around it. */
+function layOut(items: FlowInput[], now: number | null, window: DayWindowMinutes): DayFlow {
+    const timed: FlowInput[] = [];
+    const untimed: FlowInput[] = [];
+    for (const item of items) {
+        const kept = item.kept && item.kept.end > item.kept.start ? item.kept : null;
+        if (item.fixed) { timed.push(item); continue; }
+        if (item.done) {
+            // Done: it stays where it was done.
+            if (kept) timed.push({ ...item, start: kept.start, minutes: kept.end - kept.start, auto: item.auto || item.start === null || kept.start !== item.start });
+            else if (item.start !== null) timed.push(item);
+            else untimed.push(item);
+            continue;
+        }
+        if (now === null) { (item.start !== null ? timed : untimed).push(item); continue; }
+        const length = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
+        const missed = (end: number) => now >= end + GRACE && item.id !== window.active;
+        // Its own time, not yet past: it keeps it (the flow may still move it up or back).
+        if (item.start !== null && !missed(item.start + length)) { timed.push(item); continue; }
+        // A slot Habyss gave it earlier: held while under way, given up once it runs out.
+        if (kept && kept.start <= now) {
+            if (!missed(kept.end)) { timed.push({ ...item, start: kept.start, minutes: kept.end - kept.start, auto: true, moved: item.moved || item.start !== null }); continue; }
+            untimed.push({ ...item, start: null, auto: true, moved: true });
+            continue;
+        }
+        untimed.push({ ...item, start: null, auto: true, moved: item.start !== null || item.moved });
+    }
+    const placed = flowTimed(timed, now);
     if (!untimed.length) return placed;
     return fillDay(placed, untimed, now, window);
 }
@@ -118,7 +185,7 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
         || (a.urgency ?? 50) - (b.urgency ?? 50) || b.minutes - a.minutes || a.title.localeCompare(b.title);
     const peak = window.peak ?? null;
     const timeline = [...flow.timeline];
-    let late = Math.max(sleep, ...busy.map(slot => slot.end));
+    const unfit: FlowInput[] = [];
 
     // Done ones first, from the start of the day, so they hold still as the day goes on.
     const place = (list: FlowInput[], from: number) => {
@@ -126,10 +193,11 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
             const minutes = item.minutes > 0 ? item.minutes : DEFAULT_MINUTES;
             // Hard: into your best hours when they are known and still ahead.
             const inPeak = item.difficulty === 3 && peak && peak.end > from ? slotFor(Math.max(from, peak.start), minutes) : null;
-            const at = inPeak !== null && peak && inPeak < peak.end ? inPeak : slotFor(from, minutes);
-            const start = at ?? late;
-            if (at === null) late = start + minutes + BUFFER;
-            const placedItem: FlowItem = { ...item, start, end: start + minutes, plannedStart: start, shift: 0, state: item.done ? 'done' : 'later', auto: true, overflow: at === null };
+            const found = inPeak !== null && peak && inPeak < peak.end ? inPeak : slotFor(from, minutes);
+            // Bedtime never gives: what does not fit is listed, not squeezed in.
+            if (found === null && !item.done) { unfit.push(item); continue; }
+            const start = found ?? window.wake;
+            const placedItem: FlowItem = { ...item, start, end: start + minutes, plannedStart: start, shift: 0, state: item.done ? 'done' : 'later', auto: true };
             timeline.push(placedItem);
             busy.push({ start, end: start + minutes });
             busy.sort((a, b) => a.start - b.start);
@@ -156,7 +224,7 @@ function fillDay(flow: DayFlow, untimed: FlowInput[], now: number | null, window
         timeline[i] = { ...item, state: !nextGiven && now !== null ? 'next' : 'later' };
         nextGiven = true;
     }
-    return { timeline, anytime: [], current };
+    return { timeline, anytime: [], unfit, current };
 }
 
 /** The timed part: in order, the one you are on first, the rest moved up or back. */
@@ -237,7 +305,7 @@ function flowTimed(items: FlowInput[], now: number | null): DayFlow {
     }
     // In time order, now that some have been pushed past a meal.
     timeline.sort((a, b) => a.start - b.start);
-    return { timeline, anytime, current };
+    return { timeline, anytime, unfit: [], current };
 }
 
 /**
@@ -257,10 +325,14 @@ export function flowInputs(input: {
     meals?: { id: string; name: string; start: number; minutes: number }[];
     events?: { id: string; title: string; start: number; minutes: number; color?: string }[];
     today?: string;
+    /** Meals may wait for a full day (Settings → Timeline). */
+    flexibleMeals?: boolean;
+    /** Where each was last placed today (lib/dayMemory.ts). */
+    kept?: Record<string, { start: number; end: number }>;
 }): FlowInput[] {
     const items: FlowInput[] = (input.meals ?? []).map(meal => ({
         id: `meal:${meal.id}`, kind: 'meal' as const, title: meal.name, start: meal.start, minutes: meal.minutes,
-        done: false, icon: 'restaurant', fixed: true,
+        done: false, icon: 'restaurant', fixed: true, flex: !!input.flexibleMeals,
     }));
     for (const event of input.events ?? []) {
         items.push({ id: `event:${event.id}`, kind: 'event', title: event.title, start: event.start, minutes: event.minutes, done: false, icon: 'calendar', color: event.color, fixed: true });
@@ -278,16 +350,19 @@ export function flowInputs(input: {
         items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done',
             urgency: urgencyOf(task.priority, task.dueDate, input.today), difficulty: task.difficulty });
     }
+    if (input.kept) for (const item of items) if (input.kept[item.id] && item.kind !== 'meal' && item.kind !== 'event') item.kept = input.kept[item.id];
     return items;
+}
+
+/** "8:30 AM", in the phone's own clock style. */
+export function clockLabel(minutes: number): string {
+    const date = new Date(2000, 0, 1, Math.floor(minutes / 60) % 24, minutes % 60);
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 /** "8:00–8:30 AM", in the phone's own clock style. */
 export function rangeLabel(start: number, end: number): string {
-    const at = (minutes: number) => {
-        const date = new Date(2000, 0, 1, Math.floor(minutes / 60) % 24, minutes % 60);
-        return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    };
-    return `${at(start)}–${at(end)}`;
+    return `${clockLabel(start)}–${clockLabel(end)}`;
 }
 
 /** "30 min", "1 hr", "1 hr 30 min". */

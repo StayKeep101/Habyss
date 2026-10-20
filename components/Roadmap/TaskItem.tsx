@@ -15,6 +15,8 @@ import { Colors } from '@/theme/colors';
 import { useTheme } from '@/context/ThemeContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/ui/VoidCard';
+import { FocusPill } from '@/components/ui/FocusPill';
+import { Radius } from '@/theme/designSystem';
 import type { RoadMapCardSize } from '@/context/AppSettingsContext';
 import { setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
@@ -54,6 +56,8 @@ interface Props {
     onDragMove?: (task: Task, x: number, y: number) => void;
     onDragEnd?: (task: Task, x: number, y: number) => void;
     isDragging?: boolean;
+    /** It is what you should be on right now: Focus sits on the card. */
+    canFocusNow?: boolean;
 }
 
 const shortDate = (day: string) =>
@@ -73,7 +77,7 @@ const shortLength = (minutes: number) =>
  */
 const TaskItemComponent: React.FC<Props> = ({
     task, today, onToggle, onPress, onEdit, onDelete, goalName, shared = null, size = 'standard',
-    actions = 'all', onMove, onDragStart, onDragMove, onDragEnd, isDragging = false,
+    actions = 'all', onMove, onDragStart, onDragMove, onDragEnd, isDragging = false, canFocusNow = false,
 }) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
@@ -182,7 +186,8 @@ const TaskItemComponent: React.FC<Props> = ({
                 accessibilityLabel={`Task: ${task.title}. ${label}`}
                 onPress={() => onPress(task)}
             >
-                <VoidCard intensity={40} style={[styles.card, { paddingVertical: paddingV }, done && { opacity: 0.7 }]}>
+                {/* Squarer corners than a habit's round ends: a task is a thing to finish, not a rhythm. */}
+                <VoidCard radius={Radius.small} intensity={40} style={[styles.card, { paddingVertical: paddingV }, done && { opacity: 0.7 }]}>
                     {/* Square, where a habit is round: the difference at a glance.
                         On the plan it is a mark rather than a control: ticking
                         things off belongs to the day, not to the map of it. */}
@@ -248,10 +253,14 @@ const TaskItemComponent: React.FC<Props> = ({
                     </View>
 
                     <View style={{ alignItems: 'flex-end' }}>
-                        {task.estimatedMinutes && !isSmall ? (
+                        {canFocusNow && !done && actions === 'all' ? (
+                            <FocusPill color={TASK_COLOR} label={task.title} compact={isSmall}
+                                onPress={() => { selectionFeedback(); require('expo-router').router.push({ pathname: '/(root)/focus', params: { kind: 'task', id: task.id, title: task.title } }); }} />
+                        ) : null}
+                        {canFocusNow && !done ? null : task.estimatedMinutes && !isSmall ? (
                             <Text style={[styles.estimate, { color: colors.textTertiary }]}>{shortLength(task.estimatedMinutes)}</Text>
                         ) : null}
-                        <Text style={[styles.when, { color: whenColor, fontSize: isSmall ? 9 : 11 }]}>{when}</Text>
+                        {canFocusNow && !done && actions === 'all' ? null : <Text style={[styles.when, { color: whenColor, fontSize: isSmall ? 9 : 11 }]}>{when}</Text>}
                     </View>
                 </VoidCard>
             </TouchableOpacity>

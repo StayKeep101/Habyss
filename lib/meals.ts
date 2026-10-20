@@ -70,3 +70,28 @@ export function mealSlots(meals: Meals): { id: MealId; name: string; start: numb
         return { id: meal.id, name: MEAL_NAMES[meal.id], start: h * 60 + m, minutes: meal.minutes };
     });
 }
+
+/**
+ * Flexible meals: on a full day a meal may wait (up to two hours) so more
+ * fits in; you still get all three. Off, meals never move.
+ */
+const FLEX_KEY = 'habyss_meals_flexible';
+let flexible = false;
+let flexLoaded = false;
+
+export const currentMealsFlexible = (): boolean => flexible;
+
+export async function loadMealsFlexible(): Promise<boolean> {
+    if (flexLoaded) return flexible;
+    flexLoaded = true;
+    flexible = (await AsyncStorage.getItem(FLEX_KEY).catch(() => null)) === 'true';
+    listeners.forEach(listener => listener());
+    return flexible;
+}
+
+export async function setMealsFlexible(on: boolean): Promise<void> {
+    flexible = on;
+    flexLoaded = true;
+    listeners.forEach(listener => listener());
+    await AsyncStorage.setItem(FLEX_KEY, String(on)).catch(() => undefined);
+}

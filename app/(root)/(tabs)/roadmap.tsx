@@ -39,11 +39,12 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { emit, on } from '@/lib/appEvents';
 import { DayPlanCard } from '@/components/Roadmap/DayPlanCard';
-import { NowCard } from '@/components/Roadmap/NowCard';
-import { pickNow } from '@/lib/nowItem';
 import { flowDay, flowInputs, type FlowInput } from '@/lib/dayFlow';
 import { DayTimeline } from '@/components/Roadmap/DayTimeline';
-import { useMeals } from '@/hooks/useMeals';
+import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
+import { useDayMemory } from '@/hooks/useDayMemory';
+import { markSeen, rememberFlow } from '@/lib/dayMemory';
+import { planAlert, schedulePlanAlert } from '@/lib/planAlerts';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useEchoPatterns } from '@/hooks/useEchoPatterns';
 import { peakWindow } from '@/lib/echoPatterns';
@@ -881,34 +882,55 @@ const CalendarScreen = () => {
     // fourth value existed, which is how a filter starts showing the wrong
     // things.
     const scrubbing = scrubIds !== null;
-    // The one thing for right now (lib/nowItem.ts), re-read each minute with the clock.
-    const nowItem = useMemo(() => pickNow({ habits: habitsStore, tasks, done: completions, today: todayKey(), now: clock }), [habitsStore, tasks, completions, clock]);
     // The day as one flow (lib/dayFlow.ts): everything with a time in order,
     // the one you are on first, the rest moved up or back as the day goes.
     const meals = useMeals();
+    const flexibleMeals = useMealsFlexible();
+    // Where each thing was placed today, so done things stay put and moves get a dot.
+    const memory = useDayMemory();
     const calendarEvents = useCalendarEvents(localDateKey(selectedDate));
     // Your best hours, from Echo's patterns: hard things are fitted in there.
     const patterns = useEchoPatterns();
     const peak = useMemo(() => peakWindow(patterns), [patterns]);
-    const flow = useMemo(() => {
+    const flowNow = dayPlan.isToday ? clock.getHours() * 60 + clock.getMinutes() : null;
+    const flowWindow = useMemo(() => ({ wake: minutesOf(dayWindow.wake), sleep: minutesOf(dayWindow.sleep), peak, active: activeHabitId }), [dayWindow, peak, activeHabitId]);
+    const flowItems = useMemo(() => {
         const day = localDateKey(selectedDate);
-        const isToday = day === todayKey(clock);
         const habits = habitsStore.filter(h => !h.isGoal && !h.isArchived && isHabitScheduledForDate(h, selectedDate)) as StoreHabit[];
         // Meals and calendar events are fixed; the rest flows, and whatever has
         // no time is given a slot by urgency between waking and bedtime.
-        return flowDay(
-            flowInputs({ habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, meals: mealSlots(meals), events: calendarEvents, today: todayKey(clock) }),
-            isToday ? clock.getHours() * 60 + clock.getMinutes() : null,
-            { wake: minutesOf(dayWindow.wake), sleep: minutesOf(dayWindow.sleep), peak },
-        );
-    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, dayWindow, peak]);
-    const flowNow = dayPlan.isToday ? clock.getHours() * 60 + clock.getMinutes() : null;
+        return flowInputs({
+            habits, tasks: tasksForDay(tasks, day, todayKey(clock)), done: completions, meals: mealSlots(meals), events: calendarEvents,
+            today: todayKey(clock), flexibleMeals, kept: memory.day === day ? memory.slots : undefined,
+        });
+    }, [habitsStore, tasks, completions, selectedDate, clock, meals, calendarEvents, flexibleMeals, memory]);
+    const flow = useMemo(() => flowDay(flowItems, flowNow, flowWindow), [flowItems, flowNow, flowWindow]);
+    // Today's flow is remembered as it changes, and Echo is told when the
+    // thing you are on would run out, so it can say where it went.
+    useEffect(() => {
+        if (flowNow === null) return;
+        rememberFlow(localDateKey(selectedDate), flow, flowNow);
+        void schedulePlanAlert(planAlert(flowItems, flow, flowNow, flowWindow));
+    }, [flow, flowItems, flowNow, flowWindow, selectedDate]);
+    // The strip at the top shows the same day as the timeline: placed things included.
+    const stripPlan = useMemo(() => ({
+        ...dayPlan.plan,
+        blocks: flow.timeline.filter(item => item.kind === 'habit' || item.kind === 'task').map(item => ({
+            id: item.id, kind: item.kind as 'habit' | 'task', title: item.title, start: item.start, end: item.end, done: item.done, color: item.color,
+        })),
+    }), [dayPlan.plan, flow]);
+    // What you should be on right now: its own card carries the Focus button.
+    const nowId = flowNow !== null && flow.current && !flow.current.fixed && !flow.current.done ? flow.current.id : null;
+    // Dragging along the strip in the timeline: only what is on then.
+    const shownFlow = useMemo(() => scrubIds === null ? flow
+        : { ...flow, timeline: flow.timeline.filter(item => scrubIds.has(`${item.kind}:${item.id}`)) }, [flow, scrubIds]);
     const toggleFlowItem = useCallback((item: FlowInput) => {
         if (item.kind === 'habit') { const habit = habitsStore.find(h => h.id === item.id); if (habit) void handleHabitPress(habit as Habit); }
         else { const task = tasks.find(t => t.id === item.id); if (task) void handleTaskToggle(task); }
     }, [habitsStore, tasks, handleHabitPress, handleTaskToggle]);
     const openFlowItem = useCallback((item: FlowInput) => {
         lightFeedback();
+        markSeen(item.id);
         if (item.kind === 'meal' || item.kind === 'event') router.push('/(root)/meals' as never);
         else if (item.kind === 'habit') router.push({ pathname: '/habit-detail', params: { habitId: item.id } });
         else { const task = tasks.find(t => t.id === item.id); if (task) openTask(task); }
@@ -917,7 +939,7 @@ const CalendarScreen = () => {
         mediumFeedback();
         router.push({ pathname: '/(root)/focus', params: { kind: item.kind, id: item.id, title: item.title } });
     }, [mediumFeedback, router]);
-    const timelineView = roadmapView === 'timeline' && !scrubbing;
+    const timelineView = roadmapView === 'timeline';
 
     const showGoals = shown.goals && !scrubbing;
     const showHabits = shown.habits || scrubbing;
@@ -1015,14 +1037,12 @@ const CalendarScreen = () => {
                         >
 
                             <DayPlanCard
-                                plan={dayPlan.plan}
+                                plan={stripPlan}
                                 isToday={dayPlan.isToday}
                                 accent={accentColor}
                                 onScrub={setScrubIds}
                             />
 
-                            {/* What is on right now, pinned above the lists, wherever it is filed (the timeline shows it in place). */}
-                            {dayPlan.isToday && !scrubbing && !timelineView ? <NowCard item={nowItem} accent={accentColor} now={clock} /> : null}
 
                             {/* Filter Indicator - Subtle compact pill */}
                             {!scrubbing && (filtered || hasActiveFilters) && (
@@ -1079,7 +1099,8 @@ const CalendarScreen = () => {
                                 for their own habits anyway. */}
 
                             {timelineView ? (
-                                <DayTimeline flow={flow} now={flowNow} onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem} />
+                                <DayTimeline flow={shownFlow} now={flowNow} moved={flowNow !== null ? memory.moved : undefined} scrubbing={scrubbing}
+                                    onToggle={toggleFlowItem} onOpen={openFlowItem} onFocus={focusFlowItem} />
                             ) : (<>
                             {/* GOALS SECTION */}
                             {showGoals && (
@@ -1143,7 +1164,7 @@ const CalendarScreen = () => {
                                                                         isActive={isLive(statusOf(habit))}
                                                                         timeLeft={isLive(statusOf(habit)) ? timeLeft : undefined}
                                                                         totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
-                                                                        canFocusNow={statusOf(habit) === 'focus-now'}
+                                                                        canFocusNow={statusOf(habit) === 'focus-now' || nowId === habit.id}
                                                                         onFocusPress={handleFocusHabit}
                                                                         onDragStart={handleHabitDragStart}
                                                                         onDragMove={handleHabitDragMove}
@@ -1159,6 +1180,7 @@ const CalendarScreen = () => {
                                                             {/* A goal is reached through rhythms and one-off work alike. */}
                                                             {dayTasks.filter(task => task.goalId === goal.id).map(task => (
                                                                 <ListItem key={task.id}><TaskItem
+                                                canFocusNow={nowId === task.id}
                                                                     key={task.id}
                                                                     task={task}
                                                                     size={cardSize}
@@ -1199,6 +1221,7 @@ const CalendarScreen = () => {
                                     {listedTasks
                                         .map(task => (
                                             <ListItem key={task.id}><TaskItem
+                                                canFocusNow={nowId === task.id}
                                                 key={task.id}
                                                 task={task}
                                                 size={cardSize}
@@ -1235,7 +1258,7 @@ const CalendarScreen = () => {
                                                 isActive={isLive(statusOf(habit))}
                                                 timeLeft={isLive(statusOf(habit)) ? timeLeft : undefined}
                                                 totalDuration={isLive(statusOf(habit)) ? totalDuration : undefined}
-                                                canFocusNow={statusOf(habit) === 'focus-now'}
+                                                canFocusNow={statusOf(habit) === 'focus-now' || nowId === habit.id}
                                                 onFocusPress={handleFocusHabit}
                                                 goalName={!looseOnly && associatedGoal ? associatedGoal.name : undefined}
                                                 onDragStart={handleHabitDragStart}

@@ -41,12 +41,38 @@ describe('the day as a flow', () => {
         expect(flow.timeline.find(row => row.id === 'run')).toMatchObject({ start: at(18), shift: 0 });
     });
 
-    it('running over pushes what follows later', () => {
-        const flow = flowDay(day, at(8, 50));
-        expect(flow.current).toMatchObject({ id: 'shower', end: at(8, 50) });
-        expect(flow.timeline.find(row => row.id === 'chores')).toMatchObject({ start: at(8, 50), shift: 20 });
-        expect(flow.timeline.find(row => row.id === 'homework')).toMatchObject({ start: at(9, 20) });
+    it('running over a little pushes what follows later', () => {
+        const flow = flowDay(day, at(8, 38));
+        expect(flow.current).toMatchObject({ id: 'shower', end: at(8, 38) });
+        expect(flow.timeline.find(row => row.id === 'chores')).toMatchObject({ start: at(8, 38), shift: 8 });
+        expect(flow.timeline.find(row => row.id === 'homework')).toMatchObject({ start: at(9, 8) });
         expect(flow.timeline.find(row => row.id === 'run')).toMatchObject({ start: at(18) });
+    });
+
+    it('something not done in its time is moved to the next free slot, not left behind', () => {
+        // The 9:00 workout never happened; at 10:30 it is fitted in again from now.
+        const items = [item('workout', at(9), 45), item('read', at(14), 30)];
+        const flow = flowDay(items, at(10, 30), { wake: at(7), sleep: at(23) });
+        const workout = flow.timeline.find(row => row.id === 'workout')!;
+        expect(workout).toMatchObject({ start: at(10, 30), moved: true, auto: true, state: 'now' });
+        // Unless you are focusing on it right now.
+        expect(flowDay(items, at(10, 30), { wake: at(7), sleep: at(23), active: 'workout' }).current).toMatchObject({ id: 'workout', start: at(9) });
+    });
+
+    it('something done stays where it was done', () => {
+        const items = [{ ...item('report', null, 60, true), kept: { start: at(10), end: at(10, 20) } }, item('email', null, 30)];
+        const flow = flowDay(items, at(10, 20), { wake: at(7), sleep: at(23) });
+        expect(flow.timeline.find(row => row.id === 'report')).toMatchObject({ start: at(10), end: at(10, 20), state: 'done' });
+        // Finished in 20 minutes instead of an hour: the next one starts now.
+        expect(flow.timeline.find(row => row.id === 'email')).toMatchObject({ start: at(10, 20), state: 'now' });
+    });
+
+    it('holds the slot of something under way, and moves it once it runs out', () => {
+        const kept = { start: at(9), end: at(10) };
+        const items = [{ ...item('essay', null, 60), kept }];
+        expect(flowDay(items, at(9, 30), { wake: at(7), sleep: at(23) }).current).toMatchObject({ id: 'essay', start: at(9), end: at(10) });
+        const later = flowDay(items, at(10, 15), { wake: at(7), sleep: at(23) });
+        expect(later.timeline[0]).toMatchObject({ id: 'essay', start: at(10, 15), moved: true });
     });
 
     it('gives things with no time a slot in the day, never a separate list', () => {
@@ -125,14 +151,22 @@ describe('filling the day', () => {
         expect(flow.timeline.map(row => row.id)).toEqual(['low', 'event:1', 'meal:lunch', 'urgent']);
     });
 
-    it('never schedules before waking, and spills past bedtime only when the day is full', () => {
+    it('never schedules before waking or after bedtime: what has no room is named instead', () => {
         const flow = flowDay([task('a', 600, 0), task('b', 600, 1)], null, { wake: 480, sleep: 1320 });
-        const a = flow.timeline.find(row => row.id === 'a')!;
-        const b = flow.timeline.find(row => row.id === 'b')!;
-        expect(a.start).toBe(480);
-        expect(a.overflow).toBe(false);
-        expect(b.overflow).toBe(true);
-        expect(b.start).toBeGreaterThanOrEqual(1320);
+        expect(flow.timeline.find(row => row.id === 'a')!.start).toBe(480);
+        expect(flow.timeline.find(row => row.id === 'b')).toBeUndefined();
+        expect(flow.unfit.map(row => row.id)).toEqual(['b']);
+    });
+
+    it('lets a flexible meal wait on a full day, so more fits', () => {
+        // 8:00–15:00 awake, lunch 10:00–11:00; two 2h50 jobs do not both fit around it.
+        const meal = { ...lunch, start: 600, flex: true };
+        const window = { wake: 480, sleep: 900 };
+        expect(flowDay([meal, task('a', 170, 0), task('b', 170, 1)].map(row => ({ ...row, flex: false })), 480, window).unfit).toHaveLength(1);
+        const flow = flowDay([meal, task('a', 170, 0), task('b', 170, 1)], 480, window);
+        expect(flow.unfit).toEqual([]);
+        const moved = flow.timeline.find(row => row.id === 'meal:lunch')!;
+        expect(moved).toMatchObject({ plannedStart: 600, shift: 60, start: 660 });
     });
 
     it('ranks by priority, then how overdue a task is', () => {

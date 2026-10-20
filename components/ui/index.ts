@@ -17,7 +17,8 @@
  * Controls
  *   AppButton, IconButton, AppTextField, ChoiceRow, ChipPicker, Toggle,
  *   TimeRow, Wheel, TimeWheels (a clock time on wheels), DateWheels (a date on wheels), ViewSwitcher, SwipeRow, TypingPlaceholder,
- *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing)
+ *   MorphMenu (a ⋯ button that grows into its own menu), MicButton (talk instead of typing),
+ *   FocusPill (the solid "Focus" pill on whatever is on right now)
  *
  * Content
  *   Avatar (a face: photo or initial, optional ring and badge), IconTile (an icon on a solid tile of its colour), AppIcon (the only way to draw an icon), Text, Badge, Divider, EmptyState,
@@ -54,6 +55,7 @@ export { VoidSheet } from './VoidSheet';
 
 export { AppButton } from './AppButton';
 export { IconButton } from './IconButton';
+export { FocusPill } from './FocusPill';
 export { AppTextField } from './AppTextField';
 export { ChoiceRow } from './ChoiceRow';
 export { ChipPicker } from './ChipPicker';

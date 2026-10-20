@@ -12,12 +12,14 @@ interface VoidCardProps {
     intensity?: number;
     /** Kept so older screens still compile; every card is matte now. */
     matte?: boolean;
+    /** Corners other than a card's: a task is a little squarer, a habit rounder. */
+    radius?: number;
 }
 
 /**
  * The card: the matte surface (see MatteSurface) at card size — gradient,
  * one light edge, a soft shadow, large corners. One card for the whole app.
  */
-export const VoidCard: React.FC<VoidCardProps> = ({ children, style }) => (
-    <MatteSurface radius={Radius.card} style={style}>{children}</MatteSurface>
+export const VoidCard: React.FC<VoidCardProps> = ({ children, style, radius = Radius.card }) => (
+    <MatteSurface radius={radius} style={style}>{children}</MatteSurface>
 );

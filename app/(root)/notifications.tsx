@@ -7,6 +7,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { planAlertsOn, setPlanAlertsOn } from '@/lib/planAlerts';
 
 import { SheetScreen } from '@/components/ui/SheetScreen';
 import { VoidCard } from '@/components/ui/VoidCard';
@@ -97,6 +98,9 @@ const Notifications = () => {
   };
 
   const [habitReminders, setHabitReminders] = useState(true);
+  // Echo, when the timeline moves something you did not get to in time.
+  const [planChanges, setPlanChanges] = useState(true);
+  useEffect(() => { void planAlertsOn().then(setPlanChanges); }, []);
 
 
   // Load saved preferences
@@ -129,6 +133,9 @@ const Notifications = () => {
             <SettingRow icon="alarm" color={colors.warning} label="Habit reminders"
               value={habitReminders && notificationsEnabled} disabled={!notificationsEnabled}
               onChange={v => toggleSetting('notif_habits', v, setHabitReminders)} />
+            <SettingRow icon="git-compare" color={accentColor} label="Echo: plan changes"
+              value={planChanges && notificationsEnabled} disabled={!notificationsEnabled}
+              onChange={v => { lightFeedback(); setPlanChanges(v); void setPlanAlertsOn(v); }} />
             <SettingRow icon="phone-portrait" color={colors.success} label="Live Activities"
               value={activities && capability !== 'unavailable'} disabled={!ready || asking || capability === 'unavailable'}
               onChange={wanted => void toggleActivities(wanted)} />
