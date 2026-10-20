@@ -1,4 +1,6 @@
 import type { Habit } from './habitsSQLite';
+import { findDeadline, findDifficulty, findPriority, findTimeRange, findTiming, readDate } from './dateWords';
+import { localDateKey } from './habitSchedule';
 
 /**
  * Quick add: turn one line of plain text into a habit.
@@ -21,6 +23,14 @@ export interface ParsedHabit {
     targetValue?: number;
     targetUnit?: string;
     trackingMethod: 'boolean' | 'numeric';
+    /** YYYY-MM-DD it stops: "until Dec 1", "due by Friday", "for 30 days". */
+    endDate?: string;
+    /** "high priority", "no rush". */
+    priority?: 1 | 2 | 3;
+    /** "hard", "easy one". */
+    difficulty?: 1 | 2 | 3;
+    /** "at 7 sharp" (false) or "flexible" (true), when it says. */
+    flexible?: boolean;
     /** Human-readable notes about anything inferred rather than stated. */
     assumptions: string[];
     /** Which parts of the input were recognised, for highlighting. */
@@ -50,7 +60,8 @@ const COUNT_UNITS = [
 const DURATION_UNITS = ['minutes', 'minute', 'mins', 'min', 'hours', 'hour', 'hrs', 'hr'];
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const clean = (value: string) => value.replace(/\s+/g, ' ').replace(/^[,\s./-]+|[,\s./-]+$/g, '').trim();
+// A joining word left dangling once the days are taken out ("Run Monday and Wednesday" → "Run").
+const clean = (value: string) => value.replace(/\s+/g, ' ').replace(/\s+,/g, ',').replace(/(,\s*)+,/g, ',').replace(/^[,\s./-]+|[,\s./-]+$/g, '').replace(/\s+(?:and|&|or)$/i, '').trim();
 
 /** Capitalise the first letter only, so "gym" becomes "Gym" but "HIIT" survives. */
 const tidyName = (value: string): string => {
@@ -59,11 +70,31 @@ const tidyName = (value: string): string => {
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 };
 
-export function parseHabitText(input: string): ParsedHabit {
+export function parseHabitText(input: string, today: Date = new Date()): ParsedHabit {
     const assumptions: string[] = [];
     const matched = { days: false, time: false, duration: false, target: false };
     let rest = ` ${input} `;
     const strike = (pattern: RegExp) => { rest = rest.replace(pattern, ' '); };
+    const take = (phrase: string) => { rest = rest.replace(phrase, ' '); };
+
+    /* ------------------------------------------------------- when it stops */
+    // Read first: "until Friday" names a last day, not a day it repeats on.
+    let endDate: string | undefined;
+    const until = findDeadline(rest, today);
+    const forSpan = rest.match(/\bfor\s+(?:the\s+next\s+)?(a|an|one|two|three|four|\d{1,3})\s*(days?|weeks?|months?)\b/i);
+    if (until) { endDate = until.date; take(until.phrase); }
+    else if (forSpan) {
+        const end = readDate(`in ${forSpan[1]} ${forSpan[2]}`, today);
+        if (end) { end.setDate(end.getDate() - 1); endDate = localDateKey(end); take(forSpan[0]); }
+    }
+
+    /* ------------------------------------------- priority, difficulty, timing */
+    const urgency = findPriority(rest);
+    if (urgency) take(urgency.phrase);
+    const hardness = findDifficulty(rest);
+    if (hardness) take(hardness.phrase);
+    const timing = findTiming(rest);
+    if (timing) take(timing.phrase);
 
     /* ----------------------------------------------------------------- days */
     let taskDays: string[] = [];
@@ -95,9 +126,20 @@ export function parseHabitText(input: string): ParsedHabit {
         }
     }
 
-    /* ------------------------------------------------------------- duration */
+    /* ------------------------------------------------- "from 7 to 8am" */
+    let startTime: string | undefined;
     let durationMinutes: number | undefined;
-    const durationMatch = rest.match(
+    const range = findTimeRange(rest);
+    if (range) {
+        startTime = range.start;
+        durationMinutes = range.minutes;
+        matched.time = true;
+        matched.duration = true;
+        take(range.phrase);
+    }
+
+    /* ------------------------------------------------------------- duration */
+    const durationMatch = durationMinutes !== undefined ? null : rest.match(
         new RegExp(String.raw`\b(?:for\s+)?(\d{1,3})\s*(${DURATION_UNITS.join('|')})\b`, 'i'),
     );
     if (durationMatch) {
@@ -125,7 +167,6 @@ export function parseHabitText(input: string): ParsedHabit {
     /* ----------------------------------------------------------------- time */
     // Each pattern needs a real signal — "at", a colon, or am/pm — so a leftover
     // number never silently becomes a start time.
-    let startTime: string | undefined;
     const timePatterns: { regex: RegExp; hasMinutes: boolean; bare?: boolean }[] = [
         { regex: /\bat\s+(\d{1,2})[:.](\d{2})\s*(am|pm)?\b/i, hasMinutes: true },
         { regex: /\b(\d{1,2})[:.](\d{2})\s*(am|pm)?\b/i, hasMinutes: true },
@@ -134,7 +175,7 @@ export function parseHabitText(input: string): ParsedHabit {
         { regex: /\bat\s+(\d{1,2})\b/i, hasMinutes: false, bare: true },
     ];
 
-    for (const pattern of timePatterns) {
+    for (const pattern of startTime ? [] : timePatterns) {
         const match = rest.match(pattern.regex);
         if (!match) continue;
 
@@ -181,6 +222,10 @@ export function parseHabitText(input: string): ParsedHabit {
         targetValue,
         targetUnit,
         trackingMethod: targetValue !== undefined ? 'numeric' : 'boolean',
+        endDate,
+        priority: urgency?.priority,
+        difficulty: hardness?.difficulty,
+        flexible: timing?.flexible,
         assumptions,
         matched,
     };
@@ -202,6 +247,10 @@ export function parsedToHabit(parsed: ParsedHabit, startDate: string): Partial<H
         category: 'personal',
         icon: 'ellipse-outline',
         startDate,
+        endDate: parsed.endDate,
+        priority: parsed.priority,
+        difficulty: parsed.difficulty,
+        flexible: parsed.startTime && parsed.flexible !== undefined ? parsed.flexible : undefined,
         // Quick add never schedules a notification; reminders stay opt-in.
         reminders: [],
     };

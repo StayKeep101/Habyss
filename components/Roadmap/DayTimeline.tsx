@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
 import { ListItem, useProgress } from '@/components/ui/Motion';
@@ -22,7 +22,12 @@ const SIZES = {
 };
 type Size = (typeof SIZES)[keyof typeof SIZES];
 /** How long one pill takes to fill in the intro's domino run. */
-const FILL_MS = 260;
+const FILL_MS = 340;
+/**
+ * At an even speed, so pill after pill reads as one steady pour rather than
+ * each one rushing and stopping.
+ */
+const POUR = Easing.linear;
 
 /** How much of its time has gone: full once over (or done), a part while on, empty ahead. */
 const elapsedOf = (item: FlowItem, now: number | null) => item.state === 'done' || item.done || (now !== null && now >= item.end) ? 1
@@ -180,7 +185,7 @@ function Check({ size, done, color, onPress, label }: { size: Size; done: boolea
 function Fill({ color, height, progress, turn }: { color: string; height: number; progress: number; turn: { delay: number; duration: number } }) {
     // Arriving (a page opened, a day switched), it waits for the pill above to
     // be full, then fills; after that it glides with the clock.
-    const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay, undefined, turn.duration);
+    const shown = useProgress(Math.max(0, Math.min(1, progress)), turn.delay, undefined, turn.duration, POUR);
     const style = useAnimatedStyle(() => ({ height: shown.get() * height }));
     return <Animated.View pointerEvents="none" style={[styles.fill, { backgroundColor: color }, style]} />;
 }

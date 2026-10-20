@@ -75,6 +75,8 @@ interface Draft {
     difficulty?: Difficulty;
     /** At its time: false keeps it exactly there; otherwise the timeline may move it. */
     flexible?: boolean;
+    /** YYYY-MM-DD it stops, when it has an end ("until Dec 1"). */
+    endDate?: string;
 }
 
 const TIMING: { id: 'exact' | 'flexible'; label: string }[] = [
@@ -95,6 +97,7 @@ const fromHabit = (from: Habit): Draft => ({
     priority: from.priority,
     difficulty: from.difficulty,
     flexible: from.flexible,
+    endDate: from.endDate,
     days: from.taskDays?.length ? from.taskDays : EVERY_DAY,
     startTime: from.startTime,
     durationMinutes: from.durationMinutes,
@@ -242,6 +245,12 @@ export const HabitSheet: React.FC<{
             durationMinutes: parsed.durationMinutes ?? start.durationMinutes,
             amount: parsed.targetValue ?? start.amount,
             unit: parsed.targetUnit ?? start.unit,
+            // Read by the rules alone (the model is not asked for these):
+            // "until Friday", "high priority", "hard", "at 7 sharp".
+            endDate: rules?.endDate ?? start.endDate,
+            priority: rules?.priority ?? start.priority,
+            difficulty: rules?.difficulty ?? start.difficulty,
+            flexible: rules?.flexible ?? start.flexible,
         } : start;
         return { ...read, ...edits };
     }, [current, eventGoal, parsed, edits, rules]);
@@ -275,6 +284,7 @@ export const HabitSheet: React.FC<{
                 taskDays: draft.days.length === 7 ? [] : draft.days,
                 startTime: draft.startTime,
                 durationMinutes: draft.durationMinutes,
+                endDate: draft.endDate,
                 goalValue: draft.amount ?? 1,
                 unit: draft.unit ?? 'time',
                 trackingMethod: draft.amount ? 'numeric' : 'boolean',
@@ -332,7 +342,8 @@ export const HabitSheet: React.FC<{
 
     const items: DetailItem[] = [
         {
-            id: 'repeat', icon: 'repeat', label: 'Repeat', value: describeRule(draft.rule),
+            id: 'repeat', icon: 'repeat', label: 'Repeat',
+            value: `${describeRule(draft.rule)}${draft.endDate ? ` · until ${new Date(`${draft.endDate}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : ''}`,
             content: <RepeatPicker value={draft.rule} accent={accent} onChange={rule => change({ rule })} />,
         },
         {

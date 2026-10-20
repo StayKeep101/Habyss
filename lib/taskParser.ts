@@ -1,6 +1,7 @@
 import { localDateKey } from './habitSchedule';
 import { formatDuration } from './habitMeasurement';
 import type { TaskPriority } from './tasks';
+import { findDeadline, findDifficulty, findPriority, findTimeRange, findTiming } from './dateWords';
 
 /**
  * Task parser.
@@ -25,8 +26,14 @@ export interface ParsedTaskText {
     dueTime?: string;
     estimatedMinutes?: number;
     priority: TaskPriority;
+    /** YYYY-MM-DD: "due by Friday", when it must be done by (the day to do it is `dueDate`). */
+    deadline?: string;
+    /** "hard", "easy one", "difficulty: medium". */
+    difficulty?: 1 | 2 | 3;
+    /** "at 3pm sharp" (false) or "flexible" (true), when it says. */
+    flexible?: boolean;
     /** Which parts of the sentence were recognised, for the preview. */
-    matched: { date: boolean; time: boolean; estimate: boolean; priority: boolean };
+    matched: { date: boolean; time: boolean; estimate: boolean; priority: boolean; deadline?: boolean; difficulty?: boolean; timing?: boolean };
 }
 
 const WEEKDAYS: Record<string, number> = {
@@ -47,6 +54,8 @@ const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$
 const tidyTitle = (value: string): string => {
     const cleaned = value
         .replace(/\s+/g, ' ')
+        // Commas left behind by the phrases taken out: "Essay , , 2 hours".
+        .replace(/\s+,/g, ',').replace(/(,\s*)+,/g, ',')
         .replace(/\s*[,;:]\s*$/g, '')
         .replace(/^\s*[,;:-]\s*/g, '')
         .replace(/\b(on|at|by|for|in|this|next)\s*$/i, '')
@@ -61,27 +70,51 @@ const addDays = (from: Date, days: number): Date => {
 };
 
 export function parseTaskText(input: string, today: Date = new Date()): ParsedTaskText {
-    const matched = { date: false, time: false, estimate: false, priority: false };
+    const matched: ParsedTaskText['matched'] = { date: false, time: false, estimate: false, priority: false };
     let rest = ` ${(input ?? '').trim()} `;
     const strike = (pattern: RegExp) => { rest = rest.replace(pattern, ' '); };
+    const take = (phrase: string) => { rest = rest.replace(phrase, ' '); };
     const base = new Date(today);
     base.setHours(12, 0, 0, 0);
 
+    /* ------------------------------------------------------------- deadline */
+    // "due by Friday", "by Dec 5", "before next week": when it must be done by.
+    const due_by = findDeadline(rest, today);
+    if (due_by) { matched.deadline = true; take(due_by.phrase); }
+
+    /* ---------------------------------------------------- difficulty, timing */
+    const hardness = findDifficulty(rest);
+    if (hardness) { matched.difficulty = true; take(hardness.phrase); }
+    const timing = findTiming(rest);
+    if (timing) { matched.timing = true; take(timing.phrase); }
+
     /* ------------------------------------------------------------- priority */
     let priority: TaskPriority = 2;
-    if (/\b(urgent|asap|important|critical|priority)\b/i.test(rest)) {
+    const urgency = findPriority(rest);
+    if (urgency) {
+        priority = urgency.priority;
+        matched.priority = true;
+        take(urgency.phrase);
+    } else if (/\bpriority\b/i.test(rest)) {
         priority = 1;
         matched.priority = true;
-        strike(/\b(urgent|asap|important|critical|high priority|priority)\b/gi);
-    } else if (/\b(sometime|whenever|no rush|low priority|eventually)\b/i.test(rest)) {
-        priority = 3;
-        matched.priority = true;
-        strike(/\b(sometime|whenever|no rush|low priority|eventually)\b/gi);
+        strike(/\bpriority\b/gi);
+    }
+
+    /* ------------------------------------------------- "from 2 to 4pm" */
+    let rangeStart: string | undefined;
+    let estimatedMinutes: number | undefined;
+    const range = findTimeRange(rest);
+    if (range) {
+        rangeStart = range.start;
+        estimatedMinutes = range.minutes;
+        matched.time = true;
+        matched.estimate = true;
+        take(range.phrase);
     }
 
     /* ------------------------------------------------------------- estimate */
-    let estimatedMinutes: number | undefined;
-    const estimate = rest.match(/\b(?:for\s+|takes\s+)?(\d{1,3})\s*(minutes?|mins?|m|hours?|hrs?|h)\b/i);
+    const estimate = estimatedMinutes === undefined ? rest.match(/\b(?:for\s+|takes\s+)?(\d{1,3})\s*(minutes?|mins?|m|hours?|hrs?|h)\b/i) : null;
     if (estimate) {
         const amount = Number(estimate[1]);
         const minutes = /^h/i.test(estimate[2]) ? amount * 60 : amount;
@@ -146,7 +179,7 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
     if (due) matched.date = true;
 
     /* ----------------------------------------------------------------- time */
-    let dueTime: string | undefined;
+    let dueTime: string | undefined = rangeStart;
     const wordTimes: { pattern: RegExp; time: string }[] = [
         { pattern: /\b(at\s+)?noon\b/i, time: '12:00' },
         { pattern: /\b(at\s+)?midnight\b/i, time: '00:00' },
@@ -162,7 +195,7 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         { regex: /\bat\s+(\d{1,2})\b/i, hasMinutes: false, bare: true },
     ];
 
-    for (const pattern of clockPatterns) {
+    for (const pattern of rangeStart ? [] : clockPatterns) {
         const match = rest.match(pattern.regex);
         if (!match) continue;
         let hour = Number(match[1]);
@@ -197,6 +230,15 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         matched.date = true;
     }
 
+    // A deadline with no day of its own to do it: start today. A deadline on
+    // (or before) the day it is planned is just its day.
+    let deadline = due_by?.date;
+    if (deadline && !due) { due = base; matched.date = true; }
+    if (deadline && due && deadline <= localDateKey(due)) {
+        due = new Date(`${deadline}T12:00:00`);
+        deadline = undefined;
+    }
+
     /* ---------------------------------------------------------------- title */
     strike(/\b(due|on|by)\b/gi);
     const title = tidyTitle(rest);
@@ -207,6 +249,9 @@ export function parseTaskText(input: string, today: Date = new Date()): ParsedTa
         dueTime,
         estimatedMinutes,
         priority,
+        deadline,
+        difficulty: hardness?.difficulty,
+        flexible: timing?.flexible,
         matched,
     };
 }

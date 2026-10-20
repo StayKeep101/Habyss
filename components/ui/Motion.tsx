@@ -43,8 +43,12 @@ function useIntroDone(): boolean {
     return useSyncExternalStore(subscribeIntro, isIntroDone, isIntroDone);
 }
 
-/** `introDuration`: how long the first growth takes, when a sequence needs it shorter or longer than usual. */
-export function useProgress(target: number, delay = 0, replay?: unknown, introDuration: number = MOTION.intro): SharedValue<number> {
+/**
+ * `introDuration` / `introEasing`: how the first growth runs, when a sequence
+ * needs it different from the usual (a steady pour across several pieces).
+ */
+export function useProgress(target: number, delay = 0, replay?: unknown, introDuration: number = MOTION.intro,
+    introEasing: typeof MOTION.easing = MOTION.easing): SharedValue<number> {
     const value = useSharedValue(0);
     const first = useRef(true);
     const lastReplay = useRef(replay);
@@ -58,8 +62,8 @@ export function useProgress(target: number, delay = 0, replay?: unknown, introDu
         first.current = false;
         if (again) value.set(0);
         const duration = intro ? introDuration : MOTION.duration;
-        value.set(withDelay(intro ? delay : 0, withTiming(target, { duration, easing: MOTION.easing, reduceMotion: ReduceMotion.System })));
-    }, [target, delay, replay, value, ready, introDuration]);
+        value.set(withDelay(intro ? delay : 0, withTiming(target, { duration, easing: intro ? introEasing : MOTION.easing, reduceMotion: ReduceMotion.System })));
+    }, [target, delay, replay, value, ready, introDuration, introEasing]);
     return value;
 }
 

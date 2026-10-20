@@ -129,7 +129,18 @@ export default function BrainDumpScreen() {
     /** Each thought a task of its own, under a goal when one is given. */
     const intoTasks = async (list: Thought[], goalId?: string) => {
         let made = 0;
-        for (const item of list) if (await createTask({ title: item.text, ...(goalId ? { goalId } : {}) })) made++;
+        // Read like a typed task: "essay due by Friday, hard, 2 hours" keeps
+        // its deadline, difficulty and length, and loses them from the title.
+        const { parseTaskText } = require('@/lib/taskParser') as typeof import('@/lib/taskParser');
+        for (const item of list) {
+            const read = parseTaskText(item.text);
+            const made_ = await createTask({
+                title: read.title || item.text, dueDate: read.dueDate, dueTime: read.dueTime, estimatedMinutes: read.estimatedMinutes,
+                priority: read.priority, deadline: read.deadline, difficulty: read.difficulty,
+                flexible: read.dueTime ? read.flexible : undefined, ...(goalId ? { goalId } : {}),
+            });
+            if (made_) made++;
+        }
         if (!made) return;
         emit('tasks_changed');
         lightFeedback();

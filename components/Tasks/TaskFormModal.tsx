@@ -193,13 +193,19 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
         const read: Draft = parsed ? {
             ...start,
             title: parsed.title || start.title,
-            dueDate: parsed.dueDate ?? start.dueDate,
+            // With a deadline the rules know the day to do it apart from the
+            // day it is due; the model only knows one date.
+            dueDate: (rules?.matched.deadline ? rules.dueDate : parsed.dueDate) ?? start.dueDate,
             dueTime: parsed.dueTime ?? start.dueTime,
             estimate: parsed.estimatedMinutes ?? start.estimate,
             priority: parsed.priority ?? start.priority,
+            // Read by the rules alone: "due by Friday", "hard", "at 3 sharp".
+            deadline: rules?.deadline ?? start.deadline,
+            difficulty: rules?.difficulty ?? start.difficulty,
+            flexible: rules?.flexible ?? start.flexible,
         } : start;
         return { ...read, ...edits };
-    }, [current, eventGoal, parsed, edits]);
+    }, [current, eventGoal, parsed, edits, rules]);
 
     const close = () => { setEventVisible(false); setEditing(null); share.close(); onClose?.(); };
     const change = (patch: Partial<Draft>) => setEdits(current => ({ ...current, ...patch }));

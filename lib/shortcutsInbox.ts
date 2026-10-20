@@ -134,6 +134,9 @@ export async function drainQuickAdds(): Promise<QuickAddResult> {
                     dueTime: parsed.dueTime,
                     estimatedMinutes: parsed.estimatedMinutes,
                     priority: parsed.priority,
+                    deadline: parsed.deadline,
+                    difficulty: parsed.difficulty,
+                    flexible: parsed.dueTime ? parsed.flexible : undefined,
                     source: 'shortcut',
                 });
                 if (made) result.tasks.push(made.title);

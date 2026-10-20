@@ -33,6 +33,7 @@ export type GoalWindow =
  * - time: put in hours ("100 hours of piano"). A number goal counted in minutes.
  */
 import { isPeakGoal, raceDistance } from './peakPlan';
+import { findDate, findDeadline } from './dateWords';
 
 export type GoalKind = 'number' | 'complete' | 'time';
 
@@ -301,6 +302,20 @@ export function parseGoalText(input: string, options: ParseOptions): GoalParseRe
                 window = { kind: 'fixed', start: dateKey(today), end: dateKey(end) };
                 datePhrase = byMonthDay[0];
             }
+        }
+    }
+
+    // Any other deadline: "due by Friday", "by the end of the month", "in 3
+    // months", "before 12/5", "deadline next week".
+    if (!window) {
+        const due = findDeadline(text, today) ?? (() => {
+            const inSpan = text.match(/\bin\s+(?:a|an|one|two|three|four|\d{1,3})\s*(?:weeks?|months?)\b/i);
+            const date = inSpan ? findDate(inSpan[0], today) : null;
+            return date ? { date: date.date, phrase: inSpan![0] } : null;
+        })();
+        if (due && due.date > dateKey(today)) {
+            window = { kind: 'fixed', start: dateKey(today), end: due.date };
+            datePhrase = due.phrase;
         }
     }
 
