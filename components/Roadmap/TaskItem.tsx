@@ -18,7 +18,7 @@ import { VoidCard } from '@/components/ui/VoidCard';
 import { FocusPill } from '@/components/ui/FocusPill';
 import { Radius } from '@/theme/designSystem';
 import type { RoadMapCardSize } from '@/context/AppSettingsContext';
-import { setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
+import { isLate, setTaskAmount, taskAmountLabel, taskShare, type Task } from '@/lib/tasks';
 import { emit } from '@/lib/appEvents';
 
 /** Tasks are amber throughout, so they read as a different kind of thing. */
@@ -96,19 +96,22 @@ const TaskItemComponent: React.FC<Props> = ({
     // A shared task is not finished until everybody on it is, the same rule the
     // habit rows follow. Your own tick still fills your own box.
     const done = shared ? shared.complete : doneByMe;
-    const overdue = !done && !!task.dueDate && task.dueDate < today;
-    const dueToday = !done && task.dueDate === today;
+    // Late only past its deadline; a day passed before the deadline is today's work.
+    const overdue = !done && isLate(task, today);
+    const dueToday = !done && !overdue && !!task.dueDate && task.dueDate <= today;
+    const deadline = task.deadline && task.deadline !== task.dueDate ? `Due ${task.deadline === today ? 'today' : shortDate(task.deadline)}` : null;
 
     // Right-hand column, where a habit shows its time.
     const when = done
         ? 'Done'
         : overdue ? 'Overdue'
-            : dueToday ? (task.dueTime ?? 'Today')
+            : dueToday ? (task.dueTime ?? deadline ?? 'Today')
                 : task.dueDate ? shortDate(task.dueDate) : '—';
     const whenColor = overdue ? colors.error : dueToday ? TASK_COLOR : colors.textTertiary;
 
     const label = [
-        overdue ? 'Overdue' : task.dueDate ? `Due ${task.dueDate === today ? 'today' : shortDate(task.dueDate)}` : 'No date',
+        overdue ? 'Overdue' : task.dueDate ? `${task.dueDate <= today ? 'Today' : shortDate(task.dueDate)}` : 'No date',
+        deadline,
         task.dueTime,
         task.estimatedMinutes ? shortLength(task.estimatedMinutes) : null,
         task.priority === 1 ? 'High priority' : null,

@@ -42,3 +42,18 @@ describe('what is missed right now', () => {
         ]);
     });
 });
+
+describe('a task with a deadline', () => {
+    it('is not missed while its deadline is ahead, and says it was moved for you', () => {
+        const tasks = [
+            { id: 'p', title: 'Project', status: 'open', dueDate: TODAY, deadline: shiftDay(TODAY, 3) },
+            { id: 'q', title: 'Past deadline', status: 'open', dueDate: back(3), deadline: back(1) },
+        ] as Task[];
+        const moves = [{ id: 'p', title: 'Project', from: back(1), to: TODAY, why: 'undone' as const }];
+        const result = missed({ habits: [], history: [], completions: {}, tasks, moves, today: TODAY });
+        expect(result.items.map(item => [item.title, item.level, item.line])).toEqual([
+            ['Past deadline', 'late', 'A day late, due Monday'],
+            ['Project', 'moved', 'Not done yesterday, moved to today. Due Friday'],
+        ]);
+    });
+});

@@ -52,6 +52,11 @@ export interface Task {
     milestoneId?: string;
     /** 1 easy, 2 medium, 3 hard: the timeline puts hard things in your best hours. Kept on this phone. */
     difficulty?: TaskDifficulty;
+    /**
+     * "YYYY-MM-DD": when it must be done by, when that is later than its day
+     * (`dueDate`, the day you plan to do it). Kept on this phone.
+     */
+    deadline?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -72,6 +77,7 @@ export interface TaskInput {
     amount?: number;
     milestoneId?: string;
     difficulty?: TaskDifficulty;
+    deadline?: string;
 }
 
 const rowToTask = (row: any): Task => ({
@@ -93,6 +99,7 @@ const rowToTask = (row: any): Task => ({
     amount: Number.isFinite(row.amount) ? row.amount : undefined,
     milestoneId: row.milestone_id ?? undefined,
     difficulty: row.difficulty === 1 || row.difficulty === 2 || row.difficulty === 3 ? row.difficulty : undefined,
+    deadline: typeof row.deadline === 'string' && row.deadline ? row.deadline : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
 });
@@ -130,7 +137,7 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
         ['dueTime', 'due_time'], ['estimatedMinutes', 'estimated_minutes'],
         ['priority', 'priority'], ['goalId', 'goal_id'], ['source', 'source'],
         ['measure', 'measure'], ['target', 'target'], ['unit', 'unit'], ['milestoneId', 'milestone_id'],
-        ['difficulty', 'difficulty'],
+        ['difficulty', 'difficulty'], ['deadline', 'deadline'],
     ];
     const updates = importedColumns.filter(([key]) => Object.prototype.hasOwnProperty.call(input, key))
         .map(([, column]) => `${column} = excluded.${column}`);
@@ -140,15 +147,15 @@ export async function createTask(input: TaskInput): Promise<Task | null> {
     await db.runAsync(
         `INSERT INTO tasks (
             id, user_id, title, description, due_date, due_time, estimated_minutes,
-            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty,
+            priority, goal_id, status, source, external_id, measure, target, unit, milestone_id, difficulty, deadline,
             created_at, updated_at, deleted, synced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) ${conflict}`,
         id, uid, title, input.description ?? null, input.dueDate ?? null, input.dueTime ?? null,
         input.estimatedMinutes ?? null, input.priority ?? 2, input.goalId ?? null,
         input.source ?? 'app', input.externalId ?? null,
         input.measure && input.measure !== 'done' ? input.measure : null,
         input.measure && input.measure !== 'done' ? input.target ?? null : null,
-        input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, now, now,
+        input.unit?.trim() || null, input.milestoneId ?? null, input.difficulty ?? null, input.deadline ?? null, now, now,
     );
 
     const row = input.externalId
@@ -171,7 +178,7 @@ export async function updateTask(id: string, patch: TaskPatch): Promise<void> {
         estimatedMinutes: 'estimated_minutes', priority: 'priority', goalId: 'goal_id',
         source: 'source', externalId: 'external_id',
         measure: 'measure', target: 'target', unit: 'unit', amount: 'amount', milestoneId: 'milestone_id',
-        difficulty: 'difficulty',
+        difficulty: 'difficulty', deadline: 'deadline',
     };
 
     const sets: string[] = [];
@@ -301,8 +308,9 @@ export async function deleteTasksForGoal(goalId: string): Promise<void> {
 export function taskRank(task: Task, today: string): number {
     // Overdue first, then due today, then undated, then future.
     let bucket: number;
-    if (task.dueDate && task.dueDate < today) bucket = 0;
-    else if (task.dueDate === today) bucket = 1;
+    // Late means past its deadline; a day passed before the deadline is still today's work.
+    if (isLate({ status: 'open', dueDate: task.dueDate, deadline: task.deadline }, today)) bucket = 0;
+    else if (task.dueDate && task.dueDate <= today) bucket = 1;
     else if (!task.dueDate) bucket = 2;
     else bucket = 3;
 
@@ -354,3 +362,19 @@ export function tasksForDay(tasks: Task[], day: string, today: string = todayKey
 }
 
 export const todayKey = (date: Date = new Date()): string => localDateKey(date);
+
+/** Late: past its deadline, or past its day when it has no deadline of its own. */
+export function isLate(task: Pick<Task, 'status' | 'dueDate' | 'deadline'>, today: string): boolean {
+    if (task.status !== 'open') return false;
+    const by = task.deadline ?? task.dueDate;
+    return !!by && by < today;
+}
+
+/**
+ * Tasks planned for an earlier day, not done, whose deadline has not passed:
+ * they move to today, so a task you meant to do yesterday is today's plan
+ * rather than overdue. Past the deadline they stay where they are, late.
+ */
+export function rollForward(tasks: Task[], today: string): Task[] {
+    return tasks.filter(task => task.status === 'open' && !!task.dueDate && task.dueDate < today && !!task.deadline && task.deadline >= today);
+}

@@ -337,13 +337,16 @@ function flowTimed(items: FlowInput[], now: number | null): DayFlow {
 
 /**
  * How urgent something with no time is: priority first (high 1, low 3), then,
- * for a task, how overdue it is. Lower is sooner.
+ * for a task, how overdue it is, or how close its deadline. Lower is sooner.
  */
-export function urgencyOf(priority: number | undefined, dueDate: string | undefined, today: string | undefined): number {
+export function urgencyOf(priority: number | undefined, dueDate: string | undefined, today: string | undefined, deadline?: string): number {
     const base = ((priority ?? 2) - 1) * 20;
-    if (!dueDate || !today || dueDate >= today) return base + 10;
-    const days = Math.round((Date.parse(`${today}T12:00:00`) - Date.parse(`${dueDate}T12:00:00`)) / 86400000);
-    return base - Math.min(10, days);
+    const by = deadline ?? dueDate;
+    if (!by || !today) return base + 10;
+    const days = Math.round((Date.parse(`${by}T12:00:00`) - Date.parse(`${today}T12:00:00`)) / 86400000);
+    if (days < 0) return base - Math.min(10, -days);
+    // A deadline in the next few days pulls it ahead of others at its priority.
+    return deadline ? base + 10 - Math.max(0, 5 - days) * 2 : base + 10;
 }
 
 /** Today's habits, tasks, meals and calendar events as flow input. */
@@ -375,7 +378,7 @@ export function flowInputs(input: {
         if (task.status === 'cancelled') continue;
         const minutes = task.measure === 'time' && task.target ? task.target : Number(task.estimatedMinutes) || 0;
         items.push({ id: task.id, kind: 'task', title: task.title, start: toMinutes(task.dueTime), minutes, done: task.status === 'done',
-            urgency: urgencyOf(task.priority, task.dueDate, input.today), difficulty: task.difficulty });
+            urgency: urgencyOf(task.priority, task.dueDate, input.today, task.deadline), difficulty: task.difficulty });
     }
     if (input.kept) for (const item of items) if (input.kept[item.id] && item.kind !== 'meal' && item.kind !== 'event') item.kept = input.kept[item.id];
     return items;

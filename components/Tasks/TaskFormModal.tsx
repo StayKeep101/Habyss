@@ -51,7 +51,10 @@ const PRIORITIES: { id: TaskPriority; label: string }[] = [
 interface Draft {
     title: string;
     description?: string;
+    /** The day you plan to do it: it is on that day's timeline. */
     dueDate?: string;
+    /** When it must be done by, if later: not done on its day, it moves on until then. */
+    deadline?: string;
     dueTime?: string;
     estimate?: number;
     priority: TaskPriority;
@@ -69,6 +72,7 @@ const fromTask = (task: Task): Draft => ({
     title: task.title,
     description: task.description,
     dueDate: task.dueDate,
+    deadline: task.deadline,
     dueTime: task.dueTime,
     estimate: task.estimatedMinutes,
     priority: task.priority,
@@ -203,6 +207,8 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                 title,
                 description: draft.description?.trim() || undefined,
                 dueDate: draft.dueDate,
+                // A deadline before the planned day means nothing: the day is the deadline.
+                deadline: draft.deadline && draft.dueDate && draft.deadline > draft.dueDate ? draft.deadline : undefined,
                 dueTime: draft.dueTime,
                 estimatedMinutes: draft.estimate,
                 priority: draft.priority,
@@ -234,13 +240,15 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
     };
     /** Days until Saturday. */
     const toWeekend = (6 - new Date().getDay() + 7) % 7;
+    /** Days until Friday. */
+    const toFriday = (5 - new Date().getDay() + 7) % 7;
     const chosenGoal = goals.find(goal => goal.id === draft.goalId);
     const goalName = chosenGoal?.name;
     // A task is done or it is not: no counts or timers to fill in first.
     const canSave = !!text.trim();
     const items: DetailItem[] = [
         {
-            id: 'due', icon: 'calendar-outline', label: 'Date', value: shortDate(draft.dueDate),
+            id: 'due', icon: 'calendar-outline', label: 'Do on', value: shortDate(draft.dueDate),
             content: (
                 <>
                     {/* The shortcuts first, so they are in view without
@@ -258,6 +266,31 @@ export const TaskFormModal: React.FC<Props> = ({ visible, onClose, onSaved, task
                         onChange={id => change({ dueDate: id || undefined })}
                     />
                     <GoalCalendar allowPast showToday={false} reserve={50} value={draft.dueDate} accent={accentText} onChange={dueDate => change({ dueDate })} />
+                </>
+            ),
+        },
+        {
+            // A deadline apart from the day: planned for today, due Friday.
+            id: 'deadline', icon: 'flag-outline', label: 'Due by',
+            value: draft.deadline && draft.dueDate && draft.deadline > draft.dueDate ? shortDate(draft.deadline) : undefined,
+            content: (
+                <>
+                    <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                        Not done on its day? It moves to the next day until this date, and only counts as late after it.
+                    </Text>
+                    <Choices
+                        options={[
+                            { id: '', label: 'Same day' },
+                            { id: quickDay(1), label: 'Tomorrow' },
+                            ...(toFriday > 1 ? [{ id: quickDay(toFriday), label: 'Friday' }] : []),
+                            { id: quickDay(7), label: 'In a week' },
+                        ]}
+                        value={draft.deadline ?? ''}
+                        accent={accent}
+                        oneLine
+                        onChange={id => change({ deadline: id || undefined })}
+                    />
+                    <GoalCalendar showToday={false} reserve={50} value={draft.deadline} accent={accentText} onChange={deadline => change({ deadline })} />
                 </>
             ),
         },
@@ -431,6 +464,7 @@ const styles = StyleSheet.create({
     input: { minHeight: 64, borderWidth: 1, borderRadius: 14, padding: 14, fontSize: 16, lineHeight: 22, fontFamily: FontFamily.regular, textAlignVertical: 'top' },
     readRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     read: { flexShrink: 1, fontSize: 11, fontFamily: FontFamily.regular },
+    hint: { fontSize: 12, lineHeight: 17, fontFamily: FontFamily.regular, marginBottom: 8 },
     link: { paddingVertical: 6 },
     picker: { alignSelf: 'flex-start' },
     notes: { minHeight: 70, borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, lineHeight: 20, fontFamily: FontFamily.regular, textAlignVertical: 'top' },

@@ -16,7 +16,7 @@ beforeEach(() => jest.clearAllMocks());
 
 it('opens the calendar directly and saves the selected date', async () => {
     const screen = render(<TaskFormModal visible task={saved} />);
-    fireEvent.press(screen.getByLabelText(/^Date,/));
+    fireEvent.press(screen.getByLabelText(/^Do on,/));
     expect(screen.getByTestId('goal-calendar')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Choose 2026-09-25'));
     await act(async () => { fireEvent.press(screen.getByText('Save changes')); });
@@ -37,7 +37,7 @@ it('preserves midnight when editing', async () => {
 
 it('puts the date shortcuts under the calendar, and offers no "No date"', async () => {
     const screen = render(<TaskFormModal visible task={saved} />);
-    fireEvent.press(screen.getByLabelText(/^Date,/));
+    fireEvent.press(screen.getByLabelText(/^Do on,/));
     for (const label of ['Today', 'Tomorrow', 'Next week']) {
         expect(screen.getByText(label)).toBeTruthy();
     }

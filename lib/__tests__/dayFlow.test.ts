@@ -183,6 +183,15 @@ describe('filling the day', () => {
         expect(urgencyOf(2, '2026-10-15', '2026-10-20')).toBeLessThan(urgencyOf(2, '2026-10-20', '2026-10-20'));
         expect(urgencyOf(3, '2026-10-01', '2026-10-20')).toBeGreaterThan(urgencyOf(1, undefined, '2026-10-20'));
     });
+
+    it('puts a task with a deadline coming up ahead of others at its priority, never ahead of a higher priority', () => {
+        const today = '2026-10-20';
+        expect(urgencyOf(2, today, today, '2026-10-23')).toBeLessThan(urgencyOf(2, today, today));
+        expect(urgencyOf(2, today, today, '2026-10-21')).toBeLessThan(urgencyOf(2, today, today, '2026-10-23'));
+        expect(urgencyOf(2, today, today, '2026-10-21')).toBeGreaterThan(urgencyOf(1, today, today));
+        // Planned for yesterday, due Friday: not overdue.
+        expect(urgencyOf(2, '2026-10-19', today, '2026-10-23')).toBeGreaterThan(urgencyOf(2, '2026-10-19', today));
+    });
 });
 
 describe('waking and bedtime are walls', () => {

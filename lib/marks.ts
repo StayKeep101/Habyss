@@ -227,8 +227,10 @@ export function computeMarks(input: MarksInput, recent = 40): MarksResult {
         // Missed once, the day after it was due — and that stands even if it is
         // finished later. Late still counts for finishing; it was still late.
         const finished = task.status === 'done' ? dayOf(task.completedAt ?? task.updatedAt) : null;
-        if (task.dueDate && task.dueDate < today && (!finished || finished > task.dueDate)) {
-            record(addDays(task.dueDate, 1), MARKS.miss.task, 'miss', 'task', task.title);
+        // Its deadline when it has one: not done on its planned day is not a miss yet.
+        const by = task.deadline ?? task.dueDate;
+        if (by && by < today && (!finished || finished > by)) {
+            record(addDays(by, 1), MARKS.miss.task, 'miss', 'task', task.title);
         }
     }
 

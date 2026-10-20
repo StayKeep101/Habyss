@@ -17,7 +17,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
 import { focusHistory, focusInsights } from '@/lib/dailyFocus';
 import { onTimeRate, weekChange, weeklyDone, type WeekDone } from '@/lib/taskStats';
-import { todayKey } from '@/lib/tasks';
+import { isLate, todayKey } from '@/lib/tasks';
 import { styles } from '@/styles/screens/task-stats.styles';
 
 const WEEKS = 8;
@@ -47,7 +47,7 @@ export default function TaskStatsScreen() {
     const change = useMemo(() => weekChange(tasks, today), [tasks, today]);
     const focus = useMemo(() => focusInsights(focusHistory(tasks, target, 60, today)), [tasks, target, today]);
     const onTime = useMemo(() => onTimeRate(tasks), [tasks]);
-    const late = tasks.filter(task => task.status === 'open' && task.dueDate && task.dueDate < today).length;
+    const late = tasks.filter(task => isLate(task, today)).length;
     const best = Math.max(0, ...weeks.map(week => week.done));
 
     // The week under the finger while it is on the chart; this week otherwise.

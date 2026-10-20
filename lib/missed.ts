@@ -38,7 +38,8 @@ export interface Missed {
     /** Habits missed twice or more in a row. */
     twice: number;
 }
-export interface TaskMove { id: string; title: string; from: string; to: string }
+/** A task moved to a later day for you: no room before bedtime, or not done on its day before its deadline. */
+export interface TaskMove { id: string; title: string; from: string; to: string; why?: 'room' | 'undone'; deadline?: string }
 
 const weekday = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long' });
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T12:00:00`) - Date.parse(`${from}T12:00:00`)) / 86400000);
@@ -71,14 +72,15 @@ export function missed(input: {
             line: dueToday ? `${line}${level === 'twice' ? '.' : ''} Due today.` : line });
     }
 
-    // Tasks past their day and still open.
+    // Tasks past their deadline (or their day, with no deadline) and still open.
     const listed = new Set<string>();
     for (const task of input.tasks) {
-        if (task.status !== 'open' || !task.dueDate || task.dueDate >= today) continue;
-        const late = daysBetween(task.dueDate, today);
+        const by = task.deadline ?? task.dueDate;
+        if (task.status !== 'open' || !by || by >= today) continue;
+        const late = daysBetween(by, today);
         listed.add(task.id);
-        items.push({ key: `task:${task.id}`, id: task.id, kind: 'task', title: task.title, level: 'late', count: late, since: task.dueDate,
-            line: `${late === 1 ? 'A day' : `${late} days`} late, due ${weekday(task.dueDate)}` });
+        items.push({ key: `task:${task.id}`, id: task.id, kind: 'task', title: task.title, level: 'late', count: late, since: by,
+            line: `${late === 1 ? 'A day' : `${late} days`} late, due ${weekday(by)}` });
     }
     // Carried over to today by the timeline, still open.
     for (const move of input.moves ?? []) {
@@ -86,7 +88,9 @@ export function missed(input: {
         if (!task || task.status !== 'open' || task.dueDate !== today || move.to !== today || listed.has(task.id)) continue;
         listed.add(task.id);
         items.push({ key: `move:${task.id}`, id: task.id, kind: 'task', title: task.title, level: 'moved', count: 1, since: move.from,
-            line: `No room ${move.from === shiftDayBack(today) ? 'yesterday' : weekday(move.from)}, moved to today automatically` });
+            line: move.why === 'undone'
+                ? `Not done ${move.from === shiftDayBack(today) ? 'yesterday' : weekday(move.from)}, moved to today${task.deadline ? `. Due ${task.deadline === today ? 'today' : weekday(task.deadline)}` : ''}`
+                : `No room ${move.from === shiftDayBack(today) ? 'yesterday' : weekday(move.from)}, moved to today automatically` });
     }
 
     items.sort((a, b) => RANK[a.level] - RANK[b.level] || b.count - a.count || a.title.localeCompare(b.title));

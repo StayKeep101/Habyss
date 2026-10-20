@@ -1,4 +1,4 @@
-import { taskRank, tasksForDay, topTasksForToday, type Task } from '../tasks';
+import { isLate, rollForward, taskRank, tasksForDay, topTasksForToday, type Task } from '../tasks';
 
 const TODAY = '2026-09-17';
 
@@ -132,5 +132,25 @@ describe('the tasks that belong to a day', () => {
 
     it('leaves out anything cancelled', () => {
         expect(tasksForDay([task({ dueDate: TODAY, status: 'cancelled' })], DAY, DAY)).toEqual([]);
+    });
+});
+
+describe('a task planned for one day, due by a later one', () => {
+    const today = '2026-10-20';
+    const make = (extra: Partial<Task>): Task => ({ id: 't', title: 'Project', status: 'open', priority: 2, source: 'app', createdAt: '', updatedAt: '', ...extra } as Task);
+    it('is late only once its deadline has passed', () => {
+        expect(isLate(make({ dueDate: '2026-10-19', deadline: '2026-10-23' }), today)).toBe(false);
+        expect(isLate(make({ dueDate: '2026-10-19', deadline: '2026-10-19' }), today)).toBe(true);
+        expect(isLate(make({ dueDate: '2026-10-19' }), today)).toBe(true);
+        expect(isLate(make({ dueDate: '2026-10-19', status: 'done' }), today)).toBe(false);
+    });
+    it('moves to today when not done on its day, until its deadline', () => {
+        const tasks = [
+            make({ id: 'a', dueDate: '2026-10-19', deadline: '2026-10-23' }),
+            make({ id: 'b', dueDate: '2026-10-19' }),
+            make({ id: 'c', dueDate: '2026-10-18', deadline: '2026-10-19' }),
+            make({ id: 'd', dueDate: '2026-10-19', deadline: '2026-10-23', status: 'done' }),
+        ];
+        expect(rollForward(tasks, today).map(item => item.id)).toEqual(['a']);
     });
 });

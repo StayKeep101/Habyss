@@ -81,7 +81,7 @@ export function buildWeeklyReview(input: {
 
     const tryNext: string[] = [];
     if (harder[0]) tryNext.push(`Make ${harder[0].name} smaller next week, or move it to a time that worked before.`);
-    const overdue = tasks.filter(task => task.status === 'open' && task.dueDate && task.dueDate < weekStart).length;
+    const overdue = tasks.filter(task => task.status === 'open' && !!(task.deadline ?? task.dueDate) && (task.deadline ?? task.dueDate)! < weekStart).length;
     if (overdue >= 3) tryNext.push(`${overdue} tasks are from before this week. Drop or reschedule the ones that no longer matter.`);
     if (tryNext.length < 2 && held[0]) tryNext.push(`Keep ${held[0].name} exactly as it is: it worked every time.`);
     if (tryNext.length < 2 && all.countable > 0 && all.rate < 50) tryNext.push('Plan fewer habits per day next week. Doing three is better than half of six.');

@@ -46,7 +46,7 @@ export function taskStatsForDay(tasks: Task[], day: string): TaskDayStats {
 
         if (wasDoneToday || openAndDue) due += 1;
         if (wasDoneToday) done += 1;
-        if (task.status === 'open' && !!task.dueDate && task.dueDate < day) overdue += 1;
+        if (task.status === 'open' && !!(task.deadline ?? task.dueDate) && (task.deadline ?? task.dueDate)! < day) overdue += 1;
     }
 
     return { due, done, overdue };

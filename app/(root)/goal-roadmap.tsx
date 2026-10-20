@@ -13,7 +13,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { VoidCard } from '@/components/ui/VoidCard';
 import { type Habit } from '@/lib/habitsSQLite';
 import { useGoalsInsights } from '@/hooks/useGoalInsights';
-import { todayKey, type Task } from '@/lib/tasks';
+import { isLate, todayKey, type Task } from '@/lib/tasks';
 import { TASK_COLOR } from '@/components/Roadmap/TaskItem';
 import { emit } from '@/lib/appEvents';
 import { styles } from '@/styles/screens/goal-roadmap.styles';
@@ -91,7 +91,7 @@ export default function GoalRoadmapScreen() {
 
     const TaskRow = ({ task }: { task: Task }) => {
         const done = task.status === 'done';
-        const overdue = !done && !!task.dueDate && task.dueDate < today;
+        const overdue = !done && isLate(task, today);
         return (
             <TouchableOpacity
                 accessibilityRole="button"

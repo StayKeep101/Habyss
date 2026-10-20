@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 let dbInstance: any = null;
 /**
@@ -127,6 +127,7 @@ async function runMigrations(db: any): Promise<void> {
         [13, migrateToV13],
         [14, migrateToV14],
         [15, migrateToV15],
+        [16, migrateToV16],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -144,6 +145,19 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 16 — a task's deadline, apart from its day.
+ *
+ * `due_date` is the day you plan to do it (the day it is on the timeline);
+ * `deadline` is when it must be done by. Not done on its day, it moves to the
+ * next one until the deadline, and only counts as late after that. Null on
+ * older rows: the day is the deadline, as before. On this phone only, like v15.
+ */
+async function migrateToV16(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'tasks', 'deadline', 'TEXT');
+    console.log('[Database] Migrated to schema v16');
 }
 
 /**

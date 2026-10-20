@@ -17,7 +17,7 @@ import { SwipeableHabitItem } from '@/components/Home/SwipeableHabitItem';
 import { useSharedItems } from '@/hooks/useSharedItems';
 import { GoalCard } from '@/components/Home/GoalCard';
 import { TaskItem, TASK_COLOR } from '@/components/Roadmap/TaskItem';
-import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksForDay, todayKey, type Task } from '@/lib/tasks';
+import { getTasks, setTaskStatus, updateTask, deleteTask as removeTask, tasksForDay, todayKey, rollForward, type Task } from '@/lib/tasks';
 
 import { setSkipped as setSkippedHabit, subscribeToHabits, toggleCompletion, isTimedHabit, tapUnticks, removeHabitEverywhere, isHabitScheduledForDate, addHabit, updateHabit, Habit as StoreHabit } from '@/lib/habitsSQLite';
 import { AppIcon as Ionicons } from '@/components/ui/AppIcon';
@@ -922,11 +922,14 @@ const CalendarScreen = () => {
         if (flowNow === null || !memoryReady()) return;
         const day = localDateKey(selectedDate);
         // A new day: tasks that had no room yesterday move to today.
-        const moving = carryOver(currentMemory(), day, tasks);
+        // A new day: tasks that had no room yesterday move to today, and so do
+        // tasks not done on their day whose deadline has not passed.
+        const noRoom = new Set(carryOver(currentMemory(), day, tasks));
+        const moving = [...new Map([...tasks.filter(task => noRoom.has(task.id)), ...rollForward(tasks, day)].map(task => [task.id, task])).values()];
         if (moving.length) {
             // Logged, so Missed can say it was moved for you rather than forgotten.
-            void logMoves(moving.map(id => { const task = tasks.find(t => t.id === id)!; return { id, title: task.title, from: task.dueDate!, to: day }; }));
-            void Promise.all(moving.map(id => updateTask(id, { dueDate: day }))).then(() => emit('tasks_changed')).catch(() => undefined);
+            void logMoves(moving.map(task => ({ id: task.id, title: task.title, from: task.dueDate!, to: day, why: noRoom.has(task.id) ? 'room' : 'undone', deadline: task.deadline })));
+            void Promise.all(moving.map(task => updateTask(task.id, { dueDate: day }))).then(() => emit('tasks_changed')).catch(() => undefined);
         }
         rememberFlow(day, flow, flowNow);
         void schedulePlanAlert(planAlert(flowItems, flow, flowNow, flowWindow));

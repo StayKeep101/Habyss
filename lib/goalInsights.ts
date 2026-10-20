@@ -1,5 +1,8 @@
 import type { Habit } from './habitsSQLite';
 import type { Task } from './tasks';
+
+/** Late: past its deadline, or past its day with no deadline (as lib/tasks isLate, kept here free of storage). */
+const isLate = (task: Task, today: string) => task.status === 'open' && !!(task.deadline ?? task.dueDate) && (task.deadline ?? task.dueDate)! < today;
 import type { GoalKind } from './goalParser';
 import { createHabitSchedule, localDateKey, parseHabitDate } from './habitSchedule';
 import { countedHistory, countedTasks } from './sharedGate';
@@ -434,8 +437,8 @@ export function buildGoalInsights(input: GoalInsightInput): GoalInsights {
     const open = tasks.filter(task => task.status !== 'done');
     const byDue = (a: Task, b: Task) =>
         (a.dueDate ?? '').localeCompare(b.dueDate ?? '') || (a.dueTime ?? '99').localeCompare(b.dueTime ?? '99') || a.priority - b.priority;
-    const overdue = open.filter(task => task.dueDate && task.dueDate < today).sort(byDue);
-    const upcoming = open.filter(task => task.dueDate && task.dueDate >= today).sort(byDue);
+    const overdue = open.filter(task => isLate(task, today)).sort(byDue);
+    const upcoming = open.filter(task => task.dueDate && !isLate(task, today)).sort(byDue);
     const undated = open.filter(task => !task.dueDate).sort((a, b) => a.priority - b.priority);
     const completed = tasks.filter(task => task.status === 'done')
         .sort((a, b) => (doneOn(b) ?? '').localeCompare(doneOn(a) ?? ''));
