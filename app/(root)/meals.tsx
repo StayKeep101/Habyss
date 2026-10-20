@@ -8,13 +8,13 @@ import { TimeRow } from '@/components/ui/TimeRow';
 import { useTokens } from '@/hooks/useTokens';
 import { useMeals, useMealsFlexible } from '@/hooks/useMeals';
 import { useCalendarOn } from '@/hooks/useCalendarEvents';
-import { MEAL_LENGTHS, MEAL_NAMES, saveMeal, setMealsFlexible, type MealId } from '@/lib/meals';
+import { MEAL_NAMES, saveMeal, setMealsFlexible, type MealId } from '@/lib/meals';
+import { MealRow } from '@/components/Roadmap/MealRow';
 import { DEFAULT_DAY, getDayWindow, saveDayWindow, type DayWindow } from '@/lib/echo';
 import { calendarAvailable, setCalendarOn } from '@/lib/calendarEvents';
 import { NotificationService } from '@/lib/notificationService';
 import { styles } from '@/styles/screens/meals.styles';
 
-const ICONS: Record<MealId, 'cafe' | 'restaurant' | 'fast-food'> = { breakfast: 'cafe', lunch: 'restaurant', supper: 'fast-food' };
 
 /**
  * What the timeline is built around: when your day starts and ends, your
@@ -60,37 +60,21 @@ export default function TimelineSettingsScreen() {
                     Events from Apple Calendar, and any Google or Outlook account on this iPhone, show in your timeline. All-day and “free” events do not block time. Read on this phone only.
                 </Text>
 
+                {/* Meals: one tidy line each; tap one to set its time and length. */}
+                <SettingsGroup title="Meals">
+                    {(Object.keys(MEAL_NAMES) as MealId[]).map(id => (
+                        <MealRow key={id} meal={meals[id]} onChange={patch => void saveMeal(id, patch)} />
+                    ))}
+                    {anyMeal ? (
+                        <SettingsRow icon="swap-vertical" color={t.color.success} label="Flexible"
+                            toggle={flexible} onToggle={value => void setMealsFlexible(value)} />
+                    ) : null}
+                </SettingsGroup>
                 {anyMeal ? (
-                    <>
-                        <SettingsGroup title="Meals">
-                            <SettingsRow icon="swap-vertical" color={t.color.success} label="Flexible meals"
-                                toggle={flexible} onToggle={value => void setMealsFlexible(value)} />
-                        </SettingsGroup>
-                        <Text style={[t.type.caption, { color: t.color.textSubtle }]}>
-                            On a full day a meal can wait up to two hours so more fits in. You still get every meal. Off, meals stay exactly where they are.
-                        </Text>
-                    </>
+                    <Text style={[t.type.caption, { color: t.color.textSubtle }]}>
+                        Flexible: on a full day a meal can wait up to two hours so more fits in. You still get every meal.
+                    </Text>
                 ) : null}
-
-                {(Object.keys(MEAL_NAMES) as MealId[]).map(id => {
-                    const meal = meals[id];
-                    return (
-                        <View key={id}>
-                            <SettingsGroup title={MEAL_NAMES[id]}>
-                                <SettingsRow icon={ICONS[id]} color={t.color.warning} label="In my timeline"
-                                    toggle={meal.on} onToggle={on => void saveMeal(id, { on })} />
-                                {meal.on ? (
-                                    <SettingsRow icon="hourglass" color={t.color.accent} label="Takes"
-                                        choices={MEAL_LENGTHS.map(minutes => ({ id: String(minutes), label: `${minutes}m` }))}
-                                        chosen={String(meal.minutes)} onChoose={value => void saveMeal(id, { minutes: Number(value) })} />
-                                ) : null}
-                            </SettingsGroup>
-                            {meal.on ? (
-                                <TimeRow icon="time" label="At" value={meal.time} accent={t.color.accent} onChange={time => void saveMeal(id, { time })} />
-                            ) : null}
-                        </View>
-                    );
-                })}
             </ScrollView>
         </SheetScreen>
     );
