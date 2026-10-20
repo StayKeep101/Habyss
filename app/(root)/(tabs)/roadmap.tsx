@@ -43,7 +43,6 @@ import { NowCard } from '@/components/Roadmap/NowCard';
 import { pickNow } from '@/lib/nowItem';
 import { flowDay, flowInputs, type FlowInput } from '@/lib/dayFlow';
 import { DayTimeline } from '@/components/Roadmap/DayTimeline';
-import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { DEFAULT_ROADMAP_FILTER, isFiltered, loadRoadmapFilter, saveRoadmapFilter, toggleShown, type RoadmapView, type ShownKind } from '@/lib/roadmapFilter';
 import { tallyDay } from '@/lib/dayComplete';
 import { useDailyTarget } from '@/hooks/useDailyFocus';
@@ -1006,15 +1005,6 @@ const CalendarScreen = () => {
                                 onScrub={setScrubIds}
                             />
 
-                            {/* The day as a timeline, or as lists: one tap, remembered. */}
-                            {!scrubbing ? (
-                                <View style={styles.viewSwitch}>
-                                    <ChoiceRow accessibilityLabel="How to show the day" value={roadmapView}
-                                        onChange={next => { selectionFeedback(); setRoadmapView(next); }}
-                                        options={[{ id: 'timeline' as RoadmapView, label: 'Timeline' }, { id: 'list' as RoadmapView, label: 'List' }]} />
-                                </View>
-                            ) : null}
-
                             {/* What is on right now, pinned above the lists, wherever it is filed (the timeline shows it in place). */}
                             {dayPlan.isToday && !scrubbing && !timelineView ? <NowCard item={nowItem} accent={accentColor} now={clock} /> : null}
 
@@ -1298,6 +1288,7 @@ const CalendarScreen = () => {
                     </View>
 
                     <RoadmapFilters visible={showFilter} onClose={closeFilterModal} goals={goals} anchor={filterAnchor}
+                        view={roadmapView} onView={setRoadmapView}
                         shown={shown} onToggleShown={toggleKind} focus={activeTimeFilter} onFocus={setActiveTimeFilter}
                         goal={selectedGoalFilter} onGoal={setSelectedGoalFilter}
                         sharedOnly={sharedOnly} onSharedOnly={setSharedOnly}

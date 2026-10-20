@@ -16,6 +16,8 @@ const props = (over: Partial<React.ComponentProps<typeof RoadmapFilters>> = {}) 
     visible: true,
     onClose: jest.fn(),
     goals,
+    view: 'timeline' as const,
+    onView: jest.fn(),
     anchor: { x: 24, y: 120, width: 90, height: 28 },
     shown: { goals: true, habits: true, tasks: true },
     onToggleShown: jest.fn(),
@@ -138,5 +140,15 @@ describe('filtering to what is shared', () => {
         // you cannot clear.
         const screen = render(<RoadmapFilters {...props({ sharedOnly: true })} />);
         expect(screen.getByLabelText('Reset filters').props.accessibilityState?.disabled).toBeFalsy();
+    });
+
+    it('switches the day between the timeline and the lists', () => {
+        const onView = jest.fn();
+        const screen = render(<RoadmapFilters {...props({ onView })} />);
+        expect(screen.getByLabelText('Timeline').props.accessibilityState).toEqual({ selected: true });
+        fireEvent.press(screen.getByText('List'));
+        expect(onView).toHaveBeenCalledWith('list');
+        // How the day is shown is not a filter: on its own it leaves Reset hidden.
+        expect(screen.queryByLabelText('Reset filters')).toBeNull();
     });
 });

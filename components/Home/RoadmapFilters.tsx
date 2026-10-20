@@ -16,12 +16,15 @@ import { useHaptics } from '@/hooks/useHaptics';
 type Kind = 'goals' | 'habits' | 'tasks';
 type Focus = 'all' | 'morning' | 'afternoon' | 'evening';
 type Order = 'default' | 'name' | 'progress';
+type View_ = 'timeline' | 'list';
 
 /** Where the filter button is, so the menu can drop out of it. */
 export interface FilterAnchor { x: number; y: number; width: number; height: number }
 
 interface Props {
     visible: boolean; onClose: () => void; goals: Habit[];
+    /** The day as a timeline, or as lists. */
+    view: View_; onView: (value: View_) => void;
     anchor?: FilterAnchor | null;
     /** Goals, habits and tasks, each on or off (at least one stays on). */
     shown: Record<Kind, boolean>; onToggleShown: (kind: Kind) => void;
@@ -117,6 +120,13 @@ export const RoadmapFilters = (props: Props) => {
             >
                 {/* The matte card, floating over the list it filters. */}
                 <MatteSurface radius={20} elevation="floating" style={styles.card}>
+                    {/* How the day is shown: not a filter, so Reset leaves it. */}
+                    <Group label="View">
+                        {(['timeline', 'list'] as const).map((id, index) => (
+                            <Pill key={id} label={['Timeline', 'List'][index]} on={props.view === id} onPress={() => props.onView(id)} />
+                        ))}
+                    </Group>
+
                     {/* Each kind is a switch: lit means shown. */}
                     <Group label="Show">
                         {(['goals', 'habits', 'tasks'] as const).map((kind, index) => (

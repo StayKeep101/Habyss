@@ -4,7 +4,6 @@ import { FontFamily, Spacing } from '@/theme/designSystem';
 /** The look of app/(root)/(tabs)/roadmap.tsx. Values are exactly what the screen used. */
 export const styles = StyleSheet.create({
     /** Timeline or List, under the day's plan. */
-    viewSwitch: { marginBottom: Spacing.lg },
     // The filter icon that rises out of a pull past the top of the list.
     pullIcon: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center', zIndex: 5 },
     pullDisc: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
