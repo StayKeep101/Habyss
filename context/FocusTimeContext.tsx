@@ -584,6 +584,8 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 : Math.max(0, Math.ceil((saved.endTime - Date.now()) / 1000)));
             setIsPaused(saved.paused);
             setIsRunning(!saved.paused);
+            // Still focusing after a relaunch: the apps stay blocked.
+            if (!saved.paused && Platform.OS === 'ios') void ScreenTimeService.rearmShield();
         }).catch(() => AsyncStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION).catch(() => { }));
     }, []);
 

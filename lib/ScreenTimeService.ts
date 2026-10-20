@@ -75,6 +75,31 @@ export const ScreenTimeService = {
      * 'armed' when apps are blocked now, 'picking' while the picker is open,
      * 'denied' when Screen Time access was refused or is not available.
      */
+    /**
+     * Puts the shield back up for a session the app was relaunched into,
+     * without asking anything: only when access is already given and apps are
+     * already chosen.
+     */
+    async rearmShield(): Promise<boolean> {
+        if (Platform.OS !== 'ios' || !ScreenTimeModule) return false;
+        try {
+            if (!(await this.isAuthorized()) || !(await this.hasSelectedApps())) return false;
+            this.setShieldEnabled(true);
+            return true;
+        } catch {
+            return false;
+        }
+    },
+
+    /** Choosing the apps to block, from Settings: asks for access first if needed. */
+    async chooseApps(): Promise<boolean> {
+        if (Platform.OS !== 'ios' || !ScreenTimeModule) return false;
+        const authorized = (await this.isAuthorized()) || (await this.requestAuthorization());
+        if (!authorized) return false;
+        this.presentPicker();
+        return true;
+    },
+
     async armShieldIfPossible(): Promise<'armed' | 'picking' | 'denied'> {
         if (Platform.OS !== 'ios' || !ScreenTimeModule) return 'denied';
 
