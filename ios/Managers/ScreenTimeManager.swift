@@ -10,6 +10,9 @@ class ScreenTimeManager: ObservableObject {
     private let store = ManagedSettingsStore()
     private let appGroupId = "group.com.habyss.data"
     @Published var activitySelection = FamilyActivitySelection()
+    /// A focus session wants the shield up. Kept so that apps chosen in the
+    /// picker mid-session are blocked the moment the picker closes.
+    private(set) var shieldWanted = false
     
     private init() {
         loadSelection()
@@ -25,6 +28,7 @@ class ScreenTimeManager: ObservableObject {
     }
     
     func setShieldEnabled(_ enabled: Bool) {
+        shieldWanted = enabled
         if enabled {
             // Reload saved selection to make sure we have latest
             loadSelection()
@@ -49,6 +53,7 @@ class ScreenTimeManager: ObservableObject {
             defaults.set(data, forKey: "ScreenTimeSelection")
             print("Screen Time selection saved (\(activitySelection.applicationTokens.count) apps)")
         }
+        if shieldWanted { setShieldEnabled(true) }
     }
     
     func loadSelection() {

@@ -53,7 +53,7 @@ export function FocusButton({ habit, isTimer }: { habit: Habit; isTimer: boolean
         if (Platform.OS !== 'ios') return;
         const allowed = (await ScreenTimeService.isAuthorized()) || (await ScreenTimeService.requestAuthorization());
         if (!allowed) {
-            Alert.alert('App blocking is off', 'Allow Screen Time access for Habyss to block apps while you focus.');
+            Alert.alert('Apps are not blocked', 'Habyss needs Screen Time access to block apps while you focus.');
             return;
         }
         ScreenTimeService.presentPicker();

@@ -67,30 +67,31 @@ export const ScreenTimeService = {
     },
 
     /**
-     * Best-effort shield arming for focus sessions.
-     * Returns true when shields were actually enabled.
+     * Turns blocking on for a focus session. Asks iOS for Screen Time access
+     * the first time (the system prompt, like Health or Location), and opens
+     * the app picker when nothing is chosen yet: the shield goes up the moment
+     * the picker's Done is tapped.
+     *
+     * 'armed' when apps are blocked now, 'picking' while the picker is open,
+     * 'denied' when Screen Time access was refused or is not available.
      */
-    async armShieldIfPossible(): Promise<boolean> {
-        if (Platform.OS !== 'ios' || !ScreenTimeModule) return false;
+    async armShieldIfPossible(): Promise<'armed' | 'picking' | 'denied'> {
+        if (Platform.OS !== 'ios' || !ScreenTimeModule) return 'denied';
 
         try {
-            const authorized = await this.isAuthorized();
-            if (!authorized) {
-                const granted = await this.requestAuthorization();
-                if (!granted) return false;
-            }
+            const authorized = (await this.isAuthorized()) || (await this.requestAuthorization());
+            if (!authorized) return 'denied';
 
-            const hasApps = await this.hasSelectedApps();
-            if (!hasApps) {
-                this.presentPicker();
-                return false;
-            }
-
+            // Wanted before picking, so Done in the picker raises the shield.
             this.setShieldEnabled(true);
-            return true;
+            if (!(await this.hasSelectedApps())) {
+                this.presentPicker();
+                return 'picking';
+            }
+            return 'armed';
         } catch (error) {
             console.warn('ScreenTime: Failed to arm shield', error);
-            return false;
+            return 'denied';
         }
     },
 };

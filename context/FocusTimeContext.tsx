@@ -632,15 +632,13 @@ export const FocusTimeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             startedAt: new Date(now).toISOString(), actualDuration: 0,
         });
 
-        // Enable Screen Time Shield when available. If setup is incomplete, prompt once.
+        // Block the chosen apps: asks for Screen Time access and opens the
+        // picker the first time; says so once only if access is refused.
         if (Platform.OS === 'ios') {
-            ScreenTimeService.armShieldIfPossible().then((armed) => {
-                if (!armed && !hasShownBlockingSetupPromptRef.current) {
+            ScreenTimeService.armShieldIfPossible().then((result) => {
+                if (result === 'denied' && !hasShownBlockingSetupPromptRef.current) {
                     hasShownBlockingSetupPromptRef.current = true;
-                    Alert.alert(
-                        'App Blocking Setup',
-                        'Choose the apps you want to block in the iOS picker, then your focus sessions will shield them automatically.'
-                    );
+                    Alert.alert('Apps are not blocked', 'Habyss needs Screen Time access to block apps while you focus.');
                 }
             });
         }

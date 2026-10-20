@@ -42,6 +42,7 @@
           "group.com.habyss.data"
         ],
         "com.apple.developer.siri": true,
+        "com.apple.developer.family-controls": true,
         "com.apple.developer.applesignin": [
           "Default"
         ]
