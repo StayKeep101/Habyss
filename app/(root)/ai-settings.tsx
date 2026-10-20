@@ -15,7 +15,7 @@ import { Colors } from '@/theme/colors';
 import { useHaptics } from '@/hooks/useHaptics';
 import { router } from 'expo-router';
 import { useAppSettings, GreetingStyle } from '@/context/AppSettingsContext';
-import { currentEngine, isOnDeviceAIReady } from '@/lib/onDeviceAI';
+import { canWriteLines, currentEngine } from '@/lib/onDeviceAI';
 import { LOCAL_MODEL } from '@/lib/localModelDownload';
 import type { ModelDownloadState } from '@/lib/LocalLLMService';
 import { coachHello, coachReminder } from '@/lib/coachMessages';
@@ -35,7 +35,7 @@ import { styles } from '@/styles/screens/ai-settings.styles';
 
 /** null in a build without the on-device model's native code. */
 const localModel = (): typeof import('@/lib/LocalLLMService').default | null =>
-    (hasTurboModule('MLCEngine') ? require('@/lib/LocalLLMService').default : null);
+    (hasTurboModule('RNLlama') ? require('@/lib/LocalLLMService').default : null);
 
 // Greeting style options
 const GREETING_STYLES: { id: GreetingStyle; label: string; icon: string; description: string }[] = [
@@ -45,7 +45,7 @@ const GREETING_STYLES: { id: GreetingStyle; label: string; icon: string; descrip
     { id: 'all', label: 'Everything', icon: 'shuffle', description: 'A bit of all of it' },
 ];
 
-/** Apple supplies its system model; the optional Llama files come from Hugging Face. */
+/** Apple supplies its system model; the optional Gemma file comes from Hugging Face. */
 const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     const { primary: accentSolid } = useAccentGradient();
     const Service = localModel();
@@ -86,19 +86,19 @@ const OfflineStartCard = ({ colors, isLight, isTrueDark }: any) => {
     const canDownload = !!Service;
     const apple = engine === 'apple';
     const onPhone = apple || downloaded === true;
-    const title = apple ? 'Apple Intelligence' : 'Llama 3.2 (1B)';
+    const title = apple ? 'Apple Intelligence' : LOCAL_MODEL.name;
     const badge = apple ? 'Built in' : transfer.phase === 'loading' ? 'Loading…'
         : isDownloading ? (transfer.totalBytes ? `${Math.floor(transfer.percentage)}%` : 'Connecting…')
             : engine === 'llama' ? 'Ready' : downloaded ? 'Downloaded' : retry ? 'Incomplete' : 'Optional';
     // Short on purpose: what it is, and whether to get it.
     const status = apple
         ? 'Built into this iPhone. Private.'
-        : !canDownload ? 'Not in this build yet.'
+        : !canDownload ? 'Comes with the next app build.'
         : busy
             ? transfer.phase === 'loading' ? 'Loading…'
                 : `${mb(transfer.downloadedBytes)}${transfer.totalBytes ? ` of ${mb(transfer.totalBytes)}` : ''} · keep Habyss open on Wi-Fi`
             : transfer.phase === 'error' ? transfer.error
-            : transfer.phase === 'cancelled' ? 'Stopped. Retry picks up where it left off.'
+            : transfer.phase === 'cancelled' ? 'Stopped. Retry starts the download again.'
             : downloaded
                 ? 'On this phone. Private.'
                 : 'Recommended for the full Echo experience. Runs privately on your phone.';
@@ -177,7 +177,7 @@ const AISettings = () => {
     }, []);
 
     // Echo can only write its own reminders where a model is ready.
-    const hasModel = isOnDeviceAIReady();
+    const hasModel = canWriteLines();
 
     /** Saved, then the notifications are rewritten to match. */
     const saveEcho = (next: EchoConfig) => {
@@ -294,7 +294,7 @@ const AISettings = () => {
                     <ToggleRow
                         icon="create-outline"
                         label="Echo writes reminders"
-                        detail={hasModel ? 'In this voice' : 'Requires Apple Intelligence'}
+                        detail={hasModel ? 'In this voice' : 'Needs Apple Intelligence or the offline model'}
                         value={echo.writeReminders && hasModel}
                         disabled={!hasModel}
                         colors={colors}

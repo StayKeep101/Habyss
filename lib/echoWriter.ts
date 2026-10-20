@@ -137,8 +137,8 @@ Rules:
  */
 export async function topUpWrittenLines(subjects: Subject[], voice: PersonalityModeId): Promise<number> {
     try {
-        const { askForLine, isOnDeviceAIReady } = require('./onDeviceAI') as typeof import('./onDeviceAI');
-        if (!isOnDeviceAIReady()) return 0;
+        const { askForLine, canWriteLines } = require('./onDeviceAI') as typeof import('./onDeviceAI');
+        if (!canWriteLines()) return 0;
 
         const store = await loadWrittenLines();
         const pending = needsWriting(store, subjects, voice).slice(0, MAX_PER_REFRESH);

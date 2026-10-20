@@ -8,7 +8,7 @@ jest.mock('@react-native-ai/apple', () => ({
     apple: Object.assign(() => 'apple-model', { isAvailable: () => mockAppleAvailable() }),
 }));
 jest.mock('../LocalLLMService', () => ({ __esModule: true, default: {
-    isReady: () => true, getModelId: () => 'Llama-3.2-1B-Instruct',
+    isReady: () => true, getModelId: () => 'gemma-3n-E2B-it', getLanguageModel: () => 'gemma-model',
 } }));
 jest.mock('ai', () => ({ generateObject: jest.fn(), generateText: jest.fn() }));
 
@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 afterEach(() => jest.useRealTimers());
 
-it('passes the field schema to Llama instead of asking for arbitrary JSON', async () => {
+it('passes the field schema to Gemma instead of asking for arbitrary JSON', async () => {
     const schema = z.object({ name: z.string() });
     jest.mocked(generateObject).mockResolvedValue({ object: { name: 'Run' } } as any);
     expect(await askForObject(schema, 'Read a habit', 'Run')).toEqual({ name: 'Run' });

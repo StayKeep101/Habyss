@@ -43,6 +43,7 @@
         ],
         "com.apple.developer.siri": true,
         "com.apple.developer.family-controls": true,
+        "com.apple.developer.kernel.increased-memory-limit": true,
         "com.apple.developer.applesignin": [
           "Default"
         ]
@@ -133,7 +134,9 @@
           "speechRecognitionPermission": "Habyss turns what you say into a habit, task or goal when you hold the create button and speak."
         }
       ],
-      "expo-maps"
+      "expo-maps",
+      "llama.rn",
+      "react-native-blob-util"
     ],
     "experiments": {
       "typedRoutes": true

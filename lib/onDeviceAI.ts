@@ -8,7 +8,7 @@ import type { z } from 'zod';
  * The on-device model, whichever this phone has.
  *
  * 1. Apple's system model, when Apple Intelligence and its assets are ready.
- * 2. Llama 3.2 1B through MLC, downloaded explicitly in Echo settings.
+ * 2. Gemma 3n E2B through llama.cpp (llama.rn), downloaded explicitly in Echo settings.
  *
  * Nothing here leaves the phone. Every caller keeps a rule-based answer as the
  * fallback, so the app behaves the same, only less cleverly, when neither
@@ -33,7 +33,7 @@ function isAppleReady(): boolean {
 }
 
 function llama(): typeof import('./LocalLLMService').default | null {
-    if (!hasTurboModule('MLCEngine')) return null;
+    if (!hasTurboModule('RNLlama')) return null;
     try { return require('./LocalLLMService').default; } catch { return null; }
 }
 
@@ -52,13 +52,20 @@ export function currentEngine(): OnDeviceEngine {
  */
 export const isOnDeviceAIReady = (): boolean => isAppleReady();
 
+/**
+ * Whether Echo can write its own reminder lines: Apple's model, or Gemma once
+ * it is downloaded and loaded. Writing happens in small batches now and then,
+ * not on every keystroke, so the downloaded model may do it.
+ */
+export const canWriteLines = (): boolean => currentEngine() !== null;
+
 /** Set when someone chooses to download the offline model in AI settings. */
 export const LLAMA_OPT_IN_KEY = 'habyss_llama_opt_in';
 
 let preparing: Promise<void> | null = null;
 
 /**
- * Called once at launch. Apple's model needs nothing. Otherwise the Llama model
+ * Called once at launch. Apple's model needs nothing. Otherwise the Gemma model
  * is loaded only after the user has opted in and its files are complete.
  * Never downloads at launch and never blocks startup.
  */
@@ -82,16 +89,13 @@ export function prepareOnDeviceAI(): Promise<void> {
 function model(): LanguageModel | null {
     const engine = currentEngine();
     if (engine === 'apple') return appleProvider()();
-    if (engine === 'llama') {
-        const { mlc } = require('@react-native-ai/mlc');
-        return mlc.languageModel(llama()!.getModelId());
-    }
+    if (engine === 'llama') return llama()!.getLanguageModel();
     return null;
 }
 
 let generating = false;
 async function runGeneration<T>(work: () => Promise<T>, timeoutMs: number): Promise<T | null> {
-    // MLC does not cancel a native generation when a JS timeout expires. Keep
+    // The native engine does not cancel a generation when a JS timeout expires. Keep
     // ownership until it really ends so a retry cannot start overlapping work.
     if (generating) return null;
     generating = true;

@@ -1,13 +1,12 @@
 // Jest setup file for React Native
 // Note: @testing-library/react-native now includes jest matchers built-in (v12.4+)
 
-// Mock the @react-native-ai/mlc module since it has native dependencies
-jest.mock('@react-native-ai/mlc', () => ({
-  mlc: {
+// Mock the llama.cpp provider (Gemma, offline) since it has native dependencies
+jest.mock('@react-native-ai/llama', () => ({
+  llama: {
     languageModel: jest.fn(() => ({
       prepare: jest.fn(),
-      download: jest.fn(),
-      remove: jest.fn(),
+      unload: jest.fn(),
     })),
   },
 }));
