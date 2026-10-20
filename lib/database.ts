@@ -17,7 +17,7 @@ try {
 }
 
 const DATABASE_NAME = 'habyss.db';
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 
 let dbInstance: any = null;
 /**
@@ -126,6 +126,7 @@ async function runMigrations(db: any): Promise<void> {
         [12, migrateToV12],
         [13, migrateToV13],
         [14, migrateToV14],
+        [15, migrateToV15],
     ];
 
     if (migrations[migrations.length - 1][0] !== SCHEMA_VERSION) {
@@ -143,6 +144,19 @@ async function runMigrations(db: any): Promise<void> {
             await db.runAsync('INSERT INTO schema_version (version) VALUES (?)', version);
         });
     }
+}
+
+/**
+ * Migration to version 15 — a habit's priority, as tasks have.
+ *
+ * The timeline fills the day with what has no set time, most urgent first;
+ * a habit needs a priority for that. Null on older rows: normal. On this
+ * phone only for now; the cloud table has no column for it yet, and uploading
+ * one it lacks fails the whole batch, so it is not in the sync mapping.
+ */
+async function migrateToV15(db: any): Promise<void> {
+    await addColumnIfMissing(db, 'habits', 'priority', 'INTEGER');
+    console.log('[Database] Migrated to schema v15');
 }
 
 /**

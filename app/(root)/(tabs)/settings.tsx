@@ -139,8 +139,8 @@ export default function ProfileScreen() {
                         <SettingsRow icon="moon" color="#5E5CE6" label="Sleep goal"
                             choices={SLEEP_GOALS.map(hours => ({ id: String(hours), label: `${hours}h` }))}
                             chosen={String(sleep.target / 60)} onChoose={id => void setSleepTarget(Number(id) * 60)} />
-                        {/* Fixed blocks in the Roadmap timeline. */}
-                        <SettingsRow icon="restaurant" color="#FF9F0A" label="Meals" onPress={() => router.push('/(root)/meals' as never)} />
+                        {/* What the Roadmap timeline is built around: your day, meals, calendar. */}
+                        <SettingsRow icon="time" color="#FF9F0A" label="Timeline" onPress={() => router.push('/(root)/meals' as never)} />
                         <SettingsRow icon="bed" color="#5E5CE6" label="Sleep card on Home"
                             toggle={sleep.showCard !== false} onToggle={value => void setSleepCardVisible(value)} />
                         {/* How the focus mode clock looks, on its side especially. */}

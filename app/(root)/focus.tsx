@@ -4,6 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconButton } from '@/components/ui/IconButton';
+import { MorphMenu, type MorphMenuHandle } from '@/components/ui/MorphMenu';
 import { AppButton } from '@/components/ui/AppButton';
 import { ChoiceRow } from '@/components/ui/ChoiceRow';
 import { DurationWheels } from '@/components/Create/DurationWheels';
@@ -45,9 +46,9 @@ function orientation(): typeof import('expo-screen-orientation') | null {
  * on (where Screen Time is set up).
  *
  * While it runs there is nothing on screen but the clock and a faint ×. Tap
- * anywhere to pause or carry on, like a video. A long press (or the ×) asks:
- * Exit leaves without saving anything; Finished saves the time and counts the
- * habit or task as done. A timer that runs out counts as Finished too.
+ * anywhere to pause or carry on, like a video. A long press (or the ×) grows
+ * the × into a small window: Finished saves the time and counts the habit or
+ * task as done; Exit leaves without saving anything. A timer that runs out counts as Finished too.
  *
  * Something with no set length (a task you cannot size) starts on the
  * stopwatch. Once it is finished, the next thing in the day is offered right
@@ -105,7 +106,7 @@ function FocusScreen() {
         if (!finished || !id) return null;
         const now = new Date();
         const habits = day.habits.filter(item => !item.isGoal && !item.isArchived && !day.skippedToday[item.id] && isHabitScheduledForDate(item, now));
-        const flow = flowDay(flowInputs({ habits, tasks: tasksForDay(day.tasks, day.today, day.today), done: day.completions }), now.getHours() * 60 + now.getMinutes());
+        const flow = flowDay(flowInputs({ habits, tasks: tasksForDay(day.tasks, day.today, day.today), done: day.completions, today: day.today }), now.getHours() * 60 + now.getMinutes());
         return upNext(flow, id);
     }, [finished, id, day.habits, day.tasks, day.completions, day.skippedToday, day.today]);
     // With nothing after it, the Done screen closes itself.
@@ -173,17 +174,16 @@ function FocusScreen() {
         if (focus.isPaused) focus.resumeTimer();
         else focus.pauseTimer();
     };
-    // Long press or ×: Exit throws the session away, Finished keeps it and
-    // counts the habit or task done.
+    // Long press or ×: the × grows into the app's own small window — Finished
+    // keeps the session and counts the habit or task done; Exit throws it away.
+    const endMenu = useRef<MorphMenuHandle>(null);
     const askEnd = () => {
         if (!active) { close(); return; }
         mediumFeedback();
-        Alert.alert('End focus?', undefined, [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Exit', style: 'destructive', onPress: () => { leaving.current = true; focus.discardTimer(); close(); } },
-            { text: 'Finished', onPress: () => { leaving.current = true; successFeedback(); focus.finishTimer(); setFinished(true); } },
-        ]);
+        endMenu.current?.open();
     };
+    const finishNow = () => { leaving.current = true; successFeedback(); focus.finishTimer(); setFinished(true); };
+    const exitNow = () => { leaving.current = true; focus.discardTimer(); close(); };
 
     const name = title ?? habit?.name ?? task?.title ?? 'Focus';
     const stopwatch = focus.activeMode === 'flow';
@@ -193,7 +193,14 @@ function FocusScreen() {
         <Pressable style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom }]}
             onPress={toggle} onLongPress={active ? askEnd : undefined} delayLongPress={600} accessible={false}>
             <Animated.View style={[styles.top, chromeStyle]}>
-                <IconButton icon="close" label={active ? 'End focus' : 'Close'} onPress={askEnd} diameter={40} size={18} color="#FFFFFF" />
+                {active ? (
+                    <MorphMenu menuRef={endMenu} icon="close" iconColor="#FFFFFF" label="End focus" title="End focus?" titleIcon="timer" diameter={40} items={[
+                        { label: 'Finished', icon: 'checkmark-circle', onPress: finishNow },
+                        { label: 'Exit without saving', icon: 'close-circle', destructive: true, onPress: exitNow },
+                    ]} />
+                ) : (
+                    <IconButton icon="close" label="Close" onPress={close} diameter={40} size={18} color="#FFFFFF" />
+                )}
                 <Text numberOfLines={1} style={styles.title}>{name}</Text>
                 <View style={{ width: 40 }} />
             </Animated.View>

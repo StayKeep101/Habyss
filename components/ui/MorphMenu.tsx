@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useImperativeHandle, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { Easing, interpolate, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -42,7 +42,14 @@ const CLOSE = { duration: 170, easing: Easing.out(Easing.cubic), reduceMotion: R
  * from a button on the right and rightwards from one on the left, and never
  * taller than the room above the home indicator (it scrolls if it must).
  */
-export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', label = 'More options', diameter = Control.hitTarget, style, pageHeight }: {
+/** For opening the menu from elsewhere (a long press on the page, say). */
+export interface MorphMenuHandle { open: () => void }
+
+export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', label = 'More options', diameter = Control.hitTarget, style, pageHeight, icon = 'ellipsis-horizontal', iconColor, menuRef }: {
+    /** The button's glyph, when it is not "⋯" (the × that ends a focus). */
+    icon?: IconName;
+    iconColor?: string;
+    menuRef?: React.Ref<MorphMenuHandle>;
     /**
      * The height of the page the button is on, when that page is presented as
      * a sheet. A sheet sits lower than the screen, and the button's measured
@@ -68,6 +75,7 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
     const [layer, setLayer] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const progress = useSharedValue(0);
     const fullHeight = HEAD + items.length * ROW + Spacing.sm;
+    useImperativeHandle(menuRef, () => ({ open }));
 
     const open = () => {
         lightFeedback();
@@ -144,7 +152,7 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
             <Pressable ref={trigger} onPress={open} accessibilityRole="button" accessibilityLabel={label} hitSlop={6} style={style}>
                 {/* Stays visible until the window is drawn over it, so the button never blinks out first. */}
                 <MatteSurface radius={diameter / 2} level="control" style={[styles.disc, { width: diameter, height: diameter, opacity: anchor && layer ? 0 : 1 }]}>
-                    <AppIcon name="ellipsis-horizontal" size={Control.icon} color={colors.textPrimary} />
+                    <AppIcon name={icon} size={Control.icon} color={iconColor ?? colors.textPrimary} />
                 </MatteSurface>
             </Pressable>
 
@@ -157,7 +165,7 @@ export function MorphMenu({ items, title, titleIcon = 'ellipsis-horizontal', lab
                         <Animated.View style={[styles.window, { top: place.top }, place.side, windowStyle]} accessibilityViewIsModal>
                             <MatteSurface radius={Radius.card} elevation="floating" style={StyleSheet.absoluteFill}>
                                 <Animated.View style={[styles.dots, place.up ? styles.dotsUp : null, place.fromRight ? styles.dotsRight : styles.dotsLeft, { width: diameter, height: diameter }, dotsStyle]} pointerEvents="none">
-                                    <AppIcon name="ellipsis-horizontal" size={Control.icon} color={colors.textPrimary} />
+                                    <AppIcon name={icon} size={Control.icon} color={colors.textPrimary} />
                                 </Animated.View>
                                 <Animated.View style={[styles.content, { width }, contentStyle]}>
                                     <View style={[styles.head, { height: HEAD }]}>

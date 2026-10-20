@@ -5,7 +5,6 @@ import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
 import { ListItem } from '@/components/ui/Motion';
 import { MatteSurface } from '@/components/ui/MatteSurface';
-import { SectionTitle } from '@/components/ui/SectionTitle';
 import { useTokens } from '@/hooks/useTokens';
 import { useAppSettings } from '@/context/AppSettingsContext';
 import { lengthLabel, rangeLabel, type DayFlow, type FlowInput, type FlowItem } from '@/lib/dayFlow';
@@ -30,7 +29,8 @@ const pillHeight = (size: Size, minutes: number) => Math.max(size.min, Math.min(
  * pill of its own colour (taller the longer it takes) joined to the next by a
  * line. The one you are on glows and offers Focus; finish it and the next is
  * yours straight away, with the rest of the chain moved up (lib/dayFlow.ts).
- * Things with no time are under it, as Anytime.
+ * Things with no time are fitted into the free gaps by urgency, and say so;
+ * meals and calendar events sit as fixed blocks with a lock.
  */
 export function DayTimeline({ flow, onToggle, onOpen, onFocus, now }: {
     flow: DayFlow;
@@ -53,29 +53,10 @@ export function DayTimeline({ flow, onToggle, onOpen, onFocus, now }: {
                 </ListItem>
             )) : (
                 <Text style={[t.type.bodySmall, styles.empty, { color: t.color.textSubtle }]}>
-                    Nothing has a time today. Give a habit or a task a time and it joins the flow.
+                    Nothing planned for this day yet.
                 </Text>
             )}
 
-            {flow.anytime.length ? (
-                <>
-                    <SectionTitle>Anytime</SectionTitle>
-                    {flow.anytime.map((item, index) => (
-                        <ListItem key={`${item.kind}-${item.id}`} index={index}>
-                            <Pressable onPress={() => onOpen(item)} style={[styles.anyRow, { gap: size.gap, paddingVertical: size.pad }]} accessibilityRole="button" accessibilityLabel={item.title}>
-                                <View style={[styles.anyDot, { width: size.pill, height: size.ring + size.pad, borderRadius: (size.ring + size.pad) / 2, backgroundColor: colorOf(item) }]}>
-                                    <AppIcon name={item.icon || (item.kind === 'task' ? 'checkbox' : 'repeat')} filled size={size.icon - s(2)} color={t.color.onAccent} />
-                                </View>
-                                <View style={styles.text}>
-                                    <Text numberOfLines={1} style={[t.type[size.titleType], styles.name, { color: item.done ? t.color.textSubtle : t.color.textPrimary }, item.done && styles.struck]}>{item.title}</Text>
-                                    {item.minutes ? <Text style={[t.type.caption, { color: t.color.textSubtle }]}>{lengthLabel(item.minutes)}</Text> : null}
-                                </View>
-                                <Check size={size} done={item.done} color={colorOf(item)} onPress={() => onToggle(item)} label={item.title} />
-                            </Pressable>
-                        </ListItem>
-                    ))}
-                </>
-            ) : null}
         </View>
     );
 }
@@ -90,8 +71,9 @@ function Row({ size, item, color, nextColor, last, now, onToggle, onOpen, onFocu
     const live = item.state === 'now';
     const done = item.state === 'done';
     const left = live && now !== null ? Math.max(0, item.end - now) : null;
-    const moved = item.shift !== 0 && !done
-        ? `${Math.abs(item.shift)} min ${item.shift < 0 ? 'earlier' : 'later'} than planned`
+    const moved = item.overflow ? 'No room before bedtime'
+        : item.auto && !done ? 'Fitted in by priority'
+        : item.shift !== 0 && !done ? `${Math.abs(item.shift)} min ${item.shift < 0 ? 'earlier' : 'later'} than planned`
         : null;
     return (
         <View style={styles.row}>
@@ -182,6 +164,4 @@ const styles = StyleSheet.create({
     focusText: { fontFamily: FontFamily.semibold },
     check: { borderWidth: s(2), alignItems: 'center', justifyContent: 'center' },
     empty: { textAlign: 'center', paddingVertical: vs(24) },
-    anyRow: { flexDirection: 'row', alignItems: 'center' },
-    anyDot: { alignItems: 'center', justifyContent: 'center' },
 });

@@ -44,7 +44,7 @@ const DAYS: { id: string; label: string }[] = [
     { id: 'thu', label: 'T' }, { id: 'fri', label: 'F' }, { id: 'sat', label: 'S' }, { id: 'sun', label: 'S' },
 ];
 const EVERY_DAY = DAYS.map(day => day.id);
-type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'goal' | 'look' | 'notes' | null;
+type Row = 'repeat' | 'time' | 'target' | 'reminder' | 'priority' | 'goal' | 'look' | 'notes' | null;
 
 interface Draft {
     name: string;
@@ -68,12 +68,21 @@ interface Draft {
     places: LocationReminder[];
     /** How often it comes round, in the full grammar. */
     rule: Recurrence;
+    /** 1 high, 2 normal, 3 low: where the timeline fits it when it has no time. */
+    priority?: 1 | 2 | 3;
 }
+
+const PRIORITIES: { id: 1 | 2 | 3; label: string }[] = [
+    { id: 1, label: 'High' },
+    { id: 2, label: 'Normal' },
+    { id: 3, label: 'Low' },
+];
 
 const blank = (): Draft => ({ name: '', days: EVERY_DAY, icon: 'ellipse-outline', color: '#6B8AF5', rule: DAILY, places: [] });
 
 const fromHabit = (from: Habit): Draft => ({
     name: from.name,
+    priority: from.priority,
     days: from.taskDays?.length ? from.taskDays : EVERY_DAY,
     startTime: from.startTime,
     durationMinutes: from.durationMinutes,
@@ -268,6 +277,7 @@ export const HabitSheet: React.FC<{
                 weekInterval: draft.rule.kind === 'weekly' ? draft.rule.every : 1,
                 reminderOffset: draft.reminderOffset,
                 reminderMessage: draft.reminderMessage?.trim() || undefined,
+                priority: draft.priority ?? 2,
                 locationReminders: draft.places,
                 // Dropped when the unit no longer measures what Health does, so
                 // an edit cannot leave a step count answering for pages.
@@ -373,6 +383,12 @@ export const HabitSheet: React.FC<{
                     onChange={patch => change(patch)}
                 />
             ),
+        },
+        {
+            // Where the timeline fits it in when it has no set time.
+            id: 'priority', icon: 'flame-outline', label: 'Priority',
+            value: !draft.priority || draft.priority === 2 ? undefined : PRIORITIES.find(item => item.id === draft.priority)?.label,
+            content: <Choices options={PRIORITIES} value={draft.priority ?? 2} accent={accent} onChange={priority => change({ priority })} />,
         },
         ...(goals.length > 0 ? [{
             id: 'goal', icon: 'flag-outline' as const, label: 'Goal', value: goalName,
