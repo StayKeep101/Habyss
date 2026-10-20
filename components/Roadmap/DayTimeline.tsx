@@ -1,5 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+// The gesture handler's Pressable for every touch on a row, so the one under
+// the finger wins: Focus or the tick no longer also opens the habit behind them.
+import { Pressable } from 'react-native-gesture-handler';
 import Animated, { Easing, useAnimatedStyle } from 'react-native-reanimated';
 import { AppIcon } from '@/components/ui/AppIcon';
 import { CheckPop } from '@/components/ui/CheckPop';
